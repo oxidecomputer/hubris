@@ -58,7 +58,7 @@ for (name, parts) in project.ninja_rules.items():
 for (target, env), ps in products.items():
     for p in ps:
         if ENV_DEBUG:
-            for k in p.env:
+            for k in sorted(p.env):
                 nw.comment("%s = %r" % (k, p.env[k]))
         for d in p.ninja_dicts():
             nw.build(**d)
