@@ -172,9 +172,12 @@ class Product(object):
         self.inputs = inputs
         self.rule = rule
         self.outputs = outputs
-        self.implicit = env[IMPLICIT.name]
-        self.order_only = env[ORDER_ONLY.name]
         self.symlink_as = symlink_as
+
+        self.implicit = env[IMPLICIT.name]
+        if implicit: self.implicit |= frozenset(implicit)
+        self.order_only = env[ORDER_ONLY.name]
+        if order_only: self.order_only |= frozenset(order_only)
 
         self.variables = env.without(_special_product_keys).readout_all()
 
