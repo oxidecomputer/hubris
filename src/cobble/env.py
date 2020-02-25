@@ -282,7 +282,10 @@ class Env(object):
             return literal
 
     def require(self, keys):
-        missing = [k for k in keys if k not in self._dict]
+        """Asserts that this environment contains values for every key named in
+        'keys'. Default values count if the key's default value is not None."""
+        missing = [k for k in keys \
+                if k not in self._dict and self._registry[k].default is None]
         assert not missing, \
                 "Required keys %r missing from environment" % missing
 

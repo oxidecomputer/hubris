@@ -25,7 +25,12 @@ for k in cobble.target.c.KEYS:
     kr.define(k)
 empty_env = cobble.env.Env(kr, {})
 
-project.define_environment('env', empty_env)
+c_env = empty_env.derive({
+    'cc': 'CC',
+    'cxx': 'CXX',
+})
+
+project.define_environment('env', c_env)
 
 package_a = cobble.project.Package(project, 'a')
 package_b = cobble.project.Package(project, 'b')

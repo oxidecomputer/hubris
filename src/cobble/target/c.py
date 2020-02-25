@@ -14,8 +14,9 @@ LINK_SRCS = cobble.env.appending_string_seq_key('c_link_srcs')
 LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
 CC = cobble.env.overrideable_string_key('cc')
 CXX = cobble.env.overrideable_string_key('cxx')
+C_FLAGS = cobble.env.appending_string_seq_key('c_flags')
 
-KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX])
+KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS])
 
 _common_keys = frozenset([cobble.target.ORDER_ONLY.name, cobble.target.IMPLICIT.name])
 _compile_keys = _common_keys | frozenset([DEPS_INCLUDE_SYSTEM.name])
@@ -48,7 +49,7 @@ def c_binary(package, name, /, *,
         # Construct the linked program product in its canonical location.
         program_path = package.outpath(program_env, name)
         program = cobble.target.Product(
-            env = program_env.subset(_link_keys),
+            env = program_env.subset_require(_link_keys),
             outputs = [package.outpath(program_env, name)],
             rule = 'link_c_program',
             inputs = obj_files,
@@ -88,7 +89,7 @@ def _compile_object(package, source, env):
     # add in the global compile keys
     keys = _compile_keys | frozenset(keys)
 
-    o_env = env.subset(keys)
+    o_env = env.subset_require(keys)
     return cobble.target.Product(
         env = o_env,
         outputs = [package.outpath(o_env, source + '.o')],
