@@ -9,6 +9,8 @@ import cobble.ninja_syntax
 from itertools import chain
 import sys
 
+ENV_DEBUG = True
+
 # Set up project.
 project = cobble.project.Project(
     root = 'ROOT',
@@ -54,5 +56,9 @@ nw = cobble.ninja_syntax.Writer(sys.stdout)
 for (name, parts) in project.ninja_rules.items():
     nw.rule(name, **parts)
 for (target, env), ps in products.items():
-    for d in chain(*(p.ninja_dicts() for p in ps)):
-        nw.build(**d)
+    for p in ps:
+        if ENV_DEBUG:
+            for k in p.env:
+                nw.comment("%s = %r" % (k, p.env[k]))
+        for d in p.ninja_dicts():
+            nw.build(**d)

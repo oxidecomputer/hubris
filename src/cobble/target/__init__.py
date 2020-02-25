@@ -169,6 +169,7 @@ class Product(object):
             implicit = None,
             order_only = None,
             symlink_as = None):
+        self.env = env
         self.inputs = inputs
         self.rule = rule
         self.outputs = outputs
