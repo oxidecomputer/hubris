@@ -195,6 +195,11 @@ class Env(object):
             _fresh = True,
         )
 
+    def subset_require(self, keys):
+        e = self.subset(keys)
+        e.require(keys)
+        return e
+
     def without(self, matcher):
         if isinstance(matcher, types.FunctionType):
             d = dict((k, v) for k, v in self._dict.items() if matcher(k))
@@ -275,6 +280,11 @@ class Env(object):
             return frozenset(rewrite(elt) for elt in literal)
         else:
             return literal
+
+    def require(self, keys):
+        missing = [k for k in keys if k not in self._dict]
+        assert not missing, \
+                "Required keys %r missing from environment" % missing
 
 def _normalize(x):
     """Takes a frozen datum and converts sets to sorted tuples.
