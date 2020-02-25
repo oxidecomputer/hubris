@@ -5,18 +5,22 @@ from itertools import chain
 
 DEPS_INCLUDE_SYSTEM = cobble.env.EnvKey(
     name = 'c_deps_include_system',
-    default = True,
+    default = False,
     from_literal = lambda x: bool(x),
     readout = lambda x: '-MMD' if x else '-MD',
 )
 
-LINK_SRCS = cobble.env.appending_string_seq_key('c_link_srcs')
+LINK_SRCS = cobble.env.prepending_string_seq_key('c_link_srcs')
 LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
 CC = cobble.env.overrideable_string_key('cc')
 CXX = cobble.env.overrideable_string_key('cxx')
+ASPP = cobble.env.overrideable_string_key('aspp')
 C_FLAGS = cobble.env.appending_string_seq_key('c_flags')
+CXX_FLAGS = cobble.env.appending_string_seq_key('cxx_flags')
+ASPP_FLAGS = cobble.env.appending_string_seq_key('aspp_flags')
 
-KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS])
+KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS,
+    CXX_FLAGS, ASPP, ASPP_FLAGS])
 
 _common_keys = frozenset([cobble.target.ORDER_ONLY.name, cobble.target.IMPLICIT.name])
 _compile_keys = _common_keys | frozenset([DEPS_INCLUDE_SYSTEM.name])
@@ -40,16 +44,10 @@ def c_binary(package, name, /, *,
         objects = [_compile_object(package, s, env_local) for s in sources]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
-        # Prepend them to the list of C objects to link in.
-        # This assumes that c_link_srcs knows to prepend.
-        program_env = env_local.derive({
-            LINK_SRCS.name: obj_files,
-        })
-
         # Construct the linked program product in its canonical location.
-        program_path = package.outpath(program_env, name)
+        program_env = env_local.subset_require(_link_keys)
         program = cobble.target.Product(
-            env = program_env.subset_require(_link_keys),
+            env = program_env,
             outputs = [package.outpath(program_env, name)],
             rule = 'link_c_program',
             inputs = obj_files,
@@ -76,10 +74,10 @@ def c_binary(package, name, /, *,
     )
 
 _file_type_map = {
-    '.c': ('compile_c_obj', ['cc', 'c_flags']),
-    '.cc': ('compile_cxx_obj', ['cxx', 'cxx_flags']),
-    '.cpp': ('compile_cxx_obj', ['cxx', 'cxx_flags']),
-    '.S': ('assemble_obj_pp', ['aspp', 'aspp_flags']),
+    '.c': ('compile_c_obj', [CC.name, C_FLAGS.name]),
+    '.cc': ('compile_cxx_obj', [CXX.name, CXX_FLAGS.name]),
+    '.cpp': ('compile_cxx_obj', [CXX.name, CXX_FLAGS.name]),
+    '.S': ('assemble_obj_pp', [ASPP.name, ASPP_FLAGS.name]),
 }
 
 # Common factor of targets that compile C code.
@@ -105,7 +103,7 @@ ninja_rules = {
         'deps': 'gcc',
     },
     'link_c_program': {
-        'command': '$cxx $c_link_flags, -o $out $in $c_link_srcs',
+        'command': '$cxx $c_link_flags -o $out $in $c_link_srcs',
         'description': 'LINK $out',
     },
 }

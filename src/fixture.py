@@ -26,8 +26,8 @@ for k in cobble.target.c.KEYS:
 empty_env = cobble.env.Env(kr, {})
 
 c_env = empty_env.derive({
-    'cc': 'CC',
-    'cxx': 'CXX',
+    'cc': 'gcc',
+    'cxx': 'g++',
 })
 
 project.define_environment('env', c_env)
