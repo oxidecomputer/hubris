@@ -320,7 +320,7 @@ def _normalize(x):
     if isinstance(x, (str, bool)) or x is None:
         return x
     if isinstance(x, frozenset):
-        return tuple(sorted(normalize(e) for e in x))
+        return tuple(sorted(_normalize(e) for e in x))
 
 
 def freeze(x):

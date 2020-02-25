@@ -44,13 +44,21 @@ def c_binary(package, name, /, *,
         objects = [_compile_object(package, s, env_local) for s in sources]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
-        # Construct the linked program product in its canonical location.
-        program_env = env_local.subset_require(_link_keys)
+        # Create the environment used for the linked product. Note that the
+        # source files specific to this target, which we have just handled
+        # above, are being included in both the link sources and the implicit
+        # deps. An alternative would have been to provide them as inputs, but
+        # this causes them not to contribute to the program's environment hash,
+        # which would be Bad.
+        program_env = env_local.subset_require(_link_keys).derive({
+            LINK_SRCS.name: obj_files,
+            '__implicit__': obj_files,
+        })
+        # Construct the actual linked program product.
         program = cobble.target.Product(
             env = program_env,
             outputs = [package.outpath(program_env, name)],
             rule = 'link_c_program',
-            inputs = obj_files,
             symlink_as = package.linkpath(name),
         )
 
