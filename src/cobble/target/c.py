@@ -12,9 +12,10 @@ DEPS_INCLUDE_SYSTEM = cobble.env.EnvKey(
 
 LINK_SRCS = cobble.env.appending_string_seq_key('c_link_srcs')
 LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
+CC = cobble.env.overrideable_string_key('cc')
 CXX = cobble.env.overrideable_string_key('cxx')
 
-KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS])
+KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX])
 
 _common_keys = frozenset([cobble.target.ORDER_ONLY.name, cobble.target.IMPLICIT.name])
 _compile_keys = _common_keys | frozenset([DEPS_INCLUDE_SYSTEM.name])
