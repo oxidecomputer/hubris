@@ -4,8 +4,10 @@ import cobble.target
 import cobble.target.c
 import cobble.target.copy_file
 import cobble.env
+import cobble.ninja_syntax
 
 from itertools import chain
+import sys
 
 # Set up project.
 project = cobble.project.Project(
@@ -43,13 +45,9 @@ def pretty_dict(d):
         print("    %r: %r," % (k, v))
     print("  }")
 
-print("RULES")
+nw = cobble.ninja_syntax.Writer(sys.stdout)
 for (name, parts) in project.ninja_rules.items():
-    print(name)
-    pretty_dict(parts)
-
-print("PRODUCTS")
+    nw.rule(name, **parts)
 for (target, env), ps in products.items():
-    print("{:20} {:16}".format(target.ident, env.digest))
     for d in chain(*(p.ninja_dicts() for p in ps)):
-        pretty_dict(d)
+        nw.build(**d)
