@@ -1,0 +1,61 @@
+To support modularity of projects, environment keys need to be defined in BUILD
+files, not BUILD.conf.
+
+Keys that are not carefully designed can conflict, hampering composition. Would
+it make sense to namespace them? That seems pretty complex.
+
+---
+
+We need to be able to build up target information in an abstract fashion in the
+first pass, and then go through and refine things once every file is read in.
+Only at that point will we have the types and behaviors of all environment keys
+for final processing.
+
+That's an excellent argument for retaining things like environment deltas as
+primitive types -- dicts containing strings, numbers, booleans, and lists of
+those -- until *application,* skipping any intermediate compilation step. As
+long as performance is adequate that should be okay.
+
+Alternatively, deltas could compile-and-memoize once the graph is complete, on
+first use. Compiling unused deltas is as much of a waste as repeatedly compiling
+used ones.
+
+---
+
+Entities in Cobble:
+
+**Project.** Directory tree containing all the stuff. This is where common
+configuration is set, where named environments live, and where registered
+environment keys are recorded.
+
+**Package.** Directory within the project containing a BUILD file. The project
+directory may or may not also be a package.
+
+**Target.** Entities defined by packages giving the abstract build graph.
+Targets can be referenced by identifiers. Some targets make distinct outputs
+available that can also be referenced.
+
+**Identifier.** Path-style name of a target and/or package.
+
+**Environment.** A key-value store that cannot be changed, but can be *derived*
+by applying a delta. Abstract targets are made concrete by applying an
+environment, which allows them to emit products. Environment keys must be
+registered with the project before use.
+
+**Delta.** A description of alterations to an environment.
+
+**Product.** Lower-level entity produced by evaluating a target in an
+environment. Products are the actual concrete build steps sent to Ninja.
+
+---
+
+Ah, I had forgotten that there are some undocumented special path syntaxes.
+
+- `@foo` refers to the file `foo` in the project *genroot*. The genroot is where
+  generated files go. Why is this different from *every other kind of output
+  product?* Because the original system had no way of naming output products
+  directly. This syntax should go away.
+
+... I think that might be it.
+
+

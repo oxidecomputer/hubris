@@ -1,0 +1,255 @@
+It looks like I might have a need for Cobble again. Revisiting its internals, I
+find the system frustrating. Can I simplify and improve it while retaining the
+core idea?
+
+---
+
+# Beefs with the current system
+
+It's way too hard to implement a basic target/plugin. For instance: I feel like
+one ought to be able to implement a simple "copy file" plugin in less than a
+page of code.
+
+I'm not sure that the internals should be object-oriented. Subclassing,
+extension, and override in Python are so fragile.
+
+The current features are split between the internally consistent, reasonably
+well thought through, and decently documented parts on the one hand -- and the
+features I added in the field, in anger, on the other hand. The latter features
+could be better integrated. Here I'm thinking of things like `extend_when` and
+`__implicit__`.
+
+Parameterization is totally implicit, and type errors, when the occur, are
+inscrutable.
+
+---
+
+# What is Cobble, really?
+
+Cobble is a system for describing parameterized dependency graphs, and for
+flattening them into concrete dependency graphs, which are then consumed by
+other tools (primarily Ninja).
+
+Parameters are represented implicitly by the "environment."
+
+Cobble dependency graphs operate at the level of "targets," but the true
+generated dependency graph consists of "products." A target is a
+programmer-visible dependency such as a C library; a product is a concrete
+artifact produced in the process of building a target. Each target may have many
+products.
+
+Products are uniqued by a hash of the environment contents. To enable
+opportunitistic collapse of the build graph, target code throws out irrelevant
+parts of the environment at the time a product is created, and may normalize
+portions of the environment as well.
+
+Environment keys in Cobble were, afaik, always either strings or lists of
+strings.
+
+---
+
+# Assorted ideas for improvement
+
+Require environment keys to be created before use, and assigned some semantics.
+e.g. `c_flags` is a list of string with order preserved, while `sources` might
+be a uniqued set of strings, and `architecture` might be one of a small set of
+possible strings.
+
+Change the string interpolation syntax. The trailing `s` in the default Python
+syntax makes it hard to read.
+
+Allow for products defined by composition instead of inheritance.
+
+Provide a syntax and support for referencing output files of packages.
+
+Allow the `BUILD.conf` to designate a project root *other than* its containing
+directory, for people who want to keep the root directory clean.
+
+Designate, or allow the user to designate, a default build directory, and
+automate the process of setting it up within Cobble.
+
+---
+
+A Cobble project is defined by a `BUILD.conf` file.  This file is mandatory,
+because out of the box, Cobble can't do anything useful. Any project will need
+to include at least one plugin so it can define targets.
+
+The contents of a project are referenced relative to a single filesystem
+location, the *project root.* Currently, the project root is always the
+directory containing the `BUILD.conf` file, but it might be worth making that
+configurable.
+
+Within the project are one or more `BUILD` files defining targets and such. Any
+directory containing a `BUILD` file is called a *package.* A project build
+consists of at least one package.
+
+Packages can be named by two slashes, followed by their path relative to the
+project root:
+
+    //foo/bar/baz
+
+Packages contain *targets*, which are things that can be depended upon. A
+dependency can be expressed using an absolute package path, a colon, and a
+target name:
+
+    //foo/bar/baz:encoder
+
+Two shorthands are supported: if the target being referenced is in the same
+package as the one doing the referencing, it can be written starting at the
+colon, omitting the package path:
+
+    :encoder
+
+And for the common case of packages containing either a single target, or an
+obviously most common target, if the target name matches the last component of
+the package path, it can be omitted. Thus, these two are the same:
+
+    //foo/bar/baz:baz
+    //foo/bar/baz
+
+
+As an extension to the original system, I propose that the *products* of a
+target be named by appending a hash and a path to the explicit, colon-containing
+form of a target identifier:
+
+    //foo/bar/baz:encoder#output.c
+
+This syntax should be legal in the `sources` list of a target, and should
+generate a dep edge to the target containing the file.
+
+
+Targets are defined by a Python DSL that emits a build graph. BUILD files are
+Python programs interpreted in a limited environment, containing functions that
+allow constructions like the following:
+
+    c_library("encoder",
+        sources = [
+            "tables.c",
+            "engine.c",
+        ],
+        deps = [
+            ":support",
+            "//foozle",
+        ],
+        local = {
+            'c_flags': [ '-O3' ],
+        },
+    )
+
+`c_library` is a function provided by a plugin providing C support. Calling it
+emits target information:
+
+- It defines a target `encoder` in the current package that can be referenced
+  from other packages.
+- It adds dependency edges, which may cause the system to discover previously
+  unnoticed packages.
+- It records enough information to generate instructions for producing its
+  products.
+
+
+Targets can currently be distinguished into two categories: there are *leaves*
+and everything else. A leaf target can be produced on demand from the command
+line -- it is a top-level build artifact. (Leaves should probably be called
+roots. It depends on which way you hold the tree.) This implies that a leaf
+cannot rely on parameters from the environment, because otherwise they'd need to
+be provided somehow. Non-leaf targets can *only* be produced given a set of
+environment parameters.
+
+This distinction is, on the one hand, logical: if a function takes arguments,
+you can't call it without providing them, and so a parameterized target. On the
+other hand, this has proven occasionally frustrating when trying to test a
+build: you can't *name* an intermediate product to request it.
+
+A better term for this might be *concrete* vs *abstract* targets.
+
+I'm not sure that a given type of target should be *inherently* concrete or
+abstract: you ought to be able to define a `c_library` either way. Cobble
+originally assumed that `c_library` was always abstract and `c_binary` always
+concrete, which is great until you're trying to hand someone a `.a` file.
+
+
+Let's talk environment propagation.
+
+One of the roles a target plays is in determining the environment in which
+*other* targets exist.
+
+- A `c_library` appends its object files to an agreed-upon environment key,
+  `c_link_srcs`, that is consumed by other C targets.
+
+The conceptual process for this, after Anton, is assigning each target a set of
+*deltas*, which are functions from environment to environment. The deltas are:
+
+- `down` (aka `extra`): alters the environment seen by *all targets* in the
+  transitive dependency graph past this one.
+
+- `using`: alters the environment seen by all targets that *depend on* this one.
+
+- `local`: alters the environment used to produce products for this target.
+
+The dataflow looks like this:
+
+```
+ENV IN    TO USERS
+  |          ^
+  |          |
+  v       (using)
+ (down)      ^ ,-> (local) -> TO PRODUCTS
+  |          |/
+  v          |
+TO DEPS   FROM DEPS
+```
+
+In practice, targets can alter this dataflow, but I don't recall having needed
+to.
+
+
+Environment deltas in Cobble are arbitrary functions (and are, in fact,
+literally represented as Python functions under the hood), but I don't make that
+power available syntactically. In practice, each target defines a single type of
+delta for each key it affects -- usually appending, sometimes prepending, rarely
+anything else.
+
+I'm not sure why I hadn't considered allowing the user to pass a `lambda` if
+they want to do something complicated. Might as well.
+
+
+---
+
+There are two kinds of string literals in BUILD files: those that can be
+rewritten with values from the environment, and those that cannot.
+
+The only literals that *cannot* be rewritten are those whose values are needed
+to construct the environment graph in the first place: target names, package
+identifiers used in dependency paths, environment names, ... that might actually
+be it. I bet more will arise.
+
+Goals:
+
+1. The set of string literals in BUILD files that *can't* be interpolated is
+   small and well-defined.
+
+2. Any attempt to use an interpolation sequence in one of those strings causes
+   an immediate, intelligible error.
+
+3. Any other string literal can be interpolated.
+
+Deps are a tricky case: at least *some* of them need to be statically
+predictable, but they *can* technically be interpolated.
+
+Anyway. Achieving those goals independent of poor-quality plugins (or,
+alternatively, without requiring every plugin to contain a bunch of boilerplate)
+will take some framework-level work.
+
+---
+
+I notice that Python 3 has added a bunch of useful things in function
+declarations. In particular,
+
+- We can now have positional-only parameters.
+- We can now have keyword-only parameters.
+- We can attach annotations to function parameters, which I could use to control
+  interpolation behavior!
+
+Still no immutable data structures.
+
+
