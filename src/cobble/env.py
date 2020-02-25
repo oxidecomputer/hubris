@@ -195,8 +195,25 @@ class Env(object):
             _fresh = True,
         )
 
+    def copy_defaults(self, keys):
+        d = dict(self._dict)
+        for k in keys:
+            if k not in d:
+                d[k] = self._registry[k].default
+        return Env(self._registry, d, _fresh = True)
+
     def subset_require(self, keys):
-        e = self.subset(keys)
+        """Returns an environment that contains the same values as 'self' for
+        the keys named in 'keys', and no others. This operation is used for
+        combination environment-filtering and error-checking.
+
+        If any key in 'keys' is missing in 'self', but the associated key
+        definition specifies a default value, the default value is copied into
+        the result.
+
+        If no default value is available, it's an error.
+        """
+        e = self.subset(keys).copy_defaults(keys)
         e.require(keys)
         return e
 
