@@ -93,9 +93,9 @@ def prepending_string_seq_key(name):
     linking C programs.)"""
     def from_literal(lit):
         # A string can be iterated as a list of strings. This would produce
-        # confusing behavior. Avoid this by checking for basestring first.
-        assert not isinstance(lit, basestring) \
-                and all(isinstance(e, basestring) for e in lit), \
+        # confusing behavior. Avoid this by checking for str first.
+        assert not isinstance(lit, str) \
+                and all(isinstance(e, str) for e in lit), \
                 "Expected list of strings, got: %r" % lit
         return tuple(lit)
     return EnvKey(
@@ -110,9 +110,9 @@ def frozenset_key(name, readout = None):
     strings and combine them into a unique frozen set."""
     def from_literal(lit):
         # A string can be iterated as a list of strings. This would produce
-        # confusing behavior. Avoid this by checking for basestring first.
-        assert not isinstance(lit, basestring) \
-                and all(isinstance(e, basestring) for e in lit), \
+        # confusing behavior. Avoid this by checking for str first.
+        assert not isinstance(lit, str) \
+                and all(isinstance(e, str) for e in lit), \
                 "Expected list of strings, got: %r" % lit
         return frozenset(lit)
 
