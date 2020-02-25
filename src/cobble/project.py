@@ -17,7 +17,12 @@ class Project(object):
 
         self.named_envs = {}
         self.packages = {}
-        self.ninja_rules = {}
+        self.ninja_rules = {
+            'cobble_symlink_product': {
+                'command': 'ln -sf $target $out',
+                'description': 'SYMLINK $out',
+            },
+        }
 
     # TODO: rename something like static_path?
     def inpath(self, *parts):
@@ -85,5 +90,3 @@ class Package(object):
     def linkpath(self, *parts):
         """Creates a path into the 'latest' symlinks for this package."""
         return self.project.linkpath(self.relpath, *parts)
-
-

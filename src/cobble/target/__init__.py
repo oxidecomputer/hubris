@@ -5,6 +5,7 @@ import cobble.env
 from cobble.env import is_delta
 from itertools import chain
 from functools import reduce
+import os.path
 
 # Key used to accumulate implicit dependency edges for Ninja.
 IMPLICIT = cobble.env.frozenset_key('__implicit__')
@@ -185,7 +186,20 @@ class Product(object):
         if self.inputs: d['inputs'] = self.inputs
         if self.implicit: d['implicit'] = self.implicit
         if self.order_only: d['order_only'] = self.order_only
+        if self.variables: d['variables'] = self.variables
 
-        # TODO: generate symlink dict
-
-        return [d]
+        if self.symlink_as:
+            assert len(self.outputs) == 1, \
+                    "target wanted symlink but has too many outputs"
+            s = {
+                'outputs': [self.symlink_as],
+                'rule': 'cobble_symlink_product',
+                'order_only': self.outputs,
+                'variables': {
+                    'target': os.path.relpath(self.outputs[0],
+                        os.path.dirname(self.symlink_as)),
+                },
+            }
+            return [d, s]
+        else:
+            return [d]
