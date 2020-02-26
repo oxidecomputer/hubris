@@ -40,7 +40,7 @@ def c_binary(package, name, /, *,
 
     def mkusing(ctx):
         # Allow environment key interpolation in source names
-        sources_i = ctx.env.rewrite(sources)
+        sources_i = ctx.rewrite_sources(sources)
         # Generate object file products for all sources.
         objects = [_compile_object(package, s, ctx.env) for s in sources]
         # Extract just the output paths
@@ -93,7 +93,7 @@ def c_library(package, name, /, *,
 
     def mkusing(ctx):
         # Allow environment key interpolation in source names
-        sources_i = ctx.env.rewrite(sources)
+        sources_i = ctx.rewrite_sources(sources)
         # Generate object file products for all sources.
         objects = [_compile_object(package, s, ctx.env) for s in sources]
         # Extract just the output paths

@@ -173,6 +173,9 @@ class UsingContext(object):
         self.env = env
         self.product_map = product_map
 
+    def rewrite_sources(self, sources):
+        return self.env.rewrite(sources)
+
 
 def _topo_sort(mapping):
     """Orders target graph info dicts topologically."""
