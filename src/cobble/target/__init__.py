@@ -63,6 +63,10 @@ class Target(object):
     def ident(self):
         return '//' + self.package.relpath + ':' + self._name
 
+    @property
+    def deps(self):
+        return self._deps
+
     def stats(self):
         return {
             'unique_environments': len(self._evaluate_memos),

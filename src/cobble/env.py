@@ -421,3 +421,5 @@ DEPS_KEY = EnvKey(
     combine = lambda prev, new: prev | new,
     default = frozenset(),
 )
+
+KEYS = frozenset([DEPS_KEY])

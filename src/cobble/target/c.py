@@ -185,3 +185,8 @@ ninja_rules = {
         'description': 'AR $out',
     },
 }
+
+package_verbs = {
+    'c_library': c_library,
+    'c_binary': c_binary,
+}

@@ -12,56 +12,29 @@ import sys
 
 ENV_DEBUG = True
 
-# Set up project.
-project = cobble.project.Project(
-    root = 'ROOT',
-    build_dir = 'BUILD',
+project = cobble.loader.load(
+    root = '..',
+    build_dir = '.',
 )
 
-project.add_ninja_rules(cobble.target.c.ninja_rules)
+target_t = project.find_target('//a:t')
+#    env = 'env',
+#    sources = ['foo.c'],
+#    deps = [':barlib'],
+#)
 
-kr = cobble.env.KeyRegistry()
-kr.define(cobble.env.DEPS_KEY)
-for k in cobble.target.KEYS:
-    kr.define(k)
-for k in cobble.target.c.KEYS:
-    kr.define(k)
-empty_env = cobble.env.Env(kr, {})
+target_t_opt = project.find_target('//a:t_opt')
+#cobble.target.c.c_binary(package_a, 't_opt',
+#    env = 'env',
+#    sources = ['foo.c'],
+#    deps = [':barlib'],
+#    extra = {
+#        'c_flags': ['-O'],
+#        'c_library_archive_products': True,
+#    },
+#)
 
-c_env = empty_env.derive({
-    'cc': 'gcc',
-    'cxx': 'g++',
-    'ar': 'ar',
-})
-
-project.define_environment('env', c_env)
-
-package_a = cobble.project.Package(project, 'a')
-package_b = cobble.project.Package(project, 'b')
-
-target_lib = cobble.target.c.c_library(package_a, 'barlib',
-    sources = ['bar.c'],
-)
-package_a.add_target(target_lib)
-
-target_t = cobble.target.c.c_binary(package_a, 't',
-    env = 'env',
-    sources = ['foo.c'],
-    deps = [':barlib'],
-)
-package_a.add_target(target_t)
-
-target_t_opt = cobble.target.c.c_binary(package_a, 't_opt',
-    env = 'env',
-    sources = ['foo.c'],
-    deps = [':barlib'],
-    extra = {
-        'c_flags': ['-O'],
-        'c_library_archive_products': True,
-    },
-)
-package_a.add_target(target_t_opt)
-
+empty_env = cobble.env.Env(cobble.env.KeyRegistry(), {})
 merged, products = target_t.evaluate(empty_env)
 merged2, products2 = target_t_opt.evaluate(empty_env)
 
