@@ -44,6 +44,9 @@ class Target(object):
         assert is_delta(local)
         assert isinstance(using_and_products, types.FunctionType)
 
+        # Process relative deps so plugins don't have to
+        deps = tuple(package.make_absolute(d) for d in deps)
+
         self.package = package
         self._name = name
         self._concrete = concrete

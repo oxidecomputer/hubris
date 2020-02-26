@@ -111,6 +111,14 @@ class Package(object):
         """Creates a path into the 'latest' symlinks for this package."""
         return self.project.linkpath(self.relpath, *parts)
 
+    def make_absolute(self, ident):
+        """Makes an ident, which may be relative to this package, absolute."""
+        if ident.startswith('//'):
+            return ident
+        if ident.startswith(':'):
+            return '//' + self.relpath + ident
+        raise Exception('Unexpected ident: %r' % ident)
+
     def find_target(self, ident):
         """Finds a target relative to this package. This enables local
         references using the ':foo' syntax."""
