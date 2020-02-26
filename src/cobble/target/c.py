@@ -3,13 +3,11 @@ import cobble.target
 import os.path
 from itertools import chain
 
-DEPS_INCLUDE_SYSTEM = cobble.env.EnvKey(
+DEPS_INCLUDE_SYSTEM = cobble.env.overrideable_bool_key(
     name = 'c_deps_include_system',
     default = False,
-    from_literal = lambda x: bool(x),
     readout = lambda x: '-MMD' if x else '-MD',
 )
-
 LINK_SRCS = cobble.env.prepending_string_seq_key('c_link_srcs')
 LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
 CC = cobble.env.overrideable_string_key('cc')

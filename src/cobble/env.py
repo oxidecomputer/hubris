@@ -70,7 +70,7 @@ def overrideable_string_key(name):
         combine = lambda lhs, rhs: rhs,
     )
 
-def overrideable_bool_key(name):
+def overrideable_bool_key(name, readout = None, default = None):
     """Makes an EnvKey with a given 'name' that will accept a single bool and
     allow overrides."""
     def from_literal(lit):
@@ -80,6 +80,8 @@ def overrideable_bool_key(name):
         name,
         from_literal = from_literal,
         combine = lambda lhs, rhs: rhs,
+        readout = readout,
+        default = default,
     )
 
 def appending_string_seq_key(name, readout = None):
