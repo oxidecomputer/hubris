@@ -87,14 +87,20 @@ def init_build_dir(args):
     if os.path.exists('./cobble'):
         if os.path.islink('./cobble'):
             # We'll assume it's ours to mess with...
-            if os.readlink('./cobble') != script_path:
-                os.remove('./cobble')
-            else:
-                return
+            os.remove('./cobble')
         else:
             raise Exception("can't create cobble symlink in build dir: file exists")
 
     os.symlink(script_path, './cobble')
+
+    # TODO: allow this to be overridden in BUILD.conf too
+    project_module_dir = os.path.join(args.project, "site_cobble")
+    if os.path.isdir(project_module_dir):
+        sys.path += [project_module_dir]
+
+    project = cobble.loader.load(args.project, '.')
+
+    cobble.output.write_ninja_files(project)
 
     return 0
 
@@ -113,6 +119,11 @@ def build(args):
 dist_dir = os.path.dirname(os.path.realpath(__file__))
 # Add the `src` subdir for imports.
 sys.path.append(os.path.join(dist_dir, 'src'))
+
+import cobble.loader
+import cobble.output
+import cobble.target
+import cobble.project
 
 args = make_argument_parser().parse_args()
 args.script_path = __file__

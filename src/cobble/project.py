@@ -84,6 +84,18 @@ class Project(object):
             else:
                 self.ninja_rules[k] = v
 
+    def files(self):
+        yield self.inpath('BUILD.conf')
+        for p in self.packages.values():
+            yield p.inpath('BUILD')
+
+    def targets(self):
+        for p in self.packages.values():
+            for t in p.targets.values():
+                yield t
+
+    def concrete_targets(self):
+        return filter(lambda t: t.concrete, self.targets())
 
 class Package(object):
     def __init__(self, project, relpath):

@@ -67,6 +67,10 @@ class Target(object):
     def deps(self):
         return self._deps
 
+    @property
+    def concrete(self):
+        return self._concrete
+
     def stats(self):
         return {
             'unique_environments': len(self._evaluate_memos),
