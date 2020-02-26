@@ -146,7 +146,13 @@ class Target(object):
 
         self._check_local(env_local_1)
 
-        our_using, our_products = self._using_and_products(env_local_1)
+        # Generate parameter object for using-and-products
+        upctx = UsingContext(
+            env = env_local_1,
+            product_map = dict(products), # defensive copy
+        )
+
+        our_using, our_products = self._using_and_products(upctx)
 
         if not self._transparent:
             # discard info about *our* dependencies rather than communicate it
@@ -161,6 +167,11 @@ class Target(object):
     def _check_local(self, env):
         # TODO implement checks
         pass
+
+class UsingContext(object):
+    def __init__(self, *, env, product_map):
+        self.env = env
+        self.product_map = product_map
 
 
 def _topo_sort(mapping):

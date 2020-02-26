@@ -38,11 +38,11 @@ def c_binary(package, name, /, *,
         local: Delta = {},
         extra: Delta = {}):
 
-    def mkusing(env_local):
+    def mkusing(ctx):
         # Allow environment key interpolation in source names
-        sources_i = env_local.rewrite(sources)
+        sources_i = ctx.env.rewrite(sources)
         # Generate object file products for all sources.
-        objects = [_compile_object(package, s, env_local) for s in sources]
+        objects = [_compile_object(package, s, ctx.env) for s in sources]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
         # Create the environment used for the linked product. Note that the
@@ -51,7 +51,7 @@ def c_binary(package, name, /, *,
         # deps. An alternative would have been to provide them as inputs, but
         # this causes them not to contribute to the program's environment hash,
         # which would be Bad.
-        program_env = env_local.subset_require(_link_keys).derive({
+        program_env = ctx.env.subset_require(_link_keys).derive({
             LINK_SRCS.name: obj_files,
             '__implicit__': obj_files,
         })
@@ -91,21 +91,21 @@ def c_library(package, name, /, *,
         using: Delta = {}):
     _using = using # free up name
 
-    def mkusing(env_local):
+    def mkusing(ctx):
         # Allow environment key interpolation in source names
-        sources_i = env_local.rewrite(sources)
+        sources_i = ctx.env.rewrite(sources)
         # Generate object file products for all sources.
-        objects = [_compile_object(package, s, env_local) for s in sources]
+        objects = [_compile_object(package, s, ctx.env) for s in sources]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
 
         # We have two modes for creating libraries: we can ar them, or not.
-        if env_local[ARCHIVE_PRODUCTS.name]:
+        if ctx.env[ARCHIVE_PRODUCTS.name]:
             # We only have one output, a static library.
-            outs = [package.outpath(env_local, 'lib' + name + '.a')]
+            outs = [package.outpath(ctx.env, 'lib' + name + '.a')]
             # Prepare environment for ar, being sure to include the object files
             # (and thus their hashes). The ar rule will not *consume* `link_srcs`.
-            ar_env = env_local.subset_require(_archive_keys).derive({
+            ar_env = ctx.env.subset_require(_archive_keys).derive({
                 LINK_SRCS.name: obj_files,
             })
             library = [cobble.target.Product(
@@ -115,7 +115,7 @@ def c_library(package, name, /, *,
                 inputs = obj_files,
             )]
 
-            if env_local[WHOLE_ARCHIVE.name]:
+            if ctx.env[WHOLE_ARCHIVE.name]:
                 link_srcs = ['-Wl,-whole-archive'] + outs + ['-Wl,-no-whole-archive']
             else:
                 link_srcs = outs
