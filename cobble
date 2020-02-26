@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+
+import argparse
+import os.path
+import subprocess
+import sys
+
+def make_argument_parser():
+    parser = argparse.ArgumentParser()
+
+    subparsers = parser.add_subparsers(title = 'command', dest = 'command', required = True)
+
+    init_parser = subparsers.add_parser('init',
+            help = 'Initialize a build directory')
+    init_parser.add_argument('project',
+            help = 'Path to project root (containing BUILD.conf)')
+    init_parser.add_argument('--reinit',
+            help = 'Allow overwriting build.ninja (default: no)',
+            action = 'store_true')
+    init_parser.set_defaults(go = init_build_dir)
+
+    build_parser = subparsers.add_parser('build',
+            help = 'Run the build, regenerating files if needed.')
+    build_parser.add_argument('-j',
+            help = 'run N jobs in parallel',
+            type = int,
+            metavar = 'N',
+            dest = 'jobs')
+    build_parser.add_argument('-l',
+            help = "don't start new jobs if loadavg > N",
+            type = float,
+            metavar = 'N',
+            dest = 'loadavg')
+    build_parser.add_argument('-n',
+            help = "dry run (don't run commands)",
+            action = 'store_true',
+            dest = 'dry_run')
+    build_parser.add_argument('-v',
+            help = "verbose output: print command lines while building",
+            action = 'store_true',
+            dest = 'verbose')
+    build_parser.add_argument('--explain',
+            help = "have Ninja explain why commands are being run",
+            action = 'store_true')
+    build_parser.add_argument('--stats',
+            help = "print Ninja internal stats at end of build",
+            action = 'store_true')
+
+    build_parser.add_argument('targets',
+            nargs = '*',
+            help = "Names of targets to build; if omitted, build all")
+
+    build_parser.set_defaults(go = build)
+    return parser
+
+def init_build_dir(args):
+    if os.path.samefile(args.project, '.'):
+        print("I won't use your project directory as build directory.",
+                file = sys.stderr)
+        sys.exit(1)
+
+    if not os.path.isdir(args.project):
+        print('Project dir missing or invalid: %s' % args.project,
+                file = sys.stderr)
+        sys.exit(1)
+
+    if os.path.exists('build.ninja') and not args.reinit:
+        print("I won't overwrite build.ninja (use --reinit to force)",
+                file = sys.stderr)
+        sys.exit(1)
+
+    # Actual work
+
+    script_path = args.script_path
+    # Follow links to find where this *actually* lives.
+    # As of this writing, os.path.realpath is broken.
+    while os.path.islink(script_path):
+        link = os.readlink(script_path)
+        if os.path.isabs(link):
+            script_path = link
+        else:
+            script_path = os.path.join(os.path.dirname(script_path), link)
+
+    script_path = os.path.relpath(script_path, '.')
+
+    # Create a symlink in the build directory to our true location.
+    if os.path.exists('./cobble'):
+        if os.path.islink('./cobble'):
+            # We'll assume it's ours to mess with...
+            if os.readlink('./cobble') != script_path:
+                os.remove('./cobble')
+            else:
+                return
+        else:
+            raise Exception("can't create cobble symlink in build dir: file exists")
+
+    os.symlink(script_path, './cobble')
+
+    return 0
+
+def build(args):
+    cmd = ['ninja']
+    if args.jobs: cmd += ['-j', str(args.jobs)]
+    if args.loadavg: cmd += ['-l', str(args.loadavg)]
+    if args.dry_run: cmd += ['-n']
+    if args.verbose: cmd += ['-v']
+    if args.explain: cmd += ['-d', 'explain']
+    if args.stats: cmd += ['-d', 'stats']
+    cmd += args.targets
+    return subprocess.call(cmd)
+
+# Find the directory housing this script.
+dist_dir = os.path.dirname(os.path.realpath(__file__))
+# Add the `src` subdir for imports.
+sys.path.append(os.path.join(dist_dir, 'src'))
+
+args = make_argument_parser().parse_args()
+args.script_path = __file__
+sys.exit(args.go(args))
