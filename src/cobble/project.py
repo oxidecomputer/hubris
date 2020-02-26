@@ -51,6 +51,26 @@ class Project(object):
         assert package.project is self, "package project misconfigured"
         self.packages[package.relpath] = package
 
+    def find_target(self, ident):
+        assert ident.startswith('//'), "bad identifier: %r" % ident
+        parts = ident[2:].split(':')
+        if len(parts) == 1:
+            # Target name not specified
+            pkg_path = parts[0]
+            target_name = os.path.basename(pkg_path)
+        elif len(parts) == 2:
+            # Explicit target name
+            pkg_path = parts[0]
+            target_name = parts[1]
+        else:
+            raise Exception('Too many colons in identifier: %r' % ident)
+       
+        assert pkg_path in self.packages, \
+               "Reference to unknown package: %r" % ident
+        assert target_name in self.packages[pkg_path].targets, \
+                "Target %s not found in package %s" % (target_name, pkg_path)
+        return self.packages[pkg_path].targets[target_name]
+
     def define_environment(self, name, env):
         assert name not in self.named_envs, \
             "more than one environment named %s" % name
@@ -90,3 +110,10 @@ class Package(object):
     def linkpath(self, *parts):
         """Creates a path into the 'latest' symlinks for this package."""
         return self.project.linkpath(self.relpath, *parts)
+
+    def find_target(self, ident):
+        """Finds a target relative to this package. This enables local
+        references using the ':foo' syntax."""
+        if ident.startswith(':'):
+            return self.project.find_target('//' + self.relpath + ident)
+        return self.project.find_target(ident)

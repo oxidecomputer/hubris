@@ -3,6 +3,7 @@ import pickle
 import string
 import types
 from inspect import signature
+from functools import reduce
 
 class EnvKey:
     """Represents a key that can be used in environments."""
@@ -62,6 +63,18 @@ def overrideable_string_key(name):
     allow overrides."""
     def from_literal(lit):
         assert isinstance(lit, str)
+        return lit
+    return EnvKey(
+        name,
+        from_literal = from_literal,
+        combine = lambda lhs, rhs: rhs,
+    )
+
+def overrideable_bool_key(name):
+    """Makes an EnvKey with a given 'name' that will accept a single bool and
+    allow overrides."""
+    def from_literal(lit):
+        assert isinstance(lit, bool)
         return lit
     return EnvKey(
         name,
@@ -169,6 +182,14 @@ class Env(object):
                 self._dict[k] = freeze(v)
         self._memoized_digest = None
 
+    def __eq__(self, other):
+        # TODO: should we include the dict here, or rely on the digest?
+        return self.registry is other.registry \
+                and self.digest == other.digest
+
+    def __hash__(self):
+        return hash(self.digest)
+
     # Iterable/dict interface
 
     def __contains__(self, key):
@@ -271,6 +292,8 @@ class Env(object):
             return Env(self._registry, new_dict, _fresh = True)
         elif isinstance(delta, (list, tuple)):
             return reduce(lambda env, delt: env.derive(delt), delta, self)
+        elif delta is None:
+            return self
         else:
             raise Exception("delta should be func or dict, got: %r" % delta)
 
@@ -292,9 +315,9 @@ class Env(object):
             # The actual processing code, yaaaay
             return string.Template(literal).substitute(self)
         elif isinstance(literal, tuple):
-            return tuple(rewrite(elt) for elt in literal)
+            return tuple(self.rewrite(elt) for elt in literal)
         elif isinstance(literal, frozenset):
-            return frozenset(rewrite(elt) for elt in literal)
+            return frozenset(self.rewrite(elt) for elt in literal)
         else:
             return literal
 
@@ -321,6 +344,8 @@ def _normalize(x):
         return x
     if isinstance(x, frozenset):
         return tuple(sorted(_normalize(e) for e in x))
+    assert isinstance(x, tuple)
+    return x
 
 
 def freeze(x):

@@ -44,7 +44,7 @@ class Target(object):
         assert is_delta(local)
         assert isinstance(using_and_products, types.FunctionType)
 
-        self._package = package
+        self.package = package
         self._name = name
         self._concrete = concrete
 
@@ -58,7 +58,12 @@ class Target(object):
 
     @property
     def ident(self):
-        return '//' + self._package.relpath + ':' + self._name
+        return '//' + self.package.relpath + ':' + self._name
+
+    def stats(self):
+        return {
+            'unique_environments': len(self._evaluate_memos),
+        }
 
     def derive_down(self, env):
         """Derives the down-environment, that is, the environment seen by
@@ -102,7 +107,7 @@ class Target(object):
         # Rewrite key references in our deps list, producing a concrete deps list.
         deps = env_local_0.rewrite(self._deps)
         # Resolve all the identifiers and evaluate the targets.
-        deps = (self.package.project.find_target(id) for id in deps)
+        deps = (self.package.find_target(id) for id in deps)
         evaluated_deps = [dep.evaluate(env_down) for dep in deps]
         # The evaluated_deps list has the shape:
         #  [ ( {(target, env): (rank, using)}, {(target, env): [product]} ) ]
@@ -116,7 +121,7 @@ class Target(object):
 
         # Extract all the using-deltas in the order they should be applied.
         dep_usings = (u for (t, e), (r, u) in _topo_sort(merged))
-        env_local_1 = reduce(lambda env, dlt: e.derive(dlt), dep_usings, env_local_0)
+        env_local_1 = reduce(lambda e, dlt: e.derive(dlt), dep_usings, env_local_0)
 
         self._check_local(env_local_1)
 
