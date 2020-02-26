@@ -56,12 +56,14 @@ def c_binary(package, name, /, *,
             '__implicit__': obj_files,
         })
         # Construct the actual linked program product.
+        program_path = package.outpath(program_env, name)
         program = cobble.target.Product(
             env = program_env,
-            outputs = [package.outpath(program_env, name)],
+            outputs = [program_path],
             rule = 'link_c_program',
             symlink_as = package.linkpath(name),
         )
+        program.expose(path = program_path, name = name)
 
         # TODO: this is really just a way of naming the most derived node in
         # the build graph we just emitted, so that our users can depend on just

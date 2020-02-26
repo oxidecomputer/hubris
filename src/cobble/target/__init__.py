@@ -147,9 +147,13 @@ class Target(object):
         self._check_local(env_local_1)
 
         # Generate parameter object for using-and-products
+        by_rank = sorted(((target, (rank, env)) for ((target, env), (rank, _)) in merged.items()), key = lambda item: -item[1][0])
+        rank_map = dict(by_rank)
         upctx = UsingContext(
+            package = self.package,
             env = env_local_1,
-            product_map = dict(products), # defensive copy
+            product_map = products,
+            rank_map = rank_map
         )
 
         our_using, our_products = self._using_and_products(upctx)
@@ -169,12 +173,34 @@ class Target(object):
         pass
 
 class UsingContext(object):
-    def __init__(self, *, env, product_map):
+    def __init__(self, *, package, env, product_map, rank_map):
+        self._package = package
         self.env = env
-        self.product_map = product_map
+        self._product_map = product_map
+        self._rank_map = rank_map
 
     def rewrite_sources(self, sources):
-        return self.env.rewrite(sources)
+        result = []
+        for s in sources:
+            if (s.startswith(':') or s.startswith('//')) and "#" in s:
+                ident, output_name = s.split('#')
+                target = self._package.find_target(target)
+                rank, target_env = self.rank_map[target]
+
+                out = None
+                for p in self.product_map[(target, target_env)]:
+                    out = p.find_output(output_name)
+                    if out is not None:
+                        break
+
+                if out is not None:
+                    return out
+                else:
+                    raise Exception('output %r not found in target %s' % (
+                        output_name, ident))
+            else:
+                result += [self.env.rewrite(s)]
+        return result
 
 
 def _topo_sort(mapping):
@@ -221,6 +247,23 @@ class Product(object):
         if order_only: self.order_only |= frozenset(order_only)
 
         self.variables = env.without(_special_product_keys).readout_all()
+
+        self._exposed_outputs = {}
+
+    def expose(self, *, path, name):
+        assert path in self.outputs, \
+                "Can't expose path %r that is not in outputs: %r" \
+                % (path, self.outputs)
+        assert name not in self._exposed_outputs, \
+                "Duplicate exposed output name %r" % name
+        self._exposed_outputs[name] = path
+
+    def find_output(self, name):
+        return self._exposed_outputs.get(name)
+
+    def exposed_outputs(self):
+        # defensive copy :-(
+        return dict(self._exposed_outputs)
 
     def ninja_dicts(self):
         outputs = sorted(self.outputs)
