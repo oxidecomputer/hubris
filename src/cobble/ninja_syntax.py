@@ -183,6 +183,9 @@ class Writer(object):
 
         self.output.write(leading_space + text + '\n')
 
+    def close(self):
+        self.output.close()
+
 
 def escape(string):
     """Escape a string such that it can be embedded into a Ninja file without
