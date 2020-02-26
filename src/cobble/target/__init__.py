@@ -199,14 +199,15 @@ class Product(object):
         self.variables = env.without(_special_product_keys).readout_all()
 
     def ninja_dicts(self):
+        outputs = sorted(self.outputs)
         d = {
-            'outputs': self.outputs,
+            'outputs': outputs,
             'rule': self.rule,
         }
-        if self.inputs: d['inputs'] = self.inputs
-        if self.implicit: d['implicit'] = self.implicit
-        if self.order_only: d['order_only'] = self.order_only
-        if self.variables: d['variables'] = self.variables
+        if self.inputs: d['inputs'] = sorted(self.inputs)
+        if self.implicit: d['implicit'] = sorted(self.implicit)
+        if self.order_only: d['order_only'] = sorted(self.order_only)
+        if self.variables: d['variables'] = dict(sorted(self.variables.items()))
 
         if self.symlink_as:
             assert len(self.outputs) == 1, \
@@ -214,9 +215,9 @@ class Product(object):
             s = {
                 'outputs': [self.symlink_as],
                 'rule': 'cobble_symlink_product',
-                'order_only': self.outputs,
+                'order_only': outputs,
                 'variables': {
-                    'target': os.path.relpath(self.outputs[0],
+                    'target': os.path.relpath(outputs[0],
                         os.path.dirname(self.symlink_as)),
                 },
             }
