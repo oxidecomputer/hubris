@@ -15,18 +15,21 @@ LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
 CC = cobble.env.overrideable_string_key('cc')
 CXX = cobble.env.overrideable_string_key('cxx')
 ASPP = cobble.env.overrideable_string_key('aspp')
+AR = cobble.env.overrideable_string_key('ar')
 C_FLAGS = cobble.env.appending_string_seq_key('c_flags')
 CXX_FLAGS = cobble.env.appending_string_seq_key('cxx_flags')
 ASPP_FLAGS = cobble.env.appending_string_seq_key('aspp_flags')
 ARCHIVE_PRODUCTS = cobble.env.overrideable_bool_key('c_library_archive_products')
+WHOLE_ARCHIVE = cobble.env.overrideable_bool_key('c_library_whole_archive')
 
 KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS,
-    CXX_FLAGS, ASPP, ASPP_FLAGS, ARCHIVE_PRODUCTS])
+    CXX_FLAGS, ASPP, AR, ASPP_FLAGS, ARCHIVE_PRODUCTS, WHOLE_ARCHIVE])
 
 _common_keys = frozenset([cobble.target.ORDER_ONLY.name, cobble.target.IMPLICIT.name])
 _compile_keys = _common_keys | frozenset([DEPS_INCLUDE_SYSTEM.name])
 _link_keys = _common_keys | frozenset([CXX.name, LINK_SRCS.name,
     LINK_FLAGS.name])
+_archive_keys = _common_keys | frozenset([AR.name])
 
 def c_binary(package, name, /, *,
         env,
@@ -103,10 +106,10 @@ def c_library(package, name, /, *,
         # We have two modes for creating libraries: we can ar them, or not.
         if env_local[ARCHIVE_PRODUCTS.name]:
             # We only have one output, a static library.
-            outs = [package.outpath(env_local, 'lib' + self.name + '.a')]
+            outs = [package.outpath(env_local, 'lib' + name + '.a')]
             # Prepare environment for ar, being sure to include the object files
-            # (and thus their hashes).
-            ar_env = env_local.subset(_archive_keys).derive({
+            # (and thus their hashes). The ar rule will not *consume* `link_srcs`.
+            ar_env = env_local.subset_require(_archive_keys).derive({
                 LINK_SRCS.name: obj_files,
             })
             library = [cobble.target.Product(
@@ -178,5 +181,9 @@ ninja_rules = {
     'link_c_program': {
         'command': '$cxx $c_link_flags -o $out $in $c_link_srcs',
         'description': 'LINK $out',
+    },
+    'archive_c_library': {
+        'command': '$ar rcs $out $in',
+        'description': 'AR $out',
     },
 }

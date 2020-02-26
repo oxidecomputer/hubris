@@ -30,6 +30,7 @@ empty_env = cobble.env.Env(kr, {})
 c_env = empty_env.derive({
     'cc': 'gcc',
     'cxx': 'g++',
+    'ar': 'ar',
 })
 
 project.define_environment('env', c_env)
@@ -55,6 +56,7 @@ target_t_opt = cobble.target.c.c_binary(package_a, 't_opt',
     deps = [':barlib'],
     extra = {
         'c_flags': ['-O'],
+        'c_library_archive_products': True,
     },
 )
 package_a.add_target(target_t_opt)
