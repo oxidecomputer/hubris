@@ -2,6 +2,7 @@ import cobble.env
 import cobble.target
 import os.path
 from itertools import chain
+from cobble.plugin import Delta, target_def
 
 DEPS_INCLUDE_SYSTEM = cobble.env.overrideable_bool_key(
     name = 'c_deps_include_system',
@@ -29,15 +30,13 @@ _link_keys = _common_keys | frozenset([CXX.name, LINK_SRCS.name,
     LINK_FLAGS.name])
 _archive_keys = _common_keys | frozenset([AR.name])
 
+@target_def
 def c_binary(package, name, /, *,
         env,
         deps = [],
         sources = [],
-        local = {},
-        extra = {}):
-
-    extra = cobble.env.prepare_delta(extra)
-    local = cobble.env.prepare_delta(local)
+        local: Delta = {},
+        extra: Delta = {}):
 
     def mkusing(env_local):
         # Allow environment key interpolation in source names
@@ -84,14 +83,13 @@ def c_binary(package, name, /, *,
         deps = deps,
     )
 
+@target_def
 def c_library(package, name, /, *,
         deps = [],
         sources = [],
-        local = {},
-        using = {}):
-
-    local = cobble.env.prepare_delta(local)
-    _using = cobble.env.prepare_delta(using)
+        local: Delta = {},
+        using: Delta = {}):
+    _using = using # free up name
 
     def mkusing(env_local):
         # Allow environment key interpolation in source names
@@ -184,9 +182,4 @@ ninja_rules = {
         'command': '$ar rcs $out $in',
         'description': 'AR $out',
     },
-}
-
-package_verbs = {
-    'c_library': c_library,
-    'c_binary': c_binary,
 }
