@@ -276,7 +276,7 @@ class Env(object):
             new_dict = dict(self._dict)
             # Apply each key in the delta to the copy.
             for k, v in delta.items():
-                key_def = self._registry[k]
+                key_def = self._registry.get(k)
                 if key_def is None:
                     raise Exception("delta contained unknown key %s (=%r)"
                         % (k, v))

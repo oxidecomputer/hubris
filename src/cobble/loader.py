@@ -42,17 +42,23 @@ def load(root, build_dir):
         env = base_env.derive(cobble.env.prepare_delta(contents))
         project.named_envs[name] = env
 
+    def define_key(name, /, *, type):
+        if type == 'string':
+            key = cobble.env.overrideable_string_key(name)
+        elif type == 'bool':
+            key = cobble.env.overrideable_bool_key(name)
+        else:
+            raise Exception('Unknown key type: %r' % type)
+        kr.define(key)
+
     # Read in BUILD.conf and eval it for its side effects
     with open(project.inpath('BUILD.conf'), 'r') as f:
         exec(f.read(), {
             'seed': seed,
             'install': install,
             'environment': environment,
+            'define_key': define_key,
         })
-
-    def define_key(name, **kw):
-        key = cobble.env.EnvKey(name, **kw)
-        kr.define(key)
 
     while packages_to_visit:
         ident = packages_to_visit.pop()
