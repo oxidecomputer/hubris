@@ -48,20 +48,17 @@ def write_ninja_files(project):
     #   unique_products_by_target[target_ident][env_digest] = [ninja_dict]
     unique_products_by_target = defaultdict(lambda: {})
 
-    # TODO: placeholder_env is necessary only because None doesn't work
-    placeholder_env = cobble.env.Env(cobble.env.KeyRegistry(), {})
-
     # First product pass: collect all products, do some light checking.
     for concrete_target in project.concrete_targets():
         # Note that it's okay to just naively evaluate all the concrete
         # targets, even though they likely share significant subgraphs, because
         # of memoization in evaluate.
-        _topomap, product_map = concrete_target.evaluate(placeholder_env)
+        _topomap, product_map = concrete_target.evaluate(None)
         # Work through all target output in the transitive graph of this
         # concrete target.
         for (target, env), products in product_map.items():
             ti = target.ident
-            ed = env.digest
+            ed = env.digest if env is not None else ()
             flat = list(chain(*(p.ninja_dicts() for p in products)))
 
             if ed in unique_products_by_target[ti]:

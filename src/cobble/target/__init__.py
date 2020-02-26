@@ -40,7 +40,10 @@ class Target(object):
               keys.
         """
         assert isinstance(name, str)
-        assert is_delta(down)
+        if concrete:
+            assert isinstance(down, types.FunctionType)
+        else:
+            assert is_delta(down)
         assert is_delta(local)
         assert isinstance(using_and_products, types.FunctionType)
 
@@ -79,7 +82,14 @@ class Target(object):
     def derive_down(self, env):
         """Derives the down-environment, that is, the environment seen by
         dependencies of this target."""
-        return env.derive(self._down)
+        if self.concrete:
+            # Concrete targets use function-deltas to entirely replace the
+            # provided environment. Since we checked that in the constructor,
+            # we'll just call the delta directly. This allows concrete targets
+            # to be given None as an environment.
+            return self._down(env)
+        else:
+            return env.derive(self._down)
 
     def derive_local(self, env):
         """Derives the local-environment provided to using_and_products."""
