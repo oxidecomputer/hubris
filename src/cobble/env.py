@@ -220,7 +220,9 @@ class Env(object):
         d = dict(self._dict)
         for k in keys:
             if k not in d:
-                d[k] = self._registry[k].default
+                default = self._registry[k].default
+                if default is not None:
+                    d[k] = self._registry[k].default
         return Env(self._registry, d, _fresh = True)
 
     def subset_require(self, keys):
