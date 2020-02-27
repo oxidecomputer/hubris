@@ -147,7 +147,9 @@ class Target(object):
         self._check_local(env_local_1)
 
         # Generate parameter object for using-and-products
-        by_rank = sorted(((target, (rank, env)) for ((target, env), (rank, _)) in merged.items()), key = lambda item: -item[1][0])
+        by_rank = sorted(((target, (rank, env))
+            for ((target, env), (rank, _)) in merged.items()),
+            key = lambda item: -item[1][0])
         rank_map = dict(by_rank)
         upctx = UsingContext(
             package = self.package,

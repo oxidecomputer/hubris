@@ -47,6 +47,7 @@ def write_ninja_files(project):
     # This map winds up having the shape
     #   unique_products_by_target[target_ident][env_digest] = [ninja_dict]
     unique_products_by_target = defaultdict(lambda: {})
+    unique_products_by_output = {}
 
     # First product pass: collect all products, do some light checking.
     for concrete_target in project.concrete_targets():
@@ -59,14 +60,23 @@ def write_ninja_files(project):
         for (target, env), products in product_map.items():
             ti = target.ident
             ed = env.digest if env is not None else 'top'
-            flat = list(chain(*(p.ninja_dicts() for p in products)))
 
-            if ed in unique_products_by_target[ti]:
-                # This *should* succeed trivially, but... wouldn't we want to
-                # find out if it didn't?
-                assert unique_products_by_target[ti][ed] == flat, \
-                        "internal error: evaluations differ"
-            else:
+            # Collect ninja dicts for each product, filtering out any that we've
+            # already done. Products can appear twice because graphs can wind up
+            # converging due to environment subsetting.
+            flat = []
+            for prod in products:
+                for ninja_dict in prod.ninja_dicts():
+                    output_key = frozenset(ninja_dict['outputs'])
+                    prev_dict = unique_products_by_output.get(output_key)
+                    if prev_dict is not None:
+                        assert prev_dict == ninja_dict, \
+                            "Conflicting rules produce outputs %r" % output_key
+                    else:
+                        unique_products_by_output[output_key] = ninja_dict
+                        flat.append(ninja_dict)
+
+            if flat:
                 unique_products_by_target[ti][ed] = flat
 
     # Second product pass: process in sorted order. We sort by target
