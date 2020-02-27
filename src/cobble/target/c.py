@@ -69,7 +69,7 @@ def c_binary(package, name, /, *,
         # the build graph we just emitted, so that our users can depend on just
         # it. This could be factored out.
         using = {
-            '__implicit__': program.symlink_as,
+            '__implicit__': [program.symlink_as],
         }
 
         products = objects + [program]

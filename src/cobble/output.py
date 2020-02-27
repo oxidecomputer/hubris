@@ -58,7 +58,7 @@ def write_ninja_files(project):
         # concrete target.
         for (target, env), products in product_map.items():
             ti = target.ident
-            ed = env.digest if env is not None else ()
+            ed = env.digest if env is not None else 'top'
             flat = list(chain(*(p.ninja_dicts() for p in products)))
 
             if ed in unique_products_by_target[ti]:

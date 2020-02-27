@@ -184,17 +184,17 @@ class UsingContext(object):
         for s in sources:
             if (s.startswith(':') or s.startswith('//')) and "#" in s:
                 ident, output_name = s.split('#')
-                target = self._package.find_target(target)
-                rank, target_env = self.rank_map[target]
+                target = self._package.find_target(ident)
+                rank, target_env = self._rank_map[target]
 
                 out = None
-                for p in self.product_map[(target, target_env)]:
+                for p in self._product_map[(target, target_env)]:
                     out = p.find_output(output_name)
                     if out is not None:
                         break
 
                 if out is not None:
-                    return out
+                    result += [out]
                 else:
                     raise Exception('output %r not found in target %s' % (
                         output_name, ident))

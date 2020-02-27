@@ -128,7 +128,7 @@ def frozenset_key(name, readout = None):
         # confusing behavior. Avoid this by checking for str first.
         assert not isinstance(lit, str) \
                 and all(isinstance(e, str) for e in lit), \
-                "Expected list of strings, got: %r" % lit
+                "Expected collection of strings for key %s, got: %r" % (name, lit)
         return frozenset(lit)
 
     return EnvKey(
@@ -186,7 +186,7 @@ class Env(object):
 
     def __eq__(self, other):
         # TODO: should we include the dict here, or rely on the digest?
-        return self.registry is other.registry \
+        return self._registry is other._registry \
                 and self.digest == other.digest
 
     def __hash__(self):
