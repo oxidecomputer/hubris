@@ -182,6 +182,11 @@ class UsingContext(object):
         self._rank_map = rank_map
 
     def rewrite_sources(self, sources):
+        """Processes a list of source files and handles interpolation of
+        environment keys, and references to outputs of other targets.
+
+        Returns a list of concrete paths.
+        """
         result = []
         for s in sources:
             if (s.startswith(':') or s.startswith('//')) and "#" in s:
