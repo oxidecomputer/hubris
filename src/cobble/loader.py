@@ -34,10 +34,7 @@ def load(root, build_dir):
                 "Base environment %r does not exist (must appear before)" % base
             base_env = project.named_envs[base]
         else:
-            base_env = cobble.env.Env(kr, {
-                'ROOT': project.root,
-                'BUILD': project.build_dir,
-            })
+            base_env = cobble.env.Env(kr, {})
 
         env = base_env.derive(cobble.env.prepare_delta(contents))
         project.named_envs[name] = env
@@ -58,6 +55,8 @@ def load(root, build_dir):
             'install': install,
             'environment': environment,
             'define_key': define_key,
+            'ROOT': project.root,
+            'BUILD': project.build_dir,
         })
 
     while packages_to_visit:
