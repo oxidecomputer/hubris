@@ -60,7 +60,7 @@ class Target(object):
         self._deps = deps
 
         self._evaluate_memos = {}
-        self._transparent = False
+        self._transparent = True
 
     @property
     def ident(self):
@@ -273,12 +273,13 @@ class Product(object):
         return dict(self._exposed_outputs)
 
     def ninja_dicts(self):
-        outputs = sorted(self.outputs)
+        # Note: can't sort the outputs or inputs here, because some targets may
+        # depend on their order.
         d = {
-            'outputs': outputs,
+            'outputs': self.outputs,
             'rule': self.rule,
         }
-        if self.inputs: d['inputs'] = sorted(self.inputs)
+        if self.inputs: d['inputs'] = self.inputs
         if self.implicit: d['implicit'] = sorted(self.implicit)
         if self.order_only: d['order_only'] = sorted(self.order_only)
         if self.variables: d['variables'] = dict(sorted(self.variables.items()))
@@ -289,9 +290,9 @@ class Product(object):
             s = {
                 'outputs': [self.symlink_as],
                 'rule': 'cobble_symlink_product',
-                'order_only': outputs,
+                'order_only': self.outputs,
                 'variables': {
-                    'target': os.path.relpath(outputs[0],
+                    'target': os.path.relpath(self.outputs[0],
                         os.path.dirname(self.symlink_as)),
                 },
             }
