@@ -182,6 +182,12 @@ ninja_rules = {
         'depfile': '$out.d',
         'deps': 'gcc',
     },
+    'assemble_obj_pp': {
+        'command': '$aspp $c_depswitch -MF $depfile $aspp_flags -c -o $out $in',
+        'description': 'AS+CPP $in',
+        'depfile': '$out.d',
+        'deps': 'gcc',
+    },
     'link_c_program': {
         'command': '$cxx $c_link_flags -o $out $in $c_link_srcs',
         'description': 'LINK $out',
