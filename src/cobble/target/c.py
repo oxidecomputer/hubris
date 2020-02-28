@@ -42,7 +42,7 @@ def c_binary(package, name, /, *,
         # Allow environment key interpolation in source names
         sources_i = ctx.rewrite_sources(sources)
         # Generate object file products for all sources.
-        objects = [_compile_object(package, s, ctx.env) for s in sources]
+        objects = [_compile_object(package, s, ctx.env) for s in sources_i]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
         # Create the environment used for the linked product. Note that the
@@ -97,7 +97,7 @@ def c_library(package, name, /, *,
         # Allow environment key interpolation in source names
         sources_i = ctx.rewrite_sources(sources)
         # Generate object file products for all sources.
-        objects = [_compile_object(package, s, ctx.env) for s in sources]
+        objects = [_compile_object(package, s, ctx.env) for s in sources_i]
         # Extract just the output paths
         obj_files = list(chain(*[prod.outputs for prod in objects]))
 
