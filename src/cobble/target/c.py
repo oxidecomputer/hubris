@@ -18,7 +18,7 @@ AR = cobble.env.overrideable_string_key('ar')
 C_FLAGS = cobble.env.appending_string_seq_key('c_flags')
 CXX_FLAGS = cobble.env.appending_string_seq_key('cxx_flags')
 ASPP_FLAGS = cobble.env.appending_string_seq_key('aspp_flags')
-ARCHIVE_PRODUCTS = cobble.env.overrideable_bool_key('c_library_archive_products')
+ARCHIVE_PRODUCTS = cobble.env.overrideable_bool_key('c_library_archive_products', default = True)
 WHOLE_ARCHIVE = cobble.env.overrideable_bool_key('c_library_whole_archive')
 
 KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS,
