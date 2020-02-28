@@ -176,6 +176,12 @@ ninja_rules = {
         'depfile': '$out.d',
         'deps': 'gcc',
     },
+    'compile_cxx_obj': {
+        'command': '$cxx $c_deps_include_system -MF $depfile $cxx_flags -c -o $out $in',
+        'description': 'CXX $in',
+        'depfile': '$out.d',
+        'deps': 'gcc',
+    },
     'link_c_program': {
         'command': '$cxx $c_link_flags -o $out $in $c_link_srcs',
         'description': 'LINK $out',
