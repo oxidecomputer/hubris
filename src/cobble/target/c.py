@@ -162,9 +162,11 @@ def _compile_object(package, source, env):
     keys = _compile_keys | frozenset(keys)
 
     o_env = env.subset_require(keys)
+    # Shorten source names, in case we're using an output as input.
+    src = os.path.basename(source)
     return cobble.target.Product(
         env = o_env,
-        outputs = [package.outpath(o_env, source + '.o')],
+        outputs = [package.outpath(o_env, src + '.o')],
         rule = rule,
         inputs = [source]
     )
