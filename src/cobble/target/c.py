@@ -24,11 +24,10 @@ WHOLE_ARCHIVE = cobble.env.overrideable_bool_key('c_library_whole_archive')
 KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS,
     CXX_FLAGS, ASPP, AR, ASPP_FLAGS, ARCHIVE_PRODUCTS, WHOLE_ARCHIVE])
 
-_common_keys = frozenset([cobble.target.ORDER_ONLY.name, cobble.target.IMPLICIT.name])
-_compile_keys = _common_keys | frozenset([DEPS_INCLUDE_SYSTEM.name])
-_link_keys = _common_keys | frozenset([CXX.name, LINK_SRCS.name,
+_compile_keys = frozenset([cobble.target.ORDER_ONLY.name, DEPS_INCLUDE_SYSTEM.name])
+_link_keys = frozenset([cobble.target.IMPLICIT.name, CXX.name, LINK_SRCS.name,
     LINK_FLAGS.name])
-_archive_keys = _common_keys | frozenset([AR.name])
+_archive_keys = frozenset([AR.name])
 
 @target_def
 def c_binary(package, name, /, *,
@@ -102,7 +101,7 @@ def c_library(package, name, /, *,
         obj_files = list(chain(*[prod.outputs for prod in objects]))
 
         # We have two modes for creating libraries: we can ar them, or not.
-        if ctx.env[ARCHIVE_PRODUCTS.name]:
+        if ctx.env[ARCHIVE_PRODUCTS.name] and obj_files:
             # We only have one output, a static library.
             outs = [package.outpath(ctx.env, 'lib' + name + '.a')]
             # Prepare environment for ar, being sure to include the object files
