@@ -141,16 +141,17 @@ class Target(object):
         products = dict(chain(*(m[1].items() for m in evaluated_deps)))
 
         # Extract all the using-deltas in the order they should be applied.
-        dep_usings = (u for (t, e), (r, u) in _topo_sort(merged))
+        topo_merged = _topo_sort(merged)
+        dep_usings = (u for (t, e), (r, u) in topo_merged)
+
         env_local_1 = reduce(lambda e, dlt: e.derive(dlt), dep_usings, env_local_0)
 
         self._check_local(env_local_1)
 
         # Generate parameter object for using-and-products
-        by_rank = sorted(((target, (rank, env))
-            for ((target, env), (rank, _)) in merged.items()),
-            key = lambda item: -item[1][0])
-        rank_map = dict(by_rank)
+        rank_map = dict((target, (rank, env))
+            for ((target, env), (rank, _)) in topo_merged)
+
         upctx = UsingContext(
             package = self.package,
             env = env_local_1,
@@ -214,7 +215,7 @@ def _topo_sort(mapping):
     """Orders target graph info dicts topologically."""
     def key(pair):
         (t, e), (r, u) = pair
-        return (r, t.ident, e.digest if e else None, u)
+        return (-r, t.ident, e.digest if e else None, u)
     return sorted(mapping.items(), key = key)
 
 def _topo_merge(dicts):
