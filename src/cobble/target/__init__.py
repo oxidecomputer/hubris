@@ -206,7 +206,7 @@ class UsingContext(object):
                     raise Exception('output %r not found in target %s' % (
                         output_name, ident))
             else:
-                result += [self.env.rewrite(s)]
+                result += [self._package.inpath(self.env.rewrite(s))]
         return result
 
 

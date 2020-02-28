@@ -166,7 +166,7 @@ def _compile_object(package, source, env):
         env = o_env,
         outputs = [package.outpath(o_env, source + '.o')],
         rule = rule,
-        inputs = [package.inpath(source)]
+        inputs = [source]
     )
 
 ninja_rules = {
