@@ -185,7 +185,7 @@ ninja_rules = {
         'deps': 'gcc',
     },
     'assemble_obj_pp': {
-        'command': '$aspp $c_depswitch -MF $depfile $aspp_flags -c -o $out $in',
+        'command': '$aspp $c_deps_include_system -MF $depfile $aspp_flags -c -o $out $in',
         'description': 'AS+CPP $in',
         'depfile': '$out.d',
         'deps': 'gcc',
