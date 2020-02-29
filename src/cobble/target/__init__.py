@@ -162,8 +162,12 @@ class Target(object):
         'env_up' return a cached value.
         """
         if env_up not in self._evaluate_memos:
+            self._evaluate_memos[env_up] = RecursionDetector
             self._evaluate_memos[env_up] = self._evaluate(env_up)
-        return self._evaluate_memos[env_up]
+        result = self._evaluate_memos[env_up]
+        assert result is not RecursionDetector, \
+                "cycle detected in build graph evaluation"
+        return result
 
     def _evaluate(self, env_up):
         """Non-memoized implementation of 'evaluate'."""
@@ -404,3 +408,6 @@ class Product(object):
             return [d, s]
         else:
             return [d]
+
+class RecursionDetector:
+    pass
