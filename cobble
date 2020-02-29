@@ -23,6 +23,9 @@ def make_argument_parser():
     init_parser.add_argument('--reinit',
             help = 'Allow overwriting build.ninja (default: no)',
             action = 'store_true')
+    init_parser.add_argument('--dump-environments',
+            help = 'Record contents of environments in Ninja file (default: no)',
+            action = 'store_true')
     init_parser.set_defaults(go = init_build_dir)
 
     build_parser = subparsers.add_parser('build',
@@ -113,7 +116,8 @@ def init_build_dir(args):
     # Build the graph...
     project = cobble.loader.load(args.project, '.')
     # ...and blow it out.
-    cobble.output.write_ninja_files(project)
+    cobble.output.write_ninja_files(project,
+            dump_environments = args.dump_environments)
 
     return 0
 

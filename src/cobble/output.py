@@ -5,7 +5,8 @@ import cobble.ninja_syntax
 from itertools import chain
 from collections import defaultdict
 
-def write_ninja_files(project):
+def write_ninja_files(project,
+        dump_environments = False):
     """Processes the build graph rooted at 'project' and produces Ninja files.
 
     Two files are produced:
@@ -59,6 +60,7 @@ def write_ninja_files(project):
     #   unique_products_by_target[target_ident][env_digest] = [ninja_dict]
     unique_products_by_target = defaultdict(lambda: {})
     unique_products_by_output = {}
+    environments_by_digest = {}
 
     # First product pass: collect all products, do some light checking.
     for concrete_target in project.concrete_targets():
@@ -71,6 +73,7 @@ def write_ninja_files(project):
         for (target, env), products in product_map.items():
             ti = target.ident
             ed = env.digest if env is not None else 'top'
+            environments_by_digest[ed] = env
 
             # Collect ninja dicts for each product, filtering out any that we've
             # already done. Products can appear twice because graphs can wind up
@@ -89,6 +92,17 @@ def write_ninja_files(project):
 
             if flat:
                 unique_products_by_target[ti][ed] = flat
+
+    # If requested, record environment contents.
+    if dump_environments:
+        writer.comment('ENVIRONMENT LISTING')
+        writer.newline()
+        for digest, env in environments_by_digest.items():
+            if env is None: continue
+            writer.comment('Environment %s' % digest)
+            for k, v in env.readout_all().items():
+                writer.comment('env[%s][%s] = %r' % (digest, k, v), wrap = False)
+            writer.newline()
 
     # Second product pass: process in sorted order. We sort by target
     # identifier, then by env digest.

@@ -51,10 +51,13 @@ class Writer(object):
         """Emits a blank line."""
         self.output.write('\n')
 
-    def comment(self, text):
+    def comment(self, text, wrap = True):
         """Emits some commented text."""
-        for line in textwrap.wrap(text, self.width - 2):
-            self.output.write('# ' + line + '\n')
+        if wrap:
+            for line in textwrap.wrap(text, self.width - 2):
+                self.output.write('# ' + line + '\n')
+        else:
+            self.output.write('# ' + text + '\n')
 
     def variable(self, key, value):
         """Emits a variable, joining values with spaces if required."""
