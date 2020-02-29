@@ -60,7 +60,16 @@ def load(root, build_dir):
 
     # Read in BUILD.conf and eval it for its side effects
     with open(project.inpath('BUILD.conf'), 'r') as f:
-        exec(f.read(), {
+        build_conf = compile(
+            source = f.read(),
+            filename = project.inpath('BUILD.conf'),
+            mode = 'exec',
+            dont_inherit = 1,
+        )
+        exec(build_conf, {
+            # Block access to builtins. TODO: this might be too aggressive.
+            '__builtins__': {},
+
             'seed': _build_conf_seed,
             'install': _build_conf_install,
             'environment': _build_conf_environment,
@@ -86,6 +95,9 @@ def load(root, build_dir):
         # Prepare the global environment for eval-ing the package. We provide
         # a few variables by default:
         pkg_env = {
+            # Block access to builtins. TODO: this might be too aggressive.
+            '__builtins__': {},
+
             # Easy access to the path from the build dir to the package
             'PKG': package.inpath(),
             # Easy access to the path from the build dir to the project
@@ -107,7 +119,13 @@ def load(root, build_dir):
 
         # And now, the evaluation!
         with open(package.inpath('BUILD'), 'r') as f:
-            exec(f.read(), pkg_env)
+            build_file = compile(
+                source = f.read(),
+                filename = package.inpath('BUILD'),
+                mode = 'exec',
+                dont_inherit = 1,
+            )
+            exec(build_file, pkg_env)
 
     # Register all plugins' ninja rules. We could probably do this earlier, but
     # hey.
