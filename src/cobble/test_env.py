@@ -73,8 +73,7 @@ def test_env():
     assert len(e) == 0
     assert e['k1'] == 'hello'
     assert e['k2'] == ()
-    with pytest.raises(AttributeError):
-        e['k3']
+    with pytest.raises(KeyError): e['k3']
 
     e = e.derive({'k1': ['a']})
     assert e['k1'] == ('a',)
@@ -131,7 +130,7 @@ def test_rewrite():
     assert e2.rewrite('hello, $k2') == 'hello, overridden'
 
     # Access a bogus key:
-    with pytest.raises(AttributeError): e.rewrite('hello, $unknown')
+    with pytest.raises(KeyError): e.rewrite('hello, $unknown')
 
     # Use a delta that requires rewrite itself:
     e2 = e.derive({'k2': '<$k1>'})

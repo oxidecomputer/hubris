@@ -1,5 +1,7 @@
 """Python module for generating .ninja files, derived from code provided by
 the Ninja authors.
+
+I've tightened semantics in some areas, and applied updates for Python 3.
 """
 
 import collections

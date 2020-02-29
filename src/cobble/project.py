@@ -46,12 +46,18 @@ class Project(object):
         return os.path.join(self.build_dir, 'latest', *parts)
 
     def add_package(self, package):
+        """Registers 'package' with the project."""
         assert package.relpath not in self.packages, \
                 "duplicate package at %s" % package.relpath
         assert package.project is self, "package project misconfigured"
         self.packages[package.relpath] = package
 
     def find_target(self, ident):
+        """Finds the 'Target' named by an 'ident'.
+
+        'find_target' at the 'Project' level requires absolute identifiers,
+        e.g. '//foo/bar:target'.
+        """
         assert ident.startswith('//'), "bad identifier: %r" % ident
         parts = ident[2:].split(':')
         if len(parts) == 1:
@@ -72,11 +78,21 @@ class Project(object):
         return self.packages[pkg_path].targets[target_name]
 
     def define_environment(self, name, env):
+        """Defines a named environment in the project.
+
+        Named environments are defined in BUILD.conf, and provide the basis for
+        all other environments.
+        """
         assert name not in self.named_envs, \
             "more than one environment named %s" % name
         self.named_envs[name] = env
 
     def add_ninja_rules(self, rules):
+        """Extends the set of Ninja rules used in the project.
+
+        Ninja rules are represented as dicts with keys matching the attributes
+        of Ninja's rule syntax.
+        """
         for k, v in rules.items():
             if k in self.ninja_rules:
                 assert v == self.ninja_rules[k], \
@@ -85,16 +101,19 @@ class Project(object):
                 self.ninja_rules[k] = v
 
     def files(self):
+        """Returns an iterator over the build files and BUILD.conf."""
         yield self.inpath('BUILD.conf')
         for p in self.packages.values():
             yield p.inpath('BUILD')
 
     def targets(self):
+        """Returns an iterator over all Targets in the project."""
         for p in self.packages.values():
             for t in p.targets.values():
                 yield t
 
     def concrete_targets(self):
+        """Returns an iterator over the concrete Targets in the project."""
         return filter(lambda t: t.concrete, self.targets())
 
 class Package(object):
@@ -107,6 +126,7 @@ class Package(object):
         project.add_package(self)
 
     def add_target(self, target):
+        """Adds a 'Target' to the package."""
         assert target.name not in self.targets, \
                 "duplicate target %s in package %s" % (target.name, self.relpath)
         self.targets[target.name] = target

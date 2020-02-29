@@ -1,4 +1,7 @@
-"""Utilities for writing plugins."""
+"""Utilities for writing plugins.
+
+A Cobble plugin should import '*' from this module for ease of implementation.
+"""
 
 import sys
 from inspect import signature, Parameter
@@ -52,3 +55,6 @@ class Delta:
     """Marker type for attributing parameters that should be prepared as deltas
     by @target_def."""
     pass
+
+# Provide a targeted subset of this module to plugins using `import *`.
+__all__ = ["target_def", "Delta"]

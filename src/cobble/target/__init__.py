@@ -17,7 +17,13 @@ ORDER_ONLY = cobble.env.frozenset_key('__order_only__')
 KEYS = frozenset([IMPLICIT, ORDER_ONLY])
 
 class Target(object):
-    """A high-level, parameterizable, build target."""
+    """A high-level, parameterizable, build target.
+
+    A 'Target' is the entity created by build rules in a BUILD file.
+
+    A 'Target' is later evaluated in a particular environment to produce zero
+    or more 'Product's.
+    """
 
     def __init__(self, package, name, *,
             using_and_products,
@@ -36,8 +42,10 @@ class Target(object):
         using_and_products: function to compute the using-delta and products
             list in a given env.
         deps: list of target identifiers that this target depends upon. The
-              identifiers in this list *may* contain references to environment
-              keys.
+            identifiers in this list *may* contain references to environment
+            keys.
+        concrete: if 'True', this target names its own environment and can be
+            built without additional information.
         """
         assert isinstance(name, str)
         if concrete:
@@ -46,9 +54,11 @@ class Target(object):
             assert is_delta(down)
         assert is_delta(local)
         assert isinstance(using_and_products, types.FunctionType)
+        assert isinstance(deps, (list, set, frozenset, tuple)) \
+                and all(isinstance(d, str) for d in deps)
 
         # Process relative deps so plugins don't have to
-        deps = tuple(package.make_absolute(d) for d in deps)
+        deps = frozenset(package.make_absolute(d) for d in deps)
 
         self.package = package
         self._name = name
@@ -64,17 +74,36 @@ class Target(object):
 
     @property
     def ident(self):
+        """Returns the identifier of this target, of the form that would be
+        used in deps.
+        """
         return '//' + self.package.relpath + ':' + self._name
 
     @property
     def deps(self):
+        """Returns the identifiers of targets this target directly depends
+        on, as a 'frozenset' of 'str'.
+        """
         return self._deps
 
     @property
     def concrete(self):
+        """Checks whether this Target is concrete, i.e. can be built without
+        additional context.
+        """
         return self._concrete
 
+    @property
+    def name(self):
+        """Returns the name of this 'Target'."""
+        return self._name
+
     def stats(self):
+        """Returns a collection of internal statistics on this 'Target'. The
+        result is only valid after build graph processing during build file
+        output. The result is a dict, but the set of keys is subject to
+        change.
+        """
         return {
             'unique_environments': len(self._evaluate_memos),
         }
@@ -108,18 +137,36 @@ class Target(object):
                 "impl returned bad products: %r" % products
         return (using, products)
 
-    @property
-    def name(self):
-        return self._name
-
     def evaluate(self, env_up):
+        """Evaluates this 'Target' in a concrete environment. This is the
+        central implementation of build graph processing.
+
+        The result is a pair of '(rank_map, products)'.
+
+        'rank_map' is a dict providing information about the transitive
+        dependency graph. Each key is a tuple '(target, env)' (recording each
+        unique environment used for any given target), and the values are tuples
+        '(rank, using_delta)'. 'rank' measures the length of the longest path
+        from this 'Target' ('self') to the evaluation of '(target, env)' within
+        this graph; the entry for '(self, env_up)' has rank 0.
+
+        'products' is another dict providing information about concrete build
+        products needed for each target evaluation. It uses the same keys as
+        'rank_map', tuples of '(target, env)', but the values are lists of
+        'Product'.
+
+        The algorithm used by 'evaluate' requires traversing and evaluating the
+        entire transitive dependency graph in every relevant environment. To
+        keep this from being explosively costly, evaluations are *memoized*, so
+        that later calls to 'evaluate' with the same values of 'self' and
+        'env_up' return a cached value.
+        """
         if env_up not in self._evaluate_memos:
             self._evaluate_memos[env_up] = self._evaluate(env_up)
         return self._evaluate_memos[env_up]
 
     def _evaluate(self, env_up):
-        deps_key = cobble.env.DEPS_KEY.name
-
+        """Non-memoized implementation of 'evaluate'."""
         env_down = self.derive_down(env_up)
         # Derive a first version of our local environment, which won't contain
         # any using-deltas applied by our deps. We need this to evaluate our
@@ -128,8 +175,8 @@ class Target(object):
         # Rewrite key references in our deps list, producing a concrete deps list.
         deps = env_local_0.rewrite(self._deps)
         # Resolve all the identifiers and evaluate the targets.
-        deps = (self.package.find_target(id) for id in deps)
-        evaluated_deps = [dep.evaluate(env_down) for dep in deps]
+        evaluated_deps = [self.package.find_target(id).evaluate(env_down)
+                for id in deps]
         # The evaluated_deps list has the shape:
         #  [ ( {(target, env): (rank, using)}, {(target, env): [product]} ) ]
 
@@ -172,11 +219,21 @@ class Target(object):
         return (merged, products)
 
     def _check_local(self, env):
-        # TODO implement checks
+        """Implementation hook for running user-defined checks on environments.
+        This is a Cobble1 feature that isn't fully implemented here yet."""
         pass
 
 class UsingContext(object):
+    """Parameter object handed to the 'using_and_products' functions defined by
+    custom target types.
+
+    Defines the following attributes:
+
+    - 'env' is the environment in which the target is being evaluated.
+    """
+
     def __init__(self, *, package, env, product_map, rank_map):
+        """Creates a 'UsingContext'."""
         self._package = package
         self.env = env
         self._product_map = product_map
@@ -232,9 +289,33 @@ def _topo_merge(dicts):
 
     return merged
 
+# Convenient set of keys that should not be conveyed to Ninja as variables,
+# because they're conveyed in other ways.
 _special_product_keys = frozenset([IMPLICIT.name, ORDER_ONLY.name])
 
 class Product(object):
+    """Concrete build product derived from a 'Target'.
+
+    'Product's correspond to Ninja build rules, though a 'Product' can
+    translate to more than one rule (a single "primary" rule and zero or more
+    "auxiliary" rules).
+
+    Attributes:
+
+    - 'env' is the environment in which the product is valid.
+    - 'inputs' is a tuple of build-directory-relative paths to input files.
+    - 'outputs' is a tuple of build-directory-relative paths to output files.
+    - 'rule' is the name of the primary Ninja rule.
+    - 'symlink_as' is either the name of the concrete symlink in 'latest' for
+      this product, or 'None'.
+    - 'implicit' is a frozenset of build-directory-relative paths to implicit
+      dependencies.
+    - 'order_only' is a frozenset of build-directory-relative paths to
+      order-only dependencies.
+    - 'variables' is the dict of variables that will be conveyed into the rule
+      for interpolation.
+    """
+
     def __init__(self,
             env,
             outputs,
@@ -243,10 +324,19 @@ class Product(object):
             implicit = None,
             order_only = None,
             symlink_as = None):
+        """Creates a new Product.
+
+        All parameters directly correspond to the attributes documented at
+        class-level. The collection parameters ('inputs', 'implicit',
+        'order_only', and 'outputs') will be frozen before being stored.
+
+        'implicit' and 'order_only' extend the sets of implicit and order-only
+        dependencies (respectively) inside 'env'.
+        """
         self.env = env
-        self.inputs = inputs
+        self.inputs = cobble.env.freeze(inputs)
         self.rule = rule
-        self.outputs = outputs
+        self.outputs = cobble.env.freeze(outputs)
         self.symlink_as = symlink_as
 
         self.implicit = env[IMPLICIT.name]
@@ -259,6 +349,14 @@ class Product(object):
         self._exposed_outputs = {}
 
     def expose(self, *, path, name):
+        """Mark an output of this rule as "exposed," i.e. available to be used
+        as a source for other build rules.
+
+        'path' is the build-directory-relative path of the output, which must
+        be present in the 'outputs' set given at construction.
+
+        'name' is the name exposed to other rules.
+        """
         assert path in self.outputs, \
                 "Can't expose path %r that is not in outputs: %r" \
                 % (path, self.outputs)
@@ -267,13 +365,19 @@ class Product(object):
         self._exposed_outputs[name] = path
 
     def find_output(self, name):
+        """Locates the exposed output named 'name', or 'None' if no such
+        exposed output exists."""
         return self._exposed_outputs.get(name)
 
     def exposed_outputs(self):
+        """Returns a dict mapping exposed output names to output paths."""
         # defensive copy :-(
         return dict(self._exposed_outputs)
 
     def ninja_dicts(self):
+        """Produces one or more Ninja build rules in dict format, where each
+        dict key corresponds to one parameter in the Ninja build rule
+        format."""
         # Note: can't sort the outputs or inputs here, because some targets may
         # depend on their order.
         d = {

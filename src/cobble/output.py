@@ -1,9 +1,20 @@
+"""Processing Cobble build graphs into Ninja build files."""
+
 import os
 import cobble.ninja_syntax
 from itertools import chain
 from collections import defaultdict
 
 def write_ninja_files(project):
+    """Processes the build graph rooted at 'project' and produces Ninja files.
+
+    Two files are produced:
+
+    - 'build.ninja' is the basic build file.
+    - 'build.ninja.deps' is a GCC-style deps file naming all the BUILD files,
+      which is then referenced from 'build.ninja' to ensure that it gets
+      regenerated if the build changes.
+    """
     # Write implicit deps file. This ensures that build.ninja gets regenerated
     # if any of the build files change.
     # TODO: I think this might be slightly overcomplicated.

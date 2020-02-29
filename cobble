@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 
+"""This is the command-line entry point to Cobble, which parses arguments and
+orchestrates actions within the library.
+"""
+
 import argparse
 import os.path
 import subprocess
 import sys
 
 def make_argument_parser():
+    """Defines the grammar for command-line arguments."""
+
     parser = argparse.ArgumentParser()
 
     subparsers = parser.add_subparsers(title = 'command', dest = 'command', required = True)
@@ -53,7 +59,10 @@ def make_argument_parser():
     build_parser.set_defaults(go = build)
     return parser
 
+
 def init_build_dir(args):
+    """Implementation of the `init` subcommand."""
+
     if os.path.samefile(args.project, '.'):
         print("I won't use your project directory as build directory.",
                 file = sys.stderr)
@@ -93,18 +102,25 @@ def init_build_dir(args):
 
     os.symlink(script_path, './cobble')
 
+    # Scan for site-specific Cobble modules
     # TODO: allow this to be overridden in BUILD.conf too
+    # TODO: also, allow this to include multiple locations, to support plugins
+    # in submodules.
     project_module_dir = os.path.join(args.project, "site_cobble")
     if os.path.isdir(project_module_dir):
         sys.path += [project_module_dir]
 
+    # Build the graph...
     project = cobble.loader.load(args.project, '.')
-
+    # ...and blow it out.
     cobble.output.write_ninja_files(project)
 
     return 0
 
+
 def build(args):
+    """Implementation of the `build` subcommand."""
+
     cmd = ['ninja']
     if args.jobs: cmd += ['-j', str(args.jobs)]
     if args.loadavg: cmd += ['-l', str(args.loadavg)]
@@ -115,11 +131,13 @@ def build(args):
     cmd += args.targets
     return subprocess.call(cmd)
 
+
 # Find the directory housing this script.
 dist_dir = os.path.dirname(os.path.realpath(__file__))
 # Add the `src` subdir for imports.
 sys.path.append(os.path.join(dist_dir, 'src'))
 
+# Now that we have the module path right, we can...
 import cobble.loader
 import cobble.output
 import cobble.target

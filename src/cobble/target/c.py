@@ -2,7 +2,7 @@ import cobble.env
 import cobble.target
 import os.path
 from itertools import chain
-from cobble.plugin import Delta, target_def
+from cobble.plugin import *
 
 DEPS_INCLUDE_SYSTEM = cobble.env.overrideable_bool_key(
     name = 'c_deps_include_system',
