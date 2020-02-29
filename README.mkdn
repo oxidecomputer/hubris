@@ -1,0 +1,52 @@
+# Cobble: a simple build system for modular software.
+
+Cobble is a build system designed primarily for complex embedded software
+builds, implemented in about 1000 lines of Python.
+
+Cobble is designed to be flexible enough to build *most* systems Make can, and
+has successfully replaced Make in several projects, though your mileage may
+vary, since no two Make builds are alike.
+
+Cobble builds are...
+
+- **Modular.** Software is arranged into *packages*, each containing a portion
+  of the build instructions. This ensures that you can reason locally about a
+  library and its build recipe, and split common components out into e.g. Git
+  submodules without having to copy-paste the build recipe.
+
+- **Parameterized.** A single build *target* can describe multiple actual build
+  products, depending on (for example) the architecture of the program that
+  depends on it, or whatever other context information you desire.
+
+- **Incremental.** Cobble puts a lot of work (and most of its code) into
+  describing build dependencies *correctly,* so that incremental builds are fast
+  and correct. Even if you change fundamental parameters of the build (like CPU
+  architecture or CFLAGS) you don't need to clean before recompiling.
+
+- **Parallel.** Cobble aggressively finds opportunities for parallelism in your
+  build graph and chews through tasks using as many CPUs as you can give it,
+  thanks to using [Ninja] under the hood.
+
+- **Extensible.** Cobble itself ships with a plugin for describing how to build
+  C code. Projects can add their own plugins as needed. (As of Cobble2, writing
+  a plugin is even pretty easy.)
+
+- **Flexible.** Cobble `BUILD` files are Python programs that can do arbitrary
+  computation to compute the build graph (though not *during* the build). While
+  the system nudges you toward deterministic repeatable builds, if you need to
+  do something weird, we won't stop you.
+
+Cobble is built on the shoulders of others:
+
+ - [Ninja](http://martine.github.io/ninja/) does all the hard work behind the scenes.
+ - The build model was originally dreamed up by [Anton Staaf] in his Make-based build system.
+ - Aspects of the design are influenced by [SCons](http://scons.org), [GYP](https://code.google.com/p/gyp/),
+   and [GN](https://code.google.com/p/chromium/wiki/gn).
+
+[Loon]: http://loon.com/
+[Ninja]: http://martine.github.io/ninja/
+[SCons]: http://scons.org
+[GYP]: https://code.google.com/p/gyp/
+[GN]: https://code.google.com/p/chromium/wiki/gn
+[Anton Staaf]: http://socialhacker.com
+[Ninja]: https://ninja-build.org/
