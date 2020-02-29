@@ -9,41 +9,22 @@ def write_ninja_files(project,
         dump_environments = False):
     """Processes the build graph rooted at 'project' and produces Ninja files.
 
-    Two files are produced:
-
-    - 'build.ninja' is the basic build file.
-    - 'build.ninja.deps' is a GCC-style deps file naming all the BUILD files,
-      which is then referenced from 'build.ninja' to ensure that it gets
-      regenerated if the build changes.
+    Currently, this produces only a single file, 'build.ninja.'
     """
-    # Write implicit deps file. This ensures that build.ninja gets regenerated
-    # if any of the build files change.
-    # TODO: I think this might be slightly overcomplicated.
-    with open('.build.ninja.deps.tmp', 'w') as f:
-        f.write("build.ninja: \\\n")
-        for filename in project.files():
-            f.write("  %s \\\n" % filename)
-
-        f.write("\n") # for final backslash
-
-    os.rename('.build.ninja.deps.tmp', 'build.ninja.deps')
-
-    # Begin emitting build.ninja
-
     writer = cobble.ninja_syntax.Writer(open('.build.ninja.tmp', 'w'))
 
-    # Write automatic regeneration rules.
+    # Write automatic regeneration rule.
     writer.comment('Automatic regeneration')
     writer.rule(
         name = 'cobble_generate_ninja',
         command = './cobble init --reinit ' + project.root,
         description = '(cobbling something together)',
-        depfile = 'build.ninja.deps',
     )
 
     writer.build(
         outputs = ['build.ninja'],
         rule = 'cobble_generate_ninja',
+        implicit = project.files(),
     )
 
     writer.newline()
