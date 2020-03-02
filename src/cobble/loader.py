@@ -1,5 +1,6 @@
 """Project loader for reading BUILD and BUILD.conf files."""
 
+import sys
 import importlib
 
 import cobble.env
@@ -58,6 +59,10 @@ def load(root, build_dir):
             raise Exception('Unknown key type: %r' % type)
         kr.define(key)
 
+    # Function that will be exposed to BUILD.conf files as 'plugin_path()'
+    def _build_conf_plugin_path(*paths):
+        sys.path += [project.inpath(p) for p in paths]
+
     # Read in BUILD.conf and eval it for its side effects
     with open(project.inpath('BUILD.conf'), 'r') as f:
         build_conf = compile(
@@ -74,6 +79,8 @@ def load(root, build_dir):
             'install': _build_conf_install,
             'environment': _build_conf_environment,
             'define_key': _build_conf_define_key,
+            'plugin_path': _build_conf_plugin_path,
+
             'ROOT': project.root,
             'BUILD': project.build_dir,
         })

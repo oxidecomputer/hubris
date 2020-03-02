@@ -105,14 +105,6 @@ def init_build_dir(args):
 
     os.symlink(script_path, './cobble')
 
-    # Scan for site-specific Cobble modules
-    # TODO: allow this to be overridden in BUILD.conf too
-    # TODO: also, allow this to include multiple locations, to support plugins
-    # in submodules.
-    project_module_dir = os.path.join(args.project, "site_cobble")
-    if os.path.isdir(project_module_dir):
-        sys.path += [project_module_dir]
-
     # Build the graph...
     project = cobble.loader.load(args.project, '.')
     # ...and blow it out.
