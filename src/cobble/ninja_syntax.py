@@ -92,7 +92,7 @@ class Writer(object):
             self.variable('restat', restat and '1')
 
     def build(self, outputs, rule, inputs=None, implicit=None, order_only=None,
-              variables=None):
+              variables=None, dyndep=None):
         """Emits a build product.
 
         Outputs, inputs, implicit, and order_only are typically iterables, but
@@ -120,6 +120,7 @@ class Writer(object):
                                         ' '.join(all_inputs)))
 
         with self._increase_indent():
+            self.variable('dyndep', dyndep)
             if variables is None:
               pass
             elif isinstance(variables, collections.Mapping):

@@ -327,7 +327,8 @@ class Product(object):
             inputs = None,
             implicit = None,
             order_only = None,
-            symlink_as = None):
+            symlink_as = None,
+            dyndep = None):
         """Creates a new Product.
 
         All parameters directly correspond to the attributes documented at
@@ -342,6 +343,7 @@ class Product(object):
         self.rule = rule
         self.outputs = cobble.env.freeze(outputs)
         self.symlink_as = symlink_as
+        self.dyndep = dyndep
 
         self.implicit = env[IMPLICIT.name]
         if implicit: self.implicit |= frozenset(implicit)
@@ -392,6 +394,7 @@ class Product(object):
         if self.implicit: d['implicit'] = sorted(self.implicit)
         if self.order_only: d['order_only'] = sorted(self.order_only)
         if self.variables: d['variables'] = dict(sorted(self.variables.items()))
+        if self.dyndep: d['dyndep'] = self.dyndep
 
         if self.symlink_as:
             assert len(self.outputs) == 1, \
