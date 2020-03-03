@@ -9,12 +9,18 @@ import os.path
 import subprocess
 import sys
 
+def _compat_add_subparser(parser, title, dest):
+    if sys.version_info >= (3,7):
+        return parser.add_subparsers(title = title, dest = dest, required = True)
+    else:
+        return parser.add_subparsers(title = title, dest = dest)
+
 def make_argument_parser():
     """Defines the grammar for command-line arguments."""
 
     parser = argparse.ArgumentParser()
 
-    subparsers = parser.add_subparsers(title = 'command', dest = 'command', required = True)
+    subparsers = _compat_add_subparser(parser, title = 'command', dest = 'command')
 
     init_parser = subparsers.add_parser('init',
             help = 'Initialize a build directory')

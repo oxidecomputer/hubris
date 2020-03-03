@@ -50,7 +50,7 @@ def load(root, build_dir):
         project.named_envs[name] = env
 
     # Function that will be exposed to BUILD.conf files as 'define_key()'
-    def _build_conf_define_key(name, /, *, type):
+    def _build_conf_define_key(name, *, type):
         if type == 'string':
             key = cobble.env.overrideable_string_key(name)
         elif type == 'bool':

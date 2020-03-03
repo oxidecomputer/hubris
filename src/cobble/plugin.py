@@ -21,12 +21,9 @@ def target_def(fn):
     n_kw_only = sum(1 for p in sig.parameters if sig.parameters[p].kind ==
             Parameter.KEYWORD_ONLY)
 
-    assert n_pos_only == 2, "target_def function should have 2 \
-            positional-only arguments: package, name"
-
-    assert n_pos_only + n_kw_only == len(sig.parameters), \
-            "target_def function must only have positional-only and keyword-only \
-            parameters"
+    assert len(sig.parameters) == n_kw_only + 2, \
+            "target_def function should have 2 \
+            positional arguments: package, name"
 
     rewrites = {}
     for p in sig.parameters:

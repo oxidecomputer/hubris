@@ -30,7 +30,7 @@ _link_keys = frozenset([cobble.target.IMPLICIT.name, CXX.name, LINK_SRCS.name,
 _archive_keys = frozenset([AR.name])
 
 @target_def
-def c_binary(package, name, /, *,
+def c_binary(package, name, *,
         env,
         deps = [],
         sources = [],
@@ -85,7 +85,7 @@ def c_binary(package, name, /, *,
     )
 
 @target_def
-def c_library(package, name, /, *,
+def c_library(package, name, *,
         deps = [],
         sources = [],
         local: Delta = {},
