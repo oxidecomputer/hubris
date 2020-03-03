@@ -366,7 +366,7 @@ class Env(object):
                 v = self.rewrite(v)
                 v = key_def.from_literal(v)
                 if k in self._dict:
-                    new_value = key_def.combine(self[k], v)
+                    new_value = key_def.combine(self._dict[k], v)
                     if new_value is None:
                         del new_dict[k]
                     else:
