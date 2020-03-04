@@ -8,11 +8,16 @@ from functools import reduce
 import os.path
 
 # Key used to accumulate implicit dependency edges for Ninja.
-IMPLICIT = cobble.env.frozenset_key('__implicit__')
+IMPLICIT = cobble.env.frozenset_key('__implicit__',
+        help = ('Accumulates implicit dependency edges on build products for '
+                'use by Ninja.'))
 
 # Key used to accumulate order-only (i.e. not time-sensitive) dependency edges
 # for Ninja.
-ORDER_ONLY = cobble.env.frozenset_key('__order_only__')
+ORDER_ONLY = cobble.env.frozenset_key('__order_only__',
+        help = ('Accumulates order-only dependency edges on build products for '
+                'use by Ninja. Order-only dependencies only need to *exist*, '
+                'rather than needing to be up-to-date.'))
 
 KEYS = frozenset([IMPLICIT, ORDER_ONLY])
 

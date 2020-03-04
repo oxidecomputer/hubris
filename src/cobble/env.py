@@ -32,7 +32,8 @@ class EnvKey:
             from_literal = None,
             combine = None,
             default = None,
-            readout = None):
+            readout = None,
+            help = None):
         """Creates a key with a name and strategy functions.
 
         The strategy functions are:
@@ -46,6 +47,9 @@ class EnvKey:
           for the key.
         - readout: used to prepare a value for processing. Can be omitted if no
           preparation (beyond from_literal/combine) is needed.
+
+        'help' optionally gives a message explaining what the key is for, which
+        will be printed if it is required but not found.
         """
 
         self.name = name
@@ -53,6 +57,7 @@ class EnvKey:
         self._combine = combine
         self._default = freeze(default)
         self._readout = readout
+        self.help = help
 
     def from_literal(self, literal):
         """Produces a value legal for this key from `literal`, or throws."""
@@ -81,7 +86,8 @@ class EnvKey:
         """Gets the default value for this key, or `None`."""
         return self._default
 
-def overrideable_string_key(name, default = None, readout = None):
+def overrideable_string_key(name, default = None, readout = None,
+        help = None):
     """Makes an EnvKey with a given 'name' that will accept a single string and
     allow overrides."""
     def from_literal(lit):
@@ -93,9 +99,10 @@ def overrideable_string_key(name, default = None, readout = None):
         combine = lambda lhs, rhs: rhs,
         default = default,
         readout = readout,
+        help = help,
     )
 
-def overrideable_bool_key(name, readout = None, default = None):
+def overrideable_bool_key(name, readout = None, default = None, help = None):
     """Makes an EnvKey with a given 'name' that will accept a single bool and
     allow overrides."""
     def from_literal(lit):
@@ -107,9 +114,10 @@ def overrideable_bool_key(name, readout = None, default = None):
         combine = lambda lhs, rhs: rhs,
         readout = readout,
         default = default,
+        help = help,
     )
 
-def appending_string_seq_key(name, readout = None, default = ()):
+def appending_string_seq_key(name, readout = None, default = (), help = None):
     """Makes an EnvKey with a given 'name' that will accept sequences of
     strings and combine them by appending to yield a tuple."""
     def from_literal(lit):
@@ -125,9 +133,10 @@ def appending_string_seq_key(name, readout = None, default = ()):
         combine = lambda lhs, rhs: lhs + rhs,
         default = tuple(freeze(e) for e in default),  # defensive copy
         readout = readout,
+        help = help,
     )
 
-def prepending_string_seq_key(name, default = (), readout = None):
+def prepending_string_seq_key(name, default = (), readout = None, help = None):
     """Makes an EnvKey with a given 'name' that will accept sequences of
     strings and combine them by prepending. When extended by a delta at several
     points in the build graph, this will order items produced by most-derived
@@ -145,9 +154,10 @@ def prepending_string_seq_key(name, default = (), readout = None):
         combine = lambda lhs, rhs: rhs + lhs,
         default = tuple(freeze(e) for e in default),
         readout = readout,
+        help = help,
     )
 
-def frozenset_key(name, readout = None, default = ()):
+def frozenset_key(name, readout = None, default = (), help = None):
     """Makes an EnvKey with a given 'name' that will accept iterables of
     strings and combine them into a unique frozen set."""
     def from_literal(lit):
@@ -164,6 +174,7 @@ def frozenset_key(name, readout = None, default = ()):
         combine = lambda lhs, rhs: lhs | rhs,
         default = frozenset(freeze(e) for e in default),
         readout = readout,
+        help = help,
     )
 
 
@@ -445,8 +456,16 @@ class Env(object):
         'keys'. Default values count if the key's default value is not None."""
         missing = [k for k in keys \
                 if k not in self._dict and self._registry[k].default is None]
-        assert not missing, \
-                "Required keys %r missing from environment" % missing
+        if missing:
+            msg = "Required keys %r missing from environment" % missing
+            for m in missing:
+                h = self._registry[m].help
+                if h is None:
+                    msg += '\n- \'%s\' has no description' % m
+                else:
+                    msg += '\n- \'%s\': %s' % (m, h)
+
+            raise AssertionError(msg)
 
 def freeze(x):
     """Attempts to make x immutable by converting it into a *frozen datum*.

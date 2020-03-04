@@ -8,21 +8,53 @@ DEPS_INCLUDE_SYSTEM = cobble.env.overrideable_bool_key(
     name = 'c_deps_include_system',
     default = False,
     readout = lambda x: '-MMD' if x else '-MD',
+    help = ('Whether to recompile in response to changes to system headers. '
+            'While this sounds nice, the default is False, because it has '
+            'produced buggy behavior in some projects.'),
 )
-LINK_SRCS = cobble.env.prepending_string_seq_key('c_link_srcs')
-LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags')
-CC = cobble.env.overrideable_string_key('cc')
-CXX = cobble.env.overrideable_string_key('cxx')
-ASPP = cobble.env.overrideable_string_key('aspp')
-AR = cobble.env.overrideable_string_key('ar')
-C_FLAGS = cobble.env.appending_string_seq_key('c_flags')
-CXX_FLAGS = cobble.env.appending_string_seq_key('cxx_flags')
-ASPP_FLAGS = cobble.env.appending_string_seq_key('aspp_flags')
-ARCHIVE_PRODUCTS = cobble.env.overrideable_bool_key('c_library_archive_products', default = True)
-WHOLE_ARCHIVE = cobble.env.overrideable_bool_key('c_library_whole_archive')
+LINK_SRCS = cobble.env.prepending_string_seq_key('c_link_srcs',
+        help = ('Accumulates objects and archives for the link process. '
+                'Items added to this key are *prepended* to reflect the fact '
+                'that we visit the DAG in post-order, but C linkers expect '
+                'pre-order.'))
+LINK_FLAGS = cobble.env.appending_string_seq_key('c_link_flags',
+        help = 'Extra flags to pass to cxx when used as linker.')
+CC = cobble.env.overrideable_string_key('cc',
+        help = 'Path to the C compiler to use.')
+CXX = cobble.env.overrideable_string_key('cxx',
+        help = 'Path to the C++ compiler to use (also used for link).')
+ASPP = cobble.env.overrideable_string_key('aspp',
+        help = 'Path to the program to use to process .S files (often cc).')
+AR = cobble.env.overrideable_string_key('ar',
+        help = 'Path to the system library archiver.')
+C_FLAGS = cobble.env.appending_string_seq_key('c_flags',
+        help = 'Extra flags to pass to cc for C targets.')
+CXX_FLAGS = cobble.env.appending_string_seq_key('cxx_flags',
+        help = 'Extra flags to pass to cxx for C++ targets.')
+ASPP_FLAGS = cobble.env.appending_string_seq_key('aspp_flags',
+        help = 'Extra flags to pass to aspp for .S targets.')
+ARCHIVE_PRODUCTS = cobble.env.overrideable_bool_key(
+        'c_library_archive_products',
+        default = True,
+        help = ('Whether to internally produce .a archives for libraries. '
+                'When True (the default), c_library targets will produce '
+                'a static archive using the configured ar tool, and users '
+                'will depend on the archive. When False, users will depend '
+                'directly on the bag of objects produced when compiling '
+                'the library. The default setting produces slightly slower '
+                'builds with more readable command lines.'))
+WHOLE_ARCHIVE = cobble.env.overrideable_bool_key('c_library_whole_archive',
+        help = ('Whether to force inclusion of all of a library at link. '
+                'This would normally be set in the local delta of a '
+                'c_library target that needs to alter the default linker '
+                'behavior by adding --whole-archive. This is useful for '
+                'things like interrupt vector tables that might not appear '
+                '"used" otherwise, but should be left False (the default) '
+                'for most libraries.'))
 
-KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX, C_FLAGS,
-    CXX_FLAGS, ASPP, AR, ASPP_FLAGS, ARCHIVE_PRODUCTS, WHOLE_ARCHIVE])
+KEYS = frozenset([DEPS_INCLUDE_SYSTEM, LINK_SRCS, LINK_FLAGS, CC, CXX,
+    C_FLAGS, CXX_FLAGS, ASPP, AR, ASPP_FLAGS, ARCHIVE_PRODUCTS,
+    WHOLE_ARCHIVE])
 
 _compile_keys = frozenset([cobble.target.ORDER_ONLY.name, DEPS_INCLUDE_SYSTEM.name])
 _link_keys = frozenset([cobble.target.IMPLICIT.name, CXX.name, LINK_SRCS.name,
