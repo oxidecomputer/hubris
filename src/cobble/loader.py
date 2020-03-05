@@ -1,7 +1,8 @@
 """Project loader for reading BUILD and BUILD.conf files."""
 
-import sys
 import importlib
+import sys
+import traceback
 
 import cobble.env
 
@@ -65,25 +66,34 @@ def load(root, build_dir):
 
     # Read in BUILD.conf and eval it for its side effects
     with open(project.inpath('BUILD.conf'), 'r') as f:
-        build_conf = compile(
-            source = f.read(),
-            filename = project.inpath('BUILD.conf'),
-            mode = 'exec',
-            dont_inherit = 1,
-        )
-        exec(build_conf, {
-            # Block access to builtins. TODO: this might be too aggressive.
-            '__builtins__': {},
+        try:
+            build_conf = compile(
+                source = f.read(),
+                filename = project.inpath('BUILD.conf'),
+                mode = 'exec',
+                dont_inherit = 1,
+            )
+            exec(build_conf, {
+                # Block access to builtins. TODO: this might be too aggressive.
+                '__builtins__': {},
 
-            'seed': _build_conf_seed,
-            'install': _build_conf_install,
-            'environment': _build_conf_environment,
-            'define_key': _build_conf_define_key,
-            'plugin_path': _build_conf_plugin_path,
+                'seed': _build_conf_seed,
+                'install': _build_conf_install,
+                'environment': _build_conf_environment,
+                'define_key': _build_conf_define_key,
+                'plugin_path': _build_conf_plugin_path,
 
-            'ROOT': project.root,
-            'BUILD': project.build_dir,
-        })
+                'ROOT': project.root,
+                'BUILD': project.build_dir,
+            })
+        except:
+            exc_info = sys.exc_info()
+            limit = len(traceback.extract_tb(exc_info[2])) - 1
+            raise BuildError(
+                    exc_info = exc_info,
+                    limit = limit,
+                    kind = 'BUILD.conf file',
+                    path = project.inpath('BUILD.conf')) from exc_info[1]
 
     # Process the package worklist. We're also extending the worklist in this
     # algorithm, treating it like a stack (rather than a queue). This means the
@@ -126,13 +136,22 @@ def load(root, build_dir):
 
         # And now, the evaluation!
         with open(package.inpath('BUILD'), 'r') as f:
-            build_file = compile(
-                source = f.read(),
-                filename = package.inpath('BUILD'),
-                mode = 'exec',
-                dont_inherit = 1,
-            )
-            exec(build_file, pkg_env)
+            try:
+                build_file = compile(
+                    source = f.read(),
+                    filename = package.inpath('BUILD'),
+                    mode = 'exec',
+                    dont_inherit = 1,
+                )
+                exec(build_file, pkg_env)
+            except:
+                exc_info = sys.exc_info()
+                limit = len(traceback.extract_tb(exc_info[2])) - 1
+                raise BuildError(
+                        exc_info = exc_info,
+                        limit = limit,
+                        kind = 'BUILD file',
+                        path = package.inpath('BUILD')) from exc_info[1]
 
     # Register all plugins' ninja rules. We could probably do this earlier, but
     # hey.
@@ -166,3 +185,10 @@ def _get_relpath(ident):
     containing the BUILD file defining a target named by an ident."""
     assert ident.startswith('//'), "bogus ident got in: %r" % ident
     return ident[2:].split(':')[0]
+
+class BuildError(Exception):
+    def __init__(self, exc_info, kind, path, limit):
+        self.exc_info = exc_info
+        self.kind = kind
+        self.path = path
+        self.limit = limit

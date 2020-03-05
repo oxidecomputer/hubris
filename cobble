@@ -8,6 +8,7 @@ import argparse
 import os.path
 import subprocess
 import sys
+import traceback
 
 def _compat_add_subparser(parser, title, dest):
     if sys.version_info >= (3,7):
@@ -112,7 +113,30 @@ def init_build_dir(args):
     os.symlink(script_path, './cobble')
 
     # Build the graph...
-    project = cobble.loader.load(args.project, '.')
+    try:
+        project = cobble.loader.load(args.project, '.')
+    except cobble.loader.BuildError as e:
+        ex_type, ex, tb = e.exc_info
+        print('Error evaluating', e.kind, os.path.relpath(e.path, '.'),
+                ':', ex,
+                file = sys.stderr)
+        print('Build directory cannot be initialized', file=sys.stderr)
+        print(file=sys.stderr)
+        traceback.print_exception(ex_type, ex, tb, limit = -e.limit)
+
+        if ex_type is ImportError:
+            print('Help: Python `import` is not available in this context.',
+                    file=sys.stderr)
+            if e.kind.find('BUILD.conf') >= 0:
+                print('Help: Use `install` to install plugins.', file=sys.stderr)
+            else:
+                print('Help: Plugins must be registered in BUILD.conf.',
+                        file=sys.stderr)
+
+        if ex_type is NameError:
+            print('Help: perhaps you are missing a plugin?', file=sys.stderr)
+        return 1
+
     # ...and blow it out.
     try:
         cobble.output.write_ninja_files(project,
