@@ -163,13 +163,30 @@ def _get_relpath(ident):
     return ident[2:].split(':')[0]
 
 class BuildError(Exception):
+    """Exception raised if processing of a BUILD/BUILD.conf file fails."""
+
     def __init__(self, exc_info, kind, path, limit):
+        """Creates a BuildError.
+
+        'exc_info' is the information on the exception as received from
+        'sys.exc_info()`.
+
+        'kind' is a human-readable str description of what we were processing.
+
+        'path' is a path to the file being processed.
+
+        'limit' is the depth of the traceback that is relevant to the user
+        error, i.e. does not include Cobble stack frames.
+        """
         self.exc_info = exc_info
         self.kind = kind
         self.path = path
         self.limit = limit
 
 def _compile_and_exec(path, kind, globals):
+    """Implementation factor of BUILD and BUILD.conf evaluation. Loads the file
+    at 'path' and execs it in an environment of 'globals', reporting the
+    failure as 'kind' if it occurs."""
     with open(path, 'r') as f:
         try:
             mod = compile(

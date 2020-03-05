@@ -11,6 +11,12 @@ import sys
 import traceback
 
 def _compat_add_subparser(parser, title, dest):
+    """Python made an incompatible change to how subparsers work between 3.6
+    and 3.7. In 3.7, you must pass the 'required' argument, or the default help
+    message will suck. In 3.6, this argument is rejected as illegal. Wheeeeee.
+
+    This function provides a compatibility shim.
+    """
     if sys.version_info >= (3,7):
         return parser.add_subparsers(title = title, dest = dest, required = True)
     else:

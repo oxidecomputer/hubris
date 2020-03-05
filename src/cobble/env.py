@@ -67,10 +67,11 @@ class EnvKey:
             return literal
 
     def combine(self, lhs, rhs):
-        """Combines two values for this key, or throws if they can't be combined."""
-        assert self._combine is not None, \
-                "Environment key %s requires a unique value, got two: %r and %r" \
-                % (self.name, lhs, rhs)
+        """Combines two values for this key, or throws if they can't be
+        combined."""
+        assert self._combine is not None, (
+                "Environment key %s requires a unique value, got two: %r and %r"
+                % (self.name, lhs, rhs))
         return self._combine(lhs, rhs)
 
     def readout(self, value):
