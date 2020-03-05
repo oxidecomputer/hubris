@@ -82,7 +82,12 @@ class Target(object):
         """Returns the identifier of this target, of the form that would be
         used in deps.
         """
-        return '//' + self.package.relpath + ':' + self._name
+        rp = self.package.relpath
+        if rp == '.':
+            # Special case for targets defined at the project root
+            return '//:' + self._name
+        else:
+            return '//' + rp + ':' + self._name
 
     @property
     def deps(self):
@@ -166,13 +171,27 @@ class Target(object):
         that later calls to 'evaluate' with the same values of 'self' and
         'env_up' return a cached value.
         """
-        if env_up not in self._evaluate_memos:
-            self._evaluate_memos[env_up] = RecursionDetector
-            self._evaluate_memos[env_up] = self._evaluate(env_up)
-        result = self._evaluate_memos[env_up]
-        assert result is not RecursionDetector, \
-                "cycle detected in build graph evaluation"
-        return result
+        try:
+            if env_up not in self._evaluate_memos:
+                self._evaluate_memos[env_up] = RecursionDetector
+                self._evaluate_memos[env_up] = self._evaluate(env_up)
+
+            result = self._evaluate_memos[env_up]
+            if isinstance(result, Exception):
+                raise result
+
+            assert result is not RecursionDetector, \
+                    "cycle detected in build graph evaluation: " \
+                    + "%s depends on itself" % self.ident
+            return result
+        except EvaluationError as e:
+            self._evaluate_memos[env_up] = e
+            e.add_dep(self, env_up)
+            raise
+        except Exception as e:
+            ee = EvaluationError(e, self, env_up)
+            self._evaluate_memos[env_up] = ee
+            raise ee from e
 
     def _evaluate(self, env_up):
         """Non-memoized implementation of 'evaluate'."""
@@ -419,3 +438,11 @@ class Product(object):
 
 class RecursionDetector:
     pass
+
+class EvaluationError(Exception):
+    def __init__(self, cause, target, env):
+        self.cause = cause
+        self.targets = [(target, env)]
+
+    def add_dep(self, target, env):
+        self.targets.append((target, env))

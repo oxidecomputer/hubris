@@ -49,6 +49,7 @@ def write_ninja_files(project,
         # targets, even though they likely share significant subgraphs, because
         # of memoization in evaluate.
         _topomap, product_map = concrete_target.evaluate(None)
+
         # Work through all target output in the transitive graph of this
         # concrete target.
         for (target, env), products in product_map.items():

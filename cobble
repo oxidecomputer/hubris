@@ -114,11 +114,30 @@ def init_build_dir(args):
     # Build the graph...
     project = cobble.loader.load(args.project, '.')
     # ...and blow it out.
-    cobble.output.write_ninja_files(project,
-            dump_environments = args.dump_environments)
+    try:
+        cobble.output.write_ninja_files(project,
+                dump_environments = args.dump_environments)
+    except cobble.target.EvaluationError as e:
+        tgt, env = e.targets[0]
+        if env is None:
+            print('Target evaluation failed in', tgt.ident, file=sys.stderr)
+        else:
+            print('Target evaluation failed in', tgt.ident, '@', env.digest,
+                    file=sys.stderr)
+        print('--- message ---', file = sys.stderr)
+        print(*e.cause.args, file=sys.stderr)
+        print('--- outer environment ---', file=sys.stderr)
+        for k in env:
+            print(k, '=', env[k], file=sys.stderr)
+        print('--- dependency chain ---', file=sys.stderr)
+        for dt, de in e.targets[1:]:
+            if de is None:
+                print(' required by', dt.ident, file=sys.stderr)
+            else:
+                print(' required by', dt.ident, '@', env.digest, file=sys.stderr)
+        return 1
 
     return 0
-
 
 def build(args):
     """Implementation of the `build` subcommand."""
