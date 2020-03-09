@@ -6,11 +6,10 @@ from cobble.plugin import *
 
 DEPS_INCLUDE_SYSTEM = cobble.env.overrideable_bool_key(
     name = 'c_deps_include_system',
-    default = False,
-    readout = lambda x: '-MMD' if x else '-MD',
+    default = True,
+    readout = lambda x: '-MD' if x else '-MMD',
     help = ('Whether to recompile in response to changes to system headers. '
-            'While this sounds nice, the default is False, because it has '
-            'produced buggy behavior in some projects.'),
+            '(Default: True)'),
 )
 LINK_SRCS = cobble.env.prepending_string_seq_key('c_link_srcs',
         help = ('Accumulates objects and archives for the link process. '
