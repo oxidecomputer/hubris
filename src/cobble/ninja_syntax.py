@@ -92,7 +92,7 @@ class Writer(object):
             self.variable('restat', restat and '1')
 
     def build(self, outputs, rule, inputs=None, implicit=None, order_only=None,
-              variables=None, dyndep=None):
+              implicit_outputs=None, variables=None, dyndep=None):
         """Emits a build product.
 
         Outputs, inputs, implicit, and order_only are typically iterables, but
@@ -101,9 +101,14 @@ class Writer(object):
         Variables can either be a mapping or an iterable of key,value pairs.
         """
         # TODO(cbiffle): rule name not escaped?
-        out_outputs = map(_escape_path, _as_iterable(outputs))
+        all_outputs = map(_escape_path, _as_iterable(outputs))
         all_inputs = map(_escape_path, _as_iterable(inputs))
 
+        if implicit_outputs:
+            all_outputs = itertools.chain(
+                all_outputs,
+                ['|'],
+                map(_escape_path, _as_iterable(implicit_outputs)))
         if implicit:
             all_inputs = itertools.chain(
                 all_inputs,
@@ -115,7 +120,7 @@ class Writer(object):
                 ['||'],
                 map(_escape_path, _as_iterable(order_only)))
 
-        self._line('build %s: %s %s' % (' '.join(out_outputs),
+        self._line('build %s: %s %s' % (' '.join(all_outputs),
                                         rule,
                                         ' '.join(all_inputs)))
 
