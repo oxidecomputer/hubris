@@ -22,7 +22,7 @@ panic-itm = "0.4.1"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "sketch"
+name = "test0"
 test = false
 bench = false
 
