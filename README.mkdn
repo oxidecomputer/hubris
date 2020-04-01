@@ -1,0 +1,4 @@
+# Hubris Design Exercise Repo
+
+This repo contains the sketches and notes that I'm putting together in support
+of the OS design effort on RFD41.
