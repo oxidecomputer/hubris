@@ -200,3 +200,108 @@ pub enum SendError {
     /// response has been deposited for your inspection.
     OverlyEnthusiasticResponse,
 }
+
+
+/// Receives the highest priority incoming message.
+///
+/// If `src` is `None`, takes the highest priority message from any sender. If
+/// `src` is `Some(task)`, only listens for messages from `task`.
+///
+/// In either case, messages will be preempted if your task has any posted,
+/// unmasked notifications. To prevent this behavior, set your notification
+/// mask.
+pub fn receive(
+    src: Option<TaskName>,
+    message_buffer: &mut [u8],
+    can_block: bool,
+) -> Result<ReceivedMessage, ReceiveError> {
+    unimplemented!()
+}
+
+/// Information about a message from `receive`.
+pub struct ReceivedMessage {
+    /// Designates the sender. Normally, this is an application task, and the
+    /// kernel guarantees that it is now blocked waiting for your `reply`.
+    /// However, this may also be the reserved kernel task ID 0, in which case
+    /// this message is actually a notification delivery.
+    pub sender: TaskName,
+    /// Number of bytes sent.
+    ///
+    /// **Note:** This number may be *larger* than the length of the buffer you
+    /// provided! It is the actual number of bytes provided by the sender. The
+    /// actual number of bytes *received* is given by
+    /// `usize::min(message_buffer.len(), received_message.message_len)`.
+    ///
+    /// The expectation is that this subtlety will normally be hidden behind a
+    /// wrapper function for the particular API being implemented.
+    pub message_len: usize,
+    /// Number of bytes the caller has made available to receive your eventual
+    /// reply.
+    pub response_capacity: usize,
+    /// Number of leases the caller has made available.
+    pub lease_count: usize,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ReceiveError {
+    /// You have attempted to perform a directed receive (i.e. providing `src`)
+    /// but the task you have named has died.
+    Condolences,
+    /// You have requested a non-blocking receive, and no messages were pending.
+    NoMessages,
+}
+
+/// Replies to a received message.
+///
+/// `task` designates which caller to reply to. This should be the value of
+/// `received_message.sender` from `receive`.
+///
+/// `message` is the data to send in the reply.
+///
+/// # Reply does not return errors
+///
+/// `reply` does not return a `Result`, i.e. it cannot fail recoverably. This is
+/// to prevent higher-importance server tasks from needing to deal with nuisance
+/// behavior from clients. For example, once a server has completed a work unit,
+/// it very likely doesn't care if its client dies just as the reply is being
+/// sent -- it certainly won't be informed if the client dies *just after.*
+pub fn reply(
+    task: TaskName,
+    message: &[u8],
+) {
+    unimplemented!()
+}
+
+/// Sets the current task's notification mask. 0 bits are disabled (masked), 1
+/// bits are enabled (unmasked).
+pub fn set_notification_mask(_mask: u32) {
+    unimplemented!()
+}
+
+/// Unmasks any notifications corresponding to 1 bits in the parameter. This
+/// just ORs the parameter into the notification mask.
+pub fn unmask_notifications(_mask: u32) {
+    unimplemented!()
+}
+
+/// Masks any notifications corresponding to 1 bits in the parameter. This ANDs
+/// the complement into the notification mask.
+pub fn mask_notifications(_mask: u32) {
+    unimplemented!()
+}
+
+/// Enables the hardware interrupts corresponding to the given notification
+/// bits.
+///
+/// Tasks do not deal in physical IRQ numbers. Instead, hardware interrupts are
+/// routed to their notification bits. A task can then request that the hardware
+/// interrupts associated with a subset of notification bits (given by 1 bits in
+/// the mask here) be enabled.
+///
+/// If any of the bits given here do not *really* correspond to interrupts, they
+/// are ignored. This might become a fault in the future, but ignoring seems
+/// like the right choice for testing.
+pub fn enable_interrupts(_mask: u32) {
+    unimplemented!()
+}
+
