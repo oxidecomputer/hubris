@@ -11,6 +11,8 @@ cortex-m = "0.6.0"
 #panic-itm = "0.4.1"
 panic-halt = "0.2.0"
 bitflags = "1.2.1"
+byteorder = {version = "1.3.4", default-features = false}
+arrayvec = {version = "0.5.1", default-features = false}
 
 # this lets you use `cargo fix`!
 [[bin]]
