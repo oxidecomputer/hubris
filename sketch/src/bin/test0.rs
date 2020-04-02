@@ -1,16 +1,21 @@
 #![no_std]
 #![no_main]
 
-// extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
-extern crate panic_itm; // logs messages over ITM; requires ITM support
+extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
+//extern crate panic_itm; // logs messages over ITM; requires ITM support
 
-use cortex_m::asm;
+use sketch::*;
 
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-    asm::nop(); // To not have main optimize to abort in release mode, remove when you add code
 
+    let dest = TaskName(42);
+    let request = b"ohai there";
+    let mut response = [0; 32];
+    
     loop {
-        // your code goes here
+        let resp_len = send_untyped(dest, request, &mut response, &[])
+            .expect("oh what now");
     }
+
 }
