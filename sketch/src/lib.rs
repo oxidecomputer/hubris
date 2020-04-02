@@ -1,5 +1,8 @@
 #![no_std]
 
+use core::marker::PhantomData;
+use bitflags::bitflags;
+
 // Our assembly language entry points
 extern "C" {
     fn _sys_send(descriptor: &mut SendDescriptor<'_>) -> SendResponse;
@@ -75,18 +78,64 @@ struct SendResponse {
     param: usize,
 }
 
-// TODO: this is a great start to a user-facing type but it needs to be FFI-safe
-// if I'm going to ship it to the kernel
-pub enum Lease<'a> {
-    /// Indicates that you wish to give the peer temporary read access to this
-    /// slice.
-    Read(&'a [u8]),
-    /// Indicates that you wish to give the peer temporary write access to this
-    /// slice. (Just write! No reading. This means you don't have to defensively
-    /// clear the buffer first to avoid leaks. If we need read/write we can add
-    /// it later.)
-    Write(&'a mut [u8]),
+#[repr(C)]
+pub struct Lease<'a> {
+    attributes: LeaseAttributes,
+    base: *const u8,
+    len: usize,
+
+    _phantom: PhantomData<&'a mut ()>,
 }
+
+impl<'a> Lease<'a> {
+    /// Creates a read-only lease on the data in `slice`. If passed to the
+    /// kernel with a `send` operation, this lease will enable the target of the
+    /// send to read from `slice` until it replies.
+    pub fn read(slice: &'a [u8]) -> Self {
+        Self {
+            attributes: LeaseAttributes::READ,
+            base: slice.as_ptr(),
+            len: slice.len(),
+
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Creates a write-only lease on the data in `slice`. If passed to the
+    /// kernel with a `send` operation, this lease will enable the target of the
+    /// send to write to (but not read from!) `slice` until it replies.
+    pub fn write(slice: &'a mut [u8]) -> Self {
+        Self {
+            attributes: LeaseAttributes::WRITE,
+            base: slice.as_ptr(),
+            len: slice.len(),
+
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Creates a read-write lease on the data in `slice`. If passed to the
+    /// kernel with a `send` operation, this lease will enable the target of the
+    /// send to write to or read from `slice` until it replies.
+    pub fn read_write(slice: &'a mut [u8]) -> Self {
+        Self {
+            attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
+            base: slice.as_ptr(),
+            len: slice.len(),
+
+            _phantom: PhantomData,
+        }
+    }
+}
+
+bitflags! {
+    #[repr(transparent)]
+    struct LeaseAttributes: u32 {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+    }
+}
+
 
 /// Things that can go wrong when sending, under *normal operation.*
 ///
