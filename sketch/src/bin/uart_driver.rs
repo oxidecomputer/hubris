@@ -92,11 +92,8 @@ fn safe_main() -> ! {
 
     loop {
         // Receive any incoming event, either from clients or from
-        // notifications. We can `unwrap` here because both potential errors
-        // from `receive` are impossible given the parameters we're passing.
-        //
-        // TODO: that should be reflected in type system then.
-        let message_info = receive(None, &mut buffer, true).unwrap();
+        // notifications.
+        let message_info = receive(&mut buffer);
 
         if message_info.sender == TaskName(0) {
             // Notification message from the kernel. See which bits were
@@ -203,21 +200,34 @@ fn safe_main() -> ! {
 /////////// stub peripheral interface starts here
 
 fn hw_setup() {
-    unimplemented!()
 }
 
+// fake hardware registers
+static mut RBR: u8 = 0;
+static mut RBR_FULL: bool = false;
+static mut THR: u8 = 0;
+static mut THR_EMPTY: bool = true;
+
 fn rbr_full() -> bool {
-    unimplemented!()
+    unsafe {
+        core::ptr::read_volatile(&RBR_FULL)
+    }
 }
 
 fn read_rbr() -> u8 {
-    unimplemented!()
+    unsafe {
+        core::ptr::read_volatile(&RBR)
+    }
 }
 
 fn thr_empty() -> bool {
-    unimplemented!()
+    unsafe {
+        core::ptr::read_volatile(&THR_EMPTY)
+    }
 }
 
-fn write_thr(_c: u8) {
-    unimplemented!()
+fn write_thr(c: u8) {
+    unsafe {
+        core::ptr::write_volatile(&mut THR, c)
+    }
 }

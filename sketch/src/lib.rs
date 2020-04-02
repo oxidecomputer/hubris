@@ -1,15 +1,21 @@
 #![no_std]
 
 use core::marker::PhantomData;
+use core::mem::MaybeUninit;
+
 use bitflags::bitflags;
 
 // Our assembly language entry points
 extern "C" {
     fn _sys_send(descriptor: &mut SendDescriptor<'_>) -> SendResponse;
+    fn _sys_receive(buffer: *mut u8, buffer_len: usize, rxinfo: *mut ReceivedMessage);
+    fn _sys_reply(task: TaskName, message: *const u8, len: usize);
+    fn _sys_notmask(and: u32, or: u32);
 }
 
 /// A type for designating a task you want to interact with.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(transparent)]
 pub struct TaskName(pub u16);
 
 /// Sends a message and waits for a reply.
@@ -202,23 +208,26 @@ pub enum SendError {
 }
 
 
-/// Receives the highest priority incoming message.
+/// Receives the highest priority incoming message from any source.
 ///
-/// If `src` is `None`, takes the highest priority message from any sender. If
-/// `src` is `Some(task)`, only listens for messages from `task`.
-///
-/// In either case, messages will be preempted if your task has any posted,
-/// unmasked notifications. To prevent this behavior, set your notification
-/// mask.
+/// Messages will be preempted if your task has any posted, unmasked
+/// notifications. To prevent this behavior, set your notification mask.
 pub fn receive(
-    src: Option<TaskName>,
     message_buffer: &mut [u8],
-    can_block: bool,
-) -> Result<ReceivedMessage, ReceiveError> {
-    unimplemented!()
+) -> ReceivedMessage {
+    unsafe {
+        let mut rxinfo = MaybeUninit::uninit();
+        _sys_receive(
+            message_buffer.as_mut_ptr(),
+            message_buffer.len(),
+            rxinfo.as_mut_ptr(),
+        );
+        rxinfo.assume_init()
+    }
 }
 
 /// Information about a message from `receive`.
+#[repr(C)]
 pub struct ReceivedMessage {
     /// Designates the sender. Normally, this is an application task, and the
     /// kernel guarantees that it is now blocked waiting for your `reply`.
@@ -242,15 +251,6 @@ pub struct ReceivedMessage {
     pub lease_count: usize,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum ReceiveError {
-    /// You have attempted to perform a directed receive (i.e. providing `src`)
-    /// but the task you have named has died.
-    Condolences,
-    /// You have requested a non-blocking receive, and no messages were pending.
-    NoMessages,
-}
-
 /// Replies to a received message.
 ///
 /// `task` designates which caller to reply to. This should be the value of
@@ -269,25 +269,33 @@ pub fn reply(
     task: TaskName,
     message: &[u8],
 ) {
-    unimplemented!()
+    unsafe {
+        _sys_reply(task, message.as_ptr(), message.len())
+    }
 }
 
 /// Sets the current task's notification mask. 0 bits are disabled (masked), 1
 /// bits are enabled (unmasked).
-pub fn set_notification_mask(_mask: u32) {
-    unimplemented!()
+pub fn set_notification_mask(mask: u32) {
+    unsafe {
+        _sys_notmask(0, mask)
+    }
 }
 
 /// Unmasks any notifications corresponding to 1 bits in the parameter. This
 /// just ORs the parameter into the notification mask.
-pub fn unmask_notifications(_mask: u32) {
-    unimplemented!()
+pub fn unmask_notifications(mask: u32) {
+    unsafe {
+        _sys_notmask(!0, mask)
+    }
 }
 
 /// Masks any notifications corresponding to 1 bits in the parameter. This ANDs
 /// the complement into the notification mask.
-pub fn mask_notifications(_mask: u32) {
-    unimplemented!()
+pub fn mask_notifications(mask: u32) {
+    unsafe {
+        _sys_notmask(!mask, 0)
+    }
 }
 
 /// Enables the hardware interrupts corresponding to the given notification
@@ -301,7 +309,15 @@ pub fn mask_notifications(_mask: u32) {
 /// If any of the bits given here do not *really* correspond to interrupts, they
 /// are ignored. This might become a fault in the future, but ignoring seems
 /// like the right choice for testing.
-pub fn enable_interrupts(_mask: u32) {
-    unimplemented!()
+pub fn enable_interrupts(mask: u32) {
+    // This assumes that the enable interrupts operation is implemented as a
+    // message to the kernel "task" instead of a syscall. We `unwrap` the result
+    // because, if the kernel returns an error, something is SERIOUSLY WRONG.
+    send_untyped(
+        TaskName(0),
+        &[1, 0, 0, 0, mask as u8, (mask >> 8) as u8, (mask >> 16) as u8, (mask >> 24) as u8],
+        &mut [],
+        &[],
+    ).unwrap();
 }
 
