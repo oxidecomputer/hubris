@@ -8,7 +8,6 @@ use sketch::*;
 
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
-
     let dest = TaskName(42);
     let request = b"ohai there";
     let mut response = [0; 32];
@@ -31,5 +30,4 @@ pub unsafe extern "C" fn _start() -> ! {
             Err(SendError::DeathComesForUsAll) => panic!(),
         }
     }
-
 }
