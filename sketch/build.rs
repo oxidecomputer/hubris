@@ -1,8 +1,3 @@
-use std::env;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
-
 fn main() {
     linker_script_plumbing();
     build_assembly_sources();
