@@ -61,6 +61,17 @@ pub fn send_untyped(
     }
 }
 
+/// Internal record generated on the stack to describe our desired action to the
+/// kernel.
+///
+/// We could totally pass all this stuff in registers, which would not only be
+/// faster, but it would keep the kernel from needing to use carefully checked
+/// memory access to inspect our userland stack on the fast IPC path. However,
+/// doing this without inline assembler is kind of a pain, so I'm doing it the
+/// awkward-but-stable way for now.
+///
+/// The contents of this struct matches the args to `send_untyped` except slices
+/// are flattened into pairs of words.
 #[repr(C)]
 struct SendDescriptor<'a> {
     dest: u16,
