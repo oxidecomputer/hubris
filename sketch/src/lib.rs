@@ -72,12 +72,36 @@ struct SendDescriptor<'a> {
     lease_len: usize,
 }
 
+/// Internal defined-layout version of a send response.
+///
+/// This exists because the memory/register layout of `Result<usize, SendError>`
+/// is not promised to be stable.
 #[repr(C)]
 struct SendResponse {
+    /// If `true`, `param` is the number of bytes in the response. If `false`,
+    /// `param` enumerates the error condition.
     success: bool,
+    /// See above.
     param: usize,
 }
 
+/// A `Lease` represents something in memory that can be lent to another task.
+/// It is equivalent to a Rust reference, in that it represents a borrow of some
+/// value and is considered by the borrow checker. It differs from a Rust
+/// reference in that (1) it is shared with another task, and (2) it can't
+/// actually be used locally to access the data. (Because you don't need it,
+/// because you already have the data.)
+///
+/// A `Lease` is not simply represented as a Rust reference because the kernel
+/// needs to be able to inspect it and determine your intent. In particular, it
+/// needs to know (1) whether this lease permits the borrower to read, write, or
+/// both, and (2) the size of the type or area being lent, as the kernel knows
+/// nothing of your "type system."
+///
+/// Create a `Lease` using `Lease::read` or `Lease::write`. The expectation is
+/// that these will be generated immediately before a `send` by some sort of
+/// wrapper function, rather than manipulated by normal user code directly.
+#[derive(Debug)]
 #[repr(C)]
 pub struct Lease<'a> {
     attributes: LeaseAttributes,
@@ -129,13 +153,15 @@ impl<'a> Lease<'a> {
 }
 
 bitflags! {
+    /// Internal storage for attributes of leases, to be consumed by the kernel.
     #[repr(transparent)]
     struct LeaseAttributes: u32 {
+        /// Peer may read from the leased memory.
         const READ = 1 << 0;
+        /// Peer may write to the leased memory.
         const WRITE = 1 << 1;
     }
 }
-
 
 /// Things that can go wrong when sending, under *normal operation.*
 ///
