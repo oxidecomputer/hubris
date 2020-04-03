@@ -30,7 +30,7 @@ extern "C" {
         leases: *const Lease<'_>,
     ) -> u64;
     fn _sys_receive(buffer: *mut u8, buffer_len: usize, rxinfo: *mut ReceivedMessage);
-    fn _sys_reply(task: TaskName, message: *const u8, len: usize);
+    fn _sys_reply(task: TaskName, code: u32, message: *const u8, len: usize);
     fn _sys_notmask(and: u32, or: u32);
 }
 
@@ -252,10 +252,11 @@ pub struct ReceivedMessage {
 /// sent -- it certainly won't be informed if the client dies *just after.*
 pub fn reply(
     task: TaskName,
+    code: u32,
     message: &[u8],
 ) {
     unsafe {
-        _sys_reply(task, message.as_ptr(), message.len())
+        _sys_reply(task, code, message.as_ptr(), message.len())
     }
 }
 

@@ -63,11 +63,11 @@ const READ_OP: u8 = 0;
 const WRITE_OP: u8 = 1;
 
 /// Response code for "success"
-const SUCCESS: u8 = 0;
+const SUCCESS: u32 = 0;
 /// Response code for "unknown operation code"
-const UNKNOWN_OP: u8 = 1;
+const UNKNOWN_OP: u32 = 1;
 /// Response code for "resources exhausted"
-const EXHAUSTED: u8 = 2;
+const EXHAUSTED: u32 = 2;
 
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
@@ -105,7 +105,7 @@ fn safe_main() -> ! {
                 // client.
                 if let Some((sender, c)) = blocked_in_tx.pop() {
                     write_thr(c);
-                    reply(sender, &[SUCCESS]);
+                    reply(sender, SUCCESS, &[]);
                 } else {
                     // We left TxE enabled without any clients queued? That's a
                     // bug.
@@ -123,7 +123,7 @@ fn safe_main() -> ! {
             if bits & RXNE_NOTIFICATION != 0 {
                 // Receive holding register has become non-empty.
                 if let Some(sender) = blocked_in_rx.pop() {
-                    reply(sender, &[SUCCESS, read_rbr()]);
+                    reply(sender, SUCCESS, &[read_rbr()]);
                 } else {
                     // We left RxNE enabled without any clients queued? That's a
                     // bug.
@@ -146,14 +146,14 @@ fn safe_main() -> ! {
                     // If the receive holding register is not empty, respond
                     // promptly.
                     if rbr_full() {
-                        reply(message_info.sender, &[SUCCESS, read_rbr()]);
+                        reply(message_info.sender, SUCCESS, &[read_rbr()]);
                     } else {
                         // Otherwise we need to block the caller.
                         if let Err(_) =
                             blocked_in_rx.try_push(message_info.sender)
                         {
                             // Send back resource exhaustion code.
-                            reply(message_info.sender, &[EXHAUSTED]);
+                            reply(message_info.sender, EXHAUSTED, &[]);
                         } else {
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
@@ -171,14 +171,14 @@ fn safe_main() -> ! {
                     // promptly.
                     if thr_empty() {
                         write_thr(c);
-                        reply(message_info.sender, &[SUCCESS]);
+                        reply(message_info.sender, SUCCESS, &[]);
                     } else {
                         // Otherwise we need to block the caller.
                         if let Err(_) =
                             blocked_in_tx.try_push((message_info.sender, c))
                         {
                             // Send back resource exhaustion code.
-                            reply(message_info.sender, &[EXHAUSTED]);
+                            reply(message_info.sender, EXHAUSTED, &[]);
                         } else {
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
@@ -190,7 +190,7 @@ fn safe_main() -> ! {
                 }
                 _ => {
                     // Unknown operation
-                    reply(message_info.sender, &[UNKNOWN_OP]);
+                    reply(message_info.sender, UNKNOWN_OP, &[]);
                 }
             }
         }
