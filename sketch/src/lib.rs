@@ -1,3 +1,18 @@
+//! Proposed/stubbed syscall and IPC interface for Hubris.
+//!
+//! This interface is designed to make as much interaction as possible safe (in
+//! the Rust sense) while being robust against arbitrary unsafe shenanigans and
+//! potentially allowing tasks written in C or assembler. This means:
+//!
+//! - Task-kernel and task-task (IPC) structures need to be predictable layout,
+//!   which in practice means `repr(C)` or `repr(transparent)`.
+//!
+//! - Pointers to data structures can have an assumed length when talking to the
+//!   kernel, but everything else needs to carry an explicit length.
+//!
+//! - The basic IPC operations work in terms of untyped byte slices because
+//!   doing anything more complex has some safety implications.
+
 #![no_std]
 
 use core::marker::PhantomData;
@@ -7,7 +22,13 @@ use bitflags::bitflags;
 
 // Our assembly language entry points
 extern "C" {
-    fn _sys_send(descriptor: &mut SendDescriptor<'_>) -> SendResponse;
+    fn _sys_send(
+        operation_and_task: u32,
+        lengths: u32,
+        outgoing: *const u8,
+        incoming: *mut u8,
+        leases: *const Lease<'_>,
+    ) -> u64;
     fn _sys_receive(buffer: *mut u8, buffer_len: usize, rxinfo: *mut ReceivedMessage);
     fn _sys_reply(task: TaskName, message: *const u8, len: usize);
     fn _sys_notmask(and: u32, or: u32);
@@ -18,11 +39,18 @@ extern "C" {
 #[repr(transparent)]
 pub struct TaskName(pub u16);
 
+pub const NO_PEER: u32 = !0;
+
 /// Sends a message and waits for a reply.
 /// 
 /// The target task is named by `dest`. If `dest` is a name that is stale (i.e.
-/// the target has reset since we last interacted), this returns
-/// `DeathComesForUsAll`.
+/// the target has reset since we last interacted), this returns code `!0`, also
+/// known as `NO_PEER`. This will also occur if the peer dies *after* receiving
+/// the message but *before* replying.
+///
+/// The operation being requested is given by the 16-bit code `operation`.
+/// Operation codes are application-defined, except when talking to the kernel
+/// task, when they are defined by the `KernelOps` enum.
 ///
 /// The request to transmit is identified by `request`. The contents of the
 /// slice will be transferred by the kernel into a place defined by the
@@ -32,74 +60,59 @@ pub struct TaskName(pub u16);
 ///
 /// `response` gives the buffer in which the response message, if any, should be
 /// written. The message will be written if (1) this message is received and (2)
-/// the recipient replies to us. If the message fits, its size is returned.
-/// Otherwise, the first `response.len()` bytes are written and
-/// `OverlyEnthusiasticResponse` is returned.
+/// the recipient replies to us. The response will fit in your buffer; if the
+/// peer tries to deliver an over-large response, it will be faulted and you'll
+/// get `NO_PEER` and a zero-length response instead.
 ///
 /// The `leases` table optionally makes sections of your address space visible
 /// to the peer without additional copies. Leases are revoked before this
 /// returns, so it's equivalent to borrowing.
+///
+/// # Return values
+///
+/// This always returns a pair of `(response_code, reply_length)`.
+///
+/// `response_code` will be the special value `NO_PEER` (`!0`) if the peer died
+/// before the reply was delivered (or earlier). Otherwise, it will be the code
+/// sent by the peer. By convention, `0` means success.
+///
+/// A reply message can be received in either success or failure cases. In the
+/// case of a kernel-generated `NO_PEER` the reply length will be zero.
+///
+/// # Limits
+///
+/// Both `request` and `response` are limited to 256 bytes, to reduce time spent
+/// in the kernel. If you want to send or receive something larger than that,
+/// use a `Lease`.
+///
+/// The `leases` table is limited to 256 entries.
+///
+/// Violating any of these limits will cause a panic.
 pub fn send_untyped(
     dest: TaskName,
+    operation: u16,
     request: &[u8],
     response: &mut [u8],
     leases: &[Lease<'_>],
-) -> Result<usize, SendError> {
-    let r = unsafe {
-        _sys_send(&mut SendDescriptor {
-            dest: dest.0,
-            request_base: request.as_ptr(),
-            request_len: request.len(),
-            response_base: response.as_mut_ptr(),
-            response_len: response.len(),
-            lease_base: leases.as_ptr(),
-            lease_len: leases.len(),
-        })
+) -> (u32, usize) {
+    assert!(request.len() < 0x100);
+    assert!(response.len() < 0x100);
+    assert!(leases.len() < 0x100);
+
+    let combined_lengths = request.len() as u32
+        | (response.len() as u32) << 8
+        | (leases.len() as u32) << 16;
+
+    let packed_code_len = unsafe {
+        _sys_send(
+            u32::from(operation) | u32::from(dest.0) << 16,
+            combined_lengths,
+            request.as_ptr(),
+            response.as_mut_ptr(),
+            leases.as_ptr(),
+        )
     };
-    if r.success {
-        Ok(r.param)
-    } else {
-        Err(match r.param {
-            0 => SendError::DeathComesForUsAll,
-            1 => SendError::OverlyEnthusiasticResponse,
-            _ => panic!(),
-        })
-    }
-}
-
-/// Internal record generated on the stack to describe our desired action to the
-/// kernel.
-///
-/// We could totally pass all this stuff in registers, which would not only be
-/// faster, but it would keep the kernel from needing to use carefully checked
-/// memory access to inspect our userland stack on the fast IPC path. However,
-/// doing this without inline assembler is kind of a pain, so I'm doing it the
-/// awkward-but-stable way for now.
-///
-/// The contents of this struct matches the args to `send_untyped` except slices
-/// are flattened into pairs of words.
-#[repr(C)]
-struct SendDescriptor<'a> {
-    dest: u16,
-    request_base: *const u8,
-    request_len: usize,
-    response_base: *mut u8,
-    response_len: usize,
-    lease_base: *const Lease<'a>,
-    lease_len: usize,
-}
-
-/// Internal defined-layout version of a send response.
-///
-/// This exists because the memory/register layout of `Result<usize, SendError>`
-/// is not promised to be stable.
-#[repr(C)]
-struct SendResponse {
-    /// If `true`, `param` is the number of bytes in the response. If `false`,
-    /// `param` enumerates the error condition.
-    success: bool,
-    /// See above.
-    param: usize,
+    (packed_code_len as u32, (packed_code_len >> 32) as usize)
 }
 
 /// A `Lease` represents something in memory that can be lent to another task.
@@ -179,34 +192,6 @@ bitflags! {
         const WRITE = 1 << 1;
     }
 }
-
-/// Things that can go wrong when sending, under *normal operation.*
-///
-/// Conditions that are conspicuously missing from this set:
-///
-/// - Can't send to that task because of MAC: I would rather treat any
-///   MAC violation as a fault that gets escalated to supervision.
-///
-/// - Message larger than supported by kernel: message size limits are known at
-///   compile time, and most messages are expected to be statically sized. An
-///   attempt to send a message that's too big is a malfunction and should also
-///   be treated as a fault.
-///
-/// - Attempt to send from, or receive into, sections of the address space that
-///   you do not own: malfunction, fault.
-///
-/// Perhaps you are noticing a trend.
-#[derive(Copy, Clone, Debug)]
-pub enum SendError {
-    /// The peer restarted since you last spoke to it. You might need to redo
-    /// some work.
-    DeathComesForUsAll,
-    /// Your message was accepted and processed, but the peer returned a
-    /// response that was larger than the buffer you offered. The prefix of the
-    /// response has been deposited for your inspection.
-    OverlyEnthusiasticResponse,
-}
-
 
 /// Receives the highest priority incoming message from any source.
 ///
@@ -313,11 +298,18 @@ pub fn enable_interrupts(mask: u32) {
     // This assumes that the enable interrupts operation is implemented as a
     // message to the kernel "task" instead of a syscall. We `unwrap` the result
     // because, if the kernel returns an error, something is SERIOUSLY WRONG.
-    send_untyped(
+    let (code, _len) = send_untyped(
         TaskName(0),
-        &[1, 0, 0, 0, mask as u8, (mask >> 8) as u8, (mask >> 16) as u8, (mask >> 24) as u8],
+        KernelOps::EnableInterrupts as u16,
+        &[mask as u8, (mask >> 8) as u8, (mask >> 16) as u8, (mask >> 24) as u8],
         &mut [],
         &[],
-    ).unwrap();
+    );
+    // Kernel sanity checking, probably not necessary
+    assert!(code == 0);
 }
 
+#[repr(u16)]
+pub enum KernelOps {
+    EnableInterrupts = 1,
+}

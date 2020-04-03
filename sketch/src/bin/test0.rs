@@ -9,6 +9,7 @@ use sketch::*;
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
     let dest = TaskName(42);
+    let op = 1;
     let request = b"ohai there";
     let mut response = [0; 32];
 
@@ -16,18 +17,15 @@ pub unsafe extern "C" fn _start() -> ! {
     let mut lent_for_write = [0; 1024];
     
     loop {
-        let rc = send_untyped(dest, request, &mut response, &[
+        let (code, _len) = send_untyped(dest, op, request, &mut response, &[
             Lease::read(lent_for_read),
             Lease::write(&mut lent_for_write),
         ]);
-        match rc {
+        if code == 0 {
             // Ignore responses of any length.
-            Ok(_response_len) => (),
-            // Including ones that are too long for us to receive, for we are a
-            // demo and not a real program.
-            Err(SendError::OverlyEnthusiasticResponse) => (),
-            // If our peer dies, we'll die too. Why not.
-            Err(SendError::DeathComesForUsAll) => panic!(),
+        } else {
+            // Panic on any peer error -- why not
+            panic!()
         }
     }
 }
