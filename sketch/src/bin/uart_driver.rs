@@ -6,7 +6,7 @@
 //!
 //! This driver implements the following IPC protocol.
 //!
-//! The first byte of *any* response is a success code: 0 for operation
+//! The response code of *any* response is as follows: 0 for operation
 //! performed, 1 for operation not recognized, 2 for resource exhaustion.
 //!
 //! ## `read`
@@ -16,17 +16,13 @@
 //! Collects a single character from the UART into the response buffer. Blocks
 //! as needed.
 //!
-//! `response[0] == 1`
-//! `response[1] == c`
+//! `response[0] == c`
 //!
 //! ## `write`
 //!
-//! `message[0] == 1`
-//! `message[1] == c`
+//! `message[0] == c`
 //!
 //! Sends a single character `c` to the UART. Blocks as needed.
-//!
-//! `response[0] == 1`
 //!
 //! # Notification binding
 //!
