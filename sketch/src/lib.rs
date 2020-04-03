@@ -219,6 +219,8 @@ pub struct ReceivedMessage {
     /// However, this may also be the reserved kernel task ID 0, in which case
     /// this message is actually a notification delivery.
     pub sender: TaskName,
+    /// Operation code sent by the sender, verbatim.
+    pub operation: u16,
     /// Number of bytes sent.
     ///
     /// **Note:** This number may be *larger* than the length of the buffer you
