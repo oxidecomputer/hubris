@@ -1,6 +1,10 @@
 //! This is a sketch of how a UART driver might be constructed.
 //!
-//! The UART hardware here is vaguely modeled on the 16550.
+//! The UART hardware here is vaguely modeled on the 16550. The driver assumes
+//! that it is being operated by a *single* client task at any given time; this
+//! is lightly checked. Why a single client task? Well, have you ever tried to
+//! share a serial port between threads without further synchronization? It
+//! doesn't end well.
 //!
 //! # Protocol
 //!
@@ -9,16 +13,14 @@
 //! The response code of *any* response is as follows: 0 for operation
 //! performed, 1 for operation not recognized, 2 for resource exhaustion.
 //!
-//! ## `read`
-//!
-//! `message[0] == 0`
+//! ## `read` (0)
 //!
 //! Collects a single character from the UART into the response buffer. Blocks
 //! as needed.
 //!
 //! `response[0] == c`
 //!
-//! ## `write`
+//! ## `write` (1)
 //!
 //! `message[0] == c`
 //!
@@ -40,13 +42,8 @@ extern crate panic_halt;
 // logs messages over ITM; requires ITM support
 //extern crate panic_itm;
 
-use arrayvec::ArrayVec;
 use byteorder::{ByteOrder, LittleEndian};
 use sketch::*;
-
-/// Size of wait queues to allocate. Would presumably be compile-time
-/// configurable in a real system.
-const MAX_CLIENTS: usize = 4;
 
 /// Bit mask for TxE notification.
 const TXE_NOTIFICATION: u32 = 1 << 0;
@@ -54,9 +51,9 @@ const TXE_NOTIFICATION: u32 = 1 << 0;
 const RXNE_NOTIFICATION: u32 = 1 << 1;
 
 /// Operation code for read.
-const READ_OP: u8 = 0;
+const READ_OP: u16 = 0;
 /// Operation code for write.
-const WRITE_OP: u8 = 1;
+const WRITE_OP: u16 = 1;
 
 /// Response code for "success"
 const SUCCESS: u32 = 0;
@@ -64,6 +61,9 @@ const SUCCESS: u32 = 0;
 const UNKNOWN_OP: u32 = 1;
 /// Response code for "resources exhausted"
 const EXHAUSTED: u32 = 2;
+
+/// Fixed task name for the kernel task
+const THE_KERNEL: TaskName = TaskName(0);
 
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
@@ -81,17 +81,21 @@ fn safe_main() -> ! {
     // our notifications and leave interrupts off.
     set_notification_mask(0);
 
-    // Main loop.
-    let mut buffer = [0; 4];
-    let mut blocked_in_rx = ArrayVec::<[TaskName; MAX_CLIENTS]>::new();
-    let mut blocked_in_tx = ArrayVec::<[(TaskName, u8); MAX_CLIENTS]>::new();
+    // Here's our driver state. We allow a single client at a time to be blocked
+    // in each of TX and RX. Any other concurrent requests indicate that people
+    // are doing something odd without synchronization, and get declined.
+    let mut blocked_txer = None;
+    let mut blocked_rxer = None;
 
+    // Main loop.
     loop {
         // Receive any incoming event, either from clients or from
-        // notifications.
+        // notifications. Our largest incoming message is only one byte, so
+        // allocate a weeee buffer here.
+        let mut buffer = [0; 1];
         let message_info = receive(&mut buffer);
 
-        if message_info.sender == TaskName(0) {
+        if message_info.sender == THE_KERNEL {
             // Notification message from the kernel. See which bits were
             // pending.
             let bits = LittleEndian::read_u32(&buffer);
@@ -99,7 +103,7 @@ fn safe_main() -> ! {
             if bits & TXE_NOTIFICATION != 0 {
                 // Transmit holding register has become empty. We can unblock a
                 // client.
-                if let Some((sender, c)) = blocked_in_tx.pop() {
+                if let Some((sender, c)) = blocked_txer.take() {
                     write_thr(c);
                     reply(sender, SUCCESS, &[]);
                 } else {
@@ -107,35 +111,29 @@ fn safe_main() -> ! {
                     // bug.
                     panic!()
                 }
-                if blocked_in_tx.is_empty() {
-                    // Everyone's handled, mask the interrupt
-                    mask_notifications(TXE_NOTIFICATION);
-                } else {
-                    // We'd be interested in further interrupts like this.
-                    enable_interrupts(TXE_NOTIFICATION);
-                }
+
+                // Because we only block one client, we know nobody else is
+                // pending, so we'll go ahead and shut off the event.
+                mask_notifications(TXE_NOTIFICATION);
             }
 
             if bits & RXNE_NOTIFICATION != 0 {
                 // Receive holding register has become non-empty.
-                if let Some(sender) = blocked_in_rx.pop() {
+                if let Some(sender) = blocked_rxer.take() {
                     reply(sender, SUCCESS, &[read_rbr()]);
                 } else {
                     // We left RxNE enabled without any clients queued? That's a
                     // bug.
                     panic!()
                 }
-                if blocked_in_rx.is_empty() {
-                    // Everyone's handled, mask the interrupt
-                    mask_notifications(RXNE_NOTIFICATION);
-                } else {
-                    // We'd be interested in further interrupts like this.
-                    enable_interrupts(RXNE_NOTIFICATION);
-                }
+
+                // Because we only block one client, we know nobody else is
+                // pending, so we'll go ahead and shut off the event.
+                mask_notifications(RXNE_NOTIFICATION);
             }
         } else {
             // Interprocess message from a client
-            match buffer[0] {
+            match message_info.operation {
                 READ_OP => {
                     // Read
 
@@ -145,23 +143,22 @@ fn safe_main() -> ! {
                         reply(message_info.sender, SUCCESS, &[read_rbr()]);
                     } else {
                         // Otherwise we need to block the caller.
-                        if let Err(_) =
-                            blocked_in_rx.try_push(message_info.sender)
-                        {
-                            // Send back resource exhaustion code.
-                            reply(message_info.sender, EXHAUSTED, &[]);
-                        } else {
+                        if blocked_rxer.is_none() {
+                            blocked_rxer = Some(message_info.sender);
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
                             // cheaper than checking.
                             unmask_notifications(RXNE_NOTIFICATION);
                             enable_interrupts(RXNE_NOTIFICATION);
+                        } else {
+                            // Send back resource exhaustion code.
+                            reply(message_info.sender, EXHAUSTED, &[]);
                         }
                     }
                 }
                 WRITE_OP => {
                     // Write
-                    let c = buffer[1];
+                    let c = buffer[0];
 
                     // If the transmit holding register is empty, respond
                     // promptly.
@@ -170,17 +167,16 @@ fn safe_main() -> ! {
                         reply(message_info.sender, SUCCESS, &[]);
                     } else {
                         // Otherwise we need to block the caller.
-                        if let Err(_) =
-                            blocked_in_tx.try_push((message_info.sender, c))
-                        {
-                            // Send back resource exhaustion code.
-                            reply(message_info.sender, EXHAUSTED, &[]);
-                        } else {
+                        if blocked_txer.is_none() {
+                            blocked_txer = Some((message_info.sender, c));
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
                             // cheaper than checking.
                             unmask_notifications(TXE_NOTIFICATION);
                             enable_interrupts(TXE_NOTIFICATION);
+                        } else {
+                            // Send back resource exhaustion code.
+                            reply(message_info.sender, EXHAUSTED, &[]);
                         }
                     }
                 }
