@@ -92,7 +92,11 @@ extern "C" {
     /// This is safe if `buffer`/`buffer_len` refer to an actual `&mut [u8]` and
     /// `rxinfo` points to a correctly sized and aligned area of writable
     /// memory.
-    fn _sys_receive(buffer: *mut u8, buffer_len: usize, rxinfo: *mut ReceivedMessage);
+    fn _sys_receive(
+        buffer: *mut u8,
+        buffer_len: usize,
+        rxinfo: *mut ReceivedMessage,
+    );
 
     /// REPLY syscall. Sends a response to a task that is blocked after SENDing
     /// to us.
@@ -151,7 +155,12 @@ extern "C" {
     ///
     /// Success/failure code:0`): 0 for success, 1 for borrow number out of
     /// range for lease table, 2 for out-of-range, 3 for read-only.
-    fn _sys_borrow_write(control: u32, offset: usize, data: *const u8, len: usize) -> u32;
+    fn _sys_borrow_write(
+        control: u32,
+        offset: usize,
+        data: *const u8,
+        len: usize,
+    ) -> u32;
 }
 
 /// A type for designating a task you want to interact with.
@@ -159,6 +168,7 @@ extern "C" {
 #[repr(transparent)]
 pub struct TaskName(pub u16);
 
+/// Response code returned by the kernel when an IPC involves a dead task.
 pub const NO_PEER: u32 = !0;
 
 /// Sends a message and waits for a reply.
@@ -254,8 +264,13 @@ pub fn send_untyped(
 #[derive(Debug)]
 #[repr(C)]
 pub struct Lease<'a> {
+    /// Encoding of the lease's properties into a 32-bit word.
     attributes: LeaseAttributes,
+    /// Beginning of leased area. Note that this is a `*const` even if the lease
+    /// is writable. This is okay, as we don't write *through the lease*, but
+    /// let the kernel do it.
     base: *const u8,
+    /// Length of leased area.
     len: usize,
 
     _phantom: PhantomData<&'a mut ()>,
@@ -317,10 +332,11 @@ bitflags! {
 ///
 /// Messages will be preempted if your task has any posted, unmasked
 /// notifications. To prevent this behavior, set your notification mask.
-pub fn receive(
-    message_buffer: &mut [u8],
-) -> ReceivedMessage {
+pub fn receive(message_buffer: &mut [u8]) -> ReceivedMessage {
     unsafe {
+        // Reserve stack for info about the message, but don't bother
+        // initializing it. TODO: this is equivalent to struct return in the C
+        // ABI, maybe just use struct return?
         let mut rxinfo = MaybeUninit::uninit();
         _sys_receive(
             message_buffer.as_mut_ptr(),
@@ -331,7 +347,7 @@ pub fn receive(
     }
 }
 
-/// Information about a message from `receive`.
+/// Information about a message from `receive`, filled in by the kernel.
 #[repr(C)]
 pub struct ReceivedMessage {
     /// Designates the sender. Normally, this is an application task, and the
@@ -372,38 +388,26 @@ pub struct ReceivedMessage {
 /// behavior from clients. For example, once a server has completed a work unit,
 /// it very likely doesn't care if its client dies just as the reply is being
 /// sent -- it certainly won't be informed if the client dies *just after.*
-pub fn reply(
-    task: TaskName,
-    code: u32,
-    message: &[u8],
-) {
-    unsafe {
-        _sys_reply(task, code, message.as_ptr(), message.len())
-    }
+pub fn reply(task: TaskName, code: u32, message: &[u8]) {
+    unsafe { _sys_reply(task, code, message.as_ptr(), message.len()) }
 }
 
 /// Sets the current task's notification mask. 0 bits are disabled (masked), 1
 /// bits are enabled (unmasked).
 pub fn set_notification_mask(mask: u32) {
-    unsafe {
-        _sys_notmask(0, mask)
-    }
+    unsafe { _sys_notmask(0, mask) }
 }
 
 /// Unmasks any notifications corresponding to 1 bits in the parameter. This
 /// just ORs the parameter into the notification mask.
 pub fn unmask_notifications(mask: u32) {
-    unsafe {
-        _sys_notmask(!0, mask)
-    }
+    unsafe { _sys_notmask(!0, mask) }
 }
 
 /// Masks any notifications corresponding to 1 bits in the parameter. This ANDs
 /// the complement into the notification mask.
 pub fn mask_notifications(mask: u32) {
-    unsafe {
-        _sys_notmask(!mask, 0)
-    }
+    unsafe { _sys_notmask(!mask, 0) }
 }
 
 /// Enables the hardware interrupts corresponding to the given notification
@@ -424,7 +428,7 @@ pub fn enable_interrupts(mask: u32) {
     let (code, _len) = send_untyped(
         TaskName(0),
         KernelOps::EnableInterrupts as u16,
-        &[mask as u8, (mask >> 8) as u8, (mask >> 16) as u8, (mask >> 24) as u8],
+        &mask.to_le_bytes(),
         &mut [],
         &[],
     );
@@ -439,18 +443,21 @@ pub enum KernelOps {
 
 pub fn borrow_size(task: TaskName, index: u8) -> Result<usize, BorrowError> {
     let control = u32::from(task.0) | u32::from(index) << 16;
-    let r = unsafe {
-        _sys_borrow_size(control)
-    };
+    let r = unsafe { _sys_borrow_size(control) };
     match r as u32 {
         0 => Ok((r >> 32) as usize),
         1 => Err(BorrowError::BadIndex),
         2 => Err(BorrowError::BadOffset),
         _ => Err(BorrowError::ReadOnly),
-    } 
+    }
 }
 
-pub fn borrow_write(task: TaskName, index: u8, offset: usize, data: &[u8]) -> Result<(), BorrowError> {
+pub fn borrow_write(
+    task: TaskName,
+    index: u8,
+    offset: usize,
+    data: &[u8],
+) -> Result<(), BorrowError> {
     let control = u32::from(task.0) | u32::from(index) << 16;
     let r = unsafe {
         _sys_borrow_write(control, offset, data.as_ptr(), data.len())
