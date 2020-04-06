@@ -11,20 +11,30 @@
 //! This driver implements the following IPC protocol.
 //!
 //! The response code of *any* response is as follows: 0 for operation
-//! performed, 1 for operation not recognized, 2 for resource exhaustion.
+//! performed, 1 for operation not recognized, 2 for resource exhaustion, 3 for
+//! mistakes in setting up borrows.
 //!
-//! ## `read` (0)
+//! ## `getc` (0)
 //!
 //! Collects a single character from the UART into the response buffer. Blocks
 //! as needed.
 //!
 //! `response[0] == c`
 //!
-//! ## `write` (1)
+//! ## `putc` (1)
 //!
 //! `message[0] == c`
 //!
 //! Sends a single character `c` to the UART. Blocks as needed.
+//!
+//! ## `read` (2)
+//!
+//! `message[0] = c`
+//!
+//! Reads characters into borrow 0, until that buffer is full, or the character
+//! `c` is read. (`c` is probably `\n`.)
+//!
+//! If anything goes wrong with the borrow, returns error code 3.
 //!
 //! # Notification binding
 //!
@@ -50,10 +60,11 @@ const TXE_NOTIFICATION: u32 = 1 << 0;
 /// Bit mask for RxNE notification.
 const RXNE_NOTIFICATION: u32 = 1 << 1;
 
-/// Operation code for read.
-const READ_OP: u16 = 0;
-/// Operation code for write.
-const WRITE_OP: u16 = 1;
+/// Operation code for getc
+const GETC_OP: u16 = 0;
+/// Operation code for putc
+const PUTC_OP: u16 = 1;
+const READ_OP: u16 = 2;
 
 /// Response code for "success"
 const SUCCESS: u32 = 0;
@@ -61,9 +72,29 @@ const SUCCESS: u32 = 0;
 const UNKNOWN_OP: u32 = 1;
 /// Response code for "resources exhausted"
 const EXHAUSTED: u32 = 2;
+/// Response code for "you're holding it wrong"
+const WRONG: u32 = 3;
 
 /// Fixed task name for the kernel task
 const THE_KERNEL: TaskName = TaskName(0);
+
+/// Used to track state of an outstanding read operation.
+enum RxState {
+    /// The given task is waiting in a GETC call, i.e. reading a single byte.
+    Getc(TaskName),
+    /// A task is waiting in a READ (multi-byte) call.
+    Read {
+        /// Calling task.
+        caller: TaskName,
+        /// Read-until delimiter.
+        delimiter: u8,
+        /// Maximum bytes to read (taken from the size of the borrowed byte
+        /// slice).
+        max: usize,
+        /// Current offset within borrow / number of bytes read so far.
+        pos: usize,
+    },
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
@@ -119,22 +150,61 @@ fn safe_main() -> ! {
 
             if bits & RXNE_NOTIFICATION != 0 {
                 // Receive holding register has become non-empty.
-                if let Some(sender) = blocked_rxer.take() {
-                    reply(sender, SUCCESS, &[read_rbr()]);
+                if let Some(rxs) = blocked_rxer.take() {
+                    let c = read_rbr();
+                    match rxs {
+                        RxState::Getc(caller) =>
+                            reply(caller, SUCCESS, &[c]),
+                        RxState::Read { caller, delimiter, max, pos } => {
+                            // pos should never catch up with max -- when it
+                            // does we won't get notifications again!
+                            assert!(pos < max);
+
+                            // Deposit the next byte in the caller's address
+                            // space.
+                            if let Ok(_) = borrow_write(caller, 0, pos, &[c]) {
+                                // Check for end conditions
+                                if c == delimiter || pos + 1 == max {
+                                    // We're done! send back the number of bytes
+                                    // read.
+                                    let mut pos_bytes = [0; 4];
+                                    LittleEndian::write_u32(&mut pos_bytes, pos as u32);
+                                    reply(caller, SUCCESS, &pos_bytes);
+                                } else {
+                                    blocked_rxer = Some(RxState::Read {
+                                        caller,
+                                        delimiter,
+                                        max,
+                                        pos: pos + 1,
+                                    });
+                                }
+                            } else {
+                                // If we get an error accessing the borrow, it
+                                // means that (1) the caller has become
+                                // unblocked somehow, (2) some sort of borrow
+                                // mismatch shenanigans have occured.  Either
+                                // way, it is very much not our problem, and
+                                // we'll simply abort the read.
+                                reply(caller, WRONG, &[]);
+                            }
+                        },
+                    }
                 } else {
                     // We left RxNE enabled without any clients queued? That's a
                     // bug.
                     panic!()
                 }
 
-                // Because we only block one client, we know nobody else is
-                // pending, so we'll go ahead and shut off the event.
-                mask_notifications(RXNE_NOTIFICATION);
+                if blocked_rxer.is_none() {
+                    // Because we only block one client, we know nobody else is
+                    // pending, so we'll go ahead and shut off the event.
+                    mask_notifications(RXNE_NOTIFICATION);
+                }
             }
         } else {
             // Interprocess message from a client
             match message_info.operation {
-                READ_OP => {
+                GETC_OP => {
                     // Read
 
                     // If the receive holding register is not empty, respond
@@ -144,7 +214,7 @@ fn safe_main() -> ! {
                     } else {
                         // Otherwise we need to block the caller.
                         if blocked_rxer.is_none() {
-                            blocked_rxer = Some(message_info.sender);
+                            blocked_rxer = Some(RxState::Getc(message_info.sender));
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
                             // cheaper than checking.
@@ -156,7 +226,7 @@ fn safe_main() -> ! {
                         }
                     }
                 }
-                WRITE_OP => {
+                PUTC_OP => {
                     // Write
                     let c = buffer[0];
 
@@ -180,6 +250,38 @@ fn safe_main() -> ! {
                         }
                     }
                 }
+                READ_OP => {
+                    // Read
+                    let delimiter = buffer[0];
+
+                    // We could try to satisfy the read promptly by draining the
+                    // queue, but...eh? We'll just use the interrupt path.
+
+                    if blocked_rxer.is_none() {
+                        let max = match borrow_size(message_info.sender, 0) {
+                            Ok(x) => x,
+                            Err(_) => {
+                                reply(message_info.sender, WRONG, &[]);
+                                continue
+                            },
+                        };
+                        blocked_rxer = Some(RxState::Read {
+                            caller: message_info.sender,
+                            delimiter,
+                            pos: 0,
+                            max,
+                        });
+                        // Enable the notification and IRQ. They may already
+                        // be enabled; these operations are idempotent and
+                        // cheaper than checking.
+                        unmask_notifications(RXNE_NOTIFICATION);
+                        enable_interrupts(RXNE_NOTIFICATION);
+                    } else {
+                        // Send back resource exhaustion code.
+                        reply(message_info.sender, EXHAUSTED, &[]);
+                    }
+                }
+
                 _ => {
                     // Unknown operation
                     reply(message_info.sender, UNKNOWN_OP, &[]);
