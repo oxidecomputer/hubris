@@ -23,3 +23,16 @@ _sys_reply:
 _sys_notmask:
     svc 3
     bx lr
+
+.global _sys_borrow_size
+.thumb_func
+_sys_borrow_size:
+    svc 4
+    bx lr
+
+.global _sys_borrow_write
+.thumb_func
+_sys_borrow_write:
+    svc 5
+    bx lr
+
