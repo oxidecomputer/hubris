@@ -20,8 +20,53 @@ use core::mem::MaybeUninit;
 
 use bitflags::bitflags;
 
-// Our assembly language entry points
+// Our assembly language entry points.
 extern "C" {
+    /// SEND syscall. Transfers a variable-size message to another task and
+    /// waits for a (variable-size) reply.
+    ///
+    /// `operation_and_task` combines the 16-bit operation code (low bits) and
+    /// 16-bit target task ID (high bits). The operation code is passed verbatim
+    /// to the called task; the task ID identifies that task. (We can reasonably
+    /// pack these into a word because both parts are expected to be static for
+    /// most calls, and both our target architectures can efficiently insert a
+    /// dynamic task ID if required.)
+    ///
+    /// `lengths` packs three lengths into one word:
+    /// - outgoing message length in bits 7:0
+    /// - incoming (response) message length in bits 15:8
+    /// - lease count in bits 23:16
+    ///
+    /// (Again, we can pack these without expecting a performance hit because
+    /// they'll be constant for most calls.)
+    ///
+    /// `outgoing` points to the first byte in the message being sent.
+    ///
+    /// `incoming` points to the first byte in the response buffer.
+    ///
+    /// `leases` points to the base of the lease table.
+    ///
+    /// # Return value
+    ///
+    /// The return value is two `u32`s, packed into a single `u64` because
+    /// that's what ARM's calling convention will let us return in registers.
+    ///
+    /// - Bits `31:0` are the response code, in which by convention `0` means
+    ///   `Ok` and non-zero means `Err`.
+    /// - Bits `63:32` are the size of the response message delivered.
+    ///
+    /// # Safety
+    ///
+    /// This operation is pretty easy to use safely.
+    ///
+    /// - `outgoing` and the outgoing message length encoded in `lengths` must
+    ///   describe a valid `&[u8]`.
+    /// - `incoming` and the incoming message length encoded in `lengths` must
+    ///   describe a valid `&mut [u8]`.
+    /// - `leases` and the lease count encoded in `lengths` must describe a
+    ///   valid `&[Lease<'_>]`.
+    /// - Each individual `Lease` must be valid, i.e. constructed by the public
+    ///   safe API on `Lease` and not manufactured through malfeasance.
     fn _sys_send(
         operation_and_task: u32,
         lengths: u32,
@@ -29,9 +74,84 @@ extern "C" {
         incoming: *mut u8,
         leases: *const Lease<'_>,
     ) -> u64;
+
+    /// RECEIVE syscall. Blocks waiting for an incoming message, including a
+    /// notification.
+    ///
+    /// `buffer` is the base address of a buffer to store the message.
+    ///
+    /// `buffer_len` is the number of bytes available in that buffer.
+    ///
+    /// `rxinfo` is a pointer to a `ReceivedMessage` struct, which the kernel
+    /// will fill in with additional details about the message. The contents of
+    /// the struct on entry to `_sys_receive` *do not need to be initialized*;
+    /// this call will reliably initialize them.
+    ///
+    /// # Safety
+    ///
+    /// This is safe if `buffer`/`buffer_len` refer to an actual `&mut [u8]` and
+    /// `rxinfo` points to a correctly sized and aligned area of writable
+    /// memory.
     fn _sys_receive(buffer: *mut u8, buffer_len: usize, rxinfo: *mut ReceivedMessage);
+
+    /// REPLY syscall. Sends a response to a task that is blocked after SENDing
+    /// to us.
+    ///
+    /// `task` names the caller.
+    ///
+    /// `code` is a 32-bit return code to send verbatim to the task. By
+    /// convention, 0 means success (`Ok`) and non-zero means `Err`.
+    ///
+    /// `message` points to the first byte of the message to deliver, and `len`
+    /// gives its size in bytes.
+    ///
+    /// # Safety
+    ///
+    /// This is safe so long as `message`/`len` refer to an actual valid
+    /// `&[u8]`.
     fn _sys_reply(task: TaskName, code: u32, message: *const u8, len: usize);
+
+    /// NOTMASK syscall. Alters the caller's notification mask.
+    ///
+    /// The notification mask will be computed as follows:
+    ///
+    /// `new_mask = (old_mask & and) | or;`
+    ///
+    /// # Safety
+    ///
+    /// This call is always safe; because it's extern "C" the compiler can't see
+    /// that.
     fn _sys_notmask(and: u32, or: u32);
+
+    /// BORROW_SIZE syscall. Retrieves the size of a borrow.
+    ///
+    /// TODO: this is probably shaped wrong. A more general call would return
+    /// information about read/write etc.
+    ///
+    /// `control` is the borrow operation control word, consisting of:
+    /// - Task ID from which we are borrowing (bits `15:0`).
+    /// - Borrow number within that task's lease table (bits `23:16`).
+    /// - Reserved bits that must be zero (`31:24`).
+    ///
+    /// # Return value
+    ///
+    /// Returns a packed `Result`:
+    /// - Success/failure code (bits `31:0`): 0 for success, 1 for borrow number
+    ///   out of range for lease table.
+    /// - Size (bits `63:32`): size of borrow on success, zero otherwise.
+    fn _sys_borrow_size(control: u32) -> u64;
+
+    /// BORROW_WRITE syscall. Copies bytes from our address space into a
+    /// writable borrow from another task.
+    ///
+    /// `control` is the borrow operation control word; see `BORROW_SIZE` above
+    /// for its encoding.
+    ///
+    /// # Return value
+    ///
+    /// Success/failure code:0`): 0 for success, 1 for borrow number out of
+    /// range for lease table, 2 for out-of-range, 3 for read-only.
+    fn _sys_borrow_write(control: u32, offset: usize, data: *const u8, len: usize) -> u32;
 }
 
 /// A type for designating a task you want to interact with.
@@ -42,7 +162,7 @@ pub struct TaskName(pub u16);
 pub const NO_PEER: u32 = !0;
 
 /// Sends a message and waits for a reply.
-/// 
+///
 /// The target task is named by `dest`. If `dest` is a name that is stale (i.e.
 /// the target has reset since we last interacted), this returns code `!0`, also
 /// known as `NO_PEER`. This will also occur if the peer dies *after* receiving
@@ -315,4 +435,36 @@ pub fn enable_interrupts(mask: u32) {
 #[repr(u16)]
 pub enum KernelOps {
     EnableInterrupts = 1,
+}
+
+pub fn borrow_size(task: TaskName, index: u8) -> Result<usize, BorrowError> {
+    let control = u32::from(task.0) | u32::from(index) << 16;
+    let r = unsafe {
+        _sys_borrow_size(control)
+    };
+    match r as u32 {
+        0 => Ok((r >> 32) as usize),
+        1 => Err(BorrowError::BadIndex),
+        2 => Err(BorrowError::BadOffset),
+        _ => Err(BorrowError::ReadOnly),
+    } 
+}
+
+pub fn borrow_write(task: TaskName, index: u8, offset: usize, data: &[u8]) -> Result<(), BorrowError> {
+    let control = u32::from(task.0) | u32::from(index) << 16;
+    let r = unsafe {
+        _sys_borrow_write(control, offset, data.as_ptr(), data.len())
+    };
+    match r {
+        0 => Ok(()),
+        1 => Err(BorrowError::BadIndex),
+        2 => Err(BorrowError::BadOffset),
+        _ => Err(BorrowError::ReadOnly),
+    }
+}
+
+pub enum BorrowError {
+    BadIndex,
+    BadOffset,
+    ReadOnly,
 }
