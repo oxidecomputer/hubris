@@ -1,0 +1,30 @@
+# Hubris Sync Meeting
+
+Present: cbiffle, laura, pmooney, jmc, bcantrill
+
+Topic: what to do next.
+
+Results:
+
+- jmc to work on POSIX simulator
+  - Process per task in userland
+  - Kernel simulated by a Rust program, which should eventually use real kernel
+    code, but need not do so to start.
+  - "System calls" likely happening over pipes
+  - "Kernel" will need to be able to ask tasks to read out portions of their
+    address space, since it's not really all-powerful, to implement the
+    borrow-related syscalls.
+- laura to look into ELF stitching tool
+  - Tasks will presumably be separately compiled.
+  - Need to be laid out in the address space statically given some rules (e.g.
+    Flash is in this range, RAM is over here)
+  - We will want a bundler tool to do this.
+  - Might get the toolchain to emit partially linked binaries; might compile
+    multiple times if it has to.
+- pmooney to think about RISC-V and stuff
+  - Bringing up on ARMv7-M first because it's a strictly wonkier architecture
+    than RISC-V and will generalize.
+- pmooney to collect thoughts on timer APIs and how they go wrong.
+- cbiffle to look into building basic ARMv7-M kernel
+- cbiffle to create a repo for collaboration or rename existing one to match its
+  purpose (probably the latter)
