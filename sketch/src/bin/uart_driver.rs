@@ -124,7 +124,7 @@ fn safe_main() -> ! {
         // notifications. Our largest incoming message is only one byte, so
         // allocate a weeee buffer here.
         let mut buffer = [0; 1];
-        let message_info = receive(&mut buffer);
+        let message_info = sys_receive(&mut buffer);
 
         if message_info.sender == THE_KERNEL {
             // Notification message from the kernel. See which bits were
@@ -136,7 +136,7 @@ fn safe_main() -> ! {
                 // client.
                 if let Some((sender, c)) = blocked_txer.take() {
                     write_thr(c);
-                    reply(sender, SUCCESS, &[]);
+                    sys_reply(sender, SUCCESS, &[]);
                 } else {
                     // We left TxE enabled without any clients queued? That's a
                     // bug.
@@ -153,23 +153,34 @@ fn safe_main() -> ! {
                 if let Some(rxs) = blocked_rxer.take() {
                     let c = read_rbr();
                     match rxs {
-                        RxState::Getc(caller) =>
-                            reply(caller, SUCCESS, &[c]),
-                        RxState::Read { caller, delimiter, max, pos } => {
+                        RxState::Getc(caller) => {
+                            sys_reply(caller, SUCCESS, &[c])
+                        }
+                        RxState::Read {
+                            caller,
+                            delimiter,
+                            max,
+                            pos,
+                        } => {
                             // pos should never catch up with max -- when it
                             // does we won't get notifications again!
                             assert!(pos < max);
 
                             // Deposit the next byte in the caller's address
                             // space.
-                            if let Ok(_) = borrow_write(caller, 0, pos, &[c]) {
+                            if let Ok(_) =
+                                sys_borrow_write(caller, 0, pos, &[c])
+                            {
                                 // Check for end conditions
                                 if c == delimiter || pos + 1 == max {
                                     // We're done! send back the number of bytes
                                     // read.
                                     let mut pos_bytes = [0; 4];
-                                    LittleEndian::write_u32(&mut pos_bytes, pos as u32);
-                                    reply(caller, SUCCESS, &pos_bytes);
+                                    LittleEndian::write_u32(
+                                        &mut pos_bytes,
+                                        pos as u32,
+                                    );
+                                    sys_reply(caller, SUCCESS, &pos_bytes);
                                 } else {
                                     blocked_rxer = Some(RxState::Read {
                                         caller,
@@ -185,9 +196,9 @@ fn safe_main() -> ! {
                                 // mismatch shenanigans have occured.  Either
                                 // way, it is very much not our problem, and
                                 // we'll simply abort the read.
-                                reply(caller, WRONG, &[]);
+                                sys_reply(caller, WRONG, &[]);
                             }
-                        },
+                        }
                     }
                 } else {
                     // We left RxNE enabled without any clients queued? That's a
@@ -210,11 +221,12 @@ fn safe_main() -> ! {
                     // If the receive holding register is not empty, respond
                     // promptly.
                     if rbr_full() {
-                        reply(message_info.sender, SUCCESS, &[read_rbr()]);
+                        sys_reply(message_info.sender, SUCCESS, &[read_rbr()]);
                     } else {
                         // Otherwise we need to block the caller.
                         if blocked_rxer.is_none() {
-                            blocked_rxer = Some(RxState::Getc(message_info.sender));
+                            blocked_rxer =
+                                Some(RxState::Getc(message_info.sender));
                             // Enable the notification and IRQ. They may already
                             // be enabled; these operations are idempotent and
                             // cheaper than checking.
@@ -222,7 +234,7 @@ fn safe_main() -> ! {
                             enable_interrupts(RXNE_NOTIFICATION);
                         } else {
                             // Send back resource exhaustion code.
-                            reply(message_info.sender, EXHAUSTED, &[]);
+                            sys_reply(message_info.sender, EXHAUSTED, &[]);
                         }
                     }
                 }
@@ -234,7 +246,7 @@ fn safe_main() -> ! {
                     // promptly.
                     if thr_empty() {
                         write_thr(c);
-                        reply(message_info.sender, SUCCESS, &[]);
+                        sys_reply(message_info.sender, SUCCESS, &[]);
                     } else {
                         // Otherwise we need to block the caller.
                         if blocked_txer.is_none() {
@@ -246,7 +258,7 @@ fn safe_main() -> ! {
                             enable_interrupts(TXE_NOTIFICATION);
                         } else {
                             // Send back resource exhaustion code.
-                            reply(message_info.sender, EXHAUSTED, &[]);
+                            sys_reply(message_info.sender, EXHAUSTED, &[]);
                         }
                     }
                 }
@@ -258,18 +270,26 @@ fn safe_main() -> ! {
                     // queue, but...eh? We'll just use the interrupt path.
 
                     if blocked_rxer.is_none() {
-                        let max = match borrow_size(message_info.sender, 0) {
-                            Ok(x) => x,
-                            Err(_) => {
-                                reply(message_info.sender, WRONG, &[]);
-                                continue
-                            },
+                        // Check that the borrow they provided is legit.
+                        let info = match sys_borrow_info(message_info.sender, 0)
+                        {
+                            Ok(i)
+                                if i.attributes
+                                    .contains(LeaseAttributes::WRITE) =>
+                            {
+                                i
+                            }
+                            _ => {
+                                sys_reply(message_info.sender, WRONG, &[]);
+                                continue;
+                            }
                         };
+
                         blocked_rxer = Some(RxState::Read {
                             caller: message_info.sender,
                             delimiter,
                             pos: 0,
-                            max,
+                            max: info.size,
                         });
                         // Enable the notification and IRQ. They may already
                         // be enabled; these operations are idempotent and
@@ -278,13 +298,13 @@ fn safe_main() -> ! {
                         enable_interrupts(RXNE_NOTIFICATION);
                     } else {
                         // Send back resource exhaustion code.
-                        reply(message_info.sender, EXHAUSTED, &[]);
+                        sys_reply(message_info.sender, EXHAUSTED, &[]);
                     }
                 }
 
                 _ => {
                     // Unknown operation
-                    reply(message_info.sender, UNKNOWN_OP, &[]);
+                    sys_reply(message_info.sender, UNKNOWN_OP, &[]);
                 }
             }
         }
@@ -293,8 +313,7 @@ fn safe_main() -> ! {
 
 /////////// stub peripheral interface starts here
 
-fn hw_setup() {
-}
+fn hw_setup() {}
 
 // fake hardware registers
 static mut RBR: u8 = 0;
@@ -303,25 +322,17 @@ static mut THR: u8 = 0;
 static mut THR_EMPTY: bool = true;
 
 fn rbr_full() -> bool {
-    unsafe {
-        core::ptr::read_volatile(&RBR_FULL)
-    }
+    unsafe { core::ptr::read_volatile(&RBR_FULL) }
 }
 
 fn read_rbr() -> u8 {
-    unsafe {
-        core::ptr::read_volatile(&RBR)
-    }
+    unsafe { core::ptr::read_volatile(&RBR) }
 }
 
 fn thr_empty() -> bool {
-    unsafe {
-        core::ptr::read_volatile(&THR_EMPTY)
-    }
+    unsafe { core::ptr::read_volatile(&THR_EMPTY) }
 }
 
 fn write_thr(c: u8) {
-    unsafe {
-        core::ptr::write_volatile(&mut THR, c)
-    }
+    unsafe { core::ptr::write_volatile(&mut THR, c) }
 }

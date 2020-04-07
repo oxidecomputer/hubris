@@ -17,7 +17,7 @@ pub unsafe extern "C" fn _start() -> ! {
     let mut lent_for_write = [0; 1024];
     
     loop {
-        let (code, _len) = send_untyped(dest, op, request, &mut response, &[
+        let (code, _len) = sys_send(dest, op, request, &mut response, &[
             Lease::read(lent_for_read),
             Lease::write(&mut lent_for_write),
         ]);
