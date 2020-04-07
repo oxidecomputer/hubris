@@ -1,0 +1,73 @@
+= Hubris Syscalls
+
+Syscalls provide ways for tasks to invoke kernel code. Hubris has a very small
+set of syscalls, because syscalls -- unlike IPC -- have to be implemented in the
+kernel and are hard to proxy, so they form an ongoing ABI commitment.
+
+In general, the following sorts of things are syscalls (exhaustive):
+
+- IPC primitives
+  - Send, Receive, Reply
+  - Planned extensions for asynchronous/nonblocking send
+  - Lease/Borrow support
+- Notification primitives
+  - Updating the current task's notification mask
+
+And the following sorts of things are not (not exhaustive):
+
+- Task management
+  - Starting or restarting tasks
+  - Getting task priorities
+- Timer management
+- Interrupt control
+- etc.
+
+In general, syscalls should represent *operations that every task should have
+access to,* while anything privileged or sensitive should be done through IPC.
+
+This doesn't mean all these things need to be done outside the kernel, though.
+We have an escape hatch, in the form of messages to the virtual "kernel task."
+
+== Syscall ABI
+
+Syscalls are invoked using the architecture's supervisor-call instruction or
+equivalent.
+
+=== ARMv7-M / ARMv8-M
+
+Syscalls are invoked using the `SVC` instruction. The 8-bit immediate in the
+instruction encodes the syscall number.
+
+Syscall arguments are passed, and results returned, as though `SVC` were a
+function call using the standard ARM AAPCS calling convention. That is,
+
+- Up to four word-size registers can be passed in `r0` through `r3`.
+- Additional arguments go on the stack.
+- A 32-bit value can be returned in `r0`, or extended to 64 bits using `r1`.
+
+However, syscalls preserve all user registers, unlike function calls.
+(Currently, user code does not understand this, and defensively saves
+registers.)
+
+NOTE: This ABI is deliberately transitional. It would be nice to pass more
+registers in arguments, and to pass them _directly_ in arguments instead of
+having them spilled to the stack as part of the exception frame and then read
+back. For complicated reasons related to interrupt tail chaining, this means you
+want to pass arguments in `r4` through `r11` -- normally caller-save. But this
+is pending on `#![feature(asm)]`.
+
+=== RISC-V
+
+Syscalls are invoked using the `ECALL` instruction. The rest is TBD, except that
+the syscall number is going to have to be passed in a register (because `ECALL`
+does not include an immediate).
+
+This shouldn't be a big deal, since RISC-V has so many more registers.
+
+== IPC Syscalls
+
+TBD
+
+== Notification Syscalls
+
+TBD
