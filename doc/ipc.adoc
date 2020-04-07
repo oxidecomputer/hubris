@@ -1,0 +1,239 @@
+= IPC
+
+Hubris IPC provides a mechanism for communicating between tasks. It's designed
+to be easy to reason about, and to work well with Rust's ownership model.
+
+Hubris IPC is based around _synchronous messaging._ Communication between tasks
+consists of sending and receiving messages; sending a message blocks the sender
+and unblocks the recipient (if they weren't already doing something else). This
+means messages are never queued or stored in the kernel, reducing overhead and
+things that could go wrong.
+
+This document takes a high-level look at IPC in Hubris, which can be broken
+apart into three pieces:
+
+- How to send messages,
+- How to receive and handle messages, and
+- Occasionally useful odds and ends.
+
+For the purposes of this document, we'll deal in the raw IPC operations. In
+practice, we expect most APIs to expose wrapper functions _around_ the raw IPC,
+but you've gotta learn how to write those wrapper functions first.
+
+NOTE: IPC is technically a misnomer, since we don't have processes (the P in
+IPC). But hey. Inter-Task Communication just isn't as catchy.
+
+== Sending messages
+
+To simply consume IPC services implemented by others, there's only one operation
+you need to consider: `send`. `send` operates a lot like a function call:
+
+- It takes some arguments,
+- It returns some results,
+- It pauses the caller until it returns.
+
+To use `send`, you specify the task you're sending to, and an *operation code*
+that tells that task what operation you're trying to invoke. (A given API will
+document which operation codes are used.)
+
+The simplest case for `send` is when you're sending a small payload (say, a
+`struct`) and receiving a small response (say, another `struct`), and the
+recipient/callee is already blocked waiting for messages:
+
+1. Your task invokes `send`, naming the callee task and operation, and providing
+   the outgoing data as a `&[u8]`.
+
+2. The kernel notices that the callee is waiting for messages, and directly
+   copies your message from your task's address space into the callee's.
+
+3. The kernel then blocks your task and unblocks the callee, informing it that a
+   message has arrived.
+
+4. The callee does some work on your behalf.
+
+5. It then uses `reply` (discussed below) to send a response message back.
+
+6. The kernel copies the response message and unblocks your task.
+
+If the callee is not already waiting for messages, the process is similar,
+except that your task may be blocked waiting to send for an arbitrary period
+between steps 1 and 2.
+
+Note that the kernel doesn't _interpret_ either the operation code or the
+message data flowing in either direction. All that is defined by the
+application. The kernel looks only at the task IDs and copies data blindly from
+place to place.
+
+=== Response codes and `Result`
+
+From the caller's perspective, `send` deposits any returned data into a buffer
+specified by a `&mut [u8]` argument to `send`. But it also returns two integers:
+
+- A *response code.*
+- The *length* of data deposited in the return buffer.
+
+The response code, like the operation code, is largely application-defined, but
+it's *intended* to be used to distinguish success from error. Specifically, `0`
+meaning success, and non-zero meaning error.
+
+The length is returned in either case, so that errors can include nontrivial
+amounts of data.
+
+This scheme is specifically designed to allow IPC wrapper functions to translate
+the results of `send` into a Rust `Result<T, E>` type.
+
+NOTE: One response code is "special," in that the kernel may generate it of its
+own volition: `!0`, the value with all bits set, is produced if the task you
+send to dies. Applications can also return this value to simulate task death --
+not because we expect this to be useful, but because preventing that would take
+time.
+
+=== Message size limits
+
+Messages are variable size, between 0 and 255 bytes. There's an upper limit
+because we want to control how long the kernel can spend `memcpy`-ing between
+tasks, since that operation is uninterruptible. This also lets us pack message
+info into registers more tightly at the syscall boundary.
+
+=== Lending out memory
+
+Sending and receiving small structs by copy is a good start, but what if you
+want something more complex? For example, how do you send 1kiB of data to a
+serial port, or read it back, when messages are limited to 255 bytes?
+
+The answer is the same as in Rust: when you call the operation, you loan it some
+of your memory.
+
+Any `send` operation can include *leases*, which are small descriptors that tell
+the kernel to allow the _callee_ to access parts of the _caller's_ memory space.
+Each lease can be read-only, write-only, or read-write. Any leases are reliably
+and atomically _revoked_ when the caller resumes (i.e. after `reply`), so it's
+safe to lend out information from the caller's stack.
+
+This property also means that lending data can be expressed, in Rust, as simple
+`&` or `&mut` borrows, and checked for correctness at compile time.
+
+Each `send` can include up to 255 leases (currently -- this number may be
+reduced because what on earth do you need that many leases for).
+
+Leases are referred to by index (0 through 255), and an IPC operation would
+typically declare that it needs certain arguments passed as leases in a certain
+order.
+
+=== Making this concrete
+
+Let's sketch a concrete IPC interface, to get a feeling for how the various
+options on `send` fit together. Imagine a task that implements a very simple
+streaming data access protocol consisting of two functions (written as in Rust):
+
+```rust
+fn read(fd: u32, buffer: &mut [u8]) -> Result<usize, IoError>;
+fn write(fd: u32, buffer: &[u8]) -> Result<usize, IoError>;
+```
+
+These are basically POSIX read and write, only expressed in Rust style.
+
+A concrete mapping of these operations to IPCs might go as follows.
+
+**Read.** Operation code 0.
+
+- Message is a four-byte struct containing `fd` as a little-endian `u32`. Borrow
+  0 is `buffer` and must be writable.
+- Data will be written to a prefix of borrow 0, starting at offset 0.
+- On success, returns response code 0 and a four-byte response, containing the
+  bytes-read count as a little-endian `u32`.
+- On failure, returns a non-zero response code that maps to an `IoError`, and a
+  zero-length response message.
+
+**Write.** Operation code 1.
+
+- Message is a four-byte struct containing `fd` as a little-endian `u32`. Borrow
+  0 is `buffer` and must be readable.
+- Data will be taken from a prefix of borrow 0, starting at offset 0.
+- On success, returns response code 0 and a four-byte response, containing the
+  bytes-written count as a little-endian `u32`.
+- On failure, returns a non-zero response code that maps to an `IoError`, and a
+  zero-length response message.
+
+NOTE: Either of these operations could be altered to also return the number of
+bytes read or written in an error case, by making the response non-empty and
+changing the `IoError` type in Rust.
+
+== Receiving and handling messages
+
+To write a task that implements some IPC protocol, we need to be able to receive
+and handle messages. There are two operations involved on this side:
+
+- `receive` gets the next pending message, and
+- `reply` unblocks the sender of a message.
+
+`receive` takes a `&mut [u8]` where an incoming message will be written, and
+returns a descriptor struct giving context on the message:
+
+- Task ID of the sender.
+- Operation code.
+- Length of message received (including information to tell if the sender tried
+  to send something too long for your buffer).
+- Amount of space the sender has made available for a reply.
+- Number of leases available with message.
+
+`reply` takes a Task ID, a response code, and a `&[u8]` pointing to the response
+message.
+
+=== Pipelining and out-of-order replies
+
+Hubris does _not_ require that you `reply` before calling `receive` again. You
+could instead start an operation, do some bookkeeping to keep track of that
+sender, and then `receive` the next, with the intent of replying later. This
+allows you to implement a pipelined server that overlaps requests.
+
+Hubris also doesn't require that you `reply` in the same order as `receive`. For
+example, in a pipelined server, you might want to promptly `reply` with an error
+to a bogus request while still processing others. Or, in a fully asynchronous
+server (such as a network stack for something like UDP), you might `reply`
+whenever operations finish, regardless of their order.
+
+Hubris doesn't actually require that you `reply`, _ever._ The caller will wait
+patiently. This means if you want to halt a task, sending a message to someone
+who will never reply is a reasonable technique. Or, a server could halt
+malfunctioning callers by never replying (see next section).
+
+What *is* required for `reply` to succeed is that the sender must actually be
+blocked in a send _to your task._ If you `reply` to a random task ID that has
+never messaged you, the reply will not go through. If the sending task has been
+forceably restarted by some supervising entity, the reply will not go through.
+Similarly, if an application implements IPC timeouts by forceably unblocking
+senders that have waited too long (something you can choose to do), the reply to
+the timed-out sender won't go through.
+
+Because the latter two cases (sender timed out, sender rebooted) are expected to
+be possible in an otherwise functioning application, and because it isn't clear
+in general how a server should handle a behavior error in one of its clients,
+the `reply` operation _does not return an error to the server,_ even if it
+doesn't go through. The server moves on.
+
+NOTE: This design decision copies MINIX 3, and those folks explained the
+decision in much greater detail.
+
+=== Handling error cases
+
+Hubris assumes that you mistrust tasks sending you messages, and provides enough
+information to detect the following error cases:
+
+- Unknown operation code.
+- Incoming message shorter than what you expected, given the operation code.
+- Incoming message too long to fit in your provided buffer.
+- Wrong number of leases attached for the operation.
+- Response buffer too small to accommodate your reply.
+
+Any of these suggest that the sender is confused or malfunctioning. You have a
+few options for dealing with these cases:
+
+- Immediately `reply` to the sender with a non-zero response code and
+  zero-length message. This is likely to be interpreted as an error by the
+  sender.
+
+- *Don't* reply. Leave the sender blocked, and instead notify some sort of
+  supervising entity of a potential malfunction. Or, depending on your
+  application architecture, just leave them blocked and expect a watchdog timer
+  to handle the problem if it matters.
