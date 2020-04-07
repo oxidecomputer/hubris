@@ -213,7 +213,8 @@ the `reply` operation _does not return an error to the server,_ even if it
 doesn't go through. The server moves on.
 
 NOTE: This design decision copies MINIX 3, and those folks explained the
-decision in much greater detail.
+decision in much greater detail. See <<herder08ipc>> for details, and
+<<shap03vuln>> for motivating history.
 
 === Handling error cases
 
@@ -237,3 +238,16 @@ few options for dealing with these cases:
   supervising entity of a potential malfunction. Or, depending on your
   application architecture, just leave them blocked and expect a watchdog timer
   to handle the problem if it matters.
+
+[bibliography]
+== References
+
+- [[[shap03vuln]]] Jonathan Shapiro.
+  http://srl.cs.jhu.edu/courses/600.439/shap03vulnerabilities.pdf[Vulnerabilities
+  in Synchronous IPC Designs]. 2003. _Short-ish and straightforward, Shap pokes
+  a bunch of holes in conventional IPC designs._
+- [[[herder08ipc]]] Jorrit N. Herder et al.
+  https://www.cs.vu.nl/~herbertb/papers/minix3ipc_prdc08.pdf[Countering IPC
+  Threats In Multiserver Operating Systems: A Fundamental Requirement for
+  Dependability]. 2008. _This paper marked MINIX 3's transition from a teaching
+  tool to a high-reliability research platform._
