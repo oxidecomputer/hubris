@@ -50,7 +50,7 @@ impl<T> USlice<T> {
         // complicated by a desire to _allow_ slices that end at the top of the
         // address space.
         let size_in_bytes = length.checked_mul(core::mem::size_of::<T>())?;
-        let highest_possible_base = 0usize.wrapping_sub(size_in_bytes);
+        let highest_possible_base = core::usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
             Some(Self { base_address, length, _marker: PhantomData })
         } else {
