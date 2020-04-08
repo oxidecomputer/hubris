@@ -1,0 +1,169 @@
+# Annotated listing of test0 binary as of today
+
+The entry point, and entire callgraph of the normal operation of `main`, is
+collapsed into one function, shown below.
+
+Comments _follow_ the sections they're discussing.
+
+```
+08000000 <_start>:
+ 8000000:       f5ad 6d87       sub.w   sp, sp, #1080   ; 0x438
+      Allocate a stack frame. The stack frame here is dominated by the 1024 byte
+      buffer that we lend out with our outgoing message, and the 32 byte
+      response buffer. These are both just demos that don't reflect typical
+      usage.
+ 8000004:       466f            mov     r7, sp
+ 8000006:       2120            movs    r1, #32
+ 8000008:       4638            mov     r0, r7
+ 800000a:       f000 f8a6       bl      800015a <__aeabi_memclr4>
+      Get a pointer to and zero our 32-byte message response buffer. Message
+      response buffers could technically be used uninitialized, saving this
+      code, but I haven't added this to the API yet. And, in case you're
+      wondering, I have no idea why it's using r7 here.
+ 800000e:       a808            add     r0, sp, #32
+ 8000010:       f44f 6180       mov.w   r1, #1024       ; 0x400
+ 8000014:       4683            mov     fp, r0
+ 8000016:       f000 f8a0       bl      800015a <__aeabi_memclr4>
+      Same deal for the 1024-byte lending buffer.
+ 800001a:       f8df e048       ldr.w   lr, [pc, #72]   ; 8000064 <_start+0x64>
+ 800001e:       f50d 6984       add.w   r9, sp, #1056   ; 0x420
+ 8000022:       4811            ldr     r0, [pc, #68]   ; (8000068 <_start+0x68>)
+ 8000024:       f04f 0c13       mov.w   ip, #19
+ 8000028:       4910            ldr     r1, [pc, #64]   ; (800006c <_start+0x6c>)
+ 800002a:       2201            movs    r2, #1
+ 800002c:       2302            movs    r3, #2
+ 800002e:       260a            movs    r6, #10
+ 8000030:       f04f 0820       mov.w   r8, #32
+ 8000034:       f04f 0a02       mov.w   sl, #2
+      Set up constant register contents for the loop. These are parameters to
+      send.
+ 8000038:   +-> f44f 6480       mov.w   r4, #1024       ; 0x400
+ 800003c:   |   460d            mov     r5, r1
+ 800003e:   |   f8cd 4434       str.w   r4, [sp, #1076] ; 0x434
+ 8000042:   |   4604            mov     r4, r0
+ 8000044:   |   f8cd b430       str.w   fp, [sp, #1072] ; 0x430
+ 8000048:   |   f8cd c428       str.w   ip, [sp, #1064] ; 0x428
+ 800004c:   |   f8cd e424       str.w   lr, [sp, #1060] ; 0x424
+ 8000050:   |   f8cd 2420       str.w   r2, [sp, #1056] ; 0x420
+ 8000054:   |   f8cd 342c       str.w   r3, [sp, #1068] ; 0x42c
+      Set up our lease table. Currently, it seems that the compiler can't tell
+      that this is loop-invariant.
+ 8000058:   |   df00            svc     0
+      Actual invocation of the send syscall.
+ 800005a:   |   2c00            cmp     r4, #0
+ 800005c:   +-- d0ec            beq.n   8000038 <_start+0x38>
+      If it has succeeded, repeat the loop.
+ 800005e:       f000 f807       bl      8000070 <core::panicking::panic>
+      Otherwise, panic.
+ 8000062:       defe            udf     #254    ; 0xfe
+      This is what LLVM deposits after functions that are allegedly noreturn, to
+      make sure that the world stays predictable if they _do_ return.
+ 8000064:       0800016a        .word   0x0800016a
+ 8000068:       002a0001        .word   0x002a0001
+ 800006c:       08000160        .word   0x08000160
+
+08000070 <core::panicking::panic>:
+ 8000070:       f000 f801       bl      8000076 <core::panicking::panic_fmt>
+ 8000074:       defe            udf     #254    ; 0xfe
+
+08000076 <core::panicking::panic_fmt>:
+ 8000076:       f000 f801       bl      800007c <rust_begin_unwind>
+ 800007a:       defe            udf     #254    ; 0xfe
+
+0800007c <rust_begin_unwind>:
+ 800007c:       e7fe            b.n     800007c <rust_begin_unwind>
+      We've implemented panic in this runtime as an infinite loop.
+
+0800007e <__aeabi_memset>:
+ 800007e:       b510            push    {r4, lr}
+ 8000080:       2900            cmp     r1, #0
+ 8000082:       bf08            it      eq
+ 8000084:       bd10            popeq   {r4, pc}
+ 8000086:       1e4b            subs    r3, r1, #1
+ 8000088:       f001 0c03       and.w   ip, r1, #3
+ 800008c:       2b03            cmp     r3, #3
+ 800008e:       d201            bcs.n   8000094 <__aeabi_memset+0x16>
+ 8000090:       2100            movs    r1, #0
+ 8000092:       e00f            b.n     80000b4 <__aeabi_memset+0x36>
+ 8000094:       ebac 0e01       sub.w   lr, ip, r1
+ 8000098:       1c41            adds    r1, r0, #1
+ 800009a:       f06f 0303       mvn.w   r3, #3
+ 800009e:       18cc            adds    r4, r1, r3
+ 80000a0:       3304            adds    r3, #4
+ 80000a2:       71a2            strb    r2, [r4, #6]
+ 80000a4:       7162            strb    r2, [r4, #5]
+ 80000a6:       7122            strb    r2, [r4, #4]
+ 80000a8:       70e2            strb    r2, [r4, #3]
+ 80000aa:       eb0e 0403       add.w   r4, lr, r3
+ 80000ae:       3404            adds    r4, #4
+ 80000b0:       d1f5            bne.n   800009e <__aeabi_memset+0x20>
+ 80000b2:       1d19            adds    r1, r3, #4
+ 80000b4:       f1bc 0f00       cmp.w   ip, #0
+ 80000b8:       bf1c            itt     ne
+ 80000ba:       5442            strbne  r2, [r0, r1]
+ 80000bc:       f1bc 0f01       cmpne.w ip, #1
+ 80000c0:       d100            bne.n   80000c4 <__aeabi_memset+0x46>
+ 80000c2:       bd10            pop     {r4, pc}
+ 80000c4:       4408            add     r0, r1
+ 80000c6:       f1bc 0f02       cmp.w   ip, #2
+ 80000ca:       7042            strb    r2, [r0, #1]
+ 80000cc:       bf18            it      ne
+ 80000ce:       7082            strbne  r2, [r0, #2]
+ 80000d0:       bd10            pop     {r4, pc}
+
+080000d2 <__aeabi_memset4>:
+ 80000d2:       4613            mov     r3, r2
+ 80000d4:       b2d2            uxtb    r2, r2
+ 80000d6:       2904            cmp     r1, #4
+ 80000d8:       bf38            it      cc
+ 80000da:       f7ff bfd0       bcc.w   800007e <__aeabi_memset>
+ 80000de:       b510            push    {r4, lr}
+ 80000e0:       f1a1 0e04       sub.w   lr, r1, #4
+ 80000e4:       ea42 6303       orr.w   r3, r2, r3, lsl #24
+ 80000e8:       2401            movs    r4, #1
+ 80000ea:       ea43 4302       orr.w   r3, r3, r2, lsl #16
+ 80000ee:       eb04 049e       add.w   r4, r4, lr, lsr #2
+ 80000f2:       ea43 2302       orr.w   r3, r3, r2, lsl #8
+ 80000f6:       f014 0403       ands.w  r4, r4, #3
+ 80000fa:       d00a            beq.n   8000112 <__aeabi_memset4+0x40>
+ 80000fc:       4684            mov     ip, r0
+ 80000fe:       2c01            cmp     r4, #1
+ 8000100:       f84c 3b04       str.w   r3, [ip], #4
+ 8000104:       d10a            bne.n   800011c <__aeabi_memset4+0x4a>
+ 8000106:       4674            mov     r4, lr
+ 8000108:       4660            mov     r0, ip
+ 800010a:       f1be 0f0c       cmp.w   lr, #12
+ 800010e:       d214            bcs.n   800013a <__aeabi_memset4+0x68>
+ 8000110:       e01c            b.n     800014c <__aeabi_memset4+0x7a>
+ 8000112:       460c            mov     r4, r1
+ 8000114:       f1be 0f0c       cmp.w   lr, #12
+ 8000118:       d318            bcc.n   800014c <__aeabi_memset4+0x7a>
+ 800011a:       e00e            b.n     800013a <__aeabi_memset4+0x68>
+ 800011c:       2c02            cmp     r4, #2
+ 800011e:       6043            str     r3, [r0, #4]
+ 8000120:       d103            bne.n   800012a <__aeabi_memset4+0x58>
+ 8000122:       3008            adds    r0, #8
+ 8000124:       f1a1 0408       sub.w   r4, r1, #8
+ 8000128:       e003            b.n     8000132 <__aeabi_memset4+0x60>
+ 800012a:       6083            str     r3, [r0, #8]
+ 800012c:       300c            adds    r0, #12
+ 800012e:       f1a1 040c       sub.w   r4, r1, #12
+ 8000132:       4684            mov     ip, r0
+ 8000134:       f1be 0f0c       cmp.w   lr, #12
+ 8000138:       d308            bcc.n   800014c <__aeabi_memset4+0x7a>
+ 800013a:       e9c0 3300       strd    r3, r3, [r0]
+ 800013e:       3c10            subs    r4, #16
+ 8000140:       e9c0 3302       strd    r3, r3, [r0, #8]
+ 8000144:       3010            adds    r0, #16
+ 8000146:       2c03            cmp     r4, #3
+ 8000148:       d8f7            bhi.n   800013a <__aeabi_memset4+0x68>
+ 800014a:       4684            mov     ip, r0
+ 800014c:       f001 0103       and.w   r1, r1, #3
+ 8000150:       e8bd 4010       ldmia.w sp!, {r4, lr}
+ 8000154:       4660            mov     r0, ip
+ 8000156:       f7ff bf92       b.w     800007e <__aeabi_memset>
+
+0800015a <__aeabi_memclr4>:
+ 800015a:       2200            movs    r2, #0
+ 800015c:       f7ff bfb9       b.w     80000d2 <__aeabi_memset4>
+```
