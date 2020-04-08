@@ -44,6 +44,14 @@ impl Task {
         };
         NextTask::Other
     }
+
+    pub fn can_read<T>(&self, _slice: &USlice<T>) -> bool {
+        unimplemented!()
+    }
+
+    pub fn can_write<T>(&self, _slice: &USlice<T>) -> bool {
+        unimplemented!()
+    }
 }
 
 /// Indicates priority of a task.
@@ -159,19 +167,28 @@ impl<T: Borrow<SavedState>> AsSendArgs<T> {
     }
 
     /// Extracts the bounds of the caller's message as a `USlice`.
-    pub fn message(&self) -> USlice<u8> {
+    ///
+    /// If the caller passed a slice that overlaps the end of the address space,
+    /// returns `None`.
+    pub fn message(&self) -> Option<USlice<u8>> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg1() as usize, b.arg2() as usize)
     }
 
     /// Extracts the bounds of the caller's response buffer as a `USlice`.
-    pub fn response_buffer(&self) -> USlice<u8> {
+    ///
+    /// If the caller passed a slice that overlaps the end of the address space,
+    /// returns `None`.
+    pub fn response_buffer(&self) -> Option<USlice<u8>> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg3() as usize, b.arg4() as usize)
     }
 
     /// Extracts the bounds of the caller's lease table as a `USlice`.
-    pub fn lease_table(&self) -> USlice<ULease> {
+    ///
+    /// If the caller passed a slice that overlaps the end of the address space,
+    /// or that is not aligned properly for a lease table, returns `None`.
+    pub fn lease_table(&self) -> Option<USlice<ULease>> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg5() as usize, b.arg6() as usize)
     }
@@ -194,7 +211,10 @@ pub struct AsRecvArgs<T>(T);
 
 impl<T: Borrow<SavedState>> AsRecvArgs<T> {
     /// Gets the caller's receive destination buffer.
-    pub fn buffer(&self) -> USlice<u8> {
+    ///
+    /// If the callee provided a bogus destination slice, this will return
+    /// `None`.
+    pub fn buffer(&self) -> Option<USlice<u8>> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg0() as usize, b.arg1() as usize)
     }
@@ -277,7 +297,10 @@ pub enum FaultInfo {
         address: Option<usize>,
         /// Origin of the fault.
         source: FaultSource,
-    }
+    },
+    /// Arguments passed to a syscall were invalid. TODO: this should become
+    /// more descriptive, it's a placeholder.
+    BadArgs,
 }
 
 /// Origin of a fault.

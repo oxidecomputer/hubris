@@ -44,34 +44,57 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     if tasks[callee.index()].generation == callee.generation() {
         let callee = callee.index();
         // Check for ready peer.
-        match &tasks[callee].state {
-            TaskState::Healthy(SchedState::Receiving(from)) if from.unwrap_or(caller) == caller => {
-                // We can skip a step.
-                tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
+        if let TaskState::Healthy(SchedState::Receiving(from)) = tasks[callee].state {
+            if from.unwrap_or(caller) == caller {
+                // We can skip a step, unless they fault...
                 match deliver(tasks, caller, callee) {
                     Ok(_) => {
+                        tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
                         tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
                         // Propose switching directly to the unblocked callee.
-                        NextTask::Specific(callee)
+                        return NextTask::Specific(callee)
                     }
-                    Err(switch) => {
-                        // Delivery failed and returned hints about the next
-                        // context switch. Since we know that one of the tasks
-                        // involved in this message was running (it called
-                        // send), we will honor this hint.
-                        switch
+                    Err(DeliverError::CopyFault(faults)) => {
+                        // Delivery failed. We need to apply the fault status,
+                        // and then we'll fall through to the block handling
+                        // code below.
+                        if let Some(addr) = faults.dest_fault {
+                            let _hint = tasks[callee].force_fault(FaultInfo::MemoryAccess {
+                                address: Some(addr),
+                                source: FaultSource::Kernel,
+                            });
+                        }
+                        if let Some(addr) = faults.src_fault {
+                            // We'll stop processing here to dodge the
+                            // blocking-handing code below.
+                            return tasks[caller].force_fault(FaultInfo::MemoryAccess {
+                                address: Some(addr),
+                                source: FaultSource::Kernel,
+                            });
+                        }
+                    }
+                    Err(DeliverError::BadSenderMessage) | Err(DeliverError::BadSenderReplyBuffer) | Err(DeliverError::BadLeaseTable) => {
+                        // Sender gave bogus syscall arguments.
+                        return tasks[caller].force_fault(FaultInfo::BadArgs);
+                    }
+                    Err(DeliverError::BadRecipientBuffer) => {
+                        // Recipient is waiting in receive with a bogus buffer.
+                        // Normally we would detect and block this as it enters
+                        // RECV, but this condition can be manufactured by e.g.
+                        // a malfunctioning debugger. So we handle it. We are
+                        // deliberately ignoring the scheduler hint.
+                        let _hint = tasks[callee].force_fault(FaultInfo::BadArgs);
                     }
                 }
-            },
-            _ => {
-                // Caller needs to block sending, callee is either busy or
-                // faulted.
-                tasks[caller].state = TaskState::Healthy(SchedState::SendingTo(callee));
-                // We don't know what the best task to run now would be, but
-                // we're pretty darn sure it isn't the caller.
-                return NextTask::Other
             }
         }
+
+        // Caller needs to block sending, callee is either busy or
+        // faulted.
+        tasks[caller].state = TaskState::Healthy(SchedState::SendingTo(callee));
+        // We don't know what the best task to run now would be, but
+        // we're pretty darn sure it isn't the caller.
+        return NextTask::Other
     } else {
         // Inform caller by resuming it with an error response code.
         resume_sender_with_error(&mut tasks[caller]);
@@ -109,63 +132,54 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// On success, returns `Ok(())` and any task-switching is the caller's
 /// responsibility.
-fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), NextTask> {
+fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), DeliverError> {
     // Collect information on the send from the caller. This information is all
-    // stored in infallibly-readable areas.
+    // stored in infallibly-readable areas, but our accesses can fail if the
+    // caller handed us bogus slices.
     let send_args = tasks[caller].save.as_send_args();
     let op = send_args.operation();
     let caller_id = TaskID::from_index_and_gen(caller, tasks[caller].generation);
-    let src_slice = send_args.message();
-    let response_capacity = send_args.response_buffer().len();
-    let lease_count = send_args.lease_table().len();
+    let src_slice = send_args.message().ok_or(DeliverError::BadSenderMessage)?;
+    let response_capacity = send_args.response_buffer()
+        .ok_or(DeliverError::BadSenderReplyBuffer)?
+        .len();
+    let lease_count = send_args.lease_table()
+        .ok_or(DeliverError::BadLeaseTable)?
+        .len();
     drop(send_args);
 
     // Collect information about the callee's receive buffer. This, too, is
     // somewhere we can read infallibly.
     let recv_args = tasks[callee].save.as_recv_args();
-    let dest_slice = recv_args.buffer();
+    let dest_slice = recv_args.buffer()
+        .ok_or(DeliverError::BadRecipientBuffer)?;
     drop(recv_args);
 
-    // Okay, now we do things that can fail.
-    match safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice) {
-        Err(CopyError { src_fault, dest_fault }) => {
-            // One task or the other lied about their memory layout. Find the
-            // culprit(s) and switch them into faulted state.
-            let src_switch = if let Some(addr) = src_fault {
-                tasks[caller].force_fault(FaultInfo::MemoryAccess {
-                    address: Some(addr),
-                    source: FaultSource::Kernel,
-                })
-            } else {
-                NextTask::Same
-            };
-            let dest_switch = if let Some(addr) = dest_fault {
-                tasks[callee].force_fault(FaultInfo::MemoryAccess {
-                    address: Some(addr),
-                    source: FaultSource::Kernel,
-                })
-            } else {
-                NextTask::Same
-            };
-            Err(src_switch.combine(dest_switch))
-        },
-        Ok(amount_copied) => {
-            // We were able to transfer the message.
-            let mut rr = tasks[callee].save.as_recv_result();
-            rr.set_sender(caller_id);
-            rr.set_operation(op);
-            rr.set_message_len(amount_copied);
-            rr.set_response_capacity(response_capacity);
-            rr.set_lease_count(lease_count);
-            drop(rr);
+    // Okay, ready to attempt the copy.
+    let amount_copied =
+        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)
+        .map_err(DeliverError::CopyFault)?;
+    let mut rr = tasks[callee].save.as_recv_result();
+    rr.set_sender(caller_id);
+    rr.set_operation(op);
+    rr.set_message_len(amount_copied);
+    rr.set_response_capacity(response_capacity);
+    rr.set_lease_count(lease_count);
+    drop(rr);
 
-            tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
-            tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
-            // We don't have an opinion about the newly runnable task, nor do we
-            // have enough information to insist that a switch must happen.
-            Ok(())
-        },
-    }
+    tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
+    tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+    // We don't have an opinion about the newly runnable task, nor do we
+    // have enough information to insist that a switch must happen.
+    Ok(())
+}
+
+enum DeliverError {
+    CopyFault(CopyError),
+    BadSenderMessage,
+    BadSenderReplyBuffer,
+    BadLeaseTable,
+    BadRecipientBuffer,
 }
 
 /// Updates `task`'s registers to show that the send syscall failed.
