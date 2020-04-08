@@ -63,6 +63,10 @@ impl<T> USlice<T> {
         self.length
     }
 
+    pub fn base_addr(&self) -> usize {
+        self.base_address
+    }
+
     /// Returns the *highest* address in this slice, inclusive.
     pub fn last_byte_addr(&self) -> usize {
         // This implementation would be wrong for ZSTs, but we blocked them at

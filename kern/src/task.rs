@@ -1,4 +1,6 @@
 use core::borrow::{Borrow, BorrowMut};
+use zerocopy::FromBytes;
+
 use crate::time::Timestamp;
 use crate::umem::{USlice, ULease};
 
@@ -17,6 +19,9 @@ pub struct Task {
     /// peers notice that they're talking to a new copy that may have lost
     /// state.
     pub generation: Generation,
+
+    /// Static table defining this task's memory regions.
+    pub region_table: &'static [MemoryRegion],
 }
 
 impl Task {
@@ -45,12 +50,75 @@ impl Task {
         NextTask::Other
     }
 
-    pub fn can_read<T>(&self, _slice: &USlice<T>) -> bool {
-        unimplemented!()
+    /// Tests whether this task has read access to `slice` as normal memory.
+    /// This is used to validate kernel accessses to the memory.
+    pub fn can_read<T>(&self, slice: &USlice<T>) -> bool {
+        self.region_table.iter().any(|region| {
+            region.covers(slice)
+                && region.attributes.contains(RegionAttributes::READ)
+                && !region.attributes.contains(RegionAttributes::DEVICE)
+        })
     }
 
-    pub fn can_write<T>(&self, _slice: &USlice<T>) -> bool {
-        unimplemented!()
+    /// Tests whether this task has write access to `slice` as normal memory.
+    /// This is used to validate kernel accessses to the memory.
+    pub fn can_write<T>(&self, slice: &USlice<T>) -> bool {
+        self.region_table.iter().any(|region| {
+            region.covers(slice)
+                && region.attributes.contains(RegionAttributes::WRITE)
+                && !region.attributes.contains(RegionAttributes::DEVICE)
+        })
+    }
+}
+
+/// Static table entry for a task's memory regions.
+///
+/// Currently, this struct is architecture-neutral, but that means it needs to
+/// be converted to be loaded into the memory protection unit on context
+/// switch. It may pay to make it architecture-specific and move it out of here.
+#[derive(Debug, FromBytes)]
+#[repr(C)]
+pub struct MemoryRegion {
+    pub base: usize,
+    pub size: usize,
+    pub attributes: RegionAttributes,
+}
+
+impl MemoryRegion {
+    /// Checks this region's structure. Used early in boot to check region
+    /// tables before starting tasks.
+    pub fn validate(&self) -> bool {
+        // Check that base+size doesn't wrap the address space.
+        let highest_base = core::usize::MAX - self.size;
+        if self.base > highest_base {
+            return false
+        }
+        // Reject any reserved bits in the attributes word.
+        if self.attributes.intersects(RegionAttributes::RESERVED) {
+            return false
+        }
+
+        true
+    }
+
+    /// Tests whether `slice` is fully enclosed by this region.
+    pub fn covers<T>(&self, slice: &USlice<T>) -> bool {
+        let self_end = self.base.wrapping_add(self.size).wrapping_sub(1);
+        let slice_end = slice.last_byte_addr();
+
+        self_end >= slice.base_addr() && slice_end >= self.base
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(FromBytes)]
+    #[repr(transparent)]
+    pub struct RegionAttributes: u32 {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+        const EXECUTE = 1 << 2;
+        const DEVICE = 1 << 3;
+        const RESERVED = !((1 << 4) - 1);
     }
 }
 
