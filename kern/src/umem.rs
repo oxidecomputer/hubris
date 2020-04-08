@@ -140,16 +140,22 @@ where T: FromBytes
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
-    ///
-    /// Currently, bit 0 indicates readable memory, and bit 1 indicates writable
-    /// memory. All other bits are currently undefined and should be zero.
-    pub attributes: u32,
+    pub attributes: LeaseAttributes,
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
     pub base_address: usize,
     /// Length of leased memory, in bytes.
     pub length: usize,
+}
+
+bitflags::bitflags! {
+    #[derive(FromBytes)]
+    #[repr(transparent)]
+    pub struct LeaseAttributes: u32 {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+    }
 }
 
 /// Extracts the base/bound part of a `ULease` as a `USlice` of bytes.
