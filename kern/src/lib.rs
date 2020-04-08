@@ -495,7 +495,9 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
                     }
                     Err(switch) => {
                         // Delivery failed and returned hints about the next
-                        // context switch.
+                        // context switch. Since we know that one of the tasks
+                        // involved in this message was running (it called
+                        // send), we will honor this hint.
                         switch
                     }
                 }
@@ -516,7 +518,18 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     }
 }
 
-/// Transfers a message from caller's context into callee's.
+/// Transfers a message from caller's context into callee's. This may be called
+/// in several contexts:
+///
+/// - During execution of a SEND syscall by caller, when callee was already
+///   waiting in RECV.
+/// - During execution of a RECV by callee, when caller was already waiting in a
+///   SEND.
+/// - If one task is waiting and the other is transitioned from faulted state
+///   into a waiting state.
+///
+/// In other words, *do not* assume that either task is currently scheduled; the
+/// third case occurs when *neither* task is scheduled.
 ///
 /// Preconditions:
 ///
@@ -528,8 +541,10 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 /// Deliver may fail due to a fault in either or both task. In that case, it
 /// will stuff the precise fault into the task's scheduling state and return
 /// `Err` indicating that a task switch is required, under the assumption that
-/// at least one of the tasks involved in the `deliver` call was running. (Which
-/// is a good assumption in general.)
+/// at least one of the tasks involved in the `deliver` call was running.
+/// (Which, as noted above, is not strictly true in practice, but is pretty
+/// close to true. The recovering-from-fault case can explicitly discard the
+/// scheduling hint.)
 ///
 /// On success, returns `Ok(())` and any task-switching is the caller's
 /// responsibility.
