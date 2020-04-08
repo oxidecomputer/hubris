@@ -22,6 +22,11 @@ pub struct Task {
 
     /// Static table defining this task's memory regions.
     pub region_table: &'static [MemoryRegion],
+
+    /// Notification status.
+    pub notifications: u32,
+    /// Notification mask.
+    pub notification_mask: u32,
 }
 
 impl Task {
@@ -68,6 +73,19 @@ impl Task {
                 && region.attributes.contains(RegionAttributes::WRITE)
                 && !region.attributes.contains(RegionAttributes::DEVICE)
         })
+    }
+
+    /// Posts a set of notification bits (which might be empty) to this task.
+    /// Returns `true` if an unmasked notification bit is set (whether or not it
+    /// is *newly* set) and this task is blocked in receive.
+    ///
+    /// This would return a `NextTask` but that would require the task to know
+    /// its own global ID, which it does not.
+    #[must_use]
+    pub fn post(&mut self, n: NotificationSet) -> bool {
+        self.notifications |= n.0;
+        (self.notifications & self.notification_mask != 0)
+            && self.state == TaskState::Healthy(SchedState::Receiving(None))
     }
 }
 
@@ -319,7 +337,7 @@ impl<T: BorrowMut<SavedState>> AsRecvResult<T> {
 }
 
 /// State used to make scheduling decisions.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TaskState {
     /// Task is healthy and can be scheduled subject to the `SchedState`
     /// requirements.
@@ -336,7 +354,7 @@ pub enum TaskState {
 }
 
 /// Scheduler parameters for a healthy task.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchedState {
     /// This task is ignored for scheduling purposes.
     Stopped,
@@ -352,7 +370,7 @@ pub enum SchedState {
 }
 
 /// A record describing a fault taken by a task.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
@@ -372,7 +390,7 @@ pub enum FaultInfo {
 }
 
 /// Origin of a fault.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum FaultSource {
     /// User code did something that was intercepted by the processor.
     User,
@@ -427,6 +445,7 @@ pub struct TimerState {
 }
 
 /// Collection of bits that may be posted to a task's notification word.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct NotificationSet(u32);
 
@@ -465,11 +484,22 @@ impl NextTask {
     }
 }
 
-/// Produces an iterator over the subset of `tasks` whose timers are firing at
-/// `current_time`.
-pub fn firing_timers(tasks: &[Task], current_time: Timestamp) -> impl Iterator<Item = &Task> {
-    tasks.iter()
-        .filter(move |t| t.timer.deadline.map(|dl| dl <= current_time).unwrap_or(false))
+/// Processes all enabled timers in the task table, posting notifications for
+/// any that have expired by `current_time` (and disabling them atomically).
+pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
+    let mut sched_hint = NextTask::Same;
+    for (index, task) in tasks.iter_mut().enumerate() {
+        if let Some(deadline) = task.timer.deadline {
+            if deadline <= current_time {
+                task.timer.deadline = None;
+                let task_hint = if task.post(task.timer.to_post) {
+                    NextTask::Specific(index)
+                } else {
+                    NextTask::Same
+                };
+                sched_hint = sched_hint.combine(task_hint)
+            }
+        }
+    }
+    sched_hint
 }
-
-
