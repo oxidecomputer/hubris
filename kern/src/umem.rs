@@ -1,4 +1,8 @@
+//! Support for safely interacting with untrusted/unprivileged/user memory.
+
 use core::marker::PhantomData;
+use zerocopy::FromBytes;
+
 use crate::task::Task;
 
 /// A (user, untrusted, unprivileged) slice.
@@ -8,9 +12,10 @@ use crate::task::Task;
 /// aligned, etc.
 ///
 /// The existence of a `USlice` only tells you one thing: that a task has
-/// asserted that it has access to a range of memory addresses. It does not
-/// *prove* that the task has this access, that it is aligned, that is is
-/// correctly initialized, etc. The result must be used carefully.
+/// asserted that it has access to a range of memory addresses, and that the
+/// addresses are correctly aligned for `T`. It does not *prove* that the task
+/// has this access, that is is correctly initialized, etc. The result must be
+/// used carefully.
 ///
 /// Currently, the same `USlice` type is used for both readable and read-write
 /// task memory. They are distinguished only by context. This might prove to be
@@ -66,6 +71,7 @@ impl<T> USlice<T> {
         self.base_address.wrapping_add(size_in_bytes).wrapping_sub(1)
     }
     
+    /// Checks whether this slice aliases (overlaps) `other`.
     pub fn aliases(&self, other: &Self) -> bool {
         // This test is made slightly involved by a desire to support slices
         // that end at the top of the address space. We've already verified at
@@ -78,7 +84,7 @@ impl<T> USlice<T> {
 }
 
 impl<T> USlice<T>
-where T: zerocopy::FromBytes
+where T: FromBytes
 {
     /// Converts this into an _actual_ slice that can be directly read by the
     /// kernel.
@@ -130,7 +136,7 @@ where T: zerocopy::FromBytes
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Debug)]
+#[derive(Debug, FromBytes)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
@@ -189,6 +195,8 @@ pub fn safe_copy(
 
     // We are now convinced, after querying the tasks, that these RAM areas are
     // legit.
+    // TODO: this next bit assumes that task memory is directly addressable --
+    // an assumption that is likely to be invalid in a simulator.
     let copy_len = from_slice.len().min(to_slice.len());
     let from = unsafe { from_slice.assume_readable() };
     let to = unsafe { to_slice.assume_writable() };
