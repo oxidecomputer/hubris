@@ -11,7 +11,7 @@ pub struct Task {
     /// State used to make status and scheduling decisions.
     pub state: TaskState,
     /// Saved machine state of the user program.
-    pub save: SavedState,
+    pub save: crate::arch::SavedState,
     /// State for tracking the task's timer.
     pub timer: TimerState,
     /// Generation number of this task's current incarnation. This begins at
@@ -154,86 +154,48 @@ pub struct Priority(u8);
 #[repr(transparent)]
 pub struct Generation(u8);
 
-/// The portion of the task's machine state that is not automatically saved by
-/// hardware onto the stack.
-///
-/// On ARMv7-M this will be small. On RISC-V this will be large. On a simulator
-/// this will be weird.
-///
-/// One of this kernel's odd design constraints is that, other than copying
-/// messages, it will *only* read or write args and results to this struct. It
-/// never messes with the user stack except as required at context switch.
-pub struct SavedState {
-}
+pub trait ArchState {
+    fn stack_pointer(&self) -> u32;
 
-impl SavedState {
     /// Reads syscall argument register 0.
-    fn arg0(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg1(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg2(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg3(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg4(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg5(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg6(&self) -> u32 {
-        unimplemented!()
-    }
-    fn arg7(&self) -> u32 {
-        unimplemented!()
-    }
+    fn arg0(&self) -> u32;
+    fn arg1(&self) -> u32;
+    fn arg2(&self) -> u32;
+    fn arg3(&self) -> u32;
+    fn arg4(&self) -> u32;
+    fn arg5(&self) -> u32;
+    fn arg6(&self) -> u32;
+    fn arg7(&self) -> u32;
 
     /// Writes syscall return argument 0.
-    fn ret0(&mut self, _: u32) {
-        unimplemented!()
-    }
-    fn ret1(&mut self, _: u32) {
-        unimplemented!()
-    }
-    fn ret2(&mut self, _: u32) {
-        unimplemented!()
-    }
-    fn ret3(&mut self, _: u32) {
-        unimplemented!()
-    }
-    fn ret4(&mut self, _: u32) {
-        unimplemented!()
-    }
-    fn ret5(&mut self, _: u32) {
-        unimplemented!()
-    }
+    fn ret0(&mut self, _: u32);
+    fn ret1(&mut self, _: u32);
+    fn ret2(&mut self, _: u32);
+    fn ret3(&mut self, _: u32);
+    fn ret4(&mut self, _: u32);
+    fn ret5(&mut self, _: u32);
 
     /// Returns a proxied reference that assigns names and types to the syscall
     /// arguments for SEND.
-    pub fn as_send_args(&self) -> AsSendArgs<&Self> {
+    fn as_send_args(&self) -> AsSendArgs<&Self> {
         AsSendArgs(self)
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
     /// return registers for SEND.
-    pub fn as_send_result(&mut self) -> AsSendResult<&mut Self> {
+    fn as_send_result(&mut self) -> AsSendResult<&mut Self> {
         AsSendResult(self)
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
     /// arguments for RECV.
-    pub fn as_recv_args(&self) -> AsRecvArgs<&Self> {
+    fn as_recv_args(&self) -> AsRecvArgs<&Self> {
         AsRecvArgs(self)
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
     /// return registers for RECV.
-    pub fn as_recv_result(&mut self) -> AsRecvResult<&mut Self> {
+    fn as_recv_result(&mut self) -> AsRecvResult<&mut Self> {
         AsRecvResult(self)
     }
 }
@@ -241,15 +203,15 @@ impl SavedState {
 /// Reference proxy for send argument registers.
 pub struct AsSendArgs<T>(T);
 
-impl<T: Borrow<SavedState>> AsSendArgs<T> {
+impl<'a, T: ArchState> AsSendArgs<&'a T> {
     /// Extracts the task ID the caller wishes to send to.
     pub fn callee(&self) -> TaskID {
-        TaskID((self.0.borrow().arg0() >> 16) as u16)
+        TaskID((self.0.arg0() >> 16) as u16)
     }
 
     /// Extracts the operation code the caller is using.
     pub fn operation(&self) -> u16 {
-        self.0.borrow().arg0() as u16
+        self.0.arg0() as u16
     }
 
     /// Extracts the bounds of the caller's message as a `USlice`.
@@ -257,8 +219,7 @@ impl<T: Borrow<SavedState>> AsSendArgs<T> {
     /// If the caller passed a slice that overlaps the end of the address space,
     /// returns `None`.
     pub fn message(&self) -> Option<USlice<u8>> {
-        let b = self.0.borrow();
-        USlice::from_raw(b.arg1() as usize, b.arg2() as usize)
+        USlice::from_raw(self.0.arg1() as usize, self.0.arg2() as usize)
     }
 
     /// Extracts the bounds of the caller's response buffer as a `USlice`.
@@ -266,8 +227,7 @@ impl<T: Borrow<SavedState>> AsSendArgs<T> {
     /// If the caller passed a slice that overlaps the end of the address space,
     /// returns `None`.
     pub fn response_buffer(&self) -> Option<USlice<u8>> {
-        let b = self.0.borrow();
-        USlice::from_raw(b.arg3() as usize, b.arg4() as usize)
+        USlice::from_raw(self.0.arg3() as usize, self.0.arg4() as usize)
     }
 
     /// Extracts the bounds of the caller's lease table as a `USlice`.
@@ -275,15 +235,14 @@ impl<T: Borrow<SavedState>> AsSendArgs<T> {
     /// If the caller passed a slice that overlaps the end of the address space,
     /// or that is not aligned properly for a lease table, returns `None`.
     pub fn lease_table(&self) -> Option<USlice<ULease>> {
-        let b = self.0.borrow();
-        USlice::from_raw(b.arg5() as usize, b.arg6() as usize)
+        USlice::from_raw(self.0.arg5() as usize, self.0.arg6() as usize)
     }
 }
 
 /// Reference proxy for send result registers.
 pub struct AsSendResult<T>(T);
 
-impl<T: BorrowMut<SavedState>> AsSendResult<T> {
+impl<'a, T: ArchState> AsSendResult<&'a mut T> {
     /// Sets the response code and length returned from a send.
     pub fn set_response_and_length(&mut self, resp: u32, len: usize) {
         let r = self.0.borrow_mut();
@@ -295,7 +254,7 @@ impl<T: BorrowMut<SavedState>> AsSendResult<T> {
 /// Reference proxy for receive argument registers.
 pub struct AsRecvArgs<T>(T);
 
-impl<T: Borrow<SavedState>> AsRecvArgs<T> {
+impl<'a, T: ArchState> AsRecvArgs<&'a T> {
     /// Gets the caller's receive destination buffer.
     ///
     /// If the callee provided a bogus destination slice, this will return
@@ -309,7 +268,7 @@ impl<T: Borrow<SavedState>> AsRecvArgs<T> {
 /// Reference proxy for receive return registers.
 pub struct AsRecvResult<T>(T);
 
-impl<T: BorrowMut<SavedState>> AsRecvResult<T> {
+impl<'a, T: ArchState> AsRecvResult<&'a mut T> {
     /// Sets the sender of a message.
     pub fn set_sender(&mut self, sender: TaskID) {
         self.0.borrow_mut().ret0(u32::from(sender.0));

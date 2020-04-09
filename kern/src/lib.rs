@@ -23,6 +23,7 @@
 //! - We are not attempting to achieve predictably low worst-case execution
 //!   bounds or any realtime nonsense like that.
 
+pub mod arch;
 pub mod task;
 pub mod time;
 pub mod umem;
