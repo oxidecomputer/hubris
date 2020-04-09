@@ -85,7 +85,7 @@ impl Task {
     pub fn post(&mut self, n: NotificationSet) -> bool {
         self.notifications |= n.0;
         (self.notifications & self.notification_mask != 0)
-            && self.state == TaskState::Healthy(SchedState::Receiving(None))
+            && self.state == TaskState::Healthy(SchedState::InRecv(None))
     }
 }
 
@@ -217,24 +217,24 @@ impl<'a, T: ArchState> AsSendArgs<&'a T> {
     /// Extracts the bounds of the caller's message as a `USlice`.
     ///
     /// If the caller passed a slice that overlaps the end of the address space,
-    /// returns `None`.
-    pub fn message(&self) -> Option<USlice<u8>> {
+    /// returns `Err`.
+    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg1() as usize, self.0.arg2() as usize)
     }
 
     /// Extracts the bounds of the caller's response buffer as a `USlice`.
     ///
     /// If the caller passed a slice that overlaps the end of the address space,
-    /// returns `None`.
-    pub fn response_buffer(&self) -> Option<USlice<u8>> {
+    /// returns `Err`.
+    pub fn response_buffer(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg3() as usize, self.0.arg4() as usize)
     }
 
     /// Extracts the bounds of the caller's lease table as a `USlice`.
     ///
     /// If the caller passed a slice that overlaps the end of the address space,
-    /// or that is not aligned properly for a lease table, returns `None`.
-    pub fn lease_table(&self) -> Option<USlice<ULease>> {
+    /// or that is not aligned properly for a lease table, returns `Err`.
+    pub fn lease_table(&self) -> Result<USlice<ULease>, UsageError> {
         USlice::from_raw(self.0.arg5() as usize, self.0.arg6() as usize)
     }
 }
@@ -258,8 +258,8 @@ impl<'a, T: ArchState> AsRecvArgs<&'a T> {
     /// Gets the caller's receive destination buffer.
     ///
     /// If the callee provided a bogus destination slice, this will return
-    /// `None`.
-    pub fn buffer(&self) -> Option<USlice<u8>> {
+    /// `Err`.
+    pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg0() as usize, b.arg1() as usize)
     }
@@ -325,7 +325,7 @@ pub enum SchedState {
     AwaitingReplyFrom(usize),
     /// This task is blocked waiting for messages, either from any source
     /// (`None`) or from a particular sender only.
-    Receiving(Option<usize>),
+    InRecv(Option<usize>),
 }
 
 /// A record describing a fault taken by a task.
@@ -345,7 +345,26 @@ pub enum FaultInfo {
     },
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
-    BadArgs,
+    SyscallUsage(UsageError),
+}
+
+impl From<UsageError> for FaultInfo {
+    fn from(e: UsageError) -> Self {
+        Self::SyscallUsage(e)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum UsageError {
+    /// A program specified a slice as a syscall argument, but the slice is
+    /// patently invalid: it is either unaligned for its type, or it is
+    /// expressed such that it would wrap around the end of the address space.
+    /// Neither of these conditions is ever legal, so this represents a
+    /// malfunction in the caller.
+    InvalidSlice,
+    /// A program named a task ID that will never be valid, as it's out of
+    /// range.
+    TaskOutOfRange,
 }
 
 /// Origin of a fault.
@@ -461,4 +480,38 @@ pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
         }
     }
     sched_hint
+}
+
+/// Checks a user-provided `TaskID` for validity against `table`.
+///
+/// On success, returns an index that can be used to dereference `table` without
+/// panicking.
+///
+/// On failure, indicates the condition by `TaskIDError`.
+pub fn check_task_id_against_table(
+    table: &[Task],
+    id: TaskID,
+) -> Result<usize, TaskIDError> {
+    if id.index() >= table.len() {
+        return Err(TaskIDError::OutOfRange);
+    }
+
+    // Check for dead task ID.
+    if table[id.index()].generation != id.generation() {
+        return Err(TaskIDError::Stale);
+    }
+
+    return Ok(id.index())
+}
+
+/// Problems we might discover about `TaskID` values.
+#[must_use]
+pub enum TaskIDError {
+    /// The provided task ID addresses a task that will never exist. This is a
+    /// malfunction of the sender and needs to cause a fault.
+    OutOfRange,
+    /// The task ID describes a previous generation of this task, suggesting
+    /// that the peer has died since last contacted. This is expressed to the
+    /// caller as an error code.
+    Stale,
 }

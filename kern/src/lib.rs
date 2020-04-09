@@ -37,70 +37,88 @@ pub const DEAD: u32 = !0;
 
 
 /// Implementation of the SEND IPC primitive.
+///
+/// `caller` is a valid task index (i.e. not directly from user code).
+///
+/// # Panics
+///
+/// If `caller` is out of range for `tasks`.
 pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     // Extract callee.
     let callee = tasks[caller].save.as_send_args().callee();
+
     // Check IPC filter - TODO
-    // Check for dead task ID.
-    if tasks[callee.index()].generation == callee.generation() {
-        let callee = callee.index();
-        // Check for ready peer.
-        if let TaskState::Healthy(SchedState::Receiving(from)) = tasks[callee].state {
-            if from.unwrap_or(caller) == caller {
-                // We can skip a step, unless they fault...
-                match deliver(tasks, caller, callee) {
-                    Ok(_) => {
-                        tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
-                        tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
-                        // Propose switching directly to the unblocked callee.
-                        return NextTask::Specific(callee)
+    // Open question: should out-of-range task IDs be handled by faulting below,
+    // or by failing the IPC filter? Either condition will fault...
+    
+    // Verify the given callee ID, converting it into a table index on success.
+    let callee = match task::check_task_id_against_table(tasks, callee) {
+        Err(task::TaskIDError::OutOfRange) => {
+            return tasks[caller].force_fault(FaultInfo::SyscallUsage(
+                    UsageError::TaskOutOfRange
+            ));
+        }
+        Err(task::TaskIDError::Stale) => {
+            // Inform caller by resuming it with an error response code.
+            resume_sender_with_error(&mut tasks[caller]);
+            return NextTask::Same
+        }
+        Ok(i) => i,
+    };
+
+    // Check for ready peer.
+    if let TaskState::Healthy(SchedState::InRecv(from)) = tasks[callee].state {
+        if from.is_none() || from == Some(caller) {
+            // Callee is waiting in receive -- either an open receive, or a
+            // directed receive from just us. Either way, we can directly
+            // deliver the message and switch tasks...unless either task was
+            // naughty, in which case we have to fault it and block.
+            match deliver(tasks, caller, callee) {
+                Ok(_) => {
+                    // Delivery succeeded!
+                    // Block caller.
+                    tasks[caller].state = TaskState::Healthy(
+                        SchedState::AwaitingReplyFrom(callee)
+                    );
+                    // Unblock callee.
+                    tasks[callee].state = TaskState::Healthy(
+                        SchedState::Runnable
+                    );
+                    // Propose switching directly to the unblocked callee.
+                    return NextTask::Specific(callee)
+                }
+                Err(interact) => {
+                    // Delivery failed because of fault events in one or both
+                    // tasks. We need to apply the fault status, and then if we
+                    // didn't have to murder the caller, we'll fall through to
+                    // block it below.
+                    if let Some(fault) = interact.recipient {
+                        // Callee specified a bogus receive buffer. Bad callee.
+                        let _hint = tasks[callee].force_fault(fault);
                     }
-                    Err(DeliverError::CopyFault(faults)) => {
-                        // Delivery failed. We need to apply the fault status,
-                        // and then we'll fall through to the block handling
-                        // code below.
-                        if let Some(addr) = faults.dest_fault {
-                            let _hint = tasks[callee].force_fault(FaultInfo::MemoryAccess {
-                                address: Some(addr),
-                                source: FaultSource::Kernel,
-                            });
-                        }
-                        if let Some(addr) = faults.src_fault {
-                            // We'll stop processing here to dodge the
-                            // blocking-handing code below.
-                            return tasks[caller].force_fault(FaultInfo::MemoryAccess {
-                                address: Some(addr),
-                                source: FaultSource::Kernel,
-                            });
-                        }
+                    if let Some(fault) = interact.sender {
+                        // Caller specified a bogus message buffer. Bad caller.
+                        // We'll stop processing here, because we can't block
+                        // the caller more than we just have (doing so would
+                        // mangle the fault state).
+                        return tasks[caller].force_fault(fault);
                     }
-                    Err(DeliverError::BadSenderMessage) | Err(DeliverError::BadSenderReplyBuffer) | Err(DeliverError::BadLeaseTable) => {
-                        // Sender gave bogus syscall arguments.
-                        return tasks[caller].force_fault(FaultInfo::BadArgs);
-                    }
-                    Err(DeliverError::BadRecipientBuffer) => {
-                        // Recipient is waiting in receive with a bogus buffer.
-                        // Normally we would detect and block this as it enters
-                        // RECV, but this condition can be manufactured by e.g.
-                        // a malfunctioning debugger. So we handle it. We are
-                        // deliberately ignoring the scheduler hint.
-                        let _hint = tasks[callee].force_fault(FaultInfo::BadArgs);
-                    }
+                    // If we didn't just return, fall through to the caller
+                    // blocking code below.
                 }
             }
+        } else {
+            // callee is blocked in receive, but it's a directed receive not
+            // involving us, so we must treat it as busy and block the caller.
         }
-
-        // Caller needs to block sending, callee is either busy or
-        // faulted.
-        tasks[caller].state = TaskState::Healthy(SchedState::SendingTo(callee));
-        // We don't know what the best task to run now would be, but
-        // we're pretty darn sure it isn't the caller.
-        return NextTask::Other
-    } else {
-        // Inform caller by resuming it with an error response code.
-        resume_sender_with_error(&mut tasks[caller]);
-        NextTask::Same
     }
+
+    // Caller needs to block sending, callee is either busy or
+    // faulted.
+    tasks[caller].state = TaskState::Healthy(SchedState::SendingTo(callee));
+    // We don't know what the best task to run now would be, but
+    // we're pretty darn sure it isn't the caller.
+    return NextTask::Other
 }
 
 /// Transfers a message from caller's context into callee's. This may be called
@@ -120,7 +138,7 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// - Caller is sending -- either blocked in state `SendingTo`, or in the
 ///   process of transitioning from `Runnable` to `AwaitingReplyFrom`.
-/// - Callee is receiving -- either blocked in `Receiving` or in `Runnable`
+/// - Callee is receiving -- either blocked in `InRecv` or in `Runnable`
 ///   executing a receive system call.
 ///
 /// Deliver may fail due to a fault in either or both task. In that case, it
@@ -133,19 +151,19 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// On success, returns `Ok(())` and any task-switching is the caller's
 /// responsibility.
-fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), DeliverError> {
+fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), InteractFault> {
     // Collect information on the send from the caller. This information is all
     // stored in infallibly-readable areas, but our accesses can fail if the
     // caller handed us bogus slices.
     let send_args = tasks[caller].save.as_send_args();
     let op = send_args.operation();
     let caller_id = TaskID::from_index_and_gen(caller, tasks[caller].generation);
-    let src_slice = send_args.message().ok_or(DeliverError::BadSenderMessage)?;
+    let src_slice = send_args.message().map_err(InteractFault::in_sender)?;
     let response_capacity = send_args.response_buffer()
-        .ok_or(DeliverError::BadSenderReplyBuffer)?
+        .map_err(InteractFault::in_sender)?
         .len();
     let lease_count = send_args.lease_table()
-        .ok_or(DeliverError::BadLeaseTable)?
+        .map_err(InteractFault::in_sender)?
         .len();
     drop(send_args);
 
@@ -153,13 +171,12 @@ fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), Deliv
     // somewhere we can read infallibly.
     let recv_args = tasks[callee].save.as_recv_args();
     let dest_slice = recv_args.buffer()
-        .ok_or(DeliverError::BadRecipientBuffer)?;
+        .map_err(InteractFault::in_recipient)?;
     drop(recv_args);
 
     // Okay, ready to attempt the copy.
     let amount_copied =
-        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)
-        .map_err(DeliverError::CopyFault)?;
+        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)?;
     let mut rr = tasks[callee].save.as_recv_result();
     rr.set_sender(caller_id);
     rr.set_operation(op);
@@ -175,12 +192,25 @@ fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), Deliv
     Ok(())
 }
 
-enum DeliverError {
-    CopyFault(CopyError),
-    BadSenderMessage,
-    BadSenderReplyBuffer,
-    BadLeaseTable,
-    BadRecipientBuffer,
+pub struct InteractFault {
+    pub sender: Option<FaultInfo>,
+    pub recipient: Option<FaultInfo>,
+}
+
+impl InteractFault {
+    fn in_sender(fi: impl Into<FaultInfo>) -> Self {
+        Self {
+            sender: Some(fi.into()),
+            recipient: None,
+        }
+    }
+
+    fn in_recipient(fi: impl Into<FaultInfo>) -> Self {
+        Self {
+            sender: None,
+            recipient: Some(fi.into()),
+        }
+    }
 }
 
 /// Updates `task`'s registers to show that the send syscall failed.

@@ -3,7 +3,8 @@
 use core::marker::PhantomData;
 use zerocopy::FromBytes;
 
-use crate::task::Task;
+use crate::task::{Task, UsageError, FaultInfo, FaultSource};
+use crate::InteractFault;
 
 /// A (user, untrusted, unprivileged) slice.
 ///
@@ -37,24 +38,25 @@ impl<T> USlice<T> {
     /// address space, and if `base_address` is correctly aligned for `T`.
     ///
     /// This method will categorically reject zero-sized T.
-    pub fn from_raw(base_address: usize, length: usize) -> Option<Self> {
+    pub fn from_raw(base_address: usize, length: usize) -> Result<Self, UsageError> {
         // ZST check, should resolve at compile time:
         assert!(core::mem::size_of::<T>() != 0);
 
         // Alignment check:
         if base_address % core::mem::align_of::<T>() != 0 {
-            return None
+            return Err(UsageError::InvalidSlice)
         }
         // Check that a slice of `length` `T`s can even exist starting at
         // `base_address`, without wrapping around. This check is slightly
         // complicated by a desire to _allow_ slices that end at the top of the
         // address space.
-        let size_in_bytes = length.checked_mul(core::mem::size_of::<T>())?;
+        let size_in_bytes = length.checked_mul(core::mem::size_of::<T>())
+            .ok_or(UsageError::InvalidSlice)?;
         let highest_possible_base = core::usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
-            Some(Self { base_address, length, _marker: PhantomData })
+            Ok(Self { base_address, length, _marker: PhantomData })
         } else {
-            None
+            Err(UsageError::InvalidSlice)
         }
     }
 
@@ -180,7 +182,7 @@ impl<'a> From<&'a ULease> for USlice<u8> {
 /// to_slice.length)`, and will be returned.
 ///
 /// If `from_slice` or `to_slice` refers to memory the task can't read or write
-/// (respectively), no bytes are copied, and this returns a `CopyError`
+/// (respectively), no bytes are copied, and this returns an `InteractFault`
 /// indicating which task(s) messed this up.
 ///
 /// This operation will not accept device memory as readable or writable.
@@ -189,17 +191,30 @@ pub fn safe_copy(
     from_slice: USlice<u8>,
     to: &Task,
     mut to_slice: USlice<u8>,
-) -> Result<usize, CopyError> {
-
-    let src_fail = !from.can_read(&from_slice);
+) -> Result<usize, InteractFault> {
+    let src_fault = if from.can_read(&from_slice) {
+        None
+    } else {
+        Some(FaultInfo::MemoryAccess {
+            address: Some(from_slice.base_address),
+            source: FaultSource::Kernel,
+        })
+    };
     // We're going to blame any aliasing on the recipient, who shouldn't have
     // designated a receive buffer in shared memory. This decision is somewhat
     // arbitrary.
-    let dst_fail = !to.can_write(&to_slice) || from_slice.aliases(&to_slice);
-    if src_fail || dst_fail {
-        return Err(CopyError {
-            src_fault: if src_fail { Some(from_slice.base_address) } else { None },
-            dest_fault: if dst_fail { Some(to_slice.base_address) } else { None },
+    let dst_fault = if to.can_write(&to_slice) && !from_slice.aliases(&to_slice) {
+        None
+    } else {
+        Some(FaultInfo::MemoryAccess {
+            address: Some(to_slice.base_address),
+            source: FaultSource::Kernel,
+        })
+    };
+    if src_fault.is_some() || dst_fault.is_some() {
+        return Err(InteractFault {
+            sender: src_fault,
+            recipient: dst_fault,
         })
     }
 
@@ -212,16 +227,4 @@ pub fn safe_copy(
     let to = unsafe { to_slice.assume_writable() };
     to[..copy_len].copy_from_slice(&from[..copy_len]);
     Ok(copy_len)
-}
-
-/// Failure information returned from `safe_copy`.
-///
-/// The faulting addresses returned in this struct provide *examples* of an
-/// illegal address. The precise choice of faulting address within a bad slice
-/// is left undefined.
-pub struct CopyError {
-    /// Address where source would have faulted.
-    pub src_fault: Option<usize>,
-    /// Address where dest would have faulted.
-    pub dest_fault: Option<usize>,
 }
