@@ -78,7 +78,7 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
                     // Delivery succeeded!
                     // Block caller.
                     tasks[caller].state = TaskState::Healthy(
-                        SchedState::AwaitingReplyFrom(callee)
+                        SchedState::InReply(callee)
                     );
                     // Unblock callee.
                     tasks[callee].state = TaskState::Healthy(
@@ -115,7 +115,7 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 
     // Caller needs to block sending, callee is either busy or
     // faulted.
-    tasks[caller].state = TaskState::Healthy(SchedState::SendingTo(callee));
+    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee));
     // We don't know what the best task to run now would be, but
     // we're pretty darn sure it isn't the caller.
     return NextTask::Other
@@ -136,8 +136,8 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// Preconditions:
 ///
-/// - Caller is sending -- either blocked in state `SendingTo`, or in the
-///   process of transitioning from `Runnable` to `AwaitingReplyFrom`.
+/// - Caller is sending -- either blocked in state `InSend`, or in the
+///   process of transitioning from `Runnable` to `InReply`.
 /// - Callee is receiving -- either blocked in `InRecv` or in `Runnable`
 ///   executing a receive system call.
 ///
@@ -185,7 +185,7 @@ fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), Inter
     rr.set_lease_count(lease_count);
     drop(rr);
 
-    tasks[caller].state = TaskState::Healthy(SchedState::AwaitingReplyFrom(callee));
+    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee));
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
     // We don't have an opinion about the newly runnable task, nor do we
     // have enough information to insist that a switch must happen.

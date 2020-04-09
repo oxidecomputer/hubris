@@ -320,9 +320,9 @@ pub enum SchedState {
     /// This task could be scheduled on the CPU.
     Runnable,
     /// This task is blocked waiting to deliver a message to the given task.
-    SendingTo(usize),
+    InSend(usize),
     /// This task is blocked waiting for a reply from the given task.
-    AwaitingReplyFrom(usize),
+    InReply(usize),
     /// This task is blocked waiting for messages, either from any source
     /// (`None`) or from a particular sender only.
     InRecv(Option<usize>),
