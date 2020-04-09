@@ -2,7 +2,7 @@ use core::borrow::{Borrow, BorrowMut};
 use zerocopy::FromBytes;
 
 use crate::time::Timestamp;
-use crate::umem::{USlice, ULease};
+use crate::umem::{ULease, USlice};
 
 /// Internal representation of a task.
 pub struct Task {
@@ -45,11 +45,17 @@ impl Task {
     /// some other task you can explicitly ignore the result.
     pub fn force_fault(&mut self, fault: FaultInfo) -> NextTask {
         self.state = match self.state {
-            TaskState::Healthy(sched) => TaskState::Faulted { original_state: sched, fault },
-            TaskState::Faulted { original_state, ..} => {
+            TaskState::Healthy(sched) => TaskState::Faulted {
+                original_state: sched,
+                fault,
+            },
+            TaskState::Faulted { original_state, .. } => {
                 // Double fault - fault while faulted
                 // Original fault information is lost
-                TaskState::Faulted { fault, original_state }
+                TaskState::Faulted {
+                    fault,
+                    original_state,
+                }
             }
         };
         NextTask::Other
@@ -109,11 +115,11 @@ impl MemoryRegion {
         // Check that base+size doesn't wrap the address space.
         let highest_base = core::usize::MAX - self.size;
         if self.base > highest_base {
-            return false
+            return false;
         }
         // Reject any reserved bits in the attributes word.
         if self.attributes.intersects(RegionAttributes::RESERVED) {
-            return false
+            return false;
         }
 
         true
@@ -444,7 +450,7 @@ pub enum NextTask {
 
 impl NextTask {
     pub fn combine(self, other: Self) -> Self {
-        use NextTask::*;  // shorthand for patterns
+        use NextTask::*; // shorthand for patterns
 
         match (self, other) {
             // If we have two specific suggestions, and they disagree, we punt
@@ -501,7 +507,7 @@ pub fn check_task_id_against_table(
         return Err(TaskIDError::Stale);
     }
 
-    return Ok(id.index())
+    return Ok(id.index());
 }
 
 /// Problems we might discover about `TaskID` values.

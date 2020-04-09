@@ -35,7 +35,6 @@ use self::umem::*;
 /// the peer died.
 pub const DEAD: u32 = !0;
 
-
 /// Implementation of the SEND IPC primitive.
 ///
 /// `caller` is a valid task index (i.e. not directly from user code).
@@ -50,18 +49,18 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     // Check IPC filter - TODO
     // Open question: should out-of-range task IDs be handled by faulting below,
     // or by failing the IPC filter? Either condition will fault...
-    
+
     // Verify the given callee ID, converting it into a table index on success.
     let callee = match task::check_task_id_against_table(tasks, callee) {
         Err(task::TaskIDError::OutOfRange) => {
             return tasks[caller].force_fault(FaultInfo::SyscallUsage(
-                    UsageError::TaskOutOfRange
+                UsageError::TaskOutOfRange,
             ));
         }
         Err(task::TaskIDError::Stale) => {
             // Inform caller by resuming it with an error response code.
             resume_sender_with_error(&mut tasks[caller]);
-            return NextTask::Same
+            return NextTask::Same;
         }
         Ok(i) => i,
     };
@@ -77,15 +76,13 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
                 Ok(_) => {
                     // Delivery succeeded!
                     // Block caller.
-                    tasks[caller].state = TaskState::Healthy(
-                        SchedState::InReply(callee)
-                    );
+                    tasks[caller].state =
+                        TaskState::Healthy(SchedState::InReply(callee));
                     // Unblock callee.
-                    tasks[callee].state = TaskState::Healthy(
-                        SchedState::Runnable
-                    );
+                    tasks[callee].state =
+                        TaskState::Healthy(SchedState::Runnable);
                     // Propose switching directly to the unblocked callee.
-                    return NextTask::Specific(callee)
+                    return NextTask::Specific(callee);
                 }
                 Err(interact) => {
                     // Delivery failed because of fault events in one or both
@@ -118,7 +115,7 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee));
     // We don't know what the best task to run now would be, but
     // we're pretty darn sure it isn't the caller.
-    return NextTask::Other
+    return NextTask::Other;
 }
 
 /// Transfers a message from caller's context into callee's. This may be called
@@ -151,18 +148,25 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// On success, returns `Ok(())` and any task-switching is the caller's
 /// responsibility.
-fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), InteractFault> {
+fn deliver(
+    tasks: &mut [Task],
+    caller: usize,
+    callee: usize,
+) -> Result<(), InteractFault> {
     // Collect information on the send from the caller. This information is all
     // stored in infallibly-readable areas, but our accesses can fail if the
     // caller handed us bogus slices.
     let send_args = tasks[caller].save.as_send_args();
     let op = send_args.operation();
-    let caller_id = TaskID::from_index_and_gen(caller, tasks[caller].generation);
+    let caller_id =
+        TaskID::from_index_and_gen(caller, tasks[caller].generation);
     let src_slice = send_args.message().map_err(InteractFault::in_sender)?;
-    let response_capacity = send_args.response_buffer()
+    let response_capacity = send_args
+        .response_buffer()
         .map_err(InteractFault::in_sender)?
         .len();
-    let lease_count = send_args.lease_table()
+    let lease_count = send_args
+        .lease_table()
         .map_err(InteractFault::in_sender)?
         .len();
     drop(send_args);
@@ -170,8 +174,7 @@ fn deliver(tasks: &mut [Task], caller: usize, callee: usize) -> Result<(), Inter
     // Collect information about the callee's receive buffer. This, too, is
     // somewhere we can read infallibly.
     let recv_args = tasks[callee].save.as_recv_args();
-    let dest_slice = recv_args.buffer()
-        .map_err(InteractFault::in_recipient)?;
+    let dest_slice = recv_args.buffer().map_err(InteractFault::in_recipient)?;
     drop(recv_args);
 
     // Okay, ready to attempt the copy.

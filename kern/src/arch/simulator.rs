@@ -13,7 +13,7 @@ impl task::ArchState for SavedState {
         // TODO: this is an argument for removing stack_pointer from ArchState.
         unimplemented!()
     }
-    
+
     /// Reads syscall argument register 0.
     fn arg0(&self) -> u32 {
         self.args[0]
@@ -60,4 +60,3 @@ impl task::ArchState for SavedState {
         self.rets[5] = x
     }
 }
-

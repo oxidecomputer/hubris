@@ -17,7 +17,7 @@ impl task::ArchState for SavedState {
     fn stack_pointer(&self) -> u32 {
         self.psp
     }
-    
+
     /// Reads syscall argument register 0.
     fn arg0(&self) -> u32 {
         self.r4

@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use zerocopy::FromBytes;
 
-use crate::task::{Task, UsageError, FaultInfo, FaultSource};
+use crate::task::{FaultInfo, FaultSource, Task, UsageError};
 use crate::InteractFault;
 
 /// A (user, untrusted, unprivileged) slice.
@@ -38,23 +38,31 @@ impl<T> USlice<T> {
     /// address space, and if `base_address` is correctly aligned for `T`.
     ///
     /// This method will categorically reject zero-sized T.
-    pub fn from_raw(base_address: usize, length: usize) -> Result<Self, UsageError> {
+    pub fn from_raw(
+        base_address: usize,
+        length: usize,
+    ) -> Result<Self, UsageError> {
         // ZST check, should resolve at compile time:
         assert!(core::mem::size_of::<T>() != 0);
 
         // Alignment check:
         if base_address % core::mem::align_of::<T>() != 0 {
-            return Err(UsageError::InvalidSlice)
+            return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at
         // `base_address`, without wrapping around. This check is slightly
         // complicated by a desire to _allow_ slices that end at the top of the
         // address space.
-        let size_in_bytes = length.checked_mul(core::mem::size_of::<T>())
+        let size_in_bytes = length
+            .checked_mul(core::mem::size_of::<T>())
             .ok_or(UsageError::InvalidSlice)?;
         let highest_possible_base = core::usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
-            Ok(Self { base_address, length, _marker: PhantomData })
+            Ok(Self {
+                base_address,
+                length,
+                _marker: PhantomData,
+            })
         } else {
             Err(UsageError::InvalidSlice)
         }
@@ -74,9 +82,11 @@ impl<T> USlice<T> {
         // This implementation would be wrong for ZSTs, but we blocked them at
         // construction.
         let size_in_bytes = self.length * core::mem::size_of::<T>();
-        self.base_address.wrapping_add(size_in_bytes).wrapping_sub(1)
+        self.base_address
+            .wrapping_add(size_in_bytes)
+            .wrapping_sub(1)
     }
-    
+
     /// Checks whether this slice aliases (overlaps) `other`.
     pub fn aliases(&self, other: &Self) -> bool {
         // This test is made slightly involved by a desire to support slices
@@ -90,7 +100,8 @@ impl<T> USlice<T> {
 }
 
 impl<T> USlice<T>
-where T: FromBytes
+where
+    T: FromBytes,
 {
     /// Converts this into an _actual_ slice that can be directly read by the
     /// kernel.
@@ -109,10 +120,7 @@ where T: FromBytes
     /// 5. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`.
     pub unsafe fn assume_readable(&self) -> &[T] {
-        core::slice::from_raw_parts(
-            self.base_address as *const T,
-            self.length,
-        )
+        core::slice::from_raw_parts(self.base_address as *const T, self.length)
     }
 
     /// Converts this into an _actual_ slice that can be directly read and
@@ -203,7 +211,8 @@ pub fn safe_copy(
     // We're going to blame any aliasing on the recipient, who shouldn't have
     // designated a receive buffer in shared memory. This decision is somewhat
     // arbitrary.
-    let dst_fault = if to.can_write(&to_slice) && !from_slice.aliases(&to_slice) {
+    let dst_fault = if to.can_write(&to_slice) && !from_slice.aliases(&to_slice)
+    {
         None
     } else {
         Some(FaultInfo::MemoryAccess {
@@ -215,7 +224,7 @@ pub fn safe_copy(
         return Err(InteractFault {
             sender: src_fault,
             recipient: dst_fault,
-        })
+        });
     }
 
     // We are now convinced, after querying the tasks, that these RAM areas are
