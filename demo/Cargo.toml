@@ -1,0 +1,28 @@
+[package]
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+readme = "README.md"
+name = "demo"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.6.0"
+cortex-m-rt = "0.6.10"
+cortex-m-semihosting = "0.3.3"
+#panic-halt = "0.2.0"
+panic-semihosting = "0.5.3"
+
+[dependencies.stm32f4]
+features = ["stm32f407", "rt"]
+version = "0.10.0"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo"
+test = false
+bench = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
