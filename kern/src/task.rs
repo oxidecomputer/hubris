@@ -1,10 +1,12 @@
 use core::borrow::{Borrow, BorrowMut};
-use zerocopy::FromBytes;
+use zerocopy::{FromBytes, AsBytes, Unaligned};
 
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
+use crate::app::{RegionDesc, RegionAttributes};
 
 /// Internal representation of a task.
+#[derive(Debug, Default)]
 pub struct Task {
     /// Current priority of the task.
     pub priority: Priority,
@@ -21,7 +23,7 @@ pub struct Task {
     pub generation: Generation,
 
     /// Static table defining this task's memory regions.
-    pub region_table: &'static [MemoryRegion],
+    pub region_table: &'static [&'static RegionDesc],
 
     /// Notification status.
     pub notifications: u32,
@@ -95,72 +97,22 @@ impl Task {
     }
 }
 
-/// Static table entry for a task's memory regions.
-///
-/// Currently, this struct is architecture-neutral, but that means it needs to
-/// be converted to be loaded into the memory protection unit on context
-/// switch. It may pay to make it architecture-specific and move it out of here.
-#[derive(Debug, FromBytes)]
-#[repr(C)]
-pub struct MemoryRegion {
-    pub base: usize,
-    pub size: usize,
-    pub attributes: RegionAttributes,
-}
-
-impl MemoryRegion {
-    /// Checks this region's structure. Used early in boot to check region
-    /// tables before starting tasks.
-    pub fn validate(&self) -> bool {
-        // Check that base+size doesn't wrap the address space.
-        let highest_base = core::usize::MAX - self.size;
-        if self.base > highest_base {
-            return false;
-        }
-        // Reject any reserved bits in the attributes word.
-        if self.attributes.intersects(RegionAttributes::RESERVED) {
-            return false;
-        }
-
-        true
-    }
-
-    /// Tests whether `slice` is fully enclosed by this region.
-    pub fn covers<T>(&self, slice: &USlice<T>) -> bool {
-        let self_end = self.base.wrapping_add(self.size).wrapping_sub(1);
-        let slice_end = slice.last_byte_addr();
-
-        self_end >= slice.base_addr() && slice_end >= self.base
-    }
-}
-
-bitflags::bitflags! {
-    #[derive(FromBytes)]
-    #[repr(transparent)]
-    pub struct RegionAttributes: u32 {
-        const READ = 1 << 0;
-        const WRITE = 1 << 1;
-        const EXECUTE = 1 << 2;
-        const DEVICE = 1 << 3;
-        const RESERVED = !((1 << 4) - 1);
-    }
-}
-
 /// Indicates priority of a task.
 ///
 /// Priorities are small numbers starting from zero. Numerically lower
 /// priorities are more important, so Priority 0 is the most likely to be
 /// scheduled, followed by 1, and so forth. (This keeps our logic simpler given
 /// that the number of priorities can be reconfigured.)
+#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
 #[repr(transparent)]
 pub struct Priority(u8);
 
 /// Type used to track generation numbers.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct Generation(u8);
 
-pub trait ArchState {
+pub trait ArchState: Default {
     fn stack_pointer(&self) -> u32;
 
     /// Reads syscall argument register 0.
@@ -318,6 +270,12 @@ pub enum TaskState {
     },
 }
 
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Healthy(SchedState::Stopped)
+    }
+}
+
 /// Scheduler parameters for a healthy task.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SchedState {
@@ -419,6 +377,7 @@ impl TaskID {
 /// State for a task timer.
 ///
 /// Task timers are used to multiplex the hardware timer.
+#[derive(Debug, Default)]
 pub struct TimerState {
     /// Deadline, in kernel time, at which this timer should fire. If `None`,
     /// the timer is disabled.
@@ -429,7 +388,7 @@ pub struct TimerState {
 }
 
 /// Collection of bits that may be posted to a task's notification word.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct NotificationSet(u32);
 

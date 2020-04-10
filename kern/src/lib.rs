@@ -25,7 +25,9 @@
 
 #![cfg_attr(target_os = "none", no_std)]
 
+pub mod app;
 pub mod arch;
+pub mod startup;
 pub mod task;
 pub mod time;
 pub mod umem;

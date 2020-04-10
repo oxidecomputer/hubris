@@ -1,6 +1,6 @@
 use crate::task;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SavedState {
     r4: u32,
     r5: u32,
