@@ -52,6 +52,13 @@ The table consists of the following:
 The `App` header gives the size of both of the following tables. See
 `kern/src/app.rs` for details and layout.
 
+TIP: Region descriptors can be shared among tasks -- task descriptors specify
+the regions they can access by _index_. Task descriptors contain the initial
+program counter and stack pointer values for the task, which will be loaded into
+those registers when the task first runs (or is restarted). Hubris will check
+that those pointers fall within some memory region, but other than that, the
+layout of your task memory regions and their roles is totally up to you.
+
 `start_kernel` reads the `App` header and the task and region descriptors,
 validates their integrity, and allocates RAM. This is the only time the kernel
 allocates RAM, and it allocates it from a single contiguous area delimited by
