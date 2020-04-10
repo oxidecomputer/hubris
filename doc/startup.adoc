@@ -1,0 +1,82 @@
+= Startup
+
+This document describes how Hubris takes a CPU from reset to running your
+application. It is mostly architecture-neutral; any architecture-specific bits
+will be called out.
+
+== From reset to Rust
+
+At reset, the processor runs a designated chunk of code, the *reset handler.*
+Hubris's reset handler is responsible for making the world safe for Rust code.
+This means:
+
+- Setting up a stack pointer, if the hardware doesn't do that for us;
+
+- Enabling any processor features or memory devices required to run the kernel
+  -- for example, if the device has an FPU, we need it turned on so we can
+  configure it even though the kernel itself may not use floating point;
+
+- Ensuring that all initialized variables get initialized;
+
+- Jumping to `main`.
+
+On ARMv7-M this sequence is handled by the `cortex_m_rt` crate, which in turn
+uses the `r0` crate to set up Rust variables.
+
+=== `main`: bring your own
+
+Currently, Hubris expects the application packager (i.e. you) to provide a
+`main` routine in the crate that builds the kernel. This gives you an
+opportunity to do any setup that isn't handled by the runtime startup, but needs
+to happen before the kernel boots.
+
+`main` should do those things, and then call `start_kernel`.
+
+In the same file, you will typically need to declare interrupt service routines
+for any SoC-specific interrupts that you wish to handle. These ISRs should
+simply invoke Hubris's generic interrupt posting routine (TBD).
+
+=== Starting the kernel
+
+The kernel expects to be packaged in Flash with a table describing the tasks.
+This table would normally immediately follow the kernel image, though it can be
+placed anywhere; the kernel finds it using the `hubris_app_descriptor` symbol.
+
+The table consists of the following:
+
+- An `App` header record describing the overall shape of things to come.
+- One or more region descriptor (`RegionDesc`) records, carving up address space
+  into regions with attributes.
+- One or more task descriptor (`TaskDesc`) records describing tasks.
+
+The `App` header gives the size of both of the following tables. See
+`kern/src/app.rs` for details and layout.
+
+`start_kernel` reads the `App` header and the task and region descriptors,
+validates their integrity, and allocates RAM. This is the only time the kernel
+allocates RAM, and it allocates it from a single contiguous area delimited by
+the `hubris_kernel_ram_start` and `hubris_kernel_ram_end` symbols. (This area of
+memory should not overlap any of your application memory regions.)
+
+In this memory area, the kernel allocates bookkeeping information for each task
+described in the task table. The few kernel global variables are *not* placed
+here; it's only used for stuff that is dynamically sized based on information
+found in the `App` header.
+
+If the kernel cannot allocate bookkeeping structures for the tasks described in
+the descriptor tables, it will panic.
+
+Any extra RAM allocated to the kernel, but not used, is lost.
+
+=== Starting the first task(s)
+
+One of the fields in the task descriptor contains a `START_AT_BOOT` flag. Any
+task with this flag set will be initialized in `Runnable` state; all others are
+initialized in `Stopped` state.
+
+As its last act during startup, the kernel scans the tasks looking for the
+*highest priority* task marked `START_AT_BOOT`. It then switches into that task,
+and your application is running.
+
+If the task descriptor table contains *zero* tasks marked `START_AT_BOOT`, this
+represents an application configuration error, and the kernel will panic.
