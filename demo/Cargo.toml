@@ -16,6 +16,9 @@ panic-semihosting = "0.5.3"
 features = ["stm32f407", "rt"]
 version = "0.10.0"
 
+[dependencies.kern]
+path = "../kern"
+
 # this lets you use `cargo fix`!
 [[bin]]
 name = "demo"

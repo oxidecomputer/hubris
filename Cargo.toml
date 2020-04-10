@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "demo",
+    "kern",
 ]
 
 [profile.release]
