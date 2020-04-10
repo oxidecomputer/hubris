@@ -3,10 +3,10 @@ use zerocopy::{FromBytes, AsBytes, Unaligned};
 
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
-use crate::app::{RegionDesc, RegionAttributes};
+use crate::app::{TaskDesc, RegionDesc, RegionAttributes};
 
 /// Internal representation of a task.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Task {
     /// Current priority of the task.
     pub priority: Priority,
@@ -29,6 +29,10 @@ pub struct Task {
     pub notifications: u32,
     /// Notification mask.
     pub notification_mask: u32,
+
+    /// Pointer to the ROM descriptor used to create this task, so it can be
+    /// restarted.
+    pub descriptor: &'static TaskDesc,
 }
 
 impl Task {
@@ -105,7 +109,7 @@ impl Task {
 /// that the number of priorities can be reconfigured.)
 #[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
 #[repr(transparent)]
-pub struct Priority(u8);
+pub struct Priority(pub u8);
 
 /// Type used to track generation numbers.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]

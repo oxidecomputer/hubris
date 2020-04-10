@@ -99,7 +99,15 @@ fn safe_start_kernel(
             } else {
                 TaskState::default()
             },
-            ..Task::default()
+
+            descriptor: task_desc,
+
+            generation: crate::task::Generation::default(),
+            notification_mask: 0,
+            notifications: 0,
+            save: crate::arch::SavedState::default(),
+            region_table: &[], // filled in momentarily
+            timer: crate::task::TimerState::default(),
         }
     });
     // Now, allocate a region table for each task, turning its ROM indices into
@@ -109,6 +117,9 @@ fn safe_start_kernel(
         task.region_table = alloc.gimme_n(app::REGIONS_PER_TASK, |i| {
             &region_descs[task_desc.regions[i] as usize]
         });
+
+        // With that done, set up initial register state etc.
+        crate::arch::reinitialize(task);
     }
 
     // Great! Pick our first task. We're looking for the runnable-at-boot task
@@ -130,8 +141,8 @@ fn safe_start_kernel(
     switch_to_user(tasks, first_task_index)
 }
 
-fn switch_to_user(_tasks: &mut [Task], _first_task_index: usize) -> ! {
-    panic!()
+fn switch_to_user(tasks: &mut [Task], first_task_index: usize) -> ! {
+    crate::arch::start_first_task(&tasks[first_task_index])
 }
 
 struct BumpPointer(&'static mut [u8]);

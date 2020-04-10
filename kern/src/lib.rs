@@ -24,6 +24,7 @@
 //!   bounds or any realtime nonsense like that.
 
 #![cfg_attr(target_os = "none", no_std)]
+#![feature(asm)]
 
 pub mod app;
 pub mod arch;

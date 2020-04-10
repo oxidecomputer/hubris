@@ -55,7 +55,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct TaskFlags: u32 {
         const START_AT_BOOT = 1 << 0;
-        const RESERVED = !((1 << 0) - 1);
+        const RESERVED = !1;
     }
 }
 
@@ -91,6 +91,7 @@ bitflags::bitflags! {
         const READ = 1 << 0;
         const WRITE = 1 << 1;
         const EXECUTE = 1 << 2;
+        const RWX = 0b111;
         const DEVICE = 1 << 3;
         const RESERVED = !((1 << 4) - 1);
     }
