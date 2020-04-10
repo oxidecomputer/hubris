@@ -23,6 +23,8 @@
 //! - We are not attempting to achieve predictably low worst-case execution
 //!   bounds or any realtime nonsense like that.
 
+#![cfg_attr(target_os = "none", no_std)]
+
 pub mod arch;
 pub mod task;
 pub mod time;
