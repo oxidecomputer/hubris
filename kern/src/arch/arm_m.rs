@@ -1,6 +1,7 @@
 use zerocopy::FromBytes;
 
 use crate::task;
+use crate::app;
 use crate::umem::USlice;
 
 #[repr(C)]
@@ -133,7 +134,75 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save.psp = frame as *const _ as u32;
 }
 
+pub fn apply_memory_protection(task: &task::Task) {
+    // We are manufacturing authority to interact with the MPU here, because we
+    // can't thread a cortex-specific peripheral through an
+    // architecture-independent API. This approach might bear revisiting later.
+    let mpu = unsafe {
+        // At least by not taking a &mut we're confident we're not violating
+        // aliasing....
+        &*cortex_m::peripheral::MPU::ptr()
+    };
+
+    for (i, region) in task.region_table.iter().enumerate() {
+        // This MPU requires that all regions are 32-byte aligned...in part
+        // because it stuffs extra stuff into the bottom five bits.
+        debug_assert_eq!(region.base & 0x1F, 0);
+
+        let rbar = (i as u32)  // region number
+            | (1 << 4)  // honor the region number
+            | region.base;
+        let ratts = region.attributes;
+        let xn = !ratts.contains(app::RegionAttributes::EXECUTE);
+        // These AP encodings are chosen such that we never deny *privileged*
+        // code (i.e. us) access to the memory.
+        let ap = if ratts.contains(app::RegionAttributes::WRITE) {
+            0b011
+        } else if ratts.contains(app::RegionAttributes::READ) {
+            0b010
+        } else {
+            0b001
+        };
+        let (tex, scb) = if ratts.contains(app::RegionAttributes::DEVICE) {
+            (0b000, 0b111)
+        } else {
+            (0b001, 0b111)
+        };
+        // This is a bit of a hack; it works if the size is a power of two, but
+        // will undersize the region if it isn't. We really need to validate the
+        // regions at boot time with architecture-specific logic....
+        let l2size = 30 - region.size.leading_zeros();
+        let rasr = (xn as u32) << 28
+            | ap << 24
+            | tex << 19
+            | scb << 16
+            | l2size << 1
+            | (1 << 0);  // enable
+        unsafe {
+            mpu.rbar.write(rbar);
+            mpu.rasr.write(rasr);
+        }
+    }
+}
+
 pub fn start_first_task(task: &task::Task) -> ! {
+    // We are manufacturing authority to interact with the MPU here, because we
+    // can't thread a cortex-specific peripheral through an
+    // architecture-independent API. This approach might bear revisiting later.
+    let mpu = unsafe {
+        // At least by not taking a &mut we're confident we're not violating
+        // aliasing....
+        &*cortex_m::peripheral::MPU::ptr()
+    };
+
+    const ENABLE: u32 = 0b001;
+    const PRIVDEFENA: u32 = 0b100;
+    // Safety: this has no memory safety implications. The worst it can do is
+    // cause us to fault, which is safe. The register API doesn't know this.
+    unsafe {
+        mpu.ctrl.write(ENABLE | PRIVDEFENA);
+    }
+
     unsafe {
         asm! { "
             msr PSP, $0             @ set the user stack pointer

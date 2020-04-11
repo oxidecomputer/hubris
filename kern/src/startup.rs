@@ -142,6 +142,7 @@ fn safe_start_kernel(
 }
 
 fn switch_to_user(tasks: &mut [Task], first_task_index: usize) -> ! {
+    crate::arch::apply_memory_protection(&tasks[first_task_index]);
     crate::arch::start_first_task(&tasks[first_task_index])
 }
 

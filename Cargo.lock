@@ -125,6 +125,7 @@ dependencies = [
  "bitflags",
  "byteorder",
  "cfg-if",
+ "cortex-m",
  "zerocopy",
 ]
 
