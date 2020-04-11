@@ -25,6 +25,7 @@
 
 #![cfg_attr(target_os = "none", no_std)]
 #![feature(asm)]
+#![feature(naked_functions)]
 
 pub mod app;
 pub mod arch;

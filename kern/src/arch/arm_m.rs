@@ -136,16 +136,10 @@ pub fn reinitialize(task: &mut task::Task) {
 pub fn start_first_task(task: &task::Task) -> ! {
     unsafe {
         asm! { "
-            movs r4, #1             @ get bitmask to...
-            msr CONTROL, r4         @ ...shed privs from thread mode.
-            isb sy                  @ apply now please.
-
-            mov lr, #0xFFFFFFED     @ materialize EXC_RETURN value to
-                                    @ return into thread mode, PSP, FP on
-
             msr PSP, $0             @ set the user stack pointer
             ldm $1, {r4-r11}        @ restore the callee-save registers
-            bx lr                   @ branch into user mode
+            svc #0xFF               @ branch into user mode (svc # ignored)
+            udf #0xad               @ should not return
         "
             :
             : "r"(task.save.psp),
@@ -155,4 +149,34 @@ pub fn start_first_task(task: &task::Task) -> ! {
         }
     }
     unreachable!()
+}
+
+#[allow(non_snake_case)]
+#[naked]
+#[no_mangle]
+pub unsafe fn SVCall() {
+    asm! {"
+        cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
+        beq 1f                  @ if so, we're starting the first task;
+                                @ jump ahead.
+        @ the common case is handled by branch-not-taken as it's faster
+
+        udf #0xad               @ svcs are not implemented yet
+
+    1:  @ starting up the first task.
+        movs r0, #1             @ get bitmask to...
+        msr CONTROL, r0         @ ...shed privs from thread mode.
+                                @ note: now barrier here because exc return
+                                @ serves as barrier
+
+        mov lr, #0xFFFFFFED     @ materialize EXC_RETURN value to
+                                @ return into thread mode, PSP, FP on
+
+        bx lr                   @ branch into user mode
+        "
+        :
+        :
+        :
+        : "volatile"
+    }
 }
