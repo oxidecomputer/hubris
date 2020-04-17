@@ -34,7 +34,7 @@ fn main() -> ! {
             entry_point: spin as usize as u32,
             flags: TaskFlags::START_AT_BOOT,
             initial_stack: 0x10010000,
-            priority: kern::task::Priority(0),
+            priority: kern::app::Priority(0),
             regions: [0, 0, 0, 0, 0, 0, 0, 0],
         },
         region: RegionDesc {

@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "abi",
     "demo",
     "kern",
 ]

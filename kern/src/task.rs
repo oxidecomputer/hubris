@@ -1,9 +1,10 @@
 use core::borrow::{Borrow, BorrowMut};
-use zerocopy::{FromBytes, AsBytes, Unaligned};
+
+use abi::Priority;
 
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
-use crate::app::{TaskDesc, RegionDesc, RegionAttributes};
+use crate::app::{TaskDesc, RegionDesc, RegionDescExt, RegionAttributes};
 
 /// Internal representation of a task.
 #[derive(Debug)]
@@ -100,16 +101,6 @@ impl Task {
             && self.state == TaskState::Healthy(SchedState::InRecv(None))
     }
 }
-
-/// Indicates priority of a task.
-///
-/// Priorities are small numbers starting from zero. Numerically lower
-/// priorities are more important, so Priority 0 is the most likely to be
-/// scheduled, followed by 1, and so forth. (This keeps our logic simpler given
-/// that the number of priorities can be reconfigured.)
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
-#[repr(transparent)]
-pub struct Priority(pub u8);
 
 /// Type used to track generation numbers.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
