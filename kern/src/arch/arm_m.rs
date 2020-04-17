@@ -1,8 +1,15 @@
+use core::ptr::NonNull;
+
 use zerocopy::FromBytes;
 
 use crate::task;
 use crate::app;
 use crate::umem::USlice;
+
+/// On ARMvx-M we have to use a global to record the current task pointer, since
+/// we don't have a scratch register.
+#[no_mangle]
+static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 
 #[repr(C)]
 #[derive(Debug, Default)]
@@ -17,8 +24,9 @@ pub struct SavedState {
     r9: u32,
     r10: u32,
     r11: u32,
-    // NOTE: the above fields must be kept contiguous!
     psp: u32,
+    exc_return: u32,
+    // NOTE: the above fields must be kept contiguous!
 }
 
 impl task::ArchState for SavedState {
@@ -48,7 +56,8 @@ impl task::ArchState for SavedState {
     fn arg6(&self) -> u32 {
         self.r10
     }
-    fn arg7(&self) -> u32 {
+
+    fn syscall_descriptor(&self) -> u32 {
         self.r11
     }
 
@@ -204,6 +213,10 @@ pub fn start_first_task(task: &task::Task) -> ! {
     }
 
     unsafe {
+        CURRENT_TASK_PTR = Some(NonNull::from(task));
+    }
+
+    unsafe {
         asm! { "
             msr PSP, $0             @ set the user stack pointer
             ldm $1, {r4-r11}        @ restore the callee-save registers
@@ -224,13 +237,42 @@ pub fn start_first_task(task: &task::Task) -> ! {
 #[naked]
 #[no_mangle]
 pub unsafe fn SVCall() {
+    // TODO: could shave several cycles off SVC entry with more careful ordering
+    // of instructions below, though the precise details depend on how complex
+    // of an M-series processor you're targeting -- so I've punted on this for
+    // the time being.
     asm! {"
         cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
         @ the common case is handled by branch-not-taken as it's faster
 
-        udf #0xad               @ svcs are not implemented yet
+        @ store volatile state.
+        @ first, get a pointer to the current task.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        @ fetch the process-mode stack pointer.
+        @ fetching into r12 means the order in the stm below is right.
+        mrs r12, PSP
+        @ now, store volatile registers, plus the PSP in r12, plus LR.
+        stm r0, {r4-r12, lr}
+
+        @ syscall number is passed in r11. Move it into r0 to pass it as an
+        @ argument to the handler, then call the handler.
+        movs r0, r11
+        bl do_syscall
+
+        @ we're returning back to *some* task, maybe not the same one.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        @ restore volatile registers, plus load PSP into r12
+        ldm r0, {r4-r12, lr}
+        msr PSP, r12
+
+        @ resume
+        bx lr
 
     1:  @ starting up the first task.
         movs r0, #1             @ get bitmask to...
@@ -248,4 +290,10 @@ pub unsafe fn SVCall() {
         :
         : "volatile"
     }
+}
+
+/// Rust-side syscall handler.
+#[no_mangle]
+extern "C" fn do_syscall(_nr: u32) {
+    panic!()
 }

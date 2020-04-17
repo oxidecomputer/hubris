@@ -7,14 +7,17 @@ use crate::umem::{ULease, USlice};
 use crate::app::{TaskDesc, RegionDesc, RegionDescExt, RegionAttributes};
 
 /// Internal representation of a task.
+#[repr(C)] // so location of SavedState is predictable
 #[derive(Debug)]
 pub struct Task {
+    /// Saved machine state of the user program.
+    pub save: crate::arch::SavedState,
+    // NOTE: it is critical that the above field appear first!
+
     /// Current priority of the task.
     pub priority: Priority,
     /// State used to make status and scheduling decisions.
     pub state: TaskState,
-    /// Saved machine state of the user program.
-    pub save: crate::arch::SavedState,
     /// State for tracking the task's timer.
     pub timer: TimerState,
     /// Generation number of this task's current incarnation. This begins at
@@ -118,7 +121,8 @@ pub trait ArchState: Default {
     fn arg4(&self) -> u32;
     fn arg5(&self) -> u32;
     fn arg6(&self) -> u32;
-    fn arg7(&self) -> u32;
+
+    fn syscall_descriptor(&self) -> u32;
 
     /// Writes syscall return argument 0.
     fn ret0(&mut self, _: u32);
