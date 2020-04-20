@@ -6,6 +6,12 @@ use crate::task;
 use crate::app;
 use crate::umem::USlice;
 
+/// On ARMvx-M we use a global to record the task table position and extent.
+#[no_mangle]
+static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
+#[no_mangle]
+static mut TASK_TABLE_SIZE: usize = 0;
+
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
 #[no_mangle]
@@ -111,6 +117,21 @@ pub struct ExtendedExceptionFrame {
 const INITIAL_PSR: u32 = 1 << 24;
 
 const INITIAL_FPSCR: u32 = 0;
+
+pub fn set_task_table(tasks: &mut [task::Task]) {
+    let prev_task_table = unsafe {
+        core::mem::replace(
+            &mut TASK_TABLE_BASE,
+            Some(NonNull::from(&mut tasks[0])),
+        )
+    };
+    // Catch double-uses of this function.
+    assert_eq!(prev_task_table, None);
+    // Record length as well.
+    unsafe {
+        TASK_TABLE_SIZE = tasks.len();
+    }
+}
 
 pub fn reinitialize(task: &mut task::Task) {
     task.save = SavedState::default();

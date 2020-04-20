@@ -122,6 +122,13 @@ fn safe_start_kernel(
         crate::arch::reinitialize(task);
     }
 
+    // Stash the task table extent somewhere that we can get it later, cheaply,
+    // without recomputing stuff. This is treated as architecture specific
+    // largely as a nod to simulators that might want to use a thread local
+    // rather than a global static, but some future pleasant architecture might
+    // let us store this in secret registers...
+    crate::arch::set_task_table(tasks);
+
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
     let first_task_index = crate::task::select(
