@@ -2,3 +2,32 @@
 
 This repo contains the sketches and notes that I'm putting together in support
 of the OS design effort on RFD41.
+
+# Prereqs
+
+You will need:
+
+- The nightly toolchain. (It will *probably* automatically install when you try
+  to build, but people have had issues.)
+
+- `openocd` (mostly tested on 0.10)
+
+- The appropriate Rust toolchain target installed: `rustup target add
+  thumbv7em-none-eabihf`
+
+# Build and run
+
+Connect an STM32F4 Discovery board.
+
+Launch `openocd` in one terminal, *from the source repository* so it finds its
+config files:
+
+```shell
+$ openocd
+```
+
+From another terminal:
+
+```shell
+$ cargo run
+```
