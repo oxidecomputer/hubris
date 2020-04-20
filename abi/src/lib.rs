@@ -13,9 +13,19 @@ pub const REGIONS_PER_TASK: usize = 8;
 /// priorities are more important, so Priority 0 is the most likely to be
 /// scheduled, followed by 1, and so forth. (This keeps our logic simpler given
 /// that the number of priorities can be reconfigured.)
-#[derive(Copy, Clone, Debug, Ord, PartialOrd, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
 #[repr(transparent)]
 pub struct Priority(pub u8);
+
+impl Priority {
+    /// Checks if `self` is strictly more important than `other`.
+    ///
+    /// This is easier to read than comparing the numeric values of the
+    /// priorities, since lower numbers are more important.
+    pub fn is_more_important_than(self, other: Self) -> bool {
+        self.0 < other.0
+    }
+}
 
 #[derive(Clone, Debug, FromBytes)]
 #[repr(C)]
