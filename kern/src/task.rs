@@ -103,6 +103,11 @@ impl Task {
         (self.notifications & self.notification_mask != 0)
             && self.state == TaskState::Healthy(SchedState::InRecv(None))
     }
+
+    /// Checks if this task is in a potentially schedulable state.
+    pub fn is_runnable(&self) -> bool {
+        self.state == TaskState::Healthy(SchedState::Runnable)
+    }
 }
 
 /// Type used to track generation numbers.
@@ -478,4 +483,27 @@ pub enum TaskIDError {
     /// that the peer has died since last contacted. This is expressed to the
     /// caller as an error code.
     Stale,
+}
+
+/// Selects a new task to run after `previous`. Tries to be fair, kind of.
+///
+/// If no tasks are runnable, the kernel panics.
+pub fn select(previous: usize, tasks: &[Task]) -> usize {
+    let search_order = (previous + 1..tasks.len()).chain(0..previous + 1);
+    let mut choice = None;
+    for i in search_order {
+        if !tasks[i].is_runnable() {
+            continue;
+        }
+
+        if let Some((_, prio)) = choice {
+            if !tasks[i].priority.is_more_important_than(prio) {
+                continue;
+            }
+        }
+
+        choice = Some((i, tasks[i].priority));
+    }
+
+    choice.expect("no tasks runnable").0
 }

@@ -122,21 +122,12 @@ fn safe_start_kernel(
         crate::arch::reinitialize(task);
     }
 
-    // Great! Pick our first task. We're looking for the runnable-at-boot task
-    // with the numerically-lowest priority. If there's more than one, we'll
-    // arbitrarily choose...the first!
-    let mut chosen_task = None;
-    for (i, task) in tasks.iter().enumerate() {
-        if task.state == TaskState::Healthy(SchedState::Runnable) {
-            if let Some((_, current_prio)) = chosen_task {
-                if current_prio <= task.priority {
-                    continue;
-                }
-            }
-            chosen_task = Some((i, task.priority));
-        }
-    }
-    let (first_task_index, _) = chosen_task.expect("no runnable tasks");
+    // Great! Pick our first task. We'll act like we're scheduling after the
+    // last task, which will cause a scan from 0 on.
+    let first_task_index = crate::task::select(
+        tasks.len() - 1,
+        tasks,
+    );
 
     switch_to_user(tasks, first_task_index)
 }
