@@ -2,8 +2,9 @@ use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
 
-use crate::task;
+
 use crate::app;
+use crate::task;
 use crate::umem::USlice;
 
 /// On ARMvx-M we use a global to record the task table position and extent.
@@ -20,7 +21,6 @@ static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct SavedState {
-
     // NOTE: the following fields must be kept contiguous!
     r4: u32,
     r5: u32,
@@ -207,7 +207,7 @@ pub fn apply_memory_protection(task: &task::Task) {
             | tex << 19
             | scb << 16
             | l2size << 1
-            | (1 << 0);  // enable
+            | (1 << 0); // enable
         unsafe {
             mpu.rbar.write(rbar);
             mpu.rasr.write(rasr);
@@ -272,7 +272,7 @@ pub unsafe fn SVCall() {
         @ first, get a pointer to the current task.
         movw r0, #:lower16:CURRENT_TASK_PTR
         movt r0, #:upper16:CURRENT_TASK_PTR
-        ldr r0, [r0]
+        ldr r1, [r0]
         @ fetch the process-mode stack pointer.
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
@@ -282,7 +282,7 @@ pub unsafe fn SVCall() {
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
         movs r0, r11
-        bl do_syscall
+        bl syscall_entry
 
         @ we're returning back to *some* task, maybe not the same one.
         movw r0, #:lower16:CURRENT_TASK_PTR
@@ -313,8 +313,51 @@ pub unsafe fn SVCall() {
     }
 }
 
-/// Rust-side syscall handler.
+/// Rust-side syscall handler, phase one. This is responsible for doing unsafe
+/// environment setup before calling the safe handler.
+///
+/// The arguments are prepared by the asm ISR as a side effect of its work, so
+/// we can avoid recomputing them. This is arguably a premature optimization.
 #[no_mangle]
-extern "C" fn do_syscall(_nr: u32) {
-    panic!()
+unsafe extern "C" fn syscall_entry(nr: u32, task: *mut task::Task) {
+    // Manufacture an exclusive reference to the task table. We can do this
+    // "safely" because of the constraints on how we're called, above.
+    let tasks = core::slice::from_raw_parts_mut(
+        TASK_TABLE_BASE.unwrap().as_mut(),
+        TASK_TABLE_SIZE,
+    );
+    // Use the task pointer, which now aliases a `&mut` slice and shall not be
+    // dereferenced, into a task index. Yeah, we could store the task index
+    // alongside the pointer. Maybe later.
+    let idx = (task as usize - tasks.as_ptr() as usize)
+        / core::mem::size_of::<task::Task>();
+
+    let resched = safe_syscall_entry(nr, idx, tasks);
+
+    match resched {
+        task::NextTask::Same => (),
+        task::NextTask::Specific(i) => {
+            CURRENT_TASK_PTR = Some(NonNull::from(&mut tasks[i]));
+        }
+        task::NextTask::Other => {
+            let next = crate::task::select(idx, tasks);
+            CURRENT_TASK_PTR = Some(NonNull::from(&mut tasks[next]));
+        }
+    }
+}
+
+fn safe_syscall_entry(
+    nr: u32,
+    task_index: usize,
+    tasks: &mut [task::Task],
+) -> task::NextTask {
+    match nr {
+        0 => crate::send(tasks, task_index),
+        _ => {
+            // Bogus syscall number!
+            tasks[task_index].force_fault(task::FaultInfo::SyscallUsage(
+                task::UsageError::BadSyscallNumber,
+            ))
+        }
+    }
 }

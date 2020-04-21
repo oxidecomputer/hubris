@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(asm)]
 
 // pick a panicking behavior
 // extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
@@ -56,5 +57,14 @@ fn main() -> ! {
 
 fn spin() -> ! {
     loop {
+        unsafe {
+        asm! {
+            "svc #0"
+            :
+            : "{r11}"(0)
+            :
+            : "volatile"
+        }
+        }
     }
 }

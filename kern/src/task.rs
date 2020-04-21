@@ -324,6 +324,8 @@ impl From<UsageError> for FaultInfo {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum UsageError {
+    /// A program used an undefined syscall number.
+    BadSyscallNumber,
     /// A program specified a slice as a syscall argument, but the slice is
     /// patently invalid: it is either unaligned for its type, or it is
     /// expressed such that it would wrap around the end of the address space.
