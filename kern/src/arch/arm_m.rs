@@ -2,7 +2,6 @@ use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
 
-
 use crate::app;
 use crate::task;
 use crate::umem::USlice;
@@ -277,7 +276,7 @@ pub unsafe fn SVCall() {
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
         @ now, store volatile registers, plus the PSP in r12, plus LR.
-        stm r0, {r4-r12, lr}
+        stm r1, {r4-r12, lr}
 
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
