@@ -166,6 +166,13 @@ pub trait ArchState: Default {
     fn as_recv_result(&mut self) -> AsRecvResult<&mut Self> {
         AsRecvResult(self)
     }
+
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for REPLY.
+    fn as_reply_args(&self) -> AsReplyArgs<&Self> {
+        AsReplyArgs(self)
+    }
+
 }
 
 /// Reference proxy for send argument registers.
@@ -260,6 +267,29 @@ impl<'a, T: ArchState> AsRecvResult<&'a mut T> {
     /// Sets the number of leases provided by the caller.
     pub fn set_lease_count(&mut self, count: usize) {
         self.0.borrow_mut().ret4(count as u32);
+    }
+}
+
+/// Reference proxy for reply argument registers.
+pub struct AsReplyArgs<T>(T);
+
+impl<'a, T: ArchState> AsReplyArgs<&'a T> {
+    /// Extracts the task ID the caller wishes to reply to.
+    pub fn callee(&self) -> TaskID {
+        TaskID(self.0.arg0() as u16)
+    }
+
+    /// Extracts the response code the caller is using.
+    pub fn response_code(&self) -> u32 {
+        self.0.arg1()
+    }
+
+    /// Extracts the bounds of the caller's reply buffer as a `USlice`.
+    ///
+    /// If the caller passed a slice that overlaps the end of the address space,
+    /// returns `Err`.
+    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
+        USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
     }
 }
 

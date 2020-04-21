@@ -356,8 +356,14 @@ fn safe_syscall_entry(
     task_index: usize,
     tasks: &mut [task::Task],
 ) -> task::NextTask {
+    // Task state consistency check in debug. TODO: probably just remove me
+    debug_assert_eq!(tasks[task_index].state,
+        task::TaskState::Healthy(task::SchedState::Runnable));
+
     match nr {
         0 => crate::send(tasks, task_index),
+        1 => crate::recv(tasks, task_index),
+        2 => crate::reply(tasks, task_index),
         _ => {
             // Bogus syscall number!
             tasks[task_index].force_fault(task::FaultInfo::SyscallUsage(

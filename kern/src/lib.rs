@@ -124,6 +124,175 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     return NextTask::Other;
 }
 
+pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
+    // First question: do we have a pending notification? If so, deliver it
+    // without blocking.
+    // TODO implement notification delivery
+
+    // Begin the search for tasks waiting to send to `caller`. This search needs
+    // to be able to iterate because it's possible that some of these senders
+    // have bogus arguments to receive, e.g. are trying to get us to deliver a
+    // "message" from memory they don't own. The apparently infinite loop
+    // terminates if:
+    //
+    // - A legit sender is found and its message can be delivered.
+    // - A legit sender is found, but the *caller* misbehaved and gets faulted.
+    // - No senders were found (after fault processing) and we have to block the
+    //   caller.
+    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller));
+    let mut last = caller; // keep track of scan position.
+    loop {
+        // Is anyone blocked waiting to send to us?
+        let sender = task::priority_scan(
+            last,
+            tasks,
+            |t| t.state == sending_to_us,
+        );
+        if let Some(sender) = sender {
+            // Oh hello sender!
+            match deliver(tasks, sender, caller) {
+                Ok(_) => {
+                    // Delivery succeeded! Change the sender's blocking state.
+                    tasks[sender].state =
+                        TaskState::Healthy(SchedState::InReply(caller));
+                    // And go ahead and let the caller resume.
+                    return NextTask::Same
+                },
+                Err(interact) => {
+                    // Delivery failed because of fault events in one or both
+                    // tasks.  We need to apply the fault status, and then if we
+                    // didn't have to murder the caller, we'll retry receiving a
+                    // message.
+                    if let Some(fault) = interact.sender {
+                        // Sender was blocked with bad arguments. Fault it
+                        // without affecting scheduling.
+                        let _hint = tasks[sender].force_fault(fault);
+                    }
+                    if let Some(fault) = interact.recipient {
+                        // This is our caller, which means the args to receive
+                        // were nonsense. Very disappointed in caller. Since
+                        // caller was running, this scheduling hint gets
+                        // returned straight away, aborting the search.
+                        return tasks[caller].force_fault(fault);
+                    }
+                    // Okay, if we didn't just return, retry the search.
+                    last = sender;
+                }
+            }
+        } else {
+            // No notifications, nobody waiting to send -- block the caller.
+            tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
+            // We don't know what task should run next, but we're pretty sure it's
+            // not the one we just blocked.
+            return NextTask::Other
+        }
+    }
+}
+
+pub fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
+    // Extract the target of the reply.
+    let callee = tasks[caller].save.as_reply_args().callee();
+
+    // Validate it. We tolerate stale IDs here (it's not the callee's fault if
+    // the caller crashed before receiving its reply) but we treat invalid
+    // indices that could never have been received as a malfunction.
+    let callee = match task::check_task_id_against_table(tasks, callee) {
+        Err(task::TaskIDError::OutOfRange) => {
+            return tasks[caller].force_fault(FaultInfo::SyscallUsage(
+                UsageError::TaskOutOfRange,
+            ));
+        }
+        Err(task::TaskIDError::Stale) => {
+            // Silently drop the reply.
+            return NextTask::Same;
+        }
+        Ok(i) => i,
+    };
+
+    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller)) {
+        // Huh. The target task is off doing something else. This can happen if
+        // application-specific supervisory logic unblocks it before we've had a
+        // chance to reply (e.g. to implement timeouts).
+        return NextTask::Same;
+    }
+
+    // Deliver the reply. Note that we can't use `deliver`, which is
+    // specific to a pair of tasks that are sending and receiving,
+    // respectively.
+
+    // Collect information on the send from the caller. This information is
+    // all stored in infallibly-readable areas, but our accesses can fail if
+    // the caller handed us bogus slices.
+    let reply_args = tasks[caller].save.as_reply_args();
+    // Read the reply arg that could fault first.
+    let src_slice = reply_args.message();
+    let src_slice = if let Ok(ss) = src_slice {
+        ss
+    } else {
+        // The task invoking reply handed us an illegal slice instead of a
+        // valid reply message! Naughty naughty.
+        return tasks[caller].force_fault(FaultInfo::SyscallUsage(
+                UsageError::InvalidSlice,
+        ));
+    };
+    // Cool, now collect the rest and unborrow.
+    let code = reply_args.response_code();
+    drop(reply_args);
+
+    // Collect information about the callee's reply buffer. This, too, is
+    // somewhere we can read infallibly.
+    let send_args = tasks[callee].save.as_send_args();
+    let dest_slice = match send_args.response_buffer() {
+        Ok(buffer) => buffer,
+        Err(e) => {
+            // The sender set up a bogus response buffer. How rude. This
+            // doesn't affect scheduling, so discard the hint.
+            let _ = tasks[caller].force_fault(FaultInfo::SyscallUsage(e));
+            return NextTask::Same;
+        }
+    };
+    drop(send_args);
+
+    // Okay, ready to attempt the copy.
+    // TODO: we want to treat any attempt to copy more than will fit as a fault
+    // in the task that is replying, because it knows how big the target buffer
+    // is and is expected to respect that. This is not currently implemented --
+    // currently you'll get the prefix.
+    let amount_copied =
+        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice);
+    let amount_copied = match amount_copied {
+        Ok(n) => n,
+        Err(interact) => {
+            // Delivery failed because of fault events in one or both tasks.  We
+            // need to apply the fault status, and possibly fault the caller.
+            if let Some(fault) = interact.recipient {
+                // The task we're replying to had a bogus response buffer. Oh
+                // well! Fault it and move on.
+                let _ = tasks[callee].force_fault(fault);
+            }
+            if let Some(fault) = interact.sender {
+                // That's our caller! They gave illegal arguments to reply! And
+                // to think we trusted them!
+                return tasks[caller].force_fault(fault);
+            } else {
+                // Resume the caller without resuming the target task below.
+                return NextTask::Same;
+            }
+        },
+    };
+
+    let mut send_result = tasks[callee].save.as_send_result();
+    send_result.set_response_and_length(code, amount_copied);
+    drop(send_result);
+
+    tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+
+    // KEY ASSUMPTION: sends go from less important tasks to more important
+    // tasks. As a result, Reply doesn't have scheduling implications unless
+    // the task using it faults.
+    return NextTask::Same;
+}
+
 /// Transfers a message from caller's context into callee's. This may be called
 /// in several contexts:
 ///
