@@ -90,6 +90,7 @@ fn sender() -> ! {
 fn rxer() -> ! {
     let mut rx_buf = [0u8; 0];
     loop {
+        let notification_mask: u32 = 0; // what notifications?
         // Receive message
         let mut sender: u32;
         #[allow(unused_variables)]
@@ -111,25 +112,28 @@ fn rxer() -> ! {
                   "={r7}"(response_capacity),
                   "={r8}"(lease_count)
                 : "{r4}"(rx_buf.as_mut_ptr())
-                  "{r5}"(rx_buf.len())
+                  "{r5}"(rx_buf.len()),
+                  "{r6}"(notification_mask),
                   "{r11}"(1)
                 :
                 : "volatile"
             }
         }
-        // Unblock sender
-        let response_code: u32 = 0;
-        unsafe {
-            asm! {
-                "svc #0"
-                :
-                : "{r4}"(sender)
-                  "{r5}"(response_code)
-                  "{r6}"(rx_buf.as_mut_ptr())
-                  "{r7}"(rx_buf.len())
-                  "{r11}"(2)
-                :
-                : "volatile"
+        if sender != 0xFFFF {
+            // Unblock sender
+            let response_code: u32 = 0;
+            unsafe {
+                asm! {
+                    "svc #0"
+                        :
+                        : "{r4}"(sender)
+                        "{r5}"(response_code)
+                        "{r6}"(rx_buf.as_mut_ptr())
+                        "{r7}"(rx_buf.len())
+                        "{r11}"(2)
+                        :
+                        : "volatile"
+                }
             }
         }
     }

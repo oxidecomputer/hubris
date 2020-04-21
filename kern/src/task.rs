@@ -109,6 +109,19 @@ impl Task {
             && self.state == TaskState::Healthy(SchedState::InRecv(None))
     }
 
+    /// Updates the task's notification mask. If any notifications would fire
+    /// with the new mask, returns them in a `Some`.
+    #[must_use]
+    pub fn update_mask(&mut self, m: u32) -> Option<u32> {
+        self.notification_mask = m;
+        let firing = self.notifications & self.notification_mask;
+        if firing != 0 {
+            Some(firing)
+        } else {
+            None
+        }
+    }
+
     /// Checks if this task is in a potentially schedulable state.
     pub fn is_runnable(&self) -> bool {
         self.state == TaskState::Healthy(SchedState::Runnable)
@@ -236,6 +249,11 @@ impl<'a, T: ArchState> AsRecvArgs<&'a T> {
         let b = self.0.borrow();
         USlice::from_raw(b.arg0() as usize, b.arg1() as usize)
     }
+
+    /// Gets the caller's notification mask.
+    pub fn notification_mask(&self) -> u32 {
+        self.0.borrow().arg2()
+    }
 }
 
 /// Reference proxy for receive return registers.
@@ -248,8 +266,8 @@ impl<'a, T: ArchState> AsRecvResult<&'a mut T> {
     }
 
     /// Sets the operation code associated with a message.
-    pub fn set_operation(&mut self, operation: u16) {
-        self.0.borrow_mut().ret1(u32::from(operation));
+    pub fn set_operation(&mut self, operation: u32) {
+        self.0.borrow_mut().ret1(operation);
     }
 
     /// Sets the length of a received message.
@@ -392,6 +410,8 @@ pub enum FaultSource {
 pub struct TaskID(u16);
 
 impl TaskID {
+    pub const KERNEL: Self = TaskID(core::u16::MAX);
+
     /// Number of bits in the ID portion of a `TaskID`. The remaining bits are
     /// generation.
     pub const IDX_BITS: u32 = 10;

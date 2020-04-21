@@ -125,9 +125,22 @@ pub fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 }
 
 pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
-    // First question: do we have a pending notification? If so, deliver it
-    // without blocking.
-    // TODO implement notification delivery
+    // We allow tasks to atomically replace their notification mask at each
+    // receive. We simultaneously find out if there are notifications pending.
+    let recv_args = tasks[caller].save.as_recv_args();
+    let notmask = recv_args.notification_mask();
+    drop(recv_args);
+
+    if let Some(firing) = tasks[caller].update_mask(notmask) {
+        // Pending! Deliver an artificial message from the kernel.
+        let mut rr = tasks[caller].save.as_recv_result();
+        rr.set_sender(TaskID::KERNEL);
+        rr.set_operation(firing);
+        rr.set_message_len(0);
+        rr.set_response_capacity(0);
+        rr.set_lease_count(0);
+        return NextTask::Same;
+    }
 
     // Begin the search for tasks waiting to send to `caller`. This search needs
     // to be able to iterate because it's possible that some of these senders
@@ -353,7 +366,7 @@ fn deliver(
         safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)?;
     let mut rr = tasks[callee].save.as_recv_result();
     rr.set_sender(caller_id);
-    rr.set_operation(op);
+    rr.set_operation(u32::from(op));
     rr.set_message_len(amount_copied);
     rr.set_response_capacity(response_capacity);
     rr.set_lease_count(lease_count);
