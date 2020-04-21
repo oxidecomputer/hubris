@@ -11,7 +11,7 @@ extern crate stm32f4;
 
 use cortex_m_rt::entry;
 
-use kern::app::{App, RegionDesc, TaskDesc, RegionAttributes, TaskFlags};
+use kern::app::{App, RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 
 #[repr(C)]
 struct Descriptors {
@@ -134,4 +134,3 @@ fn rxer() -> ! {
         }
     }
 }
-

@@ -91,9 +91,11 @@ impl<T> USlice<T> {
         if size_in_bytes == 0 {
             None
         } else {
-            Some(self.base_address
-                .wrapping_add(size_in_bytes)
-                .wrapping_sub(1))
+            Some(
+                self.base_address
+                    .wrapping_add(size_in_bytes)
+                    .wrapping_sub(1),
+            )
         }
     }
 
@@ -106,7 +108,9 @@ impl<T> USlice<T> {
         // construction that the range is valid.
 
         match (self.last_byte_addr(), other.last_byte_addr()) {
-            (Some(self_end), Some(other_end)) => self_end >= other.base_address && other_end >= self.base_address,
+            (Some(self_end), Some(other_end)) => {
+                self_end >= other.base_address && other_end >= self.base_address
+            }
             // One slice or the other was empty
             _ => false,
         }

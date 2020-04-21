@@ -330,7 +330,10 @@ unsafe extern "C" fn syscall_entry(nr: u32, task: *mut task::Task) {
         TASK_TABLE_SIZE,
     );
     debug_assert!(task as usize >= tasks.as_ptr() as usize);
-    debug_assert!((task as usize) < tasks.as_ptr().offset(TASK_TABLE_SIZE as isize) as usize);
+    debug_assert!(
+        (task as usize)
+            < tasks.as_ptr().offset(TASK_TABLE_SIZE as isize) as usize
+    );
     // Use the task pointer, which now aliases a `&mut` slice and shall not be
     // dereferenced, into a task index. Yeah, we could store the task index
     // alongside the pointer. Maybe later.
@@ -357,8 +360,10 @@ fn safe_syscall_entry(
     tasks: &mut [task::Task],
 ) -> task::NextTask {
     // Task state consistency check in debug. TODO: probably just remove me
-    debug_assert_eq!(tasks[task_index].state,
-        task::TaskState::Healthy(task::SchedState::Runnable));
+    debug_assert_eq!(
+        tasks[task_index].state,
+        task::TaskState::Healthy(task::SchedState::Runnable)
+    );
 
     match nr {
         0 => crate::send(tasks, task_index),

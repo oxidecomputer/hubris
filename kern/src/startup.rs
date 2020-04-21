@@ -131,10 +131,7 @@ fn safe_start_kernel(
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
-    let first_task_index = crate::task::select(
-        tasks.len() - 1,
-        tasks,
-    );
+    let first_task_index = crate::task::select(tasks.len() - 1, tasks);
 
     switch_to_user(tasks, first_task_index)
 }

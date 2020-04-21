@@ -13,7 +13,9 @@ pub const REGIONS_PER_TASK: usize = 8;
 /// priorities are more important, so Priority 0 is the most likely to be
 /// scheduled, followed by 1, and so forth. (This keeps our logic simpler given
 /// that the number of priorities can be reconfigured.)
-#[derive(Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default,
+)]
 #[repr(transparent)]
 pub struct Priority(pub u8);
 
@@ -39,7 +41,7 @@ pub struct App {
     /// Number of memory regions in the address space layout. This many
     /// `RegionDesc` records will immediately follow the `TaskDesc` array.
     pub region_count: u32,
-    
+
     /// Reserved expansion space; pads this structure out to 32 bytes. You will
     /// need to adjust this when you add fields above.
     pub zeroed_expansion_space: [u8; 32 - (3 * 4)],
@@ -76,7 +78,7 @@ bitflags::bitflags! {
     }
 }
 
-/// Description of one memory region. 
+/// Description of one memory region.
 #[derive(Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct RegionDesc {

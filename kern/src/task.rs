@@ -2,9 +2,9 @@ use core::borrow::{Borrow, BorrowMut};
 
 use abi::Priority;
 
+use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
-use crate::app::{TaskDesc, RegionDesc, RegionDescExt, RegionAttributes};
 
 /// Internal representation of a task.
 #[repr(C)] // so location of SavedState is predictable
@@ -13,7 +13,6 @@ pub struct Task {
     /// Saved machine state of the user program.
     pub save: crate::arch::SavedState,
     // NOTE: it is critical that the above field appear first!
-
     /// Current priority of the task.
     pub priority: Priority,
     /// State used to make status and scheduling decisions.
@@ -172,7 +171,6 @@ pub trait ArchState: Default {
     fn as_reply_args(&self) -> AsReplyArgs<&Self> {
         AsReplyArgs(self)
     }
-
 }
 
 /// Reference proxy for send argument registers.

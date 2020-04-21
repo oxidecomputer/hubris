@@ -143,11 +143,8 @@ pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
     let mut last = caller; // keep track of scan position.
     loop {
         // Is anyone blocked waiting to send to us?
-        let sender = task::priority_scan(
-            last,
-            tasks,
-            |t| t.state == sending_to_us,
-        );
+        let sender =
+            task::priority_scan(last, tasks, |t| t.state == sending_to_us);
         if let Some(sender) = sender {
             // Oh hello sender!
             match deliver(tasks, sender, caller) {
@@ -156,8 +153,8 @@ pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
                     tasks[sender].state =
                         TaskState::Healthy(SchedState::InReply(caller));
                     // And go ahead and let the caller resume.
-                    return NextTask::Same
-                },
+                    return NextTask::Same;
+                }
                 Err(interact) => {
                     // Delivery failed because of fault events in one or both
                     // tasks.  We need to apply the fault status, and then if we
@@ -184,7 +181,7 @@ pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
             tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
             // We don't know what task should run next, but we're pretty sure it's
             // not the one we just blocked.
-            return NextTask::Other
+            return NextTask::Other;
         }
     }
 }
@@ -231,9 +228,8 @@ pub fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
     } else {
         // The task invoking reply handed us an illegal slice instead of a
         // valid reply message! Naughty naughty.
-        return tasks[caller].force_fault(FaultInfo::SyscallUsage(
-                UsageError::InvalidSlice,
-        ));
+        return tasks[caller]
+            .force_fault(FaultInfo::SyscallUsage(UsageError::InvalidSlice));
     };
     // Cool, now collect the rest and unborrow.
     let code = reply_args.response_code();
@@ -278,7 +274,7 @@ pub fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
                 // Resume the caller without resuming the target task below.
                 return NextTask::Same;
             }
-        },
+        }
     };
 
     let mut send_result = tasks[callee].save.as_send_result();
