@@ -7,9 +7,9 @@
 // extern crate panic_abort; // requires nightly
 // extern crate panic_itm; // logs messages over ITM; requires ITM support
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
-extern crate stm32f4;
 
 use cortex_m_rt::entry;
+use stm32f4::stm32f407 as device;
 
 use kern::app::{App, RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 
@@ -24,6 +24,16 @@ static mut KERNEL_RAM: [u8; 1024] = [0; 1024];
 
 #[entry]
 fn main() -> ! {
+    let p = device::Peripherals::take().unwrap();
+    // Turn on clock to GPIOD.
+    p.RCC.ahb1enr.modify(|_, w| {
+        w.gpioden().enabled()
+    });
+    // Make pin D12 an output.
+    p.GPIOD.moder.modify(|_, w| {
+        w.moder12().output()
+    });
+
     let app: Descriptors = Descriptors {
         app: App {
             magic: kern::app::CURRENT_APP_MAGIC,
@@ -67,6 +77,8 @@ fn main() -> ! {
 /// Loops sending an empty message.
 fn sender() -> ! {
     loop {
+        set_pd12_low();
+
         #[allow(unused_variables)]
         let mut response_code: u32;
         #[allow(unused_variables)]
@@ -127,6 +139,9 @@ fn rxer() -> ! {
                 : "volatile"
             }
         }
+
+        set_pd12_high();
+
         if sender != 0xFFFF {
             // Unblock sender
             let response_code: u32 = 0;
@@ -146,3 +161,28 @@ fn rxer() -> ! {
         }
     }
 }
+
+fn set_pd12_high() {
+    // Synthesize a shared reference to the GPIO controller. This is safe
+    // because it's not an exclusive reference, and this peripheral supports
+    // concurrent access.
+    let gpiod = unsafe {
+        &*device::GPIOD::ptr()
+    };
+    gpiod.bsrr.write(|w| {
+        w.bs12().set_bit()
+    });
+}
+
+fn set_pd12_low() {
+    // Synthesize a shared reference to the GPIO controller. This is safe
+    // because it's not an exclusive reference, and this peripheral supports
+    // concurrent access.
+    let gpiod = unsafe {
+        &*device::GPIOD::ptr()
+    };
+    gpiod.bsrr.write(|w| {
+        w.br12().set_bit()
+    });
+}
+
