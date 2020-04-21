@@ -74,6 +74,9 @@ impl Task {
     /// Tests whether this task has read access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
     pub fn can_read<T>(&self, slice: &USlice<T>) -> bool {
+        if slice.is_empty() {
+            return true;
+        }
         self.region_table.iter().any(|region| {
             region.covers(slice)
                 && region.attributes.contains(RegionAttributes::READ)
@@ -84,6 +87,9 @@ impl Task {
     /// Tests whether this task has write access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
     pub fn can_write<T>(&self, slice: &USlice<T>) -> bool {
+        if slice.is_empty() {
+            return true;
+        }
         self.region_table.iter().any(|region| {
             region.covers(slice)
                 && region.attributes.contains(RegionAttributes::WRITE)

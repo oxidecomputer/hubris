@@ -68,6 +68,10 @@ impl<T> USlice<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.length == 0
+    }
+
     /// Returns the number of `T`s in this slice.
     pub fn len(&self) -> usize {
         self.length
@@ -78,24 +82,34 @@ impl<T> USlice<T> {
     }
 
     /// Returns the *highest* address in this slice, inclusive.
-    pub fn last_byte_addr(&self) -> usize {
+    ///
+    /// This produces `None` if the slice is empty.
+    pub fn last_byte_addr(&self) -> Option<usize> {
         // This implementation would be wrong for ZSTs, but we blocked them at
         // construction.
         let size_in_bytes = self.length * core::mem::size_of::<T>();
-        self.base_address
-            .wrapping_add(size_in_bytes)
-            .wrapping_sub(1)
+        if size_in_bytes == 0 {
+            None
+        } else {
+            Some(self.base_address
+                .wrapping_add(size_in_bytes)
+                .wrapping_sub(1))
+        }
     }
 
     /// Checks whether this slice aliases (overlaps) `other`.
+    ///
+    /// Empty slices alias no slices, including themselves.
     pub fn aliases(&self, other: &Self) -> bool {
         // This test is made slightly involved by a desire to support slices
         // that end at the top of the address space. We've already verified at
         // construction that the range is valid.
-        let self_end = self.last_byte_addr();
-        let other_end = other.last_byte_addr();
 
-        self_end >= other.base_address && other_end >= self.base_address
+        match (self.last_byte_addr(), other.last_byte_addr()) {
+            (Some(self_end), Some(other_end)) => self_end >= other.base_address && other_end >= self.base_address,
+            // One slice or the other was empty
+            _ => false,
+        }
     }
 }
 
