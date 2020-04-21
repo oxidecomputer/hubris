@@ -343,15 +343,23 @@ unsafe extern "C" fn syscall_entry(nr: u32, task: *mut task::Task) {
     let resched = safe_syscall_entry(nr, idx, tasks);
 
     match resched {
+        // No need to change MPU config if we're returning to the same task.
         task::NextTask::Same => (),
-        task::NextTask::Specific(i) => {
-            CURRENT_TASK_PTR = Some(NonNull::from(&mut tasks[i]));
-        }
+
+        task::NextTask::Specific(i) => new_current_task(&mut tasks[i]),
+
         task::NextTask::Other => {
             let next = crate::task::select(idx, tasks);
-            CURRENT_TASK_PTR = Some(NonNull::from(&mut tasks[next]));
+            new_current_task(&mut tasks[next]);
         }
     }
+}
+
+/// Implementation factor of syscall returns, to coordinate the various pieces
+/// of state that need to get switched with the task.
+unsafe fn new_current_task(task: &mut task::Task) {
+    apply_memory_protection(task);
+    CURRENT_TASK_PTR = Some(NonNull::from(task));
 }
 
 fn safe_syscall_entry(
