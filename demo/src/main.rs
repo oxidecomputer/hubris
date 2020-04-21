@@ -67,10 +67,17 @@ fn main() -> ! {
 /// Loops sending an empty message.
 fn sender() -> ! {
     loop {
+        #[allow(unused_variables)]
+        let mut response_code: u32;
+        #[allow(unused_variables)]
+        let mut response_len: u32;
+
+        #[allow(unused_assignments)]
         unsafe {
             asm! {
                 "svc #0"
-                :
+                : "={r4}"(response_code),
+                  "={r5}"(response_len)
                 : "{r4}"(1 << 16),
                   "{r5}"(0),
                   "{r6}"(0),
@@ -102,6 +109,7 @@ fn rxer() -> ! {
         #[allow(unused_variables)]
         let mut lease_count: usize;
 
+        // Receive!
         #[allow(unused_assignments)]
         unsafe {
             asm! {
