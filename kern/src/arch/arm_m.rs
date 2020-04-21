@@ -329,6 +329,8 @@ unsafe extern "C" fn syscall_entry(nr: u32, task: *mut task::Task) {
         TASK_TABLE_BASE.unwrap().as_mut(),
         TASK_TABLE_SIZE,
     );
+    debug_assert!(task as usize >= tasks.as_ptr() as usize);
+    debug_assert!((task as usize) < tasks.as_ptr().offset(TASK_TABLE_SIZE as isize) as usize);
     // Use the task pointer, which now aliases a `&mut` slice and shall not be
     // dereferenced, into a task index. Yeah, we could store the task index
     // alongside the pointer. Maybe later.
