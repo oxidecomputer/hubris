@@ -497,10 +497,28 @@ pub enum TaskIDError {
 ///
 /// If no tasks are runnable, the kernel panics.
 pub fn select(previous: usize, tasks: &[Task]) -> usize {
+    priority_scan(previous, tasks, |t| t.is_runnable())
+        .expect("no tasks runnable")
+}
+
+/// Scans `tasks` for the next task, after `previous`, that satisfies `pred`. If
+/// more than one task satisfies `pred`, returns the most important one. If
+/// multiple tasks with the same priority satisfy `pred`, prefers the first one
+/// in order after `previous`, mod `tasks.len()`.
+///
+/// Whew.
+///
+/// This is generally the right way to search a task table, and is used to
+/// implement (among other bits) the scheduler.
+pub fn priority_scan(
+    previous: usize,
+    tasks: &[Task],
+    pred: impl Fn(&Task) -> bool,
+) -> Option<usize> {
     let search_order = (previous + 1..tasks.len()).chain(0..previous + 1);
     let mut choice = None;
     for i in search_order {
-        if !tasks[i].is_runnable() {
+        if !pred(&tasks[i]) {
             continue;
         }
 
@@ -513,5 +531,5 @@ pub fn select(previous: usize, tasks: &[Task]) -> usize {
         choice = Some((i, tasks[i].priority));
     }
 
-    choice.expect("no tasks runnable").0
+    choice.map(|(idx, _)| idx)
 }
