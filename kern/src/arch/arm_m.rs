@@ -161,6 +161,10 @@ pub fn reinitialize(task: &mut task::Task) {
     // Set the initial stack pointer, *not* to the stack top, but to the base of
     // this frame.
     task.save.psp = frame as *const _ as u32;
+
+    // Finally, record the EXC_RETURN we'll use to enter the task.
+    // TODO: this assumes floating point is in use.
+    task.save.exc_return = 0xFFFFFFED;
 }
 
 pub fn apply_memory_protection(task: &task::Task) {
