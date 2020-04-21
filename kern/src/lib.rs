@@ -370,6 +370,7 @@ fn deliver(
     Ok(())
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct InteractFault {
     pub sender: Option<FaultInfo>,
     pub recipient: Option<FaultInfo>,

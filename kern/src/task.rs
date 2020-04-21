@@ -437,6 +437,7 @@ pub struct NotificationSet(u32);
 /// Return value for operations that can have scheduling implications. This is
 /// marked `must_use` because forgetting to actually update the scheduler after
 /// performing an operation that requires it would be Bad.
+#[derive(Clone, Debug)]
 #[must_use]
 pub enum NextTask {
     /// It's fine to keep running whatever task we were just running.
