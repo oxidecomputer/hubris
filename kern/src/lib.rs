@@ -139,6 +139,7 @@ pub fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
         rr.set_message_len(0);
         rr.set_response_capacity(0);
         rr.set_lease_count(0);
+        tasks[caller].acknowledge_notifications();
         return NextTask::Same;
     }
 

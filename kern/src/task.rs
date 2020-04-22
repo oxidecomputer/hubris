@@ -96,21 +96,42 @@ impl Task {
         })
     }
 
-    /// Posts a set of notification bits (which might be empty) to this task.
-    /// Returns `true` if an unmasked notification bit is set (whether or not it
-    /// is *newly* set) and this task is blocked in receive.
+    /// Posts a set of notification bits (which might be empty) to this task. If
+    /// the task is blocked in receive, and any of the bits match the
+    /// notification mask, unblocks the task and returns `true` (indicating that
+    /// a context switch may be necessary). If no context switch is required,
+    /// returns `false`.
     ///
     /// This would return a `NextTask` but that would require the task to know
     /// its own global ID, which it does not.
     #[must_use]
     pub fn post(&mut self, n: NotificationSet) -> bool {
         self.notifications |= n.0;
-        (self.notifications & self.notification_mask != 0)
-            && self.state == TaskState::Healthy(SchedState::InRecv(None))
+        let firing = self.notifications & self.notification_mask;
+        if firing != 0 {
+            if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
+                let mut rr = self.save.as_recv_result();
+                rr.set_sender(TaskID::KERNEL);
+                rr.set_operation(firing);
+                rr.set_message_len(0);
+                rr.set_response_capacity(0);
+                rr.set_lease_count(0);
+                self.state = TaskState::Healthy(SchedState::Runnable);
+                self.acknowledge_notifications();
+                return true;
+            }
+        }
+        false
     }
 
-    /// Updates the task's notification mask. If any notifications would fire
-    /// with the new mask, returns them in a `Some`.
+    /// Updates the task's notification mask.
+    ///
+    /// This may cause notifications that were previously posted to fire. If
+    /// they fire, they will be returned to you in a `Some` but will not be
+    /// acknowledged (cleared). If you are updating the notification mask as a
+    /// side effect of receive, you should deliver the notifications; if this
+    /// is happening for some other reason you might leave the task with
+    /// notifications pending.
     #[must_use]
     pub fn update_mask(&mut self, m: u32) -> Option<u32> {
         self.notification_mask = m;
@@ -120,6 +141,12 @@ impl Task {
         } else {
             None
         }
+    }
+
+    /// Clears notification bits that are set in `bits`. Use this to signal that
+    /// some notifications were delivered, otherwise they'll keep firing.
+    pub fn acknowledge_notifications(&mut self) {
+        self.notifications &= !self.notification_mask;
     }
 
     /// Checks if this task is in a potentially schedulable state.
