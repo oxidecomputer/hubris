@@ -5,6 +5,7 @@ extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to c
 
 use userlib::*;
 
+#[link_section = ".text.start"]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
     safe_main()

@@ -16,7 +16,7 @@ SECTIONS
   /* ### .text */
   .text _stext :
   {
-    *(.text._start*); /* try and pull start symbol to beginning */
+    *(.text.start*); /* try and pull start symbol to beginning */
     *(.text .text.*);
     . = ALIGN(4);
     __etext = .;
