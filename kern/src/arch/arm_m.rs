@@ -4,6 +4,7 @@ use zerocopy::FromBytes;
 
 use crate::app;
 use crate::task;
+use crate::time::Timestamp;
 use crate::umem::USlice;
 
 /// On ARMvx-M we use a global to record the task table position and extent.
@@ -129,6 +130,18 @@ pub fn set_task_table(tasks: &mut [task::Task]) {
     // Record length as well.
     unsafe {
         TASK_TABLE_SIZE = tasks.len();
+    }
+
+    // Configure the timer.
+    // Note that we have *no idea* what our tick frequency is. TODO.
+    unsafe {
+        let syst = &*cortex_m::peripheral::SYST::ptr();
+        // Program reload value.
+        syst.rvr.write(159_999); // TODO: that's 10ms at 4MHz
+        // Clear current value.
+        syst.cvr.write(0);
+        // Enable counter and interrupt.
+        syst.csr.modify(|v| v | 0b111);
     }
 }
 
@@ -257,6 +270,8 @@ pub fn start_first_task(task: &task::Task) -> ! {
     unreachable!()
 }
 
+/// Handler that gets linked into the vector table for the Supervisor Call (SVC)
+/// instruction. (Name is dictated by the `cortex_m` crate.)
 #[allow(non_snake_case)]
 #[naked]
 #[no_mangle]
@@ -377,6 +392,10 @@ fn safe_syscall_entry(
         0 => crate::send(tasks, task_index),
         1 => crate::recv(tasks, task_index),
         2 => crate::reply(tasks, task_index),
+        3 => {
+            let now = Timestamp::from(unsafe { TICKS });
+            crate::timer(&mut tasks[task_index], now)
+        }
         _ => {
             // Bogus syscall number!
             tasks[task_index].force_fault(task::FaultInfo::SyscallUsage(
@@ -384,4 +403,114 @@ fn safe_syscall_entry(
             ))
         }
     }
+}
+
+/// Kernel global for tracking the current timestamp, measured in ticks.
+///
+/// This is a mutable `u64` instead of an `AtomicU64` because ARMv7-M doesn't
+/// have any 64-bit atomic operations. So, we access it carefully from
+/// non-preemptible contexts.
+static mut TICKS: u64 = 0;
+
+/// Handler that gets linked into the vector table for the System Tick Timer
+/// overflow interrupt. (Name is dictated by the `cortex_m` crate.)
+#[allow(non_snake_case)]
+#[no_mangle]
+pub unsafe fn SysTick() {
+    // We configure this interrupt to have the same priority as SVC, which means
+    // there's no way this can preempt the kernel -- it will only preempt user
+    // code. As a result, we can manufacture exclusive references to various
+    // bits of kernel state.
+    let ticks = &mut TICKS;
+    let tasks = core::slice::from_raw_parts_mut(
+        TASK_TABLE_BASE.unwrap().as_mut(),
+        TASK_TABLE_SIZE,
+    );
+
+    safe_sys_tick_handler(ticks, tasks);
+}
+
+/// The meat of the systick handler, after we do the unsafe things.
+fn safe_sys_tick_handler(ticks: &mut u64, tasks: &mut [task::Task]) {
+    // Advance the kernel's notion of time, then give up the ability to
+    // accidentally do it again.
+    *ticks += 1;
+    let now = Timestamp::from(*ticks);
+    drop(ticks);
+
+    // Process any timers.
+    let switch = task::process_timers(tasks, now);
+
+    // If any timers fired, we need to defer a context switch, because the entry
+    // sequence to this ISR doesn't save state correctly for efficiency.
+    if switch != task::NextTask::Same {
+        pend_context_switch_from_isr();
+    }
+}
+
+fn pend_context_switch_from_isr() {
+    // This sets the bit to pend a PendSV interrupt. PendSV will happen after
+    // the current ISR (and any chained ISRs) returns, and perform the context
+    // switch.
+    cortex_m::peripheral::SCB::set_pendsv();
+}
+
+#[allow(non_snake_case)]
+#[naked]
+#[no_mangle]
+pub unsafe fn PendSV() {
+    asm! {"
+        @ store volatile state.
+        @ first, get a pointer to the current task.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r1, [r0]
+        @ fetch the process-mode stack pointer.
+        @ fetching into r12 means the order in the stm below is right.
+        mrs r12, PSP
+        @ now, store volatile registers, plus the PSP in r12, plus LR.
+        stm r1, {r4-r12, lr}
+
+        @ syscall number is passed in r11. Move it into r0 to pass it as an
+        @ argument to the handler, then call the handler.
+        bl pendsv_entry
+
+        @ we're returning back to *some* task, maybe not the same one.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        @ restore volatile registers, plus load PSP into r12
+        ldm r0, {r4-r12, lr}
+        msr PSP, r12
+
+        @ resume
+        bx lr
+        "
+        :
+        :
+        :
+        : "volatile"
+    }
+}
+
+/// The Rust side of the PendSV handler, after all volatile registers have been
+/// saved somewhere predictable.
+#[no_mangle]
+unsafe extern "C" fn pendsv_entry() {
+    let tasks = core::slice::from_raw_parts_mut(
+        TASK_TABLE_BASE.unwrap().as_mut(),
+        TASK_TABLE_SIZE,
+    );
+    let current = CURRENT_TASK_PTR
+        .expect("systick irq before kernel started?")
+        .as_ptr();
+    let idx = (current as usize - tasks.as_ptr() as usize)
+        / core::mem::size_of::<task::Task>();
+
+    CURRENT_TASK_PTR = Some(NonNull::from(select_next_task(tasks, idx)));
+}
+
+fn select_next_task(tasks: &mut [task::Task], current: usize) -> &mut task::Task {
+    let next = task::select(current, tasks);
+    &mut tasks[next]
 }

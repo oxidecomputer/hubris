@@ -410,3 +410,21 @@ fn resume_sender_with_error(task: &mut Task) {
     let mut r = task.save.as_send_result();
     r.set_response_and_length(DEAD, 0);
 }
+
+/// Implementation of the `TIMER` syscall.
+pub fn timer(task: &mut Task, now: time::Timestamp) -> NextTask {
+    let args = task.save.as_timer_args();
+    let (dl, n) = (args.deadline(), args.notification());
+    if let Some(deadline) = dl {
+        // timer is being enabled
+        if deadline <= now {
+            // timer is already expired
+            task.set_timer(None, n);
+            // We don't care if we woke the task, because it's already running!
+            let _ = task.post(n);
+            return NextTask::Same
+        }
+    }
+    task.set_timer(dl, n);
+    NextTask::Same
+}

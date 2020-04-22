@@ -31,7 +31,7 @@ fn main() -> ! {
     });
     // Make pin D12 an output.
     p.GPIOD.moder.modify(|_, w| {
-        w.moder12().output()
+        w.moder12().output().moder13().output()
     });
 
     let app: Descriptors = Descriptors {
@@ -108,9 +108,14 @@ fn sender() -> ! {
 /// Loops receiving and responding to messages.
 fn rxer() -> ! {
     let mut rx_buf = [0u8; 0];
+
+    // Set our timer for 1s in the future (100x 10ms ticks)
+    let mut dl = 100u64;
+    set_timer(Some(dl), 1);
     loop {
-        let notification_mask: u32 = 0; // what notifications?
-        // Receive message
+        // Receive message with our notification mask set to allow our timer to
+        // interrupt.
+        let notification_mask: u32 = 1;
         let mut sender: u32;
         #[allow(unused_variables)]
         let mut operation: u32;
@@ -158,6 +163,29 @@ fn rxer() -> ! {
                         : "volatile"
                 }
             }
+        } else {
+            // It's our timer notification.
+            dl += 100u64;
+            set_timer(Some(dl), 1);
+            toggle_pd13();
+        }
+    }
+}
+
+fn set_timer(dl: Option<u64>, n: u32) {
+    unsafe {
+        let enable_timer = dl.is_some() as u32;
+        let dl = dl.unwrap_or(0);
+        asm! {
+            "svc #0"
+                :
+            : "{r4}"(enable_timer),
+              "{r5}"(dl as u32),
+              "{r6}"((dl >> 32) as u32),
+              "{r7}"(n),
+              "{r11}"(3)
+            :
+            : "volatile"
         }
     }
 }
@@ -184,5 +212,23 @@ fn set_pd12_low() {
     gpiod.bsrr.write(|w| {
         w.br12().set_bit()
     });
+}
+
+fn toggle_pd13() {
+    // Synthesize a shared reference to the GPIO controller. This is safe
+    // because it's not an exclusive reference, and this peripheral supports
+    // concurrent access.
+    let gpiod = unsafe {
+        &*device::GPIOD::ptr()
+    };
+    if gpiod.odr.read().odr13().bit() {
+        gpiod.bsrr.write(|w| {
+            w.br13().set_bit()
+        });
+    } else {
+        gpiod.bsrr.write(|w| {
+            w.bs13().set_bit()
+        });
+    }
 }
 

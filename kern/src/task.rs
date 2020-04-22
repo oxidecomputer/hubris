@@ -153,6 +153,11 @@ impl Task {
     pub fn is_runnable(&self) -> bool {
         self.state == TaskState::Healthy(SchedState::Runnable)
     }
+
+    pub fn set_timer(&mut self, deadline: Option<Timestamp>, notifications: NotificationSet) {
+        self.timer.deadline = deadline;
+        self.timer.to_post = notifications;
+    }
 }
 
 /// Type used to track generation numbers.
@@ -211,6 +216,13 @@ pub trait ArchState: Default {
     fn as_reply_args(&self) -> AsReplyArgs<&Self> {
         AsReplyArgs(self)
     }
+
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for TIMER.
+    fn as_timer_args(&self) -> AsTimerArgs<&Self> {
+        AsTimerArgs(self)
+    }
+
 }
 
 /// Reference proxy for send argument registers.
@@ -333,6 +345,26 @@ impl<'a, T: ArchState> AsReplyArgs<&'a T> {
     /// returns `Err`.
     pub fn message(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
+    }
+}
+
+/// Reference proxy for TIMER argument registers.
+pub struct AsTimerArgs<T>(T);
+
+impl<'a, T: ArchState> AsTimerArgs<&'a T> {
+    /// Extracts the deadline.
+    pub fn deadline(&self) -> Option<Timestamp> {
+        let b = self.0.borrow();
+        if b.arg0() != 0 {
+            Some(Timestamp::from(u64::from(b.arg2()) << 32 | u64::from(b.arg1())))
+        } else {
+            None
+        }
+    }
+
+    /// Extracts the notification set.
+    pub fn notification(&self) -> NotificationSet {
+        NotificationSet(self.0.borrow().arg3())
     }
 }
 
@@ -482,7 +514,7 @@ pub struct NotificationSet(u32);
 /// Return value for operations that can have scheduling implications. This is
 /// marked `must_use` because forgetting to actually update the scheduler after
 /// performing an operation that requires it would be Bad.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[must_use]
 pub enum NextTask {
     /// It's fine to keep running whatever task we were just running.
