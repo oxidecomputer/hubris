@@ -4,6 +4,9 @@ members = [
     "demo",
     "kern",
     "userlib",
+
+    "task-ping",
+    "task-pong",
 ]
 
 [profile.release]
