@@ -3,6 +3,7 @@ members = [
     "abi",
     "demo",
     "kern",
+    "userlib",
 ]
 
 [profile.release]
