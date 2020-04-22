@@ -507,7 +507,7 @@ unsafe extern "C" fn pendsv_entry() {
     let idx = (current as usize - tasks.as_ptr() as usize)
         / core::mem::size_of::<task::Task>();
 
-    CURRENT_TASK_PTR = Some(NonNull::from(select_next_task(tasks, idx)));
+    new_current_task(select_next_task(tasks, idx));
 }
 
 fn select_next_task(tasks: &mut [task::Task], current: usize) -> &mut task::Task {
