@@ -17,11 +17,16 @@ fn safe_main() -> ! {
 
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
+    sys_set_timer(Some(dl), TIMER_NOTIFICATION);
     loop {
         let msginfo = sys_recv(
             &mut msg,
             TIMER_NOTIFICATION,
         );
+
+        // Signal that we have received
+        clear_led();
+
         if msginfo.sender != TaskId::KERNEL {
             // We'll just assume this is a ping message and reply.
             sys_reply(
@@ -34,7 +39,25 @@ fn safe_main() -> ! {
             // enabled, so we know full well which it is without looking.
             dl += INTERVAL;
             sys_set_timer(Some(dl), TIMER_NOTIFICATION);
-            // TODO toggle an LED here
+            toggle_other_led();
         }
+    }
+}
+
+fn clear_led() {
+    let gpiod = unsafe {
+        &*stm32f4::stm32f407::GPIOD::ptr()
+    };
+    gpiod.bsrr.write(|w| w.br12().set_bit());
+}
+
+fn toggle_other_led() {
+    let gpiod = unsafe {
+        &*stm32f4::stm32f407::GPIOD::ptr()
+    };
+    if gpiod.odr.read().odr13().bit() {
+        gpiod.bsrr.write(|w| w.br13().set_bit());
+    } else {
+        gpiod.bsrr.write(|w| w.bs13().set_bit());
     }
 }

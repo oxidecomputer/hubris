@@ -14,6 +14,9 @@ fn safe_main() -> ! {
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
     loop {
+        // Signal that we're entering send:
+        set_led();
+
         let (_code, _len) = userlib::sys_send(
             peer,
             PING_OP,
@@ -22,4 +25,11 @@ fn safe_main() -> ! {
             &[],
         );
     }
+}
+
+fn set_led() {
+    let gpiod = unsafe {
+        &*stm32f4::stm32f407::GPIOD::ptr()
+    };
+    gpiod.bsrr.write(|w| w.bs12().set_bit());
 }

@@ -252,6 +252,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "panic-halt",
+ "stm32f4",
  "userlib",
 ]
 
@@ -261,6 +262,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "panic-halt",
+ "stm32f4",
  "userlib",
 ]
 
