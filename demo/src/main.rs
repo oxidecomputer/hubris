@@ -17,10 +17,29 @@ use kern::app::{App, RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 struct Descriptors {
     app: App,
     task: [TaskDesc; 2],
-    region: RegionDesc,
+    region: [RegionDesc; 6],
 }
 
 static mut KERNEL_RAM: [u8; 1024] = [0; 1024];
+
+// These values MUST be synchronized with task linker scripts.
+const PING_ENTRY_POINT: u32 = 0x0802_0000;
+const PONG_ENTRY_POINT: u32 = 0x0802_4000;
+
+const PING_RAM: u32 = 0x1000_0000;
+const PING_INITIAL_STACK: u32 = PING_RAM + 0x400;
+const PONG_RAM: u32 = 0x1000_0400;
+const PONG_INITIAL_STACK: u32 = PONG_RAM + 0x400;
+
+#[no_mangle]
+#[link_section = ".task_ping_image"]
+pub static PING_IMAGE: [u8; 16384] =
+    include!(env!("TASK_PING_PATH"));
+
+#[no_mangle]
+#[link_section = ".task_pong_image"]
+pub static PONG_IMAGE: [u8; 16384] =
+    include!(env!("TASK_PONG_PATH"));
 
 #[entry]
 fn main() -> ! {
@@ -29,7 +48,7 @@ fn main() -> ! {
     p.RCC.ahb1enr.modify(|_, w| {
         w.gpioden().enabled()
     });
-    // Make pin D12 an output.
+    // Make pin D12 and D13 outputs.
     p.GPIOD.moder.modify(|_, w| {
         w.moder12().output().moder13().output()
     });
@@ -37,32 +56,71 @@ fn main() -> ! {
     let app: Descriptors = Descriptors {
         app: App {
             magic: kern::app::CURRENT_APP_MAGIC,
-            region_count: 1,
+            region_count: 6,
             task_count: 2,
             zeroed_expansion_space: [0; 20],
         },
         task: [
+            // ping
             TaskDesc {
-                entry_point: sender as usize as u32,
+                entry_point: PING_ENTRY_POINT,
                 flags: TaskFlags::START_AT_BOOT,
-                initial_stack: 0x10010000,
+                initial_stack: PING_INITIAL_STACK,
                 priority: kern::app::Priority(1),
-                regions: [0, 0, 0, 0, 0, 0, 0, 0],
+                regions: [1, 2, 5, 0, 0, 0, 0, 0],
             },
             TaskDesc {
-                entry_point: rxer as usize as u32,
+                entry_point: PONG_ENTRY_POINT,
                 flags: TaskFlags::START_AT_BOOT,
-                initial_stack: 0x10008000,
+                initial_stack: PONG_INITIAL_STACK,
                 priority: kern::app::Priority(0),
-                regions: [0, 0, 0, 0, 0, 0, 0, 0],
+                regions: [3, 4, 5, 0, 0, 0, 0, 0],
             },
         ],
-        region: RegionDesc {
-            base: 0,
-            size: !0,
-            attributes: RegionAttributes::RWX,
-            reserved_zero: 0,
-        },
+        region: [
+            // A "null" region giving no authority, to fill out region tables.
+            RegionDesc {
+                base: 0,
+                size: 32,
+                attributes: RegionAttributes::empty(),
+                reserved_zero: 0,
+            },
+            // Ping flash
+            RegionDesc {
+                base: PING_ENTRY_POINT,
+                size: 0x4000,
+                attributes: RegionAttributes::READ | RegionAttributes::EXECUTE,
+                reserved_zero: 0,
+            },
+            // Ping RAM
+            RegionDesc {
+                base: PING_RAM,
+                size: 0x400,
+                attributes: RegionAttributes::READ | RegionAttributes::WRITE,
+                reserved_zero: 0,
+            },
+            // Pong flash
+            RegionDesc {
+                base: PONG_ENTRY_POINT,
+                size: 0x4000,
+                attributes: RegionAttributes::READ | RegionAttributes::EXECUTE,
+                reserved_zero: 0,
+            },
+            // Pong RAM
+            RegionDesc {
+                base: PONG_RAM,
+                size: 0x400,
+                attributes: RegionAttributes::READ | RegionAttributes::WRITE,
+                reserved_zero: 0,
+            },
+            // GPIOD
+            RegionDesc {
+                base: 0x4002_0C00,
+                size: 0x400,
+                attributes: RegionAttributes::READ | RegionAttributes::WRITE | RegionAttributes::DEVICE,
+                reserved_zero: 0,
+            },
+        ],
     };
 
     unsafe {
@@ -73,162 +131,3 @@ fn main() -> ! {
         )
     }
 }
-
-/// Loops sending an empty message.
-fn sender() -> ! {
-    loop {
-        set_pd12_low();
-
-        #[allow(unused_variables)]
-        let mut response_code: u32;
-        #[allow(unused_variables)]
-        let mut response_len: u32;
-
-        #[allow(unused_assignments)]
-        unsafe {
-            asm! {
-                "svc #0"
-                : "={r4}"(response_code),
-                  "={r5}"(response_len)
-                : "{r4}"(1 << 16),
-                  "{r5}"(0),
-                  "{r6}"(0),
-                  "{r7}"(0),
-                  "{r8}"(0),
-                  "{r9}"(0),
-                  "{r10}"(0),
-                  "{r11}"(0)
-                :
-                : "volatile"
-            }
-        }
-    }
-}
-
-/// Loops receiving and responding to messages.
-fn rxer() -> ! {
-    let mut rx_buf = [0u8; 0];
-
-    // Set our timer for 1s in the future (100x 10ms ticks)
-    let mut dl = 100u64;
-    set_timer(Some(dl), 1);
-    loop {
-        // Receive message with our notification mask set to allow our timer to
-        // interrupt.
-        let notification_mask: u32 = 1;
-        let mut sender: u32;
-        #[allow(unused_variables)]
-        let mut operation: u32;
-        #[allow(unused_variables)]
-        let mut message_len: usize;
-        #[allow(unused_variables)]
-        let mut response_capacity: usize;
-        #[allow(unused_variables)]
-        let mut lease_count: usize;
-
-        // Receive!
-        #[allow(unused_assignments)]
-        unsafe {
-            asm! {
-                "svc #0"
-                : "={r4}"(sender),
-                  "={r5}"(operation),
-                  "={r6}"(message_len),
-                  "={r7}"(response_capacity),
-                  "={r8}"(lease_count)
-                : "{r4}"(rx_buf.as_mut_ptr())
-                  "{r5}"(rx_buf.len()),
-                  "{r6}"(notification_mask),
-                  "{r11}"(1)
-                :
-                : "volatile"
-            }
-        }
-
-        set_pd12_high();
-
-        if sender != 0xFFFF {
-            // Unblock sender
-            let response_code: u32 = 0;
-            unsafe {
-                asm! {
-                    "svc #0"
-                        :
-                        : "{r4}"(sender)
-                        "{r5}"(response_code)
-                        "{r6}"(rx_buf.as_mut_ptr())
-                        "{r7}"(rx_buf.len())
-                        "{r11}"(2)
-                        :
-                        : "volatile"
-                }
-            }
-        } else {
-            // It's our timer notification.
-            dl += 100u64;
-            set_timer(Some(dl), 1);
-            toggle_pd13();
-        }
-    }
-}
-
-fn set_timer(dl: Option<u64>, n: u32) {
-    unsafe {
-        let enable_timer = dl.is_some() as u32;
-        let dl = dl.unwrap_or(0);
-        asm! {
-            "svc #0"
-                :
-            : "{r4}"(enable_timer),
-              "{r5}"(dl as u32),
-              "{r6}"((dl >> 32) as u32),
-              "{r7}"(n),
-              "{r11}"(3)
-            :
-            : "volatile"
-        }
-    }
-}
-
-fn set_pd12_high() {
-    // Synthesize a shared reference to the GPIO controller. This is safe
-    // because it's not an exclusive reference, and this peripheral supports
-    // concurrent access.
-    let gpiod = unsafe {
-        &*device::GPIOD::ptr()
-    };
-    gpiod.bsrr.write(|w| {
-        w.bs12().set_bit()
-    });
-}
-
-fn set_pd12_low() {
-    // Synthesize a shared reference to the GPIO controller. This is safe
-    // because it's not an exclusive reference, and this peripheral supports
-    // concurrent access.
-    let gpiod = unsafe {
-        &*device::GPIOD::ptr()
-    };
-    gpiod.bsrr.write(|w| {
-        w.br12().set_bit()
-    });
-}
-
-fn toggle_pd13() {
-    // Synthesize a shared reference to the GPIO controller. This is safe
-    // because it's not an exclusive reference, and this peripheral supports
-    // concurrent access.
-    let gpiod = unsafe {
-        &*device::GPIOD::ptr()
-    };
-    if gpiod.odr.read().odr13().bit() {
-        gpiod.bsrr.write(|w| {
-            w.br13().set_bit()
-        });
-    } else {
-        gpiod.bsrr.write(|w| {
-            w.bs13().set_bit()
-        });
-    }
-}
-

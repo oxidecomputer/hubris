@@ -11,6 +11,8 @@ cortex-m-rt = "0.6.10"
 cortex-m-semihosting = "0.3.3"
 #panic-halt = "0.2.0"
 panic-semihosting = "0.5.3"
+task-ping = {path="../task-ping"}
+task-pong = {path="../task-pong"}
 
 [dependencies.stm32f4]
 features = ["stm32f407", "rt"]

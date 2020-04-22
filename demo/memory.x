@@ -8,3 +8,12 @@ MEMORY
 }
 
 _stack_start = ORIGIN(RAM) + LENGTH(RAM);
+
+SECTIONS {
+  .task_ping_image 0x08020000 : AT(0x08020000) {
+    KEEP(*(.task_ping_image));
+  } >FLASH
+  .task_pong_image 0x08024000 : AT(0x08024000) {
+    KEEP(*(.task_pong_image));
+  } >FLASH
+} INSERT AFTER .uninit;
