@@ -1,3 +1,5 @@
+:toc:
+
 = Hubris Syscalls
 
 Syscalls provide ways for tasks to invoke kernel code. Hubris has a very small
@@ -33,41 +35,302 @@ We have an escape hatch, in the form of messages to the virtual "kernel task."
 Syscalls are invoked using the architecture's supervisor-call instruction or
 equivalent.
 
+We'll describe syscalls in an architecture-independent manner below by referring
+to abstract argument and return slots instead of register names. Syscalls have
+seven argument slots and eight return slots.
+
 === ARMv7-M / ARMv8-M
 
 Syscalls are invoked using the `SVC` instruction. The 8-bit immediate in the
-instruction encodes the syscall number.
+instruction is ignored, because reading it from user text is potentially
+sketchy.
 
-Syscall arguments are passed, and results returned, as though `SVC` were a
-function call using the standard ARM AAPCS calling convention. That is,
+Syscalls provide for up to 7 arguments and 8 return values in registers.
+Syscalls never use arguments from the stack, to make it easier to reason about
+possible memory management faults during syscall entry (i.e. now there aren't
+any).
 
-- Up to four word-size registers can be passed in `r0` through `r3`.
-- Additional arguments go on the stack.
-- A 32-bit value can be returned in `r0`, or extended to 64 bits using `r1`.
+Arguments to syscalls are passed in `r4` through `r10`, with the syscall index
+in `r11`.
 
-However, syscalls preserve all user registers, unlike function calls.
-(Currently, user code does not understand this, and defensively saves
-registers.)
+Return values from syscalls are returned in `r4` through `r11`.
 
-NOTE: This ABI is deliberately transitional. It would be nice to pass more
-registers in arguments, and to pass them _directly_ in arguments instead of
-having them spilled to the stack as part of the exception frame and then read
-back. For complicated reasons related to interrupt tail chaining, this means you
-want to pass arguments in `r4` through `r11` -- normally caller-save. But this
-is pending on `#![feature(asm)]`.
+NOTE: You're probably wondering why we're using weird registers instead of the
+standard calling convention, which would pass things in `r0` through `r3`. It
+comes back to the point above about stack accesses. The ARMv-7M hardware stores
+`r0` through `r3` _on the user stack_ on entry to a syscall, and we don't want
+to have to read it back from there. `r4` through `r11`, on the other hand, are
+treated as callee-save, and our syscall entry sequence saves them into the TCB,
+where we can refer to them as needed.
 
 === RISC-V
 
-Syscalls are invoked using the `ECALL` instruction. The rest is TBD, except that
-the syscall number is going to have to be passed in a register (because `ECALL`
-does not include an immediate).
+Syscalls are invoked using the `ECALL` instruction. The rest is TBD.
 
-This shouldn't be a big deal, since RISC-V has so many more registers.
+== Syscalls
 
-== IPC Syscalls
+=== `SEND` (0)
 
-TBD
+Sends a message.
 
-== Notification Syscalls
+The error-free path:
 
-TBD
+- Identifies the desired recipient.
+- Transfers a message (0+ bytes) from an outgoing slice in your task's memory,
+  into an incoming slice in the recipient's memory.
+- Waits until the recipient calls `REPLY`.
+- During this time, allows the recipient to access your task's memory, subject
+  to the rules laid out in the lease table.
+- Once `REPLY` happens, transfers the reply from the recipient's memory into the
+  reply buffer slice in your task's memory.
+- Resumes your task.
+
+==== Arguments
+
+* 0: packed target and operation.
+** Bits 31:28: target task generation number.
+** Bits 28:16: target task index.
+** Bits 15:0: operation code (application defined).
+* 1: Base address of outgoing message.
+* 2: Length of outgoing message, in bytes.
+* 3: Base address of buffer where a reply should be deposited.
+* 4: Size of reply buffer, in bytes.
+* 5: Base address of lease table.
+* 6: Number of leases in lease table.
+
+==== Return values
+
+- 0: response code (application defined with caveat below).
+- 1: length of reply deposited into reply buffer.
+
+==== Faults
+
+Most things that can go wrong with `SEND` are programming errors, and will cause
+your task to be immediately faulted instead of returning a code.
+
+|===
+| Condition | Fault taken
+
+| Recipient forbidden by your task's (static) IPC mask.
+| `BadInteraction`
+
+| Recipient task index greater than the (static) number of tasks in the entire
+  system.
+| `TaskOutOfRange`
+
+| Any slice invalid (e.g. it would wrap the end of the address space).
+| `InvalidSlice`
+
+| Lease table slice misaligned.
+| `InvalidSlice`
+
+| Outgoing slice or lease table are memory you can't actually read.
+| `MemoryAccess`
+
+| Reply buffer slice is memory you can't actually write.
+| `MemoryAccess`
+
+|===
+
+==== Notes
+
+Target and operation are packed into a single word because we're out of useful
+registers on ARMv7-M. This currently limits operation codes to 16 bits. We might
+revisit this later.
+
+For all slices (outgoing message, reply buffer, lease table), if the count is
+zero, the base address won't be dereferenced and can be illegal. In particular,
+it's okay to pass address 0 for empty slices.
+
+If the slices are *not* zero length, however, the kernel will check them against
+your task's memory map, and your task will be faulted if anything is amiss.
+
+Slices are accessed by the kernel *only* while your task is blocked in `SEND`,
+so passing a slice to the kernel here can be done safely (in the Rust sense).
+The reply buffer slice must be an `&mut`, but the others can be `&`.
+
+The lease table slice must be 4-byte aligned. The others can be arbitrarily
+aligned.
+
+Response codes are application defined except for one subtlety, which is that a
+message sent to a dead task (one where the generation doesn't match) will always
+reply with the response code `!0` (i.e. all bits set). All other values are
+available for the application. It is possible to fake a dead task by
+deliberately replying with a response code of `!0`, because it didn't seem
+useful to filter it out.
+
+=== `RECV` (1)
+
+Receives a pending message.
+
+The error-free path:
+
+- Blocks until some number of tasks are ready to send to your task.
+- Picks the highest priority one.
+- Transfers its message into memory you've designated.
+- Keeps the sending task blocked.
+- Returns information describing the message to your task.
+
+If the provided notification mask is not zero, the receive operation may be
+interrupted by a _notification message_ from the kernel instead (if any of the
+given notifications have been posted). Notification messages can be
+distinguished by having the illegal sender `0xFFFF`.
+
+==== Arguments
+
+- 0: Address of a buffer where received messages should be written.
+- 1: Number of bytes in that buffer.
+- 2: Notification mask to apply during this receive.
+
+==== Return values
+
+- 0: Task ID of the sender (generation in 15:12, ID in 11:0).
+- 1: Operation code used by sender.
+- 2: Length of message sent.
+- 3: Number of leases provided with message.
+
+==== Faults
+
+Most things that can go wrong with `RECV` are programming errors, and will cause
+your task to be immediately faulted instead of returning a code.
+
+|===
+| Condition | Fault taken
+
+| Receive buffer slice invalid (i.e. would wrap the end of the address space).
+| `InvalidSlice`
+
+| Receive buffer slice is memory you can't actually write.
+| `MemoryAccess`
+
+|===
+
+==== Notes
+
+It's legal, if slightly odd, to specify a zero-length receive buffer. In this
+case, the base address is ignored.
+
+If the sender sent a message _longer_ than your receive buffer, you will get the
+_prefix_ of the message, and the returned response length will give the _actual_
+length. This means you should check the response length against your buffer
+length to detect truncation.
+
+Leases received with the message are referenced with the combination (TaskID,
+lease number). Lease numbers range between 0 and one less than the received
+lease count, as you'd expect. Leases are only valid until the sending task
+unblocks.
+
+The notification mask is provided anew with each receive because the `RECV`
+callsite has a clear idea of which notifications it can handle. Plus, it saves a
+syscall from the common pattern of updating the mask and then receiving.
+
+The intent is to extend `RECV` with a "directed receive" that only accepts
+messages from one sender, or only notifications, and to add a non-blocking flag.
+These haven't happened yet.
+
+`RECV` is called `RECV` because Cliff can't spell "recieve" reliably.
+
+=== `REPLY` (2)
+
+Replies to a received message.
+
+If all goes well, this copies a slice of data from your task's memory into the
+caller's memory and resumes it.
+
+==== Arguments
+
+- 0: Task ID of sender we're replying to.
+- 1: Response code to deliver.
+- 2: Base address of reply message.
+- 3: Number of bytes in reply message.
+
+==== Return values
+
+None. All registers preserved.
+
+==== Faults
+
+There is only one way to break `REPLY`, and that's with a bogus slice.
+
+|===
+| Condition | Fault taken
+
+| Outgoing buffer slice invalid (i.e. would wrap the end of the address space).
+| `InvalidSlice`
+
+| Outgoing buffer slice is memory you can't actually read.
+| `MemoryAccess`
+
+| Reply message is longer than recipient requested.
+| `ReplyTooLarge`
+
+|===
+
+==== Notes
+
+It might strike you as odd that `REPLY` doesn't return any status. This is a
+subtle decision, and has to do with what servers will do if their clients
+"defect" or crash before reply (generally: nothing).
+
+Reply messages can be zero-length, in which case the base address of the slice
+is ignored. Often, the response code is enough.
+
+`RECV` delivers the size of the caller's response buffer, so your task has
+sufficient information to not overflow it. This is why doing so is a fault: it's
+a programming error.
+
+=== `SET_TIMER` (3)
+
+Configures your task's timer.
+
+==== Arguments
+
+- 0: Enable (1) or disable (0) flag.
+- 1: Low 32 bits of deadline.
+- 2: High 32 bits of deadline.
+- 3: Notification bitmask to post when timer expires.
+
+==== Return values
+
+None. All registers preserved.
+
+==== Faults
+
+None.
+
+==== Notes
+
+The notification bitmask will be delivered into your task's notification set
+when the kernel time becomes equal to or greater than the given deadline, if the
+timer is enabled. Configuring the timer with an enabled deadline that is already
+in the past delivers the notification immediately (though you won't notice until
+you `RECV`).
+
+The time unit for deadlines is not currently specified -- it's currently an
+abstract "kernel ticks" unit. This will be fixed.
+
+=== `READ_TIMER` (4)
+
+Returns the current kernel timestamp.
+
+==== Arguments
+
+None.
+
+==== Return values
+
+- 0: low 32 bits of kernel timestamp.
+- 1: high 32 bits of kernel timestamp.
+
+==== Faults
+
+None.
+
+==== Notes
+
+The timestamp is defined as being CPU-wide, consistent for all tasks, so the
+result of this syscall can be meaningfully sent to other tasks on the same CPU.
+(Behavior in multicore situations is not yet defined.)
+
+The time unit is not currently specified -- it's currently an abstract "kernel
+ticks" unit. This will be fixed.
