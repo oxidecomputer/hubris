@@ -6,6 +6,8 @@ use zerocopy::FromBytes;
 use crate::task::{FaultInfo, FaultSource, Task, UsageError};
 use crate::InteractFault;
 
+pub use abi::ULease;
+
 /// A (user, untrusted, unprivileged) slice.
 ///
 /// A `USlice` references memory from a task, outside the kernel. The slice is
@@ -161,32 +163,6 @@ where
             self.base_address as *mut T,
             self.length,
         )
-    }
-}
-
-/// Structure describing a lease in task memory. This is an ABI commitment.
-///
-/// At SEND, the task gives us the base and length of a section of memory that
-/// it *claims* contains structs of this type.
-#[derive(Debug, FromBytes)]
-#[repr(C)]
-pub struct ULease {
-    /// Lease attributes.
-    pub attributes: LeaseAttributes,
-    /// Base address of leased memory. This is equivalent to the base address
-    /// field in `USlice`, but isn't represented as a `USlice` because we leave
-    /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: usize,
-    /// Length of leased memory, in bytes.
-    pub length: usize,
-}
-
-bitflags::bitflags! {
-    #[derive(FromBytes)]
-    #[repr(transparent)]
-    pub struct LeaseAttributes: u32 {
-        const READ = 1 << 0;
-        const WRITE = 1 << 1;
     }
 }
 
