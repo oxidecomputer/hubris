@@ -133,6 +133,7 @@ dependencies = [
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
+ "panic-halt",
  "panic-semihosting",
  "stm32f4",
  "task-ping",

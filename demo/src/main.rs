@@ -2,11 +2,16 @@
 #![no_main]
 #![feature(asm)]
 
-// pick a panicking behavior
-// extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
-// extern crate panic_abort; // requires nightly
-// extern crate panic_itm; // logs messages over ITM; requires ITM support
-extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
+#[cfg(not(any(feature = "panic-halt", feature = "panic-semihosting")))]
+compile_error!(
+    "Must have either feature panic-halt or panic-semihosting enabled"
+);
+
+// Panic behavior controlled by Cargo features:
+#[cfg(feature = "panic-halt")]
+extern crate panic_halt; // breakpoint on `rust_begin_unwind` to catch panics
+#[cfg(feature = "panic-semihosting")]
+extern crate panic_semihosting; // requires a debugger
 
 use cortex_m_rt::entry;
 use stm32f4::stm32f407 as device;

@@ -5,12 +5,15 @@ readme = "README.md"
 name = "demo"
 version = "0.1.0"
 
+[features]
+default = ['panic-semihosting']
+
 [dependencies]
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
 cortex-m-semihosting = "0.3.3"
-#panic-halt = "0.2.0"
-panic-semihosting = "0.5.3"
+panic-halt = {version = "0.2.0", optional = true}
+panic-semihosting = {version = "0.5.3", optional = true}
 task-ping = {path="../task-ping"}
 task-pong = {path="../task-pong"}
 
