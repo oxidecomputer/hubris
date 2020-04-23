@@ -19,7 +19,8 @@ fn main() {
     println!("cargo:rerun-if-changed=memory.x");
 
     // Track down a compatible objcopy.
-    let objcopy = which::which("arm-none-eabi-objcopy")
+    let objcopy = which::which("llvm-objcopy")
+        .or_else(|_| which::which("arm-none-eabi-objcopy"))
         .or_else(|_| which::which("arm-linux-gnu-objcopy"))
         .expect("Can't find ARM objcopy in path?");
 
