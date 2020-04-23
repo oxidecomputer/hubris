@@ -98,6 +98,29 @@ The error-free path:
 * 5: Base address of lease table.
 * 6: Number of leases in lease table.
 
+==== Lease table layout
+
+Each lease is 12 bytes in size and must be 4-byte aligned. A lease is equivalent
+to the following Rust struct:
+
+....
+#[repr(C)]
+struct Lease {
+    attributes: u32,
+    base_address: usize,
+    length: usize,
+}
+
+const ATT_READ: u32 = 1 << 0;
+const ATT_WRITE: u32 = 1 << 1;
+....
+
+- `attributes` can specify that a lease can be read from, written to, or both.
+  Any use of undefined attribute bits will cause a fault.
+- `base_address` is a byte-aligned address. If this points to memory your task
+  can't access, it will cause a fault.
+- `length` is the length of the leased memory region in bytes.
+
 ==== Return values
 
 - 0: response code (application defined with caveat below).
