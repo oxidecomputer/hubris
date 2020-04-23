@@ -532,12 +532,12 @@ impl NextTask {
         use NextTask::*; // shorthand for patterns
 
         match (self, other) {
-            // If we have two specific suggestions, and they disagree, we punt
-            // to the scheduler to figure out the best option.
-            (Specific(x), Specific(y)) if x != y => Other,
-            // Otherwise, if either suggestion is a specific switch, take it.
-            // This covers: matching specifics; specific+unspecific;
-            // specific+same.
+            // If both agree, our job is easy.
+            (x, y) if x == y => x,
+            // Specific task recommendations that *don't* agree get downgraded
+            // to Other.
+            (Specific(_), Specific(_)) => Other,
+            // If only *one* is specific, it wins.
             (Specific(x), _) | (_, Specific(x)) => Specific(x),
             // Otherwise, if either suggestion says switch, switch.
             (Other, _) | (_, Other) => Other,
