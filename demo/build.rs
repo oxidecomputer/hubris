@@ -18,6 +18,11 @@ fn main() {
     // instead of when any part of the source code changes.
     println!("cargo:rerun-if-changed=memory.x");
 
+    // Track down a compatible objcopy.
+    let objcopy = which::which("arm-none-eabi-objcopy")
+        .or_else(|_| which::which("arm-linux-gnu-objcopy"))
+        .expect("Can't find ARM objcopy in path?");
+
     // Guess at the path to the task binaries.
     // Typical out path: target/thumbv7em-none-eabihf/debug/build/demo-d8561f9daeb4e6d3/out
     let bindir = out.parent().unwrap().parent().unwrap().parent().unwrap();
@@ -25,13 +30,13 @@ fn main() {
     let task_ping = bindir.join("task-ping");
     let task_ping_bin = out.join("task_ping.bin");
     let task_ping_hex = out.join("task_ping.hex");
-    extract_binary(&task_ping, &task_ping_bin);
+    extract_binary(&objcopy, &task_ping, &task_ping_bin);
     write_hex_literal(&task_ping_bin, &task_ping_hex);
 
     let task_pong = bindir.join("task-pong");
     let task_pong_bin = out.join("task_pong.bin");
     let task_pong_hex = out.join("task_pong.hex");
-    extract_binary(&task_pong, &task_pong_bin);
+    extract_binary(&objcopy, &task_pong, &task_pong_bin);
     write_hex_literal(&task_pong_bin, &task_pong_hex);
 
     println!("cargo:rerun-if-changed={}", task_ping.display());
@@ -41,8 +46,12 @@ fn main() {
     println!("cargo:rustc-env=TASK_PONG_PATH={}", task_pong_hex.display());
 }
 
-fn extract_binary(input: &std::path::Path, output: &std::path::Path) {
-    let status = Command::new("arm-none-eabi-objcopy")
+fn extract_binary(
+    objcopy: &std::path::Path,
+    input: &std::path::Path,
+    output: &std::path::Path,
+) {
+    let status = Command::new(objcopy)
         .arg(input)
         .arg("-Obinary")
         .arg(output)
