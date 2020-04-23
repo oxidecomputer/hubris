@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 abi = {path = "../abi"}
+r0 = "1.0"
 
 [lib]
 test = false

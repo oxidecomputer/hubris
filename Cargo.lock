@@ -74,7 +74,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d518da72bba39496024b62607c1d8e37bcece44b2536664f1132a73a499a28"
 dependencies = [
  "cortex-m-rt-macros",
- "r0",
+ "r0 0.2.2",
 ]
 
 [[package]]
@@ -182,6 +182,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2a38df5b15c8d5c7e8654189744d8e396bddc18ad48041a500ce52d6948941f"
 
 [[package]]
+name = "r0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd7a31eed1591dcbc95d92ad7161908e72f4677f8fabf2a32ca49b4237cbf211"
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -283,6 +289,7 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "r0 1.0.0",
 ]
 
 [[package]]

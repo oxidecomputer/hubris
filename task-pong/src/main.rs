@@ -5,13 +5,8 @@ extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to c
 
 use userlib::*;
 
-#[link_section = ".text.start"]
-#[no_mangle]
-pub unsafe extern "C" fn _start() -> ! {
-    safe_main()
-}
-
-fn safe_main() -> ! {
+#[export_name = "main"]
+pub fn main() -> ! {
     const TIMER_NOTIFICATION: u32 = 1;
     const INTERVAL: u64 = 100;
     const SUCCESS_RESPONSE: u32 = 0;

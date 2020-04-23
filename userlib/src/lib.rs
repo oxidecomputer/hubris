@@ -144,3 +144,31 @@ pub fn sys_set_timer(
         }
     }
 }
+
+#[doc(hidden)]
+#[no_mangle]
+#[link_section = ".text.start"]
+pub unsafe extern "C" fn _start() -> ! {
+    // Symbols from the linker script:
+    extern "C" {
+        static mut __sbss: u32;
+        static mut __ebss: u32;
+        static mut __sdata: u32;
+        static mut __edata: u32;
+        static __sidata: u32;
+    }
+
+    // Provided by the user program:
+    extern "Rust" {
+        fn main() -> !;
+    }
+
+    // Initialize RAM
+    r0::zero_bss(&mut __sbss, &mut __ebss);
+    r0::init_data(&mut __sdata, &mut __edata, &__sidata);
+
+    // Do *not* reorder any instructions from main above this point.
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+
+    main()
+}
