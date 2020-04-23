@@ -1,0 +1,462 @@
+:toc:
+
+= Hubris Technical Report 1
+
+== Status
+
+As of this writing, we have a partial prototype of a Hubris kernel. A demo
+application loads two separately compiled tasks which interact via IPC. IPC is
+mostly built out, but all other functionality is skeletal or missing.
+
+I think we've gotten far enough to look at the design, particularly since the
+prototyping process has caused some design changes. Several interesting things
+have come out of the implementation, too, which I'll also discuss here.
+
+== High-level design impressions
+
+Hubris can be characterized with some bullet points.
+
+- Preemptive multitasking.
+- Soft real time with only coarse bounds on worst-case execution times.
+- Static task structure, i.e. tasks cannot be created or destroyed at runtime.
+- Memory isolation between tasks, and between the kernel and everything else.
+- Tasks communicate using synchronous call-response IPC.
+
+This all still seems reasonable.
+
+== Resource usage
+
+The kernel built into the demo application uses Flash in the following ways:
+
+- 424 bytes for the interrupt vector table.
+- 19,848 bytes for the kernel code.
+- 7,280 bytes for the kernel's read-only data.
+
+(All measurements taken on a `--release` build; debug builds are ginormous.)
+
+Despite not being finished, this is already larger than I had hoped. We have
+some ability to bring this down; for example, disabling panic message output
+reduces the kernel text size to 9,824 bytes with 727 bytes of rodata, a savings
+of 16,577 bytes. We're currently using `core::fmt::Debug` instead of simpler
+alternatives like `ufmt`. We also haven't put any effort into reducing code size
+through strategic inlining, etc.
+
+RAM usage:
+
+- 32 bytes of RAM for static kernel state.
+- 408 bytes of kernel RAM per TCB, plus 32 bytes per task for memory region
+  tracking.
+
+8 of the 32 bytes of RAM are burned by the `cortex_m_rt` crate for things we
+don't actually need, so we could reclaim that.
+
+We have some yet-un-exercised opportunities for reducing TCB size.
+
+== On memory safety
+
+Hubris's design is closely linked with the Rust notions of memory safety. There
+are some subtleties here.
+
+=== Kernel safety
+
+What does "safety" actually mean in the kernel, since the kernel is inherently
+all-powerful? It turns out to be simpler than I expected.
+
+*Kernel safety assumes that its memory is separate from that of tasks.* That is,
+no task has a memory region that lets it mess with (specifically, write) kernel
+memory. We don't currently check this, but could.
+
+*Nothing done in task memory can affect kernel safety.* This follows from the
+above points. Since kernel safety only concerns kernel state, and kernel state
+is separate from task state, the safety of the kernel and the tasks are
+independent. (The exception here is memory-mapped device registers; the kernel
+can distinguish these from plain-old task RAM, and refuses to write them under
+any circumstances.)
+
+Put another way, this means that the kernel can scribble all over task memory
+without needing `unsafe`, because nothing it can do would endanger _kernel_
+safety. This is useful -- it lets us consider kernel safety in isolation.
+
+NOTE: There is one nuance here, which concerns memory-mapped device registers.
+Poking an _arbitrary_ device register is unsafe, because some of those registers
+might disable memory protection, escalate privileges, DMA all over kernel RAM,
+etc. Hubris distinguishes between RAM given to tasks and memory-mapped register
+banks made accessible to tasks; the kernel refuses to read or write the latter
+under any circumstances. For example, a task cannot designate a memory-mapped
+peripheral as the destination for a received message, nor loan out device
+registers as an IPC lease.
+
+For the most part, the kernel is a safe Rust program that interacts with data
+structures describing tasks. The fact that those tasks are real programs running
+on the same CPU, but in an unprivileged mode, is immaterial to most of the
+kernel.
+
+We currently use `unsafe` in the following areas of the kernel:
+
+- Startup -- allocating memory, preparing the task environments.
+- Messing with things like the Memory Protection Unit.
+- Syscall and interrupt entry and exit, context save/restore.
+- The implementation of `kern::umem` for probing arbitrary task memory.
+
+There are other areas that might _benefit,_ in performance terms, from `unsafe`.
+In particular, the desire to produce safe, obviously-correct code has led Hubris
+to avoid common kernel data structures like intrusive linked lists in favor of
+dense arrays. Worst-case time complexity might be improved by linked lists, at
+the cost of safety.
+
+=== Task safety
+
+We (the system architects) don't actually care whether tasks are written in a
+safe language or assembler. It doesn't compromise the kernel's integrity either
+way, because tasks run in unprivileged mode with memory protection.
+
+However, we want to _support_ safety in tasks and allow programs to be written
+in safe Rust to the greatest degree possible. The kernel has absolute power over
+tasks, and could totally compromise their safety, so we have to be careful here.
+
+TIP: This may be the area where Hubris was most influenced by Tock. Tock focused
+on enabling safe code in _drivers_, but created a syscall interface that was
+almost impossible to use safely. Our priorities are the opposite: to provide a
+safe foundation on which programs can be written -- safely if desired, or using
+`unsafe` where necessary.
+
+Our strategy for preserving task memory safety winds up being fairly simple:
+
+1. The kernel will only access task memory that is explicitly *leased* to the
+kernel.
+
+2. Those leases are given when the task enters a blocking kernel call (namely,
+`SEND`).
+
+3. The leases are _atomically revoked_ if the task unblocks.
+
+4. The kernel never messes with task control flow (there are no upcalls).
+
+This means that, from the task's perspective, kernel calls are simply function
+calls that take borrowed arguments. "Borrowed" here is exactly in the Rust sense
+of the term: passing a `&mut [u8]` into the kernel for it to fill in, knowing
+that we have regained exclusive use of that memory as soon as the operation
+returns.
+
+The point about upcalls is significant. Messing with a program's control flow
+is a great way to break memory safety, at least if the signal handler (or
+equivalent) would like to have any side effects or call any library functions.
+We've replaced conventional upcalls with two complementary mechanisms:
+
+1. *Notifications.* A task can receive an asynchronous notification if e.g. a
+timer has expired. The task will learn about this the next time it blocks for new
+messages, rather than being interrupted.
+
+2. *Faults.* The equivalent of a "segfault" on Hubris cannot be handled by the
+faulty task itself. Instead, access violations and the like cause a task to be
+marked _faulted_ and a notification (previous item) sent to a supervisory task
+for cleanup.
+
+As a result, none of the syscalls cause non-local control flow or record
+pointers that alias task memory, and so the syscall API itself can be 100% safe.
+This is unusual, and may be a first -- lots of systems have built safe
+_abstractions_ on top of their syscall APIs, but I'm not aware of a safe syscall
+API other than ours.
+
+==== Alternative: UNIX signal handlers
+
+This is probably the best-known upcall in common usage (though Windows I/O
+completion callbacks are similar). In response to synchronous or asynchronous
+events, the kernel will interrupt a thread and essentially force it to call a
+function -- either by switching it to a separate stack, or by pushing a stack
+frame, depending on implementation.
+
+This is hard to get right in C, but it's really problematic in Rust if normal
+code and signal handlers need to share any state, because you can have
+straight-line code that looks like it has exclusive access to something, when
+_poof_ suddenly a call is inserted.
+
+Hubris faults can be used to implement signal handler style upcalls, if desired,
+by having the supervisory task that catches the fault mess around in the
+faulting task's state to force an upcall. However, the upcall mechanism is not
+intrinsic and doesn't have to be used or disabled.
+
+==== Alternative: MINIX 3 Grants
+
+MINIX 3 contains a mechanism called *memory grants* that directly inspired
+Hubris leases.
+(http://www.minix3.org/docs/jorrit-herder/eurosys09-wip-poster.pdf[Paper],
+https://wiki.minix3.org/doku.php?id=developersguide:memorygrants[Wiki].)
+
+Memory grants in MINIX differ from Hubris leases in one important respect: their
+lifecycle is independent from IPC. A process can declare a grant table
+(analogous to a Hubris lease table) using a `SYS_SETGRANT` syscall; from that
+moment until the time that the table is replaced by a future `SYS_SETGRANT`
+call, we have memory aliasing:
+
+- The memory making up the grant table itself can be read at any time by the
+  kernel, and can dangle if the table is freed or unmapped.
+
+- Pointers *within* the grant table, to granted areas of memory, can be accessed
+  at any time by the kernel on behalf of other processes. In the event that a
+  grant table becomes a dangling pointer, this means arbitrary sections of
+  memory can be interpreted as grants, producing unexpected asynchronous memory
+  activity.
+
+These properties fundamentally conflict with memory safety.
+
+By contrast, because Hubris grants are tied to (blocking) IPC, there is only one
+entity that can reference granted memory at any given time:
+
+- The task owning the memory, if it is unblocked, or
+- The kernel on behalf of the lessee, if the owner is blocked.
+
+Because the lease table doesn't persist after the `SEND` operation returns,
+there's no risk of a dangling pointer (unless, of course, the process handed
+invalid arguments to `SEND`, in which case safety is moot.)
+
+NOTE: MINIX grants are also more powerful than Hubris leases; for example, they
+can be forwarded from one process to another. This difference isn't important
+for safety, and we intend to implement lease re-borrowing if we need it.
+
+==== Alternative: Tock `allow`
+
+Tock provides an `allow` syscall that grants a driver permission to manipulate
+some task memory.
+(https://github.com/tock/tock/blob/master/doc/Syscalls.md#3-allow[Docs].) The
+memory remains accessible until the `allow` is updated with a different,
+possibly zero-length, region.
+
+This has the same safety implications as MINIX grants (above), but with an
+interesting wrinkle: `allow`s are tracked, not by process/task, but *by driver
+instance.* This means that each pair of (driver ID, allow number) is essentially
+a global variable over which all tasks contend. Thus, not only can a task not
+reason about when the kernel will access allowed memory, it also can't reason
+about when the kernel might _unexpectedly stop._ While this doesn't influence
+safety, it does make design more difficult.
+
+Moreover, Tock's `allow` does not provide for read-only or write-only memory
+regions, so only `&mut` slices can be safely used with `allow`, ruling out e.g.
+ROM data images.
+
+==== Alternative: Tock `yield`
+
+`yield` might seem like a strange syscall to discuss in a section on memory
+safety, which actually emphasizes the problem.
+
+Tock's `yield` syscall
+(https://github.com/tock/tock/blob/master/doc/Syscalls.md#0-yield[Docs]) does
+two things:
+
+- It yields the CPU, as the name implies. (Tock is a cooperatively multitasked
+  system.)
+
+- It processes *callbacks.*
+
+Callbacks are upcalls. They are registered with the kernel using the `subscribe`
+system call
+(https://github.com/tock/tock/blob/master/doc/Syscalls.md#1-subscribe[Docs]).
+Any time a process calls `yield`, any or all of its registered callbacks might
+be invoked before the calling function regains control. Each callback receives
+a parameter (analogous to the `void *` given to callbacks in C convention) that
+it can reinterpret as a pointer, etc., to access state.
+
+This is a less dangerous upcall mechanism than Unix signal handlers, because
+it's synchronous, but it still has safety implications:
+
+- The callback parameters represent kernel-held pointers to task memory that may
+  alias unexpectedly or dangle.
+
+- There is no way to `yield` *without* potentially having arbitrary code run.
+  There is no way to allow a subset of registered callbacks, for example.
+
+- Callbacks can, themselves, `yield`, so the yielding function might never
+  regain control, or might be invoked reentrantly from its own `yield`. This
+  means that a callback *cannot* assume it has exclusive access to whatever data
+  is referenced by its parameter.
+
+- Subscriptions, like allows (above), are task-level global variables that have
+  composability implications beyond the arbitrary reentrancy issues.
+
+Hubris folds the role of `subscribe` and `yield` into `RECV`. A `RECV` can
+optionally be interrupted by notifications, which are returned to the caller as
+values instead of invoked as an upcall. Each `RECV` provides a mask indicating
+which notifications they can handle at that time, including none.
+
+== Types are good
+
+Having a strong and expressive type system is proving to be valuable when
+writing a kernel. "Strong" meaning that you have to go pretty far out of your
+way to subvert it, and "expressive" meaning that you probably won't want to.
+
+Here are some highlights.
+
+=== Task states
+
+As with most operating systems, tasks can be in a number of states: stopped,
+runnable, blocked, etc. A common way to express this might be:
+
+....
+struct Task {
+    state: State,
+    // other stuff omitted
+}
+
+enum State {
+    Stopped,
+    Runnable,
+    Blocked,
+}
+....
+
+A fault event causes a task to no longer be schedulable, until the fault is
+resolved or the task is restarted. A fault cannot *replace* the task's state,
+because we want to remember it -- for debugging, at the least. And so we might
+be tempted to do this:
+
+....
+struct Task {
+    state: State,
+    fault: Option<Fault>,
+    // other stuff omitted
+}
+
+enum State {
+    Stopped,
+    Runnable,
+    Blocked,
+}
+
+enum Fault {
+    MemoryAccess(Address),
+    OtherReasons,
+}
+....
+
+But this makes it really easy to schedule a faulted task _by accident,_ in a way
+that's hard to spot with local reasoning. Specifically:
+
+....
+for task in tasks {
+    if task.state == State::Runnable {
+        schedule(task);
+        break;
+    }
+}
+....
+
+Looks correct! Is not correct. (The same issue could happen when replying to a
+blocked task, setting it runnable without noticing a fault.)
+
+The problem here is that we've got two pieces of state that _look_ orthogonal
+but are _not_: a fault makes the other state temporarily irrelevant.
+
+We can express this at the type level to make this class of mistake much less
+likely:
+
+....
+struct Task {
+    state: HealthState,
+    // other stuff omitted
+}
+
+enum HealthState {
+    Healthy(State),
+    Faulted {
+        fault: Fault,
+        old_state: State,
+    },
+}
+
+enum State {
+    Stopped,
+    Runnable,
+    Blocked,
+}
+
+enum Fault {
+    MemoryAccess(Address),
+    OtherReasons,
+}
+....
+
+That is, while the original `State` is preserved when a fault is taken, it's
+moved inside the `HealthState::Faulted` variant where it's structurally distinct
+from `Healthy`.
+
+Our scheduler loop above no longer compiles, because `task.state` is not a
+`State`. Instead, we write the code like this:
+
+....
+for task in tasks {
+    if task.state == HealthState::Healthy(State::Runnable) {
+        schedule(task);
+        break;
+    }
+}
+....
+
+Any faulted state fails that equality test without further thought.
+
+=== `NextTask` and `#[must_use]`
+
+Certain operations in the kernel may trigger a context switch. Where should that
+context switch be performed?
+
+A common technique is to maintain a global flag that any kernel routine may set,
+and which gets checked on exit to userspace, causing the code to invoke the
+scheduler. However, this uses a global, which in general Hubris tries to avoid.
+It's also possible to forget to check that global before returning to
+userspace. "Needs a context switch" is basically a contagious side effect of an
+operation, much like an error.
+
+Moreover, if the flag is a simple `bool`, we're probably throwing some
+information away. For instance, if `SEND` succeeds right away, it not only knows
+that a context switch is needed, it can actually tell you which task will win
+the next scheduling round without checking. 
+
+Hubris currently addresses this with the `NextTask` enum, which looks like this:
+
+....
+#[must_use]
+enum NextTask {
+    Same,
+    Specific(usize),
+    Other,
+}
+....
+
+An operation returns `NextTask` if it *may* affect scheduling. `Same` indicates
+that no context switch is required; `Specific(x)` indicates that a switch to a
+specific task with index `x` would be optimal, and `Other` indicates that a
+switch is required but the routine doesn't have enough context to predict the
+winner.
+
+`NextTask` is marked `#[must_use]`, meaning a caller that ignores the return
+value of a function returning `NextTask` will fail to compile. The caller needs
+to either...
+
+- Return it, passing responsibility (and information) up the stack;
+- Combine it with another `NextTask` (below);
+- Explicitly discard it; or
+- Match on it to decide what to do next.
+
+When two `NextTask` values meet, they can be combined; this provides better
+composition of operations than a simple "switch needed" flag. Combining two
+`NextTask` values works as follows (expressed as a Rust `match`):
+
+....
+match (self, other) {
+    // If both agree, our job is easy.
+    (x, y) if x == y => x,
+    // Specific task recommendations that *don't* agree get downgraded
+    // to Other.
+    (Specific(_), Specific(_)) => Other,
+    // If only *one* is specific, it wins.
+    (Specific(x), _) | (_, Specific(x)) => Specific(x),
+    // Otherwise, if either suggestion says switch, switch.
+    (Other, _) | (_, Other) => Other,
+    // All we have left is...
+    (Same, Same) => Same,
+}
+....
+
+(That's copied verbatim from the kernel source.)
+
+All syscall entry points return `NextTask`, and the outermost layer of the
+syscall dispatcher matches on them to control scheduling behavior.
