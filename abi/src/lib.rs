@@ -132,3 +132,6 @@ bitflags::bitflags! {
         const WRITE = 1 << 1;
     }
 }
+
+/// Response code returned by the kernel if the peer died or was restarted.
+pub const DEAD: u32 = !0;

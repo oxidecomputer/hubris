@@ -37,10 +37,6 @@ pub mod umem;
 use self::task::*;
 use self::umem::*;
 
-/// Response code returned by the kernel to signal that an IPC failed because
-/// the peer died.
-pub const DEAD: u32 = !0;
-
 /// Implementation of the SEND IPC primitive.
 ///
 /// `caller` is a valid task index (i.e. not directly from user code).
@@ -408,7 +404,7 @@ impl InteractFault {
 /// of places. That might prove wrong.
 fn resume_sender_with_error(task: &mut Task) {
     let mut r = task.save.as_send_result();
-    r.set_response_and_length(DEAD, 0);
+    r.set_response_and_length(abi::DEAD, 0);
 }
 
 /// Implementation of the `TIMER` syscall.
