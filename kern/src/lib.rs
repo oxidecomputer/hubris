@@ -29,32 +29,10 @@
 
 pub mod app;
 pub mod arch;
+pub mod err;
 pub mod startup;
 pub mod syscalls;
 pub mod task;
 pub mod time;
 pub mod umem;
 
-use crate::task::FaultInfo;
-
-#[derive(Copy, Clone, Debug)]
-pub struct InteractFault {
-    pub sender: Option<FaultInfo>,
-    pub recipient: Option<FaultInfo>,
-}
-
-impl InteractFault {
-    fn in_sender(fi: impl Into<FaultInfo>) -> Self {
-        Self {
-            sender: Some(fi.into()),
-            recipient: None,
-        }
-    }
-
-    fn in_recipient(fi: impl Into<FaultInfo>) -> Self {
-        Self {
-            sender: None,
-            recipient: Some(fi.into()),
-        }
-    }
-}

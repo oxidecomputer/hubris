@@ -3,13 +3,13 @@
 //! This builds on architecture-specific parts defined in the `arch::*` modules.
 
 use crate::arch;
+use crate::err::{InteractFault, UserError};
 use crate::task::{
     self, ArchState, FaultInfo, NextTask, SchedState, Task, TaskID, TaskState,
     UsageError,
 };
 use crate::time::Timestamp;
 use crate::umem::safe_copy;
-use crate::InteractFault;
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -81,6 +81,18 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
 ///
 /// If `caller` is out of range for `tasks`.
 fn send(tasks: &mut [Task], caller: usize) -> NextTask {
+    match send_err(tasks, caller) {
+        Ok(nt) => nt,
+        Err(UserError::Recoverable(rc)) => {
+            tasks[caller].save.set_send_response_and_length(rc, 0);
+            NextTask::Same
+        }
+        Err(UserError::Unrecoverable(f)) => tasks[caller].force_fault(f),
+    }
+}
+
+/// Result-returning factor of SEND.
+fn send_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Extract callee.
     let callee = tasks[caller].save.as_send_args().callee();
 
@@ -89,62 +101,37 @@ fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     // or by failing the IPC filter? Either condition will fault...
 
     // Verify the given callee ID, converting it into a table index on success.
-    let callee = match task::check_task_id_against_table(tasks, callee) {
-        Err(task::TaskIDError::OutOfRange) => {
-            return tasks[caller].force_fault(FaultInfo::SyscallUsage(
-                UsageError::TaskOutOfRange,
-            ));
-        }
-        Err(task::TaskIDError::Stale) => {
-            // Inform caller by resuming it with an error response code.
-            resume_sender_with_error(&mut tasks[caller]);
-            return NextTask::Same;
-        }
-        Ok(i) => i,
-    };
+    let callee = task::check_task_id_against_table(tasks, callee)?;
 
     // Check for ready peer.
-    if let TaskState::Healthy(SchedState::InRecv(from)) = tasks[callee].state {
-        if from.is_none() || from == Some(caller) {
-            // Callee is waiting in receive -- either an open receive, or a
-            // directed receive from just us. Either way, we can directly
-            // deliver the message and switch tasks...unless either task was
-            // naughty, in which case we have to fault it and block.
-            match deliver(tasks, caller, callee) {
-                Ok(_) => {
-                    // Delivery succeeded!
-                    // Block caller.
-                    tasks[caller].state =
-                        TaskState::Healthy(SchedState::InReply(callee));
-                    // Unblock callee.
-                    tasks[callee].state =
-                        TaskState::Healthy(SchedState::Runnable);
-                    // Propose switching directly to the unblocked callee.
-                    return NextTask::Specific(callee);
-                }
-                Err(interact) => {
-                    // Delivery failed because of fault events in one or both
-                    // tasks. We need to apply the fault status, and then if we
-                    // didn't have to murder the caller, we'll fall through to
-                    // block it below.
-                    if let Some(fault) = interact.recipient {
-                        // Callee specified a bogus receive buffer. Bad callee.
-                        let _hint = tasks[callee].force_fault(fault);
-                    }
-                    if let Some(fault) = interact.sender {
-                        // Caller specified a bogus message buffer. Bad caller.
-                        // We'll stop processing here, because we can't block
-                        // the caller more than we just have (doing so would
-                        // mangle the fault state).
-                        return tasks[caller].force_fault(fault);
-                    }
-                    // If we didn't just return, fall through to the caller
-                    // blocking code below.
-                }
+    if tasks[callee].state
+        == TaskState::Healthy(SchedState::InRecv(Some(caller)))
+        || tasks[callee].state == TaskState::Healthy(SchedState::InRecv(None))
+    {
+        // Callee is waiting in receive -- either an open receive, or a
+        // directed receive from just us. Either way, we can directly
+        // deliver the message and switch tasks...unless either task was
+        // naughty, in which case we have to fault it and block.
+        match deliver(tasks, caller, callee) {
+            Ok(_) => {
+                // Delivery succeeded!
+                // Block caller.
+                tasks[caller].state =
+                    TaskState::Healthy(SchedState::InReply(callee));
+                // Unblock callee.
+                tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+                // Propose switching directly to the unblocked callee.
+                return Ok(NextTask::Specific(callee));
             }
-        } else {
-            // callee is blocked in receive, but it's a directed receive not
-            // involving us, so we must treat it as busy and block the caller.
+            Err(interact) => {
+                // Delivery failed because of fault events in one or both
+                // tasks. We need to apply the fault status, and then if we
+                // didn't have to murder the caller, we'll fall through to
+                // block it below.
+                interact.apply_to_dst(&mut tasks[callee])?;
+                // If we didn't just return, fall through to the caller
+                // blocking code below.
+            }
         }
     }
 
@@ -153,7 +140,7 @@ fn send(tasks: &mut [Task], caller: usize) -> NextTask {
     tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee));
     // We don't know what the best task to run now would be, but
     // we're pretty darn sure it isn't the caller.
-    return NextTask::Other;
+    return Ok(NextTask::Other);
 }
 
 /// Implementation of the RECV IPC primitive.
@@ -164,6 +151,14 @@ fn send(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// If `caller` is out of range for `tasks`.
 fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
+    match recv_err(tasks, caller) {
+        Ok(nt) => nt,
+        Err(f) => tasks[caller].force_fault(f),
+    }
+}
+
+/// Result-returning factor of RECV.
+fn recv_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // We allow tasks to atomically replace their notification mask at each
     // receive. We simultaneously find out if there are notifications pending.
     let recv_args = tasks[caller].save.as_recv_args();
@@ -176,7 +171,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
             .save
             .set_recv_result(TaskID::KERNEL, firing, 0, 0, 0);
         tasks[caller].acknowledge_notifications();
-        return NextTask::Same;
+        return Ok(NextTask::Same);
     }
 
     // Begin the search for tasks waiting to send to `caller`. This search needs
@@ -191,49 +186,37 @@ fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
     //   caller.
     let sending_to_us = TaskState::Healthy(SchedState::InSend(caller));
     let mut last = caller; // keep track of scan position.
-    loop {
-        // Is anyone blocked waiting to send to us?
-        let sender =
-            task::priority_scan(last, tasks, |t| t.state == sending_to_us);
-        if let Some(sender) = sender {
-            // Oh hello sender!
-            match deliver(tasks, sender, caller) {
-                Ok(_) => {
-                    // Delivery succeeded! Change the sender's blocking state.
-                    tasks[sender].state =
-                        TaskState::Healthy(SchedState::InReply(caller));
-                    // And go ahead and let the caller resume.
-                    return NextTask::Same;
-                }
-                Err(interact) => {
-                    // Delivery failed because of fault events in one or both
-                    // tasks.  We need to apply the fault status, and then if we
-                    // didn't have to murder the caller, we'll retry receiving a
-                    // message.
-                    if let Some(fault) = interact.sender {
-                        // Sender was blocked with bad arguments. Fault it
-                        // without affecting scheduling.
-                        let _hint = tasks[sender].force_fault(fault);
-                    }
-                    if let Some(fault) = interact.recipient {
-                        // This is our caller, which means the args to receive
-                        // were nonsense. Very disappointed in caller. Since
-                        // caller was running, this scheduling hint gets
-                        // returned straight away, aborting the search.
-                        return tasks[caller].force_fault(fault);
-                    }
-                    // Okay, if we didn't just return, retry the search.
-                    last = sender;
-                }
+                           // Is anyone blocked waiting to send to us?
+    while let Some(sender) =
+        task::priority_scan(last, tasks, |t| t.state == sending_to_us)
+    {
+        // Oh hello sender!
+        match deliver(tasks, sender, caller) {
+            Ok(_) => {
+                // Delivery succeeded! Change the sender's blocking state.
+                tasks[sender].state =
+                    TaskState::Healthy(SchedState::InReply(caller));
+                // And go ahead and let the caller resume.
+                return Ok(NextTask::Same);
             }
-        } else {
-            // No notifications, nobody waiting to send -- block the caller.
-            tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
-            // We don't know what task should run next, but we're pretty sure it's
-            // not the one we just blocked.
-            return NextTask::Other;
+            Err(interact) => {
+                // Delivery failed because of fault events in one or both
+                // tasks.  We need to apply the fault status, and then if we
+                // didn't have to murder the caller, we'll retry receiving a
+                // message.
+                interact.apply_to_src(&mut tasks[sender])?;
+                // Okay, if we didn't just return, retry the search from a new
+                // position.
+                last = sender;
+            }
         }
     }
+
+    // No notifications, nobody waiting to send -- block the caller.
+    tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
+    // We don't know what task should run next, but we're pretty sure it's
+    // not the one we just blocked.
+    Ok(NextTask::Other)
 }
 
 /// Implementation of the REPLY IPC primitive.
@@ -244,6 +227,14 @@ fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
 ///
 /// If `caller` is out of range for `tasks`.
 fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
+    match reply_err(tasks, caller) {
+        Ok(nt) => nt,
+        Err(f) => tasks[caller].force_fault(f),
+    }
+}
+
+/// Result-returning factor of REPLY.
+fn reply_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // Extract the target of the reply.
     let callee = tasks[caller].save.as_reply_args().callee();
 
@@ -251,23 +242,16 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
     // the caller crashed before receiving its reply) but we treat invalid
     // indices that could never have been received as a malfunction.
     let callee = match task::check_task_id_against_table(tasks, callee) {
-        Err(task::TaskIDError::OutOfRange) => {
-            return tasks[caller].force_fault(FaultInfo::SyscallUsage(
-                UsageError::TaskOutOfRange,
-            ));
-        }
-        Err(task::TaskIDError::Stale) => {
-            // Silently drop the reply.
-            return NextTask::Same;
-        }
-        Ok(i) => i,
+        Err(UserError::Recoverable(_)) => return Ok(NextTask::Same),
+        Err(UserError::Unrecoverable(f)) => return Err(f),
+        Ok(x) => x,
     };
 
     if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller)) {
         // Huh. The target task is off doing something else. This can happen if
         // application-specific supervisory logic unblocks it before we've had a
         // chance to reply (e.g. to implement timeouts).
-        return NextTask::Same;
+        return Ok(NextTask::Same);
     }
 
     // Deliver the reply. Note that we can't use `deliver`, which is
@@ -285,8 +269,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
     } else {
         // The task invoking reply handed us an illegal slice instead of a
         // valid reply message! Naughty naughty.
-        return tasks[caller]
-            .force_fault(FaultInfo::SyscallUsage(UsageError::InvalidSlice));
+        return Err(FaultInfo::SyscallUsage(UsageError::InvalidSlice));
     };
     // Cool, now collect the rest and unborrow.
     let code = reply_args.response_code();
@@ -301,7 +284,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
             // The sender set up a bogus response buffer. How rude. This
             // doesn't affect scheduling, so discard the hint.
             let _ = tasks[callee].force_fault(FaultInfo::SyscallUsage(e));
-            return NextTask::Same;
+            return Ok(NextTask::Same);
         }
     };
     drop(send_args);
@@ -318,19 +301,10 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
         Err(interact) => {
             // Delivery failed because of fault events in one or both tasks.  We
             // need to apply the fault status, and possibly fault the caller.
-            if let Some(fault) = interact.recipient {
-                // The task we're replying to had a bogus response buffer. Oh
-                // well! Fault it and move on.
-                let _ = tasks[callee].force_fault(fault);
-            }
-            if let Some(fault) = interact.sender {
-                // That's our caller! They gave illegal arguments to reply! And
-                // to think we trusted them!
-                return tasks[caller].force_fault(fault);
-            } else {
-                // Resume the caller without resuming the target task below.
-                return NextTask::Same;
-            }
+            interact.apply_to_dst(&mut tasks[callee])?;
+            // If we didn't just return, resume the caller without resuming the
+            // target task below.
+            return Ok(NextTask::Same);
         }
     };
 
@@ -342,7 +316,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
-    return NextTask::Same;
+    return Ok(NextTask::Same);
 }
 
 /// Implementation of the `TIMER` syscall.
@@ -371,14 +345,6 @@ fn timer(task: &mut Task, now: Timestamp) -> NextTask {
 unsafe fn switch_to(task: &mut Task) {
     arch::apply_memory_protection(task);
     arch::set_current_task(task);
-}
-
-/// Updates `task`'s registers to show that the send syscall failed.
-///
-/// This is factored out because I'm betting we're going to want it in a bunch
-/// of places. That might prove wrong.
-fn resume_sender_with_error(task: &mut Task) {
-    task.save.set_send_response_and_length(abi::DEAD, 0);
 }
 
 /// Transfers a message from caller's context into callee's. This may be called
@@ -423,21 +389,21 @@ fn deliver(
     let op = send_args.operation();
     let caller_id =
         TaskID::from_index_and_gen(caller, tasks[caller].generation);
-    let src_slice = send_args.message().map_err(InteractFault::in_sender)?;
+    let src_slice = send_args.message().map_err(InteractFault::in_src)?;
     let response_capacity = send_args
         .response_buffer()
-        .map_err(InteractFault::in_sender)?
+        .map_err(InteractFault::in_src)?
         .len();
     let lease_count = send_args
         .lease_table()
-        .map_err(InteractFault::in_sender)?
+        .map_err(InteractFault::in_src)?
         .len();
     drop(send_args);
 
     // Collect information about the callee's receive buffer. This, too, is
     // somewhere we can read infallibly.
     let recv_args = tasks[callee].save.as_recv_args();
-    let dest_slice = recv_args.buffer().map_err(InteractFault::in_recipient)?;
+    let dest_slice = recv_args.buffer().map_err(InteractFault::in_dst)?;
     drop(recv_args);
 
     // Okay, ready to attempt the copy.

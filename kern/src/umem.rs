@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use zerocopy::FromBytes;
 
 use crate::task::{FaultInfo, FaultSource, Task, UsageError};
-use crate::InteractFault;
+use crate::err::InteractFault;
 
 pub use abi::ULease;
 
@@ -216,8 +216,8 @@ pub fn safe_copy(
     };
     if src_fault.is_some() || dst_fault.is_some() {
         return Err(InteractFault {
-            sender: src_fault,
-            recipient: dst_fault,
+            src: src_fault,
+            dst: dst_fault,
         });
     }
 

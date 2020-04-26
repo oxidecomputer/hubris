@@ -1,6 +1,7 @@
 use abi::Priority;
 
 use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
+use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
 
@@ -536,33 +537,21 @@ pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
 /// On success, returns an index that can be used to dereference `table` without
 /// panicking.
 ///
-/// On failure, indicates the condition by `TaskIDError`.
+/// On failure, indicates the condition by `UserError`.
 pub fn check_task_id_against_table(
     table: &[Task],
     id: TaskID,
-) -> Result<usize, TaskIDError> {
+) -> Result<usize, UserError> {
     if id.index() >= table.len() {
-        return Err(TaskIDError::OutOfRange);
+        return Err(FaultInfo::SyscallUsage(UsageError::TaskOutOfRange).into());
     }
 
     // Check for dead task ID.
     if table[id.index()].generation != id.generation() {
-        return Err(TaskIDError::Stale);
+        return Err(UserError::Recoverable(abi::DEAD));
     }
 
     return Ok(id.index());
-}
-
-/// Problems we might discover about `TaskID` values.
-#[must_use]
-pub enum TaskIDError {
-    /// The provided task ID addresses a task that will never exist. This is a
-    /// malfunction of the sender and needs to cause a fault.
-    OutOfRange,
-    /// The task ID describes a previous generation of this task, suggesting
-    /// that the peer has died since last contacted. This is expressed to the
-    /// caller as an error code.
-    Stale,
 }
 
 /// Selects a new task to run after `previous`. Tries to be fair, kind of.
