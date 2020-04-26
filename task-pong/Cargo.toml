@@ -10,7 +10,7 @@ edition = "2018"
 panic-halt = "0.2.0"
 cortex-m = "0.6.0"
 userlib = {path = "../userlib"}
-stm32f4 = "0.10.0"
+stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 
 [[bin]]
 name = "task-pong"
