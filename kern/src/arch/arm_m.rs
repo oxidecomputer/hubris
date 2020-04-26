@@ -18,6 +18,9 @@ static mut TASK_TABLE_SIZE: usize = 0;
 #[no_mangle]
 static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 
+/// ARMvx-M volatile registers that must be saved across context switches.
+///
+/// TODO: this set is a great start but is missing half the FPU registers.
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct SavedState {
@@ -35,6 +38,8 @@ pub struct SavedState {
     // NOTE: the above fields must be kept contiguous!
 }
 
+/// Map the volatile registers to (architecture-independent) syscall argument
+/// and return slots.
 impl task::ArchState for SavedState {
     fn stack_pointer(&self) -> u32 {
         self.psp
@@ -116,33 +121,39 @@ pub struct ExtendedExceptionFrame {
 /// Initially we just set the Thumb Mode bit, the minimum required.
 const INITIAL_PSR: u32 = 1 << 24;
 
+/// We don't really care about the initial FPU mode; 0 is reasonable.
 const INITIAL_FPSCR: u32 = 0;
 
-pub fn set_task_table(tasks: &mut [task::Task]) {
-    let prev_task_table = unsafe {
-        core::mem::replace(
-            &mut TASK_TABLE_BASE,
-            Some(NonNull::from(&mut tasks[0])),
-        )
-    };
+/// Records `tasks` as the system-wide task table.
+///
+/// If a task table has already been set, panics.
+///
+/// # Safety
+///
+/// This stashes a copy of `tasks` without revoking your right to access it,
+/// which is a potential aliasing violation if you call `with_task_table`. So
+/// don't do that. The normal kernel entry sequences avoid this issue.
+pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
+    let prev_task_table = core::mem::replace(
+        &mut TASK_TABLE_BASE,
+        Some(NonNull::from(&mut tasks[0])),
+    );
     // Catch double-uses of this function.
     assert_eq!(prev_task_table, None);
     // Record length as well.
-    unsafe {
-        TASK_TABLE_SIZE = tasks.len();
-    }
+    TASK_TABLE_SIZE = tasks.len();
 
     // Configure the timer.
+    // TODO this is not the right place for this, I snuck it in here for
+    // expediency
     // Note that we have *no idea* what our tick frequency is. TODO.
-    unsafe {
-        let syst = &*cortex_m::peripheral::SYST::ptr();
-        // Program reload value.
-        syst.rvr.write(159_999); // TODO: that's 10ms at 4MHz
-        // Clear current value.
-        syst.cvr.write(0);
-        // Enable counter and interrupt.
-        syst.csr.modify(|v| v | 0b111);
-    }
+    let syst = &*cortex_m::peripheral::SYST::ptr();
+    // Program reload value.
+    syst.rvr.write(159_999); // TODO: that's 10ms at 16MHz
+    // Clear current value.
+    syst.cvr.write(0);
+    // Enable counter and interrupt.
+    syst.csr.modify(|v| v | 0b111);
 }
 
 pub fn reinitialize(task: &mut task::Task) {
@@ -331,78 +342,38 @@ pub unsafe fn SVCall() {
     }
 }
 
-/// Rust-side syscall handler, phase one. This is responsible for doing unsafe
-/// environment setup before calling the safe handler.
+/// Manufacture a mutable/exclusive reference to the task table from thin air
+/// and hand it to `body`. This bypasses borrow checking and should only be used
+/// at kernel entry points, then passed around.
 ///
-/// The arguments are prepared by the asm ISR as a side effect of its work, so
-/// we can avoid recomputing them. This is arguably a premature optimization.
-#[no_mangle]
-unsafe extern "C" fn syscall_entry(nr: u32, task: *mut task::Task) {
-    // Manufacture an exclusive reference to the task table. We can do this
-    // "safely" because of the constraints on how we're called, above.
+/// Because the lifetime of the reference passed into `body` is anonymous, the
+/// reference can't easily be stored, which is deliberate.
+///
+/// # Safety
+///
+/// You can use this safely at kernel entry points, exactly once, to create a
+/// reference to the task table.
+pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R{
     let tasks = core::slice::from_raw_parts_mut(
-        TASK_TABLE_BASE.unwrap().as_mut(),
+        TASK_TABLE_BASE.expect("kernel not started").as_mut(),
         TASK_TABLE_SIZE,
     );
-    debug_assert!(task as usize >= tasks.as_ptr() as usize);
-    debug_assert!(
-        (task as usize)
-            < tasks.as_ptr().offset(TASK_TABLE_SIZE as isize) as usize
-    );
-    // Use the task pointer, which now aliases a `&mut` slice and shall not be
-    // dereferenced, into a task index. Yeah, we could store the task index
-    // alongside the pointer. Maybe later.
-    let idx = (task as usize - tasks.as_ptr() as usize)
-        / core::mem::size_of::<task::Task>();
-
-    let resched = safe_syscall_entry(nr, idx, tasks);
-
-    match resched {
-        // No need to change MPU config if we're returning to the same task.
-        task::NextTask::Same => (),
-
-        task::NextTask::Specific(i) => new_current_task(&mut tasks[i]),
-
-        task::NextTask::Other => {
-            let next = crate::task::select(idx, tasks);
-            new_current_task(&mut tasks[next]);
-        }
-    }
+    body(tasks)
 }
 
-/// Implementation factor of syscall returns, to coordinate the various pieces
-/// of state that need to get switched with the task.
-unsafe fn new_current_task(task: &mut task::Task) {
-    apply_memory_protection(task);
+/// Records the address of `task` as the current user task.
+///
+/// # Safety
+///
+/// This records a pointer that aliases `task`. As long as you don't read that
+/// pointer except at syscall entry, you'll be okay.
+pub unsafe fn set_current_task(task: &mut task::Task) {
     CURRENT_TASK_PTR = Some(NonNull::from(task));
 }
 
-fn safe_syscall_entry(
-    nr: u32,
-    task_index: usize,
-    tasks: &mut [task::Task],
-) -> task::NextTask {
-    // Task state consistency check in debug. TODO: probably just remove me
-    debug_assert_eq!(
-        tasks[task_index].state,
-        task::TaskState::Healthy(task::SchedState::Runnable)
-    );
-
-    match nr {
-        0 => crate::send(tasks, task_index),
-        1 => crate::recv(tasks, task_index),
-        2 => crate::reply(tasks, task_index),
-        3 => {
-            let now = Timestamp::from(unsafe { TICKS });
-            crate::timer(&mut tasks[task_index], now)
-        }
-        _ => {
-            // Bogus syscall number!
-            tasks[task_index].force_fault(task::FaultInfo::SyscallUsage(
-                task::UsageError::BadSyscallNumber,
-            ))
-        }
-    }
+/// Reads the tick counter.
+pub fn now() -> Timestamp {
+    Timestamp::from(unsafe { TICKS })
 }
 
 /// Kernel global for tracking the current timestamp, measured in ticks.
@@ -422,12 +393,7 @@ pub unsafe fn SysTick() {
     // code. As a result, we can manufacture exclusive references to various
     // bits of kernel state.
     let ticks = &mut TICKS;
-    let tasks = core::slice::from_raw_parts_mut(
-        TASK_TABLE_BASE.unwrap().as_mut(),
-        TASK_TABLE_SIZE,
-    );
-
-    safe_sys_tick_handler(ticks, tasks);
+    with_task_table(|tasks| safe_sys_tick_handler(ticks, tasks));
 }
 
 /// The meat of the systick handler, after we do the unsafe things.
@@ -497,20 +463,16 @@ pub unsafe fn PendSV() {
 /// saved somewhere predictable.
 #[no_mangle]
 unsafe extern "C" fn pendsv_entry() {
-    let tasks = core::slice::from_raw_parts_mut(
-        TASK_TABLE_BASE.unwrap().as_mut(),
-        TASK_TABLE_SIZE,
-    );
-    let current = CURRENT_TASK_PTR
-        .expect("systick irq before kernel started?")
-        .as_ptr();
-    let idx = (current as usize - tasks.as_ptr() as usize)
-        / core::mem::size_of::<task::Task>();
+    with_task_table(|tasks| {
+        let current = CURRENT_TASK_PTR
+            .expect("systick irq before kernel started?")
+            .as_ptr();
+        let idx = (current as usize - tasks.as_ptr() as usize)
+            / core::mem::size_of::<task::Task>();
 
-    new_current_task(select_next_task(tasks, idx));
-}
-
-fn select_next_task(tasks: &mut [task::Task], current: usize) -> &mut task::Task {
-    let next = task::select(current, tasks);
-    &mut tasks[next]
+        let next = task::select(idx, tasks);
+        let next = &mut tasks[next];
+        apply_memory_protection(next);
+        set_current_task(next);
+    });
 }
