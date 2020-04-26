@@ -224,11 +224,12 @@ pub trait ArchState: Default {
         response_capacity: usize,
         lease_count: usize,
     ) {
-        self.ret0(u32::from(sender.0));
-        self.ret1(operation);
-        self.ret2(length as u32);
-        self.ret3(response_capacity as u32);
-        self.ret4(lease_count as u32);
+        self.ret0(0);  // currently reserved
+        self.ret1(u32::from(sender.0));
+        self.ret2(operation);
+        self.ret3(length as u32);
+        self.ret4(response_capacity as u32);
+        self.ret5(lease_count as u32);
     }
 }
 

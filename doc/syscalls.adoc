@@ -207,10 +207,11 @@ distinguished by having the illegal sender `0xFFFF`.
 
 ==== Return values
 
-- 0: Task ID of the sender (generation in 15:12, ID in 11:0).
-- 1: Operation code used by sender.
-- 2: Length of message sent.
-- 3: Number of leases provided with message.
+- 0: Currently reserved for variations that can fail; returns 0.
+- 1: Task ID of the sender (generation in 15:12, ID in 11:0).
+- 2: Operation code used by sender.
+- 3: Length of message sent.
+- 4: Number of leases provided with message.
 
 ==== Faults
 

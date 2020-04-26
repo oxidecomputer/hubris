@@ -74,16 +74,16 @@ pub fn sys_recv(
     unsafe {
         asm! {
             "svc #0"
-            : "={r4}"(sender),
-              "={r5}"(operation),
-              "={r6}"(message_len),
-              "={r7}"(response_capacity),
-              "={r8}"(lease_count)
+            : "={r5}"(sender),
+              "={r6}"(operation),
+              "={r7}"(message_len),
+              "={r8}"(response_capacity),
+              "={r9}"(lease_count)
             : "{r4}"(buffer.as_mut_ptr()),
               "{r5}"(buffer.len()),
               "{r6}"(notification_mask),
               "{r11}"(Sysnum::Recv)
-            : "memory"  // TODO probably too conservative?
+            : "r4", "memory"  // TODO probably too conservative?
             : "volatile"
         }
     }
