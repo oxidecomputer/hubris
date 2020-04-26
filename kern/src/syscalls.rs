@@ -303,7 +303,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
         Err(e) => {
             // The sender set up a bogus response buffer. How rude. This
             // doesn't affect scheduling, so discard the hint.
-            let _ = tasks[caller].force_fault(FaultInfo::SyscallUsage(e));
+            let _ = tasks[callee].force_fault(FaultInfo::SyscallUsage(e));
             return NextTask::Same;
         }
     };
