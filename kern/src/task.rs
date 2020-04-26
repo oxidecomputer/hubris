@@ -209,6 +209,12 @@ pub trait ArchState: Default {
         AsTimerArgs(self)
     }
 
+    /// Sets a recoverable error code using the generic ABI.
+    fn set_error_response(&mut self, resp: u32) {
+        self.ret0(resp);
+        self.ret1(0);
+    }
+
     /// Sets the response code and length returned from a SEND.
     fn set_send_response_and_length(&mut self, resp: u32, len: usize) {
         self.ret0(resp);

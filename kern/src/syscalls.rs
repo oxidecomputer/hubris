@@ -59,16 +59,24 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 /// Factored out of `syscall_entry` to encapsulate the bits that don't need
 /// unsafe.
 fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
-    match nr {
+    let res = match nr {
         0 => send(tasks, current),
-        1 => recv(tasks, current),
-        2 => reply(tasks, current),
-        3 => timer(&mut tasks[current], arch::now()),
+        1 => recv(tasks, current).map_err(UserError::from),
+        2 => reply(tasks, current).map_err(UserError::from),
+        3 => Ok(timer(&mut tasks[current], arch::now())),
         _ => {
             // Bogus syscall number! That's a fault.
-            tasks[current].force_fault(FaultInfo::SyscallUsage(
-                UsageError::BadSyscallNumber,
-            ))
+            Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
+        }
+    };
+    match res {
+        Ok(nt) => nt,
+        Err(UserError::Recoverable(code)) => {
+            tasks[current].save.set_error_response(code);
+            NextTask::Same
+        }
+        Err(UserError::Unrecoverable(fault)) => {
+            tasks[current].force_fault(fault)
         }
     }
 }
@@ -80,19 +88,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
 /// # Panics
 ///
 /// If `caller` is out of range for `tasks`.
-fn send(tasks: &mut [Task], caller: usize) -> NextTask {
-    match send_err(tasks, caller) {
-        Ok(nt) => nt,
-        Err(UserError::Recoverable(rc)) => {
-            tasks[caller].save.set_send_response_and_length(rc, 0);
-            NextTask::Same
-        }
-        Err(UserError::Unrecoverable(f)) => tasks[caller].force_fault(f),
-    }
-}
-
-/// Result-returning factor of SEND.
-fn send_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
+fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Extract callee.
     let callee = tasks[caller].save.as_send_args().callee();
 
@@ -150,15 +146,7 @@ fn send_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 /// # Panics
 ///
 /// If `caller` is out of range for `tasks`.
-fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
-    match recv_err(tasks, caller) {
-        Ok(nt) => nt,
-        Err(f) => tasks[caller].force_fault(f),
-    }
-}
-
-/// Result-returning factor of RECV.
-fn recv_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
+fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // We allow tasks to atomically replace their notification mask at each
     // receive. We simultaneously find out if there are notifications pending.
     let recv_args = tasks[caller].save.as_recv_args();
@@ -226,15 +214,7 @@ fn recv_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 /// # Panics
 ///
 /// If `caller` is out of range for `tasks`.
-fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
-    match reply_err(tasks, caller) {
-        Ok(nt) => nt,
-        Err(f) => tasks[caller].force_fault(f),
-    }
-}
-
-/// Result-returning factor of REPLY.
-fn reply_err(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
+fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // Extract the target of the reply.
     let callee = tasks[caller].save.as_reply_args().callee();
 

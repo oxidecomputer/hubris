@@ -101,7 +101,7 @@ The error-free path:
 ==== Return values
 
 `REPLY` doesn't return anything, but should be treated as clobbering return
-register 0 for future compatibility.
+registers 0 and 1 for future compatibility.
 
 ==== Lease table layout
 

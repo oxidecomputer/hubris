@@ -119,7 +119,7 @@ pub fn sys_reply(
               "{r6}"(message.as_ptr()),
               "{r7}"(message.len()),
               "{r11}"(Sysnum::Reply)
-            : "r4" // reserved
+            : "r4", "r5" // reserved
             : "volatile"
         }
     }
