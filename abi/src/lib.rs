@@ -111,7 +111,7 @@ bitflags::bitflags! {
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Debug, FromBytes)]
+#[derive(Copy, Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
