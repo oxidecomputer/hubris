@@ -98,6 +98,11 @@ The error-free path:
 * 5: Base address of lease table.
 * 6: Number of leases in lease table.
 
+==== Return values
+
+`REPLY` doesn't return anything, but should be treated as clobbering return
+register 0 for future compatibility.
+
 ==== Lease table layout
 
 Each lease is 12 bytes in size and must be 4-byte aligned. A lease is equivalent
