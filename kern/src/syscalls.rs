@@ -2,14 +2,16 @@
 //!
 //! This builds on architecture-specific parts defined in the `arch::*` modules.
 
+use abi::LeaseAttributes;
+
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::task::{
-    self, ArchState, FaultInfo, NextTask, SchedState, Task, TaskID, TaskState,
-    UsageError,
+    self, ArchState, FaultInfo, FaultSource, NextTask, SchedState, Task,
+    TaskID, TaskState, UsageError,
 };
 use crate::time::Timestamp;
-use crate::umem::safe_copy;
+use crate::umem::{safe_copy, ULease, USlice};
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -64,6 +66,8 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         1 => recv(tasks, current).map_err(UserError::from),
         2 => reply(tasks, current).map_err(UserError::from),
         3 => Ok(timer(&mut tasks[current], arch::now())),
+        4 => borrow_read(tasks, current),
+        5 => borrow_write(tasks, current),
         _ => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -315,6 +319,146 @@ fn timer(task: &mut Task, now: Timestamp) -> NextTask {
     }
     task.set_timer(dl, n);
     NextTask::Same
+}
+
+fn borrow_read(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    // Collect parameters from caller.
+    let args = tasks[caller].save.as_borrow_args();
+    let lender = args.lender();
+    let buffer = args.buffer()?;
+    drop(args);
+
+    let lender = task::check_task_id_against_table(tasks, lender)?;
+
+    let lease = borrow_lease(tasks, caller, lender)?;
+
+    // Does the lease grant us the ability to read from the memory?
+    if !lease.attributes.contains(LeaseAttributes::READ) {
+        // Lease is not readable. Defecting lender.
+        return Err(UserError::Recoverable(abi::DEFECT));
+    }
+
+    let leased_area = USlice::from(&lease);
+
+    // Note: we do not explicitly check that the lender has access to
+    // `leased_area` because `safe_copy` will do it.
+
+    // Okay, goodness! We're finally getting close!
+    let copy_result =
+        safe_copy(&tasks[lender], leased_area, &tasks[caller], buffer);
+
+    match copy_result {
+        Ok(n) => {
+            // Copy succeeded!
+            tasks[caller].save.set_borrow_response_and_length(0, n);
+            return Ok(NextTask::Same);
+        }
+        Err(interact) => {
+            interact.apply_to_src(&mut tasks[lender])?;
+            // Copy failed but not our side, report defecting lender.
+            return Err(UserError::Recoverable(abi::DEFECT));
+        }
+    }
+}
+
+fn borrow_write(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    // Collect parameters from caller.
+    let args = tasks[caller].save.as_borrow_args();
+    let lender = args.lender();
+    let buffer = args.buffer()?;
+    drop(args);
+
+    let lender = task::check_task_id_against_table(tasks, lender)?;
+
+    let lease = borrow_lease(tasks, caller, lender)?;
+
+    // Does the lease grant us the ability to write to the memory?
+    if !lease.attributes.contains(LeaseAttributes::WRITE) {
+        // Lease is not readable. Defecting lender.
+        return Err(UserError::Recoverable(abi::DEFECT));
+    }
+
+    let leased_area = USlice::from(&lease);
+
+    // Note: we do not explicitly check that the lender has access to
+    // `leased_area` because `safe_copy` will do it.
+
+    // Okay, goodness! We're finally getting close!
+    let copy_result =
+        safe_copy(&tasks[caller], buffer, &tasks[lender], leased_area);
+
+    match copy_result {
+        Ok(n) => {
+            // Copy succeeded!
+            tasks[caller].save.set_borrow_response_and_length(0, n);
+            return Ok(NextTask::Same);
+        }
+        Err(interact) => {
+            interact.apply_to_dst(&mut tasks[lender])?;
+            // Copy failed but not our side, report defecting lender.
+            return Err(UserError::Recoverable(abi::DEFECT));
+        }
+    }
+}
+
+fn borrow_lease(
+    tasks: &mut [Task],
+    caller: usize,
+    lender: usize,
+) -> Result<ULease, UserError> {
+    // Collect parameters from caller.
+    let args = tasks[caller].save.as_borrow_args();
+    let lease_number = args.lease_number();
+    drop(args);
+
+    // Check state of lender and range of lease table.
+    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller)) {
+        // The alleged lender isn't lending anything at all.
+        // Let's assume this is a defecting lender.
+        return Err(UserError::Recoverable(abi::DEFECT));
+    }
+
+    let largs = tasks[lender].save.as_send_args();
+    let leases = match largs.lease_table() {
+        Ok(t) => t,
+        Err(e) => {
+            // Huh. Lender has a corrupt lease table. This would normally be
+            // caught during entry to SEND, but could occur if the task's state
+            // has been rewritten by something (say, a debugger).
+            let _ = tasks[lender].force_fault(FaultInfo::SyscallUsage(e));
+            return Err(UserError::Recoverable(abi::DEFECT));
+        }
+    };
+
+    // Can the lender actually read the lease table, or are they being sneaky?
+    if !tasks[lender].can_read(&leases) {
+        let _ = tasks[lender].force_fault(FaultInfo::MemoryAccess {
+            address: Some(leases.base_addr()),
+            source: FaultSource::Kernel,
+        });
+        return Err(UserError::Recoverable(abi::DEFECT));
+    }
+
+    // Try reading the lease. This is unsafe in the general case, but since
+    // we've just convinced ourselves that the lease table is in task memory,
+    // we can do this safely.
+    let lease = unsafe { leases.get(lease_number) };
+    // Is the lease number provided by the borrower legitimate?
+    if let Some(lease) = lease {
+        Ok(lease)
+    } else {
+        // Borrower provided an invalid lease number. Borrower was told the
+        // number of leases on successful RECV and should respect that. (Note:
+        // if the lender's lease table changed shape, this will fault the
+        // borrower, which might be bad.)
+        Err(FaultInfo::SyscallUsage(UsageError::LeaseOutOfRange).into())
+    }
 }
 
 /// Performs the architecture-specific bookkeeping to activate `task` on next

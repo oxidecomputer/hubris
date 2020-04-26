@@ -117,6 +117,16 @@ impl<T> USlice<T> {
             _ => false,
         }
     }
+
+    pub unsafe fn get(&self, index: usize) -> Option<T>
+        where T: Copy
+    {
+        if index < self.length {
+            Some((self.base_address as *const T).add(index).read())
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> USlice<T>

@@ -4,7 +4,7 @@
 //! time handling and recording errors, and we ought to be able to separate that
 //! concern using `Result`.
 
-use crate::task::{FaultInfo, Task};
+use crate::task::{FaultInfo, Task, UsageError};
 
 #[derive(Copy, Clone, Debug)]
 pub enum UserError {
@@ -15,6 +15,12 @@ pub enum UserError {
 impl From<FaultInfo> for UserError {
     fn from(f: FaultInfo) -> Self {
         Self::Unrecoverable(f)
+    }
+}
+
+impl From<UsageError> for UserError {
+    fn from(f: UsageError) -> Self {
+        Self::Unrecoverable(f.into())
     }
 }
 

@@ -209,6 +209,12 @@ pub trait ArchState: Default {
         AsTimerArgs(self)
     }
 
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for BORROW_*.
+    fn as_borrow_args(&self) -> AsBorrowArgs<&Self> {
+        AsBorrowArgs(self)
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -237,6 +243,13 @@ pub trait ArchState: Default {
         self.ret4(response_capacity as u32);
         self.ret5(lease_count as u32);
     }
+
+    /// Sets the response code and length returned from a BORROW_*.
+    fn set_borrow_response_and_length(&mut self, resp: u32, len: usize) {
+        self.ret0(resp);
+        self.ret1(len as u32);
+    }
+
 }
 
 /// Reference proxy for send argument registers.
@@ -340,6 +353,26 @@ impl<'a, T: ArchState> AsTimerArgs<&'a T> {
     }
 }
 
+/// Reference proxy for BORROW_* argument registers.
+pub struct AsBorrowArgs<T>(T);
+
+impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
+    /// Extracts the task being borrowed from.
+    pub fn lender(&self) -> TaskID {
+        TaskID(self.0.arg0() as u16)
+    }
+
+    /// Extracts the lease index.
+    pub fn lease_number(&self) -> usize {
+        self.0.arg1() as usize
+    }
+
+    /// Extracts the caller-side buffer area.
+    pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
+        USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
+    }
+}
+
 /// State used to make scheduling decisions.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TaskState {
@@ -418,6 +451,7 @@ pub enum UsageError {
     /// A program named a task ID that will never be valid, as it's out of
     /// range.
     TaskOutOfRange,
+    LeaseOutOfRange,
 }
 
 /// Origin of a fault.
