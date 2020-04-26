@@ -90,7 +90,7 @@ pub fn sys_recv(
 
     RecvMessage {
         sender: TaskId(sender as u16),
-        operation: operation as u16,
+        operation,
         message_len,
         response_capacity,
         lease_count,
@@ -99,7 +99,7 @@ pub fn sys_recv(
 
 pub struct RecvMessage {
     pub sender: TaskId,
-    pub operation: u16,
+    pub operation: u32,
     pub message_len: usize,
     pub response_capacity: usize,
     pub lease_count: usize,
