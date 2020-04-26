@@ -172,12 +172,9 @@ fn recv(tasks: &mut [Task], caller: usize) -> NextTask {
 
     if let Some(firing) = tasks[caller].update_mask(notmask) {
         // Pending! Deliver an artificial message from the kernel.
-        let mut rr = tasks[caller].save.as_recv_result();
-        rr.set_sender(TaskID::KERNEL);
-        rr.set_operation(firing);
-        rr.set_message_len(0);
-        rr.set_response_capacity(0);
-        rr.set_lease_count(0);
+        tasks[caller]
+            .save
+            .set_recv_result(TaskID::KERNEL, firing, 0, 0, 0);
         tasks[caller].acknowledge_notifications();
         return NextTask::Same;
     }
@@ -337,10 +334,9 @@ fn reply(tasks: &mut [Task], caller: usize) -> NextTask {
         }
     };
 
-    let mut send_result = tasks[callee].save.as_send_result();
-    send_result.set_response_and_length(code, amount_copied);
-    drop(send_result);
-
+    tasks[callee]
+        .save
+        .set_send_response_and_length(code, amount_copied);
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
 
     // KEY ASSUMPTION: sends go from less important tasks to more important
@@ -382,8 +378,7 @@ unsafe fn switch_to(task: &mut Task) {
 /// This is factored out because I'm betting we're going to want it in a bunch
 /// of places. That might prove wrong.
 fn resume_sender_with_error(task: &mut Task) {
-    let mut r = task.save.as_send_result();
-    r.set_response_and_length(abi::DEAD, 0);
+    task.save.set_send_response_and_length(abi::DEAD, 0);
 }
 
 /// Transfers a message from caller's context into callee's. This may be called
@@ -448,13 +443,13 @@ fn deliver(
     // Okay, ready to attempt the copy.
     let amount_copied =
         safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)?;
-    let mut rr = tasks[callee].save.as_recv_result();
-    rr.set_sender(caller_id);
-    rr.set_operation(u32::from(op));
-    rr.set_message_len(amount_copied);
-    rr.set_response_capacity(response_capacity);
-    rr.set_lease_count(lease_count);
-    drop(rr);
+    tasks[callee].save.set_recv_result(
+        caller_id,
+        u32::from(op),
+        amount_copied,
+        response_capacity,
+        lease_count,
+    );
 
     tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee));
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
