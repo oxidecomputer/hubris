@@ -1,3 +1,73 @@
+//! Architecture support for ARMv{7,8}-M.
+//!
+//! Mostly ARMv7-M at the moment.
+//!
+//! # ARM-M timer
+//!
+//! We use the system tick timer as the kernel timer, but it's only suitable for
+//! producing periodic interrupts -- its counter is small and only counts down.
+//! So, at each interrupt, we increment the `TICKS` global that contains the
+//! real kernel timestamp. This has the downside that we take regular interrupts
+//! to maintain `TICKS`, but has the upside that we don't need special SoC
+//! support for timing.
+//!
+//! # Notes on ARM-M interrupts
+//!
+//! For performance and (believe it or not) simplicity, this implementation uses
+//! several different interrupt service routines:
+//! 
+//! - `SVCall` implements the `SVC` instruction used to make syscalls.
+//! - `SysTick` handles interrupts from the System Tick Timer, used to maintain
+//! the kernel timestamp.
+//! - `PendSV` handles deferred context switches from interrupts.
+//!
+//! The first two are expected; the last one's a bit odd and deserves an
+//! explanation.
+//!
+//! It has to do with interrupt latency.
+//!
+//! On any interrupt, the processor stacks a small subset of machine state and
+//! then calls our ISR. Our ISR is a normal Rust function, and follows the
+//! normal (C) calling convention: there are some registers that it can use
+//! without saving, and there are others it must save first. When the ISR
+//! returns, it restores any registers it saved.
+//!
+//! This is great, as long as the code you're returning to is the *same code
+//! that called you* -- but in the case of a context switch, it isn't.
+//!
+//! There's another problem, which is that we'd like to be able to read the
+//! values of some of the user registers for syscall arguments and the like...
+//! but if we rely on the automatic saving to put them somewhere on the stack,
+//! that "somewhere" is opaque and we can't manipulate it.
+//!
+//! And so, if you want to be able to inspect callee registers (beyond `r0`
+//! through `r3`) or switch tasks, you need to do something more elaborate than
+//! the basic hardware interrupt behavior: you need to carefully deposit all
+//! user state into the `Task`, and then read it back on the way out (possibly
+//! from a different `Task` if the context has switched).
+//!
+//! This is relatively costly, so it's only appropriate to do this in an ISR
+//! that you believe will result in a context switch. `SVCall` usually does --
+//! our most-used system calls are blocking. `SysTick` usually *does not* -- it
+//! will cause a context switch only when it causes a higher-priority timer to
+//! fire, which is a sometimes thing. And most hardware interrupt handlers are
+//! also not guaranteed to cause a context switch immediately.
+//!
+//! So, we do the full save/restore sequence around `SVCall` (see the assembly
+//! code in that function), but *not* around `SysTick`, and not around other
+//! hardware IRQs. Instead, if one of those routines discovers that a context
+//! switch is required, it pokes a register that sets the `PendSV` interrupt
+//! pending.
+//!
+//! `PendSV` is intended for this exact use. It will kick in when our ISR exits
+//! (i.e. it won't preempt our ISR, but follow it) and perform the full
+//! save/restore sequence around invoking the scheduler.
+//!
+//! We didn't invent this idea -- it's covered in most books on the Cortex-M.
+//! We might later decide that most ISRs (including ticks) tend to trigger
+//! context switches, and just always do full save/restore, eliminating PendSV.
+//! We'll see.
+
 use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
