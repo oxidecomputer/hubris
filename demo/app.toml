@@ -1,0 +1,38 @@
+name = "demo"
+target = "thumbv7em-none-eabihf"
+
+[kernel]
+path = "../demo"
+name = "demo"
+requires = {flash = 131072, ram = 4096}
+
+[outputs.flash]
+address = 0x08000000
+size = 262144
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 114688
+read = true
+write = true
+execute = true
+
+[tasks.ping]
+path = "../task-ping"
+name = "task-ping"
+requires = {flash = 16384, ram = 1024}
+uses = ["gpiod"]
+start = true
+
+[tasks.pong]
+path = "../task-pong"
+name = "task-pong"
+requires = {flash = 16384, ram = 1024}
+uses = ["gpiod"]
+start = true
+
+[peripherals.gpiod]
+address = 0x40020c00
+size = 1024

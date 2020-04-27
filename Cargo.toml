@@ -7,6 +7,8 @@ members = [
 
     "task-ping",
     "task-pong",
+
+    "packager",
 ]
 
 [profile.release]

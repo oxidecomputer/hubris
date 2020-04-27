@@ -14,8 +14,6 @@ cortex-m-rt = "0.6.10"
 cortex-m-semihosting = "0.3.3"
 panic-halt = {version = "0.2.0", optional = true}
 panic-semihosting = {version = "0.5.3", optional = true}
-task-ping = {path="../task-ping"}
-task-pong = {path="../task-pong"}
 
 [dependencies.stm32f4]
 features = ["stm32f407", "rt"]
@@ -26,6 +24,8 @@ path = "../kern"
 
 [build-dependencies]
 which = "3.1"
+serde = "1"
+serde_json = "1"
 
 # this lets you use `cargo fix`!
 [[bin]]

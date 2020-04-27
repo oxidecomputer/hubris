@@ -93,7 +93,7 @@ fn safe_start_kernel(
     let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
         let task_desc = &task_descs[i];
         Task {
-            priority: task_desc.priority,
+            priority: abi::Priority(task_desc.priority as u8),
             state: if task_desc.flags.contains(app::TaskFlags::START_AT_BOOT) {
                 TaskState::Healthy(SchedState::Runnable)
             } else {

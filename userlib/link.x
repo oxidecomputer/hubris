@@ -1,9 +1,4 @@
-MEMORY
-{
-  /* NOTE 1 K = 1 KiBi = 1024 bytes */
-  FLASH : ORIGIN = 0x08020000, LENGTH = 16K
-  RAM : ORIGIN = 0x10000000, LENGTH = 1K
-}
+INCLUDE memory.x
 
 ENTRY(_start);
 

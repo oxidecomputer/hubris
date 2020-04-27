@@ -1,0 +1,294 @@
+use std::path::{PathBuf, Path};
+use std::error::Error;
+use std::ops::Range;
+
+use serde::Deserialize;
+use structopt::StructOpt;
+use indexmap::IndexMap;
+
+#[derive(Clone, Debug, StructOpt)]
+struct Args {
+    #[structopt(long)]
+    release: bool,
+    cfg: PathBuf,
+    out: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Config {
+    name: String,
+    target: String,
+    kernel: Kernel,
+    outputs: IndexMap<String, Output>,
+    tasks: IndexMap<String, Task>,
+    peripherals: IndexMap<String, Peripheral>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Kernel {
+    path: PathBuf,
+    name: String,
+    requires: IndexMap<String, u32>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Output {
+    address: u32,
+    size: u32,
+    #[serde(default)]
+    read: bool,
+    #[serde(default)]
+    write: bool,
+    #[serde(default)]
+    execute: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Task {
+    path: PathBuf,
+    name: String,
+    requires: IndexMap<String, u32>,
+    #[serde(default)]
+    uses: Vec<String>,
+    #[serde(default)]
+    start: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Peripheral {
+    address: u32,
+    size: u32,
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let args = Args::from_args();
+    let cfg = std::fs::read(&args.cfg)?;
+    let toml: Config = toml::from_slice(&cfg)?;
+    drop(cfg);
+
+    let mut src_dir = std::fs::canonicalize(&args.cfg)?;
+    src_dir.pop();
+
+    let mut memories = IndexMap::new();
+    for (name, out) in &toml.outputs {
+        if let Some(end) = out.address.checked_add(out.size) {
+            memories.insert(name.clone(), out.address..end);
+        } else {
+            eprintln!("output {}: address {:08x} size {:x} would overflow",
+                name, out.address, out.size);
+            std::process::exit(1);
+        }
+    }
+    for (name, range) in &memories {
+        println!("{} = {:x?}", name, range);
+    }
+
+    // Allocate space for the kernel.
+    let kern_memory = allocate(&mut memories, &toml.kernel.requires)?;
+    println!("kernel: {:x?}", kern_memory);
+
+    // Allocate space for tasks.
+    let mut task_memory = IndexMap::new();
+    for (name, task) in &toml.tasks {
+        let mem = allocate(&mut memories, &task.requires)?;
+        task_memory.insert(name.clone(), mem);
+    }
+    
+    // Write the documentary map file.
+    std::fs::write(args.out.join("kernmap.txt"), &format!("{:#x?}", kern_memory))?;
+    std::fs::write(args.out.join("taskmap.txt"), &format!("{:#x?}", task_memory))?;
+
+    let mut descriptor_text = vec![];
+    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory) {
+        descriptor_text.push(format!("LONG(0x{:08x});", word));
+    }
+    let descriptor_text = descriptor_text.join("\n");
+
+    // Build each task.
+    for name in toml.tasks.keys() {
+        build(&args, &toml.target, &src_dir.join(&toml.tasks[name].path), &toml.tasks[name].name, &task_memory[name], args.out.join(name), "")?;
+    }
+
+    // Build the kernel.
+    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &kern_memory, args.out.join("kernel"), &descriptor_text)?;
+
+    Ok(())
+}
+
+fn build(
+    args: &Args,
+    target: &str,
+    path: &Path,
+    name: &str,
+    alloc: &IndexMap<String, Range<u32>>,
+    dest: PathBuf,
+    descriptors: &str,
+) -> Result<(), Box<dyn Error>> {
+    use std::process::Command;
+
+    println!("building path {}", path.display());
+
+    let mut cmd = Command::new("cargo");
+    cmd.arg("build")
+        .arg("--target")
+        .arg(target)
+        .arg("--bin")
+        .arg(name);
+    if args.release {
+        cmd.arg("--release");
+    }
+    cmd.current_dir(path);
+    cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x");
+    cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
+    cmd.env("HUBRIS_DESCRIPTOR", descriptors);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        return Err("command failed, see output for details".into());
+    }
+
+    let mut cargo_out = cargo_output_dir(target, path)?;
+    cargo_out.push(target);
+    cargo_out.push(if args.release { "release" } else { "debug" });
+    cargo_out.push(name);
+
+    println!("{} -> {}", cargo_out.display(), dest.display());
+    std::fs::copy(&cargo_out, dest)?;
+
+    Ok(())
+}
+
+fn allocate(free: &mut IndexMap<String, Range<u32>>, needs: &IndexMap<String, u32>) -> Result<IndexMap<String, Range<u32>>, Box<dyn Error>> {
+    let mut taken = IndexMap::new();
+    for (name, need) in needs {
+        let need = if need.is_power_of_two() {
+            *need
+        } else {
+            need.next_power_of_two()
+        };
+        let need_mask = need - 1;
+
+        if let Some(range) = free.get_mut(name) {
+            let base = (range.start + need_mask) & !need_mask;
+            if base >= range.end || need > range.end - base {
+                return Err(format!("out of {}: can't allocate {} more after base {:x}",
+                        name, need, base).into());
+            }
+            let end = base + need;
+            taken.insert(name.clone(), base..end);
+            range.start = end;
+        } else {
+            return Err(format!("unknown output memory {}", name).into());
+        }
+    }
+    Ok(taken)
+}
+
+fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf, Box<dyn Error>> {
+    use std::process::Command;
+
+    let mut cmd = Command::new("cargo");
+    cmd.arg("metadata")
+        .arg("--filter-platform")
+        .arg(target);
+    cmd.current_dir(path);
+
+    let output = cmd.output()?;
+    if !output.status.success() {
+        return Err("command failed, see output for details".into());
+    }
+
+    let meta: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    Ok(PathBuf::from(meta["target_directory"].as_str().unwrap()))
+}
+
+fn make_descriptors(
+    tasks: &IndexMap<String, Task>,
+    peripherals: &IndexMap<String, Peripheral>,
+    task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+) -> Vec<u32> {
+    let mut words = vec![];
+
+    let region_count = 1 + tasks.len() * 2 + peripherals.len();
+
+    let mut peripheral_index = IndexMap::new();
+    for (i, name) in peripherals.keys().enumerate() {
+        peripheral_index.insert(name.clone(), 1 + i + tasks.len() * 2);
+    }
+
+    // App header
+    words.push(0x1DE_fa7a1);
+    words.push(tasks.len() as u32);
+    words.push(region_count as u32);
+    words.resize(32/4, 0);
+
+    // Task descriptors
+    for (i, (name, task)) in tasks.iter().enumerate() {
+        let mut regions = [0; 8];
+        regions[0] = (1 + 2 * i) as u8;
+        regions[1] = (1 + 2 * i + 1) as u8;
+
+        if task.uses.len() > 6 {
+            panic!("too many peripherals used by task {}", name);
+        }
+
+        for (j, name) in task.uses.iter().enumerate() {
+            regions[2 + j] = peripheral_index[name] as u8;
+        }
+
+        // Region table indices
+        words.push(
+            u32::from(regions[0])
+            | u32::from(regions[1]) << 8
+            | u32::from(regions[2]) << 16
+            | u32::from(regions[3]) << 24);
+        words.push(
+            u32::from(regions[4])
+            | u32::from(regions[5]) << 8
+            | u32::from(regions[6]) << 16
+            | u32::from(regions[7]) << 24);
+
+        // Entry point
+        words.push(task_allocations[name]["flash"].start);
+        // Initial stack
+        words.push(task_allocations[name]["ram"].end);
+        // Priority
+        words.push(0); // TODO
+        // Flags
+        let flags = if task.start { 1 } else { 0 };
+        words.push(flags);
+    }
+
+    // Region descriptors
+
+    // Null region
+    words.push(0);
+    words.push(32);
+    words.push(0); // no rights
+    words.push(0);
+
+    // Task regions
+    for alloc in task_allocations.values() {
+        for range in alloc.values() {
+            words.push(range.start);
+            words.push(range.end - range.start);
+            words.push(0b111);  // TODO
+            words.push(0);
+        }
+    }
+
+    // Peripheral regions
+    for p in peripherals.values() {
+        words.push(p.address);
+        words.push(p.size);
+        words.push(0b1011); // TODO
+        words.push(0);
+    }
+
+    words
+}

@@ -64,7 +64,7 @@ pub struct TaskDesc {
     /// regions.
     pub initial_stack: u32,
     /// Initial priority of this task.
-    pub priority: Priority,
+    pub priority: u32,
     /// Collection of boolean flags controlling task behavior.
     pub flags: TaskFlags,
 }
