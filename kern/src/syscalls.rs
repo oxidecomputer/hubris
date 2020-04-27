@@ -42,7 +42,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
         // slice. We could store the index *and* the pointer in globals,
         // avoiding this divde, but divides are pretty cheap....
         let idx =
-            task - (tasks.as_ptr() as usize) / core::mem::size_of::<Task>();
+            (task - tasks.as_ptr() as usize) / core::mem::size_of::<Task>();
 
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
