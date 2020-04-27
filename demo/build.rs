@@ -20,7 +20,6 @@ fn main() {
 
     // Track down a compatible objcopy.
     let objcopy = check_objcopy("objcopy")
-        .or_else(|| check_objcopy("llvm-objcopy"))
         .or_else(|| check_objcopy("arm-none-eabi-objcopy"))
         .or_else(|| check_objcopy("arm-linux-gnu-objcopy"))
         .expect("Can't find ARM objcopy in path?");

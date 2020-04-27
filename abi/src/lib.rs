@@ -111,7 +111,7 @@ bitflags::bitflags! {
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Debug, FromBytes)]
+#[derive(Copy, Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
@@ -132,3 +132,9 @@ bitflags::bitflags! {
         const WRITE = 1 << 1;
     }
 }
+
+/// Response code returned by the kernel if the peer died or was restarted.
+pub const DEAD: u32 = !0;
+
+/// Response code returned by the kernel if a lender has defected.
+pub const DEFECT: u32 = 1;

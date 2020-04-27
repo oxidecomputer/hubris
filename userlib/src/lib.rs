@@ -74,23 +74,23 @@ pub fn sys_recv(
     unsafe {
         asm! {
             "svc #0"
-            : "={r4}"(sender),
-              "={r5}"(operation),
-              "={r6}"(message_len),
-              "={r7}"(response_capacity),
-              "={r8}"(lease_count)
+            : "={r5}"(sender),
+              "={r6}"(operation),
+              "={r7}"(message_len),
+              "={r8}"(response_capacity),
+              "={r9}"(lease_count)
             : "{r4}"(buffer.as_mut_ptr()),
               "{r5}"(buffer.len()),
               "{r6}"(notification_mask),
               "{r11}"(Sysnum::Recv)
-            : "memory"  // TODO probably too conservative?
+            : "r4", "memory"  // TODO probably too conservative?
             : "volatile"
         }
     }
 
     RecvMessage {
         sender: TaskId(sender as u16),
-        operation: operation as u16,
+        operation,
         message_len,
         response_capacity,
         lease_count,
@@ -99,7 +99,7 @@ pub fn sys_recv(
 
 pub struct RecvMessage {
     pub sender: TaskId,
-    pub operation: u16,
+    pub operation: u32,
     pub message_len: usize,
     pub response_capacity: usize,
     pub lease_count: usize,
@@ -119,7 +119,7 @@ pub fn sys_reply(
               "{r6}"(message.as_ptr()),
               "{r7}"(message.len()),
               "{r11}"(Sysnum::Reply)
-            :
+            : "r4", "r5" // reserved
             : "volatile"
         }
     }

@@ -1,8 +1,7 @@
-use core::borrow::{Borrow, BorrowMut};
-
 use abi::Priority;
 
 use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
+use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
 
@@ -110,12 +109,7 @@ impl Task {
         let firing = self.notifications & self.notification_mask;
         if firing != 0 {
             if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
-                let mut rr = self.save.as_recv_result();
-                rr.set_sender(TaskID::KERNEL);
-                rr.set_operation(firing);
-                rr.set_message_len(0);
-                rr.set_response_capacity(0);
-                rr.set_lease_count(0);
+                self.save.set_recv_result(TaskID::KERNEL, firing, 0, 0, 0);
                 self.state = TaskState::Healthy(SchedState::Runnable);
                 self.acknowledge_notifications();
                 return true;
@@ -154,7 +148,11 @@ impl Task {
         self.state == TaskState::Healthy(SchedState::Runnable)
     }
 
-    pub fn set_timer(&mut self, deadline: Option<Timestamp>, notifications: NotificationSet) {
+    pub fn set_timer(
+        &mut self,
+        deadline: Option<Timestamp>,
+        notifications: NotificationSet,
+    ) {
         self.timer.deadline = deadline;
         self.timer.to_post = notifications;
     }
@@ -194,21 +192,9 @@ pub trait ArchState: Default {
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
-    /// return registers for SEND.
-    fn as_send_result(&mut self) -> AsSendResult<&mut Self> {
-        AsSendResult(self)
-    }
-
-    /// Returns a proxied reference that assigns names and types to the syscall
     /// arguments for RECV.
     fn as_recv_args(&self) -> AsRecvArgs<&Self> {
         AsRecvArgs(self)
-    }
-
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// return registers for RECV.
-    fn as_recv_result(&mut self) -> AsRecvResult<&mut Self> {
-        AsRecvResult(self)
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
@@ -221,6 +207,47 @@ pub trait ArchState: Default {
     /// arguments for TIMER.
     fn as_timer_args(&self) -> AsTimerArgs<&Self> {
         AsTimerArgs(self)
+    }
+
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for BORROW_*.
+    fn as_borrow_args(&self) -> AsBorrowArgs<&Self> {
+        AsBorrowArgs(self)
+    }
+
+    /// Sets a recoverable error code using the generic ABI.
+    fn set_error_response(&mut self, resp: u32) {
+        self.ret0(resp);
+        self.ret1(0);
+    }
+
+    /// Sets the response code and length returned from a SEND.
+    fn set_send_response_and_length(&mut self, resp: u32, len: usize) {
+        self.ret0(resp);
+        self.ret1(len as u32);
+    }
+
+    /// Sets the results returned from a RECV.
+    fn set_recv_result(
+        &mut self,
+        sender: TaskID,
+        operation: u32,
+        length: usize,
+        response_capacity: usize,
+        lease_count: usize,
+    ) {
+        self.ret0(0);  // currently reserved
+        self.ret1(u32::from(sender.0));
+        self.ret2(operation);
+        self.ret3(length as u32);
+        self.ret4(response_capacity as u32);
+        self.ret5(lease_count as u32);
+    }
+
+    /// Sets the response code and length returned from a BORROW_*.
+    fn set_borrow_response_and_length(&mut self, resp: u32, len: usize) {
+        self.ret0(resp);
+        self.ret1(len as u32);
     }
 
 }
@@ -264,18 +291,6 @@ impl<'a, T: ArchState> AsSendArgs<&'a T> {
     }
 }
 
-/// Reference proxy for send result registers.
-pub struct AsSendResult<T>(T);
-
-impl<'a, T: ArchState> AsSendResult<&'a mut T> {
-    /// Sets the response code and length returned from a send.
-    pub fn set_response_and_length(&mut self, resp: u32, len: usize) {
-        let r = self.0.borrow_mut();
-        r.ret0(resp);
-        r.ret1(len as u32);
-    }
-}
-
 /// Reference proxy for receive argument registers.
 pub struct AsRecvArgs<T>(T);
 
@@ -285,43 +300,12 @@ impl<'a, T: ArchState> AsRecvArgs<&'a T> {
     /// If the callee provided a bogus destination slice, this will return
     /// `Err`.
     pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
-        let b = self.0.borrow();
-        USlice::from_raw(b.arg0() as usize, b.arg1() as usize)
+        USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
     }
 
     /// Gets the caller's notification mask.
     pub fn notification_mask(&self) -> u32 {
-        self.0.borrow().arg2()
-    }
-}
-
-/// Reference proxy for receive return registers.
-pub struct AsRecvResult<T>(T);
-
-impl<'a, T: ArchState> AsRecvResult<&'a mut T> {
-    /// Sets the sender of a message.
-    pub fn set_sender(&mut self, sender: TaskID) {
-        self.0.borrow_mut().ret0(u32::from(sender.0));
-    }
-
-    /// Sets the operation code associated with a message.
-    pub fn set_operation(&mut self, operation: u32) {
-        self.0.borrow_mut().ret1(operation);
-    }
-
-    /// Sets the length of a received message.
-    pub fn set_message_len(&mut self, length: usize) {
-        self.0.borrow_mut().ret2(length as u32);
-    }
-
-    /// Sets the size of the response buffer at the caller.
-    pub fn set_response_capacity(&mut self, length: usize) {
-        self.0.borrow_mut().ret3(length as u32);
-    }
-
-    /// Sets the number of leases provided by the caller.
-    pub fn set_lease_count(&mut self, count: usize) {
-        self.0.borrow_mut().ret4(count as u32);
+        self.0.arg2()
     }
 }
 
@@ -354,9 +338,10 @@ pub struct AsTimerArgs<T>(T);
 impl<'a, T: ArchState> AsTimerArgs<&'a T> {
     /// Extracts the deadline.
     pub fn deadline(&self) -> Option<Timestamp> {
-        let b = self.0.borrow();
-        if b.arg0() != 0 {
-            Some(Timestamp::from(u64::from(b.arg2()) << 32 | u64::from(b.arg1())))
+        if self.0.arg0() != 0 {
+            Some(Timestamp::from(
+                u64::from(self.0.arg2()) << 32 | u64::from(self.0.arg1()),
+            ))
         } else {
             None
         }
@@ -364,7 +349,27 @@ impl<'a, T: ArchState> AsTimerArgs<&'a T> {
 
     /// Extracts the notification set.
     pub fn notification(&self) -> NotificationSet {
-        NotificationSet(self.0.borrow().arg3())
+        NotificationSet(self.0.arg3())
+    }
+}
+
+/// Reference proxy for BORROW_* argument registers.
+pub struct AsBorrowArgs<T>(T);
+
+impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
+    /// Extracts the task being borrowed from.
+    pub fn lender(&self) -> TaskID {
+        TaskID(self.0.arg0() as u16)
+    }
+
+    /// Extracts the lease index.
+    pub fn lease_number(&self) -> usize {
+        self.0.arg1() as usize
+    }
+
+    /// Extracts the caller-side buffer area.
+    pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
+        USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
     }
 }
 
@@ -446,6 +451,7 @@ pub enum UsageError {
     /// A program named a task ID that will never be valid, as it's out of
     /// range.
     TaskOutOfRange,
+    LeaseOutOfRange,
 }
 
 /// Origin of a fault.
@@ -572,33 +578,21 @@ pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
 /// On success, returns an index that can be used to dereference `table` without
 /// panicking.
 ///
-/// On failure, indicates the condition by `TaskIDError`.
+/// On failure, indicates the condition by `UserError`.
 pub fn check_task_id_against_table(
     table: &[Task],
     id: TaskID,
-) -> Result<usize, TaskIDError> {
+) -> Result<usize, UserError> {
     if id.index() >= table.len() {
-        return Err(TaskIDError::OutOfRange);
+        return Err(FaultInfo::SyscallUsage(UsageError::TaskOutOfRange).into());
     }
 
     // Check for dead task ID.
     if table[id.index()].generation != id.generation() {
-        return Err(TaskIDError::Stale);
+        return Err(UserError::Recoverable(abi::DEAD));
     }
 
     return Ok(id.index());
-}
-
-/// Problems we might discover about `TaskID` values.
-#[must_use]
-pub enum TaskIDError {
-    /// The provided task ID addresses a task that will never exist. This is a
-    /// malfunction of the sender and needs to cause a fault.
-    OutOfRange,
-    /// The task ID describes a previous generation of this task, suggesting
-    /// that the peer has died since last contacted. This is expressed to the
-    /// caller as an error code.
-    Stale,
 }
 
 /// Selects a new task to run after `previous`. Tries to be fair, kind of.

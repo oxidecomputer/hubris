@@ -127,7 +127,12 @@ fn safe_start_kernel(
     // largely as a nod to simulators that might want to use a thread local
     // rather than a global static, but some future pleasant architecture might
     // let us store this in secret registers...
-    crate::arch::set_task_table(tasks);
+    //
+    // Safety: as long as we don't call `with_task_table` after this point
+    // before switching to user, we can't alias, and we'll be okay.
+    unsafe {
+        crate::arch::set_task_table(tasks);
+    }
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.

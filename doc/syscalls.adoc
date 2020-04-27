@@ -98,6 +98,11 @@ The error-free path:
 * 5: Base address of lease table.
 * 6: Number of leases in lease table.
 
+==== Return values
+
+`REPLY` doesn't return anything, but should be treated as clobbering return
+registers 0 and 1 for future compatibility.
+
 ==== Lease table layout
 
 Each lease is 12 bytes in size and must be 4-byte aligned. A lease is equivalent
@@ -207,10 +212,11 @@ distinguished by having the illegal sender `0xFFFF`.
 
 ==== Return values
 
-- 0: Task ID of the sender (generation in 15:12, ID in 11:0).
-- 1: Operation code used by sender.
-- 2: Length of message sent.
-- 3: Number of leases provided with message.
+- 0: Currently reserved for variations that can fail; returns 0.
+- 1: Task ID of the sender (generation in 15:12, ID in 11:0).
+- 2: Operation code used by sender.
+- 3: Length of message sent.
+- 4: Number of leases provided with message.
 
 ==== Faults
 
