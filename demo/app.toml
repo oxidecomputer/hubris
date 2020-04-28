@@ -4,7 +4,7 @@ target = "thumbv7em-none-eabihf"
 [kernel]
 path = "../demo"
 name = "demo"
-requires = {flash = 131072, ram = 4096}
+requires = {flash = 65536, ram = 4096}
 
 [outputs.flash]
 address = 0x08000000
@@ -23,7 +23,7 @@ execute = true
 path = "../drv/stm32f4-rcc"
 name = "drv-stm32f4-rcc"
 priority = 0
-requires = {flash = 8192, ram = 2048}
+requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
@@ -31,7 +31,7 @@ start = true
 path = "../task-ping"
 name = "task-ping"
 priority = 2
-requires = {flash = 4096, ram = 1024}
+requires = {flash = 2048, ram = 512}
 uses = ["gpiod"]
 start = true
 
@@ -39,7 +39,7 @@ start = true
 path = "../task-pong"
 name = "task-pong"
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
 start = true
 
