@@ -22,6 +22,7 @@ execute = true
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
+priority = 1
 requires = {flash = 16384, ram = 1024}
 uses = ["gpiod"]
 start = true
@@ -29,6 +30,7 @@ start = true
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
+priority = 0
 requires = {flash = 16384, ram = 1024}
 uses = ["gpiod"]
 start = true

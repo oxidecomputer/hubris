@@ -63,6 +63,7 @@ struct Task {
     path: PathBuf,
     name: String,
     requires: IndexMap<String, u32>,
+    priority: u32,
     #[serde(default)]
     uses: Vec<String>,
     #[serde(default)]
@@ -325,7 +326,7 @@ fn make_descriptors(
         // Initial stack
         words.push(task_allocations[name]["ram"].end);
         // Priority
-        words.push(0); // TODO
+        words.push(task.priority);
         // Flags
         let flags = if task.start { 1 } else { 0 };
         words.push(flags);
