@@ -115,6 +115,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mem = allocate(&mut memories, &task.requires)?;
         task_memory.insert(name.clone(), mem);
     }
+
+    let mut infofile = std::fs::File::create(args.out.join("allocations.txt"))?;
+    writeln!(infofile, "kernel: {:#x?}", kern_memory)?;
+    writeln!(infofile, "tasks: {:#x?}", task_memory)?;
+    drop(infofile);
     
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
