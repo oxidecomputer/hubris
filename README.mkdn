@@ -65,5 +65,8 @@ This magic happens in two parts:
    reasonable defaulty things if that information is missing, e.g. when you
    build it manually.
 
-(Note: most tasks pick up their `build.rs` behavior implicitly by depending on
-`userlib`. You only need to copy `.cargo/config` into your new task.)
+Note: most tasks pick up their `build.rs` behavior implicitly by depending on
+`userlib`.
+
+To create your own task, the easiest method is to copy `task-template` to a new
+name and edit its `Cargo.toml`.

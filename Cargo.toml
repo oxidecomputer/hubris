@@ -5,6 +5,8 @@ members = [
     "kern",
     "userlib",
 
+    "task-template",
+
     "task-ping",
     "task-pong",
 
