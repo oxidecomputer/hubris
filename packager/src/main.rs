@@ -8,11 +8,20 @@ use serde::Deserialize;
 use structopt::StructOpt;
 use indexmap::IndexMap;
 
+/// Builds a collection of cross-compiled binaries at non-overlapping addresses,
+/// and then combines them into a system image with an application descriptor.
 #[derive(Clone, Debug, StructOpt)]
+#[structopt(max_term_width = 80)]
 struct Args {
+    /// When provided, all components will be built at `--release` level. By
+    /// default, everything is built as unoptimized debug binaries.
     #[structopt(long)]
     release: bool,
+    /// Path to the image configuration file, in TOML.
     cfg: PathBuf,
+    /// Path to the output directory, where this tool will place a set of ELF
+    /// files, a combined SREC file, and a text file documenting the memory
+    /// layout.
     out: PathBuf,
 }
 
