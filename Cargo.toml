@@ -10,6 +10,7 @@ members = [
 
     "packager",
 ]
+default-members = ["packager"]
 
 [profile.release]
 codegen-units = 1 # better optimizations

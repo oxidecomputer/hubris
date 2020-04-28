@@ -17,19 +17,11 @@ You will need:
 
 # Build and run
 
-For your first build, you need to execute the following steps in order, because
-we're kind of abusing Cargo package dependencies to build a flash image.
+Connect an STM32F4 Discovery board, which is the currently supported
+demonstrator platform.
 
-```shell
-$ cargo build --bin task-pong
-$ cargo build --bin task-ping
-$ cargo build
-```
-
-Connect an STM32F4 Discovery board.
-
-Launch `openocd` in one terminal, *from the source repository* so it finds its
-config files:
+Launch `openocd` in one terminal, *from this directory* so it finds its config
+files:
 
 ```shell
 $ openocd
@@ -38,5 +30,5 @@ $ openocd
 From another terminal:
 
 ```shell
-$ cargo run
+$ ./run.sh
 ```

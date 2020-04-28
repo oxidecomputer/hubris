@@ -176,6 +176,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(args.out.join("combined.srec"), srec_image)?;
 
+    let mut gdb_script = std::fs::File::create(args.out.join("script.gdb"))?;
+    writeln!(gdb_script, "add-symbol-file {}", args.out.join("kernel").display())?;
+    for name in toml.tasks.keys() {
+        writeln!(gdb_script, "add-symbol-file {}", args.out.join(name).display())?;
+    }
+    drop(gdb_script);
+
     Ok(())
 }
 
