@@ -4,6 +4,18 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
+    // Do an architecture check.
+    if env::var("CARGO_CFG_TARGET_OS").unwrap() != "none" {
+        eprintln!("***********************************************");
+        eprintln!("Hi!");
+        eprintln!("You appear to be building this natively,");
+        eprintln!("i.e. for your workstation. This won't work.");
+        eprintln!("Please specify --target=some-triple, e.g.");
+        eprintln!("--target=thumbv7em-none-eabihf");
+        eprintln!("***********************************************");
+        panic!()
+    }
+
     // Put the linker script somewhere the linker can find it
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     File::create(out.join("link.x"))
@@ -34,6 +46,16 @@ fn main() {
         write!(linkscr, "}}").unwrap();
         drop(linkscr);
 
-        println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
+    } else {
+        // We're building outside the context of an image. Generate a
+        // placeholder memory layout.
+        let mut linkscr = File::create(out.join("memory.x")).unwrap();
+        writeln!(linkscr, "\
+            MEMORY {{\n\
+                FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K\n\
+                RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128K\n\
+            }}").unwrap();
+        drop(linkscr);
     }
+    println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
 }

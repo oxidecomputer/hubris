@@ -17,6 +17,12 @@ You will need:
 
 # Build and run
 
+`cargo build` from the top level directory will **only** build `packager`,
+because a single `cargo build` invocation can only do one architecture at a
+time. Likewise, `cargo run` will run `packager`.
+
+Here's how to build and run the firmware.
+
 Connect an STM32F4 Discovery board, which is the currently supported
 demonstrator platform.
 
@@ -32,3 +38,32 @@ From another terminal:
 ```shell
 $ ./run.sh
 ```
+
+If this works, you'll see `gdb` mumble some things about flashing, `openocd`
+will scroll by some updates, and you will eventually be unceremoniously
+deposited at a `(gdb)` prompt halted on the first instruction. Enter `continue`
+(or `c`) to run to kernel `main`, then again to each task `main` (we've set
+breakpoints by default).
+
+# Development
+
+During development you'll probably want to build a single task, outside the
+context of an image, to e.g. verify that it compiles. We've set things up so
+that you can build a task to a default, placeholder memory map.
+
+```shell
+$ cd task-ping
+$ cargo build
+```
+
+This magic happens in two parts:
+
+1. Each task directory contains a `.cargo/config` file specifying an
+   architecture (so you don't have to) and a linker script. This file is honored
+   *only* when building inside the task's directory, because Cargo.
+2. Our `build.rs` files that receive information from the `packager` will do
+   reasonable defaulty things if that information is missing, e.g. when you
+   build it manually.
+
+(Note: most tasks pick up their `build.rs` behavior implicitly by depending on
+`userlib`. You only need to copy `.cargo/config` into your new task.)
