@@ -11,6 +11,8 @@ members = [
     "task-pong",
 
     "packager",
+
+    "drv/stm32f4-rcc",
 ]
 default-members = ["packager"]
 

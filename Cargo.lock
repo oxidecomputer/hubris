@@ -183,6 +183,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32f4-rcc"
+version = "0.1.0"
+dependencies = [
+ "panic-halt",
+ "userlib",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
