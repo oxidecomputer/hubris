@@ -1,6 +1,8 @@
 use std::path::{PathBuf, Path};
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::ops::Range;
+use std::io::Write;
 
 use serde::Deserialize;
 use structopt::StructOpt;
@@ -65,6 +67,11 @@ struct Peripheral {
     size: u32,
 }
 
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::from_args();
     let cfg = std::fs::read(&args.cfg)?;
@@ -99,23 +106,66 @@ fn main() -> Result<(), Box<dyn Error>> {
         task_memory.insert(name.clone(), mem);
     }
     
-    // Write the documentary map file.
-    std::fs::write(args.out.join("kernmap.txt"), &format!("{:#x?}", kern_memory))?;
-    std::fs::write(args.out.join("taskmap.txt"), &format!("{:#x?}", task_memory))?;
+    // Build each task.
+    let mut all_output_sections = BTreeMap::default();
+    let mut entry_points = HashMap::<_, _>::default();
+    for name in toml.tasks.keys() {
+        build(&args, &toml.target, &src_dir.join(&toml.tasks[name].path), &toml.tasks[name].name, &task_memory[name], args.out.join(name), "")?;
+        let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
+        entry_points.insert(name.clone(), ep);
+    }
 
+    // Format the descriptors for the kernel build.
     let mut descriptor_text = vec![];
-    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory) {
+    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory, &entry_points) {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
     }
     let descriptor_text = descriptor_text.join("\n");
 
-    // Build each task.
-    for name in toml.tasks.keys() {
-        build(&args, &toml.target, &src_dir.join(&toml.tasks[name].path), &toml.tasks[name].name, &task_memory[name], args.out.join(name), "")?;
-    }
-
     // Build the kernel.
     build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &kern_memory, args.out.join("kernel"), &descriptor_text)?;
+    let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
+
+    // Write a map file, because that seems nice.
+    let mut mapfile = std::fs::File::create(&args.out.join("map.txt"))?;
+    writeln!(mapfile, "ADDRESS  END          SIZE FILE")?;
+    for (base, sec) in &all_output_sections {
+        let size = sec.data.len() as u32;
+        let end = base + size;
+        writeln!(mapfile, "{:08x} {:08x} {:>8x} {}",
+            base, end, size, sec.source_file.display())?;
+    }
+    drop(mapfile);
+
+    // Write out combined SREC file.
+    let mut srec_out = vec![];
+    srec_out.push(srec::Record::S0("hubris".to_string()));
+    for (base, sec) in all_output_sections {
+        // SREC record size limit is 255 (0xFF). 32-bit addressed records
+        // additionally contain a four-byte address and one-byte checksum, for a
+        // payload limit of 255 - 5.
+        let mut addr = base;
+        for chunk in sec.data.chunks(255 - 5) {
+            srec_out.push(srec::Record::S3(srec::Data {
+                address: srec::Address32(addr),
+                data: chunk.to_vec(),
+            }));
+            addr += chunk.len() as u32;
+        }
+    }
+    let out_sec_count = srec_out.len() - 1; // header
+    if out_sec_count < 0x1_00_00 {
+        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
+    } else if out_sec_count < 0x1_00_00_00 {
+        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
+    } else {
+        panic!("SREC limit of 2^24 output sections exceeded");
+    }
+
+    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
+
+    let srec_image = srec::writer::generate_srec_file(&srec_out);
+    std::fs::write(args.out.join("combined.srec"), srec_image)?;
 
     Ok(())
 }
@@ -211,6 +261,7 @@ fn make_descriptors(
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    entry_points: &HashMap<String, u32>,
 ) -> Vec<u32> {
     let mut words = vec![];
 
@@ -254,7 +305,7 @@ fn make_descriptors(
             | u32::from(regions[7]) << 24);
 
         // Entry point
-        words.push(task_allocations[name]["flash"].start);
+        words.push(entry_points[name]);
         // Initial stack
         words.push(task_allocations[name]["ram"].end);
         // Priority
@@ -292,3 +343,86 @@ fn make_descriptors(
 
     words
 }
+
+/// Loads an SREC file into the same representation we use for ELF. This is
+/// currently unused, but I'm keeping it compiling as proof that it's possible,
+/// because we may need it later.
+#[allow(dead_code)]
+fn load_srec(
+    input: &Path,
+    output: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<u32, Box<dyn Error>> {
+    let srec_text = std::fs::read_to_string(input)?;
+    for record in srec::reader::read_records(&srec_text) {
+        let record = record?;
+        match record {
+            srec::Record::S3(data) => {
+                // Check for address overlap
+                let range = data.address.0..data.address.0 + data.data.len() as u32;
+                if let Some(overlap) = output.range(range.clone()).next() {
+                    return Err(format!("{}: record address range {:x?} overlaps {}",
+                            input.display(), range, overlap.0).into());
+                }
+                output.insert(
+                    data.address.0,
+                    LoadSegment {
+                        source_file: input.into(),
+                        data: data.data,
+                    },
+                );
+            }
+            srec::Record::S7(srec::Address32(e)) => return Ok(e),
+            _ => (),
+        }
+    }
+
+    panic!("SREC file missing terminating S7 record");
+}
+
+fn load_elf(
+    input: &Path,
+    output: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<u32, Box<dyn Error>> {
+    use goblin::container::Container;
+    use goblin::elf::program_header::{PT_LOAD};
+
+    let file_image = std::fs::read(input)?;
+    let elf = goblin::elf::Elf::parse(&file_image)?;
+
+    if elf.header.container()? != Container::Little {
+        return Err("where did you get a big-endian image?".into());
+    }
+    if elf.header.e_machine != goblin::elf::header::EM_ARM {
+        return Err("this is not an ARM file".into());
+    }
+
+    // Good enough.
+    for phdr in &elf.program_headers {
+        // Skip sections that aren't intended to be loaded.
+        if phdr.p_type != PT_LOAD {
+            continue;
+        }
+        let offset = phdr.p_offset as usize;
+        let size = phdr.p_filesz as usize;
+        // Note that we are using Physical, i.e. LOADADDR, rather than virtual.
+        // This distinction is important for things like the rodata image, which
+        // is loaded in flash but expected to be copied to RAM.
+        let addr = phdr.p_paddr as u32;
+
+        // Check for address overlap
+        let range = addr..addr + size as u32;
+        if let Some(overlap) = output.range(range.clone()).next() {
+            return Err(format!("{}: record address range {:x?} overlaps {}",
+                    input.display(), range, overlap.0).into());
+        }
+        output.insert(
+            addr,
+            LoadSegment {
+                source_file: input.into(),
+                data: file_image[offset..offset + size].to_vec(),
+            },
+        );
+    }
+    Ok(elf.header.e_entry as u32)
+}
+
