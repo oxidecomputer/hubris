@@ -7,6 +7,8 @@ edition = "2018"
 [dependencies]
 panic-halt = "0.2.0"
 userlib = {path = "../../userlib"}
+stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
+zerocopy = "0.3.0"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
