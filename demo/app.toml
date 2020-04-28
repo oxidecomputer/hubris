@@ -19,21 +19,33 @@ read = true
 write = true
 execute = true
 
+[tasks.rcc-driver]
+path = "../drv/stm32f4-rcc"
+name = "drv-stm32f4-rcc"
+priority = 0
+requires = {flash = 8192, ram = 2048}
+uses = ["rcc"]
+start = true
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
-priority = 1
-requires = {flash = 16384, ram = 1024}
+priority = 2
+requires = {flash = 4096, ram = 1024}
 uses = ["gpiod"]
 start = true
 
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
-priority = 0
-requires = {flash = 16384, ram = 1024}
+priority = 1
+requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
 start = true
+
+[peripherals.rcc]
+address = 0x40023800
+size = 1024
 
 [peripherals.gpiod]
 address = 0x40020c00

@@ -582,6 +582,7 @@ dependencies = [
  "panic-halt",
  "stm32f4",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]

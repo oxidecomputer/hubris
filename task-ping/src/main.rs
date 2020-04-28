@@ -6,7 +6,7 @@ extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to c
 
 #[export_name = "main"]
 fn main() -> ! {
-    let peer = userlib::TaskId::for_index_and_gen(1, 0);
+    let peer = userlib::TaskId::for_index_and_gen(2, 0);
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
     loop {

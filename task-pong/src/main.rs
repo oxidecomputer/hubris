@@ -4,12 +4,16 @@
 extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
 
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[export_name = "main"]
 pub fn main() -> ! {
     const TIMER_NOTIFICATION: u32 = 1;
     const INTERVAL: u64 = 100;
     const SUCCESS_RESPONSE: u32 = 0;
+
+    turn_on_gpiod();
+    set_up_leds();
 
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
@@ -38,6 +42,23 @@ pub fn main() -> ! {
             toggle_other_led();
         }
     }
+}
+
+fn turn_on_gpiod() {
+    let rcc_driver = TaskId::for_index_and_gen(0, 0);
+    const ENABLE_CLOCK: u16 = 1;
+    let gpiod_pnum = 3; // see bits in AHB1ENR
+    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, gpiod_pnum.as_bytes(), &mut [], &[]);
+    assert_eq!(code, 0);
+}
+
+fn set_up_leds() {
+    let gpiod = unsafe {
+        &*stm32f4::stm32f407::GPIOD::ptr()
+    };
+    gpiod.moder.modify(|_, w| {
+        w.moder12().output().moder13().output()
+    });
 }
 
 fn clear_led() {
