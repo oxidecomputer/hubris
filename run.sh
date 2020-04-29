@@ -2,9 +2,7 @@
 
 set -euo pipefail
 
-mkdir -p target/packager
-cargo run --bin packager -- "$@" demo/app.toml target/packager
-arm-none-eabi-objcopy -Isrec -O elf32-littlearm target/packager/combined.{srec,elf}
+./package.sh
 arm-none-eabi-gdb -q \
   -x target/packager/script.gdb \
   -x openocd.gdb \
