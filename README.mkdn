@@ -1,9 +1,16 @@
-# Hubris Design Exercise Repo
+# Hubris
 
-This repo contains the sketches and notes that I'm putting together in support
-of the OS design effort on RFD41.
+Hubris is a microcontroller operating environment designed for deeply-embedded
+systems with reliability requirements. Its design was initially proposed in
+RFD41, but has evolved considerably since then.
 
-# Prereqs
+# Learning
+
+We have some documentation in disjointed files in the `doc/` directory.
+
+# Developing
+
+## Prereqs
 
 You will need:
 
@@ -15,7 +22,7 @@ You will need:
 - The appropriate Rust toolchain target installed: `rustup target add
   thumbv7em-none-eabihf`
 
-# Build and run
+## Build and run
 
 `cargo build` from the top level directory will **only** build `packager`,
 because a single `cargo build` invocation can only do one architecture at a
@@ -45,7 +52,7 @@ deposited at a `(gdb)` prompt halted on the first instruction. Enter `continue`
 (or `c`) to run to kernel `main`, then again to each task `main` (we've set
 breakpoints by default).
 
-# Development
+## Iterating
 
 During development you'll probably want to build a single task, outside the
 context of an image, to e.g. verify that it compiles. We've set things up so
