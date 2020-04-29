@@ -224,6 +224,9 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
     syst.cvr.write(0);
     // Enable counter and interrupt.
     syst.csr.modify(|v| v | 0b111);
+
+    let scb = &*cortex_m::peripheral::SCB::ptr();
+    scb.shcsr.modify(|x| x | 0b111 << 16);
 }
 
 pub fn reinitialize(task: &mut task::Task) {
