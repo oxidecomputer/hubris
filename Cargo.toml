@@ -13,6 +13,7 @@ members = [
     "packager",
 
     "drv/stm32f4-rcc",
+    "drv/stm32f4-usart",
 ]
 default-members = ["packager"]
 

@@ -28,11 +28,19 @@ requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
+[tasks.usart_driver]
+path = "../drv/stm32f4-usart"
+name = "drv-stm32f4-usart"
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["usart2", "gpioa"]
+start = true
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
 priority = 2
-requires = {flash = 2048, ram = 512}
+requires = {flash = 4096, ram = 512}
 uses = ["gpiod"]
 start = true
 
@@ -44,8 +52,16 @@ requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
 start = true
 
+[peripherals.usart2]
+address = 0x40004400
+size = 1024
+
 [peripherals.rcc]
 address = 0x40023800
+size = 1024
+
+[peripherals.gpioa]
+address = 0x40020000
 size = 1024
 
 [peripherals.gpiod]
