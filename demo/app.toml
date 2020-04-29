@@ -5,7 +5,7 @@ target = "thumbv7em-none-eabihf"
 path = "../demo"
 name = "demo"
 requires = {flash = 65536, ram = 4096}
-features = ["panic-halt"]
+features = ["panic-semihosting"]
 
 [outputs.flash]
 address = 0x08000000
