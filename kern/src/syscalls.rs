@@ -68,6 +68,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         3 => Ok(timer(&mut tasks[current], arch::now())),
         4 => borrow_read(tasks, current),
         5 => borrow_write(tasks, current),
+        6 => borrow_info(tasks, current),
         _ => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -328,12 +329,13 @@ fn borrow_read(
     // Collect parameters from caller.
     let args = tasks[caller].save.as_borrow_args();
     let lender = args.lender();
+    let offset = args.offset();
     let buffer = args.buffer()?;
     drop(args);
 
     let lender = task::check_task_id_against_table(tasks, lender)?;
 
-    let lease = borrow_lease(tasks, caller, lender)?;
+    let lease = borrow_lease(tasks, caller, lender, offset)?;
 
     // Does the lease grant us the ability to read from the memory?
     if !lease.attributes.contains(LeaseAttributes::READ) {
@@ -371,12 +373,13 @@ fn borrow_write(
     // Collect parameters from caller.
     let args = tasks[caller].save.as_borrow_args();
     let lender = args.lender();
+    let offset = args.offset();
     let buffer = args.buffer()?;
     drop(args);
 
     let lender = task::check_task_id_against_table(tasks, lender)?;
 
-    let lease = borrow_lease(tasks, caller, lender)?;
+    let lease = borrow_lease(tasks, caller, lender, offset)?;
 
     // Does the lease grant us the ability to write to the memory?
     if !lease.attributes.contains(LeaseAttributes::WRITE) {
@@ -407,10 +410,31 @@ fn borrow_write(
     }
 }
 
+fn borrow_info(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    // Collect parameters from caller.
+    let args = tasks[caller].save.as_borrow_args();
+    let lender = args.lender();
+    drop(args);
+
+    let lender = task::check_task_id_against_table(tasks, lender)?;
+
+    let lease = borrow_lease(tasks, caller, lender, 0)?;
+
+    tasks[caller].save.set_borrow_info(
+        lease.attributes.bits(),
+        lease.length,
+    );
+    return Ok(NextTask::Same);
+}
+
 fn borrow_lease(
     tasks: &mut [Task],
     caller: usize,
     lender: usize,
+    offset: usize,
 ) -> Result<ULease, UserError> {
     // Collect parameters from caller.
     let args = tasks[caller].save.as_borrow_args();
@@ -450,7 +474,14 @@ fn borrow_lease(
     // we can do this safely.
     let lease = unsafe { leases.get(lease_number) };
     // Is the lease number provided by the borrower legitimate?
-    if let Some(lease) = lease {
+    if let Some(mut lease) = lease {
+        // Attempt to offset the lease.
+        if offset <= lease.length {
+            lease.base_address += offset;
+            lease.length -= offset;
+        } else {
+            return Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
+        }
         Ok(lease)
     } else {
         // Borrower provided an invalid lease number. Borrower was told the

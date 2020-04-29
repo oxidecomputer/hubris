@@ -250,6 +250,13 @@ pub trait ArchState: Default {
         self.ret1(len as u32);
     }
 
+    /// Sets the response code and info returned from BORROW_INFO.
+    fn set_borrow_info(&mut self, atts: u32, len: usize) {
+        self.ret0(0);
+        self.ret1(atts);
+        self.ret2(len as u32);
+    }
+
 }
 
 /// Reference proxy for send argument registers.
@@ -367,9 +374,13 @@ impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
         self.0.arg1() as usize
     }
 
+    /// Extracts the intended offset into the borrowed area.
+    pub fn offset(&self) -> usize {
+        self.0.arg2() as usize
+    }
     /// Extracts the caller-side buffer area.
     pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
+        USlice::from_raw(self.0.arg3() as usize, self.0.arg4() as usize)
     }
 }
 
@@ -452,6 +463,7 @@ pub enum UsageError {
     /// range.
     TaskOutOfRange,
     LeaseOutOfRange,
+    OffsetOutOfRange,
 }
 
 /// Origin of a fault.

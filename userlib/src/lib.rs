@@ -10,6 +10,19 @@ pub struct Lease<'a> {
     _marker: PhantomData<&'a mut ()>,
 }
 
+impl<'a> From<&'a [u8]> for Lease<'a> {
+    fn from(x: &'a [u8]) -> Self {
+        Self {
+            kern_rep: abi::ULease {
+                attributes: abi::LeaseAttributes::READ,
+                base_address: x.as_ptr() as usize,
+                length: x.len(),
+            },
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct TaskId(pub u16);
@@ -30,6 +43,9 @@ enum Sysnum {
     Recv = 1,
     Reply = 2,
     Timer = 3,
+    BorrowRead = 4,
+    BorrowWrite = 5,
+    BorrowInfo = 6,
 }
 
 pub fn sys_send(
@@ -143,6 +159,81 @@ pub fn sys_set_timer(
             : "volatile"
         }
     }
+}
+
+pub fn sys_borrow_read(
+    lender: TaskId,
+    index: usize,
+    offset: usize,
+    dest: &mut [u8],
+) -> (u32, usize) {
+    let mut rc: u32;
+    let mut length: usize;
+    unsafe {
+        asm! {
+            "svc #0"
+            : "={r4}"(rc),
+              "={r5}"(length)
+            : "{r4}"(lender.0 as u32),
+              "{r5}"(index as u32),
+              "{r6}"(offset as u32),
+              "{r7}"(dest.as_mut_ptr()),
+              "{r8}"(dest.len()),
+              "{r11}"(Sysnum::BorrowRead)
+            : "memory"
+            : "volatile"
+        }
+    }
+    (rc, length)
+}
+
+pub fn sys_borrow_write(
+    lender: TaskId,
+    index: usize,
+    offset: usize,
+    dest: &[u8],
+) -> (u32, usize) {
+    let mut rc: u32;
+    let mut length: usize;
+    unsafe {
+        asm! {
+            "svc #0"
+            : "={r4}"(rc),
+              "={r5}"(length)
+            : "{r4}"(lender.0 as u32),
+              "{r5}"(index as u32),
+              "{r6}"(offset as u32),
+              "{r7}"(dest.as_ptr()),
+              "{r8}"(dest.len()),
+              "{r11}"(Sysnum::BorrowWrite)
+            : "memory"
+            : "volatile"
+        }
+    }
+    (rc, length)
+}
+
+pub fn sys_borrow_info(
+    lender: TaskId,
+    index: usize,
+) -> (u32, u32, usize) {
+    let mut rc: u32;
+    let mut atts: u32;
+    let mut length: usize;
+    unsafe {
+        asm! {
+            "svc #0"
+            : "={r4}"(rc),
+              "={r5}"(atts),
+              "={r6}"(length)
+            : "{r4}"(lender.0 as u32),
+              "{r5}"(index as u32),
+              "{r11}"(Sysnum::BorrowInfo)
+            :
+            : "volatile"
+        }
+    }
+    (rc, atts, length)
 }
 
 #[doc(hidden)]
