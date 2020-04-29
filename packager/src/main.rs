@@ -42,6 +42,8 @@ struct Kernel {
     path: PathBuf,
     name: String,
     requires: IndexMap<String, u32>,
+    #[serde(default)]
+    features: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -68,6 +70,8 @@ struct Task {
     uses: Vec<String>,
     #[serde(default)]
     start: bool,
+    #[serde(default)]
+    features: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -125,7 +129,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
     for name in toml.tasks.keys() {
-        build(&args, &toml.target, &src_dir.join(&toml.tasks[name].path), &toml.tasks[name].name, &task_memory[name], args.out.join(name), "")?;
+        let task_toml = &toml.tasks[name];
+        build(&args, &toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name), "")?;
         let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
     }
@@ -138,7 +143,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let descriptor_text = descriptor_text.join("\n");
 
     // Build the kernel.
-    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &kern_memory, args.out.join("kernel"), &descriptor_text)?;
+    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"), &descriptor_text)?;
     let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
@@ -197,6 +202,7 @@ fn build(
     target: &str,
     path: &Path,
     name: &str,
+    features: &[String],
     alloc: &IndexMap<String, Range<u32>>,
     dest: PathBuf,
     descriptors: &str,
@@ -207,10 +213,18 @@ fn build(
 
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
+        .arg("--no-default-features")
         .arg("--target")
         .arg(target)
         .arg("--bin")
         .arg(name);
+    if !features.is_empty() {
+        cmd.arg("--features");
+        for feature in features {
+            cmd.arg(feature);
+        }
+    }
+
     if args.release {
         cmd.arg("--release");
     }

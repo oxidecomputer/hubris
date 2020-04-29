@@ -13,6 +13,10 @@ userlib = {path = "../userlib"}
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"
 
+[features]
+default = ["standalone"]
+standalone = []
+
 [[bin]]
 name = "task-pong"
 test = false
