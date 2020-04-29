@@ -126,11 +126,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     drop(infofile);
     
     // Build each task.
+    let task_names = toml.tasks.keys().cloned().collect::<Vec<_>>();
+    let task_names = task_names.join(",");
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
-        build(&args, &toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name), "")?;
+        build(&args, &toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name),
+            &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)])?;
         let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
     }
@@ -143,7 +146,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let descriptor_text = descriptor_text.join("\n");
 
     // Build the kernel.
-    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"), &descriptor_text)?;
+    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"),
+        &[("HUBRIS_DESCRIPTOR", &descriptor_text)])?;
     let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
@@ -205,7 +209,7 @@ fn build(
     features: &[String],
     alloc: &IndexMap<String, Range<u32>>,
     dest: PathBuf,
-    descriptors: &str,
+    meta: &[(&str, &str)],
 ) -> Result<(), Box<dyn Error>> {
     use std::process::Command;
 
@@ -231,7 +235,9 @@ fn build(
     cmd.current_dir(path);
     cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x");
     cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
-    cmd.env("HUBRIS_DESCRIPTOR", descriptors);
+    for (key, val) in meta {
+        cmd.env(key, val);
+    }
 
     let status = cmd.status()?;
     if !status.success() {

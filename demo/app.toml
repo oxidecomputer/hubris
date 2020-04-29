@@ -20,7 +20,7 @@ read = true
 write = true
 execute = true
 
-[tasks.rcc-driver]
+[tasks.rcc_driver]
 path = "../drv/stm32f4-rcc"
 name = "drv-stm32f4-rcc"
 priority = 0
