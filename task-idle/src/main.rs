@@ -2,9 +2,6 @@
 #![no_main]
 #![feature(asm)]
 
-// you can put a breakpoint on `rust_begin_unwind` to catch panics
-extern crate panic_halt;
-
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
 extern crate userlib;

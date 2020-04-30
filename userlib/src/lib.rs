@@ -47,6 +47,7 @@ enum Sysnum {
     BorrowWrite = 5,
     BorrowInfo = 6,
     IrqControl = 7,
+    Panic = 8,
 }
 
 pub fn sys_send(
@@ -254,6 +255,26 @@ pub fn sys_irq_control(
     }
 }
 
+pub fn sys_panic(
+    msg: &[u8],
+) -> ! {
+    unsafe {
+        asm! {
+            "svc #0
+             udf #0xad"
+            :
+            : "{r4}"(msg.as_ptr()),
+              "{r5}"(msg.len()),
+              "{r11}"(Sysnum::Panic)
+            :
+            : "volatile"
+        }
+        core::hint::unreachable_unchecked()
+    }
+}
+
+/// This is the entry point for the kernel. Its job is to set up our memory
+/// before jumping to user-defined `main`.
 #[doc(hidden)]
 #[no_mangle]
 #[link_section = ".text.start"]
@@ -280,6 +301,38 @@ pub unsafe extern "C" fn _start() -> ! {
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 
     main()
+}
+
+#[cfg(feature = "panic-messages")]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    use core::fmt::Write;
+
+    // Burn some stack to try to get at least the prefix of the panic info
+    // recorded.
+    struct PrefixWrite([u8; 128], usize);
+
+    impl Write for PrefixWrite {
+        fn write_str(&mut self, s: &str) -> core::fmt::Result {
+            let space_left = self.0.len() - self.1;
+            let n = space_left.min(s.len());
+            if n != 0 {
+                self.0[self.1..self.1 + n].copy_from_slice(&s.as_bytes()[..n]);
+                self.1 += n;
+            }
+            Ok(())
+        }
+    }
+
+    let mut pw = PrefixWrite([0; 128], 0);
+    write!(pw, "{}", info).ok();
+    sys_panic(&pw.0[..pw.1])
+}
+
+#[cfg(not(feature = "panic-messages"))]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    sys_panic(b"PANIC")
 }
 
 // Enumeration of tasks in the application, for convenient reference, generated

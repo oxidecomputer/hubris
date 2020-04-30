@@ -70,6 +70,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         5 => borrow_write(tasks, current),
         6 => borrow_info(tasks, current),
         7 => irq_control(tasks, current),
+        8 => explicit_panic(tasks, current),
         _ => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -605,5 +606,30 @@ fn irq_control(
     }
 
     Ok(NextTask::Same)
+}
+
+fn explicit_panic(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    // Make an attempt at printing the message.
+    let args = tasks[caller].save.as_panic_args();
+    let message = args.message();
+    drop(args);
+
+    if let Ok(uslice) = message {
+        if tasks[caller].can_read(&uslice) {
+            // Plausible.
+            let slice = unsafe { uslice.assume_readable() };
+
+            if slice.iter().all(|&c| c < 0x80) {
+                klog!("task @{:p} panicked: {}", &tasks[caller], unsafe { core::str::from_utf8_unchecked(slice) });
+            } else {
+                klog!("task @{:p} panicked: {:x?}", &tasks[caller], slice);
+            }
+        }
+    }
+
+    Ok(tasks[caller].force_fault(FaultInfo::Panic))
 }
 

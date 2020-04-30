@@ -2,9 +2,6 @@
 #![no_main]
 #![feature(asm)]
 
-// you can put a breakpoint on `rust_begin_unwind` to catch panics
-extern crate panic_halt;
-
 use userlib::*;
 
 #[cfg(feature = "standalone")]

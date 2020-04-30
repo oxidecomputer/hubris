@@ -1,8 +1,6 @@
 #![no_std]
 #![no_main]
 
-extern crate panic_halt; // you can put a breakpoint on `rust_begin_unwind` to catch panics
-
 use userlib::*;
 use zerocopy::AsBytes;
 

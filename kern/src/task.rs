@@ -222,6 +222,12 @@ pub trait ArchState: Default {
         AsIrqArgs(self)
     }
 
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for PANIC.
+    fn as_panic_args(&self) -> AsPanicArgs<&Self> {
+        AsPanicArgs(self)
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -406,6 +412,16 @@ impl<'a, T: ArchState> AsIrqArgs<&'a T> {
     }
 }
 
+/// Reference proxy for Panic argument registers.
+pub struct AsPanicArgs<T>(T);
+
+impl<'a, T: ArchState> AsPanicArgs<&'a T> {
+    /// Extracts the task's reported message slice.
+    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
+        USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
+    }
+}
+
 /// State used to make scheduling decisions.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TaskState {
@@ -463,6 +479,8 @@ pub enum FaultInfo {
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
     SyscallUsage(UsageError),
+    /// A task has explicitly aborted itself with a panic.
+    Panic,
 }
 
 impl From<UsageError> for FaultInfo {

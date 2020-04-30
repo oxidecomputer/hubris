@@ -5,7 +5,6 @@ authors = ["Your Name Here <anonymous@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-panic-halt = "0.2.0"
 userlib = {path = "../userlib"}
 
 [features]

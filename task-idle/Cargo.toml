@@ -5,8 +5,9 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-panic-halt = "0.2.0"
-userlib = {path = "../userlib"}
+# suppress default features to avoid including panic message collection, to
+# ensure the idle task remains tiny.
+userlib = {path = "../userlib", default-features = false}
 
 [features]
 default = ["standalone"]

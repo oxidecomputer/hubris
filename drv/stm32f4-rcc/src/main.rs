@@ -46,9 +46,6 @@
 #![no_std]
 #![no_main]
 
-// you can put a breakpoint on `rust_begin_unwind` to catch panics
-extern crate panic_halt;
-
 use stm32f4::stm32f407 as device;
 use zerocopy::AsBytes;
 use userlib::*;

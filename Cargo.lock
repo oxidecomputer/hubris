@@ -186,7 +186,6 @@ dependencies = [
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
- "panic-halt",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -196,7 +195,6 @@ dependencies = [
 name = "drv-stm32f4-usart"
 version = "0.1.0"
 dependencies = [
- "panic-halt",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -579,7 +577,6 @@ dependencies = [
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
- "panic-halt",
  "userlib",
 ]
 
@@ -588,7 +585,6 @@ name = "task-ping"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "panic-halt",
  "stm32f4",
  "userlib",
 ]
@@ -598,7 +594,6 @@ name = "task-pong"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "panic-halt",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -608,7 +603,6 @@ dependencies = [
 name = "task-template"
 version = "0.1.0"
 dependencies = [
- "panic-halt",
  "userlib",
 ]
 

@@ -41,7 +41,7 @@ interrupts = {38 = 1}
 path = "../task-ping"
 name = "task-ping"
 priority = 2
-requires = {flash = 4096, ram = 512}
+requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
 start = true
 
@@ -49,7 +49,7 @@ start = true
 path = "../task-pong"
 name = "task-pong"
 priority = 1
-requires = {flash = 8192, ram = 512}
+requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
 start = true
 
