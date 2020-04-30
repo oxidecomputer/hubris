@@ -8,6 +8,8 @@ pub unsafe fn start_kernel(
     scratch_ram: *mut u8,
     scratch_ram_size: usize,
 ) -> ! {
+    klog!("starting: laziness");
+
     // Create our simple allocator.
     let alloc = BumpPointer(core::slice::from_raw_parts_mut(
         scratch_ram,
@@ -102,6 +104,8 @@ fn safe_start_kernel(
     interrupts: &'static [app::Interrupt],
     mut alloc: BumpPointer,
 ) -> ! {
+    klog!("starting: impatience");
+
     // Allocate our RAM data
     // structures. First, the task table.
     let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
@@ -159,6 +163,7 @@ fn safe_start_kernel(
 
 fn switch_to_user(tasks: &mut [Task], first_task_index: usize) -> ! {
     crate::arch::apply_memory_protection(&tasks[first_task_index]);
+    klog!("starting: hubris");
     crate::arch::start_first_task(&tasks[first_task_index])
 }
 
