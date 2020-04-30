@@ -9,6 +9,7 @@ members = [
 
     "task-ping",
     "task-pong",
+    "task-idle",
 
     "packager",
 

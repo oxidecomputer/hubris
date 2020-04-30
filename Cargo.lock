@@ -575,6 +575,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-idle"
+version = "0.1.0"
+dependencies = [
+ "panic-halt",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

@@ -52,6 +52,13 @@ requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
 start = true
 
+[tasks.idle]
+path = "../task-idle"
+name = "task-idle"
+priority = 3
+requires = {flash = 256, ram = 256}
+start = true
+
 [peripherals.usart2]
 address = 0x40004400
 size = 1024
