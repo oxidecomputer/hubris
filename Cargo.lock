@@ -283,6 +283,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
+ "cortex-m-semihosting",
  "zerocopy",
 ]
 

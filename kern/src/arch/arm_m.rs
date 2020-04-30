@@ -773,3 +773,20 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
             mmfsr, mmfar);
     }
 }
+
+/// Log things from kernel context. This macro is made visible to the rest of
+/// the kernel by a chain of `#[macro_use]` attributes, but its implementation
+/// is very architecture-specific at the moment.
+///
+/// TODO: someday it might be nice to change how this works.
+#[cfg(not(feature = "klog-semihosting"))]
+macro_rules! klog {
+    ($s:expr) => { };
+    ($s:expr, $($tt:tt)*) => { };
+}
+
+#[cfg(feature = "klog-semihosting")]
+macro_rules! klog {
+    ($s:expr) => { let _ = cortex_m_semihosting::hprintln!($s); };
+    ($s:expr, $($tt:tt)*) => { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); };
+}

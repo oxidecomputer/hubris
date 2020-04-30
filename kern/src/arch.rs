@@ -22,6 +22,7 @@ cfg_if::cfg_if! {
         pub mod simulator;
         pub use simulator::*;
     } else if #[cfg(target_arch = "arm")] {
+        #[macro_use]
         pub mod arm_m;
         pub use arm_m::*;
     } else {

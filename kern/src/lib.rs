@@ -27,8 +27,10 @@
 #![feature(asm)]
 #![feature(naked_functions)]
 
-pub mod app;
+#[macro_use]
 pub mod arch;
+
+pub mod app;
 pub mod err;
 pub mod startup;
 pub mod syscalls;

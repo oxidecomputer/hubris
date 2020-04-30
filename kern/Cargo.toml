@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["klog-semihosting"]
+klog-semihosting = ["cortex-m-semihosting"]
 
 [dependencies]
 abi = {path = "../abi"}
@@ -13,6 +15,7 @@ byteorder = {version = "1.3.4", default-features = false}
 bitflags = "1.2.1"
 cfg-if = "0.1.10"
 cortex-m = "0.6.0"
+cortex-m-semihosting = {version = "0.3.3", optional = true}
 
 [lib]
 test = false
