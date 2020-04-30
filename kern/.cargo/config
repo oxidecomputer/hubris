@@ -1,2 +1,2 @@
 [build]
-target = "i686-unknown-linux-musl"
+target = "thumbv7em-none-eabihf"

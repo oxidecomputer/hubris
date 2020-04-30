@@ -48,9 +48,8 @@ $ ./run.sh
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
 will scroll by some updates, and you will eventually be unceremoniously
-deposited at a `(gdb)` prompt halted on the first instruction. Enter `continue`
-(or `c`) to run to kernel `main`, then again to each task `main` (we've set
-breakpoints by default).
+deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
+`continue` to run.
 
 ## Iterating
 
