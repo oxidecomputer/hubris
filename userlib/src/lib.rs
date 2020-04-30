@@ -46,6 +46,7 @@ enum Sysnum {
     BorrowRead = 4,
     BorrowWrite = 5,
     BorrowInfo = 6,
+    IrqControl = 7,
 }
 
 pub fn sys_send(
@@ -234,6 +235,23 @@ pub fn sys_borrow_info(
         }
     }
     (rc, atts, length)
+}
+
+pub fn sys_irq_control(
+    mask: u32,
+    enable: bool,
+) {
+    unsafe {
+        asm! {
+            "svc #0"
+            :
+            : "{r4}"(mask),
+              "{r5}"(enable as u32),
+              "{r11}"(Sysnum::IrqControl)
+            : "r4", "r5"
+            : "volatile"
+        }
+    }
 }
 
 #[doc(hidden)]

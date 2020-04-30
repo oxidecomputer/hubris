@@ -215,6 +215,12 @@ pub trait ArchState: Default {
         AsBorrowArgs(self)
     }
 
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for IRQ_CONTROL.
+    fn as_irq_args(&self) -> AsIrqArgs<&Self> {
+        AsIrqArgs(self)
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -384,6 +390,21 @@ impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
     }
 }
 
+/// Reference proxy for IRQ_CONTROL argument registers.
+pub struct AsIrqArgs<T>(T);
+
+impl<'a, T: ArchState> AsIrqArgs<&'a T> {
+    /// Bitmask indicating notification bits.
+    pub fn notification_bitmask(&self) -> u32 {
+        self.0.arg0()
+    }
+
+    /// Control word (0=disable, 1=enable)
+    pub fn control(&self) -> u32 {
+        self.0.arg1()
+    }
+}
+
 /// State used to make scheduling decisions.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TaskState {
@@ -464,6 +485,7 @@ pub enum UsageError {
     TaskOutOfRange,
     LeaseOutOfRange,
     OffsetOutOfRange,
+    NoIrq,
 }
 
 /// Origin of a fault.

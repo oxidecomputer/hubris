@@ -69,6 +69,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         4 => borrow_read(tasks, current),
         5 => borrow_write(tasks, current),
         6 => borrow_info(tasks, current),
+        7 => irq_control(tasks, current),
         _ => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -578,3 +579,31 @@ fn deliver(
     // have enough information to insist that a switch must happen.
     Ok(())
 }
+
+fn irq_control(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save.as_irq_args();
+    let bitmask = args.notification_bitmask();
+    let control = args.control();
+    drop(args);
+
+    let irq = crate::arch::with_irq_table(|irqs| {
+        for irq in irqs {
+            if irq.task == caller as u32 && irq.notification == bitmask {
+                return Ok(irq.irq);
+            }
+        }
+        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq)))
+    })?;
+
+    match control {
+        0 => crate::arch::disable_irq(irq),
+        1 => crate::arch::enable_irq(irq),
+        _ => return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq))),
+    }
+
+    Ok(NextTask::Same)
+}
+

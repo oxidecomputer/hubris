@@ -623,12 +623,7 @@ pub unsafe extern "C" fn DefaultHandler() {
                             // Early exit on the first (and should be sole)
                             // match.
 
-                            // First, disable the interrupt by poking the
-                            // Interrupt Clear Enable Register.
-                            let nvic = &*cortex_m::peripheral::NVIC::ptr();
-                            let reg_num = (irq_num / 32) as usize;
-                            let bit_mask = 1 << (irq_num % 32);
-                            nvic.icer[reg_num].write(bit_mask);
+                            disable_irq(irq_num);
 
                             // Now, post the notification and return the
                             // scheduling hint.
@@ -649,3 +644,24 @@ pub unsafe extern "C" fn DefaultHandler() {
         _ => panic!("unknown exception {}", exception_num),
     }
 }
+
+pub fn disable_irq(n: u32) {
+    // Disable the interrupt by poking the Interrupt Clear Enable Register.
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::ptr() };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+    unsafe {
+        nvic.icer[reg_num].write(bit_mask);
+    }
+}
+
+pub fn enable_irq(n: u32) {
+    // Enable the interrupt by poking the Interrupt Set Enable Register.
+    let nvic = unsafe { &*cortex_m::peripheral::NVIC::ptr() };
+    let reg_num = (n / 32) as usize;
+    let bit_mask = 1 << (n % 32);
+    unsafe {
+        nvic.iser[reg_num].write(bit_mask);
+    }
+}
+
