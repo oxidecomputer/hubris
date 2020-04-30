@@ -35,6 +35,7 @@ priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
+interrupts = {38 = 1}
 
 [tasks.ping]
 path = "../task-ping"

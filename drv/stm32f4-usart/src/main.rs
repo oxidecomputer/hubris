@@ -31,6 +31,13 @@ enum ResponseCode {
     Success = 0,
     BadOp = 1,
     BadArg = 2,
+    Busy = 3,
+}
+
+struct Transmit {
+    task: TaskId,
+    len: usize,
+    pos: usize,
 }
 
 #[export_name = "main"]
@@ -74,45 +81,69 @@ fn main() -> ! {
             .afrl3().af7()
     });
 
-    usart.dr.write(|w| w.dr().bits(b'!' as u16));
+    // Turn on our interrupt. We haven't enabled any interrupt sources at the
+    // USART side yet, so this won't trigger notifications yet.
+    sys_irq_control(1, true);
 
     // Field messages.
-    let mask = 0;  // we don't use notifications.
-    'msgloop:
+    let mask = 1;
+    let mut tx: Option<Transmit> = None;
+
     loop {
         let msginfo = sys_recv(&mut [], mask);
-        match msginfo.operation {
-            OP_WRITE => {
-                if msginfo.lease_count != 1 {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                    continue;
-                }
-
-                let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
-                if rc != 0 || atts & 1 == 0 {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                    continue;
-                }
-
-                for i in 0..len {
-                    let mut byte = 0u8;
-                    let (rc, len) = sys_borrow_read(msginfo.sender, 0, i, byte.as_bytes_mut());
-                    if rc != 0 || len != 1 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue 'msgloop;
+        if msginfo.sender == TaskId::KERNEL {
+            if msginfo.operation & 1 != 0 {
+                // Handling an interrupt. To allow for spurious interrupts,
+                // check the individual conditions we care about, and
+                // unconditionally re-enable the IRQ at the end of the handler.
+                if let Some(txs) = tx.as_mut() {
+                    // Transmit in progress, check to see if TX is empty.
+                    if usart.sr.read().txe().bit() {
+                        // TX register empty. Time to send something.
+                        if step_transmit(&usart, txs) {
+                            tx = None;
+                            usart.cr1.modify(|_, w| w.txeie().disabled());
+                        }
                     }
-
-                    while !usart.sr.read().txe().bit() {
-                        // Spin until the transmitter becomes available
-                    }
-
-                    // Stuff byte into transmitter.
-                    usart.dr.write(|w| w.dr().bits(u16::from(byte)));
                 }
 
-                sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
+                sys_irq_control(1, true);
             }
-            _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
+        } else {
+            match msginfo.operation {
+                OP_WRITE => {
+                    // Deny incoming writes if we're already running one.
+                    if tx.is_some() {
+                        sys_reply(msginfo.sender, ResponseCode::Busy as u32, &[]);
+                        continue;
+                    }
+
+                    // Check the lease count and characteristics.
+                    if msginfo.lease_count != 1 {
+                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
+                    }
+
+                    let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
+                    if rc != 0 || atts & 1 == 0 {
+                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
+                    }
+
+                    // Okay! Begin a transfer!
+                    tx = Some(Transmit {
+                        task: msginfo.sender,
+                        pos: 0,
+                        len,
+                    });
+
+                    // OR the TX register empty signal into the USART interrupt.
+                    usart.cr1.modify(|_, w| w.txeie().enabled());
+
+                    // We'll do the rest as interrupts arrive.
+                },
+                _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
+            }
         }
     }
 }
@@ -143,4 +174,22 @@ fn turn_on_gpioa() {
     assert_eq!(code, 0);
 }
 
+fn step_transmit(usart: &device::usart1::RegisterBlock, txs: &mut Transmit) -> bool {
+    let mut byte = 0u8;
+    let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
+    if rc != 0 || len != 1 {
+        sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
+        true
+    } else {
+        // Stuff byte into transmitter.
+        usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
+        txs.pos += 1;
+        if txs.pos == txs.len {
+            sys_reply(txs.task, ResponseCode::Success as u32, &[]);
+            true
+        } else {
+            false
+        }
+    }
+}
