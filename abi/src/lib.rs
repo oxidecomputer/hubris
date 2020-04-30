@@ -41,10 +41,13 @@ pub struct App {
     /// Number of memory regions in the address space layout. This many
     /// `RegionDesc` records will immediately follow the `TaskDesc` array.
     pub region_count: u32,
+    /// Number of interrupt response records that will follow the `RegionDesc`
+    /// records.
+    pub irq_count: u32,
 
     /// Reserved expansion space; pads this structure out to 32 bytes. You will
     /// need to adjust this when you add fields above.
-    pub zeroed_expansion_space: [u8; 32 - (3 * 4)],
+    pub zeroed_expansion_space: [u8; 32 - (4 * 4)],
 }
 
 #[derive(Clone, Debug, FromBytes)]
@@ -105,6 +108,18 @@ bitflags::bitflags! {
         const DEVICE = 1 << 3;
         const RESERVED = !((1 << 4) - 1);
     }
+}
+
+/// Description of one interrupt response.
+#[derive(Clone, Debug, FromBytes)]
+#[repr(C)]
+pub struct Interrupt {
+    /// Which interrupt number is being hooked.
+    pub irq: u32,
+    /// Which task to notify, by index.
+    pub task: u32,
+    /// Which notification bits to set.
+    pub notification: u32,
 }
 
 /// Structure describing a lease in task memory.

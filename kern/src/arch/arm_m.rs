@@ -83,6 +83,12 @@ static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
 #[no_mangle]
 static mut TASK_TABLE_SIZE: usize = 0;
 
+/// On ARMvx-M we use a global to record the interrupt table position and extent.
+#[no_mangle]
+static mut IRQ_TABLE_BASE: Option<NonNull<abi::Interrupt>> = None;
+#[no_mangle]
+static mut IRQ_TABLE_SIZE: usize = 0;
+
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
 #[no_mangle]
@@ -229,6 +235,17 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
     scb.shcsr.modify(|x| x | 0b111 << 16);
 }
 
+pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
+    let prev_table = core::mem::replace(
+        &mut IRQ_TABLE_BASE,
+        Some(NonNull::new_unchecked(irqs.as_ptr() as *mut abi::Interrupt)),
+    );
+    // Catch double-uses of this function.
+    assert_eq!(prev_table, None);
+    // Record length as well.
+    IRQ_TABLE_SIZE = irqs.len();
+}
+
 pub fn reinitialize(task: &mut task::Task) {
     task.save = SavedState::default();
     // Modern ARMv7-M machines require 8-byte stack alignment.
@@ -359,7 +376,7 @@ pub fn start_first_task(task: &task::Task) -> ! {
 #[allow(non_snake_case)]
 #[naked]
 #[no_mangle]
-pub unsafe fn SVCall() {
+pub unsafe extern "C" fn SVCall() {
     // TODO: could shave several cycles off SVC entry with more careful ordering
     // of instructions below, though the precise details depend on how complex
     // of an M-series processor you're targeting -- so I've punted on this for
@@ -434,6 +451,24 @@ pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R
     body(tasks)
 }
 
+/// Manufacture a shared reference to the interrupt action table from thin air
+/// and hand it to `body`. This bypasses borrow checking and should only be used
+/// at kernel entry points, then passed around.
+///
+/// Because the lifetime of the reference passed into `body` is anonymous, the
+/// reference can't easily be stored, which is deliberate.
+pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R{
+    // Safety: as long as a legit pointer was stored in IRQ_TABLE_BASE, or no
+    // pointer has been stored, we can do this safely.
+    let table = unsafe {
+        core::slice::from_raw_parts(
+            IRQ_TABLE_BASE.expect("kernel not started").as_ptr(),
+            IRQ_TABLE_SIZE,
+        )
+    };
+    body(table)
+}
+
 /// Records the address of `task` as the current user task.
 ///
 /// # Safety
@@ -460,7 +495,7 @@ static mut TICKS: u64 = 0;
 /// overflow interrupt. (Name is dictated by the `cortex_m` crate.)
 #[allow(non_snake_case)]
 #[no_mangle]
-pub unsafe fn SysTick() {
+pub unsafe extern "C" fn SysTick() {
     // We configure this interrupt to have the same priority as SVC, which means
     // there's no way this can preempt the kernel -- it will only preempt user
     // code. As a result, we can manufacture exclusive references to various
@@ -497,7 +532,7 @@ fn pend_context_switch_from_isr() {
 #[allow(non_snake_case)]
 #[naked]
 #[no_mangle]
-pub unsafe fn PendSV() {
+pub unsafe extern "C" fn PendSV() {
     asm! {"
         @ store volatile state.
         @ first, get a pointer to the current task.
@@ -548,4 +583,69 @@ unsafe extern "C" fn pendsv_entry() {
         apply_memory_protection(next);
         set_current_task(next);
     });
+}
+
+#[allow(non_snake_case)]
+#[no_mangle]
+pub unsafe extern "C" fn DefaultHandler() {
+    // We can cheaply get the identity of the interrupt that called us from the
+    // bottom 9 bits of IPSR.
+    let mut ipsr: u32;
+    asm! {
+        "mrs $0, IPSR"
+        : "=r"(ipsr)
+    }
+    let exception_num = ipsr & 0x1FF;
+
+    // The first 16 exceptions are architecturally defined; vendor hardware
+    // interrupts start at 16.
+    match exception_num {
+        // 1=Reset is not handled this way
+        2 => panic!("NMI"),
+        // 3=HardFault is handled elsewhere
+        4 => panic!("MemManage"),
+        5 => panic!("BusFault"),
+        6 => panic!("UsageFault"),
+        // 7-10 are currently reserved
+        // 11=SVCall is handled above by its own handler
+        12 => panic!("DebugMon"),
+        // 13 is currently reserved
+        // 14=PendSV is handled above by its own handler
+        // 15=SysTick is handled above by its own handler
+
+        x if x > 16 => {
+            // Hardware interrupt
+            let irq_num = exception_num - 16;
+            let switch = with_task_table(|tasks| {
+                with_irq_table(|irqs| {
+                    for entry in irqs {
+                        if entry.irq == irq_num {
+                            // Early exit on the first (and should be sole)
+                            // match.
+
+                            // First, disable the interrupt by poking the
+                            // Interrupt Clear Enable Register.
+                            let nvic = &*cortex_m::peripheral::NVIC::ptr();
+                            let reg_num = (irq_num / 32) as usize;
+                            let bit_mask = 1 << (irq_num % 32);
+                            nvic.icer[reg_num].write(bit_mask);
+
+                            // Now, post the notification and return the
+                            // scheduling hint.
+                            let n = task::NotificationSet(entry.notification);
+                            return Ok(tasks[entry.task as usize].post(n));
+                        }
+                    }
+                    Err(())
+                })
+            });
+            match switch {
+                Ok(true) => pend_context_switch_from_isr(),
+                Ok(false) => (),
+                Err(_) => panic!("unhandled IRQ {}", irq_num),
+            }
+        }
+
+        _ => panic!("unknown exception {}", exception_num),
+    }
 }

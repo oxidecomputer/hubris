@@ -23,17 +23,24 @@ pub unsafe fn start_kernel(
     assert!(app_header.region_count < 256);
 
     // Check that no mysterious data appears in the reserved space.
-    assert_eq!(app_header.zeroed_expansion_space, [0; 20]);
+    assert_eq!(app_header.zeroed_expansion_space, [0; 16]);
 
     // Derive the addresses of the other regions from the app header.
     let tasks_ptr = app_header_ptr.offset(1) as *const app::TaskDesc;
     let tasks =
         core::slice::from_raw_parts(tasks_ptr, app_header.task_count as usize);
 
+    let region_ptr = tasks_ptr.offset(app_header.task_count as isize)
+            as *const app::RegionDesc;
     let regions = core::slice::from_raw_parts(
-        tasks_ptr.offset(app_header.task_count as isize)
-            as *const app::RegionDesc,
+        region_ptr,
         app_header.region_count as usize,
+    );
+
+    let interrupts = core::slice::from_raw_parts(
+        region_ptr.offset(app_header.region_count as isize)
+            as *const app::Interrupt,
+        app_header.irq_count as usize,
     );
 
     // Validate regions first, since tasks will use them.
@@ -78,14 +85,21 @@ pub unsafe fn start_kernel(
         assert!(stack_ptr_found);
     }
 
+    // Finally, check interrupts.
+    for irq in interrupts {
+        // Valid task index?
+        assert!(irq.task < tasks.len() as u32);
+    }
+
     // Okay, we're pretty sure this is all legitimate.
-    safe_start_kernel(app_header, tasks, regions, alloc)
+    safe_start_kernel(app_header, tasks, regions, interrupts, alloc)
 }
 
 fn safe_start_kernel(
     app_header: &'static app::App,
     task_descs: &'static [app::TaskDesc],
     region_descs: &'static [app::RegionDesc],
+    interrupts: &'static [app::Interrupt],
     mut alloc: BumpPointer,
 ) -> ! {
     // Allocate our RAM data
@@ -122,16 +136,18 @@ fn safe_start_kernel(
         crate::arch::reinitialize(task);
     }
 
-    // Stash the task table extent somewhere that we can get it later, cheaply,
+    // Stash the table extents somewhere that we can get it later, cheaply,
     // without recomputing stuff. This is treated as architecture specific
     // largely as a nod to simulators that might want to use a thread local
     // rather than a global static, but some future pleasant architecture might
     // let us store this in secret registers...
     //
-    // Safety: as long as we don't call `with_task_table` after this point
-    // before switching to user, we can't alias, and we'll be okay.
+    // Safety: as long as we don't call `with_task_table` or `with_irq_table`
+    // after this point before switching to user, we can't alias, and we'll be
+    // okay.
     unsafe {
         crate::arch::set_task_table(tasks);
+        crate::arch::set_irq_table(interrupts);
     }
 
     // Great! Pick our first task. We'll act like we're scheduling after the

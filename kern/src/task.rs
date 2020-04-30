@@ -527,7 +527,7 @@ pub struct TimerState {
 /// Collection of bits that may be posted to a task's notification word.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 #[repr(transparent)]
-pub struct NotificationSet(u32);
+pub struct NotificationSet(pub u32);
 
 /// Return value for operations that can have scheduling implications. This is
 /// marked `must_use` because forgetting to actually update the scheduler after
