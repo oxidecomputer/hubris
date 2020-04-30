@@ -77,6 +77,23 @@ use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 
+/// Log things from kernel context. This macro is made visible to the rest of
+/// the kernel by a chain of `#[macro_use]` attributes, but its implementation
+/// is very architecture-specific at the moment.
+///
+/// TODO: someday it might be nice to change how this works.
+#[cfg(not(feature = "klog-semihosting"))]
+macro_rules! klog {
+    ($s:expr) => { };
+    ($s:expr, $($tt:tt)*) => { };
+}
+
+#[cfg(feature = "klog-semihosting")]
+macro_rules! klog {
+    ($s:expr) => { let _ = cortex_m_semihosting::hprintln!($s); };
+    ($s:expr, $($tt:tt)*) => { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); };
+}
+
 /// On ARMvx-M we use a global to record the task table position and extent.
 #[no_mangle]
 static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
@@ -610,7 +627,7 @@ pub unsafe extern "C" fn PendSV() {
 unsafe extern "C" fn pendsv_entry() {
     with_task_table(|tasks| {
         let current = CURRENT_TASK_PTR
-            .expect("systick irq before kernel started?")
+            .expect("irq before kernel started?")
             .as_ptr();
         let idx = (current as usize - tasks.as_ptr() as usize)
             / core::mem::size_of::<task::Task>();
@@ -774,19 +791,3 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
     }
 }
 
-/// Log things from kernel context. This macro is made visible to the rest of
-/// the kernel by a chain of `#[macro_use]` attributes, but its implementation
-/// is very architecture-specific at the moment.
-///
-/// TODO: someday it might be nice to change how this works.
-#[cfg(not(feature = "klog-semihosting"))]
-macro_rules! klog {
-    ($s:expr) => { };
-    ($s:expr, $($tt:tt)*) => { };
-}
-
-#[cfg(feature = "klog-semihosting")]
-macro_rules! klog {
-    ($s:expr) => { let _ = cortex_m_semihosting::hprintln!($s); };
-    ($s:expr, $($tt:tt)*) => { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); };
-}

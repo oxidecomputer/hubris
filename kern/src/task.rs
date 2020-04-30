@@ -52,7 +52,7 @@ impl Task {
     /// makes it harder to forget to request rescheduling. If you're faulting
     /// some other task you can explicitly ignore the result.
     pub fn force_fault(&mut self, fault: FaultInfo) -> NextTask {
-        klog!("task @ {:p} faulted: {:?}", self, fault);
+        klog!("task @ {:p} faulted: {:x?}", self, fault);
         self.state = match self.state {
             TaskState::Healthy(sched) => TaskState::Faulted {
                 original_state: sched,
