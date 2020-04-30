@@ -218,21 +218,6 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
     assert_eq!(prev_task_table, None);
     // Record length as well.
     TASK_TABLE_SIZE = tasks.len();
-
-    // Configure the timer.
-    // TODO this is not the right place for this, I snuck it in here for
-    // expediency
-    // Note that we have *no idea* what our tick frequency is. TODO.
-    let syst = &*cortex_m::peripheral::SYST::ptr();
-    // Program reload value.
-    syst.rvr.write(159_999); // TODO: that's 10ms at 16MHz
-    // Clear current value.
-    syst.cvr.write(0);
-    // Enable counter and interrupt.
-    syst.csr.modify(|v| v | 0b111);
-
-    let scb = &*cortex_m::peripheral::SCB::ptr();
-    scb.shcsr.modify(|x| x | 0b111 << 16);
 }
 
 pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
@@ -333,6 +318,58 @@ pub fn apply_memory_protection(task: &task::Task) {
 }
 
 pub fn start_first_task(task: &task::Task) -> ! {
+    // Enable faults and set fault/exception priorities to reasonable settings.
+    // Our goal here is to keep the kernel non-preemptive, which means the
+    // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
+    // at one priority level. Fault handlers need to be higher priority,
+    // however, so that we can detect faults in the kernel.
+    //
+    // Safety: this is actually fairly safe. We're purely lowering priorities
+    // from their defaults, so it can't cause any surprise preemption or
+    // anything. But these operations are `unsafe` in the `cortex_m` crate.
+    unsafe {
+        let scb = &*cortex_m::peripheral::SCB::ptr();
+        // Faults on.
+        scb.shcsr.modify(|x| x | 0b111 << 16);
+        // Set priority of Usage, Bus, MemManage to 0 (highest configurable).
+        scb.shpr[0].write(0x00);
+        scb.shpr[1].write(0x00);
+        scb.shpr[2].write(0x00);
+        // Set priority of SVCall to 0xFF (lowest configurable).
+        scb.shpr[7].write(0xFF);
+        // SysTick and PendSV also to 0xFF
+        scb.shpr[10].write(0xFF);
+        scb.shpr[11].write(0xFF);
+
+        // Now, force all external interrupts to 0xFF too, so they can't preempt
+        // the kernel.
+        let nvic = &*cortex_m::peripheral::NVIC::ptr();
+        // How many interrupts have we got? This information is stored in a
+        // separate area of the address space, away from the NVIC, and is
+        // (presumably due to an oversight) not present in the cortex_m API, so
+        // let's fake it.
+        let ictr = (0xe000_e004 as *const u32).read_volatile();
+        // This gives interrupt count in blocks of 32.
+        let irq_block_count = ictr as usize & 0xF;
+        let irq_count = irq_block_count * 32;
+        // Blindly poke all the interrupts to 0xFF.
+        for i in 0..irq_count {
+            nvic.ipr[i].write(0xFF);
+        }
+    }
+
+    // Safety: this, too, is safe in practice but unsafe in API.
+    unsafe {
+        // Configure the timer.
+        // Note that we have *no idea* what our tick frequency is. TODO.
+        let syst = &*cortex_m::peripheral::SYST::ptr();
+        // Program reload value.
+        syst.rvr.write(159_999); // TODO: that's 10ms at 16MHz
+        // Clear current value.
+        syst.cvr.write(0);
+        // Enable counter and interrupt.
+        syst.csr.modify(|v| v | 0b111);
+    }
     // We are manufacturing authority to interact with the MPU here, because we
     // can't thread a cortex-specific peripheral through an
     // architecture-independent API. This approach might bear revisiting later.
@@ -603,7 +640,7 @@ pub unsafe extern "C" fn DefaultHandler() {
         // 1=Reset is not handled this way
         2 => panic!("NMI"),
         // 3=HardFault is handled elsewhere
-        4 => panic!("MemManage"),
+        // 4=MemManage is handled below
         5 => panic!("BusFault"),
         6 => panic!("UsageFault"),
         // 7-10 are currently reserved
@@ -665,3 +702,74 @@ pub fn enable_irq(n: u32) {
     }
 }
 
+/// Initial entry point for handling a memory management fault.
+#[allow(non_snake_case)]
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn MemoryManagement() {
+    asm! { "
+        @ Get the exc_return value into an argument register, which is
+        @ difficult to do from higher-level code.
+        mov r0, lr
+        @ While we're being unsafe, go ahead and read the current task pointer.
+        movw r1, #:lower16:CURRENT_TASK_PTR
+        movt r1, #:upper16:CURRENT_TASK_PTR
+        ldr r1, [r1]
+        b mem_manage_fault
+        "
+        ::::"volatile"
+    }
+}
+
+bitflags::bitflags! {
+    /// Bits in the Memory Management Fault Status Register.
+    #[repr(transparent)]
+    struct Mmfsr: u8 {
+        const IACCVIOL = 1 << 0;
+        const DACCVIOL = 1 << 1;
+        // bit 2 reserved
+        const MUNSTKERR = 1 << 3;
+        const MSTKERR = 1 << 4;
+        const MLSPERR = 1 << 5;
+        // bit 6 reserved
+        const MMARVALID = 1 << 7;
+    }
+}
+
+/// Rust entry point for memory management fault.
+#[allow(non_snake_case)]
+#[no_mangle]
+unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
+    // To diagnose the fault, we're going to need access to the System Control
+    // Block. Pull such access from thin air.
+    let scb = &*cortex_m::peripheral::SCB::ptr();
+
+    // Who faulted?
+    let from_thread_mode = exc_return & 0b1000 != 0;
+    // What did they do? MemManage status is in bits 7:0 of the Configurable
+    // Fault Status Register.
+    let mmfsr = Mmfsr::from_bits_truncate(scb.cfsr.read() as u8);
+    // Where did they do it? Faulting address in MMFAR (when available).
+    let mmfar = scb.mmfar.read() as usize;
+
+    if from_thread_mode {
+        // Build up a FaultInfo record describing what we know.
+        let address = if mmfsr.contains(Mmfsr::MMARVALID) { Some(mmfar) } else { None };
+        let fault = task::FaultInfo::MemoryAccess {
+            address,
+            source: task::FaultSource::User,
+        };
+        // The "current task" pointer aliases the task table, which we aren't
+        // using, so as long as it has been set (i.e. is not null) we can
+        // dereference it.
+        assert!(!task.is_null());
+        // Ignore the scheduling hint -- we know full well what it will say.
+        let _ = (&mut *task).force_fault(fault);
+        pend_context_switch_from_isr();
+    } else {
+        // Uh. This fault originates from the kernel. Let's try to make the
+        // panic as clear as possible.
+        panic!("Memory management fault in kernel mode\nMMFSR = {:?}\nMMFAR = 0x{:08x}",
+            mmfsr, mmfar);
+    }
+}
