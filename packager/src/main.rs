@@ -72,6 +72,8 @@ struct Task {
     start: bool,
     #[serde(default)]
     features: Vec<String>,
+    #[serde(default)]
+    interrupts: IndexMap<String, u32>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -140,7 +142,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Format the descriptors for the kernel build.
     let mut descriptor_text = vec![];
-    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory, &entry_points) {
+    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory, &entry_points)? {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
     }
     let descriptor_text = descriptor_text.join("\n");
@@ -304,7 +306,7 @@ fn make_descriptors(
     peripherals: &IndexMap<String, Peripheral>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
     entry_points: &HashMap<String, u32>,
-) -> Vec<u32> {
+) -> Result<Vec<u32>, Box<dyn Error>> {
     let mut words = vec![];
 
     let region_count = 1 + tasks.len() * 2 + peripherals.len();
@@ -314,10 +316,13 @@ fn make_descriptors(
         peripheral_index.insert(name.clone(), 1 + i + tasks.len() * 2);
     }
 
+    let irq_count = tasks.values().map(|t| t.interrupts.len()).sum::<usize>();
+
     // App header
     words.push(0x1DE_fa7a1);
     words.push(tasks.len() as u32);
     words.push(region_count as u32);
+    words.push(irq_count as u32);
     words.resize(32/4, 0);
 
     // Task descriptors
@@ -383,7 +388,16 @@ fn make_descriptors(
         words.push(0);
     }
 
-    words
+    // Interrupt response records.
+    for (i, task) in tasks.values().enumerate() {
+        for (irq_str, &notmask) in &task.interrupts {
+            let irq_num = irq_str.parse::<u32>()?;
+            words.push(irq_num);
+            words.push(i as u32);
+            words.push(notmask);
+        }
+    }
+    Ok(words)
 }
 
 /// Loads an SREC file into the same representation we use for ELF. This is
