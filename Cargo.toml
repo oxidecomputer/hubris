@@ -23,6 +23,7 @@ default-members = ["packager"]
 codegen-units = 1 # better optimizations
 debug = true # symbols are nice and they don't increase the size on Flash
 lto = true # better optimizations
+opt-level = "z" # smaller optimizations
 
 [profile.dev]
 opt-level = 1 # no optimizations was just too painful in terms of flash size
