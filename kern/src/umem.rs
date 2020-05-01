@@ -70,6 +70,7 @@ impl<T> USlice<T> {
         }
     }
 
+    /// Returns `true` if this slice is zero-length, `false` otherwise.
     pub fn is_empty(&self) -> bool {
         self.length == 0
     }
@@ -79,6 +80,7 @@ impl<T> USlice<T> {
         self.length
     }
 
+    /// Returns the bottom address of this slice as a `usize`.
     pub fn base_addr(&self) -> usize {
         self.base_address
     }
@@ -118,6 +120,18 @@ impl<T> USlice<T> {
         }
     }
 
+    /// Copies out element `index` from the slice, if `index` is in range.
+    /// Otherwise returns `None`.
+    ///
+    /// # Safety
+    ///
+    /// To read data from the slice safely, you must be certain that it reflects
+    /// readable non-kernel memory. The easiest way to ensure this is to check
+    /// `Task::can_read` (assuming the application's memory regions don't
+    /// overlap the kernel).
+    ///
+    /// The read is *not* performed using `volatile`, so this is not appropriate
+    /// for accessing device registers.
     pub unsafe fn get(&self, index: usize) -> Option<T>
         where T: Copy
     {
@@ -148,7 +162,7 @@ where
     /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
     ///    constraint ensures this statically.)
     /// 5. That it does not alias any slice you intend to `&mut`-reference with
-    ///    `assume_writable`.
+    ///    `assume_writable`, or any kernel memory.
     pub unsafe fn assume_readable(&self) -> &[T] {
         core::slice::from_raw_parts(self.base_address as *const T, self.length)
     }
@@ -167,7 +181,8 @@ where
     /// 3. That it is correctly aligned for type `T`.
     /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
     ///    constraint ensures this statically.)
-    /// 5. That it does not alias any other slice you intend to access.
+    /// 5. That it does not alias any other slice you intend to access, or any
+    ///    kernel memory.
     pub unsafe fn assume_writable(&mut self) -> &mut [T] {
         core::slice::from_raw_parts_mut(
             self.base_address as *mut T,

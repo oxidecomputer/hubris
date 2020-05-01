@@ -3,6 +3,16 @@
 use crate::app;
 use crate::task::{SchedState, Task, TaskState};
 
+/// The main kernel entry point.
+///
+/// We currently expect an application to provide its own `main`-equivalent
+/// function, which does basic hardware setup and then calls this function with
+/// the location of the `App` header and some kernel-dedicated RAM.
+///
+/// # Safety
+///
+/// This can be called exactly once per boot, with valid pointers that don't
+/// alias any other structure or one another.
 pub unsafe fn start_kernel(
     app_header_ptr: *const app::App,
     scratch_ram: *mut u8,

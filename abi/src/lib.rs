@@ -4,7 +4,13 @@
 
 use zerocopy::{AsBytes, FromBytes, Unaligned};
 
+/// Magic number that appears at the start of an application header (`App`) to
+/// reassure the kernel that it is not reading uninitialized Flash.
 pub const CURRENT_APP_MAGIC: u32 = 0x1DE_fa7a1;
+
+/// Number of region slots in a `TaskDesc` record. Needs to be less or equal to
+/// than the number of regions in the MPU; may be less to improve context switch
+/// performance. (Though note that changing this alters the ABI.)
 pub const REGIONS_PER_TASK: usize = 8;
 
 /// Indicates priority of a task.
@@ -13,6 +19,10 @@ pub const REGIONS_PER_TASK: usize = 8;
 /// priorities are more important, so Priority 0 is the most likely to be
 /// scheduled, followed by 1, and so forth. (This keeps our logic simpler given
 /// that the number of priorities can be reconfigured.)
+///
+/// Note that this type *deliberately* does not implement `PartialOrd`/`Ord`, to
+/// keep us from confusing ourselves on whether `>` means numerically greater /
+/// less important, or more important / numerically smaller.
 #[derive(
     Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default,
 )]
@@ -29,6 +39,10 @@ impl Priority {
     }
 }
 
+/// Application header, read by the kernel to load the application.
+///
+/// One copy of this appears in Flash next to the kernel, with the other types
+/// of records following immediately.
 #[derive(Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct App {
@@ -50,6 +64,7 @@ pub struct App {
     pub zeroed_expansion_space: [u8; 32 - (4 * 4)],
 }
 
+/// Record describing a single task.
 #[derive(Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct TaskDesc {
@@ -57,14 +72,17 @@ pub struct TaskDesc {
     /// `RegionDesc` table. If the task needs fewer than `REGIONS_PER_TASK`
     /// regions, it should use remaining entries to name a region that confers
     /// no access; by convention, this region is usually entry 0 in the table.
+    ///
+    /// Note: because these region indices are 8 bits, this is going to get
+    /// restrictive in applications that approach 128 tasks.
     pub regions: [u8; REGIONS_PER_TASK],
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
-    /// of the task's memory regions.
+    /// of the task's memory regions (the kernel *will* check this).
     pub entry_point: u32,
     /// Address of the task's initial stack pointer, to be loaded at (re)start.
     /// It must be pointing into or *just past* one of the task's memory
-    /// regions.
+    /// regions (the kernel *will* check this).
     pub initial_stack: u32,
     /// Initial priority of this task.
     pub priority: u32,
@@ -82,14 +100,24 @@ bitflags::bitflags! {
 }
 
 /// Description of one memory region.
+///
+/// A memory region can be used by multiple tasks. This is mostly used to have
+/// tasks share a no-access region (often index 0) in unused region slots, but
+/// you could also use it for shared peripheral or RAM access.
+///
+/// Note that regions can overlap. This can be useful: for example, you can have
+/// two regions pointing to the same area of the address space, but one
+/// read-only and the other read-write.
 #[derive(Clone, Debug, FromBytes)]
 #[repr(C)]
 pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
-    /// requirements for this; it must meet them.
+    /// requirements for this; it must meet them. (For example, on ARMv7-M, it
+    /// must be naturally aligned for the size.)
     pub base: u32,
     /// Size of region, in bytes. The platform likely has alignment requirements
-    /// for this; it must meet them.
+    /// for this; it must meet them. (For example, on ARMv7-M, it must be a
+    /// power of two greater than 16.)
     pub size: u32,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
@@ -101,11 +129,17 @@ bitflags::bitflags! {
     #[derive(FromBytes)]
     #[repr(transparent)]
     pub struct RegionAttributes: u32 {
+        /// Region can be read by tasks that include it.
         const READ = 1 << 0;
+        /// Region can be written by tasks that include it.
         const WRITE = 1 << 1;
+        /// Region can contain executable code for tasks that include it.
         const EXECUTE = 1 << 2;
-        const RWX = 0b111;
+        /// Region contains memory mapped registers. This affects cache behavior
+        /// on devices that include it, and discourages the kernel from using
+        /// `memcpy` in the region.
         const DEVICE = 1 << 3;
+
         const RESERVED = !((1 << 4) - 1);
     }
 }
@@ -143,7 +177,9 @@ bitflags::bitflags! {
     #[derive(FromBytes)]
     #[repr(transparent)]
     pub struct LeaseAttributes: u32 {
+        /// Allow the borrower to read this memory.
         const READ = 1 << 0;
+        /// Allow the borrower to write this memory.
         const WRITE = 1 << 1;
     }
 }

@@ -5,7 +5,7 @@
 //! - Conditionally defining a nested module (below).
 //! - `pub use`-ing its contents
 //!
-//! Thus, all architecture-specifif types and functions show up right here in
+//! Thus, all architecture-specific types and functions show up right here in
 //! the `arch` module, magically tailored for the current target.
 //!
 //! For this to work, each architecture support module must define the same set

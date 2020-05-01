@@ -1,4 +1,8 @@
+//! Implementation of kernel time.
+
 /// In-kernel timestamp representation.
+///
+/// This is currently measured in an arbitrary "tick" unit.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct Timestamp(u64);

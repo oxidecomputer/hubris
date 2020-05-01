@@ -1,6 +1,27 @@
 //! Architecture-independent syscall implementation.
 //!
 //! This builds on architecture-specific parts defined in the `arch::*` modules.
+//!
+//! # Syscall implementations
+//!
+//! With only a couple of exceptions, syscalls are implemented by functions with
+//! the signature:
+//!
+//! ```ignore
+//! fn syscall(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError>;
+//! ```
+//!
+//! `tasks` is the task table, and `caller` is the index of the task within it
+//! that triggered the syscall. On return, a `NextTask` indicates success with a
+//! possible scheduling hint, while a `UserError` indicates a condition that
+//! needs to either be returned as a response code or recorded as a fault. A
+//! common wrapper takes care of the final side effects, reducing code in each
+//! syscall.
+//!
+//! Arguments to syscalls need to be read from the `task.save` field where the
+//! task's registers are stored. Each class of syscall has an *argument proxy*
+//! type to make this easy and safe, e.g. `task.save.as_send_args()`. See the
+//! `task::ArchState` trait for details.
 
 use abi::LeaseAttributes;
 

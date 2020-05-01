@@ -1,3 +1,5 @@
+//! Implementation of tasks.
+
 use abi::Priority;
 
 use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
@@ -149,6 +151,13 @@ impl Task {
         self.state == TaskState::Healthy(SchedState::Runnable)
     }
 
+    /// Configures this task's timer.
+    ///
+    /// `deadline` specifies the moment when the timer should fire, in kernel
+    /// time. If `None`, the timer will never fire.
+    ///
+    /// `notifications` is the set of notification bits to be set when the timer
+    /// fires.
     pub fn set_timer(
         &mut self,
         deadline: Option<Timestamp>,
@@ -164,26 +173,46 @@ impl Task {
 #[repr(transparent)]
 pub struct Generation(u8);
 
+/// Interface that must be implemented by the `arch::SavedState` type. This
+/// gives architecture-independent access to task state for the rest of the
+/// kernel.
+///
+/// Architectures need to implement the `argX` and `retX` functions plus
+/// `syscall_descriptor`, and the rest of the trait (such as the argument proxy
+/// types) will just work.
 pub trait ArchState: Default {
+    /// TODO: this is probably not needed here.
     fn stack_pointer(&self) -> u32;
 
     /// Reads syscall argument register 0.
     fn arg0(&self) -> u32;
+    /// Reads syscall argument register 1.
     fn arg1(&self) -> u32;
+    /// Reads syscall argument register 2.
     fn arg2(&self) -> u32;
+    /// Reads syscall argument register 3.
     fn arg3(&self) -> u32;
+    /// Reads syscall argument register 4.
     fn arg4(&self) -> u32;
+    /// Reads syscall argument register 5.
     fn arg5(&self) -> u32;
+    /// Reads syscall argument register 6.
     fn arg6(&self) -> u32;
 
+    /// Reads the syscall descriptor (number).
     fn syscall_descriptor(&self) -> u32;
 
     /// Writes syscall return argument 0.
     fn ret0(&mut self, _: u32);
+    /// Writes syscall return argument 1.
     fn ret1(&mut self, _: u32);
+    /// Writes syscall return argument 2.
     fn ret2(&mut self, _: u32);
+    /// Writes syscall return argument 3.
     fn ret3(&mut self, _: u32);
+    /// Writes syscall return argument 4.
     fn ret4(&mut self, _: u32);
+    /// Writes syscall return argument 5.
     fn ret5(&mut self, _: u32);
 
     /// Returns a proxied reference that assigns names and types to the syscall
@@ -269,7 +298,6 @@ pub trait ArchState: Default {
         self.ret1(atts);
         self.ret2(len as u32);
     }
-
 }
 
 /// Reference proxy for send argument registers.
@@ -489,6 +517,7 @@ impl From<UsageError> for FaultInfo {
     }
 }
 
+/// A kernel-defined fault, arising from how a user task behaved.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum UsageError {
     /// A program used an undefined syscall number.

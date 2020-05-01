@@ -1,27 +1,26 @@
-//! Hubris kernel model.
+//! Hubris kernel.
 //!
-//! This code is intended to lay out the design concepts for the Hubris kernel
-//! implementation and make some points about algorithm implementation. It may
-//! evolve to become the actual kernel, or it may not.
+//! This is the application-independent portion of the operating system, and the
+//! main part that runs in privileged mode.
 //!
-//! Currently, this is intended to be portable to both ARM and x86, for testing
-//! and simulation purposes.
+//! This code outside of the `arch` module is *intended* to be portable to at
+//! least ARMv7-M and RV32I, but it is only being actively developed and tested
+//! on ARMv7-M, so it's entirely possible that some ARM-isms have
+//! unintentionally leaked into the portable parts.
 //!
-//! # Algorithm Naivety Principles
+//! # Design principles
 //!
-//! This implementation uses *really naive algorithms*. This is deliberate. The
-//! intent is:
+//! While this isn't a *deeply* principled kernel, there are some basic ideas
+//! that appear consistently.
 //!
-//! 1. To use safe Rust for as much as possible.
-//! 2. To use easily understood and debugged algorithms.
-//! 3. To revisit these decisions if they become performance problems.
-//!
-//! Assumptions enabling our naivete:
-//!
-//! - The total number of tasks is fixed (in a given build) and small. Say, less
-//!   than 200.
-//! - We are not attempting to achieve predictably low worst-case execution
-//!   bounds or any realtime nonsense like that.
+//! 1. Separate compilation. Allow the kernel, and each task of the application,
+//!    to be compiled separately and then combined.
+//! 2. Static configuration. As much as possible, the system should take a
+//!    single shape specified at compile time.
+//! 3. A strong preference for safe code where reasonable.
+//! 4. A preference for simple and clear algorithms over fast and clever
+//!    algorithms. (This also relates to the preference for safe code, since
+//!    most clever algorithms used in kernels wind up requiring `unsafe`.)
 
 #![cfg_attr(target_os = "none", no_std)]
 #![feature(asm)]
@@ -37,4 +36,3 @@ pub mod syscalls;
 pub mod task;
 pub mod time;
 pub mod umem;
-
