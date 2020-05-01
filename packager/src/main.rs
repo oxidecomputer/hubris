@@ -34,6 +34,7 @@ struct Config {
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
     peripherals: IndexMap<String, Peripheral>,
+    supervisor: Option<Supervisor>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -44,6 +45,12 @@ struct Kernel {
     requires: IndexMap<String, u32>,
     #[serde(default)]
     features: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Supervisor {
+    notification: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -142,7 +149,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Format the descriptors for the kernel build.
     let mut descriptor_text = vec![];
-    for word in make_descriptors(&toml.tasks, &toml.peripherals, &task_memory, &entry_points)? {
+    for word in make_descriptors(&toml.tasks, &toml.peripherals, toml.supervisor.as_ref(), &task_memory, &entry_points)? {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
     }
     let descriptor_text = descriptor_text.join("\n");
@@ -304,6 +311,7 @@ fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf, Box<dyn Error>
 fn make_descriptors(
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
+    supervisor: Option<&Supervisor>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>, Box<dyn Error>> {
@@ -323,6 +331,10 @@ fn make_descriptors(
     words.push(tasks.len() as u32);
     words.push(region_count as u32);
     words.push(irq_count as u32);
+    if let Some(supervisor) = supervisor {
+        words.push(supervisor.notification);
+    }
+    // pad out to 32 bytes
     words.resize(32/4, 0);
 
     // Task descriptors

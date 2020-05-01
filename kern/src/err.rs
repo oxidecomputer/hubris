@@ -4,17 +4,18 @@
 //! time handling and recording errors, and we ought to be able to separate that
 //! concern using `Result`.
 
-use crate::task::{FaultInfo, Task, UsageError};
+use crate::task::{self, NextTask, FaultInfo, Task, UsageError};
 
 /// An error committed by user code when interacting with a syscall.
 /// 
 /// This is used internally as the returned error type for syscall
 /// implementations.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum UserError {
     /// A recoverable error. Recoverable errors are indicated to the errant task
-    /// by returning a response code (the sole field).
-    Recoverable(u32),
+    /// by returning a response code (the `u32` field). They may still cause a
+    /// context switch, however, as indicated by the `NextTask`.
+    Recoverable(u32, NextTask),
     /// An unrecoverable error. Unrecoverable errors are translated to faults
     /// against the errant task, which is marked faulted and no longer runnable.
     Unrecoverable(FaultInfo),
@@ -72,14 +73,16 @@ impl InteractFault {
     ///
     /// This is intended to be called during syscalls from the destination's
     /// perspective, to store the src fault and then deal with dst.
-    pub fn apply_to_src(self, src: &mut Task) -> Result<(), FaultInfo> {
-        if let Some(f) = self.src {
-            let _ = src.force_fault(f);
-        }
+    pub fn apply_to_src(self, tasks: &mut [Task], src: usize) -> Result<task::NextTask, FaultInfo> {
+        let nt = if let Some(f) = self.src {
+            task::force_fault(tasks, src, f)
+        } else {
+            task::NextTask::Same
+        };
         if let Some(f) = self.dst {
             Err(f)
         } else {
-            Ok(())
+            Ok(nt)
         }
     }
 
@@ -88,14 +91,16 @@ impl InteractFault {
     ///
     /// This is intended to be called during syscalls from the source's
     /// perspective, to store the dst fault and then deal with dst.
-    pub fn apply_to_dst(self, dst: &mut Task) -> Result<(), FaultInfo> {
-        if let Some(f) = self.dst {
-            let _ = dst.force_fault(f);
-        }
+    pub fn apply_to_dst(self, tasks: &mut [Task], dst: usize) -> Result<task::NextTask, FaultInfo> {
+        let nt = if let Some(f) = self.dst {
+            task::force_fault(tasks, dst, f)
+        } else {
+            task::NextTask::Same
+        };
         if let Some(f) = self.src {
             Err(f)
         } else {
-            Ok(())
+            Ok(nt)
         }
     }
 }

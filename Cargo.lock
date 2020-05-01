@@ -581,6 +581,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-jefe"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "stm32f4",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

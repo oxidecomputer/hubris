@@ -1,7 +1,8 @@
 //! Kernel startup.
 
+
 use crate::app;
-use crate::task::{SchedState, Task, TaskState};
+use crate::task::{self, SchedState, Task, TaskState};
 
 /// The main kernel entry point.
 ///
@@ -35,7 +36,7 @@ pub unsafe fn start_kernel(
     assert!(app_header.region_count < 256);
 
     // Check that no mysterious data appears in the reserved space.
-    assert_eq!(app_header.zeroed_expansion_space, [0; 16]);
+    assert_eq!(app_header.zeroed_expansion_space, [0; 12]);
 
     // Derive the addresses of the other regions from the app header.
     let tasks_ptr = app_header_ptr.offset(1) as *const app::TaskDesc;
@@ -163,6 +164,7 @@ fn safe_start_kernel(
         crate::arch::set_task_table(tasks);
         crate::arch::set_irq_table(interrupts);
     }
+    task::set_fault_notification(app_header.fault_notification);
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.

@@ -7,6 +7,9 @@ name = "demo"
 requires = {flash = 65536, ram = 4096}
 features = ["semihosting"]
 
+[supervisor]
+notification = 1
+
 [outputs.flash]
 address = 0x08000000
 size = 262144
@@ -20,10 +23,17 @@ read = true
 write = true
 execute = true
 
+[tasks.jefe]
+path = "../task-jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 8192, ram = 1024}
+start = true
+
 [tasks.rcc_driver]
 path = "../drv/stm32f4-rcc"
 name = "drv-stm32f4-rcc"
-priority = 0
+priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
@@ -31,7 +41,7 @@ start = true
 [tasks.usart_driver]
 path = "../drv/stm32f4-usart"
 name = "drv-stm32f4-usart"
-priority = 1
+priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
@@ -40,7 +50,7 @@ interrupts = {38 = 1}
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
-priority = 2
+priority = 3
 requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
 start = true
@@ -48,7 +58,7 @@ start = true
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
-priority = 1
+priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
 start = true
@@ -56,7 +66,7 @@ start = true
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
-priority = 3
+priority = 4
 requires = {flash = 256, ram = 256}
 start = true
 

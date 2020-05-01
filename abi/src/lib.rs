@@ -58,10 +58,12 @@ pub struct App {
     /// Number of interrupt response records that will follow the `RegionDesc`
     /// records.
     pub irq_count: u32,
+    /// Bitmask to post to task 0 when any task faults.
+    pub fault_notification: u32,
 
     /// Reserved expansion space; pads this structure out to 32 bytes. You will
     /// need to adjust this when you add fields above.
-    pub zeroed_expansion_space: [u8; 32 - (4 * 4)],
+    pub zeroed_expansion_space: [u8; 32 - (5 * 4)],
 }
 
 /// Record describing a single task.

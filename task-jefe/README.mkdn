@@ -1,0 +1,7 @@
+# El Jefe
+
+This is the supervisory task for the demo application, which handles last-ditch
+error reporting, task restarting, and the like.
+
+(*Jefe* is a Spanish word that is related to, and means roughly the same thing
+as, the English word *chief.*)

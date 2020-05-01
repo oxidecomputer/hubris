@@ -776,12 +776,13 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
             address,
             source: task::FaultSource::User,
         };
-        // The "current task" pointer aliases the task table, which we aren't
-        // using, so as long as it has been set (i.e. is not null) we can
-        // dereference it.
-        assert!(!task.is_null());
-        // Ignore the scheduling hint -- we know full well what it will say.
-        let _ = (&mut *task).force_fault(fault);
+        with_task_table(|tasks| {
+            let idx = (task as usize - tasks.as_ptr() as usize)
+                / core::mem::size_of::<task::Task>();
+            // Ignore the scheduling hint -- we aren't able to forward it to the
+            // PendSV routine anyway.
+            let _ = task::force_fault(tasks, idx, fault);
+        });
         pend_context_switch_from_isr();
     } else {
         // Uh. This fault originates from the kernel. Let's try to make the

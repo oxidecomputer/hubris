@@ -99,12 +99,12 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
     };
     match res {
         Ok(nt) => nt,
-        Err(UserError::Recoverable(code)) => {
+        Err(UserError::Recoverable(code, hint)) => {
             tasks[current].save.set_error_response(code);
-            NextTask::Same
+            hint
         }
         Err(UserError::Unrecoverable(fault)) => {
-            tasks[current].force_fault(fault)
+            task::force_fault(tasks, current, fault)
         }
     }
 }
@@ -128,6 +128,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     let callee = task::check_task_id_against_table(tasks, callee)?;
 
     // Check for ready peer.
+    let mut next_task = NextTask::Same;
     if tasks[callee].state
         == TaskState::Healthy(SchedState::InRecv(Some(caller)))
         || tasks[callee].state == TaskState::Healthy(SchedState::InRecv(None))
@@ -152,7 +153,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                 // tasks. We need to apply the fault status, and then if we
                 // didn't have to murder the caller, we'll fall through to
                 // block it below.
-                interact.apply_to_dst(&mut tasks[callee])?;
+                next_task = interact.apply_to_dst(tasks, callee)?;
                 // If we didn't just return, fall through to the caller
                 // blocking code below.
             }
@@ -162,9 +163,9 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Caller needs to block sending, callee is either busy or
     // faulted.
     tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee));
-    // We don't know what the best task to run now would be, but
-    // we're pretty darn sure it isn't the caller.
-    return Ok(NextTask::Other);
+    // We may not know what task to run next, but we're pretty sure it isn't the
+    // caller.
+    return Ok(NextTask::Other.combine(next_task));
 }
 
 /// Implementation of the RECV IPC primitive.
@@ -203,6 +204,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     let sending_to_us = TaskState::Healthy(SchedState::InSend(caller));
     let mut last = caller; // keep track of scan position.
                            // Is anyone blocked waiting to send to us?
+    let mut next_task = NextTask::Same; // update if we wake tasks
     while let Some(sender) =
         task::priority_scan(last, tasks, |t| t.state == sending_to_us)
     {
@@ -213,14 +215,15 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
                 tasks[sender].state =
                     TaskState::Healthy(SchedState::InReply(caller));
                 // And go ahead and let the caller resume.
-                return Ok(NextTask::Same);
+                return Ok(next_task);
             }
             Err(interact) => {
                 // Delivery failed because of fault events in one or both
                 // tasks.  We need to apply the fault status, and then if we
                 // didn't have to murder the caller, we'll retry receiving a
                 // message.
-                interact.apply_to_src(&mut tasks[sender])?;
+                let wake_hint = interact.apply_to_src(tasks, sender)?;
+                next_task = next_task.combine(wake_hint);
                 // Okay, if we didn't just return, retry the search from a new
                 // position.
                 last = sender;
@@ -230,9 +233,9 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 
     // No notifications, nobody waiting to send -- block the caller.
     tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
-    // We don't know what task should run next, but we're pretty sure it's
-    // not the one we just blocked.
-    Ok(NextTask::Other)
+    // We may not know what task should run next, but we're pretty sure it's not
+    // the one we just blocked.
+    Ok(NextTask::Other.combine(next_task))
 }
 
 /// Implementation of the REPLY IPC primitive.
@@ -250,7 +253,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // the caller crashed before receiving its reply) but we treat invalid
     // indices that could never have been received as a malfunction.
     let callee = match task::check_task_id_against_table(tasks, callee) {
-        Err(UserError::Recoverable(_)) => return Ok(NextTask::Same),
+        Err(UserError::Recoverable(_, hint)) => return Ok(hint),
         Err(UserError::Unrecoverable(f)) => return Err(f),
         Ok(x) => x,
     };
@@ -290,9 +293,9 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(buffer) => buffer,
         Err(e) => {
             // The sender set up a bogus response buffer. How rude. This
-            // doesn't affect scheduling, so discard the hint.
-            let _ = tasks[callee].force_fault(FaultInfo::SyscallUsage(e));
-            return Ok(NextTask::Same);
+            // may well affect scheduling if it wakes the supervisor, but is Ok
+            // from our caller's perspective:
+            return Ok(task::force_fault(tasks, callee, FaultInfo::SyscallUsage(e)))
         }
     };
     drop(send_args);
@@ -309,10 +312,10 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Err(interact) => {
             // Delivery failed because of fault events in one or both tasks.  We
             // need to apply the fault status, and possibly fault the caller.
-            interact.apply_to_dst(&mut tasks[callee])?;
+            let wake_hint = interact.apply_to_dst(tasks, callee)?;
             // If we didn't just return, resume the caller without resuming the
             // target task below.
-            return Ok(NextTask::Same);
+            return Ok(wake_hint);
         }
     };
 
@@ -363,7 +366,7 @@ fn borrow_read(
     // Does the lease grant us the ability to read from the memory?
     if !lease.attributes.contains(LeaseAttributes::READ) {
         // Lease is not readable. Defecting lender.
-        return Err(UserError::Recoverable(abi::DEFECT));
+        return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
     }
 
     let leased_area = USlice::from(&lease);
@@ -382,9 +385,9 @@ fn borrow_read(
             return Ok(NextTask::Same);
         }
         Err(interact) => {
-            interact.apply_to_src(&mut tasks[lender])?;
+            let wake_hint = interact.apply_to_src(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT));
+            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
         }
     }
 }
@@ -407,7 +410,7 @@ fn borrow_write(
     // Does the lease grant us the ability to write to the memory?
     if !lease.attributes.contains(LeaseAttributes::WRITE) {
         // Lease is not readable. Defecting lender.
-        return Err(UserError::Recoverable(abi::DEFECT));
+        return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
     }
 
     let leased_area = USlice::from(&lease);
@@ -426,9 +429,9 @@ fn borrow_write(
             return Ok(NextTask::Same);
         }
         Err(interact) => {
-            interact.apply_to_dst(&mut tasks[lender])?;
+            let wake_hint = interact.apply_to_dst(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT));
+            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
         }
     }
 }
@@ -468,7 +471,7 @@ fn borrow_lease(
     if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller)) {
         // The alleged lender isn't lending anything at all.
         // Let's assume this is a defecting lender.
-        return Err(UserError::Recoverable(abi::DEFECT));
+        return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
     }
 
     let largs = tasks[lender].save.as_send_args();
@@ -478,18 +481,18 @@ fn borrow_lease(
             // Huh. Lender has a corrupt lease table. This would normally be
             // caught during entry to SEND, but could occur if the task's state
             // has been rewritten by something (say, a debugger).
-            let _ = tasks[lender].force_fault(FaultInfo::SyscallUsage(e));
-            return Err(UserError::Recoverable(abi::DEFECT));
+            let wake_hint = task::force_fault(tasks, lender, FaultInfo::SyscallUsage(e));
+            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
         }
     };
 
     // Can the lender actually read the lease table, or are they being sneaky?
     if !tasks[lender].can_read(&leases) {
-        let _ = tasks[lender].force_fault(FaultInfo::MemoryAccess {
+        let wake_hint = task::force_fault(tasks, lender, FaultInfo::MemoryAccess {
             address: Some(leases.base_addr()),
             source: FaultSource::Kernel,
         });
-        return Err(UserError::Recoverable(abi::DEFECT));
+        return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
     }
 
     // Try reading the lease. This is unsafe in the general case, but since
@@ -651,6 +654,6 @@ fn explicit_panic(
         }
     }
 
-    Ok(tasks[caller].force_fault(FaultInfo::Panic))
+    Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
 }
 

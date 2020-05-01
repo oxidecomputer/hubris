@@ -1,11 +1,21 @@
 //! Implementation of tasks.
 
+use core::sync::atomic::{AtomicU32, Ordering};
+
 use abi::Priority;
 
 use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
 use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
+
+/// The fault notification sent to the supervisor is stored in a global.
+#[no_mangle]
+static FAULT_NOTIFICATION: AtomicU32 = AtomicU32::new(0);
+
+pub fn set_fault_notification(mask: u32) {
+    FAULT_NOTIFICATION.store(mask, Ordering::Relaxed);
+}
 
 /// Internal representation of a task.
 #[repr(C)] // so location of SavedState is predictable
@@ -40,37 +50,6 @@ pub struct Task {
 }
 
 impl Task {
-    /// Puts this task into a forced fault condition.
-    ///
-    /// The task will not be scheduled again until the fault is cleared. The
-    /// kernel won't clear faults on its own, it must be asked.
-    ///
-    /// If the task is already faulted, we will retain the information about
-    /// what state the task was in *before* it faulted, and *erase* the last
-    /// fault. These kinds of double-faults are expected to be super rare.
-    ///
-    /// Returns a `NextTask` under the assumption that, if you're hitting tasks
-    /// with faults, at least one of them is probably the current task; this
-    /// makes it harder to forget to request rescheduling. If you're faulting
-    /// some other task you can explicitly ignore the result.
-    pub fn force_fault(&mut self, fault: FaultInfo) -> NextTask {
-        klog!("task @ {:p} faulted: {:x?}", self, fault);
-        self.state = match self.state {
-            TaskState::Healthy(sched) => TaskState::Faulted {
-                original_state: sched,
-                fault,
-            },
-            TaskState::Faulted { original_state, .. } => {
-                // Double fault - fault while faulted
-                // Original fault information is lost
-                TaskState::Faulted {
-                    fault,
-                    original_state,
-                }
-            }
-        };
-        NextTask::Other
-    }
 
     /// Tests whether this task has read access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
@@ -671,7 +650,7 @@ pub fn check_task_id_against_table(
 
     // Check for dead task ID.
     if table[id.index()].generation != id.generation() {
-        return Err(UserError::Recoverable(abi::DEAD));
+        return Err(UserError::Recoverable(abi::DEAD, NextTask::Same));
     }
 
     return Ok(id.index());
@@ -716,4 +695,45 @@ pub fn priority_scan(
     }
 
     choice.map(|(idx, _)| idx)
+}
+
+/// Puts a task into a forced fault condition.
+///
+/// The task is designated by the `index` parameter. We need access to the
+/// entire task table, as well as the designated task, so that we can take the
+/// opportunity to notify the supervisor.
+///
+/// The task will not be scheduled again until the fault is cleared. The
+/// kernel won't clear faults on its own, it must be asked.
+///
+/// If the task is already faulted, we will retain the information about
+/// what state the task was in *before* it faulted, and *erase* the last
+/// fault. These kinds of double-faults are expected to be super rare.
+///
+/// Returns a `NextTask` under the assumption that, if you're hitting tasks
+/// with faults, at least one of them is probably the current task; this
+/// makes it harder to forget to request rescheduling. If you're faulting
+/// some other task you can explicitly ignore the result.
+pub fn force_fault(tasks: &mut [Task], index: usize, fault: FaultInfo) -> NextTask {
+    let task = &mut tasks[index];
+    task.state = match task.state {
+        TaskState::Healthy(sched) => TaskState::Faulted {
+            original_state: sched,
+            fault,
+        },
+        TaskState::Faulted { original_state, .. } => {
+            // Double fault - fault while faulted
+            // Original fault information is lost
+            TaskState::Faulted {
+                fault,
+                original_state,
+            }
+        }
+    };
+    let supervisor_awoken = tasks[0].post(NotificationSet(FAULT_NOTIFICATION.load(Ordering::Relaxed)));
+    if supervisor_awoken {
+        NextTask::Specific(0)
+    } else {
+        NextTask::Other
+    }
 }
