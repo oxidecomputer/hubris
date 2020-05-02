@@ -5,6 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
+abi = {path = "../abi"}
 userlib = {path = "../userlib"}
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"

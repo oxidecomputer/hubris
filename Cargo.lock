@@ -603,6 +603,7 @@ dependencies = [
 name = "task-jefe"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cortex-m",
  "cortex-m-semihosting",
  "stm32f4",
