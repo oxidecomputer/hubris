@@ -15,7 +15,7 @@ SECTIONS
     *(.text .text.*);
     . = ALIGN(4);
     __etext = .;
-  } > FLASH
+  } > FLASH =0xdededede
 
   /* ### .rodata */
   .rodata __etext : ALIGN(4)
