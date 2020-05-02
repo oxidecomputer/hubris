@@ -123,6 +123,11 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Open question: should out-of-range task IDs be handled by faulting below,
     // or by failing the IPC filter? Either condition will fault...
 
+    // Route kernel messages.
+    if callee == TaskID::KERNEL {
+        return handle_kernel_message(tasks, caller);
+    }
+
     // Verify the given callee ID, converting it into a table index on success.
     let callee = task::check_task_id_against_table(tasks, callee)?;
 
@@ -656,3 +661,21 @@ fn explicit_panic(
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
 }
 
+/// Implementation of the kernel virtual task IPC protocol.
+fn handle_kernel_message(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
+    // Copy out arguments.
+    let args = tasks[caller].save.as_send_args();
+    let operation = args.operation();
+    let _maybe_message = args.message();
+    let _maybe_response = args.response_buffer();
+    drop(args);
+
+    match operation {
+        _ => {
+            // Task has sent an unknown message to the kernel. That's bad.
+            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::BadKernelMessage)));
+        }
+    }
+
+    Ok(NextTask::Same)
+}
