@@ -666,16 +666,63 @@ fn handle_kernel_message(tasks: &mut [Task], caller: usize) -> Result<NextTask, 
     // Copy out arguments.
     let args = tasks[caller].save.as_send_args();
     let operation = args.operation();
-    let _maybe_message = args.message();
-    let _maybe_response = args.response_buffer();
+    // We're not checking these yet as we might not need them.
+    let maybe_message = args.message();
+    let maybe_response = args.response_buffer();
     drop(args);
 
     match operation {
+        1 => {
+            // read_task_status
+            let message = maybe_message?;
+            let index: u32 = deserialize_message(&tasks[caller], message)?;
+            if index as usize > tasks.len() {
+                return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::TaskOutOfRange)));
+            }
+            let response = maybe_response?;
+            let response_len = serialize_response(&tasks[caller], response, &tasks[index as usize].state)?;
+            tasks[caller].save.set_send_response_and_length(0, response_len);
+            Ok(NextTask::Same)
+        }
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::BadKernelMessage)));
         }
     }
-
-    Ok(NextTask::Same)
 }
+
+fn deserialize_message<T>(task: &Task, message: USlice<u8>) -> Result<T, UserError>
+where T: for <'de> serde::Deserialize<'de>,
+{
+    if !task.can_read(&message) {
+        return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
+            address: Some(message.base_addr()),
+            source: FaultSource::Kernel,
+        }));
+    }
+    let (msg, _) = ssmarshal::deserialize(unsafe { message.assume_readable() })
+        .map_err(|_| UsageError::BadKernelMessage)?;
+    Ok(msg)
+}
+
+fn serialize_response<T>(task: &Task, mut buf: USlice<u8>, val: &T) -> Result<usize, UserError>
+where T: serde::Serialize,
+{
+    if !task.can_write(&buf) {
+        return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
+            address: Some(buf.base_addr()),
+            source: FaultSource::Kernel,
+        }));
+    }
+    match ssmarshal::serialize(unsafe { buf.assume_writable() }, val) {
+        Ok(size) => Ok(size),
+        Err(ssmarshal::Error::EndOfStream) => {
+            // The client provided a response buffer that is too small. We
+            // actually tolerate this, and report back the size of a buffer that
+            // *would have* worked. It's up to the caller to notice.
+            Ok(core::mem::size_of::<T>())
+        }
+        Err(_) => Err(UsageError::BadKernelMessage.into()),
+    }
+}
+

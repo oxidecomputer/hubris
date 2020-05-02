@@ -16,6 +16,8 @@ bitflags = "1.2.1"
 cfg-if = "0.1.10"
 cortex-m = "0.6.0"
 cortex-m-semihosting = {version = "0.3.3", optional = true}
+serde = {version = "1", default-features = false}
+ssmarshal = {version = "1", default-features = false}
 
 [lib]
 test = false

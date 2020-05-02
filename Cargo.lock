@@ -6,6 +6,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "byteorder",
+ "serde",
  "zerocopy",
 ]
 
@@ -201,6 +202,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
 name = "failure"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -282,6 +289,8 @@ dependencies = [
  "cfg-if",
  "cortex-m",
  "cortex-m-semihosting",
+ "serde",
+ "ssmarshal",
  "zerocopy",
 ]
 
@@ -492,6 +501,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a9f5fe3743d9e8135b763161b44830973e95c1562926817862af8e12f7aad82"
 
 [[package]]
+name = "ssmarshal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3e6ad23b128192ed337dfa4f1b8099ced0c2bf30d61e551b65fda5916dbb850"
+dependencies = [
+ "encode_unicode",
+ "serde",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -667,6 +686,8 @@ dependencies = [
  "r0 1.0.0",
  "serde",
  "serde_json",
+ "ssmarshal",
+ "zerocopy",
 ]
 
 [[package]]

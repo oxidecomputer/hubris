@@ -10,6 +10,7 @@ edition = "2018"
 zerocopy = "0.3"
 bitflags = "1.2.1"
 byteorder = {version = "1.3.4", default-features = false}
+serde = {version = "1", default-features = false, features = ["derive"]}
 
 [lib]
 test = false

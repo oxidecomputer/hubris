@@ -3,6 +3,8 @@
 
 use core::marker::PhantomData;
 
+pub mod kipc;
+
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Lease<'a> {

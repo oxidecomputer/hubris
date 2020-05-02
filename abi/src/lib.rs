@@ -2,6 +2,7 @@
 
 #![no_std]
 
+use serde::{Serialize, Deserialize};
 use zerocopy::{AsBytes, FromBytes, Unaligned};
 
 /// Magic number that appears at the start of an application header (`App`) to
@@ -193,7 +194,7 @@ pub const DEAD: u32 = !0;
 pub const DEFECT: u32 = 1;
 
 /// State used to make scheduling decisions.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum TaskState {
     /// Task is healthy and can be scheduled subject to the `SchedState`
     /// requirements.
@@ -216,7 +217,7 @@ impl Default for TaskState {
 }
 
 /// Scheduler parameters for a healthy task.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum SchedState {
     /// This task is ignored for scheduling purposes.
     Stopped,
@@ -232,7 +233,7 @@ pub enum SchedState {
 }
 
 /// A record describing a fault taken by a task.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
@@ -260,7 +261,7 @@ impl From<UsageError> for FaultInfo {
 }
 
 /// A kernel-defined fault, arising from how a user task behaved.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum UsageError {
     /// A program used an undefined syscall number.
     BadSyscallNumber,
@@ -280,7 +281,7 @@ pub enum UsageError {
 }
 
 /// Origin of a fault.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum FaultSource {
     /// User code did something that was intercepted by the processor.
     User,
