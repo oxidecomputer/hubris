@@ -27,7 +27,7 @@ use cortex_m_semihosting::hprintln;
 
 #[export_name = "main"]
 fn main() -> ! {
-    hprintln!("viva el jefe").unwrap();
+    hprintln!("viva el jefe").ok();
 
     // We'll have notification 0 wired up to receive information about task
     // faults.
@@ -37,10 +37,10 @@ fn main() -> ! {
 
         if msginfo.sender == TaskId::KERNEL {
             // Handle notification
-            hprintln!("A task has faulted! (and that's all we know)").unwrap();
+            hprintln!("A task has faulted! (and that's all we know)").ok();
         } else {
             // ...huh. A task has sent a message to us. That seems wrong.
-            hprintln!("Unexpected message from {}", msginfo.sender.0).unwrap();
+            hprintln!("Unexpected message from {}", msginfo.sender.0).ok();
         }
     }
 }
