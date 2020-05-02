@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 use core::marker::PhantomData;
 
@@ -60,7 +60,7 @@ pub fn sys_send(
     let mut response_code: u32;
     let mut response_len: usize;
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             : "={r4}"(response_code),
               "={r5}"(response_len)
@@ -90,7 +90,7 @@ pub fn sys_recv(
     let mut lease_count: usize;
 
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             : "={r5}"(sender),
               "={r6}"(operation),
@@ -129,7 +129,7 @@ pub fn sys_reply(
     message: &[u8],
 ) {
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             :
             : "{r4}"(peer.0 as u32),
@@ -149,7 +149,7 @@ pub fn sys_set_timer(
 ) {
     let raw_deadline = deadline.unwrap_or(0);
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             :
             : "{r4}"(deadline.is_some() as u32),
@@ -172,7 +172,7 @@ pub fn sys_borrow_read(
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             : "={r4}"(rc),
               "={r5}"(length)
@@ -198,7 +198,7 @@ pub fn sys_borrow_write(
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             : "={r4}"(rc),
               "={r5}"(length)
@@ -223,7 +223,7 @@ pub fn sys_borrow_info(
     let mut atts: u32;
     let mut length: usize;
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             : "={r4}"(rc),
               "={r5}"(atts),
@@ -243,7 +243,7 @@ pub fn sys_irq_control(
     enable: bool,
 ) {
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0"
             :
             : "{r4}"(mask),
@@ -259,7 +259,7 @@ pub fn sys_panic(
     msg: &[u8],
 ) -> ! {
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc #0
              udf #0xad"
             :

@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
@@ -13,7 +13,7 @@ fn main() -> ! {
         unsafe {
             // Wait For Interrupt to pause the processor until an ISR arrives,
             // which could wake some higher-priority task.
-            asm!("wfi"::::"volatile");
+            llvm_asm!("wfi"::::"volatile");
         }
     }
 }

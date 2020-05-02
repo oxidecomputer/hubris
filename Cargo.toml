@@ -1,3 +1,5 @@
+cargo-features = ["resolver"]
+
 [workspace]
 members = [
     "abi",
@@ -18,6 +20,7 @@ members = [
     "drv/stm32f4-usart",
 ]
 default-members = ["packager"]
+resolver = "2"
 
 [profile.release]
 codegen-units = 1 # better optimizations

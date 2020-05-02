@@ -410,7 +410,7 @@ pub fn start_first_task(task: &task::Task) -> ! {
     }
 
     unsafe {
-        asm! { "
+        llvm_asm! { "
             msr PSP, $0             @ set the user stack pointer
             ldm $1, {r4-r11}        @ restore the callee-save registers
             svc #0xFF               @ branch into user mode (svc # ignored)
@@ -419,11 +419,11 @@ pub fn start_first_task(task: &task::Task) -> ! {
             :
             : "r"(task.save.psp),
               "r"(&task.save.r4)
-            : "memory", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11"
+            : "memory"
             : "volatile"
         }
+        core::hint::unreachable_unchecked()
     }
-    unreachable!()
 }
 
 /// Handler that gets linked into the vector table for the Supervisor Call (SVC)
@@ -436,7 +436,7 @@ pub unsafe extern "C" fn SVCall() {
     // of instructions below, though the precise details depend on how complex
     // of an M-series processor you're targeting -- so I've punted on this for
     // the time being.
-    asm! {"
+    llvm_asm! {"
         cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
@@ -588,7 +588,7 @@ fn pend_context_switch_from_isr() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    asm! {"
+    llvm_asm! {"
         @ store volatile state.
         @ first, get a pointer to the current task.
         movw r0, #:lower16:CURRENT_TASK_PTR
@@ -646,7 +646,7 @@ pub unsafe extern "C" fn DefaultHandler() {
     // We can cheaply get the identity of the interrupt that called us from the
     // bottom 9 bits of IPSR.
     let mut ipsr: u32;
-    asm! {
+    llvm_asm! {
         "mrs $0, IPSR"
         : "=r"(ipsr)
     }
@@ -725,7 +725,7 @@ pub fn enable_irq(n: u32) {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn MemoryManagement() {
-    asm! { "
+    llvm_asm! { "
         @ Get the exc_return value into an argument register, which is
         @ difficult to do from higher-level code.
         mov r0, lr

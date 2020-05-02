@@ -14,7 +14,7 @@
 //!   doing anything more complex has some safety implications.
 
 #![no_std]
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 use core::marker::PhantomData;
 
@@ -71,7 +71,7 @@ pub fn sys_send(
     // from under us; it's technically overbroad, but it's not at all clear how
     // to designate a slice as a memory clobber operand.
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 0"
             : "={r4}"(response_code),
               "={r5}"(response_len)
@@ -108,7 +108,7 @@ pub fn sys_receive(buffer: &mut [u8]) -> ReceivedMessage {
     // and set some registers. So from the perspective of this process, it is
     // safe. (If it does not return, it's also, by definition, safe.)
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 1"
             : "={r4}"(sender),
               "={r5}"(operation),
@@ -144,7 +144,7 @@ pub fn sys_reply(task: TaskName, code: u32, message: &[u8]) {
     // the contents of `message`. It has no other user-visible side effects
     // (other than sending a message, obvs)
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 3"
             : // no outputs
             : "{r4}"(task),
@@ -165,7 +165,7 @@ pub fn sys_reply(task: TaskName, code: u32, message: &[u8]) {
 pub fn sys_notmask(and: u32, or: u32) {
     // Safety: this call just updates settings in the kernel.
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 4"
             : // no outputs
             : "{r4}"(and), "{r5}"(or)
@@ -192,10 +192,10 @@ pub fn sys_borrow_info(
     index: usize,
 ) -> Result<BorrowInfo, BorrowError> {
     // Safety: this just pulls information from the kernel; it's unsafe simply
-    // because we need asm!.
+    // because we need llvm_asm!.
     let (mut status, mut attributes, mut size);
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 5"
             : "={r4}"(status),
               "={r5}"(attributes),
@@ -231,10 +231,10 @@ pub fn sys_borrow_write(
     offset: usize,
     data: &[u8],
 ) -> Result<(), BorrowError> {
-    // Safety: this just reads `data`, it's unsafe only because we need asm!.
+    // Safety: this just reads `data`, it's unsafe only because we need llvm_asm!.
     let mut status: u32;
     unsafe {
-        asm! {
+        llvm_asm! {
             "svc 6"
             : "={r4}"(status)
             : "{r4}"(task),

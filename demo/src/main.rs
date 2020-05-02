@@ -1,6 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(asm)]
+#![feature(llvm_asm)]
 
 #[cfg(not(any(feature = "panic-halt", feature = "panic-semihosting")))]
 compile_error!(
