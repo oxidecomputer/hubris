@@ -191,3 +191,99 @@ pub const DEAD: u32 = !0;
 
 /// Response code returned by the kernel if a lender has defected.
 pub const DEFECT: u32 = 1;
+
+/// State used to make scheduling decisions.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TaskState {
+    /// Task is healthy and can be scheduled subject to the `SchedState`
+    /// requirements.
+    Healthy(SchedState),
+    /// Task has been stopped by a fault and must not be scheduled without
+    /// intervention.
+    Faulted {
+        /// Information about the fault.
+        fault: FaultInfo,
+        /// Record of the previous healthy state at the time the fault was
+        /// taken.
+        original_state: SchedState,
+    },
+}
+
+impl Default for TaskState {
+    fn default() -> Self {
+        TaskState::Healthy(SchedState::Stopped)
+    }
+}
+
+/// Scheduler parameters for a healthy task.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SchedState {
+    /// This task is ignored for scheduling purposes.
+    Stopped,
+    /// This task could be scheduled on the CPU.
+    Runnable,
+    /// This task is blocked waiting to deliver a message to the given task.
+    InSend(usize),
+    /// This task is blocked waiting for a reply from the given task.
+    InReply(usize),
+    /// This task is blocked waiting for messages, either from any source
+    /// (`None`) or from a particular sender only.
+    InRecv(Option<usize>),
+}
+
+/// A record describing a fault taken by a task.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum FaultInfo {
+    /// The task has violated memory access rules. This may have come from a
+    /// memory protection fault while executing the task (in the case of
+    /// `source` `User`), or from checks on kernel syscall arguments (`source`
+    /// `Kernel`).
+    MemoryAccess {
+        /// Problematic address that the task accessed, or asked the kernel to
+        /// access. This is `Option` because there are cases of processor
+        /// protection faults that don't provide a precise address.
+        address: Option<usize>,
+        /// Origin of the fault.
+        source: FaultSource,
+    },
+    /// Arguments passed to a syscall were invalid. TODO: this should become
+    /// more descriptive, it's a placeholder.
+    SyscallUsage(UsageError),
+    /// A task has explicitly aborted itself with a panic.
+    Panic,
+}
+
+impl From<UsageError> for FaultInfo {
+    fn from(e: UsageError) -> Self {
+        Self::SyscallUsage(e)
+    }
+}
+
+/// A kernel-defined fault, arising from how a user task behaved.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum UsageError {
+    /// A program used an undefined syscall number.
+    BadSyscallNumber,
+    /// A program specified a slice as a syscall argument, but the slice is
+    /// patently invalid: it is either unaligned for its type, or it is
+    /// expressed such that it would wrap around the end of the address space.
+    /// Neither of these conditions is ever legal, so this represents a
+    /// malfunction in the caller.
+    InvalidSlice,
+    /// A program named a task ID that will never be valid, as it's out of
+    /// range.
+    TaskOutOfRange,
+    LeaseOutOfRange,
+    OffsetOutOfRange,
+    NoIrq,
+    BadKernelMessage,
+}
+
+/// Origin of a fault.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum FaultSource {
+    /// User code did something that was intercepted by the processor.
+    User,
+    /// User code asked the kernel to do something bad on its behalf.
+    Kernel,
+}

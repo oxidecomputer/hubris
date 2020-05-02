@@ -1,8 +1,9 @@
 //! Kernel startup.
 
+use abi::{SchedState, TaskState};
 
 use crate::app;
-use crate::task::{self, SchedState, Task, TaskState};
+use crate::task::{self, Task};
 
 /// The main kernel entry point.
 ///

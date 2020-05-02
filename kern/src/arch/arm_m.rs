@@ -72,6 +72,7 @@ use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
 
+use abi::{FaultSource, FaultInfo};
 use crate::app;
 use crate::task;
 use crate::time::Timestamp;
@@ -772,9 +773,9 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
     if from_thread_mode {
         // Build up a FaultInfo record describing what we know.
         let address = if mmfsr.contains(Mmfsr::MMARVALID) { Some(mmfar) } else { None };
-        let fault = task::FaultInfo::MemoryAccess {
+        let fault = FaultInfo::MemoryAccess {
             address,
-            source: task::FaultSource::User,
+            source: FaultSource::User,
         };
         with_task_table(|tasks| {
             let idx = (task as usize - tasks.as_ptr() as usize)

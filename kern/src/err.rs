@@ -4,7 +4,9 @@
 //! time handling and recording errors, and we ought to be able to separate that
 //! concern using `Result`.
 
-use crate::task::{self, NextTask, FaultInfo, Task, UsageError};
+use abi::{FaultInfo, UsageError};
+
+use crate::task::{self, NextTask, Task};
 
 /// An error committed by user code when interacting with a syscall.
 /// 

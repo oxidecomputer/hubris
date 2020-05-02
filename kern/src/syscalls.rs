@@ -23,13 +23,12 @@
 //! type to make this easy and safe, e.g. `task.save.as_send_args()`. See the
 //! `task::ArchState` trait for details.
 
-use abi::LeaseAttributes;
+use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskState, UsageError};
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::task::{
-    self, ArchState, FaultInfo, FaultSource, NextTask, SchedState, Task,
-    TaskID, TaskState, UsageError,
+    self, ArchState, NextTask, Task, TaskID,
 };
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, ULease, USlice};

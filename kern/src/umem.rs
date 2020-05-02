@@ -3,7 +3,8 @@
 use core::marker::PhantomData;
 use zerocopy::FromBytes;
 
-use crate::task::{FaultInfo, FaultSource, Task, UsageError};
+use abi::{FaultInfo, FaultSource, UsageError};
+use crate::task::Task;
 use crate::err::InteractFault;
 
 pub use abi::ULease;
