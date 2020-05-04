@@ -684,6 +684,30 @@ fn handle_kernel_message(tasks: &mut [Task], caller: usize) -> Result<NextTask, 
             tasks[caller].save.set_send_response_and_length(0, response_len);
             Ok(NextTask::Same)
         }
+        2 => {
+            // restart task
+            let message = maybe_message?;
+            let (index, start): (u32, bool) =
+                deserialize_message(&tasks[caller], message)?;
+            let index = index as usize;
+            if index > tasks.len() {
+                return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::TaskOutOfRange)));
+            }
+            tasks[index].reinitialize();
+            if start {
+                tasks[index].state = TaskState::Healthy(SchedState::Runnable);
+            }
+            if index == caller {
+                // Welp, best not return anything then.
+                if !start {
+                    // Ooh, can't even return to the same task!
+                    return Ok(NextTask::Other)
+                }
+            } else {
+                tasks[caller].save.set_send_response_and_length(0, 0);
+            }
+            Ok(NextTask::Same)
+        }
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::BadKernelMessage)));

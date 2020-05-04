@@ -252,6 +252,8 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
 pub fn reinitialize(task: &mut task::Task) {
     task.save = SavedState::default();
     // Modern ARMv7-M machines require 8-byte stack alignment.
+    // TODO: it is a little rude to assert this in an operation that can be used
+    // after boot... but we do want to ensure that this condition holds...
     assert!(task.descriptor.initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.

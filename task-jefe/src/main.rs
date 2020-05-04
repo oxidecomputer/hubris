@@ -26,19 +26,7 @@ use userlib::*;
 use cortex_m_semihosting::hprintln;
 
 #[export_name = "main"]
-unsafe fn main() -> ! {
-    // We need some static data. Static mut is unsafe because you can generate
-    // aliasing &mut references freely. This is a controlled way of generating
-    // exactly one &mut.
-    let known_faults = {
-        static mut KNOWN_FAULTS: [bool; NUM_TASKS] = [false; NUM_TASKS];
-        &mut KNOWN_FAULTS
-    };
-
-    safe_main(known_faults)
-}
-
-fn safe_main(known_faults: &mut [bool; NUM_TASKS]) -> ! {
+fn main() -> ! {
     hprintln!("viva el jefe").ok();
 
     // We'll have notification 0 wired up to receive information about task
@@ -50,15 +38,14 @@ fn safe_main(known_faults: &mut [bool; NUM_TASKS]) -> ! {
         if msginfo.sender == TaskId::KERNEL {
             // Handle notification
             // We'll assume this notification represents a fault, since we only
-            // had the one bit enabled in the mask... which task is *newly*
-            // fallen over?
+            // had the one bit enabled in the mask... which task has fallen
+            // over?
             for i in 0..NUM_TASKS {
-                if !known_faults[i] {
-                    let s = kipc::read_task_status(i);
-                    if let abi::TaskState::Faulted { fault, .. } = s {
-                        known_faults[i] = true;
-                        hprintln!("Task #{} fault: {:?}", i, fault).ok();
-                    }
+                let s = kipc::read_task_status(i);
+                if let abi::TaskState::Faulted { fault, .. } = s {
+                    hprintln!("Task #{} fault: {:?}", i, fault).ok();
+                    // Stand it back up.
+                    kipc::restart_task(i, true);
                 }
             }
         } else {

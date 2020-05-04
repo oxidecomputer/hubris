@@ -21,10 +21,17 @@ fn main() -> ! {
     let peer = TaskId::for_index_and_gen(PEER as usize, 0);
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
+    let mut iterations = 0usize;
     loop {
         uart_send(b"Ping!\r\n");
         // Signal that we're entering send:
         set_led();
+
+        iterations += 1;
+        if iterations == 1000 {
+            // mwa ha ha ha
+            unsafe { (0 as *const u8).read_volatile(); }
+        }
 
         let (_code, _len) = sys_send(
             peer,

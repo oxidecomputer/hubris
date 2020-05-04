@@ -145,12 +145,31 @@ impl Task {
         self.timer.deadline = deadline;
         self.timer.to_post = notifications;
     }
+
+    pub fn reinitialize(
+        &mut self,
+    ) {
+        self.generation = self.generation.next();
+        self.timer = TimerState::default();
+        self.notifications = 0;
+        self.notification_mask = 0;
+        self.state = TaskState::default();
+
+        crate::arch::reinitialize(self);
+    }
 }
 
 /// Type used to track generation numbers.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct Generation(u8);
+
+impl Generation {
+    pub fn next(self) -> Self {
+        const MASK: u16 = 0xFFFF << TaskID::IDX_BITS >> TaskID::IDX_BITS;
+        Generation(self.0.wrapping_add(1) & MASK as u8)
+    }
+}
 
 /// Interface that must be implemented by the `arch::SavedState` type. This
 /// gives architecture-independent access to task state for the rest of the
