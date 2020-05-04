@@ -13,10 +13,6 @@ use indexmap::IndexMap;
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(max_term_width = 80)]
 struct Args {
-    /// When provided, all components will be built at `--release` level. By
-    /// default, everything is built as unoptimized debug binaries.
-    #[structopt(long)]
-    release: bool,
     /// Path to the image configuration file, in TOML.
     cfg: PathBuf,
     /// Path to the output directory, where this tool will place a set of ELF
@@ -141,7 +137,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut entry_points = HashMap::<_, _>::default();
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
-        build(&args, &toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name),
+        build(&toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name),
             &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)])?;
         let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
@@ -155,7 +151,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let descriptor_text = descriptor_text.join("\n");
 
     // Build the kernel.
-    build(&args, &toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"),
+    build(&toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"),
         &[("HUBRIS_DESCRIPTOR", &descriptor_text)])?;
     let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
 
@@ -211,7 +207,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn build(
-    args: &Args,
     target: &str,
     path: &Path,
     name: &str,
@@ -226,6 +221,7 @@ fn build(
 
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
+        .arg("--release")
         .arg("--no-default-features")
         .arg("--target")
         .arg(target)
@@ -238,9 +234,6 @@ fn build(
         }
     }
 
-    if args.release {
-        cmd.arg("--release");
-    }
     cmd.current_dir(path);
     cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x");
     cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
@@ -255,7 +248,7 @@ fn build(
 
     let mut cargo_out = cargo_output_dir(target, path)?;
     cargo_out.push(target);
-    cargo_out.push(if args.release { "release" } else { "debug" });
+    cargo_out.push("release");
     cargo_out.push(name);
 
     println!("{} -> {}", cargo_out.display(), dest.display());
