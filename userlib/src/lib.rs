@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(llvm_asm)]
 
+pub use abi::*;
 use core::marker::PhantomData;
 
 pub mod kipc;
@@ -22,20 +23,6 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
             },
             _marker: PhantomData,
         }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(transparent)]
-pub struct TaskId(pub u16);
-
-impl TaskId {
-    pub const KERNEL: Self = Self(0xFFFF);
-
-    pub fn for_index_and_gen(index: usize, gen: usize) -> Self {
-        assert!(index < 0x1000);
-        assert!(gen < 0x10);
-        TaskId((index as u16 & 0xFFF) | (gen as u16) << 12)
     }
 }
 

@@ -51,7 +51,7 @@ pub fn main() -> ! {
 }
 
 fn turn_on_gpiod() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, 0);
+    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
     const ENABLE_CLOCK: u16 = 1;
     let gpiod_pnum = 3; // see bits in AHB1ENR
     let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, gpiod_pnum.as_bytes(), &mut [], &[]);

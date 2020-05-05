@@ -146,7 +146,7 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, 0);
+    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 113; // see bits in APB1ENR
@@ -159,7 +159,7 @@ fn turn_on_usart() {
 }
 
 fn turn_on_gpioa() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, 0);
+    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 0; // see bits in AHB1ENR

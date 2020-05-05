@@ -2,7 +2,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use abi::{FaultInfo, UsageError, SchedState, TaskState, Priority};
+use abi::{FaultInfo, UsageError, SchedState, TaskState, Priority, Generation, TaskId};
 
 use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
 use crate::err::UserError;
@@ -91,7 +91,7 @@ impl Task {
         let firing = self.notifications & self.notification_mask;
         if firing != 0 {
             if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
-                self.save.set_recv_result(TaskID::KERNEL, firing, 0, 0, 0);
+                self.save.set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
                 self.state = TaskState::Healthy(SchedState::Runnable);
                 self.acknowledge_notifications();
                 return true;
@@ -156,18 +156,6 @@ impl Task {
         self.state = TaskState::default();
 
         crate::arch::reinitialize(self);
-    }
-}
-
-/// Type used to track generation numbers.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
-#[repr(transparent)]
-pub struct Generation(u8);
-
-impl Generation {
-    pub fn next(self) -> Self {
-        const MASK: u16 = 0xFFFF << TaskID::IDX_BITS >> TaskID::IDX_BITS;
-        Generation(self.0.wrapping_add(1) & MASK as u8)
     }
 }
 
@@ -270,7 +258,7 @@ pub trait ArchState: Default {
     /// Sets the results returned from a RECV.
     fn set_recv_result(
         &mut self,
-        sender: TaskID,
+        sender: TaskId,
         operation: u32,
         length: usize,
         response_capacity: usize,
@@ -303,8 +291,8 @@ pub struct AsSendArgs<T>(T);
 
 impl<'a, T: ArchState> AsSendArgs<&'a T> {
     /// Extracts the task ID the caller wishes to send to.
-    pub fn callee(&self) -> TaskID {
-        TaskID((self.0.arg0() >> 16) as u16)
+    pub fn callee(&self) -> TaskId {
+        TaskId((self.0.arg0() >> 16) as u16)
     }
 
     /// Extracts the operation code the caller is using.
@@ -360,8 +348,8 @@ pub struct AsReplyArgs<T>(T);
 
 impl<'a, T: ArchState> AsReplyArgs<&'a T> {
     /// Extracts the task ID the caller wishes to reply to.
-    pub fn callee(&self) -> TaskID {
-        TaskID(self.0.arg0() as u16)
+    pub fn callee(&self) -> TaskId {
+        TaskId(self.0.arg0() as u16)
     }
 
     /// Extracts the response code the caller is using.
@@ -404,8 +392,8 @@ pub struct AsBorrowArgs<T>(T);
 
 impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
     /// Extracts the task being borrowed from.
-    pub fn lender(&self) -> TaskID {
-        TaskID(self.0.arg0() as u16)
+    pub fn lender(&self) -> TaskId {
+        TaskId(self.0.arg0() as u16)
     }
 
     /// Extracts the lease index.
@@ -445,42 +433,6 @@ impl<'a, T: ArchState> AsPanicArgs<&'a T> {
     /// Extracts the task's reported message slice.
     pub fn message(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
-    }
-}
-
-/// Type used at the syscall boundary to name tasks.
-///
-/// A `TaskID` is a combination of a task index (statically fixed) and a
-/// generation number. The generation changes each time the task is rebooted, to
-/// detect discontinuities in IPC conversations.
-///
-/// The split between the two is given by `TaskID::IDX_BITS`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct TaskID(u16);
-
-impl TaskID {
-    pub const KERNEL: Self = TaskID(core::u16::MAX);
-
-    /// Number of bits in the ID portion of a `TaskID`. The remaining bits are
-    /// generation.
-    pub const IDX_BITS: u32 = 10;
-    /// Mask derived from `IDX_BITS` for extracting the task index.
-    pub const IDX_MASK: u16 = (1 << Self::IDX_BITS) - 1;
-
-    /// Fabricates a `TaskID` for the given index and generation.
-    pub fn from_index_and_gen(index: usize, gen: Generation) -> Self {
-        Self((gen.0 as u16) << Self::IDX_BITS | (index as u16 & Self::IDX_MASK))
-    }
-
-    /// Extracts the index part of this ID.
-    pub fn index(&self) -> usize {
-        usize::from(self.0 & Self::IDX_MASK)
-    }
-
-    /// Extracts the generation part of this ID.
-    pub fn generation(&self) -> Generation {
-        Generation((self.0 >> Self::IDX_BITS) as u8)
     }
 }
 
@@ -558,7 +510,7 @@ pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
     sched_hint
 }
 
-/// Checks a user-provided `TaskID` for validity against `table`.
+/// Checks a user-provided `TaskId` for validity against `table`.
 ///
 /// On success, returns an index that can be used to dereference `table` without
 /// panicking.
@@ -566,7 +518,7 @@ pub fn process_timers(tasks: &mut [Task], current_time: Timestamp) -> NextTask {
 /// On failure, indicates the condition by `UserError`.
 pub fn check_task_id_against_table(
     table: &[Task],
-    id: TaskID,
+    id: TaskId,
 ) -> Result<usize, UserError> {
     if id.index() >= table.len() {
         return Err(FaultInfo::SyscallUsage(UsageError::TaskOutOfRange).into());

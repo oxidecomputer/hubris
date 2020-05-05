@@ -23,13 +23,11 @@
 //! type to make this easy and safe, e.g. `task.save.as_send_args()`. See the
 //! `task::ArchState` trait for details.
 
-use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskState, UsageError};
+use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskId, TaskState, UsageError};
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
-use crate::task::{
-    self, ArchState, NextTask, Task, TaskID,
-};
+use crate::task::{self, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, ULease, USlice};
 
@@ -124,7 +122,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // or by failing the IPC filter? Either condition will fault...
 
     // Route kernel messages.
-    if callee == TaskID::KERNEL {
+    if callee == TaskId::KERNEL {
         return crate::kipc::handle_kernel_message(tasks, caller);
     }
 
@@ -190,7 +188,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         // Pending! Deliver an artificial message from the kernel.
         tasks[caller]
             .save
-            .set_recv_result(TaskID::KERNEL, firing, 0, 0, 0);
+            .set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
         tasks[caller].acknowledge_notifications();
         return Ok(NextTask::Same);
     }
@@ -573,7 +571,7 @@ fn deliver(
     let send_args = tasks[caller].save.as_send_args();
     let op = send_args.operation();
     let caller_id =
-        TaskID::from_index_and_gen(caller, tasks[caller].generation);
+        TaskId::for_index_and_gen(caller, tasks[caller].generation);
     let src_slice = send_args.message().map_err(InteractFault::in_src)?;
     let response_capacity = send_args
         .response_buffer()

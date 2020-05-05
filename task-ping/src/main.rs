@@ -18,7 +18,7 @@ const UART: Task = Task::usart_driver;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let peer = TaskId::for_index_and_gen(PEER as usize, 0);
+    let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
     let mut iterations = 0usize;
@@ -51,7 +51,7 @@ fn set_led() {
 }
 
 fn uart_send(text: &[u8]) {
-    let peer = TaskId::for_index_and_gen(UART as usize, 0);
+    let peer = TaskId::for_index_and_gen(UART as usize, Generation::default());
 
     const OP_WRITE: u16 = 1;
     let (code, _) = sys_send(peer, OP_WRITE, &[], &mut [], &[

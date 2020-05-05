@@ -1,6 +1,6 @@
 //! Kernel startup.
 
-use abi::{SchedState, TaskState};
+use abi::{Generation, SchedState, TaskState};
 
 use crate::app;
 use crate::task::{self, Task};
@@ -132,7 +132,7 @@ fn safe_start_kernel(
 
             descriptor: task_desc,
 
-            generation: crate::task::Generation::default(),
+            generation: Generation::default(),
             notification_mask: 0,
             notifications: 0,
             save: crate::arch::SavedState::default(),
