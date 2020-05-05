@@ -613,3 +613,7 @@ pub fn force_fault(tasks: &mut [Task], index: usize, fault: FaultInfo) -> NextTa
         NextTask::Other
     }
 }
+
+pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
+    TaskId::for_index_and_gen(index, tasks[index].generation)
+}

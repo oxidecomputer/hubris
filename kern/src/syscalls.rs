@@ -27,7 +27,7 @@ use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskId, TaskState
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
-use crate::task::{self, ArchState, NextTask, Task};
+use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, ULease, USlice};
 
@@ -115,24 +115,25 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
 /// If `caller` is out of range for `tasks`.
 fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Extract callee.
-    let callee = tasks[caller].save.as_send_args().callee();
+    let callee_id = tasks[caller].save.as_send_args().callee();
 
     // Check IPC filter - TODO
     // Open question: should out-of-range task IDs be handled by faulting below,
     // or by failing the IPC filter? Either condition will fault...
 
     // Route kernel messages.
-    if callee == TaskId::KERNEL {
+    if callee_id == TaskId::KERNEL {
         return crate::kipc::handle_kernel_message(tasks, caller);
     }
 
     // Verify the given callee ID, converting it into a table index on success.
-    let callee = task::check_task_id_against_table(tasks, callee)?;
+    let callee = task::check_task_id_against_table(tasks, callee_id)?;
 
     // Check for ready peer.
     let mut next_task = NextTask::Same;
+    let caller_id = current_id(tasks, caller);
     if tasks[callee].state
-        == TaskState::Healthy(SchedState::InRecv(Some(caller as u32)))
+        == TaskState::Healthy(SchedState::InRecv(Some(caller_id)))
         || tasks[callee].state == TaskState::Healthy(SchedState::InRecv(None))
     {
         // Callee is waiting in receive -- either an open receive, or a
@@ -144,7 +145,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                 // Delivery succeeded!
                 // Block caller.
                 tasks[caller].state =
-                    TaskState::Healthy(SchedState::InReply(callee as u32));
+                    TaskState::Healthy(SchedState::InReply(callee_id));
                 // Unblock callee.
                 tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
                 // Propose switching directly to the unblocked callee.
@@ -164,7 +165,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 
     // Caller needs to block sending, callee is either busy or
     // faulted.
-    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee as u32));
+    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee_id));
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
     return Ok(NextTask::Other.combine(next_task));
@@ -193,6 +194,8 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         return Ok(NextTask::Same);
     }
 
+    let caller_id = current_id(tasks, caller);
+
     // Begin the search for tasks waiting to send to `caller`. This search needs
     // to be able to iterate because it's possible that some of these senders
     // have bogus arguments to receive, e.g. are trying to get us to deliver a
@@ -203,7 +206,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // - A legit sender is found, but the *caller* misbehaved and gets faulted.
     // - No senders were found (after fault processing) and we have to block the
     //   caller.
-    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller as u32));
+    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller_id));
     let mut last = caller; // keep track of scan position.
                            // Is anyone blocked waiting to send to us?
     let mut next_task = NextTask::Same; // update if we wake tasks
@@ -215,7 +218,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
             Ok(_) => {
                 // Delivery succeeded! Change the sender's blocking state.
                 tasks[sender].state =
-                    TaskState::Healthy(SchedState::InReply(caller as u32));
+                    TaskState::Healthy(SchedState::InReply(caller_id));
                 // And go ahead and let the caller resume.
                 return Ok(next_task);
             }
@@ -250,6 +253,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // Extract the target of the reply.
     let callee = tasks[caller].save.as_reply_args().callee();
+    let caller_id = current_id(tasks, caller);
 
     // Validate it. We tolerate stale IDs here (it's not the callee's fault if
     // the caller crashed before receiving its reply) but we treat invalid
@@ -260,7 +264,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller as u32)) {
+    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller_id)) {
         // Huh. The target task is off doing something else. This can happen if
         // application-specific supervisory logic unblocks it before we've had a
         // chance to reply (e.g. to implement timeouts).
@@ -469,8 +473,10 @@ fn borrow_lease(
     let lease_number = args.lease_number();
     drop(args);
 
+    let caller_id = current_id(tasks, caller);
+
     // Check state of lender and range of lease table.
-    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller as u32)) {
+    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller_id)) {
         // The alleged lender isn't lending anything at all.
         // Let's assume this is a defecting lender.
         return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
@@ -600,7 +606,8 @@ fn deliver(
         lease_count,
     );
 
-    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee as u32));
+    let callee_id = current_id(tasks, callee);
+    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee_id));
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
     // We don't have an opinion about the newly runnable task, nor do we
     // have enough information to insist that a switch must happen.

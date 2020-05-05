@@ -32,7 +32,7 @@ pub const TASK_ID_INDEX_BITS: usize = 10;
 ///
 /// The task index is in the lower `TaskId::INDEX_BITS` bits, while the
 /// generation is in the remaining top bits.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TaskId(pub u16);
 
 impl TaskId {
@@ -292,12 +292,12 @@ pub enum SchedState {
     /// This task could be scheduled on the CPU.
     Runnable,
     /// This task is blocked waiting to deliver a message to the given task.
-    InSend(u32),
+    InSend(TaskId),
     /// This task is blocked waiting for a reply from the given task.
-    InReply(u32),
+    InReply(TaskId),
     /// This task is blocked waiting for messages, either from any source
     /// (`None`) or from a particular sender only.
-    InRecv(Option<u32>),
+    InRecv(Option<TaskId>),
 }
 
 /// A record describing a fault taken by a task.

@@ -1,9 +1,9 @@
 //! Implementation of IPC operations on the virtual kernel task.
 
-use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError};
+use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError, DEAD};
 
 use crate::err::UserError;
-use crate::task::{ArchState, NextTask, Task};
+use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
 
 /// Message dispatcher.
@@ -111,29 +111,48 @@ fn restart_task(
             UsageError::TaskOutOfRange,
         )));
     }
+    let old_id = current_id(tasks, index);
     tasks[index].reinitialize();
     if start {
         tasks[index].state = TaskState::Healthy(SchedState::Runnable);
     }
 
+    // Restarting a task can have implications for other tasks. We don't want to
+    // leave tasks sitting around waiting for a reply that will never come, for
+    // example. So, make a pass over the task table and unblock anyone who was
+    // expecting useful work from the now-defunct task.
     for (i, task) in tasks.iter_mut().enumerate() {
+        // Just to make this a little easier to think about, don't check either
+        // of the tasks involved in the restart operation. Neither should be
+        // affected anyway.
         if i == caller || i == index {
             continue;
         }
 
-        if task.state == TaskState::Healthy(SchedState::InReply(index as u32)) {
-            // Uh-oh. The task we're restarting has accepted a message
-            // from this task, which will be waiting forever for a
-            // reply!
-            task.save.set_send_response_and_length(abi::DEAD, 0);
-            task.state = TaskState::Healthy(SchedState::Runnable);
+        // We'll skip processing faulted tasks, because we don't want to lose
+        // information in their fault records by changing their states.
+        if let TaskState::Healthy(sched) = task.state {
+            match sched {
+                SchedState::InRecv(Some(peer))
+                | SchedState::InSend(peer)
+                | SchedState::InReply(peer)
+                    if peer == old_id =>
+                {
+                    // Please accept our sincere condolences on behalf of the
+                    // kernel.
+                    task.save.set_error_response(DEAD);
+                    task.state = TaskState::Healthy(SchedState::Runnable);
+                }
+                _ => (),
+            }
         }
     }
 
     if index == caller {
-        // Welp, best not return anything then.
+        // Welp, they've restarted themselves. Best not return anything then.
         if !start {
-            // Ooh, can't even return to the same task!
+            // And they have asked not to be started, so we can't even fast-path
+            // return to their task!
             return Ok(NextTask::Other);
         }
     } else {
