@@ -31,6 +31,7 @@ pub mod arch;
 
 pub mod app;
 pub mod err;
+pub mod kipc;
 pub mod startup;
 pub mod syscalls;
 pub mod task;
