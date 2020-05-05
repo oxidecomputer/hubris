@@ -17,8 +17,8 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
         Self {
             kern_rep: abi::ULease {
                 attributes: abi::LeaseAttributes::READ,
-                base_address: x.as_ptr() as usize,
-                length: x.len(),
+                base_address: x.as_ptr() as u32,
+                length: x.len() as u32,
             },
             _marker: PhantomData,
         }

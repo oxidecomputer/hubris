@@ -770,7 +770,7 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
     // Fault Status Register.
     let mmfsr = Mmfsr::from_bits_truncate(scb.cfsr.read() as u8);
     // Where did they do it? Faulting address in MMFAR (when available).
-    let mmfar = scb.mmfar.read() as usize;
+    let mmfar = scb.mmfar.read();
 
     if from_thread_mode {
         // Build up a FaultInfo record describing what we know.

@@ -196,8 +196,8 @@ where
 impl<'a> From<&'a ULease> for USlice<u8> {
     fn from(lease: &'a ULease) -> Self {
         Self {
-            base_address: lease.base_address,
-            length: lease.length,
+            base_address: lease.base_address as usize,
+            length: lease.length as usize,
             _marker: PhantomData,
         }
     }
@@ -224,7 +224,7 @@ pub fn safe_copy(
         None
     } else {
         Some(FaultInfo::MemoryAccess {
-            address: Some(from_slice.base_address),
+            address: Some(from_slice.base_address as u32),
             source: FaultSource::Kernel,
         })
     };
@@ -236,7 +236,7 @@ pub fn safe_copy(
         None
     } else {
         Some(FaultInfo::MemoryAccess {
-            address: Some(to_slice.base_address),
+            address: Some(to_slice.base_address as u32),
             source: FaultSource::Kernel,
         })
     };

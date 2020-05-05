@@ -40,7 +40,7 @@ where
 {
     if !task.can_read(&message) {
         return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
-            address: Some(message.base_addr()),
+            address: Some(message.base_addr() as u32),
             source: FaultSource::Kernel,
         }));
     }
@@ -59,7 +59,7 @@ where
 {
     if !task.can_write(&buf) {
         return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
-            address: Some(buf.base_addr()),
+            address: Some(buf.base_addr() as u32),
             source: FaultSource::Kernel,
         }));
     }
@@ -121,7 +121,7 @@ fn restart_task(
             continue;
         }
 
-        if task.state == TaskState::Healthy(SchedState::InReply(index)) {
+        if task.state == TaskState::Healthy(SchedState::InReply(index as u32)) {
             // Uh-oh. The task we're restarting has accepted a message
             // from this task, which will be waiting forever for a
             // reply!

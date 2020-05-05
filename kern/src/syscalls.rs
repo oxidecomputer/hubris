@@ -134,7 +134,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Check for ready peer.
     let mut next_task = NextTask::Same;
     if tasks[callee].state
-        == TaskState::Healthy(SchedState::InRecv(Some(caller)))
+        == TaskState::Healthy(SchedState::InRecv(Some(caller as u32)))
         || tasks[callee].state == TaskState::Healthy(SchedState::InRecv(None))
     {
         // Callee is waiting in receive -- either an open receive, or a
@@ -146,7 +146,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                 // Delivery succeeded!
                 // Block caller.
                 tasks[caller].state =
-                    TaskState::Healthy(SchedState::InReply(callee));
+                    TaskState::Healthy(SchedState::InReply(callee as u32));
                 // Unblock callee.
                 tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
                 // Propose switching directly to the unblocked callee.
@@ -166,7 +166,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 
     // Caller needs to block sending, callee is either busy or
     // faulted.
-    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee));
+    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee as u32));
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
     return Ok(NextTask::Other.combine(next_task));
@@ -205,7 +205,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // - A legit sender is found, but the *caller* misbehaved and gets faulted.
     // - No senders were found (after fault processing) and we have to block the
     //   caller.
-    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller));
+    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller as u32));
     let mut last = caller; // keep track of scan position.
                            // Is anyone blocked waiting to send to us?
     let mut next_task = NextTask::Same; // update if we wake tasks
@@ -217,7 +217,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
             Ok(_) => {
                 // Delivery succeeded! Change the sender's blocking state.
                 tasks[sender].state =
-                    TaskState::Healthy(SchedState::InReply(caller));
+                    TaskState::Healthy(SchedState::InReply(caller as u32));
                 // And go ahead and let the caller resume.
                 return Ok(next_task);
             }
@@ -262,7 +262,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller)) {
+    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller as u32)) {
         // Huh. The target task is off doing something else. This can happen if
         // application-specific supervisory logic unblocks it before we've had a
         // chance to reply (e.g. to implement timeouts).
@@ -455,7 +455,7 @@ fn borrow_info(
 
     tasks[caller].save.set_borrow_info(
         lease.attributes.bits(),
-        lease.length,
+        lease.length as usize,
     );
     return Ok(NextTask::Same);
 }
@@ -472,7 +472,7 @@ fn borrow_lease(
     drop(args);
 
     // Check state of lender and range of lease table.
-    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller)) {
+    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller as u32)) {
         // The alleged lender isn't lending anything at all.
         // Let's assume this is a defecting lender.
         return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
@@ -493,7 +493,7 @@ fn borrow_lease(
     // Can the lender actually read the lease table, or are they being sneaky?
     if !tasks[lender].can_read(&leases) {
         let wake_hint = task::force_fault(tasks, lender, FaultInfo::MemoryAccess {
-            address: Some(leases.base_addr()),
+            address: Some(leases.base_addr() as u32),
             source: FaultSource::Kernel,
         });
         return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
@@ -506,9 +506,9 @@ fn borrow_lease(
     // Is the lease number provided by the borrower legitimate?
     if let Some(mut lease) = lease {
         // Attempt to offset the lease.
-        if offset <= lease.length {
-            lease.base_address += offset;
-            lease.length -= offset;
+        if offset <= lease.length as usize {
+            lease.base_address += offset as u32;
+            lease.length -= offset as u32;
         } else {
             return Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
         }
@@ -602,7 +602,7 @@ fn deliver(
         lease_count,
     );
 
-    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee));
+    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee as u32));
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
     // We don't have an opinion about the newly runnable task, nor do we
     // have enough information to insist that a switch must happen.

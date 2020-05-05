@@ -171,9 +171,9 @@ pub struct ULease {
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: usize,
+    pub base_address: u32,
     /// Length of leased memory, in bytes.
-    pub length: usize,
+    pub length: u32,
 }
 
 bitflags::bitflags! {
@@ -224,12 +224,12 @@ pub enum SchedState {
     /// This task could be scheduled on the CPU.
     Runnable,
     /// This task is blocked waiting to deliver a message to the given task.
-    InSend(usize),
+    InSend(u32),
     /// This task is blocked waiting for a reply from the given task.
-    InReply(usize),
+    InReply(u32),
     /// This task is blocked waiting for messages, either from any source
     /// (`None`) or from a particular sender only.
-    InRecv(Option<usize>),
+    InRecv(Option<u32>),
 }
 
 /// A record describing a fault taken by a task.
@@ -243,7 +243,7 @@ pub enum FaultInfo {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
         /// protection faults that don't provide a precise address.
-        address: Option<usize>,
+        address: Option<u32>,
         /// Origin of the fault.
         source: FaultSource,
     },
