@@ -12,9 +12,11 @@ semihosting = ['panic-semihosting', 'kern/klog-semihosting']
 [dependencies]
 cortex-m = "0.6.0"
 cortex-m-rt = "0.6.10"
+# cortex-m-semihosting = { path = "../../cortex-m-semihosting" }
 cortex-m-semihosting = "0.3.3"
 panic-halt = {version = "0.2.0", optional = true}
 panic-semihosting = {version = "0.5.3", optional = true}
+ufmt = "0.1.0"
 
 [dependencies.stm32f4]
 features = ["stm32f407", "rt"]

@@ -4,6 +4,7 @@
 
 use serde::{Serialize, Deserialize};
 use zerocopy::{AsBytes, FromBytes, Unaligned};
+use ufmt::derive::uDebug;
 
 /// Magic number that appears at the start of an application header (`App`) to
 /// reassure the kernel that it is not reading uninitialized Flash.
@@ -25,7 +26,7 @@ pub const REGIONS_PER_TASK: usize = 8;
 /// keep us from confusing ourselves on whether `>` means numerically greater /
 /// less important, or more important / numerically smaller.
 #[derive(
-    Copy, Clone, Debug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default,
+    Copy, Clone, uDebug, Eq, PartialEq, FromBytes, AsBytes, Unaligned, Default,
 )]
 #[repr(transparent)]
 pub struct Priority(pub u8);
@@ -44,7 +45,7 @@ impl Priority {
 ///
 /// One copy of this appears in Flash next to the kernel, with the other types
 /// of records following immediately.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, uDebug, FromBytes)]
 #[repr(C)]
 pub struct App {
     /// Reassures the kernel that it is dealing with this kind of an app struct.
@@ -68,7 +69,7 @@ pub struct App {
 }
 
 /// Record describing a single task.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, uDebug, FromBytes)]
 #[repr(C)]
 pub struct TaskDesc {
     /// Identifies memory regions this task has access to, by index in the
@@ -94,7 +95,7 @@ pub struct TaskDesc {
 }
 
 bitflags::bitflags! {
-    #[derive(FromBytes)]
+    #[derive(FromBytes, uDebug)]
     #[repr(transparent)]
     pub struct TaskFlags: u32 {
         const START_AT_BOOT = 1 << 0;
@@ -111,7 +112,7 @@ bitflags::bitflags! {
 /// Note that regions can overlap. This can be useful: for example, you can have
 /// two regions pointing to the same area of the address space, but one
 /// read-only and the other read-write.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, uDebug, FromBytes)]
 #[repr(C)]
 pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
@@ -129,7 +130,7 @@ pub struct RegionDesc {
 }
 
 bitflags::bitflags! {
-    #[derive(FromBytes)]
+    #[derive(FromBytes, uDebug)]
     #[repr(transparent)]
     pub struct RegionAttributes: u32 {
         /// Region can be read by tasks that include it.
@@ -148,7 +149,7 @@ bitflags::bitflags! {
 }
 
 /// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, uDebug, FromBytes)]
 #[repr(C)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.
@@ -163,7 +164,7 @@ pub struct Interrupt {
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
 /// it *claims* contains structs of this type.
-#[derive(Copy, Clone, Debug, FromBytes)]
+#[derive(Copy, Clone, uDebug, FromBytes)]
 #[repr(C)]
 pub struct ULease {
     /// Lease attributes.
@@ -177,7 +178,7 @@ pub struct ULease {
 }
 
 bitflags::bitflags! {
-    #[derive(FromBytes)]
+    #[derive(FromBytes, uDebug)]
     #[repr(transparent)]
     pub struct LeaseAttributes: u32 {
         /// Allow the borrower to read this memory.
@@ -194,7 +195,7 @@ pub const DEAD: u32 = !0;
 pub const DEFECT: u32 = 1;
 
 /// State used to make scheduling decisions.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum TaskState {
     /// Task is healthy and can be scheduled subject to the `SchedState`
     /// requirements.
@@ -217,7 +218,7 @@ impl Default for TaskState {
 }
 
 /// Scheduler parameters for a healthy task.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum SchedState {
     /// This task is ignored for scheduling purposes.
     Stopped,
@@ -233,7 +234,7 @@ pub enum SchedState {
 }
 
 /// A record describing a fault taken by a task.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
@@ -261,7 +262,7 @@ impl From<UsageError> for FaultInfo {
 }
 
 /// A kernel-defined fault, arising from how a user task behaved.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum UsageError {
     /// A program used an undefined syscall number.
     BadSyscallNumber,
@@ -281,7 +282,7 @@ pub enum UsageError {
 }
 
 /// Origin of a fault.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum FaultSource {
     /// User code did something that was intercepted by the processor.
     User,

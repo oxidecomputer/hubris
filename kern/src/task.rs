@@ -9,6 +9,8 @@ use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
 
+use ufmt::derive::uDebug;
+
 /// The fault notification sent to the supervisor is stored in a global.
 #[no_mangle]
 static FAULT_NOTIFICATION: AtomicU32 = AtomicU32::new(0);
@@ -19,7 +21,7 @@ pub fn set_fault_notification(mask: u32) {
 
 /// Internal representation of a task.
 #[repr(C)] // so location of SavedState is predictable
-#[derive(Debug)]
+#[derive(uDebug)]
 pub struct Task {
     /// Saved machine state of the user program.
     pub save: crate::arch::SavedState,
@@ -160,7 +162,7 @@ impl Task {
 }
 
 /// Type used to track generation numbers.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct Generation(u8);
 
@@ -455,7 +457,7 @@ impl<'a, T: ArchState> AsPanicArgs<&'a T> {
 /// detect discontinuities in IPC conversations.
 ///
 /// The split between the two is given by `TaskID::IDX_BITS`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, uDebug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct TaskID(u16);
 
@@ -487,7 +489,7 @@ impl TaskID {
 /// State for a task timer.
 ///
 /// Task timers are used to multiplex the hardware timer.
-#[derive(Debug, Default)]
+#[derive(uDebug, Default)]
 pub struct TimerState {
     /// Deadline, in kernel time, at which this timer should fire. If `None`,
     /// the timer is disabled.
@@ -498,14 +500,14 @@ pub struct TimerState {
 }
 
 /// Collection of bits that may be posted to a task's notification word.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct NotificationSet(pub u32);
 
 /// Return value for operations that can have scheduling implications. This is
 /// marked `must_use` because forgetting to actually update the scheduler after
 /// performing an operation that requires it would be Bad.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, uDebug, Eq, PartialEq)]
 #[must_use]
 pub enum NextTask {
     /// It's fine to keep running whatever task we were just running.

@@ -3,9 +3,12 @@
 
 use core::marker::PhantomData;
 
+use ufmt::derive::uDebug;
+
 pub mod kipc;
 
-#[derive(Debug)]
+// ufmt doesn't support PhantomData at the moment so don't
+// derive(uDebug) or Debug for the moment.
 #[repr(transparent)]
 pub struct Lease<'a> {
     kern_rep: abi::ULease,
@@ -25,7 +28,7 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct TaskId(pub u16);
 

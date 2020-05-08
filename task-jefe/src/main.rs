@@ -22,12 +22,14 @@
 #![no_std]
 #![no_main]
 
+extern crate cortex_m_semihosting;
+
 use userlib::*;
-use cortex_m_semihosting::hprintln;
+use cortex_m_semihosting::uhprintln;
 
 #[export_name = "main"]
 fn main() -> ! {
-    hprintln!("viva el jefe").ok();
+    uhprintln!("viva el jefe").ok();
 
     // We'll have notification 0 wired up to receive information about task
     // faults.
@@ -43,14 +45,14 @@ fn main() -> ! {
             for i in 0..NUM_TASKS {
                 let s = kipc::read_task_status(i);
                 if let abi::TaskState::Faulted { fault, .. } = s {
-                    hprintln!("Task #{} fault: {:?}", i, fault).ok();
+                    uhprintln!("Task #{} fault: {:?}", i, fault).ok();
                     // Stand it back up.
                     kipc::restart_task(i, true);
                 }
             }
         } else {
             // ...huh. A task has sent a message to us. That seems wrong.
-            hprintln!("Unexpected message from {}", msginfo.sender.0).ok();
+            uhprintln!("Unexpected message from {}", msginfo.sender.0).ok();
         }
     }
 }

@@ -10,7 +10,9 @@ userlib = {path = "../userlib"}
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"
 cortex-m = "0.6.0"
+# cortex-m-semihosting = {path = "../../cortex-m-semihosting"}
 cortex-m-semihosting = "0.3.3"
+ufmt = "0.1.0"
 
 [features]
 default = ["standalone"]

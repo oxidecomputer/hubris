@@ -256,7 +256,7 @@ pub fn sys_borrow_write(
 }
 
 /// A type for designating a task you want to interact with.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, uDebug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct TaskName(pub u16);
 
@@ -279,7 +279,7 @@ pub const NO_PEER: u32 = !0;
 /// Create a `Lease` using `Lease::read` or `Lease::write`. The expectation is
 /// that these will be generated immediately before a `send` by some sort of
 /// wrapper function, rather than manipulated by normal user code directly.
-#[derive(Debug)]
+#[derive(uDebug)]
 #[repr(C)]
 pub struct Lease<'a> {
     /// Encoding of the lease's properties into a 32-bit word.

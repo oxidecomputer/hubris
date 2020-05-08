@@ -78,6 +78,8 @@ use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 
+use ufmt::derive::uDebug;
+
 /// Log things from kernel context. This macro is made visible to the rest of
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
 /// is very architecture-specific at the moment.
@@ -116,7 +118,7 @@ static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 ///
 /// TODO: this set is a great start but is missing half the FPU registers.
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(uDebug, Default)]
 pub struct SavedState {
     // NOTE: the following fields must be kept contiguous!
     r4: u32,
@@ -189,7 +191,7 @@ impl task::ArchState for SavedState {
 
 /// Stuff placed on the stack at exception entry whether or not an FPU is
 /// present.
-#[derive(Debug, FromBytes, Default)]
+#[derive(uDebug, FromBytes, Default)]
 #[repr(C)]
 pub struct BaseExceptionFrame {
     r0: u32,
@@ -203,7 +205,7 @@ pub struct BaseExceptionFrame {
 }
 
 /// Extended version for FPU.
-#[derive(Debug, FromBytes, Default)]
+#[derive(uDebug, FromBytes, Default)]
 #[repr(C)]
 pub struct ExtendedExceptionFrame {
     base: BaseExceptionFrame,
@@ -259,12 +261,19 @@ pub fn reinitialize(task: &mut task::Task) {
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
+    // let mut uslice: USlice<ExtendedExceptionFrame>;
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
-    let mut uslice: USlice<ExtendedExceptionFrame> = USlice::from_raw(
+    // We want to limit our use of Debug so we have to unwrap manually
+    let d = USlice::from_raw(
         task.descriptor.initial_stack as usize - frame_size,
         1,
-    )
-    .unwrap();
+    );
+
+    let mut uslice = match d {
+        Ok(a) => a,
+        Err(_) => panic!("Uslice failed")
+    };
+
     assert!(task.can_write(&uslice));
 
     let frame = unsafe { &mut uslice.assume_writable()[0] };

@@ -5,6 +5,7 @@
 //! concern using `Result`.
 
 use abi::{FaultInfo, UsageError};
+use ufmt::derive::uDebug;
 
 use crate::task::{self, NextTask, Task};
 
@@ -12,7 +13,7 @@ use crate::task::{self, NextTask, Task};
 /// 
 /// This is used internally as the returned error type for syscall
 /// implementations.
-#[derive(Clone, Debug)]
+#[derive(Clone, uDebug)]
 pub enum UserError {
     /// A recoverable error. Recoverable errors are indicated to the errant task
     /// by returning a response code (the `u32` field). They may still cause a
@@ -43,7 +44,7 @@ impl From<UsageError> for UserError {
 /// This can assign fault to either or both tasks. By convention, an
 /// `InteractFault` won't contain both fields as `None`, though the type system
 /// doesn't prevent this.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, uDebug)]
 pub struct InteractFault {
     /// Fault in the source task of a transfer.
     pub src: Option<FaultInfo>,

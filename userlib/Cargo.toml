@@ -14,6 +14,7 @@ r0 = "1.0"
 serde = {version = "1", default-features = false}
 ssmarshal = {version = "1", default-features = false}
 zerocopy = "0.3"
+ufmt = "0.1.0"
 
 [lib]
 test = false

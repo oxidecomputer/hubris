@@ -241,6 +241,7 @@ fn build(
         cmd.env(key, val);
     }
 
+    println!("{:?}", cmd);
     let status = cmd.status()?;
     if !status.success() {
         return Err("command failed, see output for details".into());

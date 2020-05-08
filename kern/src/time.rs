@@ -1,9 +1,11 @@
 //! Implementation of kernel time.
 
+use ufmt::derive::uDebug;
+
 /// In-kernel timestamp representation.
 ///
 /// This is currently measured in an arbitrary "tick" unit.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, uDebug, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct Timestamp(u64);
 
