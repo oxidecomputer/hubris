@@ -52,11 +52,11 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
         // sequence is actually within the stated bounds of the task table. This
         // is incredibly unlikely to fail on a real system so these are
         // debug-only.
-        debug_assert!(task as usize >= tasks.as_ptr() as usize);
-        debug_assert!(
-            (task as usize)
-                < tasks.as_ptr().offset(tasks.len() as isize) as usize
-        );
+        //debug_assert!(task as usize >= tasks.as_ptr() as usize);
+        //debug_assert!(
+        //    (task as usize)
+        //        < tasks.as_ptr().offset(tasks.len() as isize) as usize
+        //);
 
         // Work out the task index based on the pointer into the task table
         // slice. We could store the index *and* the pointer in globals,
