@@ -95,6 +95,22 @@ macro_rules! klog {
     ($s:expr, $($tt:tt)*) => { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); };
 }
 
+macro_rules! uassert {
+    ($cond : expr) => {
+        if ! $cond {
+            panic!("Assertion failed!");
+        }
+    }
+}
+
+macro_rules! uassert_eq {
+    ($cond1 : expr, $cond2 : expr) => {
+        if ! ($cond1 == $cond2) {
+            panic!("Assertion failed!");
+        }
+    }
+}
+
 /// On ARMvx-M we use a global to record the task table position and extent.
 #[no_mangle]
 static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
@@ -233,7 +249,7 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
         Some(NonNull::from(&mut tasks[0])),
     );
     // Catch double-uses of this function.
-    assert_eq!(prev_task_table, None);
+    uassert_eq!(prev_task_table, None);
     // Record length as well.
     TASK_TABLE_SIZE = tasks.len();
 }
@@ -244,7 +260,7 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
         Some(NonNull::new_unchecked(irqs.as_ptr() as *mut abi::Interrupt)),
     );
     // Catch double-uses of this function.
-    assert_eq!(prev_table, None);
+    uassert_eq!(prev_table, None);
     // Record length as well.
     IRQ_TABLE_SIZE = irqs.len();
 }
@@ -254,7 +270,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Modern ARMv7-M machines require 8-byte stack alignment.
     // TODO: it is a little rude to assert this in an operation that can be used
     // after boot... but we do want to ensure that this condition holds...
-    assert!(task.descriptor.initial_stack & 0x7 == 0);
+    uassert!(task.descriptor.initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
@@ -265,7 +281,7 @@ pub fn reinitialize(task: &mut task::Task) {
         1,
     )
     .unwrap();
-    assert!(task.can_write(&uslice));
+    uassert!(task.can_write(&uslice));
 
     let frame = unsafe { &mut uslice.assume_writable()[0] };
 
@@ -297,10 +313,6 @@ pub fn apply_memory_protection(task: &task::Task) {
     };
 
     for (i, region) in task.region_table.iter().enumerate() {
-        // This MPU requires that all regions are 32-byte aligned...in part
-        // because it stuffs extra stuff into the bottom five bits.
-        debug_assert_eq!(region.base & 0x1F, 0);
-
         let rbar = (i as u32)  // region number
             | (1 << 4)  // honor the region number
             | region.base;
