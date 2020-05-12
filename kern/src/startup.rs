@@ -29,15 +29,15 @@ pub unsafe fn start_kernel(
     ));
     // Validate the app header!
     let app_header = &*app_header_ptr;
-    assert_eq!(app_header.magic, app::CURRENT_APP_MAGIC);
+    uassert_eq!(app_header.magic, app::CURRENT_APP_MAGIC);
     // TODO task count less than some configured maximum
 
     // We use 8-bit region numbers in task descriptions, so we have to limit the
     // number of defined regions.
-    assert!(app_header.region_count < 256);
+    uassert!(app_header.region_count < 256);
 
     // Check that no mysterious data appears in the reserved space.
-    assert_eq!(app_header.zeroed_expansion_space, [0; 12]);
+    uassert_eq!(app_header.zeroed_expansion_space, [0; 12]);
 
     // Derive the addresses of the other regions from the app header.
     let tasks_ptr = app_header_ptr.offset(1) as *const app::TaskDesc;
@@ -60,23 +60,23 @@ pub unsafe fn start_kernel(
     // Validate regions first, since tasks will use them.
     for region in regions {
         // Check for use of reserved attributes.
-        assert!(!region
+        uassert!(!region
             .attributes
             .intersects(app::RegionAttributes::RESERVED));
         // Check for base+size overflow
-        assert!(region.base.wrapping_add(region.size) >= region.base);
+        uassert!(region.base.wrapping_add(region.size) >= region.base);
         // Check for suspicious use of reserved word
-        assert_eq!(region.reserved_zero, 0);
+        uassert_eq!(region.reserved_zero, 0);
     }
 
     // Validate tasks next.
     for task in tasks {
-        assert!(!task.flags.intersects(app::TaskFlags::RESERVED));
+        uassert!(!task.flags.intersects(app::TaskFlags::RESERVED));
 
         let mut entry_pt_found = false;
         let mut stack_ptr_found = false;
         for &region_idx in &task.regions {
-            assert!(region_idx < app_header.region_count as u8);
+            uassert!(region_idx < app_header.region_count as u8);
             let region = &regions[region_idx as usize];
             if task.entry_point.wrapping_sub(region.base) < region.size {
                 if region.attributes.contains(app::RegionAttributes::EXECUTE) {
@@ -95,14 +95,14 @@ pub unsafe fn start_kernel(
             }
         }
 
-        assert!(entry_pt_found);
-        assert!(stack_ptr_found);
+        uassert!(entry_pt_found);
+        uassert!(stack_ptr_found);
     }
 
     // Finally, check interrupts.
     for irq in interrupts {
         // Valid task index?
-        assert!(irq.task < tasks.len() as u32);
+        uassert!(irq.task < tasks.len() as u32);
     }
 
     // Okay, we're pretty sure this is all legitimate.
