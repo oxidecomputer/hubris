@@ -646,9 +646,9 @@ fn explicit_panic(
             let slice = unsafe { uslice.assume_readable() };
 
             if slice.iter().all(|&c| c < 0x80) {
-                klog!("task @{:p} panicked: {}", &tasks[caller], unsafe { core::str::from_utf8_unchecked(slice) });
+                klog!("task @{} panicked: {}", caller, unsafe { core::str::from_utf8_unchecked(slice) });
             } else {
-                klog!("task @{:p} panicked: {:x?}", &tasks[caller], slice);
+                klog!("task @{} panicked: (message unprintable)", caller);
             }
         }
     }
