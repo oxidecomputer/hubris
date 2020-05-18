@@ -5,8 +5,9 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [features]
-default = ["klog-semihosting"]
+default = ["klog-itm"]
 klog-semihosting = ["cortex-m-semihosting"]
+klog-itm = []
 
 [dependencies]
 abi = {path = "../abi"}

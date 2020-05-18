@@ -7,6 +7,8 @@ edition = "2018"
 [features]
 default = ["panic-messages"]
 panic-messages = []
+log-itm = []
+log-semihosting = []
 
 [dependencies]
 abi = {path = "../abi"}
