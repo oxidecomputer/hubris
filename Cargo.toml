@@ -13,6 +13,7 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-loopback",
 
     "packager",
 

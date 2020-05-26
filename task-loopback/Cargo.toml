@@ -1,0 +1,23 @@
+[package]
+name = "task-loopback"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+# suppress default features to avoid including panic message collection, to
+# ensure the loopback task remains tiny.
+userlib = {path = "../userlib", default-features = false}
+cortex-m = "0.6.0"
+cortex-m-semihosting = "0.3.3"
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-loopback"
+test = false
+bench = false

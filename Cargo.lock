@@ -623,6 +623,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-loopback"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
