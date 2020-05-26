@@ -193,6 +193,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32f4-spi"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "cortex-m-semihosting",
+ "stm32f4",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32f4-usart"
 version = "0.1.0"
 dependencies = [

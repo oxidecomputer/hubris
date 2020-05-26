@@ -18,6 +18,7 @@ members = [
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",
+    "drv/stm32f4-spi",
 ]
 default-members = ["packager"]
 resolver = "2"

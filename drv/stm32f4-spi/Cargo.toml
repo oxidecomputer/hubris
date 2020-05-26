@@ -1,0 +1,23 @@
+[package]
+name = "drv-stm32f4-spi"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
+zerocopy = "0.3.0"
+cortex-m-semihosting = "0.3.3"
+abi = {path = "../../abi"}
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32f4-spi"
+test = false
+bench = false
