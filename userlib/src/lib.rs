@@ -26,6 +26,19 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
     }
 }
 
+impl<'a> From<&'a mut [u8]> for Lease<'a> {
+    fn from(x: &'a mut [u8]) -> Self {
+        Self {
+            kern_rep: abi::ULease {
+                attributes: abi::LeaseAttributes::WRITE,
+                base_address: x.as_ptr() as u32,
+                length: x.len() as u32,
+            },
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[repr(u32)]
 enum Sysnum {
     Send = 0,
