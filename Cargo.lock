@@ -184,6 +184,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32f4-i2c"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "stm32f4",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
