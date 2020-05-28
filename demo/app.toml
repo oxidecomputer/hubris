@@ -61,7 +61,6 @@ name = "task-ping"
 priority = 3
 requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
-start = true
 
 [tasks.pong]
 path = "../task-pong"
@@ -69,7 +68,14 @@ name = "task-pong"
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
+
+[tasks.spam]
+path = "../task-spam"
+name = "task-spam"
+priority = 2
+requires = {flash = 8192, ram = 1024}
 start = true
+uses = ["gpiod"]
 
 [tasks.idle]
 path = "../task-idle"
