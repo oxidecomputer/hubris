@@ -72,6 +72,56 @@ fn main() -> ! {
     let rcc = unsafe { &*device::RCC::ptr() };
 
     // Any global setup we required would go here.
+    // Set this to 48mhz. These values are borrowed from running the hal
+    // crate
+
+    rcc.pllcfgr.write(|w| unsafe {
+        w.pllm().bits(0x8 as u8);
+        w.plln().bits(0xc0 as u16);
+        w.pllp().bits(0x3 as u8);
+        w.pllq().bits(0x8 as u8);
+        w.pllsrc().bit(false)
+    });
+
+
+    // When we mess with the clock we need to set the flash rate accordingly
+    unsafe {
+            //let flash_latency_step = 30_000_000
+
+            let flash = &(*device::FLASH::ptr());
+            // Adjust flash wait states
+            flash.acr.modify(|_, w| {
+                w.latency().bits(0x1 as u8);
+                w.prften().set_bit();
+                w.icen().set_bit();
+                w.dcen().set_bit()
+            })
+    }
+
+    cortex_m::asm::delay(16);
+
+    // Enable PLL
+    rcc.cr.modify(|_, w| w.pllon().set_bit());
+
+    // Wait for PLL to stabilise
+    while rcc.cr.read().pllrdy().bit_is_clear() {}
+
+    rcc.cfgr.modify(|_, w| unsafe {
+            w.ppre2()
+                .bits(0)
+                .ppre1()
+                .bits(0x4)
+                .hpre()
+                .variant(device::rcc::cfgr::HPRE_A::DIV1)
+    });
+
+
+
+    cortex_m::asm::delay(16);
+
+    rcc.cfgr.modify(|_, w| {
+            w.sw().variant(device::rcc::cfgr::SW_A::PLL)
+    } );
 
     // Field messages.
     let mask = 0;  // we don't use notifications.

@@ -35,7 +35,7 @@ path = "../drv/stm32f4-rcc"
 name = "drv-stm32f4-rcc"
 priority = 1
 requires = {flash = 8192, ram = 1024}
-uses = ["rcc"]
+uses = ["rcc", "flash"]
 start = true
 
 [tasks.usart_driver]
@@ -98,6 +98,10 @@ size = 1024
 address = 0x40020400
 size = 1024
 
-[peripherals.spi1]
-address = 0x40013000
+[peripherals.i2c1]
+address = 0x40005400
+size = 1024
+
+[peripherals.flash]
+address = 0x40023C00
 size = 1024
