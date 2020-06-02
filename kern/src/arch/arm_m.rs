@@ -302,6 +302,7 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save.exc_return = 0xFFFFFFED;
 }
 
+#[cfg(armv7m)]
 pub fn apply_memory_protection(task: &task::Task) {
     // We are manufacturing authority to interact with the MPU here, because we
     // can't thread a cortex-specific peripheral through an
@@ -349,6 +350,110 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
+#[cfg(armv8m)]
+pub fn apply_memory_protection(task: &task::Task) {
+    // Sigh cortex-m crate doesn't have armv8-m support
+    // Let's poke it manually to make sure we're doing this right..
+    let mpu = unsafe {
+        // At least by not taking a &mut we're confident we're not violating
+        // aliasing....
+        &*cortex_m::peripheral::MPU::ptr()
+    };
+    unsafe {
+        const DISABLE: u32 = 0b000;
+        const PRIVDEFENA: u32 = 0b100;
+        // From the ARMv8m MPU manual
+        //
+        // Any outstanding memory transactions must be forced to complete by
+        // executing a DMB instruction and the MPU disabled before it can be
+        // configured
+        cortex_m::asm::dmb();
+        mpu.ctrl.write(DISABLE | PRIVDEFENA);
+    }
+
+    for (i, region) in task.region_table.iter().enumerate() {
+        // This MPU requires that all regions are 32-byte aligned...in part
+        // because it stuffs extra stuff into the bottom five bits.
+        debug_assert_eq!(region.base & 0x1F, 0);
+
+        let rnr = i as u32;
+
+        let ratts = region.attributes;
+        let xn = !ratts.contains(app::RegionAttributes::EXECUTE);
+        // ARMv8m has less granularity than ARMv7m for privilege
+        // vs non-privilege so there's no way to say that privilege
+        // can be read write but non-privilge can only be read only
+        // This _should_ be okay?
+        let ap = if ratts.contains(app::RegionAttributes::WRITE) {
+            0b01 // RW by any privilege level
+        } else if ratts.contains(app::RegionAttributes::READ) {
+            0b11 // Read only by any privilege level
+        } else {
+            0b00 // RW by privilege code only
+        };
+
+        // Keep this as the most restrictive for devices and least
+        // restrictive for memory right now.
+        let mair = if ratts.contains(app::RegionAttributes::DEVICE) {
+            0b00000000
+        } else {
+            0b11111111
+        };
+
+        // Sharability for normal memory. This is ignored for device memory
+        // Keep this as outer sharable on the safe side for devices (think
+        // about this more later)
+        let sh = 0b10;
+
+        // RLAR = our upper bound
+        let rlar = region.base + region.size
+                | (i as u32) << 1 // AttrIndx
+                | (1 << 0); // enable
+
+        // RBAR = the base
+        let rbar = (xn as u32)
+            | ap << 1
+            | (sh as u32) << 3  // sharability
+            | region.base;
+
+        unsafe {
+            // RNR
+            core::ptr::write_volatile(0xe000_ed98 as *mut u32, rnr);
+            // MAIR
+            if rnr < 4 {
+                let mut mair0 = (0xe000_edc0 as *const u32).read_volatile();
+                mair0 = mair0 | (mair as u32) << (rnr * 8);
+                core::ptr::write_volatile(0xe000_edc0 as *mut u32, mair0);
+            } else {
+                let mut mair1 = (0xe000_edc4 as *const u32).read_volatile();
+                mair1 = mair1 | (mair as u32) << ((rnr - 4) * 8);
+                core::ptr::write_volatile(0xe000_edc4 as *mut u32, mair1);
+            }
+            // RBAR
+            core::ptr::write_volatile(0xe000_ed9c as *mut u32, rbar);
+            // RLAR
+            core::ptr::write_volatile(0xe000_eda0 as *mut u32, rlar);
+        }
+    }
+
+    unsafe {
+        const ENABLE: u32 = 0b001;
+        const PRIVDEFENA: u32 = 0b100;
+        mpu.ctrl.write(ENABLE | PRIVDEFENA);
+        // From the ARMv8m MPU manual
+        //
+        // The final step is to enable the MPU by writing to MPU_CTRL. Code
+        // should then execute a memory barrier to ensure that the register
+        // updates are seen by any subsequent memory accesses. An Instruction
+        // Synchronization Barrier (ISB) ensures the updated configuration
+        // [is] used by any subsequent instructions.
+        cortex_m::asm::dmb();
+        cortex_m::asm::isb();
+    }
+
+
+}
+
 pub fn start_first_task(task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
@@ -362,7 +467,16 @@ pub fn start_first_task(task: &task::Task) -> ! {
     unsafe {
         let scb = &*cortex_m::peripheral::SCB::ptr();
         // Faults on.
-        scb.shcsr.modify(|x| x | 0b111 << 16);
+        //
+        // This enables MEMFAULT, BUSFAULT, USGFAULT, SECUREFAULT (ARMv8m)
+        #[cfg(armv7m)]
+        {
+            scb.shcsr.modify(|x| x | 0b111 << 16);
+        }
+        #[cfg(armv8m)]
+        {
+            scb.shcsr.modify(|x| x | 0b1111 << 16);
+        }
         // Set priority of Usage, Bus, MemManage to 0 (highest configurable).
         scb.shpr[0].write(0x00);
         scb.shpr[1].write(0x00);
