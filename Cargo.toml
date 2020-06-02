@@ -4,6 +4,7 @@ cargo-features = ["resolver"]
 members = [
     "abi",
     "demo",
+    "lpc55",
     "kern",
     "userlib",
 

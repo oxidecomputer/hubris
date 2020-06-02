@@ -1,0 +1,39 @@
+name = "demo"
+target = "thumbv8m.main-none-eabihf"
+
+[kernel]
+path = "../lpc55"
+name = "lpc55"
+requires = {flash = 65536, ram = 4096}
+features = ["semihosting"]
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x00000000
+size = 645120
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 114688
+read = true
+write = true
+execute = true
+
+[tasks.jefe]
+path = "../task-jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 32768, ram = 4096}
+start = true
+
+[tasks.idle]
+path = "../task-idle"
+name = "task-idle"
+priority = 4
+requires = {flash = 256, ram = 256}
+start = true
+
