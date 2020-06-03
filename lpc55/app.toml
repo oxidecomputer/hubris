@@ -37,3 +37,18 @@ priority = 4
 requires = {flash = 256, ram = 256}
 start = true
 
+[tasks.syscon_driver]
+path = "../drv/lpc55-syscon"
+name = "drv-lpc55-syscon"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["syscon", "anactrl"]
+start = true
+
+[peripherals.syscon]
+address = 0x40000000
+size = 1024
+
+[peripherals.anactrl]
+address = 0x40013000
+size = 4096
