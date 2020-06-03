@@ -45,6 +45,14 @@ requires = {flash = 16384, ram = 1024}
 uses = ["syscon", "anactrl"]
 start = true
 
+[tasks.gpio_driver]
+path = "../drv/lpc55-gpio"
+name = "drv-lpc55-gpio"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["gpio", "iocon"]
+start = true
+
 [peripherals.syscon]
 address = 0x40000000
 size = 1024
@@ -52,3 +60,11 @@ size = 1024
 [peripherals.anactrl]
 address = 0x40013000
 size = 4096
+
+[peripherals.gpio]
+address = 0x4008c000
+size = 1024
+
+[peripherals.iocon]
+address = 0x40001000
+size = 1024
