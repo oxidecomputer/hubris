@@ -19,6 +19,8 @@ members = [
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",
+
+    "drv/lpc55-syscon",
 ]
 default-members = ["packager"]
 resolver = "2"
