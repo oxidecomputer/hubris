@@ -22,6 +22,7 @@ members = [
 
     "drv/lpc55-syscon",
     "drv/lpc55-gpio",
+    "drv/lpc55-usart",
 ]
 default-members = ["packager"]
 resolver = "2"

@@ -53,6 +53,15 @@ requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
 
+[tasks.usart_driver]
+path = "../drv/lpc55-usart"
+name = "drv-lpc55-usart"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm0"]
+start = true
+interrupts = {14 = 1}
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
@@ -82,4 +91,8 @@ size = 9348
 
 [peripherals.iocon]
 address = 0x40001000
+size = 4096
+
+[peripherals.flexcomm0]
+address = 0x40086000
 size = 4096
