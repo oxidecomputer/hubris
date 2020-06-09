@@ -14,6 +14,7 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-spam2",
 
     "packager",
 
