@@ -43,7 +43,16 @@ fn main() -> ! {
             for i in 0..NUM_TASKS {
                 let s = kipc::read_task_status(i);
                 if let abi::TaskState::Faulted { fault, .. } = s {
-                    hprintln!("Task #{} fault: {:?}", i, fault).ok();
+                    match fault {
+                        abi::FaultInfo::MemoryAccess { address, .. } =>
+                        match address {
+                            Some(a) =>  hprintln!("Task #{} Memory fault at address 0x{:x}", i, a).ok(),
+                            None => hprintln!("Task #{} Memory fault at unknown address", i).ok()
+                        }
+                        abi::FaultInfo::SyscallUsage(e) =>
+                                hprintln!("Task #{} Bad Syscall Usage {:?}", i, e).ok(),
+                        abi::FaultInfo::Panic => hprintln!("Task #{} Panic!", i).ok(),
+                    };
                     // Stand it back up.
                     kipc::restart_task(i, true);
                 }
