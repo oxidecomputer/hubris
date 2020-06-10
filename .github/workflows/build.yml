@@ -1,0 +1,23 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ARMv7-M demo build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          target: thumbv7em-none-eabihf
+          profile: minimal
+      - name: Install ARM binutils
+        run: sudo apt-get install binutils-arm-none-eabi
+      - name: Run package build
+        run: ./package.sh
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: target-package
+          path: target/packager
