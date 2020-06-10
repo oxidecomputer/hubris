@@ -184,6 +184,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-gpio"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-lpc55-i2c"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-lpc55-syscon"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-lpc55-usart"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
@@ -313,6 +352,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14b6052be84e6b71ab17edffc2eeabf5c2c3ae1fdb464aae35ac50c67a44e1f7"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "lpc55"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-semihosting",
+ "serde",
+ "serde_json",
+ "which",
+]
+
+[[package]]
+name = "lpc55-pac"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec299cd97bd0b9bca8e1c478a42099d3f2290ef45be6ccfa7a840d7e17e53a30"
+dependencies = [
+ "bare-metal",
+ "cortex-m",
+ "vcell",
 ]
 
 [[package]]
@@ -625,7 +691,19 @@ name = "task-pong"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "cortex-m-semihosting",
+ "lpc55-pac",
  "stm32f4",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-spam"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
  "userlib",
  "zerocopy",
 ]
