@@ -1,5 +1,7 @@
 # Hubris
 
+[![build](https://github.com/oxidecomputer/hubris/workflows/build/badge.svg)](https://github.com/oxidecomputer/hubris/actions?query=workflow%3Abuild)
+
 Hubris is a microcontroller operating environment designed for deeply-embedded
 systems with reliability requirements. Its design was initially proposed in
 RFD41, but has evolved considerably since then.
