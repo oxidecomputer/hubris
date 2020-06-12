@@ -45,12 +45,15 @@ fn main() -> ! {
                     match fault {
                         abi::FaultInfo::MemoryAccess { address, .. } =>
                         match address {
-                            Some(a) => sys_log!("Task #{} Memory fault at address 0x{:x}", i, a).ok(),
-                            None => sys_log!("Task #{} Memory fault at unknown address", i).ok()
+                            Some(a) => {
+                                sys_log!("Task #{} Memory fault at address 0x{:x}", i, a);
+                            }
+
+                            None => sys_log!("Task #{} Memory fault at unknown address", i)
                         }
                         abi::FaultInfo::SyscallUsage(e) =>
-                                sys_log!("Task #{} Bad Syscall Usage {:?}", i, e).ok(),
-                        abi::FaultInfo::Panic => sys_log!("Task #{} Panic!", i).ok(),
+                                sys_log!("Task #{} Bad Syscall Usage {:?}", i, e),
+                        abi::FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
                     };
                     // Stand it back up.
                     kipc::restart_task(i, true);

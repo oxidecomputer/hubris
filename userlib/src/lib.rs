@@ -279,14 +279,12 @@ pub fn sys_panic(
 #[macro_export]
 macro_rules! sys_log {
     ($s:expr) => {
-        #[allow(unused_unsafe)]
         unsafe {
             let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[1];
             cortex_m::iprintln!(stim, $s);
         }
     };
     ($s:expr, $($tt:tt)*) => {
-        #[allow(unused_unsafe)]
         unsafe {
             let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[1];
             cortex_m::iprintln!(stim, $s, $($tt)*);
