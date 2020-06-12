@@ -71,6 +71,15 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
 start = true
 
+[tasks.aes_driver]
+path = "../drv/lpc55-aes"
+name = "drv-lpc55-aes"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["hashaes"]
+start = true
+interrupts = {54 = 1}
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
@@ -114,4 +123,8 @@ size = 4096
 
 [peripherals.flexcomm4]
 address = 0x4008A000
+size = 4096
+
+[peripherals.hashaes]
+address = 0x400A4000
 size = 4096

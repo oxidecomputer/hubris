@@ -170,6 +170,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-aes"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [

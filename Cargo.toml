@@ -26,6 +26,7 @@ members = [
     "drv/lpc55-gpio",
     "drv/lpc55-usart",
     "drv/lpc55-i2c",
+    "drv/lpc55-aes",
 ]
 default-members = ["packager"]
 resolver = "2"
