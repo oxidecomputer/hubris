@@ -4,6 +4,7 @@ cargo-features = ["resolver"]
 members = [
     "abi",
     "demo",
+    "lpc55",
     "kern",
     "userlib",
 
@@ -13,11 +14,17 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-spam2",
 
     "packager",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",
+
+    "drv/lpc55-syscon",
+    "drv/lpc55-gpio",
+    "drv/lpc55-usart",
+    "drv/lpc55-i2c",
 ]
 default-members = ["packager"]
 resolver = "2"

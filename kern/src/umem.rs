@@ -46,7 +46,7 @@ impl<T> USlice<T> {
         length: usize,
     ) -> Result<Self, UsageError> {
         // ZST check, should resolve at compile time:
-        assert!(core::mem::size_of::<T>() != 0);
+        uassert!(core::mem::size_of::<T>() != 0);
 
         // Alignment check:
         if base_address % core::mem::align_of::<T>() != 0 {

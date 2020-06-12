@@ -10,11 +10,17 @@ const PEER: Task = SELF;
 #[cfg(not(feature = "standalone"))]
 const PEER: Task = Task::pong;
 
-#[cfg(feature = "standalone")]
+#[cfg(all(feature = "standalone"))]
 const UART: Task = SELF;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(all(not(feature = "standalone")))]
 const UART: Task = Task::usart_driver;
+
+#[cfg(all(not(feature = "standalone"), armv8m))]
+const GPIO: Task = Task::gpio_driver;
+
+#[cfg(all(feature = "standalone", armv8m))]
+const GPIO: Task = SELF;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -43,6 +49,16 @@ fn main() -> ! {
     }
 }
 
+#[cfg(armv8m)]
+fn set_led() {
+    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const SET_VAL: u16 = 2;
+    // Blue LED
+    let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[36, 0], &mut [], &[]);
+    assert_eq!(0, code);
+}
+
+#[cfg(armv7m)]
 fn set_led() {
     let gpiod = unsafe {
         &*stm32f4::stm32f407::GPIOD::ptr()

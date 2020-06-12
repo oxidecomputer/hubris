@@ -1,0 +1,72 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+  build-stm32f4:
+    name: ARMv7-M demo build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ARM binutils
+        run: sudo apt-get install binutils-arm-none-eabi
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        id: rustup
+        with:
+          target: thumbv7em-none-eabihf
+          profile: minimal
+      - name: Cache cargo outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache build outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            target
+            !target/packager
+          key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run package build
+        run: ./package.sh
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: target-package
+          path: target/packager
+  build-lpc55:
+    name: ARMv8-M demo build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ARM binutils
+        run: sudo apt-get install binutils-arm-none-eabi
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        id: rustup
+        with:
+          target: thumbv8m.main-none-eabihf
+          profile: minimal
+      - name: Cache cargo outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache build outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            target
+            !target/packager
+          key: ${{ runner.os }}-build8-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run package build
+        run: ./package_lpc55.sh
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: target-package
+          path: target/packager

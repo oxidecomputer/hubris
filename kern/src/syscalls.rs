@@ -46,16 +46,6 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     let task = task as usize;
 
     arch::with_task_table(|tasks| {
-        // Check that the task pointer obtained by the arch-specific entry
-        // sequence is actually within the stated bounds of the task table. This
-        // is incredibly unlikely to fail on a real system so these are
-        // debug-only.
-        debug_assert!(task as usize >= tasks.as_ptr() as usize);
-        debug_assert!(
-            (task as usize)
-                < tasks.as_ptr().offset(tasks.len() as isize) as usize
-        );
-
         // Work out the task index based on the pointer into the task table
         // slice. We could store the index *and* the pointer in globals,
         // avoiding this divde, but divides are pretty cheap....
@@ -656,9 +646,9 @@ fn explicit_panic(
             let slice = unsafe { uslice.assume_readable() };
 
             if slice.iter().all(|&c| c < 0x80) {
-                klog!("task @{:p} panicked: {}", &tasks[caller], unsafe { core::str::from_utf8_unchecked(slice) });
+                klog!("task @{} panicked: {}", caller, unsafe { core::str::from_utf8_unchecked(slice) });
             } else {
-                klog!("task @{:p} panicked: {:x?}", &tasks[caller], slice);
+                klog!("task @{} panicked: (message unprintable)", caller);
             }
         }
     }

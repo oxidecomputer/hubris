@@ -1,0 +1,17 @@
+[package]
+name = "drv-lpc55-syscon"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+zerocopy = "0.3.0"
+lpc55-pac = "0.1.0"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-lpc55-syscon"
+test = false
+bench = false

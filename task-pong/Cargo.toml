@@ -9,8 +9,11 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.6.0"
 userlib = {path = "../userlib"}
+lpc55-pac = "0.1.0"
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"
+cortex-m-semihosting = "0.3.3"
+
 
 [features]
 default = ["standalone"]

@@ -1,0 +1,116 @@
+name = "demo"
+target = "thumbv8m.main-none-eabihf"
+
+[kernel]
+path = "../lpc55"
+name = "lpc55"
+requires = {flash = 65536, ram = 4096}
+features = ["semihosting"]
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x00000000
+size = 645120
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 114688
+read = true
+write = true
+execute = true
+
+[tasks.jefe]
+path = "../task-jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 32768, ram = 4096}
+start = true
+
+[tasks.idle]
+path = "../task-idle"
+name = "task-idle"
+priority = 4
+requires = {flash = 256, ram = 256}
+start = true
+
+[tasks.syscon_driver]
+path = "../drv/lpc55-syscon"
+name = "drv-lpc55-syscon"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["syscon", "anactrl"]
+start = true
+
+[tasks.gpio_driver]
+path = "../drv/lpc55-gpio"
+name = "drv-lpc55-gpio"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["gpio", "iocon"]
+start = true
+
+[tasks.usart_driver]
+path = "../drv/lpc55-usart"
+name = "drv-lpc55-usart"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm0"]
+start = true
+interrupts = {14 = 1}
+
+[tasks.i2c_driver]
+path = "../drv/lpc55-i2c"
+name = "drv-lpc55-i2c"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm4"]
+start = true
+
+[tasks.ping]
+path = "../task-ping"
+name = "task-ping"
+priority = 3
+requires = {flash = 8192, ram = 1024}
+start = true
+
+[tasks.pong]
+path = "../task-pong"
+name = "task-pong"
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["iocon"]
+start = true
+
+[tasks.spam]
+path = "../task-spam2"
+name = "task-spam"
+priority = 3
+requires = {flash = 8192, ram = 1024}
+
+[peripherals.syscon]
+address = 0x40000000
+size = 4096
+
+[peripherals.anactrl]
+address = 0x40013000
+size = 4096
+
+[peripherals.gpio]
+address = 0x4008c000
+size = 9348
+
+[peripherals.iocon]
+address = 0x40001000
+size = 4096
+
+[peripherals.flexcomm0]
+address = 0x40086000
+size = 4096
+
+[peripherals.flexcomm4]
+address = 0x4008A000
+size = 4096
