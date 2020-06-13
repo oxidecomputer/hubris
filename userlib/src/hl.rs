@@ -7,7 +7,7 @@ use abi::TaskId;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 use core::marker::PhantomData;
 
-use crate::{sys_reply, sys_recv, sys_borrow_info, FromPrimitive, sys_borrow_read};
+use crate::{sys_reply, sys_recv, sys_borrow_info, FromPrimitive, sys_borrow_read, sys_borrow_write};
 
 /// Receives a message, or a notification, and handles it.
 ///
@@ -303,6 +303,30 @@ impl Borrow<'_> {
             None
         } else {
             Some(dest)
+        }
+    }
+
+    /// Starting at offset `offset` within the borrow, writes one item of type
+    /// `T`.
+    ///
+    /// This can fail because the client has defected or was killed, the borrow
+    /// doesn't exist, the borrow doesn't allow writing, or you're trying to
+    /// write past the end. All these conditions return `None` because, in
+    /// general, we don't expect servers to do anything except reject the
+    /// client.
+    ///
+    /// Even if `T` requires alignment greater than 1 byte, no alignment
+    /// requirements is placed on the *client* side.
+    pub fn write_at<T>(&self, offset: usize, value: T) -> Option<()>
+        where T: AsBytes,
+    {
+        let (rc, n) = sys_borrow_write(self.id, self.index, offset, value.as_bytes());
+        if rc != 0 {
+            None
+        } else if n != core::mem::size_of::<T>() {
+            None
+        } else {
+            Some(())
         }
     }
 }

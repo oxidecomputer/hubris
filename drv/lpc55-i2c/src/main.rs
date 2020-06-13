@@ -21,8 +21,6 @@ use lpc55_pac as device;
 use zerocopy::AsBytes;
 use userlib::*;
 
-use core::convert::TryInto;
-
 #[cfg(not(feature = "standalone"))]
 const SYSCON: Task = Task::syscon_driver;
 
@@ -31,20 +29,27 @@ const SYSCON: Task = Task::syscon_driver;
 #[cfg(feature = "standalone")]
 const SYSCON: Task = SELF;
 
-const OP_WRITE: u32 = 1;
-const OP_READ: u32 = 2;
+#[derive(FromPrimitive)]
+enum Op {
+    Write = 1,
+    Read = 2,
+}
 
 #[repr(u32)]
 enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
     BadArg = 2,
     Busy = 3,
 }
 
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
+}
+
 struct Transmit {
     addr: u8,
-    task: TaskId,
+    caller: hl::Caller<()>,
     len: usize,
     pos: usize,
 }
@@ -80,60 +85,47 @@ fn main() -> ! {
     );
 
     // Field messages.
-    let mask = 1;
-
-    let mut buffer = 0u32;
+    let mut buffer = [0; 1];
     loop {
-        let msginfo = sys_recv(buffer.as_bytes_mut(), mask);
-        if msginfo.sender == TaskId::KERNEL {
-            cortex_m_semihosting::hprintln!("Unexpected kernel message?").ok();
-        } else {
-            match msginfo.operation {
-                OP_WRITE => {
-                    // Check the lease count and characteristics.
-                    if msginfo.lease_count != 1 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
+        hl::recv_without_notification(
+            &mut buffer,
+            |op, msg| match op {
+                Op::Write => {
+                    let (&addr, caller) = msg.fixed_with_leases::<u8, ()>(1)
+                        .ok_or(ResponseCode::BadArg)?;
+
+                    let info = caller.borrow(0).info()
+                        .ok_or(ResponseCode::BadArg)?;
+                    if !info.attributes.contains(LeaseAttributes::READ) {
+                        return Err(ResponseCode::BadArg);
                     }
 
-                    let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
-                    if rc != 0 || atts & 1 == 0 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-
-                    write_a_buffer(&i2c, &mut Transmit {
-                        addr: buffer.try_into().unwrap(),
-                        task: msginfo.sender,
+                    write_a_buffer(&i2c, Transmit {
+                        addr,
+                        caller,
                         pos: 0,
-                        len
-                    });
-
+                        len: info.len,
+                    })
                 },
-                OP_READ => {
-                    // Check the lease count and characteristics.
-                    if msginfo.lease_count != 1 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
+                Op::Read => {
+                    let (&addr, caller) = msg.fixed_with_leases::<u8, ()>(1)
+                        .ok_or(ResponseCode::BadArg)?;
+
+                    let info = caller.borrow(0).info()
+                        .ok_or(ResponseCode::BadArg)?;
+                    if !info.attributes.contains(LeaseAttributes::WRITE) {
+                        return Err(ResponseCode::BadArg);
                     }
 
-                    let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
-                    if rc != 0 || atts & 2 == 0 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-
-                    read_a_buffer(&i2c, &mut Transmit {
-                        addr: buffer.try_into().unwrap(),
-                        task: msginfo.sender,
+                    read_a_buffer(&i2c, Transmit {
+                        addr,
+                        caller,
                         pos: 0,
-                        len
-                    });
-
+                        len: info.len,
+                    })
                 }
-                _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
-            }
-        }
+            },
+        );
     }
 }
 
@@ -175,7 +167,7 @@ fn muck_with_gpios()
 }
 
 
-fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool {
+fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Result<(), ResponseCode> {
 
     // Address to write to
     i2c.mstdat.modify(|_, w| unsafe { w.data().bits(txs.addr << 1) } );
@@ -186,17 +178,13 @@ fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool
     while i2c.stat.read().mstpending().is_in_progress() { continue; }
 
     if !i2c.stat.read().mststate().is_transmit_ready() {
-        sys_reply(txs.task, ResponseCode::Busy as u32, &[]);
-        return false;
+        return Err(ResponseCode::Busy);
     }
 
+    let borrow = txs.caller.borrow(0);
+
     while txs.pos < txs.len {
-        let mut byte = 0u8;
-        let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
-        if rc != 0 || len != 1 {
-            sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-            return false;
-        }
+        let byte: u8 = borrow.read_at(txs.pos).ok_or(ResponseCode::BadArg)?;
         txs.pos += 1;
 
         i2c.mstdat.modify(|_, w| unsafe { w.data().bits(byte) } );
@@ -206,8 +194,7 @@ fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool
         while i2c.stat.read().mstpending().is_in_progress() { continue; }
 
         if ! i2c.stat.read().mststate().is_transmit_ready() {
-            sys_reply(txs.task, ResponseCode::Busy as u32, &[]);
-            return false;
+            return Err(ResponseCode::Busy);
         }
     }
 
@@ -216,15 +203,14 @@ fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool
     while i2c.stat.read().mstpending().is_in_progress() {}
 
     if !i2c.stat.read().mststate().is_idle() {
-        sys_reply(txs.task, ResponseCode::Busy as u32, &[]);
-        return false;
+        return Err(ResponseCode::Busy);
     }
 
-    sys_reply(txs.task, ResponseCode::Success as u32, &[]);
-    return true;
+    txs.caller.reply(());
+    Ok(())
 }
 
-fn read_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool {
+fn read_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Result<(), ResponseCode> {
 
     i2c.mstdat.modify(|_, w| unsafe { w.data().bits((txs.addr << 1) | 1) } );
 
@@ -233,49 +219,37 @@ fn read_a_buffer(i2c: &device::i2c0::RegisterBlock, txs: &mut Transmit) -> bool 
     while i2c.stat.read().mstpending().is_in_progress() {}
 
     if !i2c.stat.read().mststate().is_receive_ready() {
-        sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-        return false;
+        return Err(ResponseCode::BadArg);
     }
 
-    while txs.pos < txs.len - 1 {
-        let mut byte = i2c.mstdat.read().data().bits();
+    let borrow = txs.caller.borrow(0);
 
-        let (rc, len) = sys_borrow_write(txs.task, 0, txs.pos, byte.as_bytes_mut());
-        if rc != 0 || len != 1 {
-            sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-            return false;
-        }
+    while txs.pos < txs.len - 1 {
+        let byte = i2c.mstdat.read().data().bits();
+        borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
 
         i2c.mstctl.write(|w| w.mstcontinue().continue_());
 
         while i2c.stat.read().mstpending().is_in_progress() {}
 
         if !i2c.stat.read().mststate().is_receive_ready() {
-            sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-            return false;
+            return Err(ResponseCode::BadArg);
         }
 
         txs.pos += 1;
     }
 
-    let mut byte = i2c.mstdat.read().data().bits();
-
-    let (rc, len) = sys_borrow_write(txs.task, 0, txs.pos, byte.as_bytes_mut());
-    if rc != 0 || len != 1 {
-        sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-        return false;
-    }
-
+    let byte = i2c.mstdat.read().data().bits();
+    borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
 
     i2c.mstctl.write(|w| w.mststop().stop());
 
     while i2c.stat.read().mstpending().is_in_progress() {}
 
     if !i2c.stat.read().mststate().is_idle() {
-        sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-        return false;
+        return Err(ResponseCode::BadArg);
     }
 
-    sys_reply(txs.task, ResponseCode::Success as u32, &[]);
-    return true;
+    txs.caller.reply(());
+    Ok(())
 }
