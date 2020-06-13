@@ -212,6 +212,7 @@ dependencies = [
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
+ "num-traits",
  "stm32f4",
  "userlib",
  "zerocopy",
