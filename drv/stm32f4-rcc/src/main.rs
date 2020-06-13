@@ -110,31 +110,27 @@ fn main() -> ! {
                     0 => {
                         // AHB1
                         set_bits!(rcc.ahb1enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
                         set_bits!(rcc.ahb2enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
                         set_bits!(rcc.ahb3enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
                         set_bits!(rcc.apb1enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
                         set_bits!(rcc.apb2enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
                         // Huh?
                         sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
                     }
                 }
             }
@@ -143,31 +139,27 @@ fn main() -> ! {
                     0 => {
                         // AHB1
                         clear_bits!(rcc.ahb1enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
                         clear_bits!(rcc.ahb2enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
                         clear_bits!(rcc.ahb3enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
                         clear_bits!(rcc.apb1enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
                         clear_bits!(rcc.apb2enr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
                         // Huh?
                         sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
                     }
                 }
             }
@@ -176,31 +168,27 @@ fn main() -> ! {
                     0 => {
                         // AHB1
                         set_bits!(rcc.ahb1rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
                         set_bits!(rcc.ahb2rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
                         set_bits!(rcc.ahb3rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
                         set_bits!(rcc.apb1rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
                         set_bits!(rcc.apb2rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
                         // Huh?
                         sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
                     }
                 }
             }
@@ -209,38 +197,38 @@ fn main() -> ! {
                     0 => {
                         // AHB1
                         clear_bits!(rcc.ahb1rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
                         clear_bits!(rcc.ahb2rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
                         clear_bits!(rcc.ahb3rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
                         clear_bits!(rcc.apb1rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
                         clear_bits!(rcc.apb2rstr, pmask);
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
                         // Huh?
                         sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        continue;
                     }
                 }
             }
             _ => {
                 // Unrecognized operation code
                 sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]);
+                continue;
             }
         }
+
+        // If we reach this point, we were successful; factor out the reply:
+        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
     }
 }
