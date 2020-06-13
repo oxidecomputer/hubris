@@ -237,7 +237,7 @@ fn main() -> ! {
                     }
                     2 => {
                         // Register 2
-                        syscon.presetctrl1.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        syscon.presetctrl2.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
