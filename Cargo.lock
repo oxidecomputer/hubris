@@ -351,6 +351,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-derive"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c8b15b261814f992e33760b1fca9fe8b693d8a65299f20c9901688636cfb746"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac267bcc07f48ee5f8935ab0d24f316fb722d7a1292e2913f0cc196b29ffd611"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "packager"
 version = "0.1.0"
 dependencies = [
@@ -728,6 +748,8 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "num-derive",
+ "num-traits",
  "r0 1.0.0",
  "serde",
  "serde_json",
