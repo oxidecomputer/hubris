@@ -2,9 +2,13 @@
 #![feature(llvm_asm)]
 
 pub use abi::*;
+pub use num_traits::{FromPrimitive, ToPrimitive};
+pub use num_derive::{FromPrimitive, ToPrimitive};
+
 use core::marker::PhantomData;
 
 pub mod kipc;
+pub mod hl;
 
 #[derive(Debug)]
 #[repr(transparent)]
