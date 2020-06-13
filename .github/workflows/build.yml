@@ -31,6 +31,12 @@ jobs:
           key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Run package build
         run: ./package.sh
+      - name: Check Cargo.lock
+        run: |
+          if [[ $(git status --porcelain Cargo.lock) ]]; then
+              echo "Build updated Cargo.lock - did you forget to check it in?"
+              exit 1
+          fi
       - name: Upload package artifacts
         uses: actions/upload-artifact@v1
         with:
