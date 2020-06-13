@@ -62,6 +62,24 @@ enum ResponseCode {
     BadArg = 2,
 }
 
+// None of the registers we interact with have the same types, and they share no
+// useful traits, so we can't extract the bit-setting routine into a function --
+// we have no choice but to use macros.
+macro_rules! set_bits {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) });
+    };
+}
+
+// None of the registers we interact with have the same types, and they share no
+// useful traits, so we can't extract the bit-clearing routine into a function
+// -- we have no choice but to use macros.
+macro_rules! clear_bits {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) });
+    };
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // From thin air, pluck a pointer to the RCC register block.
@@ -91,27 +109,27 @@ fn main() -> ! {
                 match chunk {
                     0 => {
                         // AHB1
-                        rcc.ahb1enr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb1enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
-                        rcc.ahb2enr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb2enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
-                        rcc.ahb3enr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb3enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
-                        rcc.apb1enr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.apb1enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
-                        rcc.apb2enr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.apb2enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
@@ -124,27 +142,27 @@ fn main() -> ! {
                 match chunk {
                     0 => {
                         // AHB1
-                        rcc.ahb1enr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb1enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
-                        rcc.ahb2enr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb2enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
-                        rcc.ahb3enr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb3enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
-                        rcc.apb1enr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.apb1enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
-                        rcc.apb2enr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.apb2enr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
@@ -157,27 +175,27 @@ fn main() -> ! {
                 match chunk {
                     0 => {
                         // AHB1
-                        rcc.ahb1rstr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb1rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
-                        rcc.ahb2rstr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb2rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
-                        rcc.ahb3rstr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.ahb3rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
-                        rcc.apb1rstr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.apb1rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
-                        rcc.apb2rstr.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
+                        set_bits!(rcc.apb2rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
@@ -190,27 +208,27 @@ fn main() -> ! {
                 match chunk {
                     0 => {
                         // AHB1
-                        rcc.ahb1rstr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb1rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     1 => {
                         // AHB2
-                        rcc.ahb2rstr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb2rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     2 => {
                         // AHB3
-                        rcc.ahb3rstr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.ahb3rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     3 => {
                         // APB1
-                        rcc.apb1rstr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.apb1rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     4 => {
                         // APB2
-                        rcc.apb2rstr.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
+                        clear_bits!(rcc.apb2rstr, pmask);
                         sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
                     }
                     _ => {
