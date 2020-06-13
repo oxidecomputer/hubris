@@ -82,11 +82,40 @@ use crate::umem::USlice;
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
 /// is very architecture-specific at the moment.
 ///
-/// TODO: someday it might be nice to change how this works.
-#[cfg(not(feature = "klog-semihosting"))]
+/// At the moment, there are two (architecture-specific) ways to log:  via
+/// semihosting (configured via the "klog-semihosting" feature) or via the
+/// ARM's Instrumentation Trace Macrocell (configured via the "klog-itm"
+/// feature).  If neither of these features is enabled, klog! will be stubbed
+/// out.
+///
+/// In the future, we will likely want to add at least one more mechanism for
+/// logging (one that can be presumably be made neutral with respect to
+/// architecure), whereby kernel logs can be produced somewhere (e.g., a ring
+/// buffer) from which they can be consumed by some entity for shipping
+/// elsewhere.
+///
+#[cfg(not(any(feature = "klog-semihosting", feature = "klog-itm")))]
 macro_rules! klog {
     ($s:expr) => { };
     ($s:expr, $($tt:tt)*) => { };
+}
+
+#[cfg(feature = "klog-itm")]
+macro_rules! klog {
+    ($s:expr) => {
+        #[allow(unused_unsafe)]
+        unsafe {
+            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[0];
+            cortex_m::iprintln!(stim, $s);
+        }
+    };
+    ($s:expr, $($tt:tt)*) => {
+        #[allow(unused_unsafe)]
+        unsafe {
+            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[0];
+            cortex_m::iprintln!(stim, $s, $($tt)*);
+        }
+    };
 }
 
 #[cfg(feature = "klog-semihosting")]

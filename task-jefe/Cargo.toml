@@ -10,11 +10,13 @@ userlib = {path = "../userlib"}
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"
 cortex-m = "0.6.0"
-cortex-m-semihosting = "0.3.3"
+cortex-m-semihosting = {version = "0.3.3", optional = true}
 
 [features]
 default = ["standalone"]
 standalone = []
+itm = [ "userlib/log-itm" ]
+semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

@@ -23,11 +23,10 @@
 #![no_main]
 
 use userlib::*;
-use cortex_m_semihosting::hprintln;
 
 #[export_name = "main"]
 fn main() -> ! {
-    hprintln!("viva el jefe").ok();
+    sys_log!("viva el jefe");
 
     // We'll have notification 0 wired up to receive information about task
     // faults.
@@ -46,12 +45,15 @@ fn main() -> ! {
                     match fault {
                         abi::FaultInfo::MemoryAccess { address, .. } =>
                         match address {
-                            Some(a) =>  hprintln!("Task #{} Memory fault at address 0x{:x}", i, a).ok(),
-                            None => hprintln!("Task #{} Memory fault at unknown address", i).ok()
+                            Some(a) => {
+                                sys_log!("Task #{} Memory fault at address 0x{:x}", i, a);
+                            }
+
+                            None => sys_log!("Task #{} Memory fault at unknown address", i)
                         }
                         abi::FaultInfo::SyscallUsage(e) =>
-                                hprintln!("Task #{} Bad Syscall Usage {:?}", i, e).ok(),
-                        abi::FaultInfo::Panic => hprintln!("Task #{} Panic!", i).ok(),
+                                sys_log!("Task #{} Bad Syscall Usage {:?}", i, e),
+                        abi::FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
                     };
                     // Stand it back up.
                     kipc::restart_task(i, true);
@@ -59,7 +61,7 @@ fn main() -> ! {
             }
         } else {
             // ...huh. A task has sent a message to us. That seems wrong.
-            hprintln!("Unexpected message from {}", msginfo.sender.0).ok();
+            sys_log!("Unexpected message from {}", msginfo.sender.0);
         }
     }
 }
