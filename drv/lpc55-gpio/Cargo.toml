@@ -10,6 +10,10 @@ zerocopy = "0.3.0"
 lpc55-pac = "0.1.0"
 cortex-m-semihosting = "0.3.3"
 
+[features]
+default = ["standalone"]
+standalone = []
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
