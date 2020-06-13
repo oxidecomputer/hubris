@@ -8,6 +8,7 @@ edition = "2018"
 userlib = {path = "../../userlib"}
 stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
 zerocopy = "0.3.0"
+num-traits = {version = "0.2", default-features = false}
 
 [features]
 default = ["standalone"]
