@@ -39,11 +39,14 @@
 use lpc55_pac as device;
 
 use zerocopy::AsBytes;
-use userlib::*;
+use userlib::{*, FromPrimitive};
 
-const OP_SET_DIR: u32 = 1;
-const OP_SET_VAL: u32 = 2;
-const OP_READ_VAL: u32 = 3;
+#[derive(FromPrimitive)]
+enum Op {
+    SetDir = 1,
+    SetVal = 2,
+    ReadVal = 3,
+}
 
 #[cfg(not(feature = "standalone"))]
 const SYSCON: Task = Task::syscon_driver;
@@ -53,9 +56,13 @@ const SYSCON: Task = SELF;
 
 #[repr(u32)]
 enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
     BadArg = 2,
+}
+
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
 }
 
 #[export_name = "main"]
@@ -69,88 +76,77 @@ fn main() -> ! {
     let gpio = unsafe  { &*device::GPIO::ptr() };
 
     // Field messages.
-    let mmask = 0;  // we don't use notifications.
     let mut buffer : [u8; 2] = [0; 2];
     loop {
-        let msginfo = sys_recv(&mut buffer, mmask);
-        match msginfo.operation {
-            OP_SET_DIR => {
-                if msginfo.message_len != 2 {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                }
-                let gpionum = buffer[0];
-                let dir = buffer[1];
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    if dir == 0 {
-                        gpio.dirclr[0].write(|w| unsafe { w.dirclrp().bits(mask) } );
+        hl::recv_without_notification(
+            &mut buffer,
+            |op, msg| match op {
+                Op::SetDir => {
+                    let (&[gpionum, dir], caller) = msg.fixed::<[u8; 2], ()>()
+                        .ok_or(ResponseCode::BadArg)?;
+                    if gpionum < 32 {
+                        let mask = 1 << gpionum;
+                        if dir == 0 {
+                            gpio.dirclr[0].write(|w| unsafe { w.dirclrp().bits(mask) } );
+                        } else {
+                            gpio.dirset[0].write(|w| unsafe { w.dirsetp().bits(mask) } );
+                        }
+                    } else if gpionum < 64 {
+                        let mask = 1 << (gpionum - 32);
+                        if dir == 0 {
+                            gpio.dirclr[1].write(|w| unsafe { w.dirclrp().bits(mask) } );
+                        } else {
+                            gpio.dirset[1].write(|w| unsafe { w.dirsetp().bits(mask) } );
+                        }
                     } else {
-                        gpio.dirset[0].write(|w| unsafe { w.dirsetp().bits(mask) } );
+                        return Err(ResponseCode::BadArg);
                     }
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    if dir == 0 {
-                        gpio.dirclr[1].write(|w| unsafe { w.dirclrp().bits(mask) } );
+                    caller.reply(());
+                    Ok(())
+                }
+                Op::SetVal => {
+                    let (&[gpionum, val], caller) = msg.fixed::<[u8; 2], ()>()
+                        .ok_or(ResponseCode::BadArg)?;
+                    if gpionum < 32 {
+                        let mask = 1 << gpionum;
+                        if val == 0 {
+                            gpio.clr[0].write(|w| { unsafe { w.clrp().bits(mask) } });
+                        } else {
+                            gpio.set[0].write(|w| { unsafe { w.setp().bits(mask) } });
+                        }
+                    } else if gpionum < 64 {
+                        let mask = 1 << (gpionum - 32);
+                        if val == 0 {
+                            gpio.clr[1].write(|w| { unsafe { w.clrp().bits(mask) } });
+                        } else {
+                            gpio.set[1].write(|w| { unsafe { w.setp().bits(mask) } });
+                        }
                     } else {
-                        gpio.dirset[1].write(|w| unsafe { w.dirsetp().bits(mask) } );
+                        return Err(ResponseCode::BadArg);
                     }
-
-                } else {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                    caller.reply(());
+                    Ok(())
                 }
-                sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-            }
-            OP_SET_VAL => {
-                if msginfo.message_len != 2 {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                }
-                let gpionum = buffer[0];
-                let val = buffer[1];
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    if val == 0 {
-                        gpio.clr[0].write(|w| { unsafe { w.clrp().bits(mask) } });
+                Op::ReadVal => {
+                    // Make sure the pin is set in digital mode before trying to
+                    // use this function otherwise it will not work!
+                    let (&gpionum, caller) = msg.fixed::<u8, u8>()
+                        .ok_or(ResponseCode::BadArg)?;
+                    let val;
+                    if gpionum < 32 {
+                        let mask = 1 << gpionum;
+                        val = (gpio.pin[0].read().port().bits() & mask) == mask;
+                    } else if gpionum < 64 {
+                        let mask = 1 << (gpionum - 32);
+                        val = (gpio.pin[1].read().port().bits() & mask) == mask;
                     } else {
-                        gpio.set[0].write(|w| { unsafe { w.setp().bits(mask) } });
+                        return Err(ResponseCode::BadArg);
                     }
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    if val == 0 {
-                        gpio.clr[1].write(|w| { unsafe { w.clrp().bits(mask) } });
-                    } else {
-                        gpio.set[1].write(|w| { unsafe { w.setp().bits(mask) } });
-                    }
-                } else {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                    caller.reply(val as u8);
+                    Ok(())
                 }
-                sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-
-            }
-            OP_READ_VAL => {
-                // Make sure the pin is set in digital mode before trying to use
-                // this function otherwise it will not work!
-                let gpionum = buffer[0];
-                let mut val = false;
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    val = (gpio.pin[0].read().port().bits() & mask) == mask;
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    val = (gpio.pin[1].read().port().bits() & mask) == mask;
-                } else {
-                    sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                }
-                if val {
-                    sys_reply(msginfo.sender, ResponseCode::Success as u32, &[1]);
-                } else {
-                    sys_reply(msginfo.sender, ResponseCode::Success as u32, &[0]);
-                }
-            }
-            _ => {
-                // Unrecognized operation code
-                sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]);
-            }
-        }
+            },
+        );
     }
 }
 

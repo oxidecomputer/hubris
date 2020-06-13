@@ -175,6 +175,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
  "lpc55-pac",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
@@ -194,6 +195,7 @@ name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
  "lpc55-pac",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]

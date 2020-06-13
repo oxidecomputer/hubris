@@ -107,20 +107,46 @@
 #![no_main]
 
 use lpc55_pac as device;
-
 use zerocopy::AsBytes;
+
 use userlib::*;
 
-const OP_ENABLE_CLOCK: u32 = 1;
-const OP_DISABLE_CLOCK: u32 = 2;
-const OP_ENTER_RESET: u32 = 3;
-const OP_LEAVE_RESET: u32 = 4;
+#[derive(FromPrimitive)]
+enum Op {
+    EnableClock = 1,
+    DisableClock = 2,
+    EnterReset = 3,
+    LeaveReset = 4,
+}
+
+#[derive(FromPrimitive)]
+enum Reg {
+    R0 = 0,
+    R1 = 1,
+    R2 = 2,
+}
 
 #[repr(u32)]
 enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
     BadArg = 2,
+}
+
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
+}
+
+macro_rules! set_bit {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) });
+    };
+}
+
+macro_rules! clear_bit {
+    ($reg:expr, $mask:expr) => {
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) });
+    };
 }
 
 #[export_name = "main"]
@@ -159,7 +185,6 @@ fn main() -> ! {
     // Use Main clock A
     syscon.mainclkselb.modify(|_, w| w.sel().enum_0x0());
 
-
     unsafe {
         // Divide the AHB clk by 1
         syscon.ahbclkdiv.modify(|_, w| w.div().bits(0x0));
@@ -168,111 +193,51 @@ fn main() -> ! {
     }
 
     // Field messages.
-    let mask = 0;  // we don't use notifications.
-    let mut buffer = 0u32;
+    // Ensure our buffer is aligned properly for a u32 by declaring it as one.
+    let mut buffer = [0u32; 1];
     loop {
-        let msginfo = sys_recv(buffer.as_bytes_mut(), mask);
-        let pmask = 1 << (buffer % 32);
-        let chunk = buffer / 32;
-        match msginfo.operation {
-            // Just like the STM32F4 we end up with a lot of duplication because
-            // each register is a different type.
-            OP_ENABLE_CLOCK => {
-                match chunk {
-                    0 => {
-                        // Register 0
-                        syscon.ahbclkctrl0.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
+        hl::recv_without_notification(
+            buffer.as_bytes_mut(),
+            |op, msg| -> Result<(), ResponseCode> {
+                // Every incoming message uses the same payload type and
+                // response type: it's always u32 -> (). So we can do the
+                // check-and-convert here:
+                let (msg, caller) = msg.fixed::<u32, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+                let pmask = 1 << (msg % 32);
+                let chunk = msg / 32;
+
+                let reg = Reg::from_u32(chunk)
+                    .ok_or(ResponseCode::BadArg)?;
+
+                // Just like the STM32F4 we end up with a lot of duplication
+                // because each register is a different type.
+                match op {
+                    Op::EnableClock => match reg {
+                        Reg::R0 => set_bit!(syscon.ahbclkctrl0, pmask),
+                        Reg::R1 => set_bit!(syscon.ahbclkctrl1, pmask),
+                        Reg::R2 => set_bit!(syscon.ahbclkctrl2, pmask),
                     }
-                    1 => {
-                        // Register 1
-                        syscon.ahbclkctrl1.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
+                    Op::DisableClock => match reg {
+                        Reg::R0 => clear_bit!(syscon.ahbclkctrl0, pmask),
+                        Reg::R1 => clear_bit!(syscon.ahbclkctrl1, pmask),
+                        Reg::R2 => clear_bit!(syscon.ahbclkctrl2, pmask),
                     }
-                    2 => {
-                        // Register 2
-                        syscon.ahbclkctrl2.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
+                    Op::EnterReset => match reg {
+                        Reg::R0 => set_bit!(syscon.presetctrl0, pmask),
+                        Reg::R1 => set_bit!(syscon.presetctrl1, pmask),
+                        Reg::R2 => set_bit!(syscon.presetctrl2, pmask),
                     }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                    }
-                }
-            }
-            OP_DISABLE_CLOCK => {
-                match chunk {
-                    0 => {
-                        // Register 0
-                        syscon.ahbclkctrl0.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    1 => {
-                        // Register 1
-                        syscon.ahbclkctrl1.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    2 => {
-                        // Register 2
-                        syscon.ahbclkctrl2.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                    Op::LeaveReset => match reg {
+                        Reg::R0 => clear_bit!(syscon.presetctrl0, pmask),
+                        Reg::R1 => clear_bit!(syscon.presetctrl1, pmask),
+                        Reg::R2 => clear_bit!(syscon.presetctrl2, pmask),
                     }
                 }
+
+                caller.reply(());
+                Ok(())
             }
-            OP_ENTER_RESET => {
-                match chunk {
-                    0 => {
-                        // Register 0
-                        syscon.presetctrl0.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    1 => {
-                        // Register 1
-                        syscon.presetctrl1.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    2 => {
-                        // Register 2
-                        syscon.presetctrl2.modify(|r, w| unsafe { w.bits(r.bits() | pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                    }
-                }
-            }
-            OP_LEAVE_RESET => {
-                match chunk {
-                    0 => {
-                        // Register 0
-                        syscon.presetctrl0.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    1 => {
-                        // Register 1
-                        syscon.presetctrl1.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    2 => {
-                        // Register 2
-                        syscon.presetctrl2.modify(|r, w| unsafe { w.bits(r.bits() & !pmask) });
-                        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                    }
-                }
-            }
-            _ => {
-                // Unrecognized operation code
-                sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]);
-            }
-        }
+        );
     }
 }
