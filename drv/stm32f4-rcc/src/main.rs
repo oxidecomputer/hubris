@@ -50,16 +50,32 @@ use stm32f4::stm32f407 as device;
 use zerocopy::AsBytes;
 use userlib::*;
 
-const OP_ENABLE_CLOCK: u32 = 1;
-const OP_DISABLE_CLOCK: u32 = 2;
-const OP_ENTER_RESET: u32 = 3;
-const OP_LEAVE_RESET: u32 = 4;
+#[derive(FromPrimitive)]
+enum Op {
+    EnableClock = 1,
+    DisableClock = 2,
+    EnterReset = 3,
+    LeaveReset = 4,
+}
+
+#[derive(FromPrimitive)]
+enum Bus {
+    Ahb1 = 0,
+    Ahb2 = 1,
+    Ahb3 = 2,
+    Apb1 = 3,
+    Apb2 = 4,
+}
 
 #[repr(u32)]
 enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
     BadArg = 2,
+}
+
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
 }
 
 // None of the registers we interact with have the same types, and they share no
@@ -92,143 +108,59 @@ fn main() -> ! {
     // Any global setup we required would go here.
 
     // Field messages.
-    let mask = 0;  // we don't use notifications.
-    let mut buffer = 0u32;
+    // Ensure our buffer is aligned properly for a u32 by declaring it as one.
+    let mut buffer = [0u32; 1];
     loop {
-        let msginfo = sys_recv(buffer.as_bytes_mut(), mask);
-        let pmask = 1 << (buffer % 32);
-        let chunk = buffer / 32;
-        match msginfo.operation {
-            // Note: you're probably looking at the match arms below and saying
-            // to yourself, "gosh, I bet we could eliminate some duplication
-            // here." Well, good luck. svd2rust has ensured that every *ENR and
-            // *RSTR register is a *totally distinct type*, meaning we can't
-            // operate on them generically.
+        hl::recv_without_notification(
+            buffer.as_bytes_mut(),
+            |op, msg| -> Result<(), ResponseCode> {
+                // Every incoming message uses the same payload type and
+                // response type: it's always u32 -> (). So we can do the
+                // check-and-convert here:
+                let (msg, caller) = msg.fixed::<u32, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+                let pmask: u32 = 1 << (msg % 32);
+                let bus = Bus::from_u32(msg / 32).ok_or(ResponseCode::BadArg)?;
 
-            OP_ENABLE_CLOCK => {
-                match chunk {
-                    0 => {
-                        // AHB1
-                        set_bits!(rcc.ahb1enr, pmask);
+                // Note: you're probably looking at the match arms below and
+                // saying to yourself, "gosh, I bet we could eliminate some
+                // duplication here." Well, good luck. svd2rust has ensured that
+                // every *ENR and *RSTR register is a *totally distinct type*,
+                // meaning we can't operate on them generically.
+                match op {
+                    Op::EnableClock => match bus {
+                        Bus::Ahb1 => set_bits!(rcc.ahb1enr, pmask),
+                        Bus::Ahb2 => set_bits!(rcc.ahb2enr, pmask),
+                        Bus::Ahb3 => set_bits!(rcc.ahb3enr, pmask),
+                        Bus::Apb1 => set_bits!(rcc.apb1enr, pmask),
+                        Bus::Apb2 => set_bits!(rcc.apb2enr, pmask),
                     }
-                    1 => {
-                        // AHB2
-                        set_bits!(rcc.ahb2enr, pmask);
+                    Op::DisableClock => match bus {
+                        Bus::Ahb1 => clear_bits!(rcc.ahb1enr, pmask),
+                        Bus::Ahb2 => clear_bits!(rcc.ahb2enr, pmask),
+                        Bus::Ahb3 => clear_bits!(rcc.ahb3enr, pmask),
+                        Bus::Apb1 => clear_bits!(rcc.apb1enr, pmask),
+                        Bus::Apb2 => clear_bits!(rcc.apb2enr, pmask),
                     }
-                    2 => {
-                        // AHB3
-                        set_bits!(rcc.ahb3enr, pmask);
+                    Op::EnterReset => match bus {
+                        Bus::Ahb1 => set_bits!(rcc.ahb1rstr, pmask),
+                        Bus::Ahb2 => set_bits!(rcc.ahb2rstr, pmask),
+                        Bus::Ahb3 => set_bits!(rcc.ahb3rstr, pmask),
+                        Bus::Apb1 => set_bits!(rcc.apb1rstr, pmask),
+                        Bus::Apb2 => set_bits!(rcc.apb2rstr, pmask),
                     }
-                    3 => {
-                        // APB1
-                        set_bits!(rcc.apb1enr, pmask);
-                    }
-                    4 => {
-                        // APB2
-                        set_bits!(rcc.apb2enr, pmask);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-                }
-            }
-            OP_DISABLE_CLOCK => {
-                match chunk {
-                    0 => {
-                        // AHB1
-                        clear_bits!(rcc.ahb1enr, pmask);
-                    }
-                    1 => {
-                        // AHB2
-                        clear_bits!(rcc.ahb2enr, pmask);
-                    }
-                    2 => {
-                        // AHB3
-                        clear_bits!(rcc.ahb3enr, pmask);
-                    }
-                    3 => {
-                        // APB1
-                        clear_bits!(rcc.apb1enr, pmask);
-                    }
-                    4 => {
-                        // APB2
-                        clear_bits!(rcc.apb2enr, pmask);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
+                    Op::LeaveReset => match bus {
+                        Bus::Ahb1 => clear_bits!(rcc.ahb1rstr, pmask),
+                        Bus::Ahb2 => clear_bits!(rcc.ahb2rstr, pmask),
+                        Bus::Ahb3 => clear_bits!(rcc.ahb3rstr, pmask),
+                        Bus::Apb1 => clear_bits!(rcc.apb1rstr, pmask),
+                        Bus::Apb2 => clear_bits!(rcc.apb2rstr, pmask),
                     }
                 }
-            }
-            OP_ENTER_RESET => {
-                match chunk {
-                    0 => {
-                        // AHB1
-                        set_bits!(rcc.ahb1rstr, pmask);
-                    }
-                    1 => {
-                        // AHB2
-                        set_bits!(rcc.ahb2rstr, pmask);
-                    }
-                    2 => {
-                        // AHB3
-                        set_bits!(rcc.ahb3rstr, pmask);
-                    }
-                    3 => {
-                        // APB1
-                        set_bits!(rcc.apb1rstr, pmask);
-                    }
-                    4 => {
-                        // APB2
-                        set_bits!(rcc.apb2rstr, pmask);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-                }
-            }
-            OP_LEAVE_RESET => {
-                match chunk {
-                    0 => {
-                        // AHB1
-                        clear_bits!(rcc.ahb1rstr, pmask);
-                    }
-                    1 => {
-                        // AHB2
-                        clear_bits!(rcc.ahb2rstr, pmask);
-                    }
-                    2 => {
-                        // AHB3
-                        clear_bits!(rcc.ahb3rstr, pmask);
-                    }
-                    3 => {
-                        // APB1
-                        clear_bits!(rcc.apb1rstr, pmask);
-                    }
-                    4 => {
-                        // APB2
-                        clear_bits!(rcc.apb2rstr, pmask);
-                    }
-                    _ => {
-                        // Huh?
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-                }
-            }
-            _ => {
-                // Unrecognized operation code
-                sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]);
-                continue;
-            }
-        }
 
-        // If we reach this point, we were successful; factor out the reply:
-        sys_reply(msginfo.sender, ResponseCode::Success as u32, &[]);
+                caller.reply(());
+                Ok(())
+            },
+        );
     }
 }
