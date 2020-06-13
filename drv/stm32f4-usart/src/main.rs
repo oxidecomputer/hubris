@@ -21,18 +21,27 @@ const RCC: Task = Task::rcc_driver;
 #[cfg(feature = "standalone")]
 const RCC: Task = SELF;
 
-const OP_WRITE: u32 = 1;
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+enum Operation {
+    Write = 1,
+}
 
 #[repr(u32)]
 enum ResponseCode {
-    Success = 0,
-    BadOp = 1,
     BadArg = 2,
     Busy = 3,
 }
 
+// TODO: it is super unfortunate to have to write this by hand, but deriving
+// ToPrimitive makes us check at runtime whether the value fits
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
+}
+
 struct Transmit {
-    task: TaskId,
+    caller: hl::Caller<()>,
     len: usize,
     pos: usize,
 }
@@ -87,61 +96,65 @@ fn main() -> ! {
     let mut tx: Option<Transmit> = None;
 
     loop {
-        let msginfo = sys_recv(&mut [], mask);
-        if msginfo.sender == TaskId::KERNEL {
-            if msginfo.operation & 1 != 0 {
-                // Handling an interrupt. To allow for spurious interrupts,
-                // check the individual conditions we care about, and
-                // unconditionally re-enable the IRQ at the end of the handler.
-                if let Some(txs) = tx.as_mut() {
-                    // Transmit in progress, check to see if TX is empty.
+        hl::recv(
+            // Buffer (none required)
+            &mut [],
+            // Notification mask
+            mask,
+            // State to pass through to whichever closure below gets run
+            &mut tx,
+            // Notification handler
+            |txref, bits| {
+                if bits & 1 != 0 {
+                    // Handling an interrupt. To allow for spurious interrupts,
+                    // check the individual conditions we care about, and
+                    // unconditionally re-enable the IRQ at the end of the handler.
+
                     if usart.sr.read().txe().bit() {
-                        // TX register empty. Time to send something.
-                        if step_transmit(&usart, txs) {
-                            tx = None;
-                            usart.cr1.modify(|_, w| w.txeie().disabled());
-                        }
+                        // TX register empty. Do we need to send something?
+                        step_transmit(&usart, txref);
                     }
+
+                    sys_irq_control(1, true);
                 }
+            },
+            // Message handler
+            |txref, op, msg| match op {
+                Operation::Write => {
+                    // Validate lease count and buffer sizes first.
+                    let ((), caller) = msg.fixed_with_leases(1)
+                        .ok_or(ResponseCode::BadArg)?;
 
-                sys_irq_control(1, true);
-            }
-        } else {
-            match msginfo.operation {
-                OP_WRITE => {
                     // Deny incoming writes if we're already running one.
-                    if tx.is_some() {
-                        sys_reply(msginfo.sender, ResponseCode::Busy as u32, &[]);
-                        continue;
+                    if txref.is_some() {
+                        return Err(ResponseCode::Busy);
                     }
 
-                    // Check the lease count and characteristics.
-                    if msginfo.lease_count != 1 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
-                    }
-
-                    let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
-                    if rc != 0 || atts & 1 == 0 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
-                        continue;
+                    let borrow = caller.borrow(0);
+                    let info = borrow.info().ok_or(ResponseCode::BadArg)?;
+                    // Provide feedback to callers if they fail to provide a
+                    // readable lease (otherwise we'd fail accessing the borrow
+                    // later, which is a defection case and we won't reply at
+                    // all).
+                    if !info.attributes.contains(LeaseAttributes::READ) {
+                        return Err(ResponseCode::BadArg)
                     }
 
                     // Okay! Begin a transfer!
-                    tx = Some(Transmit {
-                        task: msginfo.sender,
+                    *txref = Some(Transmit {
+                        caller,
                         pos: 0,
-                        len,
+                        len: info.len,
                     });
 
                     // OR the TX register empty signal into the USART interrupt.
                     usart.cr1.modify(|_, w| w.txeie().enabled());
 
                     // We'll do the rest as interrupts arrive.
+                    Ok(())
                 },
-                _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
-            }
-        }
+            },
+        );
     }
 }
 
@@ -171,22 +184,28 @@ fn turn_on_gpioa() {
     assert_eq!(code, 0);
 }
 
-fn step_transmit(usart: &device::usart1::RegisterBlock, txs: &mut Transmit) -> bool {
-    let mut byte = 0u8;
-    let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
-    if rc != 0 || len != 1 {
-        sys_reply(txs.task, ResponseCode::BadArg as u32, &[]);
-        true
-    } else {
+fn step_transmit(usart: &device::usart1::RegisterBlock, tx: &mut Option<Transmit>) {
+
+    // Clearer than just using replace:
+    fn end_transmission(
+        usart: &device::usart1::RegisterBlock,
+        state: &mut Option<Transmit>,
+    ) -> hl::Caller<()> {
+        usart.cr1.modify(|_, w| w.txeie().disabled());
+        core::mem::replace(state, None).unwrap().caller
+    }
+
+    let txs = if let Some(txs) = tx { txs } else { return };
+
+    if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
         txs.pos += 1;
         if txs.pos == txs.len {
-            sys_reply(txs.task, ResponseCode::Success as u32, &[]);
-            true
-        } else {
-            false
+            end_transmission(usart, tx).reply(());
         }
+    } else {
+        end_transmission(usart, tx).reply_fail(ResponseCode::BadArg);
     }
 }
