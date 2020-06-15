@@ -18,7 +18,7 @@
 #![no_main]
 
 use lpc55_pac as device;
-use zerocopy::AsBytes;
+use drv_lpc55_syscon_api::Syscon;
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -56,10 +56,13 @@ struct Transmit {
 
 #[export_name = "main"]
 fn main() -> ! {
-    // Turn the actual peripheral on so that we can interact with it.
-    turn_on_flexcomm();
+    let syscon = Syscon::from(
+        TaskId::for_index_and_gen(SYSCON as usize, Generation::default()));
 
-    muck_with_gpios();
+    // Turn the actual peripheral on so that we can interact with it.
+    turn_on_flexcomm(&syscon);
+
+    muck_with_gpios(&syscon);
 
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual I2C block. These are technically
@@ -129,42 +132,14 @@ fn main() -> ! {
     }
 }
 
-// TODO: this definition of the syscon API should move out into some kind of an
-// interface crate.
-
-#[derive(AsBytes)]
-#[repr(C)]
-struct EnableClock(u32);
-
-impl hl::Call for EnableClock {
-    const OP: u16 = 1;
-    type Response = ();
-    type Err = u32;
+fn turn_on_flexcomm(syscon: &Syscon) {
+    syscon.enable_clock(47);
+    syscon.leave_reset(47);
 }
 
-#[derive(AsBytes)]
-#[repr(C)]
-struct LeaveReset(u32);
-
-impl hl::Call for LeaveReset {
-    const OP: u16 = 4;
-    type Response = ();
-    type Err = u32;
-}
-
-fn turn_on_flexcomm() {
-    let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
-
-    hl::send(rcc_driver, &EnableClock(47)).unwrap();
-    hl::send(rcc_driver, &LeaveReset(47)).unwrap();
-}
-
-fn muck_with_gpios()
-{
-    let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
-
-    hl::send(rcc_driver, &EnableClock(13)).unwrap();
-    hl::send(rcc_driver, &LeaveReset(13)).unwrap();
+fn muck_with_gpios(syscon: &Syscon) {
+    syscon.enable_clock(13);
+    syscon.leave_reset(13);
 
     // Our GPIOs are P1_21 and P1_21 and need to be set to AF5
     // (see table 320)

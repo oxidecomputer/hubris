@@ -185,6 +185,7 @@ name = "drv-lpc55-i2c"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -196,6 +197,15 @@ name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
  "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-lpc55-syscon-api"
+version = "0.1.0"
+dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
