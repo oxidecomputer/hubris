@@ -1,24 +1,19 @@
 [package]
-name = "drv-lpc55-i2c"
+name = "drv-lpc55-syscon-api"
 version = "0.1.0"
-authors = ["Laura Abbott <laura@oxide.computer>"]
+authors = [
+  "Laura Abbott <laura@oxide.computer>",
+  "Cliff L. Biffle <cliff@oxide.computer>",
+]
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
-lpc55-pac = "0.1.0"
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-cortex-m-semihosting = "0.3.3"
 num-traits = {version = "0.2", default-features = false}
-
-[features]
-default = ["standalone"]
-standalone = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-i2c"
+[lib]
 test = false
 bench = false
