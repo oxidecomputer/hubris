@@ -667,6 +667,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-aestest"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
