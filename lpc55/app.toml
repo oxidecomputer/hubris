@@ -85,7 +85,6 @@ path = "../task-ping"
 name = "task-ping"
 priority = 3
 requires = {flash = 8192, ram = 1024}
-start = true
 
 [tasks.pong]
 path = "../task-pong"
@@ -93,13 +92,19 @@ name = "task-pong"
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["iocon"]
-start = true
 
 [tasks.spam]
 path = "../task-spam2"
 name = "task-spam"
 priority = 3
 requires = {flash = 8192, ram = 1024}
+
+[tasks.aestest]
+path = "../task-aestest"
+name = "task-aestest"
+priority = 3
+requires = {flash = 16384, ram = 2048}
+start = true
 
 [peripherals.syscon]
 address = 0x40000000
