@@ -129,31 +129,42 @@ fn main() -> ! {
     }
 }
 
+// TODO: this definition of the syscon API should move out into some kind of an
+// interface crate.
+
+#[derive(AsBytes)]
+#[repr(C)]
+struct EnableClock(u32);
+
+impl hl::Call for EnableClock {
+    const OP: u16 = 1;
+    type Response = ();
+    type Err = u32;
+}
+
+#[derive(AsBytes)]
+#[repr(C)]
+struct LeaveReset(u32);
+
+impl hl::Call for LeaveReset {
+    const OP: u16 = 4;
+    type Response = ();
+    type Err = u32;
+}
+
 fn turn_on_flexcomm() {
     let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
 
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 47; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
+    hl::send(rcc_driver, &EnableClock(47)).unwrap();
+    hl::send(rcc_driver, &LeaveReset(47)).unwrap();
 }
 
 fn muck_with_gpios()
 {
     let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
 
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 13; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
+    hl::send(rcc_driver, &EnableClock(13)).unwrap();
+    hl::send(rcc_driver, &LeaveReset(13)).unwrap();
 
     // Our GPIOs are P1_21 and P1_21 and need to be set to AF5
     // (see table 320)

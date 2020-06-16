@@ -9,7 +9,7 @@ use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
     sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv, sys_reply,
-    FromPrimitive,
+    sys_send, FromPrimitive,
 };
 
 /// Receives a message, or a notification, and handles it.
@@ -354,4 +354,102 @@ pub struct BorrowInfo {
     pub attributes: abi::LeaseAttributes,
     /// Length of borrowed memory, in bytes.
     pub len: usize,
+}
+
+/// Trait implemented by types that represent a message sent to another task.
+///
+/// A `Call` type `C` has four parts: the contents of a value of type `C`, which
+/// form the actual message, and three associated items:
+///
+/// - The expected type of the response, `C::Response`, which is how returned
+///   bytes will be interpreted.
+///
+/// - The error type, `C::Err`, that will be constructed from any non-zero
+///   response code.
+///
+/// - The operation number, `C::OP`, used to identify this operation to its
+///   recipient and inform their parsing.
+///
+/// Types implementing `Call` can be used with `hl::send` to get simple,
+/// type-safe messaging.
+///
+/// # Limitations
+///
+/// - The `Response` type can't be a complex enum, because it must be valid for
+///   any sequence of bytes of the appropriate size. Which is to say, `hl::send`
+///   won't do any validation of response *contents.*
+///
+/// - While it's possible to implement `Call` for an `enum`, the lack of a
+///   well-defined ABI for complex enums means the server code for deserializing
+///   the message will be complex. You might choose to go with multiple
+///   operations using structs instead. (This is not specific to the `Call`
+///   trait.)
+///
+/// You can always call `sys_send` directly to circumvent these, if desired.
+pub trait Call: AsBytes {
+    /// Type of the expected response on success (response code of 0).
+    type Response: FromBytes;
+    /// Type of the error returned on failure (response code not 0).
+    type Err: From<u32>;
+    /// Operation code to send to the server.
+    const OP: u16;
+}
+
+/// Typed version of `sys_send` that sends a value to another task and collects
+/// a response.
+///
+/// `send` will:
+///
+/// - Reinterpret `message` as a slice of bytes,
+/// - Allocate a buffer large enough to receive a response of type
+///   `M::Response`,
+/// - Send `message` to `target`,
+/// - Block waiting for a response,
+/// - Inspect the response code: if zero, the response is reinterpreted as
+///   `M::Response` and returned in `Ok`. Non-zero response codes are passed to
+///   `M::Err`'s impl of `From<u32>` for conversion and returned in `Err`.
+///
+/// This does *not* require either `M` or `M::Response` to be `Unaligned` -- it
+/// will correctly manage alignment on our side.
+///
+/// This will work for any type `M` that implements `Call`, though note that the
+/// client and server must *agree* on the types: no type information is sent.
+///
+/// # Panics
+///
+/// If the server sends back a successful response that is the wrong size for
+/// `M::Response`. This indicates a serious bug, so it's not something we would
+/// make every client handle every time by returning an `Err`.
+pub fn send<M>(target: TaskId, message: &M) -> Result<M::Response, M::Err>
+where
+    M: Call,
+{
+    use core::mem::MaybeUninit;
+
+    // Engage in some unsafe shenanigans to obtain an uninitialized buffer with
+    // the right size and alignment to contain one M::Response. Recall that
+    // M::Response is FromBytes (as required by Call).
+    let mut response: MaybeUninit<M::Response> = MaybeUninit::uninit();
+    let rslice = unsafe {
+        core::slice::from_raw_parts_mut(
+            response.as_mut_ptr() as *mut u8,
+            core::mem::size_of_val(&response),
+        )
+    };
+
+    let (code, rlen) = sys_send(target, M::OP, message.as_bytes(), rslice, &[]);
+
+    if code == 0 {
+        if rlen == core::mem::size_of_val(&response) {
+            Ok(unsafe { response.assume_init() })
+        } else {
+            // The trust relationship from client to server requires that
+            // servers behave, e.g. reply to messages instead of merely dropping
+            // them. For now, we'll extend this relationship to say that a
+            // client can panic if a server sends back an ill response.
+            panic!();
+        }
+    } else {
+        Err(M::Err::from(code))
+    }
 }
