@@ -4,10 +4,13 @@
 //! syscalls.
 
 use abi::TaskId;
-use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 use core::marker::PhantomData;
+use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
-use crate::{sys_reply, sys_recv, sys_borrow_info, FromPrimitive, sys_borrow_read, sys_borrow_write};
+use crate::{
+    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv, sys_reply,
+    FromPrimitive,
+};
 
 /// Receives a message, or a notification, and handles it.
 ///
@@ -75,9 +78,9 @@ pub fn recv<'a, O, E, S>(
     state: S,
     notify: impl FnOnce(S, u32),
     msg: impl FnOnce(S, O, Message<'a>) -> Result<(), E>,
-)
-where O: FromPrimitive,
-      E: Into<u32>,
+) where
+    O: FromPrimitive,
+    E: Into<u32>,
 {
     let rm = sys_recv(buffer, mask);
     let sender = rm.sender;
@@ -110,9 +113,9 @@ where O: FromPrimitive,
 pub fn recv_without_notification<'a, O, E>(
     buffer: &'a mut [u8],
     msg: impl FnOnce(O, Message<'a>) -> Result<(), E>,
-)
-where O: FromPrimitive,
-      E: Into<u32>,
+) where
+    O: FromPrimitive,
+    E: Into<u32>,
 {
     recv(buffer, 0, (), |_, _| (), |_, op, m| msg(op, m))
 }
@@ -152,8 +155,9 @@ impl<'a> Message<'a> {
     /// aligned for type `M`. The easiest way to ensure this is to use an
     /// [`Unaligned`][zerocopy::Unaligned] type.
     pub fn fixed<M, R>(self) -> Option<(&'a M, Caller<R>)>
-        where M: FromBytes,
-              R: AsBytes,
+    where
+        M: FromBytes,
+        R: AsBytes,
     {
         let caller = Caller::from(self.sender);
         if self.buffer.len() != core::mem::size_of::<M>()
@@ -175,8 +179,9 @@ impl<'a> Message<'a> {
     ///
     /// This will panic under the same circumstances as `fixed`.
     pub fn fixed_with_leases<M, R>(self, n: usize) -> Option<(&'a M, Caller<R>)>
-        where M: FromBytes,
-              R: AsBytes,
+    where
+        M: FromBytes,
+        R: AsBytes,
     {
         if self.lease_count != n {
             None
@@ -197,14 +202,18 @@ pub struct Caller<R> {
 /// `Message::fixed`.
 impl<R> From<TaskId> for Caller<R> {
     fn from(id: TaskId) -> Self {
-        Caller { id, _phantom: PhantomData }
+        Caller {
+            id,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<R> Caller<R> {
     /// Sends a successful reply message of type `R`, consuming the handle.
     pub fn reply(self, message: R)
-        where R: AsBytes,
+    where
+        R: AsBytes,
     {
         sys_reply(self.id, 0, message.as_bytes())
     }
@@ -222,7 +231,11 @@ impl<R> Caller<R> {
     /// See the caveats on `Borrow` about what holding a borrow handle does, and
     /// does not, mean.
     pub fn borrow(&self, index: usize) -> Borrow<'_> {
-        Borrow { id: self.id, index, _phantom: PhantomData }
+        Borrow {
+            id: self.id,
+            index,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -291,12 +304,14 @@ impl Borrow<'_> {
     /// Even if `T` requires alignment greater than 1 byte, no alignment
     /// requirements is placed on the *client* side.
     pub fn read_at<T>(&self, offset: usize) -> Option<T>
-        where T: Default + FromBytes + AsBytes,
+    where
+        T: Default + FromBytes + AsBytes,
     {
         // NOTE: the default requirement could be lifted if we do some unsafe
         // uninitialized buffer shenanigans.
         let mut dest = T::default();
-        let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
+        let (rc, n) =
+            sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
         if rc != 0 {
             None
         } else if n != core::mem::size_of::<T>() {
@@ -318,9 +333,11 @@ impl Borrow<'_> {
     /// Even if `T` requires alignment greater than 1 byte, no alignment
     /// requirements is placed on the *client* side.
     pub fn write_at<T>(&self, offset: usize, value: T) -> Option<()>
-        where T: AsBytes,
+    where
+        T: AsBytes,
     {
-        let (rc, n) = sys_borrow_write(self.id, self.index, offset, value.as_bytes());
+        let (rc, n) =
+            sys_borrow_write(self.id, self.index, offset, value.as_bytes());
         if rc != 0 {
             None
         } else if n != core::mem::size_of::<T>() {

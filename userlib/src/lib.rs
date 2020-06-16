@@ -2,13 +2,13 @@
 #![feature(llvm_asm)]
 
 pub use abi::*;
-pub use num_traits::{FromPrimitive, ToPrimitive};
 pub use num_derive::{FromPrimitive, ToPrimitive};
+pub use num_traits::{FromPrimitive, ToPrimitive};
 
 use core::marker::PhantomData;
 
-pub mod kipc;
 pub mod hl;
+pub mod kipc;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -85,10 +85,7 @@ pub fn sys_send(
     (response_code, response_len)
 }
 
-pub fn sys_recv(
-    buffer: &mut [u8],
-    notification_mask: u32,
-) -> RecvMessage {
+pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
     let mut sender: u32;
     let mut operation: u32;
     let mut message_len: usize;
@@ -129,11 +126,7 @@ pub struct RecvMessage {
     pub lease_count: usize,
 }
 
-pub fn sys_reply(
-    peer: TaskId,
-    code: u32,
-    message: &[u8],
-) {
+pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
     unsafe {
         llvm_asm! {
             "svc #0"
@@ -149,10 +142,7 @@ pub fn sys_reply(
     }
 }
 
-pub fn sys_set_timer(
-    deadline: Option<u64>,
-    notifications: u32,
-) {
+pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     let raw_deadline = deadline.unwrap_or(0);
     unsafe {
         llvm_asm! {
@@ -221,10 +211,7 @@ pub fn sys_borrow_write(
     (rc, length)
 }
 
-pub fn sys_borrow_info(
-    lender: TaskId,
-    index: usize,
-) -> (u32, u32, usize) {
+pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
     let mut rc: u32;
     let mut atts: u32;
     let mut length: usize;
@@ -244,10 +231,7 @@ pub fn sys_borrow_info(
     (rc, atts, length)
 }
 
-pub fn sys_irq_control(
-    mask: u32,
-    enable: bool,
-) {
+pub fn sys_irq_control(mask: u32, enable: bool) {
     unsafe {
         llvm_asm! {
             "svc #0"
@@ -261,9 +245,7 @@ pub fn sys_irq_control(
     }
 }
 
-pub fn sys_panic(
-    msg: &[u8],
-) -> ! {
+pub fn sys_panic(msg: &[u8]) -> ! {
     unsafe {
         llvm_asm! {
             "svc #0

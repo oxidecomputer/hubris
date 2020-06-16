@@ -42,20 +42,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let start = range["start"].as_u64().unwrap();
             let end = range["end"].as_u64().unwrap();
             let name = name.to_ascii_uppercase();
-            writeln!(linkscr, "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}", name, start, end - start).unwrap();
+            writeln!(
+                linkscr,
+                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                name,
+                start,
+                end - start
+            )
+            .unwrap();
         }
         write!(linkscr, "}}").unwrap();
         drop(linkscr);
-
     } else {
         // We're building outside the context of an image. Generate a
         // placeholder memory layout.
         let mut linkscr = File::create(out.join("memory.x")).unwrap();
-        writeln!(linkscr, "\
+        writeln!(
+            linkscr,
+            "\
             MEMORY {{\n\
                 FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K\n\
                 RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128K\n\
-            }}").unwrap();
+            }}"
+        )
+        .unwrap();
         drop(linkscr);
     }
 
