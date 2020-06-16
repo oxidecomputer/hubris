@@ -3,71 +3,6 @@
 //! This driver is responsible for clocks (peripherals and PLLs), systick
 //! callibration, memory remapping, id registers. Most drivers will be
 //! interested in the clock bits.
-//!
-//! # Peripheral numbering
-//! 
-//! Peripheral bit numbers per the LPC55 manual section 4.5 (for the benefit of
-//! the author writing this driver who hates having to look these up. Double
-//! check these later!)
-//!
-//! ROM = 1
-//! SRAM_CTRL1 = 3
-//! SRAM_CTRL2 = 4
-//! SRAM_CTRL3 = 5
-//! SRAM_CTRL4 = 6
-//! FLASH = 7
-//! FMC = 8
-//! MUX = 11
-//! IOCON = 13
-//! GPIO0 = 14
-//! GPIO1 = 15
-//! PINT = 18
-//! GINT = 19
-//! DMA0 = 20
-//! CRCGEN = 21
-//! WWDT = 22
-//! RTC = 23
-//! MAILBOX = 26
-//! ADC = 27
-//! MRT = 32 + 0 = 32
-//! OSTIMER = 32 + 1 = 33
-//! SCT = 32 + 2 = 34
-//! UTICK = 32 + 10 = 42
-//! FC0 = 32 + 11 = 43
-//! FC1 = 32 + 12 = 44
-//! FC2 = 32 + 13 = 45
-//! FC3 = 32 + 14 = 46
-//! FC4 = 32 + 15 = 47
-//! FC5 = 32 + 16 = 48
-//! FC6 = 32 + 17 = 49
-//! FC7 = 32 + 18 = 50
-//! TIMER2 = 32 + 22 = 54
-//! USB0_DEV = 32 + 25 = 57
-//! TIMER0 = 32 + 26 = 58
-//! TIMER1 = 32 + 27 = 59
-//! DMA1 = 32 + 32 + 1 = 65
-//! COMP = 32 + 32 + 2 = 66
-//! SDIO = 32 + 32 + 3 = 67
-//! USB1_HOST = 32 + 32 + 4 = 68
-//! USB1_DEV = 32 + 32 + 5 = 69
-//! USB1_RAM = 32 + 32 + 6 = 70
-//! USB1_PHY = 32 + 32 + 7 = 71
-//! FREQME = 32 + 32 + 8 = 72
-//! RNG = 32 + 32 + 13 = 77
-//! SYSCTL =  32 + 32 + 15 = 79
-//! USB0_HOSTM = 32 + 32 + 16 = 80
-//! USB0_HOSTS = 32 + 32 + 17 = 81
-//! HASH_AES = 32 + 32 + 18 = 82
-//! PQ = 32 + 32 + 19 = 83
-//! PLULUT = 32 + 32 + 20 = 84
-//! TIMER3 = 32 + 32 + 21 = 85
-//! TIMER4 = 32 + 32 + 22 = 86
-//! PUF = 32 + 32 + 23 = 87
-//! CASPER = 32 + 32 + 24 = 88
-//! ANALOG_CTRL = 32 + 32 + 27 = 91
-//! HS_LSPI = 32 + 32 + 28 = 92
-//! GPIO_SEC = 32 + 32 + 29 = 93
-//! GPIO_SEC_INT = 32 + 32 + 30 = 94
 
 #![no_std]
 
@@ -95,20 +30,13 @@ impl From<TaskId> for Syscon {
 impl Syscon {
     /// Requests that the clock to a peripheral be turned on.
     ///
-    /// Peripherals are numbered by bit number in the SYSCON registers
-    ///
-    /// - `PRESETCTRL0[31:0]` are indices 31-0.
-    /// - `PRESETCTRL1[31:0]` are indices 63-32.
-    /// - `PRESETCTRL2[31:0]` are indices 64-96.
-    ///
     /// # Panics
     ///
-    /// If you provide an out-of-range peripheral number, or if the syscon
-    /// server has died.
-    pub fn enable_clock(&self, number: u32) {
+    /// If the syscon server has died.
+    pub fn enable_clock(&self, peripheral: Peripheral) {
         #[derive(AsBytes)]
         #[repr(C)]
-        struct EnableClock(u32);
+        struct EnableClock(Peripheral);
 
         impl hl::Call for EnableClock {
             const OP: u16 = Op::EnableClock as u16;
@@ -116,25 +44,18 @@ impl Syscon {
             type Err = u32;
         }
 
-        hl::send(self.0, &EnableClock(number)).unwrap()
+        hl::send(self.0, &EnableClock(peripheral)).unwrap()
     }
 
     /// Requests that the clock to a peripheral be turned off.
     ///
-    /// Peripherals are numbered by bit number in the SYSCON registers
-    ///
-    /// - `PRESETCTRL0[31:0]` are indices 31-0.
-    /// - `PRESETCTRL1[31:0]` are indices 63-32.
-    /// - `PRESETCTRL2[31:0]` are indices 64-96.
-    ///
     /// # Panics
     ///
-    /// If you provide an out-of-range peripheral number, or if the syscon
-    /// server has died.
-    pub fn disable_clock(&self, number: u32) {
+    /// If the syscon server has died.
+    pub fn disable_clock(&self, peripheral: Peripheral) {
         #[derive(AsBytes)]
         #[repr(C)]
-        struct DisableClock(u32);
+        struct DisableClock(Peripheral);
 
         impl hl::Call for DisableClock {
             const OP: u16 = Op::DisableClock as u16;
@@ -142,25 +63,18 @@ impl Syscon {
             type Err = u32;
         }
 
-        hl::send(self.0, &DisableClock(number)).unwrap()
+        hl::send(self.0, &DisableClock(peripheral)).unwrap()
     }
 
     /// Requests that the reset line to a peripheral be asserted.
     ///
-    /// Peripherals are numbered by bit number in the SYSCON registers
-    ///
-    /// - `PRESETCTRL0[31:0]` are indices 31-0.
-    /// - `PRESETCTRL1[31:0]` are indices 63-32.
-    /// - `PRESETCTRL2[31:0]` are indices 64-96.
-    ///
     /// # Panics
     ///
-    /// If you provide an out-of-range peripheral number, or if the syscon
-    /// server has died.
-    pub fn enter_reset(&self, number: u32) {
+    /// If the syscon server has died.
+    pub fn enter_reset(&self, peripheral: Peripheral) {
         #[derive(AsBytes)]
         #[repr(C)]
-        struct EnterReset(u32);
+        struct EnterReset(Peripheral);
 
         impl hl::Call for EnterReset {
             const OP: u16 = Op::EnterReset as u16;
@@ -168,25 +82,18 @@ impl Syscon {
             type Err = u32;
         }
 
-        hl::send(self.0, &EnterReset(number)).unwrap()
+        hl::send(self.0, &EnterReset(peripheral)).unwrap()
     }
 
     /// Requests that the reset line to a peripheral be deasserted.
     ///
-    /// Peripherals are numbered by bit number in the SYSCON registers
-    ///
-    /// - `PRESETCTRL0[31:0]` are indices 31-0.
-    /// - `PRESETCTRL1[31:0]` are indices 63-32.
-    /// - `PRESETCTRL2[31:0]` are indices 64-96.
-    ///
     /// # Panics
     ///
-    /// If you provide an out-of-range peripheral number, or if the syscon
-    /// server has died.
-    pub fn leave_reset(&self, number: u32) {
+    /// If the syscon server has died.
+    pub fn leave_reset(&self, peripheral: Peripheral) {
         #[derive(AsBytes)]
         #[repr(C)]
-        struct LeaveReset(u32);
+        struct LeaveReset(Peripheral);
 
         impl hl::Call for LeaveReset {
             const OP: u16 = Op::LeaveReset as u16;
@@ -194,6 +101,80 @@ impl Syscon {
             type Err = u32;
         }
 
-        hl::send(self.0, &LeaveReset(number)).unwrap()
+        hl::send(self.0, &LeaveReset(peripheral)).unwrap()
     }
+}
+
+/// Peripheral numbering.
+/// 
+/// Peripheral bit numbers per the LPC55 manual section 4.5 (for the benefit of
+/// the author writing this driver who hates having to look these up. Double
+/// check these later!)
+///
+/// Peripherals are numbered by bit number in the SYSCON registers
+///
+/// - `PRESETCTRL0[31:0]` are indices 31-0.
+/// - `PRESETCTRL1[31:0]` are indices 63-32.
+/// - `PRESETCTRL2[31:0]` are indices 64-96.
+#[derive(Copy, Clone, Eq, PartialEq, Debug, FromPrimitive, AsBytes)]
+#[repr(u32)]
+pub enum Peripheral {
+    Rom = 1,
+    SramCtrl1 = 3,
+    SramCtrl2 = 4,
+    SramCtrl3 = 5,
+    SramCtrl4 = 6,
+    Flash = 7,
+    Fmc = 8,
+    Mux = 11,
+    Iocon = 13,
+    Gpio0 = 14,
+    Gpio1 = 15,
+    Pint = 18,
+    Gint = 19,
+    Dma0 = 20,
+    Crcgen = 21,
+    Wwdt = 22,
+    Rtc = 23,
+    Mailbox = 26,
+    Adc = 27,
+    Mrt = 32 + 0,
+    Ostimer = 32 + 1,
+    Sct = 32 + 2,
+    Utick = 32 + 10,
+    Fc0 = 32 + 11,
+    Fc1 = 32 + 12,
+    Fc2 = 32 + 13,
+    Fc3 = 32 + 14,
+    Fc4 = 32 + 15,
+    Fc5 = 32 + 16,
+    Fc6 = 32 + 17,
+    Fc7 = 32 + 18,
+    Timer2 = 32 + 22,
+    Usb0Dev = 32 + 25,
+    Timer0 = 32 + 26,
+    Timer1 = 32 + 27,
+    Dma1 = 32 + 32 + 1,
+    Comp = 32 + 32 + 2,
+    Sdio = 32 + 32 + 3,
+    Usb1Host = 32 + 32 + 4,
+    Usb1Dev = 32 + 32 + 5,
+    Usb1Ram = 32 + 32 + 6,
+    Usb1Phy = 32 + 32 + 7,
+    Freqme = 32 + 32 + 8,
+    Rng = 32 + 32 + 13,
+    Sysctl =  32 + 32 + 15,
+    Usb0Hostm = 32 + 32 + 16,
+    Usb0Hosts = 32 + 32 + 17,
+    HashAes = 32 + 32 + 18,
+    Pq = 32 + 32 + 19,
+    Plulut = 32 + 32 + 20,
+    Timer3 = 32 + 32 + 21,
+    Timer4 = 32 + 32 + 22,
+    Puf = 32 + 32 + 23,
+    Casper = 32 + 32 + 24,
+    AnalogCtrl = 32 + 32 + 27,
+    HsLspi = 32 + 32 + 28,
+    GpioSec = 32 + 32 + 29,
+    GpioSecInt = 32 + 32 + 30,
 }
