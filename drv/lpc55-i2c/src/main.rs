@@ -18,7 +18,7 @@
 #![no_main]
 
 use lpc55_pac as device;
-use drv_lpc55_syscon_api::Syscon;
+use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -133,13 +133,13 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {
-    syscon.enable_clock(47);
-    syscon.leave_reset(47);
+    syscon.enable_clock(Peripheral::Fc4);
+    syscon.leave_reset(Peripheral::Fc4);
 }
 
 fn muck_with_gpios(syscon: &Syscon) {
-    syscon.enable_clock(13);
-    syscon.leave_reset(13);
+    syscon.enable_clock(Peripheral::Iocon);
+    syscon.leave_reset(Peripheral::Iocon);
 
     // Our GPIOs are P1_21 and P1_21 and need to be set to AF5
     // (see table 320)
