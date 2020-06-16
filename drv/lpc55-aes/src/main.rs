@@ -56,6 +56,7 @@ struct CryptData {
     len: usize,
     rpos: usize,
     wpos: usize,
+    need_load: bool,
 }
 
 #[export_name = "main"]
@@ -65,23 +66,8 @@ fn main() -> ! {
 
     let aes = unsafe { &*device::HASHCRYPT::ptr() };
 
-    // Always use AES
-    // TODO other modes besides ECB (probably just pass IV as another lease)
-    aes.ctrl.modify(|_, w| w.mode().aes()
-                            .hashswpb().set_bit()
-                            );
-
-    aes.cryptcfg.modify(|_, w|
-            w.aesmode().ecb()
-            .aesdecrypt().encrypt()
-            .aessecret().normal_way()
-            .aeskeysz().bits_128()
-            .msw1st_out().set_bit()
-            .msw1st().set_bit()
-            .swapkey().set_bit()
-            .swapdat().set_bit()
-            );
-
+    // This hardware block is a bit quirky so don't set up anything
+    // beforehand
     sys_irq_control(1, true);
 
     // Field messages.
@@ -98,14 +84,8 @@ fn main() -> ! {
             |cryptref, bits| {
 
                 if bits & 1 != 0 {
-                    // We alternate between setting the waiting and the digest
-                    // interrupt depending on where we're processing
-                    // Because of how this is structured, we purposely do
-                    // the read first in the block to ensure we don't overwrite
-                    // the data
-                    //
-                    // TODO Make this less prone to sequencing problems by
-                    // doing a load of data and a write on the same interrupt
+                    // This block expects all data to be loaded before we read
+                    // out the digest/encrypted data
                     if aes.status.read().digest().bit() {
                         get_data(&aes, cryptref)
                     } else if aes.status.read().waiting().bit() {
@@ -144,29 +124,31 @@ fn main() -> ! {
                         return Err(ResponseCode::BadArg);
                     }
 
-                    // Kick off a new hash
+                    // Yes we set new hash twice. Based on the reference
+                    // driver we need to set the new has before we switch
+                    // modes to ensure this gets picked up corectly
                     aes.ctrl.modify(|_, w| w.new_hash().start());
+                    aes.ctrl.modify(|_, w| w.new_hash().start()
+                                    .mode().aes()
+                                    .hashswpb().set_bit()
+                                    );
 
-                    // This isn't well specified in the documentation but
-                    // there's occasionally issues with the NEEDKEY bit never
-                    // clearing, acting as if the writes to INDATA didn't go
-                    // through. The documentation says NEW_HASH should be
-                    // self-clearing after one clock cycle so there are
-                    // two plausible theories for why the barriers work:
-                    // the write to NEW_HASH needs to complete
-                    // before we write the key or we need to ensure the engine
-                    // has actually had enough time to startup because it takes
-                    // more than one clock cycle. The way the docs are written
-                    // it sounds like we should poll on this field but that's
-                    // not accessible through the crate.
-                    cortex_m::asm::dmb();
-                    cortex_m::asm::isb();
+                    // Just use AES-ECB for now. We do need to do the
+                    // endian swap as well
+                    aes.cryptcfg.modify(|_, w|
+                         w.aesmode().ecb()
+                            .aesdecrypt().encrypt()
+                            .aessecret().normal_way()
+                            .aeskeysz().bits_128()
+                            .msw1st_out().set_bit()
+                            .msw1st().set_bit()
+                            .swapkey().set_bit()
+                            .swapdat().set_bit()
+                    );
 
-                    // This is our key. The hardware only supports 128-bit,
-                    // 192-bit and 256-bit keys
-                    //
-                    // TODO go back and support the other key sizes
-
+                    // The hardware supports 128-bit, 192-bit, and 256-bit
+                    // keys but we only support 128-bit for now
+            
                     unsafe {
                         aes.indata.write( |w| w.data().bits(key[0]) );
                         aes.indata.write( |w| w.data().bits(key[1]) );
@@ -189,6 +171,7 @@ fn main() -> ! {
                         rpos: 0,
                         wpos: 0,
                         len: dst_info.len,
+                        need_load: true,
                     });
 
                     aes.intenset.modify(|_, w| w.waiting().set_bit());
@@ -221,6 +204,11 @@ fn load_a_block(aes: &device::hashcrypt::RegisterBlock, c: &mut Option<CryptData
             return
         };
 
+
+    if !cdata.need_load {
+        return;
+    }
+
     if let Some(data) = cdata.caller.borrow(0).read_at::<[u32; 4]>(cdata.rpos) {
         unsafe {
             aes.indata.write( |w| w.data().bits(data[0]) );
@@ -230,7 +218,13 @@ fn load_a_block(aes: &device::hashcrypt::RegisterBlock, c: &mut Option<CryptData
             cdata.rpos += 16
         }
 
-        aes.intenset.modify(|_, w| w.digest().set_bit());
+        if cdata.rpos == cdata.len {
+            // Turn off the interrupt for waiting for data
+            //
+            cdata.need_load = false;
+            aes.intenclr.write(|w| w.waiting().set_bit());
+            aes.intenset.modify(|_, w| w.digest().set_bit());
+        }
     } else {
         core::mem::replace(c, None).unwrap().caller.reply_fail(ResponseCode::BadArg);
     }
