@@ -59,7 +59,51 @@ enum Sysnum {
 /// Wrap up the boilerplate involved in writing a syscall stub. Provide this
 /// macro the name of your `Sysnum` value, and the asm constraints. See below
 /// for examples.
+///
+/// We're having to handle r7 with kid gloves here. If you specify a constraint
+/// for r7, please specify it FIRST.
 macro_rules! syscall_asm {
+    // R7 as input case
+    ($sysnum:expr, in("r7") $r7:expr, $($args:tt)*) => {
+        asm!("
+            mov {save11}, r11
+            mov {save7}, r7
+            mov r11, {sysnum}
+            mov r7, {in7}
+            svc #0
+            mov r11, {save11}
+            mov r7, {save7}
+            ",
+            save11 = out(reg) _,
+            save7 = out(reg) _,
+            sysnum = const $sysnum as u32,
+
+            in7 = in(reg) $r7,
+
+            $($args)*
+        );
+    };
+    // R7 as output case
+    ($sysnum:expr, lateout("r7") $r7:expr, $($args:tt)*) => {
+        asm!("
+            mov {save11}, r11
+            mov {save7}, r7
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            mov {out7}, r7
+            mov r7, {save7}
+            ",
+            save11 = out(reg) _,
+            save7 = out(reg) _,
+            sysnum = const $sysnum as u32,
+
+            out7 = lateout(reg) $r7,
+
+            $($args)*
+        );
+    };
+    // R7 not used case
     ($sysnum:expr, $($args:tt)*) => {
         asm!("
             mov {save11}, r11
@@ -88,10 +132,12 @@ pub fn sys_send(
         syscall_asm!(
             Sysnum::Send,
 
+            // r7 must be first, see syscall_asm
+            in("r7") incoming.as_mut_ptr(),
+
             inlateout("r4") u32::from(target.0) << 16 | u32::from(operation) => response_code,
             inlateout("r5") outgoing.as_ptr() => response_len,
             in("r6") outgoing.len(),
-            in("r7") incoming.as_mut_ptr(),
             in("r8") incoming.len(),
             in("r9") leases.as_ptr(),
             in("r10") leases.len(),
@@ -113,10 +159,12 @@ pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
         syscall_asm!(
             Sysnum::Recv,
 
+            // r7 must be first, see syscall_asm
+            lateout("r7") message_len,
+
             inlateout("r4") buffer.as_mut_ptr() => _,
             inlateout("r5") buffer.len() => sender,
             inlateout("r6") notification_mask => operation,
-            lateout("r7") message_len,
             lateout("r8") response_capacity,
             lateout("r9") lease_count,
 
@@ -146,12 +194,14 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
         syscall_asm!(
             Sysnum::Reply,
 
+            // r7 must be first, see syscall_asm
+            in("r7") message.len(),
+
             // While r4/r5 are not useful outputs at this time, they are
             // reserved as clobbered in case we change that.
             inlateout("r4") peer.0 as u32 => _,
             inlateout("r5") code => _,
             in("r6") message.as_ptr(),
-            in("r7") message.len(),
 
             // This is NOT readonly because no kernel mechanism prevents this
             // task and the caller task from sharing memory, including the
@@ -167,10 +217,12 @@ pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
         syscall_asm!(
             Sysnum::Timer,
 
+            // r7 must be first, see syscall_asm
+            in("r7") notifications,
+
             in("r4") deadline.is_some() as u32,
             in("r5") raw_deadline as u32,
             in("r6") (raw_deadline >> 32) as u32,
-            in("r7") notifications,
 
             options(nomem, preserves_flags, nostack),
         );
@@ -189,10 +241,12 @@ pub fn sys_borrow_read(
         syscall_asm!(
             Sysnum::BorrowRead,
 
+            // r7 must be first, see syscall_asm
+            in("r7") dest.as_mut_ptr(),
+
             inlateout("r4") lender.0 as u32 => rc,
             inlateout("r5") index => length,
             in("r6") offset,
-            in("r7") dest.as_mut_ptr(),
             in("r8") dest.len(),
 
             options(readonly, preserves_flags, nostack),
@@ -213,10 +267,12 @@ pub fn sys_borrow_write(
         syscall_asm!(
             Sysnum::BorrowWrite,
 
+            // r7 must be first, see syscall_asm
+            in("r7") src.as_ptr(),
+
             inlateout("r4") lender.0 as u32 => rc,
             inlateout("r5") index => length,
             in("r6") offset,
-            in("r7") src.as_ptr(),
             in("r8") src.len(),
 
             // This is NOT readonly because no kernel mechanism prevents this
