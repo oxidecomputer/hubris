@@ -41,8 +41,6 @@ pub struct Task {
 
     /// Notification status.
     pub notifications: u32,
-    /// Notification mask.
-    pub notification_mask: u32,
 
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
@@ -88,41 +86,38 @@ impl Task {
     #[must_use]
     pub fn post(&mut self, n: NotificationSet) -> bool {
         self.notifications |= n.0;
-        let firing = self.notifications & self.notification_mask;
-        if firing != 0 {
-            if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
+
+        // We only need to check the mask, and make updates, if the task is
+        // blocked in an open receive.
+        if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
+            if let Some(firing) = self.take_notifications() {
+                // A bit the task is interested in has newly become set!
+                // Interrupt it.
                 self.save.set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
                 self.state = TaskState::Healthy(SchedState::Runnable);
-                self.acknowledge_notifications();
                 return true;
             }
         }
         false
     }
 
-    /// Updates the task's notification mask.
+    /// Assuming that this task is in or entering a RECV, inspects the RECV
+    /// notification mask argument and compares it to the notification bits. If
+    /// if any bits are set in both words, clears those bits in the notification
+    /// bits and returns them.
     ///
-    /// This may cause notifications that were previously posted to fire. If
-    /// they fire, they will be returned to you in a `Some` but will not be
-    /// acknowledged (cleared). If you are updating the notification mask as a
-    /// side effect of receive, you should deliver the notifications; if this
-    /// is happening for some other reason you might leave the task with
-    /// notifications pending.
-    #[must_use]
-    pub fn update_mask(&mut self, m: u32) -> Option<u32> {
-        self.notification_mask = m;
-        let firing = self.notifications & self.notification_mask;
+    /// This directly accesses the notification mask syscall argument in the
+    /// task saved state, so it doesn't make sense if the task is not performing
+    /// a RECV -- but this is not checked.
+    pub fn take_notifications(&mut self) -> Option<u32> {
+        let firing =
+            self.notifications & self.save.as_recv_args().notification_mask();
         if firing != 0 {
+            self.notifications &= !firing;
             Some(firing)
         } else {
             None
         }
-    }
-
-    /// Clears notification bits that are set in `bits`. Use this to signal that
-    /// some notifications were delivered, otherwise they'll keep firing.
-    pub fn acknowledge_notifications(&mut self) {
-        self.notifications &= !self.notification_mask;
     }
 
     /// Checks if this task is in a potentially schedulable state.
@@ -152,7 +147,6 @@ impl Task {
         self.generation = self.generation.next();
         self.timer = TimerState::default();
         self.notifications = 0;
-        self.notification_mask = 0;
         self.state = TaskState::default();
 
         crate::arch::reinitialize(self);
