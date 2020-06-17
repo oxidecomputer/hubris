@@ -56,6 +56,25 @@ enum Sysnum {
     Panic = 8,
 }
 
+/// Wrap up the boilerplate involved in writing a syscall stub. Provide this
+/// macro the name of your `Sysnum` value, and the asm constraints. See below
+/// for examples.
+macro_rules! syscall_asm {
+    ($sysnum:expr, $($args:tt)*) => {
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const $sysnum as u32,
+
+            $($args)*
+        );
+    };
+}
+
 pub fn sys_send(
     target: TaskId,
     operation: u16,
@@ -66,14 +85,8 @@ pub fn sys_send(
     let mut response_code: u32;
     let mut response_len: usize;
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::Send as u32,
+        syscall_asm!(
+            Sysnum::Send,
 
             inlateout("r4") u32::from(target.0) << 16 | u32::from(operation) => response_code,
             inlateout("r5") outgoing.as_ptr() => response_len,
@@ -83,7 +96,7 @@ pub fn sys_send(
             in("r9") leases.as_ptr(),
             in("r10") leases.len(),
 
-            options(preserves_flags, nostack),
+            options(preserves_flags, nostack)
         );
     }
     (response_code, response_len)
@@ -97,14 +110,8 @@ pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
     let mut lease_count: usize;
 
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::Recv as u32,
+        syscall_asm!(
+            Sysnum::Recv,
 
             inlateout("r4") buffer.as_mut_ptr() => _,
             inlateout("r5") buffer.len() => sender,
@@ -136,14 +143,8 @@ pub struct RecvMessage {
 
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::Reply as u32,
+        syscall_asm!(
+            Sysnum::Reply,
 
             // While r4/r5 are not useful outputs at this time, they are
             // reserved as clobbered in case we change that.
@@ -163,14 +164,8 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     let raw_deadline = deadline.unwrap_or(0);
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::Timer as u32,
+        syscall_asm!(
+            Sysnum::Timer,
 
             in("r4") deadline.is_some() as u32,
             in("r5") raw_deadline as u32,
@@ -191,14 +186,8 @@ pub fn sys_borrow_read(
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::BorrowRead as u32,
+        syscall_asm!(
+            Sysnum::BorrowRead,
 
             inlateout("r4") lender.0 as u32 => rc,
             inlateout("r5") index => length,
@@ -221,14 +210,8 @@ pub fn sys_borrow_write(
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::BorrowWrite as u32,
+        syscall_asm!(
+            Sysnum::BorrowWrite,
 
             inlateout("r4") lender.0 as u32 => rc,
             inlateout("r5") index => length,
@@ -250,14 +233,8 @@ pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
     let mut atts: u32;
     let mut length: usize;
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::BorrowInfo as u32,
+        syscall_asm!(
+            Sysnum::BorrowInfo,
 
             inlateout("r4") lender.0 as u32 => rc,
             inlateout("r5") index => atts,
@@ -271,14 +248,8 @@ pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
 
 pub fn sys_irq_control(mask: u32, enable: bool) {
     unsafe {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const Sysnum::IrqControl as u32,
+        syscall_asm!(
+            Sysnum::IrqControl,
 
             // Though r4/r5 don't have useful outputs right now, we're reserving
             // them in case that changes.
@@ -292,6 +263,8 @@ pub fn sys_irq_control(mask: u32, enable: bool) {
 
 pub fn sys_panic(msg: &[u8]) -> ! {
     unsafe {
+        // This is different from the syscall_asm! template because a noreturn
+        // asm block cannot declare a register clobber, for reasons
         asm!("
             mov r6, r11
             mov r11, {sysnum}
