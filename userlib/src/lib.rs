@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(llvm_asm)]
+#![feature(asm)]
 
 pub use abi::*;
 pub use num_derive::{FromPrimitive, ToPrimitive};
@@ -66,21 +66,25 @@ pub fn sys_send(
     let mut response_code: u32;
     let mut response_len: usize;
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            : "={r4}"(response_code),
-              "={r5}"(response_len)
-            : "{r4}"(u32::from(target.0) << 16 | u32::from(operation)),
-              "{r5}"(outgoing.as_ptr()),
-              "{r6}"(outgoing.len()),
-              "{r7}"(incoming.as_mut_ptr()),
-              "{r8}"(incoming.len()),
-              "{r9}"(leases.as_ptr()),
-              "{r10}"(leases.len()),
-              "{r11}"(Sysnum::Send)
-            : "memory" // TODO probably too conservative?
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::Send as u32,
+
+            inlateout("r4") u32::from(target.0) << 16 | u32::from(operation) => response_code,
+            inlateout("r5") outgoing.as_ptr() => response_len,
+            in("r6") outgoing.len(),
+            in("r7") incoming.as_mut_ptr(),
+            in("r8") incoming.len(),
+            in("r9") leases.as_ptr(),
+            in("r10") leases.len(),
+
+            options(preserves_flags, nostack),
+        );
     }
     (response_code, response_len)
 }
@@ -93,20 +97,24 @@ pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
     let mut lease_count: usize;
 
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            : "={r5}"(sender),
-              "={r6}"(operation),
-              "={r7}"(message_len),
-              "={r8}"(response_capacity),
-              "={r9}"(lease_count)
-            : "{r4}"(buffer.as_mut_ptr()),
-              "{r5}"(buffer.len()),
-              "{r6}"(notification_mask),
-              "{r11}"(Sysnum::Recv)
-            : "r4", "memory"  // TODO probably too conservative?
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::Recv as u32,
+
+            inlateout("r4") buffer.as_mut_ptr() => _,
+            inlateout("r5") buffer.len() => sender,
+            inlateout("r6") notification_mask => operation,
+            lateout("r7") message_len,
+            lateout("r8") response_capacity,
+            lateout("r9") lease_count,
+
+            options(preserves_flags, nostack),
+        );
     }
 
     RecvMessage {
@@ -128,34 +136,49 @@ pub struct RecvMessage {
 
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            :
-            : "{r4}"(peer.0 as u32),
-              "{r5}"(code),
-              "{r6}"(message.as_ptr()),
-              "{r7}"(message.len()),
-              "{r11}"(Sysnum::Reply)
-            : "r4", "r5" // reserved
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::Reply as u32,
+
+            // While r4/r5 are not useful outputs at this time, they are
+            // reserved as clobbered in case we change that.
+            inlateout("r4") peer.0 as u32 => _,
+            inlateout("r5") code => _,
+            in("r6") message.as_ptr(),
+            in("r7") message.len(),
+
+            // This is NOT readonly because no kernel mechanism prevents this
+            // task and the caller task from sharing memory, including the
+            // message buffer!
+            options(preserves_flags, nostack),
+        );
     }
 }
 
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     let raw_deadline = deadline.unwrap_or(0);
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            :
-            : "{r4}"(deadline.is_some() as u32),
-              "{r5}"(raw_deadline as u32),
-              "{r6}"((raw_deadline >> 32) as u32),
-              "{r7}"(notifications),
-              "{r11}"(Sysnum::Timer)
-            :
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::Timer as u32,
+
+            in("r4") deadline.is_some() as u32,
+            in("r5") raw_deadline as u32,
+            in("r6") (raw_deadline >> 32) as u32,
+            in("r7") notifications,
+
+            options(nomem, preserves_flags, nostack),
+        );
     }
 }
 
@@ -168,19 +191,23 @@ pub fn sys_borrow_read(
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            : "={r4}"(rc),
-              "={r5}"(length)
-            : "{r4}"(lender.0 as u32),
-              "{r5}"(index as u32),
-              "{r6}"(offset as u32),
-              "{r7}"(dest.as_mut_ptr()),
-              "{r8}"(dest.len()),
-              "{r11}"(Sysnum::BorrowRead)
-            : "memory"
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::BorrowRead as u32,
+
+            inlateout("r4") lender.0 as u32 => rc,
+            inlateout("r5") index => length,
+            in("r6") offset,
+            in("r7") dest.as_mut_ptr(),
+            in("r8") dest.len(),
+
+            options(readonly, preserves_flags, nostack),
+        );
     }
     (rc, length)
 }
@@ -189,24 +216,31 @@ pub fn sys_borrow_write(
     lender: TaskId,
     index: usize,
     offset: usize,
-    dest: &[u8],
+    src: &[u8],
 ) -> (u32, usize) {
     let mut rc: u32;
     let mut length: usize;
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            : "={r4}"(rc),
-              "={r5}"(length)
-            : "{r4}"(lender.0 as u32),
-              "{r5}"(index as u32),
-              "{r6}"(offset as u32),
-              "{r7}"(dest.as_ptr()),
-              "{r8}"(dest.len()),
-              "{r11}"(Sysnum::BorrowWrite)
-            : "memory"
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::BorrowWrite as u32,
+
+            inlateout("r4") lender.0 as u32 => rc,
+            inlateout("r5") index => length,
+            in("r6") offset,
+            in("r7") src.as_ptr(),
+            in("r8") src.len(),
+
+            // This is NOT readonly because no kernel mechanism prevents this
+            // task and the caller task from sharing memory, including the
+            // message buffer!
+            options(preserves_flags, nostack),
+        );
     }
     (rc, length)
 }
@@ -216,48 +250,60 @@ pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
     let mut atts: u32;
     let mut length: usize;
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            : "={r4}"(rc),
-              "={r5}"(atts),
-              "={r6}"(length)
-            : "{r4}"(lender.0 as u32),
-              "{r5}"(index as u32),
-              "{r11}"(Sysnum::BorrowInfo)
-            :
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::BorrowInfo as u32,
+
+            inlateout("r4") lender.0 as u32 => rc,
+            inlateout("r5") index => atts,
+            lateout("r6") length,
+
+            options(nomem, preserves_flags, nostack),
+        );
     }
     (rc, atts, length)
 }
 
 pub fn sys_irq_control(mask: u32, enable: bool) {
     unsafe {
-        llvm_asm! {
-            "svc #0"
-            :
-            : "{r4}"(mask),
-              "{r5}"(enable as u32),
-              "{r11}"(Sysnum::IrqControl)
-            : "r4", "r5"
-            : "volatile"
-        }
+        asm!("
+            mov {save11}, r11
+            mov r11, {sysnum}
+            svc #0
+            mov r11, {save11}
+            ",
+            save11 = out(reg) _,
+            sysnum = const Sysnum::IrqControl as u32,
+
+            // Though r4/r5 don't have useful outputs right now, we're reserving
+            // them in case that changes.
+            inlateout("r4") mask => _,
+            inlateout("r5") enable as u32 => _,
+
+            options(nomem, preserves_flags, nostack),
+        );
     }
 }
 
 pub fn sys_panic(msg: &[u8]) -> ! {
     unsafe {
-        llvm_asm! {
-            "svc #0
-             udf #0xad"
-            :
-            : "{r4}"(msg.as_ptr()),
-              "{r5}"(msg.len()),
-              "{r11}"(Sysnum::Panic)
-            :
-            : "volatile"
-        }
-        core::hint::unreachable_unchecked()
+        asm!("
+            mov r6, r11
+            mov r11, {sysnum}
+            svc #0
+            udf #0xad
+            ",
+            sysnum = const Sysnum::Panic as u32,
+
+            in("r4") msg.as_ptr(),
+            in("r5") msg.len(),
+            options(nomem, noreturn, nostack),
+        )
     }
 }
 

@@ -8,6 +8,7 @@ edition = "2018"
 # suppress default features to avoid including panic message collection, to
 # ensure the idle task remains tiny.
 userlib = {path = "../userlib", default-features = false}
+cortex-m = {version = "0.6", features = ["inline-asm"]}
 
 [features]
 default = ["standalone"]

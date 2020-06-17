@@ -567,19 +567,16 @@ pub fn start_first_task(task: &task::Task) -> ! {
     }
 
     unsafe {
-        llvm_asm! { "
-            msr PSP, $0             @ set the user stack pointer
-            ldm $1, {r4-r11}        @ restore the callee-save registers
+        asm!("
+            msr PSP, {user_sp}      @ set the user stack pointer
+            ldm {task}, {{r4-r11}}  @ restore the callee-save registers
             svc #0xFF               @ branch into user mode (svc # ignored)
             udf #0xad               @ should not return
-        "
-            :
-            : "r"(task.save.psp),
-              "r"(&task.save.r4)
-            : "memory"
-            : "volatile"
-        }
-        core::hint::unreachable_unchecked()
+            ",
+            user_sp = in(reg) task.save.psp,
+            task = in(reg) &task.save.r4,
+            options(noreturn),
+        )
     }
 }
 
@@ -593,7 +590,7 @@ pub unsafe extern "C" fn SVCall() {
     // of instructions below, though the precise details depend on how complex
     // of an M-series processor you're targeting -- so I've punted on this for
     // the time being.
-    llvm_asm! {"
+    asm!("
         cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
@@ -608,7 +605,7 @@ pub unsafe extern "C" fn SVCall() {
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
         @ now, store volatile registers, plus the PSP in r12, plus LR.
-        stm r1, {r4-r12, lr}
+        stm r1, {{r4-r12, lr}}
 
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
@@ -620,7 +617,7 @@ pub unsafe extern "C" fn SVCall() {
         movt r0, #:upper16:CURRENT_TASK_PTR
         ldr r0, [r0]
         @ restore volatile registers, plus load PSP into r12
-        ldm r0, {r4-r12, lr}
+        ldm r0, {{r4-r12, lr}}
         msr PSP, r12
 
         @ resume
@@ -636,12 +633,9 @@ pub unsafe extern "C" fn SVCall() {
                                 @ return into thread mode, PSP, FP on
 
         bx lr                   @ branch into user mode
-        "
-        :
-        :
-        :
-        : "volatile"
-    }
+        ",
+        options(noreturn),
+    )
 }
 
 /// Manufacture a mutable/exclusive reference to the task table from thin air
@@ -745,7 +739,7 @@ fn pend_context_switch_from_isr() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    llvm_asm! {"
+    asm!("
         @ store volatile state.
         @ first, get a pointer to the current task.
         movw r0, #:lower16:CURRENT_TASK_PTR
@@ -755,7 +749,7 @@ pub unsafe extern "C" fn PendSV() {
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
         @ now, store volatile registers, plus the PSP in r12, plus LR.
-        stm r1, {r4-r12, lr}
+        stm r1, {{r4-r12, lr}}
 
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
@@ -766,17 +760,14 @@ pub unsafe extern "C" fn PendSV() {
         movt r0, #:upper16:CURRENT_TASK_PTR
         ldr r0, [r0]
         @ restore volatile registers, plus load PSP into r12
-        ldm r0, {r4-r12, lr}
+        ldm r0, {{r4-r12, lr}}
         msr PSP, r12
 
         @ resume
         bx lr
-        "
-        :
-        :
-        :
-        : "volatile"
-    }
+        ",
+        options(noreturn),
+    );
 }
 
 /// The Rust side of the PendSV handler, after all volatile registers have been
@@ -803,10 +794,11 @@ pub unsafe extern "C" fn DefaultHandler() {
     // We can cheaply get the identity of the interrupt that called us from the
     // bottom 9 bits of IPSR.
     let mut ipsr: u32;
-    llvm_asm! {
-        "mrs $0, IPSR"
-        : "=r"(ipsr)
-    }
+    asm!(
+        "mrs {}, IPSR",
+        out(reg) ipsr,
+        options(pure, nomem, preserves_flags, nostack),
+    );
     let exception_num = ipsr & 0x1FF;
 
     // The first 16 exceptions are architecturally defined; vendor hardware
@@ -882,7 +874,7 @@ pub fn enable_irq(n: u32) {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn MemoryManagement() {
-    llvm_asm! { "
+    asm!("
         @ Get the exc_return value into an argument register, which is
         @ difficult to do from higher-level code.
         mov r0, lr
@@ -891,9 +883,9 @@ pub unsafe extern "C" fn MemoryManagement() {
         movt r1, #:upper16:CURRENT_TASK_PTR
         ldr r1, [r1]
         b mem_manage_fault
-        "
-        ::::"volatile"
-    }
+        ",
+        options(noreturn),
+    );
 }
 
 bitflags::bitflags! {
