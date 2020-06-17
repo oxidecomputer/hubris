@@ -133,7 +133,6 @@ fn safe_start_kernel(
             descriptor: task_desc,
 
             generation: Generation::default(),
-            notification_mask: 0,
             notifications: 0,
             save: crate::arch::SavedState::default(),
             region_table: &[], // filled in momentarily

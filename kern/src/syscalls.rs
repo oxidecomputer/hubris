@@ -171,16 +171,11 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // We allow tasks to atomically replace their notification mask at each
     // receive. We simultaneously find out if there are notifications pending.
-    let recv_args = tasks[caller].save.as_recv_args();
-    let notmask = recv_args.notification_mask();
-    drop(recv_args);
-
-    if let Some(firing) = tasks[caller].update_mask(notmask) {
+    if let Some(firing) = tasks[caller].take_notifications() {
         // Pending! Deliver an artificial message from the kernel.
         tasks[caller]
             .save
             .set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
-        tasks[caller].acknowledge_notifications();
         return Ok(NextTask::Same);
     }
 
