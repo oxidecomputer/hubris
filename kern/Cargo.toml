@@ -5,7 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [features]
-default = ["klog-itm"]
+default = ["klog-semihosting"]
 klog-semihosting = ["cortex-m-semihosting"]
 klog-itm = []
 

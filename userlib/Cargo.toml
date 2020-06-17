@@ -18,6 +18,7 @@ ssmarshal = {version = "1", default-features = false}
 zerocopy = "0.3"
 num-traits = {version = "0.2", default-features = false}
 num-derive = "0.3"
+cortex-m-semihosting = "0.3.3"
 
 [lib]
 test = false

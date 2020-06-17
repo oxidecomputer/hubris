@@ -66,6 +66,35 @@ fn main() -> ! {
             }
         }
 
+        let mut digest : [u8; 4 * 5] = [0; 4 * 5];
+        let a : &mut [u8] = &mut digest;
+        let p : &[u8] = "abc".as_bytes();
+
+        let (code, _) = sys_send(aes, 2, &[], &mut [], &[Lease::from(p),
+                                                            Lease::from(a)]);
+
+        if code != 0 {
+            hprintln!("Got error code{}", code).ok();
+        } else {
+            hprintln!("digest {:0x?}", digest);
+        }
+
+        let mut digest : [u8; 4 * 5] = [0; 4 * 5];
+        let a : &mut [u8] = &mut digest;
+
+        let p : &[u8] = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq".as_bytes();
+
+        let (code, _) = sys_send(aes, 2, &[], &mut [], &[Lease::from(p),
+                                                            Lease::from(a)]);
+
+        if code != 0 {
+            hprintln!("Got error code{}", code).ok();
+        } else {
+            hprintln!("digest {:0x?}", digest);
+        }
+
+
+
         loop { }
     }
 }

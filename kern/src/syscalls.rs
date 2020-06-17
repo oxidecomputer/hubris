@@ -371,6 +371,7 @@ fn borrow_read(
     // `leased_area` because `safe_copy` will do it.
 
     // Okay, goodness! We're finally getting close!
+    unsafe { klog!("from {:p} to {:p}", leased_area.assume_readable(), buffer.assume_readable()); }
     let copy_result =
         safe_copy(&tasks[lender], leased_area, &tasks[caller], buffer);
 

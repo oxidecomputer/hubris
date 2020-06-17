@@ -159,6 +159,8 @@ impl<'a> Message<'a> {
         if self.buffer.len() != core::mem::size_of::<M>()
             || self.response_capacity < core::mem::size_of::<R>()
         {
+            cortex_m_semihosting::hprintln!("b {:x} {:x}", self.buffer.len(),
+                                            self.response_capacity).ok();
             None
         } else {
             let msg = LayoutVerified::<_, M>::new(self.buffer)
@@ -179,6 +181,7 @@ impl<'a> Message<'a> {
               R: AsBytes,
     {
         if self.lease_count != n {
+            cortex_m_semihosting::hprintln!("a").ok();
             None
         } else {
             self.fixed()
@@ -279,6 +282,17 @@ impl Borrow<'_> {
         }
     }
 
+    /// Do not let me name things
+    pub fn read_unfully_at(&self, offset: usize, dest: &mut [u8]) -> Option<usize> {
+        let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest);
+        if rc != 0 {
+            None
+        } else {
+            Some(n)
+        }
+    }
+
+
     /// Starting at offset `offset` within the borrow, reads one item of type
     /// `T` and returns it.
     ///
@@ -298,13 +312,42 @@ impl Borrow<'_> {
         let mut dest = T::default();
         let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
         if rc != 0 {
+            cortex_m_semihosting::hprintln!("bad rc??").ok();
             None
         } else if n != core::mem::size_of::<T>() {
+            cortex_m_semihosting::hprintln!("read wrong {:x}??", n).ok();
             None
         } else {
             Some(dest)
         }
     }
+
+    /// Starting at offset `offset` within the borrow, reads one item of type
+    /// `T` and returns it. This may fill less than the expected number of bytes.
+    ///
+    /// This can fail because the client has defected or was killed, the borrow
+    /// doesn't exist, the borrow doesn't allow reading, or you're trying to
+    /// read off the end. All these conditions return `None` because, in
+    /// general, we don't expect servers to do anything except reject the
+    /// client.
+    ///
+    /// Even if `T` requires alignment greater than 1 byte, no alignment
+    /// requirements is placed on the *client* side.
+    pub fn read_partial_at<T>(&self, offset: usize) -> Option<(T, usize)>
+        where T: Default + FromBytes + AsBytes,
+    {
+        // NOTE: the default requirement could be lifted if we do some unsafe
+        // uninitialized buffer shenanigans.
+        let mut dest = T::default();
+        let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
+        if rc != 0 {
+            None
+        } else {
+            Some((dest, n))
+        }
+    }
+
+
 
     /// Starting at offset `offset` within the borrow, writes one item of type
     /// `T`.

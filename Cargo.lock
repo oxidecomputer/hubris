@@ -173,6 +173,7 @@ dependencies = [
 name = "drv-lpc55-aes"
 version = "0.1.0"
 dependencies = [
+ "cortex-m",
  "cortex-m-semihosting",
  "lpc55-pac",
  "num-traits",
@@ -774,6 +775,7 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "cortex-m-semihosting",
  "num-derive",
  "num-traits",
  "r0 1.0.0",
