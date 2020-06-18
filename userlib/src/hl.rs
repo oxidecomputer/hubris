@@ -292,6 +292,17 @@ impl Borrow<'_> {
         }
     }
 
+    /// Do not let me name things
+    pub fn read_unfully_at(&self, offset: usize, dest: &mut [u8]) -> Option<usize> {
+        let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest);
+        if rc != 0 {
+            None
+        } else {
+            Some(n)
+        }
+    }
+
+
     /// Starting at offset `offset` within the borrow, reads one item of type
     /// `T` and returns it.
     ///
