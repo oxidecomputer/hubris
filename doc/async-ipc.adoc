@@ -1,0 +1,230 @@
+= Asynchronous IPC
+:toc:
+
+Hubris is a system designed around lightweight synchronous IPC, so it might seem
+surprising that it also has an asynchronous mechanism. This document explains
+the need for asynchronous IPC and details how it works.
+
+== What is asynchronous IPC in Hubris?
+
+Asynchronous IPC allows a single task to have multiple pending outgoing messages
+at one time.
+
+If we implemented this without care, it could be a real problem:
+
+- Tasks could send a large number of outgoing messages, bombarding other tasks
+  and providing a mechanism for a DoS attack.
+
+- Asynchronous messaging usually leads to queueing, with all its problems:
+  difficulties around flow control and back pressure, resource allocation, etc.
+
+- The fact that the sender of a message is blocked in reply until released (or
+  rebooted) is integral to the safety of mechanisms like IPC leases, and factors
+  into the design of systems built on top of Hubris. Allowing a task to send
+  messages without blocking subverts this.
+
+And so, we have deliberately constrained the asynchronous IPC mechanism to avoid
+or reduce these risks.
+
+- Asynchronous IPC is buffered *by the sender.* The sender must maintain RAM to
+  keep track of all its outgoing messages. The kernel does only minimal state
+  keeping.
+- The number of asynchronous IPCs per task is limited by the system to a small
+  but useful number.
+- The recipient of an asynchronous IPC can't usefully reply, because reply
+  requires a sender who is waiting for it.
+- Asynchronous IPCs don't carry leases. (This restriction could be lifted
+  safely, but it's complicated.)
+
+Because of these differences -- and in particular because you can't usefully
+reply to an asynchronous message -- asynchronous IPC needs to be *designed into
+the protocol.* You can't just decide to use asynchronous IPC to interact with an
+existing synchronous service. For instance, a supervisor task using asynchronous
+IPC to send health checks to other tasks would specify (1) that the heartbeat
+messages arrive as asynchronous IPC, and (2) that the recipient *shall send in
+response* instead of replying.
+
+Thus, asynchronous IPC is a niche feature motivated by particular use cases,
+which we'll discuss in the next section.
+
+== Why do we need asynchronous IPC?
+
+Hubris is pretty opinionated about the value of synchronous IPC, and the
+presence of asynchronous IPC doesn't change that -- it simply acknowledges that
+you sometimes need different tools to do different jobs. (When all you have is a
+synchronous hammer....)
+
+The answer comes down to _asymmetric trust._ When a client calls a server using
+synchronous IPC, the client is putting a lot of trust in the server: the server
+could choose never to reply, for example, and there's little the client can do
+about it. In a lot of cases, this is just fine. In some cases, it isn't.
+
+Consider drivers. Drivers are hard, and are thus often buggy. They also interact
+with hardware, and building hardware is also hard and buggy. A reliable system
+should constantly be giving its drivers a bit of side-eye -- as parts of the
+system they merit relatively low trust.
+
+But they're also incredibly important for _doing stuff._ If we're writing code
+in a relatively trusted shared server -- say, a task supervisor -- and we need
+to interact with a driver, we shouldn't make a blocking call to the driver. If
+we did, a bug in the driver could cause the server to become unresponsive, which
+will cascade out to other clients, etc.
+
+The solution for this is to provide an operation that lets a trusted component
+send a message to an untrusted component _without committing to blocking._ This
+is precisely what the asynchronous IPC mechanism does.
+
+TIP: For a more thorough treatment of this topic, see the papers _Countering IPC
+Threats in Multiserver Operating Systems_ <<herder08ipc>> and _Vulnerabilities
+in Synchronous IPC Designs_ <<shap03vuln>>.
+
+== How asynchronous IPC works
+
+Each task data structure in the kernel is augmented with three fields:
+
+- An *async descriptor table pointer* and *length*.
+- An *async pending* flag.
+
+Initially, the descriptor table is an empty slice -- length zero and invalid
+base.
+
+A task can install an async descriptor table using the syscall `sys_async_swap`.
+This sets the pointer and length to refer to a descriptor slice _in the task's
+own memory._ (It returns any previously recorded pointer and length, which is
+why it's called "swap." The reason for this will become apparent later.)
+
+Inside the async descriptor table are *async descriptors*, as its name implies.
+Each async descriptor contains a state field (indicating Empty, Pending, or
+Done), a message, and a recipient TaskId.
+
+When a task sets its async descriptor table, the kernel immediately scans it
+looking for descriptors set to Pending. For each pending descriptor, if the
+destination task is waiting in RECV, the kernel immediately delivers the message
+and marks the descriptor Done.
+
+If the destination task is _not_ ready, the kernel sets its *async pending*
+flag. The next time it goes to RECV, the kernel will notice the async pending
+flag and scan the task table for async senders, in addition to direct
+synchronous senders. If an async message is delivered at this point, the kernel
+will update its descriptor to Done.
+
+Now for the pesky details.
+
+=== The async descriptor table must be in accessible memory.
+
+If the task gives the kernel an async descriptor table in memory that the task
+can't access, it is a fault. Specifically, the caller must have both read and
+write access to the entirety of the slice.
+
+The descriptor table includes its outgoing messages _by reference._ Each message
+slice (a `&[u8]`) must _also_ be accessible to the calling task, though it need
+only be readable. Failure to get this right is also a fault, which might happen
+immediately, or might happen later when the kernel notices the problem.
+
+=== Descriptor table updates are atomic.
+
+Swapping the async descriptor table is an _atomic operation._ Once it returns:
+
+1. Messages in the _previous_ descriptor table (assuming it was different!) are
+   either sent, or not, and won't be processed further by the kernel.
+
+2. Messages in the _new_ descriptor table have already been sent in cases where
+   the destination was ready to RECV.
+
+=== Async messages are one-way.
+
+By definition, a task sending an async message is not blocked. This means it
+isn't patiently waiting for a REPLY. Any attempt to REPLY to it will by
+discarded.
+
+This means it's important to define which IPC protocols are asynchronous,
+because the recipient of an asynchronous message can reply only with (1) another
+asynchronous message, or (2) a SEND.
+
+Because the sender of an asynchronous IPC does not block, asynchronous messages
+currently don't carry leases. This could be changed with some work.
+
+=== The kernel updates only the descriptor state, but does so asynchronously.
+
+Once the kernel has been notified of the bounds of an async descriptor table, it
+may update the state of any (non-Empty) descriptor at any time. This means the
+task must use atomic and/or volatile operations to access the descriptor state.
+(The `userlib` takes care of this for you.)
+
+Other fields in the descriptor are controlled by the sending task only.
+
+=== It is possible to mess with the current descriptor table.
+
+The safe (in the Rust sense) approach to managing an async descriptor table is
+to treat the table as owned by the kernel, and not modify it while it's active.
+This is not _mandatory._ An application might choose to update fields in the
+descriptor while it's active, changing the contents of messages or their
+recipients. The kernel's behavior is well-defined in the face of such
+shenanigans, but is almost certainly not the behavior you were hoping for.
+
+The kernel _only_ scans the descriptor table at `sys_async_swap`, and again if a
+task goes to RECV with its *async pending* flag set. This means the kernel may
+not see changes to active descriptors. In particular, changing the descriptor
+destination is likely to cause the message to simply not be sent, because the
+new destination's *async pending* flag was probably not set.
+
+The _wise_ way to update descriptors is to take them back from the kernel
+(performing `sys_async_swap` with an empty slice), alter them, and then hand
+them back (with `sys_async_swap` again). This will ensure that the kernel
+notices any changes.
+
+== Alternatives considered
+
+Here are some options for faking asynchronous IPC using existing Hubris
+facilities, and why they weren't sufficient.
+
+=== Alternative: using notifications
+
+Hubris already supports a simple asynchronous IPC in the form of
+*notifications.* Notifications are one-bit event flags that can be used to
+interrupt a task in certain states. They provide most of the same benefits as
+"full" asynchronous IPC -- namely,
+
+- They can safely be used to signal a less-trusted component from a more-trusted
+  one.
+- They do not require kernel buffering or queueing.
+
+However, notifications are simple events without content, which makes them less
+useful.
+
+- A notification carries no payload, so it can't indicate which operation to
+  perform or carry arguments.
+- A notification doesn't record the identity of the sender, so it's not obvious
+  who requested the operation or where to send results.
+
+Notifications are excellent for things like interrupts and timeouts, and less
+well suited for things like requests to drivers or supervision protocols.
+
+=== Alternative: reverse sends
+
+One option for inverting the trust relationship is to send IPCs in the other
+direction. For example, a driver might start up and then _send_ to its user.
+When the user wants to issue a request, they _reply_ with the request. The
+driver processes the request and then sends again.
+
+This pattern can be useful. However, there is a problem: by definition, a driver
+blocked in _send_ cannot receive messages. This means it is insensitive to
+
+- Requests from other clients,
+- Notifications delivered by interrupts or timers.
+
+This limits the pattern to cases of a single client without asynchronous
+interrupts.
+
+[bibliography]
+== Annotated References
+
+- [[[shap03vuln]]] Jonathan Shapiro.
+  http://srl.cs.jhu.edu/courses/600.439/shap03vulnerabilities.pdf[Vulnerabilities
+  in Synchronous IPC Designs]. 2003. _Short-ish and straightforward, Shap pokes
+  a bunch of holes in conventional IPC designs._
+- [[[herder08ipc]]] Jorrit N. Herder et al.
+  https://www.cs.vu.nl/~herbertb/papers/minix3ipc_prdc08.pdf[Countering IPC
+  Threats In Multiserver Operating Systems: A Fundamental Requirement for
+  Dependability]. 2008. _This paper marked MINIX 3's transition from a teaching
+  tool to a high-reliability research platform._
