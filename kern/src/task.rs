@@ -25,7 +25,7 @@ pub struct Task {
     pub save: crate::arch::SavedState,
     // NOTE: it is critical that the above field appear first!
     /// Current priority of the task.
-    pub priority: Priority,
+    priority: Priority,
     /// State used to make status and scheduling decisions.
     pub state: TaskState,
     /// State for tracking the task's timer.
