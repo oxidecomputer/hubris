@@ -1,7 +1,5 @@
 //! Kernel startup.
 
-use abi::{Generation, SchedState, TaskState};
-
 use crate::app;
 use crate::task::{self, Task};
 
@@ -121,23 +119,7 @@ fn safe_start_kernel(
     // Allocate our RAM data
     // structures. First, the task table.
     let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
-        let task_desc = &task_descs[i];
-        Task {
-            priority: abi::Priority(task_desc.priority as u8),
-            state: if task_desc.flags.contains(app::TaskFlags::START_AT_BOOT) {
-                TaskState::Healthy(SchedState::Runnable)
-            } else {
-                TaskState::default()
-            },
-
-            descriptor: task_desc,
-
-            generation: Generation::default(),
-            notifications: 0,
-            save: crate::arch::SavedState::default(),
-            region_table: &[], // filled in momentarily
-            timer: crate::task::TimerState::default(),
-        }
+        Task::from_descriptor(&task_descs[i])
     });
     // Now, allocate a region table for each task, turning its ROM indices into
     // pointers. Note: if we decide to convert the RegionDesc into an
