@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 
 use abi::{FaultInfo, UsageError, SchedState, TaskState, Priority, Generation, TaskId};
 
-use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc};
+use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags};
 use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
@@ -40,7 +40,7 @@ pub struct Task {
     pub region_table: &'static [&'static RegionDesc],
 
     /// Notification status.
-    pub notifications: u32,
+    notifications: u32,
 
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
@@ -48,6 +48,29 @@ pub struct Task {
 }
 
 impl Task {
+    /// Creates a `Task` in its initial state, filling in fields from
+    /// `descriptor`.
+    ///
+    /// This does *not* set the region descriptor table. (TODO: perhaps it
+    /// should.)
+    pub fn from_descriptor(descriptor: &'static TaskDesc) -> Self {
+        Task {
+            priority: abi::Priority(descriptor.priority as u8),
+            state: if descriptor.flags.contains(TaskFlags::START_AT_BOOT) {
+                TaskState::Healthy(SchedState::Runnable)
+            } else {
+                TaskState::default()
+            },
+
+            descriptor,
+
+            generation: Generation::default(),
+            notifications: 0,
+            save: crate::arch::SavedState::default(),
+            region_table: &[], // to be filled in by caller
+            timer: crate::task::TimerState::default(),
+        }
+    }
 
     /// Tests whether this task has read access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
