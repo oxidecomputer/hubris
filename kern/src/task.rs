@@ -44,7 +44,7 @@ pub struct Task {
 
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
-    pub descriptor: &'static TaskDesc,
+    descriptor: &'static TaskDesc,
 }
 
 impl Task {
@@ -173,6 +173,12 @@ impl Task {
         self.state = TaskState::default();
 
         crate::arch::reinitialize(self);
+    }
+
+    /// Returns a reference to the `TaskDesc` that was used to initially create
+    /// this task.
+    pub fn descriptor(&self) -> &TaskDesc {
+        self.descriptor
     }
 }
 
