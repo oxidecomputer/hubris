@@ -27,7 +27,7 @@ pub struct Task {
     /// Current priority of the task.
     priority: Priority,
     /// State used to make status and scheduling decisions.
-    pub state: TaskState,
+    state: TaskState,
     /// State for tracking the task's timer.
     timer: TimerState,
     /// Generation number of this task's current incarnation. This begins at
@@ -202,6 +202,30 @@ impl Task {
     /// Returns this task's current generation number.
     pub fn generation(&self) -> Generation {
         self.generation
+    }
+
+    /// Returns a reference to this task's current state, for inspection.
+    pub fn state(&self) -> &TaskState {
+        &self.state
+    }
+
+    /// Alters this task's state from one healthy state to another.
+    ///
+    /// To deliver a fault, use `force_fault` instead.
+    ///
+    /// The only currently supported way of getting a task out of fault state is
+    /// `reinitialize`. There are a number of invariants that need to be upheld
+    /// when a task begins running, and `reinitialize` gives us a place to
+    /// centralize them.
+    ///
+    /// # Panics
+    ///
+    /// If you attempt to use this to bring a task out of fault state.
+    pub fn set_healthy_state(&mut self, s: SchedState) {
+        let last = core::mem::replace(&mut self.state, s.into());
+        if let TaskState::Faulted { .. } = last {
+            panic!();
+        }
     }
 }
 
