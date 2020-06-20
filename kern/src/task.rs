@@ -9,21 +9,32 @@ use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
 
-/// The fault notification sent to the supervisor is stored in a global.
+/// This global holds the fault notification that will be sent to the supervisor
+/// of another task faults. It gets configured at application startup by a call
+/// to `set_fault_notification` and then remains untouched.
 #[no_mangle]
 static FAULT_NOTIFICATION: AtomicU32 = AtomicU32::new(0);
 
+/// Sets the notification bits that will be posted to the supervisor if another
+/// task faults. This is normally invoked only once during startup (though it is
+/// not technically unsafe to do other things with it).
 pub fn set_fault_notification(mask: u32) {
     FAULT_NOTIFICATION.store(mask, Ordering::Relaxed);
 }
 
 /// Internal representation of a task.
+///
+/// The fields of this struct are private to this module so that we can maintain
+/// some task invariants. These mostly have to do with ensuring that task
+/// interactions remain consistent across state changes -- for example, setting
+/// a task to RECV should process another task trying to SEND, if one exists.
 #[repr(C)] // so location of SavedState is predictable
 #[derive(Debug)]
 pub struct Task {
     /// Saved machine state of the user program.
     save: crate::arch::SavedState,
     // NOTE: it is critical that the above field appear first!
+
     /// Current priority of the task.
     priority: Priority,
     /// State used to make status and scheduling decisions.
@@ -164,9 +175,17 @@ impl Task {
         self.timer.to_post = notifications;
     }
 
-    pub fn reinitialize(
-        &mut self,
-    ) {
+    /// Rewrites this task's state back to its initial form, to effect a task
+    /// reboot.
+    ///
+    /// Note that this only rewrites in-kernel state and relevant parts of
+    /// out-of-kernel state (typically, a stack frame stored on the task stack).
+    /// This does *not* reinitialize application memory or anything else.
+    ///
+    /// This does not honor the `START_AT_BOOT` task flag, because this is not a
+    /// system reboot. The task will be left in `Stopped` state. If you would
+    /// like to run the task after reinitializing it, you must do so explicitly.
+    pub fn reinitialize(&mut self) {
         self.generation = self.generation.next();
         self.timer = TimerState::default();
         self.notifications = 0;
@@ -694,6 +713,8 @@ pub fn force_fault(tasks: &mut [Task], index: usize, fault: FaultInfo) -> NextTa
     }
 }
 
+/// Produces a current `TaskId` (i.e. one with the correct generation) for
+/// `tasks[index]`.
 pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
     TaskId::for_index_and_gen(index, tasks[index].generation)
 }
