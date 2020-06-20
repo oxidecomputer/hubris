@@ -342,7 +342,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         &*cortex_m::peripheral::MPU::ptr()
     };
 
-    for (i, region) in task.region_table.iter().enumerate() {
+    for (i, region) in task.region_table().iter().enumerate() {
         let rbar = (i as u32)  // region number
             | (1 << 4)  // honor the region number
             | region.base;
@@ -400,7 +400,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         mpu.ctrl.write(DISABLE | PRIVDEFENA);
     }
 
-    for (i, region) in task.region_table.iter().enumerate() {
+    for (i, region) in task.region_table().iter().enumerate() {
         // This MPU requires that all regions are 32-byte aligned...in part
         // because it stuffs extra stuff into the bottom five bits.
         debug_assert_eq!(region.base & 0x1F, 0);

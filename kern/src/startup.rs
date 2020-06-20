@@ -125,9 +125,9 @@ fn safe_start_kernel(
     // pointers. Note: if we decide to convert the RegionDesc into an
     // architecture-specific optimized form, that would happen here instead.
     for (task, task_desc) in tasks.iter_mut().zip(task_descs) {
-        task.region_table = alloc.gimme_n(app::REGIONS_PER_TASK, |i| {
+        task.set_region_table(alloc.gimme_n(app::REGIONS_PER_TASK, |i| {
             &region_descs[task_desc.regions[i] as usize]
-        });
+        }));
 
         // With that done, set up initial register state etc.
         crate::arch::reinitialize(task);
