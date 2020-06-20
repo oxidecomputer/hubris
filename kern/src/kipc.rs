@@ -12,7 +12,7 @@ pub fn handle_kernel_message(
     caller: usize,
 ) -> Result<NextTask, UserError> {
     // Copy out arguments.
-    let args = tasks[caller].save.as_send_args();
+    let args = tasks[caller].save().as_send_args();
     let operation = args.operation();
     // We're not checking these yet as we might not need them.
     let maybe_message = args.message();
@@ -93,7 +93,7 @@ fn read_task_status(
         tasks[index as usize].state(),
     )?;
     tasks[caller]
-        .save
+        .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
 }
@@ -140,7 +140,7 @@ fn restart_task(
                 {
                     // Please accept our sincere condolences on behalf of the
                     // kernel.
-                    task.save.set_error_response(DEAD);
+                    task.save_mut().set_error_response(DEAD);
                     task.set_healthy_state(SchedState::Runnable);
                 }
                 _ => (),
@@ -156,7 +156,7 @@ fn restart_task(
             return Ok(NextTask::Other);
         }
     } else {
-        tasks[caller].save.set_send_response_and_length(0, 0);
+        tasks[caller].save_mut().set_send_response_and_length(0, 0);
     }
     Ok(NextTask::Same)
 }

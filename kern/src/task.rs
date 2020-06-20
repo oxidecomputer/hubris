@@ -22,7 +22,7 @@ pub fn set_fault_notification(mask: u32) {
 #[derive(Debug)]
 pub struct Task {
     /// Saved machine state of the user program.
-    pub save: crate::arch::SavedState,
+    save: crate::arch::SavedState,
     // NOTE: it is critical that the above field appear first!
     /// Current priority of the task.
     priority: Priority,
@@ -226,6 +226,16 @@ impl Task {
         if let TaskState::Faulted { .. } = last {
             panic!();
         }
+    }
+
+    /// Returns a reference to the saved machine state for the task.
+    pub fn save(&self) -> &crate::arch::SavedState {
+        &self.save
+    }
+
+    /// Returns a mutable reference to the saved machine state for the task.
+    pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
+        &mut self.save
     }
 }
 
