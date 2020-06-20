@@ -295,7 +295,7 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
 }
 
 pub fn reinitialize(task: &mut task::Task) {
-    task.save = SavedState::default();
+    *task.save_mut() = SavedState::default();
     // Modern ARMv7-M machines require 8-byte stack alignment.
     // TODO: it is a little rude to assert this in an operation that can be used
     // after boot... but we do want to ensure that this condition holds...
@@ -324,11 +324,11 @@ pub fn reinitialize(task: &mut task::Task) {
 
     // Set the initial stack pointer, *not* to the stack top, but to the base of
     // this frame.
-    task.save.psp = frame as *const _ as u32;
+    task.save_mut().psp = frame as *const _ as u32;
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
     // TODO: this assumes floating point is in use.
-    task.save.exc_return = 0xFFFFFFED;
+    task.save_mut().exc_return = 0xFFFFFFED;
 }
 
 #[cfg(armv7m)]
@@ -573,8 +573,8 @@ pub fn start_first_task(task: &task::Task) -> ! {
             svc #0xFF               @ branch into user mode (svc # ignored)
             udf #0xad               @ should not return
             ",
-            user_sp = in(reg) task.save.psp,
-            task = in(reg) &task.save.r4,
+            user_sp = in(reg) task.save().psp,
+            task = in(reg) &task.save().r4,
             options(noreturn),
         )
     }
