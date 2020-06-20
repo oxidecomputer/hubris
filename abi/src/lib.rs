@@ -300,6 +300,12 @@ pub enum SchedState {
     InRecv(Option<TaskId>),
 }
 
+impl From<SchedState> for TaskState {
+    fn from(s: SchedState) -> Self {
+        Self::Healthy(s)
+    }
+}
+
 /// A record describing a fault taken by a task.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum FaultInfo {

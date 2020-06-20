@@ -90,7 +90,7 @@ fn read_task_status(
     let response_len = serialize_response(
         &tasks[caller],
         response,
-        &tasks[index as usize].state,
+        tasks[index as usize].state(),
     )?;
     tasks[caller]
         .save
@@ -114,7 +114,7 @@ fn restart_task(
     let old_id = current_id(tasks, index);
     tasks[index].reinitialize();
     if start {
-        tasks[index].state = TaskState::Healthy(SchedState::Runnable);
+        tasks[index].set_healthy_state(SchedState::Runnable);
     }
 
     // Restarting a task can have implications for other tasks. We don't want to
@@ -131,17 +131,17 @@ fn restart_task(
 
         // We'll skip processing faulted tasks, because we don't want to lose
         // information in their fault records by changing their states.
-        if let TaskState::Healthy(sched) = task.state {
+        if let TaskState::Healthy(sched) = task.state() {
             match sched {
                 SchedState::InRecv(Some(peer))
                 | SchedState::InSend(peer)
                 | SchedState::InReply(peer)
-                    if peer == old_id =>
+                    if peer == &old_id =>
                 {
                     // Please accept our sincere condolences on behalf of the
                     // kernel.
                     task.save.set_error_response(DEAD);
-                    task.state = TaskState::Healthy(SchedState::Runnable);
+                    task.set_healthy_state(SchedState::Runnable);
                 }
                 _ => (),
             }

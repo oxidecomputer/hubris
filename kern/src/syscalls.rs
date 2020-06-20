@@ -122,9 +122,9 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Check for ready peer.
     let mut next_task = NextTask::Same;
     let caller_id = current_id(tasks, caller);
-    if tasks[callee].state
-        == TaskState::Healthy(SchedState::InRecv(Some(caller_id)))
-        || tasks[callee].state == TaskState::Healthy(SchedState::InRecv(None))
+    if tasks[callee].state()
+        == &TaskState::Healthy(SchedState::InRecv(Some(caller_id)))
+        || tasks[callee].state() == &TaskState::Healthy(SchedState::InRecv(None))
     {
         // Callee is waiting in receive -- either an open receive, or a
         // directed receive from just us. Either way, we can directly
@@ -134,10 +134,9 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
             Ok(_) => {
                 // Delivery succeeded!
                 // Block caller.
-                tasks[caller].state =
-                    TaskState::Healthy(SchedState::InReply(callee_id));
+                tasks[caller].set_healthy_state(SchedState::InReply(callee_id));
                 // Unblock callee.
-                tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+                tasks[callee].set_healthy_state(SchedState::Runnable);
                 // Propose switching directly to the unblocked callee.
                 return Ok(NextTask::Specific(callee));
             }
@@ -155,7 +154,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 
     // Caller needs to block sending, callee is either busy or
     // faulted.
-    tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee_id));
+    tasks[caller].set_healthy_state(SchedState::InSend(callee_id));
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
     return Ok(NextTask::Other.combine(next_task));
@@ -196,14 +195,13 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
                            // Is anyone blocked waiting to send to us?
     let mut next_task = NextTask::Same; // update if we wake tasks
     while let Some(sender) =
-        task::priority_scan(last, tasks, |t| t.state == sending_to_us)
+        task::priority_scan(last, tasks, |t| t.state() == &sending_to_us)
     {
         // Oh hello sender!
         match deliver(tasks, sender, caller) {
             Ok(_) => {
                 // Delivery succeeded! Change the sender's blocking state.
-                tasks[sender].state =
-                    TaskState::Healthy(SchedState::InReply(caller_id));
+                tasks[sender].set_healthy_state(SchedState::InReply(caller_id));
                 // And go ahead and let the caller resume.
                 return Ok(next_task);
             }
@@ -222,7 +220,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     }
 
     // No notifications, nobody waiting to send -- block the caller.
-    tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
+    tasks[caller].set_healthy_state(SchedState::InRecv(None));
     // We may not know what task should run next, but we're pretty sure it's not
     // the one we just blocked.
     Ok(NextTask::Other.combine(next_task))
@@ -249,7 +247,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state != TaskState::Healthy(SchedState::InReply(caller_id)) {
+    if tasks[callee].state() != &TaskState::Healthy(SchedState::InReply(caller_id)) {
         // Huh. The target task is off doing something else. This can happen if
         // application-specific supervisory logic unblocks it before we've had a
         // chance to reply (e.g. to implement timeouts).
@@ -313,7 +311,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     tasks[callee]
         .save
         .set_send_response_and_length(code, amount_copied);
-    tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+    tasks[callee].set_healthy_state(SchedState::Runnable);
 
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
@@ -461,7 +459,7 @@ fn borrow_lease(
     let caller_id = current_id(tasks, caller);
 
     // Check state of lender and range of lease table.
-    if tasks[lender].state != TaskState::Healthy(SchedState::InReply(caller_id)) {
+    if tasks[lender].state() != &TaskState::Healthy(SchedState::InReply(caller_id)) {
         // The alleged lender isn't lending anything at all.
         // Let's assume this is a defecting lender.
         return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
@@ -592,8 +590,8 @@ fn deliver(
     );
 
     let callee_id = current_id(tasks, callee);
-    tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee_id));
-    tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+    tasks[caller].set_healthy_state(SchedState::InReply(callee_id));
+    tasks[callee].set_healthy_state(SchedState::Runnable);
     // We don't have an opinion about the newly runnable task, nor do we
     // have enough information to insist that a switch must happen.
     Ok(())
