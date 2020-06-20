@@ -34,7 +34,7 @@ pub struct Task {
     /// zero and gets incremented whenever a task gets rebooted, to try to help
     /// peers notice that they're talking to a new copy that may have lost
     /// state.
-    pub generation: Generation,
+    generation: Generation,
 
     /// Static table defining this task's memory regions.
     region_table: &'static [&'static RegionDesc],
@@ -197,6 +197,11 @@ impl Task {
     /// Returns a reference to the task's memory region descriptor table.
     pub fn region_table(&self) -> &'static [&'static RegionDesc] {
         self.region_table
+    }
+
+    /// Returns this task's current generation number.
+    pub fn generation(&self) -> Generation {
+        self.generation
     }
 }
 
