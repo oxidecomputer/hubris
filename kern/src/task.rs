@@ -29,7 +29,7 @@ pub struct Task {
     /// State used to make status and scheduling decisions.
     pub state: TaskState,
     /// State for tracking the task's timer.
-    pub timer: TimerState,
+    timer: TimerState,
     /// Generation number of this task's current incarnation. This begins at
     /// zero and gets incremented whenever a task gets rebooted, to try to help
     /// peers notice that they're talking to a new copy that may have lost
