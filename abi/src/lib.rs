@@ -278,6 +278,33 @@ pub enum TaskState {
     },
 }
 
+impl TaskState {
+    /// Checks if a task in this state is ready to accept a message sent by
+    /// `caller`. This will return `true` if the state is an open receive, or a
+    /// closed receive naming the caller specifically; otherwise, it will return
+    /// `false`.
+    pub fn can_accept_message_from(&self, caller: TaskId) -> bool {
+        if let TaskState::Healthy(SchedState::InRecv(peer)) = self {
+            peer.is_none() || peer == &Some(caller)
+        } else {
+            false
+        }
+    }
+
+    /// Checks if a task in this state is trying to deliver a message to
+    /// `target`.
+    pub fn is_sending_to(&self, target: TaskId) -> bool {
+        self == &TaskState::Healthy(SchedState::InSend(target))
+    }
+
+    /// Checks if a task in this state can be unblocked with a notification.
+    pub fn can_accept_notification(&self) -> bool {
+        // TODO: should a closed recv against the kernel's taskid be a
+        // notification-only recv? If so, match that here too.
+        self == &TaskState::Healthy(SchedState::InRecv(None))
+    }
+}
+
 impl Default for TaskState {
     fn default() -> Self {
         TaskState::Healthy(SchedState::Stopped)
