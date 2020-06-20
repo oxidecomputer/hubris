@@ -562,7 +562,7 @@ fn deliver(
     let send_args = tasks[caller].save.as_send_args();
     let op = send_args.operation();
     let caller_id =
-        TaskId::for_index_and_gen(caller, tasks[caller].generation);
+        TaskId::for_index_and_gen(caller, tasks[caller].generation());
     let src_slice = send_args.message().map_err(InteractFault::in_src)?;
     let response_capacity = send_args
         .response_buffer()
