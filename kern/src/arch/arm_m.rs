@@ -299,14 +299,14 @@ pub fn reinitialize(task: &mut task::Task) {
     // Modern ARMv7-M machines require 8-byte stack alignment.
     // TODO: it is a little rude to assert this in an operation that can be used
     // after boot... but we do want to ensure that this condition holds...
-    uassert!(task.descriptor.initial_stack & 0x7 == 0);
+    uassert!(task.descriptor().initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     let mut uslice: USlice<ExtendedExceptionFrame> = USlice::from_raw(
-        task.descriptor.initial_stack as usize - frame_size,
+        task.descriptor().initial_stack as usize - frame_size,
         1,
     )
     .unwrap();
@@ -317,7 +317,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();
     // Now fill in the bits we actually care about.
-    frame.base.pc = task.descriptor.entry_point | 1; // for thumb
+    frame.base.pc = task.descriptor().entry_point | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
     frame.fpscr = INITIAL_FPSCR;
