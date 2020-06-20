@@ -122,10 +122,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Check for ready peer.
     let mut next_task = NextTask::Same;
     let caller_id = current_id(tasks, caller);
-    if tasks[callee].state()
-        == &TaskState::Healthy(SchedState::InRecv(Some(caller_id)))
-        || tasks[callee].state() == &TaskState::Healthy(SchedState::InRecv(None))
-    {
+    if tasks[callee].state().can_accept_message_from(caller_id) {
         // Callee is waiting in receive -- either an open receive, or a
         // directed receive from just us. Either way, we can directly
         // deliver the message and switch tasks...unless either task was
@@ -190,12 +187,11 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // - A legit sender is found, but the *caller* misbehaved and gets faulted.
     // - No senders were found (after fault processing) and we have to block the
     //   caller.
-    let sending_to_us = TaskState::Healthy(SchedState::InSend(caller_id));
     let mut last = caller; // keep track of scan position.
                            // Is anyone blocked waiting to send to us?
     let mut next_task = NextTask::Same; // update if we wake tasks
     while let Some(sender) =
-        task::priority_scan(last, tasks, |t| t.state() == &sending_to_us)
+        task::priority_scan(last, tasks, |t| t.state().is_sending_to(caller_id))
     {
         // Oh hello sender!
         match deliver(tasks, sender, caller) {

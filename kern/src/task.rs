@@ -111,8 +111,8 @@ impl Task {
         self.notifications |= n.0;
 
         // We only need to check the mask, and make updates, if the task is
-        // blocked in an open receive.
-        if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
+        // ready to hear about notifications.
+        if self.state.can_accept_notification() {
             if let Some(firing) = self.take_notifications() {
                 // A bit the task is interested in has newly become set!
                 // Interrupt it.
