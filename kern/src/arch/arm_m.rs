@@ -822,6 +822,13 @@ pub unsafe extern "C" fn DefaultHandler() {
             let irq_num = exception_num - 16;
             let switch = with_task_table(|tasks| {
                 with_irq_table(|irqs| {
+                    // TODO: in case it isn't obvious, looping over the entire
+                    // interrupt redirector table on every interrupt is not the
+                    // fastest way to handle interrupts. But it sure is
+                    // expedient! If you would like to speed up interrupt
+                    // response, change the irq_table data structure to
+                    // something we can access in O(1), or at least O(log n),
+                    // time.
                     for entry in irqs {
                         if entry.irq == irq_num {
                             // Early exit on the first (and should be sole)
