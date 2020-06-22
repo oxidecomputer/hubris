@@ -71,6 +71,19 @@ impl<T> USlice<T> {
         }
     }
 
+    /// Constructs an empty `USlice`.
+    ///
+    /// This ensures that the base address is not zero and is properly aligned,
+    /// despite the length being zero, so that it's safe to turn into an empty
+    /// slice.
+    pub fn empty() -> Self {
+        Self {
+            base_address: core::ptr::NonNull::<T>::dangling().as_ptr() as usize,
+            length: 0,
+            _marker: PhantomData,
+        }
+    }
+
     /// Returns `true` if this slice is zero-length, `false` otherwise.
     pub fn is_empty(&self) -> bool {
         self.length == 0
@@ -189,6 +202,17 @@ where
             self.base_address as *mut T,
             self.length,
         )
+    }
+}
+
+/// Can't `derive(Debug)` for `USlice` because that puts a `Debug` requirement
+/// on `T`, and that's silly.
+impl<T> core::fmt::Debug for USlice<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("USlice")
+            .field("base_address", &self.base_address)
+            .field("length", &self.length)
+            .finish()
     }
 }
 
