@@ -16,6 +16,15 @@ pub const REGIONS_PER_TASK: usize = 8;
 
 pub const TASK_ID_INDEX_BITS: usize = 10;
 
+/// Maximum number of bytes that can be sent in a single async message.
+///
+/// Larger numbers cause the worst-case timing of async sends to get worse;
+/// smaller numbers improve timing at the cost of ruling out some uses.
+///
+/// Note that raising this past 32 may cause `AsyncDesc` to lose some derived
+/// trait impls until const generics stabilizes in a future compiler release.
+pub const ASYNC_MESSAGE_SIZE_LIMIT: usize = 16;
+
 /// Names a particular incarnation of a task.
 ///
 /// A `TaskId` combines two fields, a task index (which can be predicted at
@@ -391,4 +400,105 @@ pub enum FaultSource {
     User,
     /// User code asked the kernel to do something bad on its behalf.
     Kernel,
+}
+
+/// An asynchronous message descriptor.
+///
+/// This contains a description of a message that either should be, or has been,
+/// sent. Tasks can *publish* an array of these by informing the kernel of their
+/// location; the kernel will deliver the messages described by the array when
+/// feasible. Tasks can then monitor the contents of the descriptors to find out
+/// if/when messages are delivered.
+#[derive(Debug)]
+#[repr(C)]
+pub struct AsyncDesc {
+    /// Notification bits that the kernel should post to the owning task when
+    /// the message is successfully delivered. (If notification is not required,
+    /// use `0`.)
+    pub on_deliver: u32,
+    /// Operation code of the message.
+    pub operation: u16,
+    /// Task that will receive the message.
+    pub dest: TaskId,
+    /// Contents of message to be sent. This is inline, rather than a pointer,
+    /// to cut down on the number of checks the kernel has to do -- we might
+    /// change this later.
+    pub message: [u8; ASYNC_MESSAGE_SIZE_LIMIT],
+    /// Number of bytes to be sent. This defines the exact message as
+    /// `&self.message[..self.length]`.
+    pub length: u8,
+    /// State of this descriptor. This is the only field that the kernel will
+    /// write. This is not `pub` so that we can control how it is updated.
+    state: core::sync::atomic::AtomicU8,
+}
+
+impl AsyncDesc {
+    /// Produces an empty `AsyncDesc`.
+    ///
+    /// Specifically, it has zeroes in all fields except the task ID, which is
+    /// pointed at the kernel to catch any cases where you forget to update it.
+    pub const fn empty() -> Self {
+        Self {
+            on_deliver: 0,
+            operation: 0,
+            dest: TaskId::KERNEL,
+            message: [0; ASYNC_MESSAGE_SIZE_LIMIT],
+            length: 0,
+            state: core::sync::atomic::AtomicU8::new(AsyncState::Empty as u8),
+        }
+    }
+
+    /// Reads the state of this descriptor using an atomic load.
+    ///
+    /// This will synchronize with any stores to the descriptor state from the
+    /// other "world" (the kernel, if you're writing a task, or the task, if
+    /// you're writing the kernel).
+    ///
+    /// If the state byte contains a value that is not valid for `AsyncState`,
+    /// returns `None`. The proper response to `None` depends on your context:
+    ///
+    /// - The kernel should treat `None` as a fault in the task that owns the
+    ///   descriptor.
+    /// - A task should `unwrap`, as `None` indicates memory corruption.
+    pub fn state(&self) -> Option<AsyncState> {
+        match self.state.load(core::sync::atomic::Ordering::Acquire) {
+            0 => Some(AsyncState::Empty),
+            1 => Some(AsyncState::Pending),
+            2 => Some(AsyncState::Delivered),
+            3 => Some(AsyncState::Dead),
+            _ => None,
+        }
+    }
+
+    /// Updates the state of this descriptor using an atomic store.
+    ///
+    /// This will synchronize with any loads of the descriptor state from the
+    /// other "world" (the kernel, if you're writing a task, or the task, if
+    /// you're writing the kernel), but it's entirely possible to have a write
+    /// race. The solution is:
+    ///
+    /// - Only update the state from a task when the descriptor has not been
+    ///   published.
+    /// - Only update the state from the kernel when the descriptor is published
+    ///   and Pending.
+    pub fn set_state(&self, s: AsyncState) {
+        self.state.store(s as u8, core::sync::atomic::Ordering::Release)
+    }
+}
+
+/// Possible states for an `AsyncDesc`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum AsyncState {
+    /// This descriptor doesn't describe anything useful and should be ignored
+    /// by the kernel even after it's published. (This provides a way to fill
+    /// space in a table when you're not using all slots.)
+    Empty = 0,
+    /// This descriptor holds a message that is waiting to be sent.
+    Pending = 1,
+    /// The message described in this descriptor was delivered successfully.
+    Delivered = 2,
+    /// The `TaskId` in this descriptor was stale, implying that the task
+    /// designated by the descriptor has been restarted or failed.
+    Dead = 3,
 }

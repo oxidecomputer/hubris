@@ -444,6 +444,7 @@ unsafe impl<T> UShared for *mut T {}
 unsafe impl<T> UShared for core::sync::atomic::AtomicPtr<T> {}
 // It is *not* safe to impl UShared for NonNull<T>!
 
+unsafe impl UShared for abi::AsyncDesc {}
 unsafe impl UShared for abi::LeaseAttributes {}
 unsafe impl UShared for abi::TaskId {}
 unsafe impl UShared for abi::ULease {}
