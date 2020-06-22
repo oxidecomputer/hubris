@@ -56,6 +56,15 @@ pub struct Task {
     /// Pointer to the ROM descriptor used to create this task, so it can be
     /// restarted.
     descriptor: &'static TaskDesc,
+
+    /// Unprivileged-memory slice that contains this task's async descriptor
+    /// table, or an empty slice if the task has none.
+    async_table: USlice<abi::AsyncDesc>,
+    /// When `true`, indicates that other tasks *may* have async messages
+    /// waiting for this task. (This is imprecise; the owners of the async
+    /// messages may have given up or overwritten them. The flag just means we
+    /// need to go check.)
+    async_pending: bool,
 }
 
 impl Task {
@@ -80,6 +89,8 @@ impl Task {
             save: crate::arch::SavedState::default(),
             region_table: &[], // to be filled in by caller
             timer: crate::task::TimerState::default(),
+            async_table: USlice::empty(),
+            async_pending: false,
         }
     }
 
@@ -209,6 +220,8 @@ impl Task {
         self.timer = TimerState::default();
         self.notifications = 0;
         self.state = TaskState::default();
+        self.async_table = USlice::empty();
+        self.async_pending = false;
 
         crate::arch::reinitialize(self);
     }
