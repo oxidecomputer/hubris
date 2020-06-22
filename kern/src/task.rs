@@ -374,6 +374,12 @@ pub trait ArchState: Default {
         AsPanicArgs(self)
     }
 
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for ASYNC_PUB.
+    fn as_async_pub_args(&self) -> AsAsyncPubArgs<&Self> {
+        AsAsyncPubArgs(self)
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -415,6 +421,14 @@ pub trait ArchState: Default {
         self.ret1(atts);
         self.ret2(len as u32);
     }
+
+    /// Sets the returned slice for ASYNC_PUB.
+    fn set_async_pub_result(&mut self, old_table: USlice<abi::AsyncDesc>) {
+        self.ret0(0); // ret0 currently reserved for future status codes
+        self.ret1(old_table.base_addr() as u32);
+        self.ret2(old_table.len() as u32);
+    }
+
 }
 
 /// Reference proxy for send argument registers.
@@ -563,6 +577,16 @@ pub struct AsPanicArgs<T>(T);
 impl<'a, T: ArchState> AsPanicArgs<&'a T> {
     /// Extracts the task's reported message slice.
     pub fn message(&self) -> Result<USlice<u8>, UsageError> {
+        USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
+    }
+}
+
+/// Reference proxy for ASYNC_PUB argument registers.
+pub struct AsAsyncPubArgs<T>(T);
+
+impl<'a, T: ArchState> AsAsyncPubArgs<&'a T> {
+    /// Extracts the task's purported descriptor table.
+    pub fn table(&self) -> Result<USlice<abi::AsyncDesc>, UsageError> {
         USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
     }
 }
