@@ -1,13 +1,82 @@
 //! Support for safely interacting with untrusted/unprivileged/user memory.
 
 use core::marker::PhantomData;
-use zerocopy::FromBytes;
 
 use abi::{FaultInfo, FaultSource, UsageError};
 use crate::task::Task;
 use crate::err::InteractFault;
 
 pub use abi::ULease;
+
+/// Marker trait for data types that can be safely shared with unprivileged
+/// memory.
+///
+/// This is implemented for many of the primitive types, and can be implemented
+/// for your own types.
+///
+/// # Requirements for implementing `UShared`
+///
+/// This is an `unsafe` trait, meaning it's unsafe to implement without care.
+/// Any type `T` that implements `UShared` must meet the following requirements:
+///
+/// 1. **Valid for all inputs.** Any sequence of bytes that is `sizeof::<T>()`
+///    long must be a valid `T`. For instance, `u32` meets this requirement,
+///    while `bool` does not.
+///
+/// 2. **Does not contain references (`&` or `&mut`).** This actually just
+///    follows from item 1, because it is illegal in Rust to have a reference
+///    that is zero, misaligned, or pointing to uninitialized memory, even if
+///    you don't dereference it -- references are not valid for all inputs.
+///    (Note that `UShared` types *may* contain raw pointers.)
+///
+/// In general, any `struct` that contains only fields of `UShared` types can
+/// potentially implement `UShared`. Implementing `UShared` for an `enum` is
+/// almost certainly unsafe, because it allows user programs to introduce
+/// illegal values for the enum discriminator.
+///
+/// There's one more *soft* requirement, which is that a type implementing
+/// `UShared` *should* have a stable ABI. There's no guarantee that the kernel
+/// and tasks were compiled with the same version of `rustc` (though this is the
+/// normal case). This means that it's possible the compilers would choose
+/// different layouts for struct types. You can avoid this by using
+///
+/// - Primitive types like `u32`, or their `Atomic` equivalents,
+/// - `#[repr(C)]` types containing other `UShared` types (including arrays),
+/// - `#[repr(transparent)]` types wrapping one of the above.
+///
+/// Note that the memory layout of tuples is explicitly not stable. Use
+/// `#[repr(C)]` structs instead.
+///
+/// See the [data layout] section of the Unsafe Code Guidelines for more.
+///
+/// [data layout]: https://rust-lang.github.io/unsafe-code-guidelines/layout.html
+///
+/// # "Exclusive" references
+///
+/// There are operations in the `umem` module that can produce an `&mut T` for
+/// `T: UShared`. This appears to break the aliasing rules for Rust `&mut`,
+/// because the task can also access the value.  However, remember that the
+/// kernel is a separate program from the tasks, running independently; tasks
+/// cannot access memory while the kernel is running, and task memory is, from
+/// the kernel's point of view, just big byte arrays.
+///
+/// What *is* important is that the *kernel* does not produce two `&mut T`s that
+/// overlap or alias. You must ensure this yourself, which is why the operations
+/// for accessing a `UShared` type are `unsafe`.
+///
+/// # Similarity to `zerocopy`
+///
+/// `UShared` provides a similar, but not equivalent, set of guarantees as the
+/// `zerocopy::FromBytes` trait: both mark types that are valid for any byte
+/// sequence of the correct length. The key difference is that `UShared` does
+/// *not* provide a way to convert a `&[u8]` into a `T`.
+///
+/// This is important, because there are some types in Rust that are unsafe to
+/// alias with a `&[u8]` -- particularly the `Atomic` family of types, because
+/// having atomic and non-atomic accesses to the same byte in memory can cause
+/// data races. (Rumor has it that `UnsafeCell` is also problematic, but I
+/// haven't found an explanation of *why.*)
+pub unsafe trait UShared {}
 
 /// A (user, untrusted, unprivileged) slice.
 ///
@@ -159,7 +228,7 @@ impl<T> USlice<T> {
 
 impl<T> USlice<T>
 where
-    T: FromBytes,
+    T: UShared,
 {
     /// Converts this into an _actual_ slice that can be directly read by the
     /// kernel.
@@ -173,8 +242,8 @@ where
     /// 2. That this memory is legally readable by whatever task you're doing
     ///    work on behalf of.
     /// 3. That it is correctly aligned for type `T`.
-    /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
-    ///    constraint ensures this statically.)
+    /// 4. That it contains bytes that are valid `T`s. (The `UShared` constraint
+    ///    ensures this statically.)
     /// 5. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
     pub unsafe fn assume_readable(&self) -> &[T] {
@@ -193,8 +262,8 @@ where
     /// 2. That this memory is legally writable by whatever task you're doing
     ///    work on behalf of.
     /// 3. That it is correctly aligned for type `T`.
-    /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
-    ///    constraint ensures this statically.)
+    /// 4. That it contains bytes that are valid `T`s. (The `UShared` constraint
+    ///    ensures this statically.)
     /// 5. That it does not alias any other slice you intend to access, or any
     ///    kernel memory.
     pub unsafe fn assume_writable(&mut self) -> &mut [T] {
@@ -236,6 +305,8 @@ impl<'a> From<&'a ULease> for USlice<u8> {
         }
     }
 }
+
+unsafe impl<T> UShared for USlice<T> {}
 
 /// Copies bytes from task `from` in region `from_slice` into task `to` at
 /// region `to_slice`, checking memory access before doing so.
@@ -291,3 +362,48 @@ pub fn safe_copy(
     to[..copy_len].copy_from_slice(&from[..copy_len]);
     Ok(copy_len)
 }
+
+//
+// The big list of external types that have UShared impls!
+//
+// This list should contain only the impls for external crates and/or the
+// standard library (incl. abi).
+//
+// It should *not* contain impls for kernel types. Those should go with the type
+// definitions.
+//
+
+unsafe impl UShared for () {}
+
+unsafe impl UShared for u8 {}
+unsafe impl UShared for u16 {}
+unsafe impl UShared for u32 {}
+unsafe impl UShared for u64 {}
+unsafe impl UShared for u128 {}
+
+unsafe impl UShared for i8 {}
+unsafe impl UShared for i16 {}
+unsafe impl UShared for i32 {}
+unsafe impl UShared for i64 {}
+unsafe impl UShared for i128 {}
+
+unsafe impl UShared for core::sync::atomic::AtomicU8 {}
+unsafe impl UShared for core::sync::atomic::AtomicU16 {}
+unsafe impl UShared for core::sync::atomic::AtomicU32 {}
+// Our target architectures do not have atomic operations > 32 bits
+
+unsafe impl UShared for core::sync::atomic::AtomicI8 {}
+unsafe impl UShared for core::sync::atomic::AtomicI16 {}
+unsafe impl UShared for core::sync::atomic::AtomicI32 {}
+// Our target architectures do not have atomic operations > 32 bits
+
+// It is *not* safe to impl UShared for bool!
+
+unsafe impl<T> UShared for *const T {}
+unsafe impl<T> UShared for *mut T {}
+unsafe impl<T> UShared for core::sync::atomic::AtomicPtr<T> {}
+// It is *not* safe to impl UShared for NonNull<T>!
+
+unsafe impl UShared for abi::LeaseAttributes {}
+unsafe impl UShared for abi::TaskId {}
+unsafe impl UShared for abi::ULease {}

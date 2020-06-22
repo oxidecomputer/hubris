@@ -70,13 +70,11 @@
 
 use core::ptr::NonNull;
 
-use zerocopy::FromBytes;
-
 use abi::{FaultSource, FaultInfo};
 use crate::app;
 use crate::task;
 use crate::time::Timestamp;
-use crate::umem::USlice;
+use crate::umem::{UShared, USlice};
 
 /// Log things from kernel context. This macro is made visible to the rest of
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
@@ -234,7 +232,7 @@ impl task::ArchState for SavedState {
 
 /// Stuff placed on the stack at exception entry whether or not an FPU is
 /// present.
-#[derive(Debug, FromBytes, Default)]
+#[derive(Debug, Default)]
 #[repr(C)]
 pub struct BaseExceptionFrame {
     r0: u32,
@@ -247,8 +245,10 @@ pub struct BaseExceptionFrame {
     xpsr: u32,
 }
 
+unsafe impl UShared for BaseExceptionFrame {}
+
 /// Extended version for FPU.
-#[derive(Debug, FromBytes, Default)]
+#[derive(Debug, Default)]
 #[repr(C)]
 pub struct ExtendedExceptionFrame {
     base: BaseExceptionFrame,
@@ -256,6 +256,8 @@ pub struct ExtendedExceptionFrame {
     fpscr: u32,
     reserved: u32,
 }
+
+unsafe impl UShared for ExtendedExceptionFrame {}
 
 /// Initially we just set the Thumb Mode bit, the minimum required.
 const INITIAL_PSR: u32 = 1 << 24;

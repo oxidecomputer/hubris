@@ -33,6 +33,7 @@ pub const TASK_ID_INDEX_BITS: usize = 10;
 /// The task index is in the lower `TaskId::INDEX_BITS` bits, while the
 /// generation is in the remaining top bits.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[repr(transparent)]
 pub struct TaskId(pub u16);
 
 impl TaskId {
@@ -252,6 +253,8 @@ bitflags::bitflags! {
         const READ = 1 << 0;
         /// Allow the borrower to write this memory.
         const WRITE = 1 << 1;
+
+        const RESERVED = !0 << 2;
     }
 }
 

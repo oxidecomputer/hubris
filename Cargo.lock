@@ -313,7 +313,6 @@ dependencies = [
  "cortex-m-semihosting",
  "serde",
  "ssmarshal",
- "zerocopy",
 ]
 
 [[package]]
