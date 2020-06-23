@@ -391,6 +391,7 @@ pub enum UsageError {
     OffsetOutOfRange,
     NoIrq,
     BadKernelMessage,
+    BadAsync,
 }
 
 /// Origin of a fault.
