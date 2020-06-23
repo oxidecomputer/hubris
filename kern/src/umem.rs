@@ -349,43 +349,57 @@ pub fn safe_copy(
     from: &Task,
     from_slice: USlice<u8>,
     to: &Task,
-    mut to_slice: USlice<u8>,
+    to_slice: USlice<u8>,
 ) -> Result<usize, InteractFault> {
-    let src_fault = if from.can_read(&from_slice) {
-        None
-    } else {
-        Some(FaultInfo::MemoryAccess {
-            address: Some(from_slice.base_address as u32),
-            source: FaultSource::Kernel,
-        })
-    };
+    // We're going to fault the source immediately. This means the recipient
+    // might not fault, despite having invalid response buffers. Fortunately,
+    // the IPC primitives check for that, so you'd need to work pretty hard to
+    // get there. This makes the factoring of the code a lot easier.
+    if !from.can_read(&from_slice) {
+        return Err(InteractFault::in_src(
+            FaultInfo::MemoryAccess {
+                address: Some(from_slice.base_address as u32),
+                source: FaultSource::Kernel,
+            }
+        ));
+    }
+
+    let from = unsafe { from_slice.assume_readable() };
+
+    safe_copy_from(from, to, to_slice)
+        .map_err(InteractFault::in_dst)
+}
+
+/// Copies bytes from known-readable slice `from_slice` ice` into task `to` at
+/// region `to_slice`, checking memory access before doing so.
+///
+/// The actual number of bytes copied will be `min(from_slice.len(),
+/// to_slice.length)`, and will be returned.
+///
+/// If `to_slice` refers to memory its owner can't write, no bytes are copied,
+/// and this returns a `FaultInfo` to be assigned to the `to` task.
+///
+/// This operation will not accept device memory as writable.
+pub fn safe_copy_from(
+    from_slice: &[u8],
+    to: &Task,
+    mut to_slice: USlice<u8>,
+) -> Result<usize, FaultInfo> {
     // We're going to blame any aliasing on the recipient, who shouldn't have
     // designated a receive buffer in shared memory. This decision is somewhat
     // arbitrary.
-    let dst_fault = if to.can_write(&to_slice) && !from_slice.aliases(&to_slice)
-    {
-        None
-    } else {
-        Some(FaultInfo::MemoryAccess {
+    if !to.can_write(&to_slice) || from_slice.aliases(&to_slice) {
+        return Err(FaultInfo::MemoryAccess {
             address: Some(to_slice.base_address as u32),
             source: FaultSource::Kernel,
         })
-    };
-    if src_fault.is_some() || dst_fault.is_some() {
-        return Err(InteractFault {
-            src: src_fault,
-            dst: dst_fault,
-        });
     }
 
     // We are now convinced, after querying the tasks, that these RAM areas are
     // legit.
-    // TODO: this next bit assumes that task memory is directly addressable --
-    // an assumption that is likely to be invalid in a simulator.
     let copy_len = from_slice.len().min(to_slice.len());
-    let from = unsafe { from_slice.assume_readable() };
     let to = unsafe { to_slice.assume_writable() };
-    to[..copy_len].copy_from_slice(&from[..copy_len]);
+    to[..copy_len].copy_from_slice(&from_slice[..copy_len]);
     Ok(copy_len)
 }
 
