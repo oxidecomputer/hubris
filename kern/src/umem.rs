@@ -205,6 +205,16 @@ where
     }
 }
 
+impl<T> Clone for USlice<T> {
+    fn clone(&self) -> Self {
+        Self {
+            base_address: self.base_address,
+            length: self.length,
+            _marker: PhantomData,
+        }
+    }
+}
+
 /// Can't `derive(Debug)` for `USlice` because that puts a `Debug` requirement
 /// on `T`, and that's silly.
 impl<T> core::fmt::Debug for USlice<T> {
