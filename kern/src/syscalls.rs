@@ -129,12 +129,8 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
         // naughty, in which case we have to fault it and block.
         match deliver(tasks, caller, callee) {
             Ok(_) => {
-                // Delivery succeeded!
-                // Block caller.
-                tasks[caller].set_healthy_state(SchedState::InReply(callee_id));
-                // Unblock callee.
-                tasks[callee].set_healthy_state(SchedState::Runnable);
-                // Propose switching directly to the unblocked callee.
+                // Delivery succeeded! The initiating task is now blocked in
+                // reply. Switch directly to the callee.
                 return Ok(NextTask::Specific(callee));
             }
             Err(interact) => {
@@ -196,9 +192,8 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         // Oh hello sender!
         match deliver(tasks, sender, caller) {
             Ok(_) => {
-                // Delivery succeeded! Change the sender's blocking state.
-                tasks[sender].set_healthy_state(SchedState::InReply(caller_id));
-                // And go ahead and let the caller resume.
+                // Delivery succeeded! Sender is now blocked in reply. Go ahead
+                // and let the caller resume.
                 return Ok(next_task);
             }
             Err(interact) => {
@@ -543,8 +538,9 @@ unsafe fn switch_to(task: &mut Task) {
 /// close to true. The recovering-from-fault case can explicitly discard the
 /// scheduling hint.)
 ///
-/// On success, returns `Ok(())` and any task-switching is the caller's
-/// responsibility.
+/// On success, updates the state of each task to finish delivery, and returns
+/// `Ok(())`. Task-switching is the caller's responsibility, because we don't
+/// have enough information here.
 fn deliver(
     tasks: &mut [Task],
     caller: usize,
