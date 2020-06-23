@@ -85,26 +85,45 @@ impl Task {
 
     /// Tests whether this task has read access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
+    ///
+    /// This is shorthand for `can_access(slice, RegionAttributes::READ)`.
     pub fn can_read<T>(&self, slice: &USlice<T>) -> bool {
-        if slice.is_empty() {
-            return true;
-        }
-        self.region_table.iter().any(|region| {
-            region.covers(slice)
-                && region.attributes.contains(RegionAttributes::READ)
-                && !region.attributes.contains(RegionAttributes::DEVICE)
-        })
+        self.can_access(slice, RegionAttributes::READ)
     }
 
     /// Tests whether this task has write access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
+    ///
+    /// This is shorthand for `can_access(slice, RegionAttributes::WRITE)`.
     pub fn can_write<T>(&self, slice: &USlice<T>) -> bool {
+        self.can_access(slice, RegionAttributes::WRITE)
+    }
+
+    /// Tests whether this task has access to `slice` as normal memory with
+    /// *all* of the given access attributes. This is used to validate kernel
+    /// accesses to the memory.
+    ///
+    /// You could call this with `atts` as `RegionAttributes::empty()`; this
+    /// would just check that memory is not device, and is a weird thing to do.
+    /// A normal call would pass something like `RegionAttributes::READ`.
+    ///
+    /// Note that all tasks can "access" any empty slice.
+    pub fn can_access<T>(
+        &self,
+        slice: &USlice<T>,
+        atts: RegionAttributes,
+    ) -> bool {
         if slice.is_empty() {
+            // We deliberately omit tests for empty slices, as they confer no
+            // authority as far as the kernel is concerned. This is pretty
+            // important because a literal like `&[]` tends to produce a base
+            // address of `0 + sizeof::<T>()`, which is almost certainly invalid
+            // according to the task's region map... but fine with us.
             return true;
         }
         self.region_table.iter().any(|region| {
             region.covers(slice)
-                && region.attributes.contains(RegionAttributes::WRITE)
+                && region.attributes.contains(atts)
                 && !region.attributes.contains(RegionAttributes::DEVICE)
         })
     }
