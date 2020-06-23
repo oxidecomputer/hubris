@@ -78,6 +78,56 @@ pub use abi::ULease;
 /// haven't found an explanation of *why.*)
 pub unsafe trait UShared {}
 
+/// Trait that unites real slices like `&[u8]` and unprivileged slices like
+/// `USlice`, since both have an extent in memory.
+pub trait MemoryExtent {
+    type Element;
+
+    fn base_addr(&self) -> usize;
+    fn len(&self) -> usize;
+
+    fn last_byte_addr(&self) -> Option<usize> {
+        let size_in_bytes = self.len() * core::mem::size_of::<Self::Element>();
+        if size_in_bytes == 0 {
+            None
+        } else {
+            Some(
+                self.base_addr()
+                    .wrapping_add(size_in_bytes)
+                    .wrapping_sub(1),
+            )
+        }
+    }
+
+    /// Checks whether this slice aliases (overlaps) `other`.
+    ///
+    /// Empty slices alias no slices, including themselves.
+    fn aliases(&self, other: &impl MemoryExtent) -> bool {
+        // This test is made slightly involved by a desire to support slices
+        // that end at the top of the address space. We expect slice
+        // constructors to filter out slices that *cross* the end.
+
+        match (self.last_byte_addr(), other.last_byte_addr()) {
+            (Some(self_end), Some(other_end)) => {
+                self_end >= other.base_addr() && other_end >= self.base_addr()
+            }
+            // One slice or the other was empty
+            _ => false,
+        }
+    }
+}
+
+impl<T> MemoryExtent for [T] {
+    type Element = T;
+
+    fn base_addr(&self) -> usize {
+        self.as_ptr() as usize
+    }
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
 /// A (user, untrusted, unprivileged) slice.
 ///
 /// A `USlice` references memory from a task, outside the kernel. The slice is
@@ -166,41 +216,6 @@ impl<T> USlice<T> {
     /// Returns the bottom address of this slice as a `usize`.
     pub fn base_addr(&self) -> usize {
         self.base_address
-    }
-
-    /// Returns the *highest* address in this slice, inclusive.
-    ///
-    /// This produces `None` if the slice is empty.
-    pub fn last_byte_addr(&self) -> Option<usize> {
-        // This implementation would be wrong for ZSTs, but we blocked them at
-        // construction.
-        let size_in_bytes = self.length * core::mem::size_of::<T>();
-        if size_in_bytes == 0 {
-            None
-        } else {
-            Some(
-                self.base_address
-                    .wrapping_add(size_in_bytes)
-                    .wrapping_sub(1),
-            )
-        }
-    }
-
-    /// Checks whether this slice aliases (overlaps) `other`.
-    ///
-    /// Empty slices alias no slices, including themselves.
-    pub fn aliases(&self, other: &Self) -> bool {
-        // This test is made slightly involved by a desire to support slices
-        // that end at the top of the address space. We've already verified at
-        // construction that the range is valid.
-
-        match (self.last_byte_addr(), other.last_byte_addr()) {
-            (Some(self_end), Some(other_end)) => {
-                self_end >= other.base_address && other_end >= self.base_address
-            }
-            // One slice or the other was empty
-            _ => false,
-        }
     }
 
     /// Copies out element `index` from the slice, if `index` is in range.
@@ -303,6 +318,17 @@ impl<'a> From<&'a ULease> for USlice<u8> {
             length: lease.length as usize,
             _marker: PhantomData,
         }
+    }
+}
+
+impl<T> MemoryExtent for USlice<T> {
+    type Element = T;
+
+    fn base_addr(&self) -> usize {
+        self.base_address
+    }
+    fn len(&self) -> usize {
+        self.length
     }
 }
 

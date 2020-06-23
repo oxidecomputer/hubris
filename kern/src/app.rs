@@ -9,6 +9,8 @@
 // Re-export ABI types.
 pub use abi::*;
 
+use crate::umem::MemoryExtent;
+
 /// Adds kernel-specific operations to `abi::RegionDesc`. Not intended to be
 /// implemented by other types.
 pub trait RegionDescExt {
