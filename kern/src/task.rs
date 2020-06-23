@@ -288,6 +288,18 @@ impl Task {
     pub fn save_mut(&mut self) -> &mut crate::arch::SavedState {
         &mut self.save
     }
+
+    /// Marks the task as having pending async messages.
+    pub fn mark_async_pending(&mut self) {
+        self.async_pending = true;
+    }
+
+    /// Exchanges a new async table for whatever was set before.
+    pub fn swap_async_table(&mut self, table: USlice<abi::AsyncDesc>)
+        -> USlice<abi::AsyncDesc>
+    {
+        core::mem::replace(&mut self.async_table, table)
+    }
 }
 
 /// Interface that must be implemented by the `arch::SavedState` type. This
