@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let toml: Config = toml::from_slice(&cfg)?;
     drop(cfg);
 
-    let mut src_dir = std::fs::canonicalize(&args.cfg)?;
+    let mut src_dir = args.cfg.clone();
     src_dir.pop();
 
     let mut memories = IndexMap::new();
@@ -219,6 +219,14 @@ fn build(
 
     println!("building path {}", path.display());
 
+    // NOTE: current_dir's docs suggest that you should use canonicalize for
+    // portability. However, that's for when you're doing stuff like:
+    //
+    // Command::new("../cargo")
+    //
+    // That is, when you have a relative path to the binary being executed. We
+    // are not including a path in the binary name, so everything is peachy. If
+    // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
     cmd.arg("build")
         .arg("--release")
@@ -286,6 +294,14 @@ fn allocate(free: &mut IndexMap<String, Range<u32>>, needs: &IndexMap<String, u3
 fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf, Box<dyn Error>> {
     use std::process::Command;
 
+    // NOTE: current_dir's docs suggest that you should use canonicalize for
+    // portability. However, that's for when you're doing stuff like:
+    //
+    // Command::new("../cargo")
+    //
+    // That is, when you have a relative path to the binary being executed. We
+    // are not including a path in the binary name, so everything is peachy. If
+    // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
     cmd.arg("metadata")
         .arg("--filter-platform")
