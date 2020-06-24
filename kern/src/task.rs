@@ -93,6 +93,7 @@ impl Task {
             if self.state == TaskState::Healthy(SchedState::InRecv(None)) {
                 self.save.set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
                 self.state = TaskState::Healthy(SchedState::Runnable);
+                crate::arch::trace_sched(&self);
                 self.acknowledge_notifications();
                 return true;
             }

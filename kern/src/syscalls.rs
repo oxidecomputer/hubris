@@ -138,6 +138,10 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                     TaskState::Healthy(SchedState::InReply(callee_id));
                 // Unblock callee.
                 tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+
+                arch::trace_sched(&tasks[caller]);
+                arch::trace_sched(&tasks[callee]);
+
                 // Propose switching directly to the unblocked callee.
                 return Ok(NextTask::Specific(callee));
             }
@@ -156,6 +160,8 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Caller needs to block sending, callee is either busy or
     // faulted.
     tasks[caller].state = TaskState::Healthy(SchedState::InSend(callee_id));
+    arch::trace_sched(&tasks[caller]);
+
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
     return Ok(NextTask::Other.combine(next_task));
@@ -209,6 +215,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
                 // Delivery succeeded! Change the sender's blocking state.
                 tasks[sender].state =
                     TaskState::Healthy(SchedState::InReply(caller_id));
+                arch::trace_sched(&tasks[sender]);
                 // And go ahead and let the caller resume.
                 return Ok(next_task);
             }
@@ -228,6 +235,8 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 
     // No notifications, nobody waiting to send -- block the caller.
     tasks[caller].state = TaskState::Healthy(SchedState::InRecv(None));
+    arch::trace_sched(&tasks[caller]);
+
     // We may not know what task should run next, but we're pretty sure it's not
     // the one we just blocked.
     Ok(NextTask::Other.combine(next_task))
@@ -319,6 +328,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         .save
         .set_send_response_and_length(code, amount_copied);
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+    arch::trace_sched(&tasks[callee]);
 
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
@@ -599,6 +609,10 @@ fn deliver(
     let callee_id = current_id(tasks, callee);
     tasks[caller].state = TaskState::Healthy(SchedState::InReply(callee_id));
     tasks[callee].state = TaskState::Healthy(SchedState::Runnable);
+
+    arch::trace_sched(&tasks[caller]);
+    arch::trace_sched(&tasks[callee]);
+
     // We don't have an opinion about the newly runnable task, nor do we
     // have enough information to insist that a switch must happen.
     Ok(())

@@ -5,6 +5,7 @@ use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError, DEAD};
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
 use crate::umem::USlice;
+use crate::arch;
 
 /// Message dispatcher.
 pub fn handle_kernel_message(
@@ -115,6 +116,7 @@ fn restart_task(
     tasks[index].reinitialize();
     if start {
         tasks[index].state = TaskState::Healthy(SchedState::Runnable);
+        arch::trace_sched(&tasks[index]);
     }
 
     // Restarting a task can have implications for other tasks. We don't want to
@@ -142,6 +144,7 @@ fn restart_task(
                     // kernel.
                     task.save.set_error_response(DEAD);
                     task.state = TaskState::Healthy(SchedState::Runnable);
+                    arch::trace_sched(&task);
                 }
                 _ => (),
             }

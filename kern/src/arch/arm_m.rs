@@ -688,7 +688,17 @@ pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R{
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer except at syscall entry, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
+    let p = task as *const task::Task;
+    let offs = p as usize - TASK_TABLE_BASE.unwrap().as_ptr() as usize;
+    let id = offs / core::mem::size_of::<task::Task>();
+
+    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[30];
+
+    while !stim.is_fifo_ready() {}
+    stim.write_u8(id as u8);
+
     CURRENT_TASK_PTR = Some(NonNull::from(task));
+
 }
 
 /// Reads the tick counter.
@@ -874,6 +884,26 @@ pub fn enable_irq(n: u32) {
     let bit_mask = 1 << (n % 32);
     unsafe {
         nvic.iser[reg_num].write(bit_mask);
+    }
+}
+
+pub fn trace_sched(task: &task::Task) {
+    if let abi::TaskState::Healthy(ref sched) = task.state {
+        unsafe {
+            let p = task as *const task::Task;
+            let offs = p as usize - TASK_TABLE_BASE.unwrap().as_ptr() as usize;
+            let id = offs / core::mem::size_of::<task::Task>();
+
+            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[31];
+
+            while !stim.is_fifo_ready() {}
+            stim.write_u8(id as u8);
+
+            cortex_m::itm::write_all(stim, core::slice::from_raw_parts(
+                (sched as *const abi::SchedState) as *const u8,
+                core::mem::size_of::<abi::SchedState>(),
+            ));
+        }
     }
 }
 
