@@ -54,6 +54,7 @@ enum Sysnum {
     BorrowInfo = 6,
     IrqControl = 7,
     Panic = 8,
+    AsyncPub = 9,
 }
 
 /// Wrap up the boilerplate involved in writing a syscall stub. Provide this
@@ -334,6 +335,28 @@ pub fn sys_panic(msg: &[u8]) -> ! {
             options(nomem, noreturn, nostack),
         )
     }
+}
+
+pub fn sys_async_pub(table: &'static mut [AsyncDesc]) -> (&'static mut [AsyncDesc], &'static [AsyncDesc]) {
+    let old_base: usize;
+    let old_length: usize;
+    unsafe {
+        syscall_asm!(
+            Sysnum::AsyncPub,
+
+            inlateout("r4") table.as_ptr() as u32 => _,
+            inlateout("r5") table.len() => old_base,
+            lateout("r6") old_length,
+
+            options(preserves_flags, nostack),
+        );
+    }
+    (
+        unsafe {
+            core::slice::from_raw_parts_mut(old_base as *mut AsyncDesc, old_length)
+        },
+        table,
+    )
 }
 
 #[cfg(feature = "log-itm")]
