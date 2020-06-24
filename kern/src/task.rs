@@ -294,11 +294,73 @@ impl Task {
         self.async_pending = true;
     }
 
+    /// Checks whether this task has been marked as having pending async
+    /// messages from some other task.
+    pub fn is_async_pending(&self) -> bool {
+        self.async_pending
+    }
+
     /// Exchanges a new async table for whatever was set before.
     pub fn swap_async_table(&mut self, table: USlice<abi::AsyncDesc>)
         -> USlice<abi::AsyncDesc>
     {
         core::mem::replace(&mut self.async_table, table)
+    }
+
+    /// Checks whether this task may have outstanding async messages. This
+    /// bundles up two checks:
+    ///
+    /// 1. Is the task healthy?
+    /// 2. Has the task published an async descriptor table?
+    pub fn has_async_messages(&self) -> bool {
+        if let TaskState::Healthy(_) = self.state {
+            !self.async_table.is_empty()
+        } else {
+            false
+        }
+    }
+
+    /// Gets direct access to this task's async descriptor table.
+    ///
+    /// This might not succeed; while async descriptor tables are verified when
+    /// they're set, the task's memory access could have changed. If this fails,
+    /// it should be considered a fault against this task.
+    pub fn async_table(&self) -> Result<&[abi::AsyncDesc], FaultInfo> {
+        let read_write = RegionAttributes::READ | RegionAttributes::WRITE;
+        if !self.can_access(&self.async_table, read_write) {
+            Err(FaultInfo::MemoryAccess {
+                address: Some(self.async_table.base_addr() as u32),
+                source: abi::FaultSource::Kernel,
+            })
+        } else {
+            Ok(unsafe { self.async_table.assume_readable() })
+        }
+    }
+
+    /// Scans this task's async descriptor table, hunting for a pending message
+    /// to the task named by `task_id`.
+    ///
+    /// This will return `None` if the async descriptor table contains no valid
+    /// messages to `task_id`. That "valid" wording was deliberate: it will also
+    /// return `None` if the task's async descriptor table is straight-up
+    /// invalid. This simplifies this operation's main use case, at the cost of
+    /// delaying fault reporting in a case that's expected to be rare
+    /// (descriptor tables becoming invalid after being set).
+    ///
+    /// Otherwise, this will return `Some(index)` where `index` is the index of
+    /// a descriptor in the table that, *at this time,* is a pending message to
+    /// `task_id`.
+    pub fn get_async_message_for(&self, task_id: TaskId)
+        -> Option<usize>
+    {
+        for (i, entry) in self.async_table().ok()?.iter().enumerate() {
+            if entry.state() == Some(abi::AsyncState::Pending)
+                && entry.dest == task_id
+            {
+                return Some(i);
+            }
+        }
+        None
     }
 }
 
@@ -721,23 +783,42 @@ pub fn priority_scan(
     tasks: &[Task],
     pred: impl Fn(&Task) -> bool,
 ) -> Option<usize> {
+    priority_filter_map(previous, tasks, |t| if pred(t) {
+        Some(())
+    } else {
+        None
+    }).map(|(idx, _)| idx)
+}
+
+/// Scans `tasks` for the next task, after `previous`, that returns a non-`None`
+/// value from `pred`. If more than one task satisfies `pred`, returns the most
+/// important one. If multiple tasks with the same priority satisfy `pred`,
+/// prefers the first one in order after `previous`, mod `tasks.len()`.
+///
+/// Whew.
+///
+/// This is generally the right way to search a task table, and is used to
+/// implement (among other bits) the scheduler.
+pub fn priority_filter_map<'a, T>(
+    previous: usize,
+    tasks: &'a [Task],
+    pred: impl Fn(&'a Task) -> Option<T>,
+) -> Option<(usize, T)> {
     let search_order = (previous + 1..tasks.len()).chain(0..previous + 1);
     let mut choice = None;
     for i in search_order {
-        if !pred(&tasks[i]) {
-            continue;
-        }
-
-        if let Some((_, prio)) = choice {
-            if !tasks[i].priority.is_more_important_than(prio) {
-                continue;
+        if let Some(val) = pred(&tasks[i]) {
+            if let Some((_, prio, _)) = choice {
+                if !tasks[i].priority.is_more_important_than(prio) {
+                    continue;
+                }
             }
-        }
 
-        choice = Some((i, tasks[i].priority));
+            choice = Some((i, tasks[i].priority, val));
+        }
     }
 
-    choice.map(|(idx, _)| idx)
+    choice.map(|(idx, _, val)| (idx, val))
 }
 
 /// Puts a task into a forced fault condition.

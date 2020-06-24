@@ -23,13 +23,13 @@
 //! proxy* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
-use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskId, TaskState, UsageError};
+use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskId, TaskState, UsageError, RegionAttributes};
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
-use crate::umem::{safe_copy, ULease, USlice};
+use crate::umem::{safe_copy, safe_copy_from, ULease, USlice};
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -79,6 +79,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         6 => borrow_info(tasks, current),
         7 => irq_control(tasks, current),
         8 => explicit_panic(tasks, current),
+        9 => async_pub(tasks, current),
         _ => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -206,6 +207,38 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
                 // Okay, if we didn't just return, retry the search from a new
                 // position.
                 last = sender;
+            }
+        }
+    }
+
+    // If we reach this point, no *synchronous* senders were found. Check for
+    // async.
+    if tasks[caller].is_async_pending() {
+        // At this point we can assume that zero or more tasks have async
+        // messages pending for us. (An async message became pending at *some*
+        // point in the past, but its owner might have given up; this does not
+        // clear our flag.)
+
+        last = caller;
+        while let Some((sender_idx, entry_idx)) =
+            task::priority_filter_map(last, tasks, |t| t.get_async_message_for(caller_id))
+        {
+            // If we have to try again, ensure that we resume from this point.
+            last = sender_idx;
+
+            match deliver_async(tasks, sender_idx, entry_idx, caller) {
+                Ok(nt) => {
+                    // All done!
+                    return Ok(nt);
+                }
+                Err(interact) => {
+                    // Delivery failed because of fault events in one or both
+                    // tasks.  We need to apply the fault status, and then if we
+                    // didn't have to murder the caller, we'll retry receiving a
+                    // message.
+                    let wake_hint = interact.apply_to_src(tasks, sender_idx)?;
+                    next_task = next_task.combine(wake_hint);
+                }
             }
         }
     }
@@ -588,6 +621,58 @@ fn deliver(
     Ok(())
 }
 
+fn deliver_async(
+    tasks: &mut [Task],
+    caller: usize,
+    descriptor_idx: usize,
+    callee: usize,
+) -> Result<NextTask, InteractFault> {
+    // Collect information about the callee's receive buffer. This, too, is
+    // somewhere we can read infallibly.
+    let recv_args = tasks[callee].save().as_recv_args();
+    let dest_slice = recv_args.buffer()
+        .map_err(InteractFault::in_dst)?;
+    drop(recv_args);
+
+    let descriptor = &tasks[caller].async_table().unwrap()[descriptor_idx];
+
+    // Check that the sender's descriptor length is legitimate.
+    let desc_len = usize::from(descriptor.length);
+    if desc_len > abi::ASYNC_MESSAGE_SIZE_LIMIT {
+        return Err(InteractFault::in_src(UsageError::BadAsync));
+    }
+    let msg = &descriptor.message[..desc_len];
+
+    // Okay, ready to attempt the copy.
+    let amount_copied = safe_copy_from(msg, &tasks[callee], dest_slice)
+        .map_err(InteractFault::in_dst)?;
+
+    // Update the descriptor and notify its owner.
+    descriptor.set_state(abi::AsyncState::Delivered);
+    // Copy some bits out of the descriptor so we can end the borrow.
+    let on_deliver = descriptor.on_deliver;
+    let operation = u32::from(descriptor.operation);
+
+    // We can ignore the result here because we unconditionally return Other
+    // below.
+    let _ = tasks[caller].post(task::NotificationSet(on_deliver));
+
+    // Unblock the recipient.
+    let caller_id = task::current_id(tasks, caller);
+    tasks[callee].save_mut().set_recv_result(
+        caller_id,
+        u32::from(operation),
+        amount_copied,
+        0, // no response possible
+        0, // no leases provided
+    );
+    tasks[callee].set_healthy_state(SchedState::Runnable);
+
+    // We don't have an opinion about the newly runnable task, except that
+    // rescheduling is probably necessary.
+    Ok(NextTask::Other)
+}
+
 fn irq_control(
     tasks: &mut [Task],
     caller: usize,
@@ -638,4 +723,102 @@ fn explicit_panic(
     }
 
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
+}
+
+fn async_pub(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_async_pub_args();
+    let table = args.table()?;
+    drop(args);
+
+    // We're going to both read and potentially write this memory, so to prevent
+    // the caller from using us for privilege amplification, ensure that they
+    // can already do both. (Note that we need to do this before ANY access to
+    // avoid TOCTOU.)
+    let read_write = RegionAttributes::READ | RegionAttributes::WRITE;
+    if !tasks[caller].can_access(&table, read_write) {
+        return Err(FaultInfo::MemoryAccess {
+            address: Some(table.base_addr() as u32),
+            source: FaultSource::Kernel,
+        }.into());
+    }
+
+    // Okay, we're happy.
+    let old_table = tasks[caller].swap_async_table(table.clone());
+
+    // Safety: we now know that the table is properly aligned (thanks to USlice)
+    // and within the task's read/write memory (thanks to the last check).
+    let table = unsafe { table.assume_readable() };
+
+    // Promptly deliver any messages whose recipient is standing ready. Note
+    // that, because the recipient is sitting in RECV, we are by definition the
+    // highest priority potential sender, since we're the only sender -- so we
+    // don't need to do any priority checks.
+    let mut next_task = NextTask::Same;
+    for (entry_idx, entry) in table.iter().enumerate() {
+        // Only process pending entries. Treat any invalid state encoding as a
+        // fault.
+        let state = entry.state().ok_or(UsageError::BadAsync)?;
+        if state != abi::AsyncState::Pending {
+            continue;
+        }
+
+        // The kernel does not accept asynchronous messages. To attempt one is a
+        // fault condition, to catch bugs earlier.
+        if entry.dest == TaskId::KERNEL {
+            return Err(UsageError::BadAsync.into());
+        }
+
+        // Verify the TaskId, inform the caller of any dead peers.
+        let task_id_result =
+            task::check_task_id_against_table(tasks, entry.dest);
+        let task_idx = match task_id_result {
+            Ok(i) => i,
+            Err(_) => {
+                // Cancel this descriptor due to dead peer and proceed.
+                entry.set_state(abi::AsyncState::Dead);
+                continue;
+            },
+        };
+
+        // See if the destination is waiting.
+        let this_task = current_id(tasks, caller);
+        if tasks[task_idx].state().can_accept_message_from(this_task) {
+            match deliver_async(
+                tasks,
+                caller,
+                entry_idx,
+                task_idx,
+            ) {
+                Ok(_) => {
+                    // Delivered; skip rest of loop.
+                    continue;
+                }
+                Err(interact) => {
+                    // Delivery failed. We are the source, so apply any fault to
+                    // the destination:
+                    let hint = interact.apply_to_dst(tasks, task_idx)?;
+                    // Note that we leave the message Pending here. One of two
+                    // things will happen:
+                    // 1. Some supervisory entity will clear the fault condition
+                    //    in the destination task, and it will re-enter receive,
+                    //    find this message, and proceed, or
+                    // 2. The destination task will get rebooted, and this
+                    //    message will be marked as Dead by the reinit code.
+                    next_task = next_task.combine(hint);
+                }
+            }
+        }
+
+        // We weren't able to deliver promptly. Leave this descriptor pending
+        // and poke the recipient to check back.
+        tasks[task_idx].mark_async_pending();
+    }
+
+    // All prompt deliveries have now been performed. Return results of the
+    // syscall.
+    tasks[caller].save_mut().set_async_pub_result(old_table);
+    Ok(next_task)
 }
