@@ -24,6 +24,28 @@ You will need:
 - The appropriate Rust toolchain target installed: `rustup target add
   thumbv7em-none-eabihf`
 
+### Windows
+
+If you're on Windows, you can get set up by doing this:
+
+You can easily install `openocd` with [scoop](https://scoop.sh/):
+
+```console
+> scoop bucket add extras
+> scoop install openocd
+```
+
+You'll probably need to install [this
+driver](https://www.st.com/en/development-tools/stsw-link009.html).
+
+If your terminal doesn't support serial connections, you'll want to also use
+PuTTY; [this guide](https://pbxbook.com/voip/sputty.html) does a good job of
+explaining how.
+
+Finally, the instructions below invoke shell scripts. They're very small, and
+so for now you can run the commands manually, yourself. We may improve this
+in the future.
+
 ## Build and run
 
 `cargo build` from the top level directory will **only** build `packager`,
