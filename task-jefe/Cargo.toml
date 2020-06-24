@@ -14,7 +14,7 @@ cortex-m-semihosting = {version = "0.3.3", optional = true}
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["itm"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 
