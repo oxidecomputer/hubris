@@ -116,20 +116,35 @@ fn safe_start_kernel(
 ) -> ! {
     klog!("starting: impatience");
 
-    // Allocate our RAM data
-    // structures. First, the task table.
-    let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
-        Task::from_descriptor(&task_descs[i])
-    });
-    // Now, allocate a region table for each task, turning its ROM indices into
-    // pointers. Note: if we decide to convert the RegionDesc into an
-    // architecture-specific optimized form, that would happen here instead.
-    for (task, task_desc) in tasks.iter_mut().zip(task_descs) {
-        task.set_region_table(alloc.gimme_n(app::REGIONS_PER_TASK, |i| {
-            &region_descs[task_desc.regions[i] as usize]
-        }));
+    // Allocate our RAM data structures.
 
-        // With that done, set up initial register state etc.
+    // We currently just refer to the RegionDescs in Flash. No additional
+    // preparation of those structures is required here. This will almost
+    // certainly need to change in the future: we can save many cycles by (1)
+    // storing them in an architecture-optimized format for this particular MPU,
+    // and (2) moving them into RAM where random accesses don't imply wait
+    // states.
+
+    // As a small optimization, we equip each task with an array of references
+    // to RegionDecs, instead of looking them up by index each time. Generate
+    // these.
+    let region_tables = alloc.gimme_n(app_header.task_count as usize, |i| {
+        let mut table = [&region_descs[0]; app::REGIONS_PER_TASK];
+        for (slot, &index) in table.iter_mut().zip(&task_descs[i].regions) {
+            *slot = &region_descs[index as usize];
+        }
+        table
+    });
+    // We don't need further mut access
+    let region_tables = &region_tables[..];
+
+    // Now, generate the task table.
+    let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
+        Task::from_descriptor(&task_descs[i], &region_tables[i])
+    });
+
+    // With that done, set up initial register state etc.
+    for task in tasks.iter_mut() {
         crate::arch::reinitialize(task);
     }
 
