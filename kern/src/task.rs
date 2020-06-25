@@ -61,10 +61,10 @@ pub struct Task {
 impl Task {
     /// Creates a `Task` in its initial state, filling in fields from
     /// `descriptor`.
-    ///
-    /// This does *not* set the region descriptor table. (TODO: perhaps it
-    /// should.)
-    pub fn from_descriptor(descriptor: &'static TaskDesc) -> Self {
+    pub fn from_descriptor(
+        descriptor: &'static TaskDesc,
+        region_table: &'static [&'static RegionDesc],
+    ) -> Self {
         Task {
             priority: abi::Priority(descriptor.priority as u8),
             state: if descriptor.flags.contains(TaskFlags::START_AT_BOOT) {
@@ -74,11 +74,11 @@ impl Task {
             },
 
             descriptor,
+            region_table,
 
             generation: Generation::default(),
             notifications: 0,
             save: crate::arch::SavedState::default(),
-            region_table: &[], // to be filled in by caller
             timer: crate::task::TimerState::default(),
         }
     }
@@ -217,19 +217,6 @@ impl Task {
     /// this task.
     pub fn descriptor(&self) -> &TaskDesc {
         self.descriptor
-    }
-
-    /// Replaces this task's region table. This operation can only be used to
-    /// move from an empty region table to a non-empty table, and is intended
-    /// for use during system startup _only_.
-    ///
-    /// # Panics
-    ///
-    /// If you attempt to replace a non-empty region table (i.e. use this
-    /// operation more than once).
-    pub fn set_region_table(&mut self, table: &'static [&'static RegionDesc]) {
-        let old = core::mem::replace(&mut self.region_table, table);
-        uassert!(old.is_empty());
     }
 
     /// Returns a reference to the task's memory region descriptor table.
