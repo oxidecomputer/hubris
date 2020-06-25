@@ -24,10 +24,22 @@
 
 use userlib::*;
 
+const NUM_OTHER_TASKS: usize = NUM_TASKS - 1;
+
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("viva el jefe");
 
+    // Set up our async message descriptor table for sending heartbeats. We're
+    // setting up a message to every task but ourselves, because checking
+    // ourselves would be weird.
+    let async_table = get_async_descriptor_table();
+    for (i, desc) in async_table.iter_mut().enumerate() {
+        let task_id = TaskId::for_index_and_gen(i + 1, Generation::default());
+        configure_heartbeat(desc, task_id);
+    }
+
+    // Set up our notification mask.
     // We'll have notification 0 wired up to receive information about task
     // faults.
     let mask = 1;
@@ -64,4 +76,60 @@ fn main() -> ! {
             sys_log!("Unexpected message from {}", msginfo.sender.0);
         }
     }
+}
+
+fn get_async_descriptor_table() -> &'static mut [AsyncDesc; NUM_OTHER_TASKS] {
+    // Bring in some names that we don't use anywhere else.
+    use core::mem::MaybeUninit;
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    // A global atomic flag defends us from aliasing. Each pass through this
+    // function swaps its value for true; only one caller ever gets false in
+    // response.
+    static TAKEN: AtomicBool = AtomicBool::new(false);
+    if TAKEN.swap(true, Ordering::SeqCst) {
+        panic!();
+    }
+
+    // Scoping the static mut like this ensures that no other code path anywhere
+    // in the program can directly reference it, even using unsafe. Combined
+    // with the check above this ensures that the access is truly unique. This
+    // also provides the safety proof for our unsafe block: static mut is unsafe
+    // because of aliasing and races, but we're avoiding both.
+    let uninit_table = unsafe {
+        static mut TABLE: [MaybeUninit<AsyncDesc>; NUM_OTHER_TASKS] = [MaybeUninit::uninit(); NUM_OTHER_TASKS];
+        &mut TABLE
+    };
+
+    // Initialize each element in the table. Use a pointer write to overwrite
+    // the uninitialized storage without interpreting its former contents.
+    for desc in uninit_table.iter_mut() {
+        unsafe {
+            desc.as_mut_ptr().write(AsyncDesc::empty());
+        }
+    }
+
+    // Having initialized them, we can reinterpret it as AsyncDescs.
+    // Safety: we have initialized each element just above.
+    unsafe {
+        core::mem::transmute::<_, &mut [AsyncDesc; NUM_OTHER_TASKS]>(uninit_table)
+    }
+}
+
+fn configure_heartbeat(
+    desc: &mut AsyncDesc,
+    dest: TaskId,
+) {
+    const HEARTBEAT: u16 = 0xFFFF;
+
+    // Because we have a &mut, we know the kernel is not currently monitoring
+    // this descriptor -- thus we can rewrite it willy-nilly without worry of
+    // races.
+
+    desc.operation = HEARTBEAT;
+    desc.dest = dest;
+    desc.length = 0;
+    desc.on_deliver = 0;
+
+    desc.set_state(AsyncState::Pending);
 }
