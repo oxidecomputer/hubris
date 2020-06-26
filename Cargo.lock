@@ -724,6 +724,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-tests"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "tests-stm32f4"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "serde",
+ "serde_json",
+ "stm32f4",
+ "which",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
