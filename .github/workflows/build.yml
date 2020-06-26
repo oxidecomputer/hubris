@@ -2,8 +2,8 @@ name: build
 on: [push, pull_request]
 
 jobs:
-  build-stm32f4:
-    name: ARMv7-M demo build
+  build-stm32f4-linux:
+    name: ARMv7-M demo build - Linux
     runs-on: ubuntu-latest
     steps:
       - name: Install ARM binutils
@@ -31,6 +31,55 @@ jobs:
           key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Run package build
         run: ./package.sh
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: target-package
+          path: target/packager
+  build-stm32f4-windows:
+    name: ARMv7-M demo build - Windows
+    runs-on: windows-2019
+    steps:
+      - name: Install Scoop (Windows)
+        run: |
+          Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+          echo ::add-path::$HOME\scoop\shims
+          echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+        shell: pwsh
+      - name: Install ARM binutils
+        run: |
+          scoop bucket add extras
+          scoop install gcc-arm-none-eabi
+        shell: pwsh
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        id: rustup
+        with:
+          toolchain: nightly
+          target: thumbv7em-none-eabihf
+          profile: minimal
+      - name: Cache cargo outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache build outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            target
+            !target/packager
+          key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run package build
+        # for now we don't have a script, so do it manually
+        run: |
+          mkdir -f target\packager
+          cargo +nightly run --bin packager -- demo\app.toml target\packager
+          arm-none-eabi-objcopy -Isrec -O elf32-littlearm target\packager\combined.srec target\packager\combined.elf
+        shell: pwsh
       - name: Upload package artifacts
         uses: actions/upload-artifact@v1
         with:
