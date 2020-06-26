@@ -29,6 +29,7 @@ struct Config {
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
+    #[serde(default)]
     peripherals: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
 }
