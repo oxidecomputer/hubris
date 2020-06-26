@@ -438,7 +438,7 @@ fn load_srec(
                 // Check for address overlap
                 let range = data.address.0..data.address.0 + data.data.len() as u32;
                 if let Some(overlap) = output.range(range.clone()).next() {
-                    return Err(format!("{}: record address range {:x?} overlaps {}",
+                    return Err(format!("{}: record address range {:x?} overlaps {:x}",
                             input.display(), range, overlap.0).into());
                 }
                 output.insert(
@@ -490,7 +490,7 @@ fn load_elf(
         // Check for address overlap
         let range = addr..addr + size as u32;
         if let Some(overlap) = output.range(range.clone()).next() {
-            return Err(format!("{}: record address range {:x?} overlaps {}",
+            return Err(format!("{}: record address range {:x?} overlaps {:x}",
                     input.display(), range, overlap.0).into());
         }
         output.insert(
