@@ -237,6 +237,11 @@ impl<R> Caller<R> {
             _phantom: PhantomData,
         }
     }
+
+    /// Extracts the `TaskId` of a caller.
+    pub fn task_id(&self) -> TaskId {
+        self.id
+    }
 }
 
 /// A handle representing a particular numbered borrow from a particular caller.
