@@ -244,7 +244,9 @@ fn build(
     }
 
     cmd.current_dir(path);
-    cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x");
+    cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x \
+                          -C link-arg=-z -C link-arg=common-page-size=0x20 \
+                          -C link-arg=-z -C link-arg=max-page-size=0x20");
     cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
     for (key, val) in meta {
         cmd.env(key, val);
