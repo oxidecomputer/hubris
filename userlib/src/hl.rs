@@ -89,7 +89,7 @@ pub fn recv<'a, O, E, S>(
     } else {
         if let Some(op) = O::from_u32(rm.operation) {
             let m = Message {
-                buffer,
+                buffer: &buffer[..rm.message_len],
                 sender: rm.sender,
                 response_capacity: rm.response_capacity,
                 lease_count: rm.lease_count,
