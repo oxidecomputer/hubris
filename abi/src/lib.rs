@@ -82,6 +82,12 @@ impl Generation {
     }
 }
 
+impl From<u8> for Generation {
+    fn from(x: u8) -> Self {
+        Self(x)
+    }
+}
+
 /// Indicates priority of a task.
 ///
 /// Priorities are small numbers starting from zero. Numerically lower
