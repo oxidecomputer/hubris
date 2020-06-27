@@ -1,5 +1,29 @@
+//! User application support library for Hubris.
+//!
+//! This contains syscall stubs and types, and re-exports the contents of the
+//! `abi` crate that gets shared with the kernel.
+//!
+//! # Syscall stub implementations
+//!
+//! Each syscall stub consists of two parts: a public `sys_foo` function
+//! intended for use by programs, and an internal `sys_foo_stub` function. This
+//! might seem like needless duplication, and in a way, it is.
+//!
+//! Limitations in the behavior of the current `asm!` feature mean we have a
+//! hard time moving values into registers r6, r7, and r11. Because (for better
+//! or worse) the syscall ABI uses these registers, we have to take extra steps.
+//!
+//! The `stub` function contains the actual `asm!` call sequence. It is `naked`,
+//! meaning the compiler will *not* attempt to do any framepointer/basepointer
+//! nonsense, and we can thus reason about the assignment and availability of
+//! all registers. It's `inline(never)` because, were it to be inlined, that
+//! assumption would be violated.
+//!
+//! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
+
 #![no_std]
 #![feature(asm)]
+#![feature(naked_functions)]
 
 pub use abi::*;
 pub use num_derive::{FromPrimitive, ToPrimitive};
@@ -56,69 +80,23 @@ enum Sysnum {
     Panic = 8,
 }
 
-/// Wrap up the boilerplate involved in writing a syscall stub. Provide this
-/// macro the name of your `Sysnum` value, and the asm constraints. See below
-/// for examples.
+/// Return type for stubs that return an `(rc, len)` tuple, because the layout
+/// of tuples is not specified in the C ABI, and we're using the C ABI to
+/// interface to assembler.
 ///
-/// We're having to handle r7 with kid gloves here. If you specify a constraint
-/// for r7, please specify it FIRST.
-macro_rules! syscall_asm {
-    // R7 as input case
-    ($sysnum:expr, in("r7") $r7:expr, $($args:tt)*) => {
-        asm!("
-            mov {save11}, r11
-            mov {save7}, r7
-            mov r11, {sysnum}
-            mov r7, {in7}
-            svc #0
-            mov r11, {save11}
-            mov r7, {save7}
-            ",
-            save11 = out(reg) _,
-            save7 = out(reg) _,
-            sysnum = const $sysnum as u32,
+/// Register-return of structs is also not guaranteed by the C ABI, so we
+/// represent the pair of returned registers with something that *can* get
+/// passed back in registers: a `u64`.
+#[repr(transparent)]
+struct RcLen(u64);
 
-            in7 = in(reg) $r7,
-
-            $($args)*
-        );
-    };
-    // R7 as output case
-    ($sysnum:expr, lateout("r7") $r7:expr, $($args:tt)*) => {
-        asm!("
-            mov {save11}, r11
-            mov {save7}, r7
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            mov {out7}, r7
-            mov r7, {save7}
-            ",
-            save11 = out(reg) _,
-            save7 = out(reg) _,
-            sysnum = const $sysnum as u32,
-
-            out7 = lateout(reg) $r7,
-
-            $($args)*
-        );
-    };
-    // R7 not used case
-    ($sysnum:expr, $($args:tt)*) => {
-        asm!("
-            mov {save11}, r11
-            mov r11, {sysnum}
-            svc #0
-            mov r11, {save11}
-            ",
-            save11 = out(reg) _,
-            sysnum = const $sysnum as u32,
-
-            $($args)*
-        );
-    };
+impl From<RcLen> for (u32, usize) {
+    fn from(s: RcLen) -> Self {
+        (s.0 as u32, (s.0 >> 32) as usize)
+    }
 }
 
+#[inline(always)]
 pub fn sys_send(
     target: TaskId,
     operation: u16,
@@ -126,58 +104,84 @@ pub fn sys_send(
     incoming: &mut [u8],
     leases: &[Lease<'_>],
 ) -> (u32, usize) {
-    let mut response_code: u32;
-    let mut response_len: usize;
+    let mut args = SendArgs {
+        packed_target_operation: u32::from(target.0) << 16 | u32::from(operation),
+        outgoing_ptr: outgoing.as_ptr(),
+        outgoing_len: outgoing.len(),
+        incoming_ptr: incoming.as_mut_ptr(),
+        incoming_len: incoming.len(),
+        lease_ptr: leases.as_ptr(),
+        lease_len: leases.len(),
+    };
     unsafe {
-        syscall_asm!(
-            Sysnum::Send,
-
-            // r7 must be first, see syscall_asm
-            in("r7") incoming.as_mut_ptr(),
-
-            inlateout("r4") u32::from(target.0) << 16 | u32::from(operation) => response_code,
-            inlateout("r5") outgoing.as_ptr() => response_len,
-            in("r6") outgoing.len(),
-            in("r8") incoming.len(),
-            in("r9") leases.as_ptr(),
-            in("r10") leases.len(),
-
-            options(preserves_flags, nostack)
-        );
+        sys_send_stub(&mut args).into()
     }
-    (response_code, response_len)
 }
 
+#[allow(dead_code)] // this gets used from asm
+#[repr(C)] // field order matters
+struct SendArgs<'a> {
+    packed_target_operation: u32,
+    outgoing_ptr: *const u8,
+    outgoing_len: usize,
+    incoming_ptr: *mut u8,
+    incoming_len: usize,
+    lease_ptr: *const Lease<'a>,
+    lease_len: usize,
+}
+
+/// Core implementation of the SEND syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff.
+        push {{r4-r11}}
+        @ Load in args from the struct.
+        ldm r0, {{r4-r10}}
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move the two results back into their return positions.
+        mov r0, r4
+        mov r1, r5
+        @ Restore the registers we used.
+        pop {{r4-r11}}
+        @ Fin.
+        bx lr
+        ",
+        sysnum = const Sysnum::Send as u32,
+        options(noreturn),
+    )
+}
+
+#[inline(always)]
 pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
-    let mut sender: u32;
-    let mut operation: u32;
-    let mut message_len: usize;
-    let mut response_capacity: usize;
-    let mut lease_count: usize;
+    use core::mem::MaybeUninit;
 
+    let mut out = MaybeUninit::<RawRecvMessage>::uninit();
     unsafe {
-        syscall_asm!(
-            Sysnum::Recv,
-
-            // r7 must be first, see syscall_asm
-            lateout("r7") message_len,
-
-            inlateout("r4") buffer.as_mut_ptr() => _,
-            inlateout("r5") buffer.len() => sender,
-            inlateout("r6") notification_mask => operation,
-            lateout("r8") response_capacity,
-            lateout("r9") lease_count,
-
-            options(preserves_flags, nostack),
+        sys_recv_stub(
+            buffer.as_mut_ptr(),
+            buffer.len(),
+            notification_mask,
+            out.as_mut_ptr(),
         );
     }
+    // Safety: stub fully initializes output struct.
+    let out = unsafe { out.assume_init() };
 
     RecvMessage {
-        sender: TaskId(sender as u16),
-        operation,
-        message_len,
-        response_capacity,
-        lease_count,
+        sender: TaskId(out.sender as u16),
+        operation: out.operation,
+        message_len: out.message_len,
+        response_capacity: out.response_capacity,
+        lease_count: out.lease_count,
     }
 }
 
@@ -189,151 +193,426 @@ pub struct RecvMessage {
     pub lease_count: usize,
 }
 
+/// Core implementation of the RECV syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_recv_stub(
+    _buffer_ptr: *mut u8,
+    _buffer_len: usize,
+    _notification_mask: u32,
+    _out: *mut RawRecvMessage,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff.
+        push {{r4-r11}}
+        @ Move register arguments into their proper positions.
+        mov r4, r0
+        mov r5, r1
+        mov r6, r2
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Write all the results out into the raw output buffer.
+        stm r3, {{r5-r9}}
+        @ Restore the registers we used.
+        pop {{r4-r11}}
+        @ Fin.
+        bx lr
+        ",
+        sysnum = const Sysnum::Recv as u32,
+        options(noreturn),
+    )
+}
+
+/// Duplicated version of `RecvMessage` with all 32-bit fields and predictable
+/// field order, so that it can be generated from assembly.
+///
+/// TODO: might be able to merge this into actual `RecvMessage` with some care.
+#[repr(C)]
+struct RawRecvMessage {
+    pub sender: u32,
+    pub operation: u32,
+    pub message_len: usize,
+    pub response_capacity: usize,
+    pub lease_count: usize,
+}
+
+#[inline(always)]
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
     unsafe {
-        syscall_asm!(
-            Sysnum::Reply,
-
-            // r7 must be first, see syscall_asm
-            in("r7") message.len(),
-
-            // While r4/r5 are not useful outputs at this time, they are
-            // reserved as clobbered in case we change that.
-            inlateout("r4") peer.0 as u32 => _,
-            inlateout("r5") code => _,
-            in("r6") message.as_ptr(),
-
-            // This is NOT readonly because no kernel mechanism prevents this
-            // task and the caller task from sharing memory, including the
-            // message buffer!
-            options(preserves_flags, nostack),
-        );
+        sys_reply_stub(
+            peer.0 as u32,
+            code,
+            message.as_ptr(),
+            message.len()
+        )
     }
 }
 
+/// Core implementation of the REPLY syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_reply_stub(
+    _peer: u32,
+    _code: u32,
+    _message_ptr: *const u8,
+    _message_len: usize,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match! (Why are we pushing LR? Because
+        @ the ABI requires us to maintain 8-byte stack alignment, so we must
+        @ push registers in pairs.)
+        push {{r4-r7, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        mov r6, r2
+        mov r7, r3
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ This call has no results.
+
+        @ Restore the registers we used and return.
+        pop {{r4-r7, r11, pc}}
+        ",
+        sysnum = const Sysnum::Reply as u32,
+        options(noreturn),
+    )
+}
+
+#[inline(always)]
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     let raw_deadline = deadline.unwrap_or(0);
     unsafe {
-        syscall_asm!(
-            Sysnum::Timer,
-
-            // r7 must be first, see syscall_asm
-            in("r7") notifications,
-
-            in("r4") deadline.is_some() as u32,
-            in("r5") raw_deadline as u32,
-            in("r6") (raw_deadline >> 32) as u32,
-
-            options(nomem, preserves_flags, nostack),
-        );
+        sys_set_timer_stub(
+            deadline.is_some() as u32,
+            raw_deadline as u32,
+            (raw_deadline >> 32) as u32,
+            notifications,
+        )
     }
 }
 
+/// Core implementation of the SET_TIMER syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_set_timer_stub(
+    _set_timer: u32,
+    _deadline_lo: u32,
+    _deadline_hi: u32,
+    _notification: u32,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match! (Why are we pushing LR? Because
+        @ the ABI requires us to maintain 8-byte stack alignment, so we must
+        @ push registers in pairs.)
+        push {{r4-r7, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        mov r6, r2
+        mov r7, r3
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ This call has no results.
+
+        @ Restore the registers we used and return.
+        pop {{r4-r7, r11, pc}}
+        ",
+        sysnum = const Sysnum::Timer as u32,
+        options(noreturn),
+    )
+}
+
+#[inline(always)]
 pub fn sys_borrow_read(
     lender: TaskId,
     index: usize,
     offset: usize,
     dest: &mut [u8],
 ) -> (u32, usize) {
-    let mut rc: u32;
-    let mut length: usize;
+    let mut args = BorrowReadArgs {
+        lender: lender.0 as u32,
+        index,
+        offset,
+        dest: dest.as_mut_ptr(),
+        dest_len: dest.len(),
+    };
     unsafe {
-        syscall_asm!(
-            Sysnum::BorrowRead,
-
-            // r7 must be first, see syscall_asm
-            in("r7") dest.as_mut_ptr(),
-
-            inlateout("r4") lender.0 as u32 => rc,
-            inlateout("r5") index => length,
-            in("r6") offset,
-            in("r8") dest.len(),
-
-            options(readonly, preserves_flags, nostack),
-        );
+        sys_borrow_read_stub(&mut args).into()
     }
-    (rc, length)
 }
 
+/// Core implementation of the BORROW_READ syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_borrow_read_stub(
+    _args: *mut BorrowReadArgs,
+) -> RcLen {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match!
+        push {{r4-r8, r11}}
+
+        @ Move register arguments into place.
+        ldm r0, {{r4-r8}}
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move the results into place.
+        mov r0, r4
+        mov r1, r5
+
+        @ Restore the registers we used and return.
+        pop {{r4-r8, r11}}
+        bx lr
+        ",
+        sysnum = const Sysnum::BorrowRead as u32,
+        options(noreturn),
+    )
+}
+
+#[repr(C)]
+struct BorrowReadArgs {
+    lender: u32,
+    index: usize,
+    offset: usize,
+    dest: *mut u8,
+    dest_len: usize,
+}
+
+#[inline(always)]
 pub fn sys_borrow_write(
     lender: TaskId,
     index: usize,
     offset: usize,
     src: &[u8],
 ) -> (u32, usize) {
-    let mut rc: u32;
-    let mut length: usize;
+    let mut args = BorrowWriteArgs {
+        lender: lender.0 as u32,
+        index,
+        offset,
+        src: src.as_ptr(),
+        src_len: src.len(),
+    };
     unsafe {
-        syscall_asm!(
-            Sysnum::BorrowWrite,
-
-            // r7 must be first, see syscall_asm
-            in("r7") src.as_ptr(),
-
-            inlateout("r4") lender.0 as u32 => rc,
-            inlateout("r5") index => length,
-            in("r6") offset,
-            in("r8") src.len(),
-
-            // This is NOT readonly because no kernel mechanism prevents this
-            // task and the caller task from sharing memory, including the
-            // message buffer!
-            options(preserves_flags, nostack),
-        );
+        sys_borrow_write_stub(&mut args).into()
     }
-    (rc, length)
 }
 
+/// Core implementation of the BORROW_WRITE syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_borrow_write_stub(
+    _args: *mut BorrowWriteArgs,
+) -> RcLen {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match!
+        push {{r4-r8, r11}}
+
+        @ Move register arguments into place.
+        ldm r0, {{r4-r8}}
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move the results into place.
+        mov r0, r4
+        mov r1, r5
+
+        @ Restore the registers we used and return.
+        pop {{r4-r8, r11}}
+        bx lr
+        ",
+        sysnum = const Sysnum::BorrowWrite as u32,
+        options(noreturn),
+    )
+}
+
+#[repr(C)]
+struct BorrowWriteArgs {
+    lender: u32,
+    index: usize,
+    offset: usize,
+    src: *const u8,
+    src_len: usize,
+}
+
+#[inline(always)]
 pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
-    let mut rc: u32;
-    let mut atts: u32;
-    let mut length: usize;
+    use core::mem::MaybeUninit;
+
+    let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
     unsafe {
-        syscall_asm!(
-            Sysnum::BorrowInfo,
-
-            inlateout("r4") lender.0 as u32 => rc,
-            inlateout("r5") index => atts,
-            lateout("r6") length,
-
-            options(nomem, preserves_flags, nostack),
+        sys_borrow_info_stub(
+            lender.0 as u32,
+            index,
+            raw.as_mut_ptr(),
         );
     }
-    (rc, atts, length)
+    // Safety: stub completely initializes record
+    let raw = unsafe { raw.assume_init() };
+
+    (raw.rc, raw.atts, raw.length)
 }
 
+#[repr(C)]
+struct RawBorrowInfo {
+    rc: u32,
+    atts: u32,
+    length: usize,
+}
+
+/// Core implementation of the BORROW_INFO syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_borrow_info_stub(
+    _lender: u32,
+    _index: usize,
+    _out: *mut RawBorrowInfo,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match!
+        push {{r4-r6, r11}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move the results into place.
+        stm r2, {{r4-r6}}
+
+        @ Restore the registers we used and return.
+        pop {{r4-r6, r11}}
+        bx lr
+        ",
+        sysnum = const Sysnum::BorrowInfo as u32,
+        options(noreturn),
+    )
+}
+
+#[inline(always)]
 pub fn sys_irq_control(mask: u32, enable: bool) {
     unsafe {
-        syscall_asm!(
-            Sysnum::IrqControl,
-
-            // Though r4/r5 don't have useful outputs right now, we're reserving
-            // them in case that changes.
-            inlateout("r4") mask => _,
-            inlateout("r5") enable as u32 => _,
-
-            options(nomem, preserves_flags, nostack),
-        );
+        sys_irq_control_stub(mask, enable as u32);
     }
 }
 
+/// Core implementation of the IRQ_CONTROL syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_irq_control_stub(
+    _mask: u32,
+    _enable: u32,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match!
+        push {{r4, r5, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ This call returns no results.
+
+        @ Restore the registers we used and return.
+        pop {{r4, r5, r11, pc}}
+        ",
+        sysnum = const Sysnum::IrqControl as u32,
+        options(noreturn),
+    )
+}
+
+#[inline(always)]
 pub fn sys_panic(msg: &[u8]) -> ! {
     unsafe {
-        // This is different from the syscall_asm! template because a noreturn
-        // asm block cannot declare a register clobber, for reasons
-        asm!("
-            mov r6, r11
-            mov r11, {sysnum}
-            svc #0
-            udf #0xad
-            ",
-            sysnum = const Sysnum::Panic as u32,
-
-            in("r4") msg.as_ptr(),
-            in("r5") msg.len(),
-            options(nomem, noreturn, nostack),
-        )
+        sys_panic_stub(msg.as_ptr(), msg.len())
     }
+}
+
+/// Core implementation of the PANIC syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_panic_stub(
+    _msg: *const u8,
+    _len: usize,
+) -> ! {
+    asm!("
+        @ We're not going to return, so technically speaking we don't need to
+        @ save registers. However, we save them anyway, so that we can reconstruct
+        @ the state that led to the panic.
+        push {{r4, r5, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ This really shouldn't return. Ensure this:
+        udf #0xad
+        ",
+        sysnum = const Sysnum::Panic as u32,
+        options(noreturn),
+    )
 }
 
 #[cfg(feature = "log-itm")]
