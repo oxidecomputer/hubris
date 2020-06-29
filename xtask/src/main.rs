@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 mod dist;
+mod gdb;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -17,6 +18,15 @@ enum Xtask {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
     },
+
+    /// Runs `xtask dist` and then runs a properly configured gdb for you.
+    Gdb {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Path to the gdb configuation script.
+        gdb_cfg: PathBuf,
+    },
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -25,6 +35,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     match xtask {
         Xtask::Dist { cfg } => {
             dist::package(cfg)?;
+        }
+        Xtask::Gdb { cfg, gdb_cfg } => {
+            dist::package(cfg)?;
+            gdb::run(gdb_cfg)?;
         }
     }
 
