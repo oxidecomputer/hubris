@@ -4,105 +4,168 @@ on: [push, pull_request]
 jobs:
   build-stm32f4:
     name: ARMv7-M demo build
-    runs-on: ubuntu-latest
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            deps: sudo apt-get install binutils-arm-none-eabi
     steps:
-      - name: Install ARM binutils
-        run: sudo apt-get install binutils-arm-none-eabi
+      # check out our code
       - uses: actions/checkout@v2
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        id: rustup
+
+      # install rust toolchain
+      - uses: actions-rs/toolchain@v1
         with:
-          target: thumbv7em-none-eabihf
+          # normally we would specify a toolchain here, but we have a
+          # rust-toolchain file, so that gets picked up automatically.
           profile: minimal
+          target: thumbv7em-none-eabihf
+          override: true
+
+      # cache the cargo registry & index
       - name: Cache cargo outputs
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
         uses: actions/cache@v2
         with:
           path: |
             target
             !target/dist
-          key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run dist build
-        run: cargo xtask dist demo/app.toml
+          key: ${{ runner.os }}-build7-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # install dependencies
+      - run: '${{ matrix.deps }}'
+
+      # invoke our build
+      - uses: actions-rs/cargo@v1
+        with:
+          command: xtask
+          args: dist demo/app.toml
+
+      # upload the output of our build
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v1
         with:
           name: target-dist-stm32f4
           path: target/dist
+
   build-lpc55:
     name: ARMv8-M demo build
-    runs-on: ubuntu-latest
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            deps: sudo apt-get install binutils-arm-none-eabi
     steps:
-      - name: Install ARM binutils
-        run: sudo apt-get install binutils-arm-none-eabi
+      # check out our code
       - uses: actions/checkout@v2
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        id: rustup
+
+      # install rust toolchain
+      - uses: actions-rs/toolchain@v1
         with:
-          target: thumbv8m.main-none-eabihf
+          # normally we would specify a toolchain here, but we have a
+          # rust-toolchain file, so that gets picked up automatically.
           profile: minimal
+          target: thumbv8m.main-none-eabihf
+          override: true
+
+      # cache the cargo registry & index
       - name: Cache cargo outputs
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # cache our build outputs
+      # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
         uses: actions/cache@v2
         with:
           path: |
             target
             !target/dist
-          key: ${{ runner.os }}-build8-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run package build
-        run: cargo xtask dist lpc55/app.toml
-      - name: Upload package artifacts
+          key: ${{ runner.os }}-build8-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # install dependencies
+      - run: '${{ matrix.deps }}'
+
+      # invoke our build
+      - uses: actions-rs/cargo@v1
+        with:
+          command: xtask
+          args: dist lpc55/app.toml
+
+      # upload the output of our build
+      - name: Upload dist artifacts
         uses: actions/upload-artifact@v1
         with:
           name: target-dist-lpc55
           path: target/dist
+
   build-stm32h7:
     name: ARMv7-M demo build (STM32H7)
-    runs-on: ubuntu-latest
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            deps: sudo apt-get install binutils-arm-none-eabi
+
     steps:
-      - name: Install ARM binutils
-        run: sudo apt-get install binutils-arm-none-eabi
+      # check out our code
       - uses: actions/checkout@v2
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        id: rustup
+
+      # install rust toolchain
+      - uses: actions-rs/toolchain@v1
         with:
-          target: thumbv7em-none-eabihf
+          # normally we would specify a toolchain here, but we have a
+          # rust-toolchain file, so that gets picked up automatically.
           profile: minimal
+          target: thumbv7em-none-eabihf
+          override: true
+
+      # cache the cargo registry & index
       - name: Cache cargo outputs
         uses: actions/cache@v2
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # cache our build outputs
+      # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
         uses: actions/cache@v2
         with:
           path: |
             target
-            !target/packager
-          key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run package build
-        run: |
-          cd demo-stm32h7
-          ./package.sh
+            !target/dist
+          key: ${{ runner.os }}-build7-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # install dependencies
+      - run: '${{ matrix.deps }}'
+
+      # invoke our build
+      - uses: actions-rs/cargo@v1
+        with:
+          command: xtask
+          args: dist demo-stm32h7/app.toml
+
+      # upload the output of our build
       - name: Upload package artifacts
         uses: actions/upload-artifact@v1
         with:
           name: target-dist-stm32h7
-          path: demo-stm32h7/target/dist
+          path: target/dist
