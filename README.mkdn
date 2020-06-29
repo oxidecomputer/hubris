@@ -69,7 +69,7 @@ $ openocd
 From another terminal:
 
 ```shell
-$ ./run.sh
+$ cargo xtask gdb demo\app.toml openocd.gdb
 ```
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
