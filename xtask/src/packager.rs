@@ -3,6 +3,7 @@ use std::error::Error;
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -239,6 +240,20 @@ pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
     }
     drop(gdb_script);
 
+    println!("doing objcopy");
+
+    let mut cmd = Command::new("arm-none-eabi-objcopy");
+    cmd.arg("-Isrec")
+        .arg("-O")
+        .arg("elf32-littlearm")
+        .arg("target/packager/combined.srec")
+        .arg("target/packager/combined.elf");
+
+    let status = cmd.status()?;
+    if !status.success() {
+        return Err("command failed, see output for details".into());
+    }
+
     Ok(())
 }
 
@@ -251,8 +266,6 @@ fn build(
     dest: PathBuf,
     meta: &[(&str, &str)],
 ) -> Result<(), Box<dyn Error>> {
-    use std::process::Command;
-
     println!("building path {}", path.display());
 
     // NOTE: current_dir's docs suggest that you should use canonicalize for
@@ -342,8 +355,6 @@ fn cargo_output_dir(
     target: &str,
     path: &Path,
 ) -> Result<PathBuf, Box<dyn Error>> {
-    use std::process::Command;
-
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
     //
