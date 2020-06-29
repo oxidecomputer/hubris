@@ -10,6 +10,14 @@ jobs:
         include:
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
+          - os: windows-latest
+            deps: |
+              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+              echo ::add-path::$HOME\scoop\shims
+              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+              scoop bucket add extras
+              scoop install gcc-arm-none-eabi
+
     steps:
       # check out our code
       - uses: actions/checkout@v2
@@ -65,6 +73,14 @@ jobs:
         include:
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
+          - os: windows-latest
+            deps: |
+              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+              echo ::add-path::$HOME\scoop\shims
+              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+              scoop bucket add extras
+              scoop install gcc-arm-none-eabi
+
     steps:
       # check out our code
       - uses: actions/checkout@v2
@@ -121,6 +137,13 @@ jobs:
         include:
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
+          - os: windows-latest
+            deps: |
+              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+              echo ::add-path::$HOME\scoop\shims
+              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+              scoop bucket add extras
+              scoop install gcc-arm-none-eabi
 
     steps:
       # check out our code
