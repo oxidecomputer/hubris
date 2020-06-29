@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-cargo xtask packager demo/app.toml
+cargo xtask dist demo/app.toml
 arm-none-eabi-gdb -q \
-  -x target/packager/script.gdb \
+  -x target/dist/script.gdb \
   -x openocd.gdb \
-  target/packager/combined.elf 
+  target/dist/combined.elf 

@@ -91,7 +91,7 @@ struct LoadSegment {
 }
 
 pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
-    let out = PathBuf::from("target/packager");
+    let out = PathBuf::from("target/dist");
     std::fs::create_dir_all(&out)?;
 
     let cfg_contents = std::fs::read(&cfg)?;
@@ -246,8 +246,8 @@ pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
     cmd.arg("-Isrec")
         .arg("-O")
         .arg("elf32-littlearm")
-        .arg("target/packager/combined.srec")
-        .arg("target/packager/combined.elf");
+        .arg("target/dist/combined.srec")
+        .arg("target/dist/combined.elf");
 
     let status = cmd.status()?;
     if !status.success() {

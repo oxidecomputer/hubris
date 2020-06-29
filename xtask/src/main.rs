@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use structopt::StructOpt;
 
-mod packager;
+mod dist;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -13,7 +13,7 @@ mod packager;
 enum Xtask {
     /// Builds a collection of cross-compiled binaries at non-overlapping addresses,
     /// and then combines them into a system image with an application descriptor.
-    Packager {
+    Dist {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
     },
@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let xtask = Xtask::from_args();
 
     match xtask {
-        Xtask::Packager { cfg } => {
-            packager::package(cfg)?;
+        Xtask::Dist { cfg } => {
+            dist::package(cfg)?;
         }
     }
 

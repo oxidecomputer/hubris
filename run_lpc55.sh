@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-cargo xtask packager lpc55/app.toml
+cargo xtask dist lpc55/app.toml
 arm-none-eabi-gdb \
-  -x target/packager/script.gdb \
+  -x target/dist/script.gdb \
   -x lpc55.gdb \
-  target/packager/combined.elf 
+  target/dist/combined.elf 
