@@ -50,9 +50,9 @@ in the future.
 
 ## Build and run
 
-`cargo build` from the top level directory will **only** build `packager`,
-because a single `cargo build` invocation can only do one architecture at a
-time. Likewise, `cargo run` will run `packager`.
+`cargo build` from the top level directory will not build anything, because a
+single `cargo build` invocation can only do one architecture at a time.
+Likewise, `cargo run` will not do anything either.
 
 Here's how to build and run the firmware.
 
@@ -93,11 +93,11 @@ This magic happens in three parts:
 1. Each task directory contains a `.cargo/config` file specifying an
    architecture (so you don't have to) and a linker script. This file is honored
    *only* when building inside the task's directory, because Cargo.
-2. Our `build.rs` files that receive information from the `packager` will do
+2. Our `build.rs` files that receive information from the `package` xtask will do
    reasonable defaulty things if that information is missing, e.g. when you
    build it manually.
 3. By convention, we set a default feature `"standalone"` for standalone builds,
-   and switch it off in the `app.toml` used by packager. You can use this
+   and switch it off in the `app.toml` used by the `package` xtask. You can use this
    feature to conditionally compile stuff.
 
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on

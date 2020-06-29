@@ -93,13 +93,12 @@ struct LoadSegment {
     data: Vec<u8>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::from_args();
-    let cfg = std::fs::read(&args.cfg)?;
-    let toml: Config = toml::from_slice(&cfg)?;
-    drop(cfg);
+pub fn package(cfg: PathBuf, out: PathBuf) -> Result<(), Box<dyn Error>> {
+    let cfg_contents = std::fs::read(&cfg)?;
+    let toml: Config = toml::from_slice(&cfg_contents)?;
+    drop(cfg_contents);
 
-    let mut src_dir = args.cfg.clone();
+    let mut src_dir = cfg.clone();
     src_dir.pop();
 
     let mut memories = IndexMap::new();
@@ -129,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         task_memory.insert(name.clone(), mem);
     }
 
-    let mut infofile = std::fs::File::create(args.out.join("allocations.txt"))?;
+    let mut infofile = std::fs::File::create(out.join("allocations.txt"))?;
     writeln!(infofile, "kernel: {:#x?}", kern_memory)?;
     writeln!(infofile, "tasks: {:#x?}", task_memory)?;
     drop(infofile);
@@ -147,10 +146,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             &task_toml.name,
             &task_toml.features,
             &task_memory[name],
-            args.out.join(name),
+            out.join(name),
             &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)],
         )?;
-        let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
+        let ep = load_elf(&out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
     }
 
@@ -174,13 +173,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         &toml.kernel.name,
         &toml.kernel.features,
         &kern_memory,
-        args.out.join("kernel"),
+        out.join("kernel"),
         &[("HUBRIS_DESCRIPTOR", &descriptor_text)],
     )?;
-    let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
+    let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
-    let mut mapfile = std::fs::File::create(&args.out.join("map.txt"))?;
+    let mut mapfile = std::fs::File::create(&out.join("map.txt"))?;
     writeln!(mapfile, "ADDRESS  END          SIZE FILE")?;
     for (base, sec) in &all_output_sections {
         let size = sec.data.len() as u32;
@@ -224,19 +223,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     srec_out.push(srec::Record::S7(srec::Address32(kentry)));
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(args.out.join("combined.srec"), srec_image)?;
+    std::fs::write(out.join("combined.srec"), srec_image)?;
 
-    let mut gdb_script = std::fs::File::create(args.out.join("script.gdb"))?;
+    let mut gdb_script = std::fs::File::create(out.join("script.gdb"))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
-        args.out.join("kernel").to_slash().unwrap()
+        out.join("kernel").to_slash().unwrap()
     )?;
     for name in toml.tasks.keys() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            args.out.join(name).to_slash().unwrap()
+            out.join(name).to_slash().unwrap()
         )?;
     }
     drop(gdb_script);
