@@ -16,10 +16,6 @@ use structopt::StructOpt;
 struct Args {
     /// Path to the image configuration file, in TOML.
     cfg: PathBuf,
-    /// Path to the output directory, where this tool will place a set of ELF
-    /// files, a combined SREC file, and a text file documenting the memory
-    /// layout.
-    out: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -93,7 +89,10 @@ struct LoadSegment {
     data: Vec<u8>,
 }
 
-pub fn package(cfg: PathBuf, out: PathBuf) -> Result<(), Box<dyn Error>> {
+pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
+    let out = PathBuf::from("target/packager");
+    std::fs::create_dir_all(&out)?;
+
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
     drop(cfg_contents);
