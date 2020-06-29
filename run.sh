@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-./package.sh "$@"
+cargo xtask packager demo/app.toml
 arm-none-eabi-gdb -q \
   -x target/packager/script.gdb \
   -x openocd.gdb \
