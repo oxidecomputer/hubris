@@ -30,7 +30,7 @@ jobs:
             !target/packager
           key: ${{ runner.os }}-build7-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Run package build
-        run: ./package.sh
+        run: cargo xtask packager demo/app.toml
       - name: Upload package artifacts
         uses: actions/upload-artifact@v1
         with:
@@ -64,7 +64,7 @@ jobs:
             !target/packager
           key: ${{ runner.os }}-build8-${{ steps.rustup.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Run package build
-        run: ./package_lpc55.sh
+        run: cargo xtask packager lpc55/app.toml
       - name: Upload package artifacts
         uses: actions/upload-artifact@v1
         with:

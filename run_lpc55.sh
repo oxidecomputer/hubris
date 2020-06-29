@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-./package_lpc55.sh "$@"
+cargo xtask packager lpc55/app.toml
 arm-none-eabi-gdb \
   -x target/packager/script.gdb \
   -x lpc55.gdb \
