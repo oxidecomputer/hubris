@@ -196,6 +196,7 @@ dependencies = [
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
+ "cortex-m",
  "lpc55-pac",
  "num-traits",
  "userlib",
