@@ -395,3 +395,39 @@ pub enum FaultSource {
     /// User code asked the kernel to do something bad on its behalf.
     Kernel,
 }
+
+/// Enumeration of syscall numbers.
+#[repr(u32)]
+pub enum Sysnum {
+    Send = 0,
+    Recv = 1,
+    Reply = 2,
+    Timer = 3,
+    BorrowRead = 4,
+    BorrowWrite = 5,
+    BorrowInfo = 6,
+    IrqControl = 7,
+    Panic = 8,
+}
+
+/// We're using an explicit `TryFrom` impl for `Sysnum` instead of
+/// `FromPrimitive` because the kernel doesn't currently depend on `num-traits`
+/// and this seems okay.
+impl core::convert::TryFrom<u32> for Sysnum {
+    type Error = ();
+
+    fn try_from(x: u32) -> Result<Self, Self::Error> {
+        match x {
+            0 => Ok(Self::Send),
+            1 => Ok(Self::Recv),
+            2 => Ok(Self::Reply),
+            3 => Ok(Self::Timer),
+            4 => Ok(Self::BorrowRead),
+            5 => Ok(Self::BorrowWrite),
+            6 => Ok(Self::BorrowInfo),
+            7 => Ok(Self::IrqControl),
+            8 => Ok(Self::Panic),
+            _ => Err(()),
+        }
+    }
+}

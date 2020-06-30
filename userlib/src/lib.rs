@@ -67,19 +67,6 @@ impl<'a> From<&'a mut [u8]> for Lease<'a> {
     }
 }
 
-#[repr(u32)]
-enum Sysnum {
-    Send = 0,
-    Recv = 1,
-    Reply = 2,
-    Timer = 3,
-    BorrowRead = 4,
-    BorrowWrite = 5,
-    BorrowInfo = 6,
-    IrqControl = 7,
-    Panic = 8,
-}
-
 /// Return type for stubs that return an `(rc, len)` tuple, because the layout
 /// of tuples is not specified in the C ABI, and we're using the C ABI to
 /// interface to assembler.
