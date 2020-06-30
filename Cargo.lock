@@ -392,6 +392,7 @@ dependencies = [
  "clap",
  "goblin",
  "indexmap",
+ "path-slash",
  "serde",
  "serde_json",
  "srec",
@@ -423,6 +424,12 @@ dependencies = [
  "cortex-m",
  "cortex-m-semihosting",
 ]
+
+[[package]]
+name = "path-slash"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddf9566c1063a197427135fb518ed42f2be18630fc2401aa267ed2dc95e9c85d"
 
 [[package]]
 name = "plain"
