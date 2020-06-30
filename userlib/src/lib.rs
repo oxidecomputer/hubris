@@ -281,6 +281,17 @@ unsafe extern "C" fn sys_reply_stub(
     )
 }
 
+/// Sets this task's timer.
+///
+/// The timer is set to `deadline`. If `deadline` is `None`, the timer is
+/// disabled. Otherwise, the timer is configured to notify when the specified
+/// time (in ticks since boot) is reached. When that occurs, the `notifications`
+/// will get posted to this task, and the timer will be disabled.
+///
+/// If the deadline is chosen such that the timer *would have already fired*,
+/// had it been set earlier -- that is, if the deadline is `<=` the current time
+/// -- the `notifications` will be posted immediately and the timer will not be
+/// enabled.
 #[inline(always)]
 pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
     let raw_deadline = deadline.unwrap_or(0);
@@ -329,7 +340,7 @@ unsafe extern "C" fn sys_set_timer_stub(
         @ Restore the registers we used and return.
         pop {{r4-r7, r11, pc}}
         ",
-        sysnum = const Sysnum::Timer as u32,
+        sysnum = const Sysnum::SetTimer as u32,
         options(noreturn),
     )
 }
