@@ -194,6 +194,14 @@ impl Task {
         self.timer.to_post = notifications;
     }
 
+    /// Reads out the state of this task's timer, as previously set by
+    /// `set_timer`.
+    pub fn timer(
+        &self,
+    ) -> (Option<Timestamp>, NotificationSet) {
+        (self.timer.deadline, self.timer.to_post)
+    }
+
     /// Rewrites this task's state back to its initial form, to effect a task
     /// reboot.
     ///
@@ -388,6 +396,23 @@ pub trait ArchState: Default {
         self.ret0(0);
         self.ret1(atts);
         self.ret2(len as u32);
+    }
+
+    /// Sets the results of READ_TIMER.
+    fn set_time_result(&mut self,
+        now: Timestamp,
+        dl: Option<Timestamp>,
+        not: NotificationSet,
+    ) {
+        let now_u64 = u64::from(now);
+        let dl_u64 = dl.map(u64::from).unwrap_or(0);
+
+        self.ret0(now_u64 as u32);
+        self.ret1((now_u64 >> 32) as u32);
+        self.ret2(dl.is_some() as u32);
+        self.ret3(dl_u64 as u32);
+        self.ret4((dl_u64 >> 32) as u32);
+        self.ret5(not.0);
     }
 }
 

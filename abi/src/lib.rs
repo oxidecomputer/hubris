@@ -408,6 +408,7 @@ pub enum Sysnum {
     BorrowInfo = 6,
     IrqControl = 7,
     Panic = 8,
+    GetTimer = 9,
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
@@ -427,6 +428,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
             6 => Ok(Self::BorrowInfo),
             7 => Ok(Self::IrqControl),
             8 => Ok(Self::Panic),
+            9 => Ok(Self::GetTimer),
             _ => Err(()),
         }
     }
