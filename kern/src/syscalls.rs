@@ -23,7 +23,7 @@
 //! proxy* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
-use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, TaskId, TaskState, UsageError};
+use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, Sysnum, TaskId, TaskState, UsageError};
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
@@ -69,17 +69,19 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 /// Factored out of `syscall_entry` to encapsulate the bits that don't need
 /// unsafe.
 fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
-    let res = match nr {
-        0 => send(tasks, current),
-        1 => recv(tasks, current).map_err(UserError::from),
-        2 => reply(tasks, current).map_err(UserError::from),
-        3 => Ok(timer(&mut tasks[current], arch::now())),
-        4 => borrow_read(tasks, current),
-        5 => borrow_write(tasks, current),
-        6 => borrow_info(tasks, current),
-        7 => irq_control(tasks, current),
-        8 => explicit_panic(tasks, current),
-        _ => {
+    use core::convert::TryFrom;
+
+    let res = match Sysnum::try_from(nr) {
+        Ok(Sysnum::Send) => send(tasks, current),
+        Ok(Sysnum::Recv) => recv(tasks, current).map_err(UserError::from),
+        Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
+        Ok(Sysnum::Timer) => Ok(timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),
+        Ok(Sysnum::BorrowWrite) => borrow_write(tasks, current),
+        Ok(Sysnum::BorrowInfo) => borrow_info(tasks, current),
+        Ok(Sysnum::IrqControl) => irq_control(tasks, current),
+        Ok(Sysnum::Panic) => explicit_panic(tasks, current),
+        Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
         }
