@@ -325,9 +325,9 @@ pub trait ArchState: Default {
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for TIMER.
-    fn as_timer_args(&self) -> AsTimerArgs<&Self> {
-        AsTimerArgs(self)
+    /// arguments for SET_TIMER.
+    fn as_set_timer_args(&self) -> AsSetTimerArgs<&Self> {
+        AsSetTimerArgs(self)
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
@@ -471,10 +471,10 @@ impl<'a, T: ArchState> AsReplyArgs<&'a T> {
     }
 }
 
-/// Reference proxy for TIMER argument registers.
-pub struct AsTimerArgs<T>(T);
+/// Reference proxy for SET_TIMER argument registers.
+pub struct AsSetTimerArgs<T>(T);
 
-impl<'a, T: ArchState> AsTimerArgs<&'a T> {
+impl<'a, T: ArchState> AsSetTimerArgs<&'a T> {
     /// Extracts the deadline.
     pub fn deadline(&self) -> Option<Timestamp> {
         if self.0.arg0() != 0 {

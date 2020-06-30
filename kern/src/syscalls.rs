@@ -75,7 +75,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::Send) => send(tasks, current),
         Ok(Sysnum::Recv) => recv(tasks, current).map_err(UserError::from),
         Ok(Sysnum::Reply) => reply(tasks, current).map_err(UserError::from),
-        Ok(Sysnum::Timer) => Ok(timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::SetTimer) => Ok(set_timer(&mut tasks[current], arch::now())),
         Ok(Sysnum::BorrowRead) => borrow_read(tasks, current),
         Ok(Sysnum::BorrowWrite) => borrow_write(tasks, current),
         Ok(Sysnum::BorrowInfo) => borrow_info(tasks, current),
@@ -312,9 +312,9 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     return Ok(NextTask::Same);
 }
 
-/// Implementation of the `TIMER` syscall.
-fn timer(task: &mut Task, now: Timestamp) -> NextTask {
-    let args = task.save().as_timer_args();
+/// Implementation of the `SET_TIMER` syscall.
+fn set_timer(task: &mut Task, now: Timestamp) -> NextTask {
+    let args = task.save().as_set_timer_args();
     let (dl, n) = (args.deadline(), args.notification());
     if let Some(deadline) = dl {
         // timer is being enabled
