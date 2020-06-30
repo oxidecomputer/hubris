@@ -39,7 +39,10 @@ test_cases! {
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
-    test_supervisor_fault_notification
+    test_supervisor_fault_notification,
+    test_timer_advance,
+    test_timer_notify,
+    test_timer_notify_past
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -314,6 +317,64 @@ fn test_supervisor_fault_notification() {
     let n = read_runner_notifications();
     // The expected bitmask here is set in app.toml.
     assert_eq!(n, 1);
+}
+
+/// Tests that we can see the kernel timer advancing.
+///
+/// This test will fail by hanging. We can't set an iteration limit because who
+/// knows how fast our computer is in relation to the tick rate?
+fn test_timer_advance() {
+    let initial_time = sys_get_timer().now;
+    while sys_get_timer().now == initial_time {
+        // doot doot
+    }
+}
+
+/// Tests that we can set a timer in the future and receive a notification.
+fn test_timer_notify() {
+    const ARBITRARY_NOTIFICATION: u32 = 1 << 16;
+
+    let start_time = sys_get_timer().now;
+    // We'll arbitrarily set our deadline 2 ticks in the future.
+    let deadline = start_time + 2;
+    sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
+
+    // TODO: to wait specifically for a notification, we ought to do a closed
+    // receive from the kernel task ID. However, there's no API for this at this
+    // time.
+    let rm = sys_recv(&mut [], ARBITRARY_NOTIFICATION);
+    // We're not expecting anything else...
+    assert_eq!(rm.sender, TaskId::KERNEL);
+
+    assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
+    assert_eq!(rm.message_len, 0);
+    assert_eq!(rm.response_capacity, 0);
+    assert_eq!(rm.lease_count, 0);
+
+    // In the interest of not making this test performance-sensitive, we merely
+    // verify that the timer is at _or beyond_ our deadline.
+    assert!(sys_get_timer().now >= deadline);
+}
+
+/// Tests that we can set a timer in the past and get immediate notification.
+fn test_timer_notify_past() {
+    const ARBITRARY_NOTIFICATION: u32 = 1 << 16;
+
+    let start_time = sys_get_timer().now;
+    let deadline = start_time;
+    sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
+
+    // TODO: to wait specifically for a notification, we ought to do a closed
+    // receive from the kernel task ID. However, there's no API for this at this
+    // time.
+    let rm = sys_recv(&mut [], ARBITRARY_NOTIFICATION);
+    // We're not expecting anything else...
+    assert_eq!(rm.sender, TaskId::KERNEL);
+
+    assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
+    assert_eq!(rm.message_len, 0);
+    assert_eq!(rm.response_capacity, 0);
+    assert_eq!(rm.lease_count, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
