@@ -81,6 +81,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::BorrowInfo) => borrow_info(tasks, current),
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
+        Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -327,6 +328,16 @@ fn set_timer(task: &mut Task, now: Timestamp) -> NextTask {
         }
     }
     task.set_timer(dl, n);
+    NextTask::Same
+}
+
+/// Implementation of the `GET_TIMER` syscall.
+fn get_timer(task: &mut Task, now: Timestamp) -> NextTask {
+    // This syscall takes no arguments.
+
+    let (dl, n) = task.timer();
+
+    task.save_mut().set_time_result(now, dl, n);
     NextTask::Same
 }
 

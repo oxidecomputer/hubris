@@ -613,6 +613,90 @@ unsafe extern "C" fn sys_panic_stub(
     )
 }
 
+/// Reads the state of this task's timer.
+///
+/// This returns three values in a `TimerState` struct:
+///
+/// - `now` is the current time on the timer, in ticks since boot.
+/// - `deadline` is either `None`, meaning the timer notifications are disabled,
+///   or `Some(t)`, meaning the timer will post notifications at time `t`.
+/// - `on_dl` are the notification bits that will be posted on deadline.
+///
+/// `deadline` and `on_dl` are as configured by `sys_set_timer`.
+///
+/// `now` is monotonically advancing and can't be changed.
+#[inline(always)]
+pub fn sys_get_timer() -> TimerState {
+    use core::mem::MaybeUninit;
+
+    let mut out = MaybeUninit::<RawTimerState>::uninit();
+    unsafe {
+        sys_get_timer_stub(out.as_mut_ptr());
+    }
+    // Safety: stub fully initializes output struct.
+    let out = unsafe { out.assume_init() };
+
+    TimerState {
+        now: u64::from(out.now_lo) | u64::from(out.now_hi) << 32,
+        deadline: if out.set != 0 {
+            Some(u64::from(out.dl_lo) | u64::from(out.dl_hi) << 32)
+        } else {
+            None
+        },
+        on_dl: out.on_dl,
+    }
+}
+
+/// Result of `sys_get_timer`, provides information about task timer state.
+pub struct TimerState {
+    /// Current task timer time, in ticks.
+    pub now: u64,
+    /// Current deadline, or `None` if the deadline is not pending.
+    pub deadline: Option<u64>,
+    /// Notifications to be delivered if the deadline is reached.
+    pub on_dl: u32,
+}
+
+#[repr(C)] // loaded from assembly, field order must not change
+struct RawTimerState {
+    now_lo: u32,
+    now_hi: u32,
+    set: u32,
+    dl_lo: u32,
+    dl_hi: u32,
+    on_dl: u32,
+}
+
+/// Core implementation of the GET_TIMER syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_get_timer_stub(
+    _out: *mut RawTimerState,
+) {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff.
+        push {{r4-r11}}
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Write all the results out into the raw output buffer.
+        stm r0, {{r4-r9}}
+        @ Restore the registers we used.
+        pop {{r4-r11}}
+        @ Fin.
+        bx lr
+        ",
+        sysnum = const Sysnum::GetTimer as u32,
+        options(noreturn),
+    )
+}
+
+
 #[cfg(feature = "log-itm")]
 #[macro_export]
 macro_rules! sys_log {
