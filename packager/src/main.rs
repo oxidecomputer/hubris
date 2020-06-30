@@ -4,6 +4,7 @@ use std::error::Error;
 use std::ops::Range;
 use std::io::Write;
 
+use path_slash::PathBufExt;
 use serde::Deserialize;
 use structopt::StructOpt;
 use indexmap::IndexMap;
@@ -198,9 +199,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     std::fs::write(args.out.join("combined.srec"), srec_image)?;
 
     let mut gdb_script = std::fs::File::create(args.out.join("script.gdb"))?;
-    writeln!(gdb_script, "add-symbol-file {}", args.out.join("kernel").display())?;
+    writeln!(gdb_script, "add-symbol-file {}", args.out.join("kernel").to_slash().unwrap())?;
     for name in toml.tasks.keys() {
-        writeln!(gdb_script, "add-symbol-file {}", args.out.join(name).display())?;
+        writeln!(gdb_script, "add-symbol-file {}", args.out.join(name).to_slash().unwrap())?;
     }
     drop(gdb_script);
 
