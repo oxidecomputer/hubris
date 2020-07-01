@@ -170,6 +170,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-stm32h7"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "serde",
+ "serde_json",
+ "stm32h7",
+ "which",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -595,6 +612,17 @@ name = "stm32f4"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44a3d6c58b14e63926273694e7dd644894513c5e35ce6928c4657ddb62cae976"
+dependencies = [
+ "bare-metal",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
+name = "stm32h7"
+version = "0.11.0"
+source = "git+https://github.com/stm32-rs/stm32-rs-nightlies#3a98a595ed9126ed7e9515c575fb753b60cb9391"
 dependencies = [
  "bare-metal",
  "cortex-m",

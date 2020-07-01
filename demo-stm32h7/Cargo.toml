@@ -1,0 +1,39 @@
+[package]
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+readme = "README.md"
+name = "demo-stm32h7"
+version = "0.1.0"
+
+[features]
+default = ["itm"]
+itm = ["panic-itm", "kern/klog-itm"]
+semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+
+[dependencies]
+cortex-m = "0.6.0"
+cortex-m-rt = "0.6.10"
+cortex-m-semihosting = "0.3.3"
+panic-itm = {version = "0.4.1", optional = true}
+panic-halt = {version = "0.2.0", optional = true}
+panic-semihosting = {version = "0.5.3", optional = true}
+
+[dependencies.stm32h7]
+git = "https://github.com/stm32-rs/stm32-rs-nightlies"
+features = ["stm32h7b3", "rt"]
+
+[dependencies.kern]
+path = "../kern"
+default-features = false
+
+[build-dependencies]
+which = "3.1"
+serde = "1"
+serde_json = "1"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo-stm32h7"
+test = false
+bench = false
+
