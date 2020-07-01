@@ -88,8 +88,8 @@ The error-free path:
 ==== Arguments
 
 * 0: packed target and operation.
-** Bits 31:28: target task generation number.
-** Bits 28:16: target task index.
+** Bits 31:16: target task ID (split into index and generation per the constants
+   in the `abi` crate).
 ** Bits 15:0: operation code (application defined).
 * 1: Base address of outgoing message.
 * 2: Length of outgoing message, in bytes.
@@ -97,11 +97,6 @@ The error-free path:
 * 4: Size of reply buffer, in bytes.
 * 5: Base address of lease table.
 * 6: Number of leases in lease table.
-
-==== Return values
-
-`REPLY` doesn't return anything, but should be treated as clobbering return
-registers 0 and 1 for future compatibility.
 
 ==== Lease table layout
 
@@ -204,15 +199,33 @@ interrupted by a _notification message_ from the kernel instead (if any of the
 given notifications have been posted). Notification messages can be
 distinguished by having the illegal sender `0xFFFF`.
 
+==== Closed vs Open RECV
+
+One argument to RECV determines whether to accept messages from _any_ sender, or
+to only accept messages from _one._ Accepting messages from any sender is called
+an "open" receive, while only listening for one sender is "closed."
+
+During an open receive, a task may receive messages sent by any other task, plus
+any notifications enabled by the notification mask.
+
+During a closed receive, a task will receive messages only from the chosen task.
+The task will *not* receive notifications unless the chosen sender ID is the
+kernel's task ID, `0xFFFF`.
+
 ==== Arguments
 
 - 0: Address of a buffer where received messages should be written.
 - 1: Number of bytes in that buffer.
 - 2: Notification mask to apply during this receive.
+- 3: Sender filter for open vs closed receive.
+** Bit 31: 0=open, 1=closed
+** Bits 30:16: reserved
+** Bits 15:0: TaskId if closed, ignored if open.
 
 ==== Return values
 
-- 0: Currently reserved for variations that can fail; returns 0.
+- 0: always 0 for open receive; closed receive may also return `!0` to indicate
+  that the chosen peer has died.
 - 1: Task ID of the sender (generation in 15:12, ID in 11:0).
 - 2: Operation code used by sender.
 - 3: Length of message sent.
@@ -236,8 +249,9 @@ your task to be immediately faulted instead of returning a code.
 
 ==== Notes
 
-It's legal, if slightly odd, to specify a zero-length receive buffer. In this
-case, the base address is ignored.
+It's legal to specify a zero-length receive buffer. In this case, the base
+address is ignored. This can be useful if you only need to distinguish between
+messages by their operation codes.
 
 If the sender sent a message _longer_ than your receive buffer, you will get the
 _prefix_ of the message, and the returned response length will give the _actual_
@@ -251,11 +265,7 @@ unblocks.
 
 The notification mask is provided anew with each receive because the `RECV`
 callsite has a clear idea of which notifications it can handle. Plus, it saves a
-syscall from the common pattern of updating the mask and then receiving.
-
-The intent is to extend `RECV` with a "directed receive" that only accepts
-messages from one sender, or only notifications, and to add a non-blocking flag.
-These haven't happened yet.
+syscall during the common pattern of updating the mask and then receiving.
 
 `RECV` is called `RECV` because Cliff can't spell "recieve" reliably.
 
@@ -275,7 +285,8 @@ caller's memory and resumes it.
 
 ==== Return values
 
-None. All registers preserved.
+`REPLY` doesn't return anything, but should be treated as clobbering return
+registers 0 and 1 for future compatibility.
 
 ==== Faults
 
