@@ -49,6 +49,24 @@ requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
+[tasks.pong]
+path = "../task-pong"
+name = "task-pong"
+features = ["stm32h7"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpiog"]
+start = true
+
+[tasks.ping]
+path = "../task-ping"
+name = "task-ping"
+features = ["stm32h7"]
+priority = 3
+requires = {flash = 8192, ram = 512}
+uses = ["gpiog"]
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
@@ -59,3 +77,8 @@ start = true
 [peripherals.rcc]
 address = 0x58024400
 size = 1024
+
+[peripherals.gpiog]
+address = 0x58021800
+size = 1024
+

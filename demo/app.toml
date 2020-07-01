@@ -61,6 +61,7 @@ interrupts = {38 = 1}
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
+features = ["stm32f4"]
 priority = 3
 requires = {flash = 8192, ram = 512}
 uses = ["gpiod"]
@@ -69,6 +70,7 @@ start = true
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
+features = ["stm32f4"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]

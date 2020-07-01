@@ -59,8 +59,8 @@ pub fn main() -> ! {
     }
 }
 
-#[cfg(armv7m)]
-fn turn_on_gpiod() {
+#[cfg(all(armv7m, feature = "stm32f4"))]
+fn turn_on_gpio() {
     let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
     const ENABLE_CLOCK: u16 = 1;
     let gpiod_pnum = 3; // see bits in AHB1ENR
@@ -68,14 +68,34 @@ fn turn_on_gpiod() {
     assert_eq!(code, 0);
 }
 
-#[cfg(armv7m)]
+#[cfg(all(armv7m, feature = "stm32h7"))]
+fn turn_on_gpio() {
+    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    const ENABLE_CLOCK: u16 = 1;
+    let gpiog_pnum = 102; // AHB4ENR=96 + 6
+    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, gpiog_pnum.as_bytes(), &mut [], &[]);
+    assert_eq!(code, 0);
+}
+
+#[cfg(all(armv7m, feature = "stm32f4"))]
 fn set_up_leds() {
-    turn_on_gpiod();
+    turn_on_gpio();
     let gpiod = unsafe {
         &*stm32f4::stm32f407::GPIOD::ptr()
     };
     gpiod.moder.modify(|_, w| {
         w.moder12().output().moder13().output()
+    });
+}
+
+#[cfg(all(armv7m, feature = "stm32h7"))]
+fn set_up_leds() {
+    turn_on_gpio();
+    let gpiog = unsafe {
+        &*stm32h7::stm32h7b3::GPIOG::ptr()
+    };
+    gpiog.moder.modify(|_, w| {
+        w.moder2().output().moder11().output()
     });
 }
 
@@ -101,12 +121,20 @@ fn set_up_leds() {
     assert_eq!(code, 0);
 }
 
-#[cfg(armv7m)]
+#[cfg(all(armv7m, feature = "stm32f4"))]
 fn clear_led() {
     let gpiod = unsafe {
         &*stm32f4::stm32f407::GPIOD::ptr()
     };
     gpiod.bsrr.write(|w| w.br12().set_bit());
+}
+
+#[cfg(all(armv7m, feature = "stm32h7"))]
+fn clear_led() {
+    let gpiog = unsafe {
+        &*stm32h7::stm32h7b3::GPIOG::ptr()
+    };
+    gpiog.bsrr.write(|w| w.br11().set_bit());
 }
 
 #[cfg(armv8m)]
@@ -118,7 +146,7 @@ fn clear_led() {
     assert_eq!(code, 0);
 }
 
-#[cfg(armv7m)]
+#[cfg(all(armv7m, feature = "stm32f4"))]
 fn toggle_other_led() {
     let gpiod = unsafe {
         &*stm32f4::stm32f407::GPIOD::ptr()
@@ -127,6 +155,18 @@ fn toggle_other_led() {
         gpiod.bsrr.write(|w| w.br13().set_bit());
     } else {
         gpiod.bsrr.write(|w| w.bs13().set_bit());
+    }
+}
+
+#[cfg(all(armv7m, feature = "stm32h7"))]
+fn toggle_other_led() {
+    let gpiog = unsafe {
+        &*stm32h7::stm32h7b3::GPIOG::ptr()
+    };
+    if gpiog.odr.read().odr2().bit() {
+        gpiog.bsrr.write(|w| w.br2().set_bit());
+    } else {
+        gpiog.bsrr.write(|w| w.bs2().set_bit());
     }
 }
 

@@ -9,10 +9,10 @@ const PEER: Task = SELF;
 #[cfg(not(feature = "standalone"))]
 const PEER: Task = Task::pong;
 
-#[cfg(all(feature = "standalone"))]
+#[cfg(any(feature = "standalone", feature = "stm32h7"))]
 const UART: Task = SELF;
 
-#[cfg(all(not(feature = "standalone")))]
+#[cfg(all(not(feature = "standalone"), not(feature="stm32h7")))]
 const UART: Task = Task::usart_driver;
 
 #[cfg(all(not(feature = "standalone"), armv8m))]
@@ -57,7 +57,7 @@ fn set_led() {
     assert_eq!(0, code);
 }
 
-#[cfg(armv7m)]
+#[cfg(all(armv7m, feature = "stm32f4"))]
 fn set_led() {
     let gpiod = unsafe {
         &*stm32f4::stm32f407::GPIOD::ptr()
@@ -65,6 +65,15 @@ fn set_led() {
     gpiod.bsrr.write(|w| w.bs12().set_bit());
 }
 
+#[cfg(all(armv7m, feature = "stm32h7"))]
+fn set_led() {
+    let gpiog = unsafe {
+        &*stm32h7::stm32h7b3::GPIOG::ptr()
+    };
+    gpiog.bsrr.write(|w| w.bs11().set_bit());
+}
+
+#[cfg(not(feature = "stm32h7"))] // TODO
 fn uart_send(text: &[u8]) {
     let peer = TaskId::for_index_and_gen(UART as usize, Generation::default());
 
@@ -73,4 +82,8 @@ fn uart_send(text: &[u8]) {
         Lease::from(text),
     ]);
     assert_eq!(0, code);
+}
+
+#[cfg(feature = "stm32h7")] // TODO
+fn uart_send(_: &[u8]) {
 }

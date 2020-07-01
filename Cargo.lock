@@ -730,6 +730,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "stm32f4",
+ "stm32h7",
  "userlib",
 ]
 
@@ -741,6 +742,7 @@ dependencies = [
  "cortex-m-semihosting",
  "lpc55-pac",
  "stm32f4",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
