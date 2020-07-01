@@ -71,7 +71,7 @@ fn test_recv_reply() {
     // Don't actually care about the response in this case
 
     // Switch roles and wait for the message, blocking notifications.
-    let rm = sys_recv(response.as_bytes_mut(), 0);
+    let rm = sys_recv_open(response.as_bytes_mut(), 0);
     assert_eq!(rm.sender, assist);
     assert_eq!(rm.operation, 42); // assistant always sends this
 
@@ -339,13 +339,10 @@ fn test_timer_notify() {
     let deadline = start_time + 2;
     sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
-    // TODO: to wait specifically for a notification, we ought to do a closed
-    // receive from the kernel task ID. However, there's no API for this at this
-    // time.
-    let rm = sys_recv(&mut [], ARBITRARY_NOTIFICATION);
-    // We're not expecting anything else...
-    assert_eq!(rm.sender, TaskId::KERNEL);
+    let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
+        .unwrap();
 
+    assert_eq!(rm.sender, TaskId::KERNEL);
     assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
     assert_eq!(rm.message_len, 0);
     assert_eq!(rm.response_capacity, 0);
@@ -364,13 +361,10 @@ fn test_timer_notify_past() {
     let deadline = start_time;
     sys_set_timer(Some(deadline), ARBITRARY_NOTIFICATION);
 
-    // TODO: to wait specifically for a notification, we ought to do a closed
-    // receive from the kernel task ID. However, there's no API for this at this
-    // time.
-    let rm = sys_recv(&mut [], ARBITRARY_NOTIFICATION);
-    // We're not expecting anything else...
-    assert_eq!(rm.sender, TaskId::KERNEL);
+    let rm = sys_recv_closed(&mut [], ARBITRARY_NOTIFICATION, TaskId::KERNEL)
+        .unwrap();
 
+    assert_eq!(rm.sender, TaskId::KERNEL);
     assert_eq!(rm.operation, ARBITRARY_NOTIFICATION);
     assert_eq!(rm.message_len, 0);
     assert_eq!(rm.response_capacity, 0);

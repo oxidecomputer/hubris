@@ -94,7 +94,7 @@ fn main() -> ! {
     let mut tx: Option<Transmit> = None;
 
     loop {
-        let msginfo = sys_recv(&mut [], mask);
+        let msginfo = sys_recv_open(&mut [], mask);
         if msginfo.sender == TaskId::KERNEL {
             if msginfo.operation & 1 != 0 {
                 // Handling an interrupt. To allow for spurious interrupts,
