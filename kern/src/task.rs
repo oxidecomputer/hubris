@@ -159,18 +159,25 @@ impl Task {
     /// if any bits are set in both words, clears those bits in the notification
     /// bits and returns them.
     ///
-    /// This directly accesses the notification mask syscall argument in the
-    /// task saved state, so it doesn't make sense if the task is not performing
-    /// a RECV -- but this is not checked.
+    /// If the `specific_sender` filter disallows the receipt of kernel
+    /// messages, we will treat the notification mask as 0, and you will always
+    /// get `None` here.
+    ///
+    /// This directly accesses the RECV syscall arguments from the task's saved
+    /// state, so it doesn't make sense if the task is not performing a RECV --
+    /// but this is not checked.
     pub fn take_notifications(&mut self) -> Option<u32> {
-        let firing =
-            self.notifications & self.save.as_recv_args().notification_mask();
-        if firing != 0 {
-            self.notifications &= !firing;
-            Some(firing)
-        } else {
-            None
+        let args = self.save.as_recv_args();
+        let ss = args.specific_sender();
+        if ss.is_none() || ss == Some(TaskId::KERNEL) {
+            // Notifications are not filtered out.
+            let firing = self.notifications & args.notification_mask();
+            if firing != 0 {
+                self.notifications &= !firing;
+                return Some(firing)
+            }
         }
+        None
     }
 
     /// Checks if this task is in a potentially schedulable state.
@@ -470,6 +477,17 @@ impl<'a, T: ArchState> AsRecvArgs<&'a T> {
     /// Gets the caller's notification mask.
     pub fn notification_mask(&self) -> u32 {
         self.0.arg2()
+    }
+
+    /// Gets the task ID we're listening for, or `None` if any sender is
+    /// acceptable.
+    pub fn specific_sender(&self) -> Option<TaskId> {
+        let v = self.0.arg3();
+        if v & (1 << 31) != 0 {
+            Some(TaskId(v as u16))
+        } else {
+            None
+        }
     }
 }
 

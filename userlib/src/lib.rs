@@ -198,6 +198,7 @@ unsafe extern "C" fn sys_recv_stub(
         mov r4, r0
         mov r5, r1
         mov r6, r2
+        mov r7, #0
         @ Load the constant syscall number.
         mov r11, {sysnum}
 
