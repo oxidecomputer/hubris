@@ -41,9 +41,21 @@ requires = {flash = 32768, ram = 1024}
 start = true
 features = ["itm"]
 
+[tasks.rcc_driver]
+path = "../drv/stm32h7-rcc"
+name = "drv-stm32h7-rcc"
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc"]
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
 priority = 4
 requires = {flash = 256, ram = 256}
 start = true
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
