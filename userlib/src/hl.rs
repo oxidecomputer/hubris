@@ -8,9 +8,12 @@ use core::marker::PhantomData;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
-    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv_open,
-    sys_reply, sys_send, FromPrimitive,
+    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv_closed,
+    sys_recv_open, sys_reply, sys_send, sys_get_timer, sys_set_timer,
+    FromPrimitive,
 };
+
+const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;
 
 /// Receives a message, or a notification, and handles it.
 ///
@@ -457,4 +460,37 @@ where
     } else {
         Err(M::Err::from(code))
     }
+}
+
+/// Suspends the calling task until the kernel time is `>= time`.
+///
+/// TODO: once we figure out how to convert between ticks and seconds here, this
+/// should take a real unit instead of a tick count.
+pub fn sleep_until(time: u64) {
+    sys_set_timer(Some(time), INTERNAL_TIMER_NOTIFICATION);
+    loop {
+        let _ = sys_recv_closed(
+            &mut [],
+            INTERNAL_TIMER_NOTIFICATION,
+            TaskId::KERNEL,
+        );
+        // We don't actually need to check the results:
+        // - The kernel cannot die.
+        // - We only agreed to accept notification messages with our timer bit set.
+        // - We must assume that the kernel is correct.
+
+        // We do, however, need to check for the possibility of spurious
+        // wakeups, by reading the time back.
+        if sys_get_timer().now >= time {
+            break
+        }
+    }
+}
+
+/// Suspends the calling task until the kernel time has increased by `ticks`.
+///
+/// TODO: once we figure out how to convert between ticks and seconds here, this
+/// needs to take `Duration`.
+pub fn sleep_for(ticks: u64) {
+    sleep_until(sys_get_timer().now + ticks)
 }
