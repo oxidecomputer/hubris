@@ -32,7 +32,7 @@ fn main() -> ! {
     // faults.
     let mask = 1;
     loop {
-        let msginfo = sys_recv(&mut [], mask);
+        let msginfo = sys_recv_open(&mut [], mask);
 
         if msginfo.sender == TaskId::KERNEL {
             // Handle notification

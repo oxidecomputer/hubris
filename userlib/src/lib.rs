@@ -147,28 +147,103 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
     )
 }
 
+/// Performs an "open" RECV that will accept messages from any task or
+/// notifications from the kernel.
+///
+/// The next message sent to this task, or the highest priority message if
+/// several are pending simultaneously, will be written into `buffer`, and its
+/// information returned.
+///
+/// `notification_mask` determines which notification bits can interrupt this
+/// RECV (any that are 1). If a notification interrupts the RECV, you will get a
+/// "message" originating from `TaskId::KERNEL`.
+///
+/// This operation cannot fail -- it can be interrupted by a notification if you
+/// let it, but it always receives _something_.
 #[inline(always)]
-pub fn sys_recv(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
+pub fn sys_recv_open(
+    buffer: &mut [u8],
+    notification_mask: u32,
+) -> RecvMessage {
+    // The open-receive version of the syscall is defined as being unable to
+    // fail, and so we should always get a success here. (This is not using
+    // `unwrap` because that generates handling code with formatting.)
+    match sys_recv(buffer, notification_mask, None) {
+        Ok(rm) => rm,
+        Err(_) => panic!(),
+    }
+}
+
+/// Performs a "closed" RECV that will only accept messages from `sender`.
+///
+/// The next message sent from `sender` to this task (including a message that
+/// has already been sent, but is blocked) will be written into `buffer`, and
+/// its information returned.
+///
+/// `notification_mask` determines which notification bits can interrupt this
+/// RECV (any that are 1). Note that, if `sender` is not `TaskId::KERNEL`, you
+/// can't actually receive any notifications with this operation, so
+/// `notification_mask` should always be zero in that case.
+///
+/// If `sender` is stale (i.e. refers to a deceased generation of the task) when
+/// you call this, or if `sender` is rebooted while you're blocked in this
+/// operation, this will fail with `ClosedRecvError::Dead`.
+#[inline(always)]
+pub fn sys_recv_closed(
+    buffer: &mut [u8],
+    notification_mask: u32,
+    sender: TaskId,
+) -> Result<RecvMessage, ClosedRecvError> {
+    sys_recv(buffer, notification_mask, Some(sender))
+        .map_err(|_| ClosedRecvError::Dead)
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ClosedRecvError {
+    Dead,
+}
+
+/// General version of RECV that lets you pick closed vs. open receive at
+/// runtime.
+///
+/// You almost always want `sys_recv_open` or `sys_recv_closed` instead.
+#[inline(always)]
+pub fn sys_recv(
+    buffer: &mut [u8],
+    notification_mask: u32,
+    specific_sender: Option<TaskId>,
+) -> Result<RecvMessage, u32> {
     use core::mem::MaybeUninit;
 
+    // Flatten option into a packed u32.
+    let specific_sender = specific_sender
+        .map(|tid| (1u32 << 31) | u32::from(tid.0))
+        .unwrap_or(0);
     let mut out = MaybeUninit::<RawRecvMessage>::uninit();
-    unsafe {
+    let rc = unsafe {
         sys_recv_stub(
             buffer.as_mut_ptr(),
             buffer.len(),
             notification_mask,
+            specific_sender,
             out.as_mut_ptr(),
-        );
-    }
-    // Safety: stub fully initializes output struct.
+        )
+    };
+
+    // Safety: stub fully initializes output struct. On failure, it might
+    // initialize it with nonsense, but that's okay -- it's still initialized.
     let out = unsafe { out.assume_init() };
 
-    RecvMessage {
-        sender: TaskId(out.sender as u16),
-        operation: out.operation,
-        message_len: out.message_len,
-        response_capacity: out.response_capacity,
-        lease_count: out.lease_count,
+    if rc == 0 {
+        Ok(RecvMessage {
+            sender: TaskId(out.sender as u16),
+            operation: out.operation,
+            message_len: out.message_len,
+            response_capacity: out.response_capacity,
+            lease_count: out.lease_count,
+        })
+    } else {
+        Err(rc)
     }
 }
 
@@ -185,12 +260,14 @@ pub struct RecvMessage {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[inline(never)]
 #[naked]
+#[must_use]
 unsafe extern "C" fn sys_recv_stub(
     _buffer_ptr: *mut u8,
     _buffer_len: usize,
     _notification_mask: u32,
+    _specific_sender: u32,
     _out: *mut RawRecvMessage,
-) {
+) -> u32 {
     asm!("
         @ Spill the registers we're about to use to pass stuff.
         push {{r4-r11}}
@@ -198,13 +275,20 @@ unsafe extern "C" fn sys_recv_stub(
         mov r4, r0
         mov r5, r1
         mov r6, r2
-        mov r7, #0
+        mov r7, r3
+        @ Read output buffer pointer from stack into a register that
+        @ is preserved during our syscall. Since we just pushed a
+        @ bunch of stuff, we need to read *past* it.
+        ldr r3, [sp, #(8 * 4)]
         @ Load the constant syscall number.
         mov r11, {sysnum}
 
         @ To the kernel!
         svc #0
 
+        @ Move status flag (only used for closed receive) into return
+        @ position
+        mov r0, r4
         @ Write all the results out into the raw output buffer.
         stm r3, {{r5-r9}}
         @ Restore the registers we used.

@@ -8,8 +8,8 @@ use core::marker::PhantomData;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
-    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv, sys_reply,
-    sys_send, FromPrimitive,
+    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv_open,
+    sys_reply, sys_send, FromPrimitive,
 };
 
 /// Receives a message, or a notification, and handles it.
@@ -82,7 +82,7 @@ pub fn recv<'a, O, E, S>(
     O: FromPrimitive,
     E: Into<u32>,
 {
-    let rm = sys_recv(buffer, mask);
+    let rm = sys_recv_open(buffer, mask);
     let sender = rm.sender;
     if rm.sender == TaskId::KERNEL {
         notify(state, rm.operation);
