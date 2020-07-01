@@ -63,8 +63,8 @@ fn main() -> ! {
                         unsafe {
                             (*msg as *const u8).read_volatile();
                         }
-                        // if we get here, memory protection is broken!
-                        panic!();
+                        panic!("Stray pointer access did not crash! \
+                            Is memory protection working?!");
                     },
                     Op::Panic => {
                         caller.reply(0);

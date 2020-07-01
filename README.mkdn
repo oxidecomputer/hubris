@@ -24,6 +24,8 @@ You will need:
 - The appropriate Rust toolchain target installed: `rustup target add
   thumbv7em-none-eabihf`
 
+- `itmdump`: `cargo install itm`
+
 ### Windows
 
 If you're on Windows, you can get set up by doing this:
