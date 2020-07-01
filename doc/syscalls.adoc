@@ -338,9 +338,10 @@ you `RECV`).
 The time unit for deadlines is not currently specified -- it's currently an
 abstract "kernel ticks" unit. This will be fixed.
 
-=== `READ_TIMER` (4)
+=== `GET_TIMER` (9)
 
-Returns the current kernel timestamp.
+Reads the contents of the task's timer: both the current time, and any
+configured deadline.
 
 ==== Arguments
 
@@ -350,6 +351,10 @@ None.
 
 - 0: low 32 bits of kernel timestamp.
 - 1: high 32 bits of kernel timestamp.
+- 2: 0=no deadline set, 1=deadline set.
+- 3: low 32 bits of deadline, if set.
+- 4: high 32 bits of deadline, if set.
+- 5: notifications to post when deadline reached.
 
 ==== Faults
 
