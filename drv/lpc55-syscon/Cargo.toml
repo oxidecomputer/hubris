@@ -8,6 +8,7 @@ edition = "2018"
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.1.0"
+cortex-m = "0.6.0"
 num-traits = {version = "0.2", default-features = false}
 
 [features]

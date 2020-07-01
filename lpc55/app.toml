@@ -43,7 +43,7 @@ path = "../drv/lpc55-syscon"
 name = "drv-lpc55-syscon"
 priority = 2
 requires = {flash = 16384, ram = 1024}
-uses = ["syscon", "anactrl"]
+uses = ["syscon", "anactrl", "pmc"]
 start = true
 
 [tasks.gpio_driver]
@@ -114,4 +114,8 @@ size = 4096
 
 [peripherals.flexcomm4]
 address = 0x4008A000
+size = 4096
+
+[peripherals.pmc]
+address = 0x40020000
 size = 4096
