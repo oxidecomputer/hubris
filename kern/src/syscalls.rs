@@ -127,9 +127,9 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     let caller_id = current_id(tasks, caller);
     if tasks[callee].state().can_accept_message_from(caller_id) {
         // Callee is waiting in receive -- either an open receive, or a
-        // directed receive from just us. Either way, we can directly
-        // deliver the message and switch tasks...unless either task was
-        // naughty, in which case we have to fault it and block.
+        // closed receive from just us. Either way, we can directly deliver the
+        // message and switch tasks...unless either task was naughty, in which
+        // case we have to fault it and block.
         match deliver(tasks, caller, callee) {
             Ok(_) => {
                 // Delivery succeeded! The initiating task is now blocked in
