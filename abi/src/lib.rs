@@ -305,9 +305,11 @@ impl TaskState {
 
     /// Checks if a task in this state can be unblocked with a notification.
     pub fn can_accept_notification(&self) -> bool {
-        // TODO: should a closed recv against the kernel's taskid be a
-        // notification-only recv? If so, match that here too.
-        self == &TaskState::Healthy(SchedState::InRecv(None))
+        if let TaskState::Healthy(SchedState::InRecv(p)) = self {
+            p.is_none() || p == &Some(TaskId::KERNEL)
+        } else {
+            false
+        }
     }
 }
 

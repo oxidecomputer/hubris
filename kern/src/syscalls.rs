@@ -163,7 +163,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 /// # Panics
 ///
 /// If `caller` is out of range for `tasks`.
-fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
+fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // We allow tasks to atomically replace their notification mask at each
     // receive. We simultaneously find out if there are notifications pending.
     if let Some(firing) = tasks[caller].take_notifications() {
@@ -176,45 +176,86 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 
     let caller_id = current_id(tasks, caller);
 
-    // Begin the search for tasks waiting to send to `caller`. This search needs
-    // to be able to iterate because it's possible that some of these senders
-    // have bogus arguments to receive, e.g. are trying to get us to deliver a
-    // "message" from memory they don't own. The apparently infinite loop
-    // terminates if:
-    //
-    // - A legit sender is found and its message can be delivered.
-    // - A legit sender is found, but the *caller* misbehaved and gets faulted.
-    // - No senders were found (after fault processing) and we have to block the
-    //   caller.
-    let mut last = caller; // keep track of scan position.
-                           // Is anyone blocked waiting to send to us?
+    let specific_sender = tasks[caller].save().as_recv_args().specific_sender();
+
     let mut next_task = NextTask::Same; // update if we wake tasks
-    while let Some(sender) =
-        task::priority_scan(last, tasks, |t| t.state().is_sending_to(caller_id))
-    {
-        // Oh hello sender!
-        match deliver(tasks, sender, caller) {
-            Ok(_) => {
-                // Delivery succeeded! Sender is now blocked in reply. Go ahead
-                // and let the caller resume.
-                return Ok(next_task);
+
+    if specific_sender == Some(TaskId::KERNEL) {
+        // We've already checked for notifications, which is the only kind of
+        // message the kernel emits. No need to check further; we'll fall
+        // through to the block code below and wait for notification.
+    } else if let Some(sender_id) = specific_sender {
+        // Closed Receive
+
+        // No need to do any sort of iterative scan. We've got three potential
+        // outcomes here.
+
+        // First possibility: that task you're asking about is DEAD.
+        let sender_idx = task::check_task_id_against_table(tasks, sender_id)?;
+        // Second possibility: task has a message for us.
+        if tasks[sender_idx].state().is_sending_to(caller_id) {
+            // Oh hello sender!
+            match deliver(tasks, sender_idx, caller) {
+                Ok(_) => {
+                    // Delivery succeeded! Sender is now blocked in reply. Go ahead
+                    // and let the caller resume.
+                    return Ok(next_task);
+                }
+                Err(interact) => {
+                    // Delivery failed because of fault events in one or both
+                    // tasks.  We need to apply the fault status, and then if we
+                    // didn't have to murder the caller, we'll retry receiving a
+                    // message.
+                    let wake_hint = interact.apply_to_src(tasks, sender_idx)?;
+                    next_task = next_task.combine(wake_hint);
+                }
             }
-            Err(interact) => {
-                // Delivery failed because of fault events in one or both
-                // tasks.  We need to apply the fault status, and then if we
-                // didn't have to murder the caller, we'll retry receiving a
-                // message.
-                let wake_hint = interact.apply_to_src(tasks, sender)?;
-                next_task = next_task.combine(wake_hint);
-                // Okay, if we didn't just return, retry the search from a new
-                // position.
-                last = sender;
+        }
+        // Third possibility: we need to block; fall through below.
+    } else {
+        // Open Receive
+
+        // Begin the search for tasks waiting to send to `caller`. This search
+        // needs to be able to iterate because it's possible that some of these
+        // senders have bogus arguments to receive, e.g. are trying to get us to
+        // deliver a "message" from memory they don't own. The apparently
+        // infinite loop terminates if:
+        //
+        // - A legit sender is found and its message can be delivered.
+        // - A legit sender is found, but the *caller* misbehaved and gets
+        //   faulted.
+        // - No senders were found (after fault processing) and we have to block
+        // the caller.
+        let mut last = caller; // keep track of scan position.
+
+        // Is anyone blocked waiting to send to us?
+        while let Some(sender) =
+            task::priority_scan(last, tasks, |t| t.state().is_sending_to(caller_id))
+        {
+            // Oh hello sender!
+            match deliver(tasks, sender, caller) {
+                Ok(_) => {
+                    // Delivery succeeded! Sender is now blocked in reply. Go ahead
+                    // and let the caller resume.
+                    return Ok(next_task);
+                }
+                Err(interact) => {
+                    // Delivery failed because of fault events in one or both
+                    // tasks.  We need to apply the fault status, and then if we
+                    // didn't have to murder the caller, we'll retry receiving a
+                    // message.
+                    let wake_hint = interact.apply_to_src(tasks, sender)?;
+                    next_task = next_task.combine(wake_hint);
+                    // Okay, if we didn't just return, retry the search from a new
+                    // position.
+                    last = sender;
+                }
             }
         }
     }
 
     // No notifications, nobody waiting to send -- block the caller.
-    tasks[caller].set_healthy_state(SchedState::InRecv(None));
+    tasks[caller].set_healthy_state(SchedState::InRecv(specific_sender));
     // We may not know what task should run next, but we're pretty sure it's not
     // the one we just blocked.
     Ok(NextTask::Other.combine(next_task))
