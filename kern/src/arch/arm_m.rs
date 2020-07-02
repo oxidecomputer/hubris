@@ -357,10 +357,20 @@ pub fn apply_memory_protection(task: &task::Task) {
         } else {
             0b001
         };
+        // Set the TEX/SCB bits to configure memory type, caching policy, and
+        // shareability (with other cores or masters). See table B3-13 in the
+        // ARMv7-M ARM.
         let (tex, scb) = if ratts.contains(app::RegionAttributes::DEVICE) {
-            (0b000, 0b111)
+            // Device memory.
+            (0b000, 0b001)
         } else {
-            (0b001, 0b111)
+            // Conservative settings for normal memory assuming that DMA might
+            // be a problem:
+            // - Outer and inner write-through.
+            // - Read allocate, no write allocate.
+            // - Shared.
+            // TODO: could get higher performance by exposing this as a choice.
+            (0b000, 0b110)
         };
         // This is a bit of a hack; it works if the size is a power of two, but
         // will undersize the region if it isn't. We really need to validate the
