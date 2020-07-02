@@ -43,14 +43,3 @@ jobs:
         with:
           branch: ${{github.event.pull_request.head.ref }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Create comment
-        if: steps.git-check.outputs.modified == 'true'
-        uses: peter-evans/create-or-update-comment@v1
-        with:
-          issue-number: ${{ github.event.pull_request.number }} 
-          body: |
-            'My name is Ozymandias, king of kings:
-            Look on my works, ye Mighty, and despair!'
-            Nothing beside remains. Round the decay
-            Of that colossal wreck, boundless and bare
-            The lone and level sands stretch far away.
