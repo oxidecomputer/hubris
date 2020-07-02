@@ -9,18 +9,11 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.6.0"
 userlib = {path = "../userlib"}
-lpc55-pac = "0.1.0"
-stm32f4 = {version = "0.10.0", features = ["stm32f407"], optional = true}
 zerocopy = "0.3.0"
 cortex-m-semihosting = "0.3.3"
 
-[dependencies.stm32h7]
-git = "https://github.com/stm32-rs/stm32-rs-nightlies"
-features = ["stm32h7b3"]
-optional = true
-
 [features]
-default = ["standalone", "stm32f4"]
+default = ["standalone"]
 standalone = []
 
 [[bin]]
