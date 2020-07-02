@@ -270,6 +270,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-user-leds"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "num-traits",
+ "stm32f4",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
