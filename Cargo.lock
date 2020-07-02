@@ -282,6 +282,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-user-leds-api"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -748,8 +757,8 @@ name = "task-ping"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "drv-user-leds-api",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
@@ -757,9 +766,8 @@ name = "task-pong"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "cortex-m-semihosting",
+ "drv-user-leds-api",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]

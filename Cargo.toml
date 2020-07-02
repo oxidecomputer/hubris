@@ -31,6 +31,7 @@ members = [
     "drv/lpc55-i2c",
 
     "drv/user-leds",
+    "drv/user-leds-api",
 
     "tests-stm32f4/stub",
     "tests-stm32f4",
