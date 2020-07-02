@@ -43,7 +43,7 @@ pub unsafe fn start_kernel(
         core::slice::from_raw_parts(tasks_ptr, app_header.task_count as usize);
 
     let region_ptr = tasks_ptr.offset(app_header.task_count as isize)
-            as *const app::RegionDesc;
+        as *const app::RegionDesc;
     let regions = core::slice::from_raw_parts(
         region_ptr,
         app_header.region_count as usize,

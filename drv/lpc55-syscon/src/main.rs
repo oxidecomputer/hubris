@@ -5,7 +5,7 @@
 //! interested in the clock bits.
 //!
 //! # IPC protocol
-//! 
+//!
 //! Peripheral bit numbers per the LPC55 manual section 4.5 (for the benefit of
 //! the author writing this driver who hates having to look these up. Double
 //! check these later!)
@@ -106,9 +106,9 @@
 #![no_std]
 #![no_main]
 
+use cortex_m;
 use lpc55_pac as device;
 use zerocopy::AsBytes;
-use cortex_m;
 
 use userlib::*;
 
@@ -161,26 +161,28 @@ fn main() -> ! {
     // LPC55 I2C driver has a note about weird crashes with the 150MHz PLL
     // and i2c?
 
-    let syscon = unsafe  { &*device::SYSCON::ptr() };
-    let anactrl = unsafe  { &*device::ANACTRL::ptr() };
-    let pmc = unsafe  { &*device::PMC::ptr() };
+    let syscon = unsafe { &*device::SYSCON::ptr() };
+    let anactrl = unsafe { &*device::ANACTRL::ptr() };
+    let pmc = unsafe { &*device::PMC::ptr() };
 
     // apparently some of the clocks are controlled by the analog block
     //
-    anactrl.fro192m_ctrl.modify(|_, w| w.ena_96mhzclk().enable());
-    anactrl.fro192m_ctrl.modify(|_, w| w.ena_12mhzclk().enable());
-
+    anactrl
+        .fro192m_ctrl
+        .modify(|_, w| w.ena_96mhzclk().enable());
+    anactrl
+        .fro192m_ctrl
+        .modify(|_, w| w.ena_12mhzclk().enable());
 
     // Just set our Flexcom0 i.e. UART0 to be 12Mhz
-    syscon.fcclksel0().modify( |_, w| w.sel().enum_0x2() );
+    syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
     // Flexcom4 (the DAC i2c) is also set to 12Mhz
-    syscon.fcclksel4().modify( |_, w| w.sel().enum_0x2() );
+    syscon.fcclksel4().modify(|_, w| w.sel().enum_0x2());
 
     // Enable the 1Mhz FRO for utick module
-    syscon.clock_ctrl.modify(|_, w| w
-        .fro1mhz_clk_ena().enable()
-        .fro1mhz_utick_ena().enable()
-    );
+    syscon.clock_ctrl.modify(|_, w| {
+        w.fro1mhz_clk_ena().enable().fro1mhz_utick_ena().enable()
+    });
 
     // Use the FR0 12MHz clock for the main clock to start
     // We'll be switching over to the PLL later
@@ -192,7 +194,6 @@ fn main() -> ! {
     syscon.ahbclkdiv.modify(|_, w| unsafe { w.div().bits(0x0) });
     // 2 system clocks flash access time
     syscon.fmccr.modify(|_, w| unsafe { w.flashtim().bits(1) });
-
 
     // Some PLL math: Per 4.6.6.3.1 in the manual:
     //
@@ -237,55 +238,54 @@ fn main() -> ! {
     let selr = 0;
 
     // Make sure these are actually off
-    pmc.pdruncfg0.modify(|_, w| w
-        .pden_pll0().poweredoff()
-        .pden_pll0_sscg().poweredoff()
-    );
+    pmc.pdruncfg0.modify(|_, w| {
+        w.pden_pll0().poweredoff().pden_pll0_sscg().poweredoff()
+    });
 
     // Mark PLL0 as using 12 MHz
     syscon.pll0clksel.modify(|_, w| w.sel().enum_0x0());
 
-    syscon.pll0ctrl.modify(|_, w| unsafe { w
-                .selr().bits(selr)
-                .seli().bits(seli)
-                .selp().bits(selp)
-                .clken().enable() });
+    syscon.pll0ctrl.modify(|_, w| unsafe {
+        w.selr()
+            .bits(selr)
+            .seli()
+            .bits(seli)
+            .selp()
+            .bits(selp)
+            .clken()
+            .enable()
+    });
 
     // writing these settings is 'quirky'. We have to write the
     // value once into the register then write it again with the latch
     // bit set. Not in the docs but in the NXP C driver...
-    syscon.pll0ndec.write(|w| unsafe { w
-            .ndiv().bits(pll_n)
-    });
-    syscon.pll0ndec.write(|w| unsafe { w
-            .ndiv().bits(pll_n)
-            .nreq().set_bit()
-    });
+    syscon.pll0ndec.write(|w| unsafe { w.ndiv().bits(pll_n) });
+    syscon
+        .pll0ndec
+        .write(|w| unsafe { w.ndiv().bits(pll_n).nreq().set_bit() });
 
-    syscon.pll0pdec.write(|w| unsafe { w
-            .pdiv().bits(pll_p)
-    });
-    syscon.pll0pdec.write(|w| unsafe { w
-            .pdiv().bits(pll_p)
-            .preq().set_bit()
-    });
+    syscon.pll0pdec.write(|w| unsafe { w.pdiv().bits(pll_p) });
+    syscon
+        .pll0pdec
+        .write(|w| unsafe { w.pdiv().bits(pll_p).preq().set_bit() });
 
-    syscon.pll0sscg1.write(|w| unsafe { w
-            .mdiv_ext().bits(pll_m)
-            .sel_ext().set_bit()
-    });
-    syscon.pll0sscg1.write(|w| unsafe { w
-            .mdiv_ext().bits(pll_m)
-            .sel_ext().set_bit()
-            .mreq().set_bit()
-            .md_req().set_bit()
+    syscon
+        .pll0sscg1
+        .write(|w| unsafe { w.mdiv_ext().bits(pll_m).sel_ext().set_bit() });
+    syscon.pll0sscg1.write(|w| unsafe {
+        w.mdiv_ext()
+            .bits(pll_m)
+            .sel_ext()
+            .set_bit()
+            .mreq()
+            .set_bit()
+            .md_req()
+            .set_bit()
     });
 
     // Now actually turn on the PLLs
-    pmc.pdruncfg0.modify(|_, w| w
-        .pden_pll0().poweredon()
-        .pden_pll0_sscg().poweredon()
-    );
+    pmc.pdruncfg0
+        .modify(|_, w| w.pden_pll0().poweredon().pden_pll0_sscg().poweredon());
 
     // Time to put the Lock in Phase Locked Loop!
     //
@@ -309,14 +309,15 @@ fn main() -> ! {
     // The flash wait cycles need to be adjusted. Per the docs
     // 0xb = 12 system clocks flash access time (for system clock rates up
     // to 150 MHz).
-    syscon.fmccr.modify(|_, w| unsafe { w.flashtim().bits(0xb) });
+    syscon
+        .fmccr
+        .modify(|_, w| unsafe { w.flashtim().bits(0xb) });
 
     // Now actually set our clocks
     // Main A = 12 MHz
     syscon.mainclksela.modify(|_, w| w.sel().enum_0x0());
     // Main B = PLL0
     syscon.mainclkselb.modify(|_, w| w.sel().enum_0x1());
-
 
     // Field messages.
     // Ensure our buffer is aligned properly for a u32 by declaring it as one.
@@ -328,13 +329,12 @@ fn main() -> ! {
                 // Every incoming message uses the same payload type and
                 // response type: it's always u32 -> (). So we can do the
                 // check-and-convert here:
-                let (msg, caller) = msg.fixed::<u32, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
+                let (msg, caller) =
+                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
                 let pmask = 1 << (msg % 32);
                 let chunk = msg / 32;
 
-                let reg = Reg::from_u32(chunk)
-                    .ok_or(ResponseCode::BadArg)?;
+                let reg = Reg::from_u32(chunk).ok_or(ResponseCode::BadArg)?;
 
                 // Just like the STM32F4 we end up with a lot of duplication
                 // because each register is a different type.
@@ -343,27 +343,27 @@ fn main() -> ! {
                         Reg::R0 => set_bit!(syscon.ahbclkctrl0, pmask),
                         Reg::R1 => set_bit!(syscon.ahbclkctrl1, pmask),
                         Reg::R2 => set_bit!(syscon.ahbclkctrl2, pmask),
-                    }
+                    },
                     Op::DisableClock => match reg {
                         Reg::R0 => clear_bit!(syscon.ahbclkctrl0, pmask),
                         Reg::R1 => clear_bit!(syscon.ahbclkctrl1, pmask),
                         Reg::R2 => clear_bit!(syscon.ahbclkctrl2, pmask),
-                    }
+                    },
                     Op::EnterReset => match reg {
                         Reg::R0 => set_bit!(syscon.presetctrl0, pmask),
                         Reg::R1 => set_bit!(syscon.presetctrl1, pmask),
                         Reg::R2 => set_bit!(syscon.presetctrl2, pmask),
-                    }
+                    },
                     Op::LeaveReset => match reg {
                         Reg::R0 => clear_bit!(syscon.presetctrl0, pmask),
                         Reg::R1 => clear_bit!(syscon.presetctrl1, pmask),
                         Reg::R2 => clear_bit!(syscon.presetctrl2, pmask),
-                    }
+                    },
                 }
 
                 caller.reply(());
                 Ok(())
-            }
+            },
         );
     }
 }

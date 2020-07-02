@@ -8,8 +8,8 @@ use core::marker::PhantomData;
 use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
-    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_recv_closed,
-    sys_recv_open, sys_reply, sys_send, sys_get_timer, sys_set_timer,
+    sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
+    sys_recv_closed, sys_recv_open, sys_reply, sys_send, sys_set_timer,
     FromPrimitive,
 };
 
@@ -482,7 +482,7 @@ pub fn sleep_until(time: u64) {
         // We do, however, need to check for the possibility of spurious
         // wakeups, by reading the time back.
         if sys_get_timer().now >= time {
-            break
+            break;
         }
     }
 }

@@ -28,8 +28,8 @@ extern "C" {
 #[entry]
 fn main() -> ! {
     unsafe {
-        let heap_size = (&__eheap as *const _ as usize)
-            - (&__sheap as *const _ as usize);
+        let heap_size =
+            (&__eheap as *const _ as usize) - (&__sheap as *const _ as usize);
         kern::startup::start_kernel(
             &hubris_app_table,
             (&mut __sheap) as *mut _,

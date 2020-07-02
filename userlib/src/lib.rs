@@ -92,7 +92,8 @@ pub fn sys_send(
     leases: &[Lease<'_>],
 ) -> (u32, usize) {
     let mut args = SendArgs {
-        packed_target_operation: u32::from(target.0) << 16 | u32::from(operation),
+        packed_target_operation: u32::from(target.0) << 16
+            | u32::from(operation),
         outgoing_ptr: outgoing.as_ptr(),
         outgoing_len: outgoing.len(),
         incoming_ptr: incoming.as_mut_ptr(),
@@ -100,9 +101,7 @@ pub fn sys_send(
         lease_ptr: leases.as_ptr(),
         lease_len: leases.len(),
     };
-    unsafe {
-        sys_send_stub(&mut args).into()
-    }
+    unsafe { sys_send_stub(&mut args).into() }
 }
 
 #[allow(dead_code)] // this gets used from asm
@@ -161,10 +160,7 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
 /// This operation cannot fail -- it can be interrupted by a notification if you
 /// let it, but it always receives _something_.
 #[inline(always)]
-pub fn sys_recv_open(
-    buffer: &mut [u8],
-    notification_mask: u32,
-) -> RecvMessage {
+pub fn sys_recv_open(buffer: &mut [u8], notification_mask: u32) -> RecvMessage {
     // The open-receive version of the syscall is defined as being unable to
     // fail, and so we should always get a success here. (This is not using
     // `unwrap` because that generates handling code with formatting.)
@@ -317,12 +313,7 @@ struct RawRecvMessage {
 #[inline(always)]
 pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
     unsafe {
-        sys_reply_stub(
-            peer.0 as u32,
-            code,
-            message.as_ptr(),
-            message.len()
-        )
+        sys_reply_stub(peer.0 as u32, code, message.as_ptr(), message.len())
     }
 }
 
@@ -444,9 +435,7 @@ pub fn sys_borrow_read(
         dest: dest.as_mut_ptr(),
         dest_len: dest.len(),
     };
-    unsafe {
-        sys_borrow_read_stub(&mut args).into()
-    }
+    unsafe { sys_borrow_read_stub(&mut args).into() }
 }
 
 /// Core implementation of the BORROW_READ syscall.
@@ -454,9 +443,7 @@ pub fn sys_borrow_read(
 /// See the note on syscall stubs at the top of this module for rationale.
 #[inline(never)]
 #[naked]
-unsafe extern "C" fn sys_borrow_read_stub(
-    _args: *mut BorrowReadArgs,
-) -> RcLen {
+unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
     asm!("
         @ Spill the registers we're about to use to pass stuff. Note that we're
         @ being clever and pushing only the registers we need; this means the
@@ -507,9 +494,7 @@ pub fn sys_borrow_write(
         src: src.as_ptr(),
         src_len: src.len(),
     };
-    unsafe {
-        sys_borrow_write_stub(&mut args).into()
-    }
+    unsafe { sys_borrow_write_stub(&mut args).into() }
 }
 
 /// Core implementation of the BORROW_WRITE syscall.
@@ -562,11 +547,7 @@ pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
 
     let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
     unsafe {
-        sys_borrow_info_stub(
-            lender.0 as u32,
-            index,
-            raw.as_mut_ptr(),
-        );
+        sys_borrow_info_stub(lender.0 as u32, index, raw.as_mut_ptr());
     }
     // Safety: stub completely initializes record
     let raw = unsafe { raw.assume_init() };
@@ -630,10 +611,7 @@ pub fn sys_irq_control(mask: u32, enable: bool) {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[inline(never)]
 #[naked]
-unsafe extern "C" fn sys_irq_control_stub(
-    _mask: u32,
-    _enable: u32,
-) {
+unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
     asm!("
         @ Spill the registers we're about to use to pass stuff. Note that we're
         @ being clever and pushing only the registers we need; this means the
@@ -661,9 +639,7 @@ unsafe extern "C" fn sys_irq_control_stub(
 
 #[inline(always)]
 pub fn sys_panic(msg: &[u8]) -> ! {
-    unsafe {
-        sys_panic_stub(msg.as_ptr(), msg.len())
-    }
+    unsafe { sys_panic_stub(msg.as_ptr(), msg.len()) }
 }
 
 /// Core implementation of the PANIC syscall.
@@ -671,10 +647,7 @@ pub fn sys_panic(msg: &[u8]) -> ! {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[inline(never)]
 #[naked]
-unsafe extern "C" fn sys_panic_stub(
-    _msg: *const u8,
-    _len: usize,
-) -> ! {
+unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
     asm!("
         @ We're not going to return, so technically speaking we don't need to
         @ save registers. However, we save them anyway, so that we can reconstruct
@@ -757,9 +730,7 @@ struct RawTimerState {
 /// See the note on syscall stubs at the top of this module for rationale.
 #[inline(never)]
 #[naked]
-unsafe extern "C" fn sys_get_timer_stub(
-    _out: *mut RawTimerState,
-) {
+unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
     asm!("
         @ Spill the registers we're about to use to pass stuff.
         push {{r4-r11}}
@@ -780,7 +751,6 @@ unsafe extern "C" fn sys_get_timer_stub(
         options(noreturn),
     )
 }
-
 
 #[cfg(feature = "log-itm")]
 #[macro_export]

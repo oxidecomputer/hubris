@@ -3,9 +3,9 @@
 use core::marker::PhantomData;
 use zerocopy::FromBytes;
 
-use abi::{FaultInfo, FaultSource, UsageError};
-use crate::task::Task;
 use crate::err::InteractFault;
+use crate::task::Task;
+use abi::{FaultInfo, FaultSource, UsageError};
 
 pub use abi::ULease;
 
@@ -147,7 +147,8 @@ impl<T> USlice<T> {
     /// The read is *not* performed using `volatile`, so this is not appropriate
     /// for accessing device registers.
     pub unsafe fn get(&self, index: usize) -> Option<T>
-        where T: Copy
+    where
+        T: Copy,
     {
         if index < self.length {
             Some((self.base_address as *const T).add(index).read())

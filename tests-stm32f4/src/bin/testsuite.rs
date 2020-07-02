@@ -52,7 +52,13 @@ fn test_send() {
     let assist = assist_task_id();
     let challenge = 0xDEADBEEF_u32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 0, &challenge.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        0,
+        &challenge.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     assert_eq!(response, !0xDEADBEEF);
@@ -65,7 +71,13 @@ fn test_recv_reply() {
     // Ask the assistant to send us a message containing this challenge value.
     let challenge = 0xCAFE_F00Du32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 1, &challenge.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        1,
+        &challenge.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -88,7 +100,13 @@ fn test_recv_reply() {
     sys_reply(assist, 0, &reply_token.to_le_bytes());
 
     // Call back to the assistant and request a copy of our most recent reply.
-    let (rc, len) = sys_send(assist, 2, &challenge.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        2,
+        &challenge.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     assert_eq!(response, reply_token);
@@ -104,11 +122,17 @@ fn test_fault_reporting() {
     // the MPU is on.
     let bad_address = 5u32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 3, &bad_address.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        3,
+        &bad_address.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
-    
+
     // Ask the kernel to report the assistant's state.
     let status = kipc::read_task_status(ASSIST as usize);
     assert_eq!(
@@ -129,11 +153,12 @@ fn test_panic() {
 
     // Ask the assistant to panic.
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 4, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) =
+        sys_send(assist, 4, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
-    
+
     // Read status back from the kernel and check it.
     let status = kipc::read_task_status(ASSIST as usize);
     assert_eq!(
@@ -156,7 +181,13 @@ fn test_restart() {
     // value is swapped for the previous contents, which should be zero.
     let value = 0xDEAD_F00D_u32;
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 5, &value.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        5,
+        &value.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
 
@@ -165,7 +196,13 @@ fn test_restart() {
 
     // Read it back and replace it.
     let value2 = 0x1DE_u32;
-    let (rc, len) = sys_send(assist, 5, &value2.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        5,
+        &value2.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
 
@@ -176,7 +213,13 @@ fn test_restart() {
     let assist = assist_task_id();
 
     // Swap values again.
-    let (rc, len) = sys_send(assist, 5, &value.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        5,
+        &value.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
 
@@ -192,7 +235,8 @@ fn test_borrow_info() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) =
+        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -205,7 +249,10 @@ fn test_borrow_info() {
 
             // Borrow 0 is expected to be 16 bytes long and R/W.
             let info0 = caller.borrow(0).info().unwrap();
-            assert_eq!(info0.attributes, LeaseAttributes::READ | LeaseAttributes::WRITE);
+            assert_eq!(
+                info0.attributes,
+                LeaseAttributes::READ | LeaseAttributes::WRITE
+            );
             assert_eq!(info0.len, 16);
 
             // Borrow 1 is expected to be 5 bytes long and R/O.
@@ -226,7 +273,8 @@ fn test_borrow_read() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) =
+        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -261,7 +309,8 @@ fn test_borrow_write() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) = sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) =
+        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -307,7 +356,13 @@ fn test_supervisor_fault_notification() {
         let assist = assist_task_id();
         let mut response = 0_u32;
         // Request a crash
-        let (rc, len) = sys_send(assist, 4, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+        let (rc, len) = sys_send(
+            assist,
+            4,
+            &0u32.to_le_bytes(),
+            response.as_bytes_mut(),
+            &[],
+        );
         assert_eq!(rc, 0);
         assert_eq!(len, 4);
         // Don't actually care about the response in this case
@@ -433,7 +488,13 @@ fn main() -> ! {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;
         let mut response = 0_u32;
-        let (rc, _) = sys_send(assist, 0, &challenge.to_le_bytes(), response.as_bytes_mut(), &[]);
+        let (rc, _) = sys_send(
+            assist,
+            0,
+            &challenge.to_le_bytes(),
+            response.as_bytes_mut(),
+            &[],
+        );
         if rc == 0 {
             break;
         }
@@ -447,32 +508,31 @@ fn main() -> ! {
             |op, msg| -> Result<(), u32> {
                 match op {
                     Op::GetCaseCount => {
-                        let (_, caller) = msg.fixed::<(), usize>().ok_or(2u32)?;
+                        let (_, caller) =
+                            msg.fixed::<(), usize>().ok_or(2u32)?;
                         caller.reply(TESTS.len());
                     }
                     Op::GetCaseName => {
-                        let (&idx, caller) = msg.fixed::<usize, [u8; 64]>().ok_or(2u32)?;
+                        let (&idx, caller) =
+                            msg.fixed::<usize, [u8; 64]>().ok_or(2u32)?;
                         let mut name_buf = [b' '; 64];
                         let name = TESTS[idx].0;
                         let name_len = name.len().min(64);
-                        name_buf[..name_len].copy_from_slice(&name.as_bytes()[..name_len]);
+                        name_buf[..name_len]
+                            .copy_from_slice(&name.as_bytes()[..name_len]);
                         caller.reply(name_buf);
                     }
                     Op::RunCase => {
-                        let (&idx, caller) = msg.fixed::<usize, ()>().ok_or(2u32)?;
+                        let (&idx, caller) =
+                            msg.fixed::<usize, ()>().ok_or(2u32)?;
                         let caller_tid = caller.task_id();
                         caller.reply(());
 
                         TESTS[idx].1();
 
                         // Call back with status.
-                        let (rc, len) = sys_send(
-                            caller_tid,
-                            0xFFFF,
-                            &[],
-                            &mut [],
-                            &[],
-                        );
+                        let (rc, len) =
+                            sys_send(caller_tid, 0xFFFF, &[], &mut [], &[]);
                         assert_eq!(rc, 0);
                         assert_eq!(len, 0);
                     }
@@ -482,5 +542,3 @@ fn main() -> ! {
         )
     }
 }
-
-

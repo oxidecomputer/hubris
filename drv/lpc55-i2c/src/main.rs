@@ -17,8 +17,8 @@
 #![no_std]
 #![no_main]
 
-use lpc55_pac as device;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use lpc55_pac as device;
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -56,8 +56,10 @@ struct Transmit {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let syscon = Syscon::from(
-        TaskId::for_index_and_gen(SYSCON as usize, Generation::default()));
+    let syscon = Syscon::from(TaskId::for_index_and_gen(
+        SYSCON as usize,
+        Generation::default(),
+    ));
 
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_flexcomm(&syscon);
@@ -67,68 +69,71 @@ fn main() -> ! {
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual I2C block. These are technically
     // part of the same block for the purposes of a register block
-    // in app.toml but separate for the purposes of writing here 
+    // in app.toml but separate for the purposes of writing here
 
     let flexcomm = unsafe { &*device::FLEXCOMM4::ptr() };
 
     let i2c = unsafe { &*device::I2C4::ptr() };
 
     // Set I2C mode
-    flexcomm.pselid.write( |w| w.persel().i2c() );
+    flexcomm.pselid.write(|w| w.persel().i2c());
 
     // Set up the block
-    i2c.cfg.modify(|_, w| w.msten().enabled() );
+    i2c.cfg.modify(|_, w| w.msten().enabled());
 
     // Our main clock is 12 Mhz. The HAL crate was making some interesting
     // claims about clocking as well. 100 kbs sounds nice?
-    i2c.clkdiv.modify(|_, w| unsafe { w.divval().bits(0x9) } );
-    i2c.msttime.modify(|_, w| w
-            .mstsclhigh().bits(0x4)
-            .mstscllow().bits(0x4)
-    );
+    i2c.clkdiv.modify(|_, w| unsafe { w.divval().bits(0x9) });
+    i2c.msttime
+        .modify(|_, w| w.mstsclhigh().bits(0x4).mstscllow().bits(0x4));
 
     // Field messages.
     let mut buffer = [0; 1];
     loop {
-        hl::recv_without_notification(
-            &mut buffer,
-            |op, msg| match op {
-                Op::Write => {
-                    let (&addr, caller) = msg.fixed_with_leases::<u8, ()>(1)
-                        .ok_or(ResponseCode::BadArg)?;
+        hl::recv_without_notification(&mut buffer, |op, msg| match op {
+            Op::Write => {
+                let (&addr, caller) = msg
+                    .fixed_with_leases::<u8, ()>(1)
+                    .ok_or(ResponseCode::BadArg)?;
 
-                    let info = caller.borrow(0).info()
-                        .ok_or(ResponseCode::BadArg)?;
-                    if !info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    write_a_buffer(&i2c, Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    })
-                },
-                Op::Read => {
-                    let (&addr, caller) = msg.fixed_with_leases::<u8, ()>(1)
-                        .ok_or(ResponseCode::BadArg)?;
-
-                    let info = caller.borrow(0).info()
-                        .ok_or(ResponseCode::BadArg)?;
-                    if !info.attributes.contains(LeaseAttributes::WRITE) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    read_a_buffer(&i2c, Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    })
+                let info =
+                    caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
+                if !info.attributes.contains(LeaseAttributes::READ) {
+                    return Err(ResponseCode::BadArg);
                 }
-            },
-        );
+
+                write_a_buffer(
+                    &i2c,
+                    Transmit {
+                        addr,
+                        caller,
+                        pos: 0,
+                        len: info.len,
+                    },
+                )
+            }
+            Op::Read => {
+                let (&addr, caller) = msg
+                    .fixed_with_leases::<u8, ()>(1)
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let info =
+                    caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
+                if !info.attributes.contains(LeaseAttributes::WRITE) {
+                    return Err(ResponseCode::BadArg);
+                }
+
+                read_a_buffer(
+                    &i2c,
+                    Transmit {
+                        addr,
+                        caller,
+                        pos: 0,
+                        len: info.len,
+                    },
+                )
+            }
+        });
     }
 }
 
@@ -145,23 +150,29 @@ fn muck_with_gpios(syscon: &Syscon) {
     // (see table 320)
     // The existing peripheral API makes doing this via messages
     // maddening so just muck with IOCON manually for now
-    let iocon = unsafe  { &*device::IOCON::ptr() };
-    iocon.pio1_21.write( |w| w.func().alt5().
-                digimode().digital() );
-    iocon.pio1_20.write( |w| w.func().alt5().
-                digimode().digital() );
+    let iocon = unsafe { &*device::IOCON::ptr() };
+    iocon
+        .pio1_21
+        .write(|w| w.func().alt5().digimode().digital());
+    iocon
+        .pio1_20
+        .write(|w| w.func().alt5().digimode().digital());
 }
 
-
-fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Result<(), ResponseCode> {
-
+fn write_a_buffer(
+    i2c: &device::i2c0::RegisterBlock,
+    mut txs: Transmit,
+) -> Result<(), ResponseCode> {
     // Address to write to
-    i2c.mstdat.modify(|_, w| unsafe { w.data().bits(txs.addr << 1) } );
+    i2c.mstdat
+        .modify(|_, w| unsafe { w.data().bits(txs.addr << 1) });
 
     // and send it away!
     i2c.mstctl.write(|w| w.mststart().start());
 
-    while i2c.stat.read().mstpending().is_in_progress() { continue; }
+    while i2c.stat.read().mstpending().is_in_progress() {
+        continue;
+    }
 
     if !i2c.stat.read().mststate().is_transmit_ready() {
         return Err(ResponseCode::Busy);
@@ -173,13 +184,15 @@ fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Resul
         let byte: u8 = borrow.read_at(txs.pos).ok_or(ResponseCode::BadArg)?;
         txs.pos += 1;
 
-        i2c.mstdat.modify(|_, w| unsafe { w.data().bits(byte) } );
+        i2c.mstdat.modify(|_, w| unsafe { w.data().bits(byte) });
 
         i2c.mstctl.write(|w| w.mstcontinue().continue_());
 
-        while i2c.stat.read().mstpending().is_in_progress() { continue; }
+        while i2c.stat.read().mstpending().is_in_progress() {
+            continue;
+        }
 
-        if ! i2c.stat.read().mststate().is_transmit_ready() {
+        if !i2c.stat.read().mststate().is_transmit_ready() {
             return Err(ResponseCode::Busy);
         }
     }
@@ -196,9 +209,12 @@ fn write_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Resul
     Ok(())
 }
 
-fn read_a_buffer(i2c: &device::i2c0::RegisterBlock, mut txs: Transmit) -> Result<(), ResponseCode> {
-
-    i2c.mstdat.modify(|_, w| unsafe { w.data().bits((txs.addr << 1) | 1) } );
+fn read_a_buffer(
+    i2c: &device::i2c0::RegisterBlock,
+    mut txs: Transmit,
+) -> Result<(), ResponseCode> {
+    i2c.mstdat
+        .modify(|_, w| unsafe { w.data().bits((txs.addr << 1) | 1) });
 
     i2c.mstctl.write(|w| w.mststart().start());
 

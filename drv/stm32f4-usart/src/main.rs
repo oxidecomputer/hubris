@@ -10,8 +10,8 @@
 #![no_main]
 
 use stm32f4::stm32f407 as device;
-use zerocopy::AsBytes;
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -64,8 +64,12 @@ fn main() -> ! {
     const CLOCK_HZ: u32 = 16_000_000;
     const BAUDRATE: u32 = 115_200;
     const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
-    usart.brr.write(|w| w.div_mantissa().bits((CYCLES_PER_BIT >> 4) as u16)
-        .div_fraction().bits(CYCLES_PER_BIT as u8 & 0xF));
+    usart.brr.write(|w| {
+        w.div_mantissa()
+            .bits((CYCLES_PER_BIT >> 4) as u16)
+            .div_fraction()
+            .bits(CYCLES_PER_BIT as u8 & 0xF)
+    });
 
     // Enable the transmitter.
     usart.cr1.modify(|_, w| w.te().enabled());
@@ -78,14 +82,10 @@ fn main() -> ! {
 
     // Mux the USART onto the output pins. We're using PA2/3, where USART2 is
     // selected by Alternate Function 7.
-    gpioa.moder.modify(|_, w| {
-        w.moder2().alternate()
-            .moder3().alternate()
-    });
-    gpioa.afrl.modify(|_, w| {
-        w.afrl2().af7()
-            .afrl3().af7()
-    });
+    gpioa
+        .moder
+        .modify(|_, w| w.moder2().alternate().moder3().alternate());
+    gpioa.afrl.modify(|_, w| w.afrl2().af7().afrl3().af7());
 
     // Turn on our interrupt. We haven't enabled any interrupt sources at the
     // USART side yet, so this won't trigger notifications yet.
@@ -122,8 +122,8 @@ fn main() -> ! {
             |txref, op, msg| match op {
                 Operation::Write => {
                     // Validate lease count and buffer sizes first.
-                    let ((), caller) = msg.fixed_with_leases(1)
-                        .ok_or(ResponseCode::BadArg)?;
+                    let ((), caller) =
+                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
 
                     // Deny incoming writes if we're already running one.
                     if txref.is_some() {
@@ -137,7 +137,7 @@ fn main() -> ! {
                     // later, which is a defection case and we won't reply at
                     // all).
                     if !info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg)
+                        return Err(ResponseCode::BadArg);
                     }
 
                     // Okay! Begin a transfer!
@@ -152,40 +152,68 @@ fn main() -> ! {
 
                     // We'll do the rest as interrupts arrive.
                     Ok(())
-                },
+                }
             },
         );
     }
 }
 
 fn turn_on_usart() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 113; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        LEAVE_RESET,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 }
 
 fn turn_on_gpioa() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 0; // see bits in AHB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        LEAVE_RESET,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 }
 
-fn step_transmit(usart: &device::usart1::RegisterBlock, tx: &mut Option<Transmit>) {
-
+fn step_transmit(
+    usart: &device::usart1::RegisterBlock,
+    tx: &mut Option<Transmit>,
+) {
     // Clearer than just using replace:
     fn end_transmission(
         usart: &device::usart1::RegisterBlock,

@@ -43,16 +43,21 @@ fn main() -> ! {
                 let s = kipc::read_task_status(i);
                 if let abi::TaskState::Faulted { fault, .. } = s {
                     match fault {
-                        abi::FaultInfo::MemoryAccess { address, .. } =>
-                        match address {
-                            Some(a) => {
-                                sys_log!("Task #{} Memory fault at address 0x{:x}", i, a);
-                            }
+                        abi::FaultInfo::MemoryAccess { address, .. } => {
+                            match address {
+                                Some(a) => {
+                                    sys_log!("Task #{} Memory fault at address 0x{:x}", i, a);
+                                }
 
-                            None => sys_log!("Task #{} Memory fault at unknown address", i)
+                                None => sys_log!(
+                                    "Task #{} Memory fault at unknown address",
+                                    i
+                                ),
+                            }
                         }
-                        abi::FaultInfo::SyscallUsage(e) =>
-                                sys_log!("Task #{} Bad Syscall Usage {:?}", i, e),
+                        abi::FaultInfo::SyscallUsage(e) => {
+                            sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
+                        }
                         abi::FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
                     };
                     // Stand it back up.

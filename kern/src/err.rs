@@ -9,7 +9,7 @@ use abi::{FaultInfo, UsageError};
 use crate::task::{self, NextTask, Task};
 
 /// An error committed by user code when interacting with a syscall.
-/// 
+///
 /// This is used internally as the returned error type for syscall
 /// implementations.
 #[derive(Clone, Debug)]
@@ -75,7 +75,11 @@ impl InteractFault {
     ///
     /// This is intended to be called during syscalls from the destination's
     /// perspective, to store the src fault and then deal with dst.
-    pub fn apply_to_src(self, tasks: &mut [Task], src: usize) -> Result<task::NextTask, FaultInfo> {
+    pub fn apply_to_src(
+        self,
+        tasks: &mut [Task],
+        src: usize,
+    ) -> Result<task::NextTask, FaultInfo> {
         let nt = if let Some(f) = self.src {
             task::force_fault(tasks, src, f)
         } else {
@@ -93,7 +97,11 @@ impl InteractFault {
     ///
     /// This is intended to be called during syscalls from the source's
     /// perspective, to store the dst fault and then deal with dst.
-    pub fn apply_to_dst(self, tasks: &mut [Task], dst: usize) -> Result<task::NextTask, FaultInfo> {
+    pub fn apply_to_dst(
+        self,
+        tasks: &mut [Task],
+        dst: usize,
+    ) -> Result<task::NextTask, FaultInfo> {
         let nt = if let Some(f) = self.dst {
             task::force_fault(tasks, dst, f)
         } else {
