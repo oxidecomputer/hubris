@@ -1,0 +1,45 @@
+# adapted from:
+#
+# * base code: https://peterevans.dev/posts/github-actions-how-to-automate-code-formatting-in-pull-requests/
+# * fix push auth: https://github.com/ad-m/github-push-action
+# * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+name: auto-format
+on: pull_request
+jobs:
+  format:
+    # Check if the PR is not from a fork
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          # normally we would specify a toolchain here, but we have a
+          # rust-toolchain file, so that gets picked up automatically.
+          profile: minimal
+          override: true
+          components: rustfmt
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+
+      - name: Check for modified files
+        id: git-check
+        run: echo ::set-output name=modified::$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)
+      - name: Commit changes, if any
+        if: steps.git-check.outputs.modified == 'true'
+        run: |
+          git config --global user.name 'Steve Klabnik'
+          git config --global user.email 'steve.klabnik@oxide.computer'
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git commit -am "Automated rustfmt changes"
+      - name: Push changes, if any
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{github.event.pull_request.head.ref }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
