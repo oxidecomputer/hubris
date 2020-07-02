@@ -500,7 +500,7 @@ pub fn apply_memory_protection(task: &task::Task) {
 
 }
 
-pub fn start_first_task(task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -553,10 +553,9 @@ pub fn start_first_task(task: &task::Task) -> ! {
     // Safety: this, too, is safe in practice but unsafe in API.
     unsafe {
         // Configure the timer.
-        // Note that we have *no idea* what our tick frequency is. TODO.
         let syst = &*cortex_m::peripheral::SYST::ptr();
         // Program reload value.
-        syst.rvr.write(159_999); // TODO: that's 10ms at 16MHz
+        syst.rvr.write(tick_divisor - 1);
         // Clear current value.
         syst.cvr.write(0);
         // Enable counter and interrupt.

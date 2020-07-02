@@ -190,6 +190,8 @@ fn setup_clocks() {
 fn main() -> ! {
     setup_clocks();
 
+    const CYCLES_PER_MS: u32 = 150_000;
+
     unsafe {
         //
         // To allow for SWO (the vector for ITM output), we must explicitly
@@ -204,6 +206,7 @@ fn main() -> ! {
             &hubris_app_table,
             (&mut __sheap) as *mut _,
             heap_size,
+            CYCLES_PER_MS,
         )
     }
 }
