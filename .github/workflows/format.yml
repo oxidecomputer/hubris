@@ -34,12 +34,23 @@ jobs:
       - name: Commit changes, if any
         if: steps.git-check.outputs.modified == 'true'
         run: |
-          git config --global user.name 'Steve Klabnik'
-          git config --global user.email 'steve.klabnik@oxide.computer'
+          git config --global user.name 'Ὀσυμανδύας'
+          git config --global user.email 'bots@oxide.computer'
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git commit -am "Automated rustfmt changes"
+          git commit -am "LOOK ON MY REFORMAT, YE MIGHTY, AND DESPAIR!"
       - name: Push changes, if any
         uses: ad-m/github-push-action@master
         with:
           branch: ${{github.event.pull_request.head.ref }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create comment
+        if: steps.git-check.outputs.modified == 'true'
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{ github.event.pull_request.number }} 
+          body: |
+            'My name is Ozymandias, king of kings:
+            Look on my works, ye Mighty, and despair!'
+            Nothing beside remains. Round the decay
+            Of that colossal wreck, boundless and bare
+            The lone and level sands stretch far away.
