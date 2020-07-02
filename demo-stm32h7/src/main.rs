@@ -32,6 +32,8 @@ extern "C" {
 fn main() -> ! {
     system_init();
 
+    const CYCLES_PER_MS: u32 = 280_000;
+
     unsafe {
         let heap_size =
             (&__eheap as *const _ as usize) - (&__sheap as *const _ as usize);
@@ -39,6 +41,7 @@ fn main() -> ! {
             &hubris_app_table,
             (&mut __sheap) as *mut _,
             heap_size,
+            CYCLES_PER_MS,
         )
     }
 }

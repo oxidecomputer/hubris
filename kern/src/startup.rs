@@ -9,6 +9,19 @@ use crate::task::{self, Task};
 /// function, which does basic hardware setup and then calls this function with
 /// the location of the `App` header and some kernel-dedicated RAM.
 ///
+/// Parameters:
+///
+/// - `app_header_ptr` is the address of the application header, found through
+///   whatever eldritch magic you choose (probably a linker symbol).
+/// - `scratch_ram` and `scratch_ram_size` are the base and extent of a section
+///   of bytes that the kernel will use for its own purposes. Its required size
+///   depends on the number of tasks you allocate. (TODO: we should give more
+///   guidance than that.) It's important for correctness that this *not* be
+///   accessible to any task.
+/// - `tick_divisor`: a platform-specific way of converting "machine ticks" into
+///   "kernel ticks." On ARM M-profile, this is CPU cycles per tick, where a
+///   tick is typically a millisecond.
+///
 /// # Safety
 ///
 /// This can be called exactly once per boot, with valid pointers that don't
@@ -17,6 +30,7 @@ pub unsafe fn start_kernel(
     app_header_ptr: *const app::App,
     scratch_ram: *mut u8,
     scratch_ram_size: usize,
+    tick_divisor: u32,
 ) -> ! {
     klog!("starting: laziness");
 
@@ -104,7 +118,14 @@ pub unsafe fn start_kernel(
     }
 
     // Okay, we're pretty sure this is all legitimate.
-    safe_start_kernel(app_header, tasks, regions, interrupts, alloc)
+    safe_start_kernel(
+        app_header,
+        tasks,
+        regions,
+        interrupts,
+        alloc,
+        tick_divisor,
+    )
 }
 
 fn safe_start_kernel(
@@ -113,6 +134,7 @@ fn safe_start_kernel(
     region_descs: &'static [app::RegionDesc],
     interrupts: &'static [app::Interrupt],
     mut alloc: BumpPointer,
+    tick_divisor: u32,
 ) -> ! {
     klog!("starting: impatience");
 
@@ -167,13 +189,9 @@ fn safe_start_kernel(
     // last task, which will cause a scan from 0 on.
     let first_task_index = crate::task::select(tasks.len() - 1, tasks);
 
-    switch_to_user(tasks, first_task_index)
-}
-
-fn switch_to_user(tasks: &mut [Task], first_task_index: usize) -> ! {
     crate::arch::apply_memory_protection(&tasks[first_task_index]);
     klog!("starting: hubris");
-    crate::arch::start_first_task(&tasks[first_task_index])
+    crate::arch::start_first_task(tick_divisor, &tasks[first_task_index])
 }
 
 struct BumpPointer(&'static mut [u8]);

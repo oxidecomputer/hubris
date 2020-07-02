@@ -6,7 +6,7 @@ use userlib::*;
 #[export_name = "main"]
 pub fn main() -> ! {
     const TIMER_NOTIFICATION: u32 = 1;
-    const INTERVAL: u64 = 100;
+    const INTERVAL: u64 = 500;
     const SUCCESS_RESPONSE: u32 = 0;
 
     let user_leds = get_user_leds();
