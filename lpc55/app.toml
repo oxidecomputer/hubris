@@ -5,7 +5,7 @@ target = "thumbv8m.main-none-eabihf"
 path = "../lpc55"
 name = "lpc55"
 requires = {flash = 65536, ram = 4096}
-features = ["itm"]
+features = ["semihosting"]
 
 [supervisor]
 notification = 1
@@ -29,7 +29,7 @@ name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 4096}
 start = true
-features = ["itm"]
+features = ["semihosting"]
 
 [tasks.idle]
 path = "../task-idle"
