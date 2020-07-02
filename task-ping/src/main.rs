@@ -2,7 +2,6 @@
 #![no_main]
 
 use userlib::*;
-use zerocopy::AsBytes;
 
 #[cfg(feature = "standalone")]
 const PEER: Task = SELF;
@@ -16,14 +15,10 @@ const UART: Task = SELF;
 #[cfg(all(not(feature = "standalone"), feature="uart"))]
 const UART: Task = Task::usart_driver;
 
-#[cfg(not(feature = "standalone"))]
-const USER_LEDS: Task = Task::user_leds;
-
-#[cfg(feature = "standalone")]
-const USER_LEDS: Task = SELF;
-
 #[export_name = "main"]
 fn main() -> ! {
+    let user_leds = get_user_leds();
+
     let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
@@ -31,7 +26,7 @@ fn main() -> ! {
     loop {
         uart_send(b"Ping!\r\n");
         // Signal that we're entering send:
-        set_led();
+        user_leds.led_on(0).unwrap();
 
         iterations += 1;
         if iterations == 1000 {
@@ -49,11 +44,16 @@ fn main() -> ! {
     }
 }
 
-fn set_led() {
-    let leds = TaskId::for_index_and_gen(USER_LEDS as usize, Generation::default());
-    const ON: u16 = 1;
-    let (code, _) = userlib::sys_send(leds, ON, 0u32.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
+fn get_user_leds() -> drv_user_leds_api::UserLeds {
+    #[cfg(not(feature = "standalone"))]
+    const USER_LEDS: Task = Task::user_leds;
+
+    #[cfg(feature = "standalone")]
+    const USER_LEDS: Task = SELF;
+
+    drv_user_leds_api::UserLeds::from(
+        TaskId::for_index_and_gen(USER_LEDS as usize, Generation::default())
+    )
 }
 
 #[cfg(feature = "uart")]
