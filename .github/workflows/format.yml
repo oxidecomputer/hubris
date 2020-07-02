@@ -39,6 +39,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git commit -am "LOOK ON MY REFORMAT, YE MIGHTY, AND DESPAIR!"
       - name: Push changes, if any
+        if: steps.git-check.outputs.modified == 'true'
         uses: ad-m/github-push-action@master
         with:
           branch: ${{github.event.pull_request.head.ref }}
