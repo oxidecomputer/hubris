@@ -2,6 +2,7 @@
 #![no_main]
 
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[cfg(feature = "standalone")]
 const PEER: Task = SELF;
@@ -9,17 +10,17 @@ const PEER: Task = SELF;
 #[cfg(not(feature = "standalone"))]
 const PEER: Task = Task::pong;
 
-#[cfg(any(feature = "standalone", feature = "stm32h7"))]
+#[cfg(all(feature = "standalone", feature = "uart"))]
 const UART: Task = SELF;
 
-#[cfg(all(not(feature = "standalone"), not(feature="stm32h7")))]
+#[cfg(all(not(feature = "standalone"), feature="uart"))]
 const UART: Task = Task::usart_driver;
 
-#[cfg(all(not(feature = "standalone"), armv8m))]
-const GPIO: Task = Task::gpio_driver;
+#[cfg(not(feature = "standalone"))]
+const USER_LEDS: Task = Task::user_leds;
 
-#[cfg(all(feature = "standalone", armv8m))]
-const GPIO: Task = SELF;
+#[cfg(feature = "standalone")]
+const USER_LEDS: Task = SELF;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -48,32 +49,14 @@ fn main() -> ! {
     }
 }
 
-#[cfg(armv8m)]
 fn set_led() {
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const SET_VAL: u16 = 2;
-    // Blue LED
-    let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[36, 0], &mut [], &[]);
-    assert_eq!(0, code);
+    let leds = TaskId::for_index_and_gen(USER_LEDS as usize, Generation::default());
+    const ON: u16 = 1;
+    let (code, _) = userlib::sys_send(leds, ON, 0u32.as_bytes(), &mut [], &[]);
+    assert_eq!(code, 0);
 }
 
-#[cfg(all(armv7m, feature = "stm32f4"))]
-fn set_led() {
-    let gpiod = unsafe {
-        &*stm32f4::stm32f407::GPIOD::ptr()
-    };
-    gpiod.bsrr.write(|w| w.bs12().set_bit());
-}
-
-#[cfg(all(armv7m, feature = "stm32h7"))]
-fn set_led() {
-    let gpiog = unsafe {
-        &*stm32h7::stm32h7b3::GPIOG::ptr()
-    };
-    gpiog.bsrr.write(|w| w.bs11().set_bit());
-}
-
-#[cfg(not(feature = "stm32h7"))] // TODO
+#[cfg(feature = "uart")]
 fn uart_send(text: &[u8]) {
     let peer = TaskId::for_index_and_gen(UART as usize, Generation::default());
 
@@ -84,6 +67,6 @@ fn uart_send(text: &[u8]) {
     assert_eq!(0, code);
 }
 
-#[cfg(feature = "stm32h7")] // TODO
+#[cfg(not(feature = "uart"))]
 fn uart_send(_: &[u8]) {
 }
