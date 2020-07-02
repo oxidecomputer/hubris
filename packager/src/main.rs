@@ -1,13 +1,13 @@
-use std::path::{PathBuf, Path};
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
-use std::ops::Range;
 use std::io::Write;
+use std::ops::Range;
+use std::path::{Path, PathBuf};
 
+use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Deserialize;
 use structopt::StructOpt;
-use indexmap::IndexMap;
 
 /// Builds a collection of cross-compiled binaries at non-overlapping addresses,
 /// and then combines them into a system image with an application descriptor.
@@ -107,8 +107,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(end) = out.address.checked_add(out.size) {
             memories.insert(name.clone(), out.address..end);
         } else {
-            eprintln!("output {}: address {:08x} size {:x} would overflow",
-                name, out.address, out.size);
+            eprintln!(
+                "output {}: address {:08x} size {:x} would overflow",
+                name, out.address, out.size
+            );
             std::process::exit(1);
         }
     }
@@ -131,7 +133,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     writeln!(infofile, "kernel: {:#x?}", kern_memory)?;
     writeln!(infofile, "tasks: {:#x?}", task_memory)?;
     drop(infofile);
-    
+
     // Build each task.
     let task_names = toml.tasks.keys().cloned().collect::<Vec<_>>();
     let task_names = task_names.join(",");
@@ -139,22 +141,42 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut entry_points = HashMap::<_, _>::default();
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
-        build(&toml.target, &src_dir.join(&task_toml.path), &task_toml.name, &task_toml.features, &task_memory[name], args.out.join(name),
-            &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)])?;
+        build(
+            &toml.target,
+            &src_dir.join(&task_toml.path),
+            &task_toml.name,
+            &task_toml.features,
+            &task_memory[name],
+            args.out.join(name),
+            &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)],
+        )?;
         let ep = load_elf(&args.out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
     }
 
     // Format the descriptors for the kernel build.
     let mut descriptor_text = vec![];
-    for word in make_descriptors(&toml.tasks, &toml.peripherals, toml.supervisor.as_ref(), &task_memory, &entry_points)? {
+    for word in make_descriptors(
+        &toml.tasks,
+        &toml.peripherals,
+        toml.supervisor.as_ref(),
+        &task_memory,
+        &entry_points,
+    )? {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
     }
     let descriptor_text = descriptor_text.join("\n");
 
     // Build the kernel.
-    build(&toml.target, &src_dir.join(&toml.kernel.path), &toml.kernel.name, &toml.kernel.features, &kern_memory, args.out.join("kernel"),
-        &[("HUBRIS_DESCRIPTOR", &descriptor_text)])?;
+    build(
+        &toml.target,
+        &src_dir.join(&toml.kernel.path),
+        &toml.kernel.name,
+        &toml.kernel.features,
+        &kern_memory,
+        args.out.join("kernel"),
+        &[("HUBRIS_DESCRIPTOR", &descriptor_text)],
+    )?;
     let kentry = load_elf(&args.out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
@@ -163,8 +185,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (base, sec) in &all_output_sections {
         let size = sec.data.len() as u32;
         let end = base + size;
-        writeln!(mapfile, "{:08x} {:08x} {:>8x} {}",
-            base, end, size, sec.source_file.display())?;
+        writeln!(
+            mapfile,
+            "{:08x} {:08x} {:>8x} {}",
+            base,
+            end,
+            size,
+            sec.source_file.display()
+        )?;
     }
     drop(mapfile);
 
@@ -199,9 +227,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     std::fs::write(args.out.join("combined.srec"), srec_image)?;
 
     let mut gdb_script = std::fs::File::create(args.out.join("script.gdb"))?;
-    writeln!(gdb_script, "add-symbol-file {}", args.out.join("kernel").to_slash().unwrap())?;
+    writeln!(
+        gdb_script,
+        "add-symbol-file {}",
+        args.out.join("kernel").to_slash().unwrap()
+    )?;
     for name in toml.tasks.keys() {
-        writeln!(gdb_script, "add-symbol-file {}", args.out.join(name).to_slash().unwrap())?;
+        writeln!(
+            gdb_script,
+            "add-symbol-file {}",
+            args.out.join(name).to_slash().unwrap()
+        )?;
     }
     drop(gdb_script);
 
@@ -245,9 +281,12 @@ fn build(
     }
 
     cmd.current_dir(path);
-    cmd.env("RUSTFLAGS", "-C link-arg=-Tlink.x \
+    cmd.env(
+        "RUSTFLAGS",
+        "-C link-arg=-Tlink.x \
                           -C link-arg=-z -C link-arg=common-page-size=0x20 \
-                          -C link-arg=-z -C link-arg=max-page-size=0x20");
+                          -C link-arg=-z -C link-arg=max-page-size=0x20",
+    );
     cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
     for (key, val) in meta {
         cmd.env(key, val);
@@ -269,7 +308,10 @@ fn build(
     Ok(())
 }
 
-fn allocate(free: &mut IndexMap<String, Range<u32>>, needs: &IndexMap<String, u32>) -> Result<IndexMap<String, Range<u32>>, Box<dyn Error>> {
+fn allocate(
+    free: &mut IndexMap<String, Range<u32>>,
+    needs: &IndexMap<String, u32>,
+) -> Result<IndexMap<String, Range<u32>>, Box<dyn Error>> {
     let mut taken = IndexMap::new();
     for (name, need) in needs {
         let need = if need.is_power_of_two() {
@@ -282,8 +324,11 @@ fn allocate(free: &mut IndexMap<String, Range<u32>>, needs: &IndexMap<String, u3
         if let Some(range) = free.get_mut(name) {
             let base = (range.start + need_mask) & !need_mask;
             if base >= range.end || need > range.end - base {
-                return Err(format!("out of {}: can't allocate {} more after base {:x}",
-                        name, need, base).into());
+                return Err(format!(
+                    "out of {}: can't allocate {} more after base {:x}",
+                    name, need, base
+                )
+                .into());
             }
             let end = base + need;
             taken.insert(name.clone(), base..end);
@@ -295,7 +340,10 @@ fn allocate(free: &mut IndexMap<String, Range<u32>>, needs: &IndexMap<String, u3
     Ok(taken)
 }
 
-fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf, Box<dyn Error>> {
+fn cargo_output_dir(
+    target: &str,
+    path: &Path,
+) -> Result<PathBuf, Box<dyn Error>> {
     use std::process::Command;
 
     // NOTE: current_dir's docs suggest that you should use canonicalize for
@@ -307,9 +355,7 @@ fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf, Box<dyn Error>
     // are not including a path in the binary name, so everything is peachy. If
     // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
-    cmd.arg("metadata")
-        .arg("--filter-platform")
-        .arg(target);
+    cmd.arg("metadata").arg("--filter-platform").arg(target);
     cmd.current_dir(path);
 
     let output = cmd.output()?;
@@ -348,7 +394,7 @@ fn make_descriptors(
         words.push(supervisor.notification);
     }
     // pad out to 32 bytes
-    words.resize(32/4, 0);
+    words.resize(32 / 4, 0);
 
     // Task descriptors
     for (i, (name, task)) in tasks.iter().enumerate() {
@@ -367,14 +413,16 @@ fn make_descriptors(
         // Region table indices
         words.push(
             u32::from(regions[0])
-            | u32::from(regions[1]) << 8
-            | u32::from(regions[2]) << 16
-            | u32::from(regions[3]) << 24);
+                | u32::from(regions[1]) << 8
+                | u32::from(regions[2]) << 16
+                | u32::from(regions[3]) << 24,
+        );
         words.push(
             u32::from(regions[4])
-            | u32::from(regions[5]) << 8
-            | u32::from(regions[6]) << 16
-            | u32::from(regions[7]) << 24);
+                | u32::from(regions[5]) << 8
+                | u32::from(regions[6]) << 16
+                | u32::from(regions[7]) << 24,
+        );
 
         // Entry point
         words.push(entry_points[name]);
@@ -400,7 +448,7 @@ fn make_descriptors(
         for range in alloc.values() {
             words.push(range.start);
             words.push(range.end - range.start);
-            words.push(0b111);  // TODO
+            words.push(0b111); // TODO
             words.push(0);
         }
     }
@@ -439,10 +487,16 @@ fn load_srec(
         match record {
             srec::Record::S3(data) => {
                 // Check for address overlap
-                let range = data.address.0..data.address.0 + data.data.len() as u32;
+                let range =
+                    data.address.0..data.address.0 + data.data.len() as u32;
                 if let Some(overlap) = output.range(range.clone()).next() {
-                    return Err(format!("{}: record address range {:x?} overlaps {:x}",
-                            input.display(), range, overlap.0).into());
+                    return Err(format!(
+                        "{}: record address range {:x?} overlaps {:x}",
+                        input.display(),
+                        range,
+                        overlap.0
+                    )
+                    .into());
                 }
                 output.insert(
                     data.address.0,
@@ -465,7 +519,7 @@ fn load_elf(
     output: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<u32, Box<dyn Error>> {
     use goblin::container::Container;
-    use goblin::elf::program_header::{PT_LOAD};
+    use goblin::elf::program_header::PT_LOAD;
 
     let file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;
@@ -493,8 +547,13 @@ fn load_elf(
         // Check for address overlap
         let range = addr..addr + size as u32;
         if let Some(overlap) = output.range(range.clone()).next() {
-            return Err(format!("{}: record address range {:x?} overlaps {:x}",
-                    input.display(), range, overlap.0).into());
+            return Err(format!(
+                "{}: record address range {:x?} overlaps {:x}",
+                input.display(),
+                range,
+                overlap.0
+            )
+            .into());
         }
         output.insert(
             addr,
@@ -506,4 +565,3 @@ fn load_elf(
     }
     Ok(elf.header.e_entry as u32)
 }
-

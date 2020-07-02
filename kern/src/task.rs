@@ -2,9 +2,13 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
-use abi::{FaultInfo, UsageError, SchedState, TaskState, Priority, Generation, TaskId};
+use abi::{
+    FaultInfo, Generation, Priority, SchedState, TaskId, TaskState, UsageError,
+};
 
-use crate::app::{RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags};
+use crate::app::{
+    RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags,
+};
 use crate::err::UserError;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
@@ -34,7 +38,6 @@ pub struct Task {
     /// Saved machine state of the user program.
     save: crate::arch::SavedState,
     // NOTE: it is critical that the above field appear first!
-
     /// Current priority of the task.
     priority: Priority,
     /// State used to make status and scheduling decisions.
@@ -174,7 +177,7 @@ impl Task {
             let firing = self.notifications & args.notification_mask();
             if firing != 0 {
                 self.notifications &= !firing;
-                return Some(firing)
+                return Some(firing);
             }
         }
         None
@@ -203,9 +206,7 @@ impl Task {
 
     /// Reads out the state of this task's timer, as previously set by
     /// `set_timer`.
-    pub fn timer(
-        &self,
-    ) -> (Option<Timestamp>, NotificationSet) {
+    pub fn timer(&self) -> (Option<Timestamp>, NotificationSet) {
         (self.timer.deadline, self.timer.to_post)
     }
 
@@ -384,7 +385,7 @@ pub trait ArchState: Default {
         response_capacity: usize,
         lease_count: usize,
     ) {
-        self.ret0(0);  // currently reserved
+        self.ret0(0); // currently reserved
         self.ret1(u32::from(sender.0));
         self.ret2(operation);
         self.ret3(length as u32);
@@ -406,7 +407,8 @@ pub trait ArchState: Default {
     }
 
     /// Sets the results of READ_TIMER.
-    fn set_time_result(&mut self,
+    fn set_time_result(
+        &mut self,
         now: Timestamp,
         dl: Option<Timestamp>,
         not: NotificationSet,
@@ -738,7 +740,11 @@ pub fn priority_scan(
 /// with faults, at least one of them is probably the current task; this
 /// makes it harder to forget to request rescheduling. If you're faulting
 /// some other task you can explicitly ignore the result.
-pub fn force_fault(tasks: &mut [Task], index: usize, fault: FaultInfo) -> NextTask {
+pub fn force_fault(
+    tasks: &mut [Task],
+    index: usize,
+    fault: FaultInfo,
+) -> NextTask {
     let task = &mut tasks[index];
     task.state = match task.state {
         TaskState::Healthy(sched) => TaskState::Faulted {
@@ -754,7 +760,8 @@ pub fn force_fault(tasks: &mut [Task], index: usize, fault: FaultInfo) -> NextTa
             }
         }
     };
-    let supervisor_awoken = tasks[0].post(NotificationSet(FAULT_NOTIFICATION.load(Ordering::Relaxed)));
+    let supervisor_awoken = tasks[0]
+        .post(NotificationSet(FAULT_NOTIFICATION.load(Ordering::Relaxed)));
     if supervisor_awoken {
         NextTask::Specific(0)
     } else {

@@ -24,7 +24,6 @@ extern "C" {
 
 #[entry]
 fn main() -> ! {
-
     unsafe {
         //
         // To allow for SWO (the vector for ITM output), we must explicitly
@@ -33,8 +32,8 @@ fn main() -> ! {
         let iocon = &*device::IOCON::ptr();
         iocon.pio0_10.modify(|_, w| w.func().alt6());
 
-        let heap_size = (&__eheap as *const _ as usize)
-            - (&__sheap as *const _ as usize);
+        let heap_size =
+            (&__eheap as *const _ as usize) - (&__sheap as *const _ as usize);
         kern::startup::start_kernel(
             &hubris_app_table,
             (&mut __sheap) as *mut _,

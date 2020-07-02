@@ -26,8 +26,8 @@
 #![no_std]
 #![no_main]
 
-use zerocopy::AsBytes;
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -67,12 +67,11 @@ fn main() -> ! {
                 // Every incoming message uses the same payload type and
                 // response type: it's always u32 -> (). So we can do the
                 // check-and-convert here:
-                let (msg, caller) = msg.fixed::<u32, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
+                let (msg, caller) =
+                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
 
                 // Every incoming message has the same permitted range, as well.
-                let led = Led::from_u32(*msg)
-                    .ok_or(ResponseCode::BadArg)?;
+                let led = Led::from_u32(*msg).ok_or(ResponseCode::BadArg)?;
 
                 match op {
                     Op::On => led_on(led),
@@ -92,10 +91,16 @@ fn main() -> ! {
 //
 // Parts are shared between the F4 and H7 lines.
 
-#[cfg(all(not(feature = "standalone"), any(feature = "stm32f4", feature = "stm32h7")))]
+#[cfg(all(
+    not(feature = "standalone"),
+    any(feature = "stm32f4", feature = "stm32h7")
+))]
 const RCC: Task = Task::rcc_driver;
 
-#[cfg(all(feature = "standalone", any(feature = "stm32f4", feature = "stm32h7")))]
+#[cfg(all(
+    feature = "standalone",
+    any(feature = "stm32f4", feature = "stm32h7")
+))]
 const RCC: Task = SELF;
 
 #[cfg(feature = "stm32f4")]
@@ -104,27 +109,30 @@ fn enable_led_pins() {
     // D13.
 
     // Contact the RCC driver to get power turned on for GPIOD.
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
     const ENABLE_CLOCK: u16 = 1;
     let gpiod_pnum = 3; // see bits in AHB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, gpiod_pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        gpiod_pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     // Now, directly manipulate GPIOD.
     // TODO: this should go through a gpio driver probably.
-    let gpiod = unsafe {
-        &*stm32f4::stm32f407::GPIOD::ptr()
-    };
-    gpiod.moder.modify(|_, w| {
-        w.moder12().output().moder13().output()
-    });
+    let gpiod = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
+    gpiod
+        .moder
+        .modify(|_, w| w.moder12().output().moder13().output());
 }
 
 #[cfg(feature = "stm32f4")]
 fn led_on(led: Led) {
-    let gpiod = unsafe {
-        &*stm32f4::stm32f407::GPIOD::ptr()
-    };
+    let gpiod = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
     match led {
         Led::Zero => gpiod.bsrr.write(|w| w.bs12().set_bit()),
@@ -134,9 +142,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32f4")]
 fn led_off(led: Led) {
-    let gpiod = unsafe {
-        &*stm32f4::stm32f407::GPIOD::ptr()
-    };
+    let gpiod = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
     match led {
         Led::Zero => gpiod.bsrr.write(|w| w.br12().set_bit()),
@@ -146,21 +152,23 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32f4")]
 fn led_toggle(led: Led) {
-    let gpiod = unsafe {
-        &*stm32f4::stm32f407::GPIOD::ptr()
-    };
+    let gpiod = unsafe { &*stm32f4::stm32f407::GPIOD::ptr() };
 
     match led {
-        Led::Zero => if gpiod.odr.read().odr12().bit() {
-            gpiod.bsrr.write(|w| w.br12().set_bit())
-        } else {
-            gpiod.bsrr.write(|w| w.bs12().set_bit())
-        },
-        Led::One => if gpiod.odr.read().odr13().bit() {
-            gpiod.bsrr.write(|w| w.br13().set_bit())
-        } else {
-            gpiod.bsrr.write(|w| w.bs13().set_bit())
-        },
+        Led::Zero => {
+            if gpiod.odr.read().odr12().bit() {
+                gpiod.bsrr.write(|w| w.br12().set_bit())
+            } else {
+                gpiod.bsrr.write(|w| w.bs12().set_bit())
+            }
+        }
+        Led::One => {
+            if gpiod.odr.read().odr13().bit() {
+                gpiod.bsrr.write(|w| w.br13().set_bit())
+            } else {
+                gpiod.bsrr.write(|w| w.bs13().set_bit())
+            }
+        }
     }
 }
 
@@ -170,27 +178,30 @@ fn enable_led_pins() {
     // G11.
 
     // Contact the RCC driver to get power turned on for GPIOG.
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
     const ENABLE_CLOCK: u16 = 1;
     let gpiog_pnum = 102; // AHB4ENR=96 + 6
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, gpiog_pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        gpiog_pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     // Now, directly manipulate GPIOG.
     // TODO: this should go through a gpio driver probably.
-    let gpiog = unsafe {
-        &*stm32h7::stm32h7b3::GPIOG::ptr()
-    };
-    gpiog.moder.modify(|_, w| {
-        w.moder2().output().moder11().output()
-    });
+    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
+    gpiog
+        .moder
+        .modify(|_, w| w.moder2().output().moder11().output());
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
-    let gpiog = unsafe {
-        &*stm32h7::stm32h7b3::GPIOG::ptr()
-    };
+    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
 
     match led {
         Led::Zero => gpiog.bsrr.write(|w| w.bs2().set_bit()),
@@ -200,9 +211,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
-    let gpiog = unsafe {
-        &*stm32h7::stm32h7b3::GPIOG::ptr()
-    };
+    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
 
     match led {
         Led::Zero => gpiog.bsrr.write(|w| w.br2().set_bit()),
@@ -212,21 +221,23 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
-    let gpiog = unsafe {
-        &*stm32h7::stm32h7b3::GPIOG::ptr()
-    };
+    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
 
     match led {
-        Led::Zero => if gpiog.odr.read().odr2().bit() {
-            gpiog.bsrr.write(|w| w.br2().set_bit())
-        } else {
-            gpiog.bsrr.write(|w| w.bs2().set_bit())
-        },
-        Led::One => if gpiog.odr.read().odr11().bit() {
-            gpiog.bsrr.write(|w| w.br11().set_bit())
-        } else {
-            gpiog.bsrr.write(|w| w.bs11().set_bit())
-        },
+        Led::Zero => {
+            if gpiog.odr.read().odr2().bit() {
+                gpiog.bsrr.write(|w| w.br2().set_bit())
+            } else {
+                gpiog.bsrr.write(|w| w.bs2().set_bit())
+            }
+        }
+        Led::One => {
+            if gpiog.odr.read().odr11().bit() {
+                gpiog.bsrr.write(|w| w.br11().set_bit())
+            } else {
+                gpiog.bsrr.write(|w| w.bs11().set_bit())
+            }
+        }
     }
 }
 
@@ -245,69 +256,85 @@ fn enable_led_pins() {
 
     // This assumes the LPCXpresso55S board, where the LEDs are on (abstract
     // pins) 36 and 38.
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_DIR: u16 = 1;
 
     // Ideally this would be done in another driver but given what svd2rust
     // generates it's a nightmare to do this via pin indexing only and
     // also have some degree of safety. If the pins aren't in digital mode
     // the GPIO toggling will work but reading the value won't
-    let iocon = unsafe  { &*device::IOCON::ptr() };
-    iocon.pio1_4.modify( |_, w| w.digimode().digital() );
-    iocon.pio1_6.modify( |_, w| w.digimode().digital() );
+    let iocon = unsafe { &*device::IOCON::ptr() };
+    iocon.pio1_4.modify(|_, w| w.digimode().digital());
+    iocon.pio1_6.modify(|_, w| w.digimode().digital());
 
     // red led
-    let (code, _) = userlib::sys_send(gpio_driver, SET_DIR, &[38, 1], &mut [], &[]);
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_DIR, &[38, 1], &mut [], &[]);
     assert_eq!(code, 0);
 
     // blue led
-    let (code, _) = userlib::sys_send(gpio_driver, SET_DIR, &[36, 1], &mut [], &[]);
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_DIR, &[36, 1], &mut [], &[]);
     assert_eq!(code, 0);
 }
 
 #[cfg(feature = "lpc55")]
 fn led_on(led: Led) {
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
     let idx = match led {
         Led::Zero => 36,
         Led::One => 38,
     };
-    let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
     assert_eq!(code, 0);
 }
 
 #[cfg(feature = "lpc55")]
 fn led_off(led: Led) {
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
     let idx = match led {
         Led::Zero => 36,
         Led::One => 38,
     };
-    let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
     assert_eq!(code, 0);
 }
 
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
     const READ_VAL: u16 = 3;
     let idx = match led {
         Led::Zero => 36,
         Led::One => 38,
     };
-    let mut val : u32 = 0;
+    let mut val: u32 = 0;
 
-    let (code, _) = userlib::sys_send(gpio_driver, READ_VAL, &[idx], val.as_bytes_mut(), &[]);
+    let (code, _) = userlib::sys_send(
+        gpio_driver,
+        READ_VAL,
+        &[idx],
+        val.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(code, 0);
 
     if val == 1 {
-        let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
+        let (code, _) =
+            userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
         assert_eq!(code, 0);
     } else {
-        let (code, _) = userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
+        let (code, _) =
+            userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
         assert_eq!(code, 0);
     }
 }

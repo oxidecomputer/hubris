@@ -32,8 +32,8 @@ fn main() -> ! {
     system_init();
 
     unsafe {
-        let heap_size = (&__eheap as *const _ as usize)
-            - (&__sheap as *const _ as usize);
+        let heap_size =
+            (&__eheap as *const _ as usize) - (&__sheap as *const _ as usize);
         kern::startup::start_kernel(
             &hubris_app_table,
             (&mut __sheap) as *mut _,
@@ -64,10 +64,14 @@ unsafe fn system_pre_init() {
     let pwr = &*stm32h7::stm32h7b3::PWR::ptr();
     // Poke CR3 to enable SMPS (SD) and disable LDO.
     pwr.cr3.modify(|_, w| {
-        w.sden().set_bit()
-            .ldoen().clear_bit()
-            .bypass().clear_bit()
-            .smpsexthp().clear_bit()
+        w.sden()
+            .set_bit()
+            .ldoen()
+            .clear_bit()
+            .bypass()
+            .clear_bit()
+            .smpsexthp()
+            .clear_bit()
     });
 
     // Busy-wait until the ACTVOSRDY bit says that we've stabilized at VOS3.
@@ -130,10 +134,9 @@ fn system_init() {
     //
     // 24MHz HSE -> DIVM -> VCO input freq: the VCO's input must be in the range
     // 2-16MHz, so setting DIVM to divide by 3 gets us 8MHz.
-    p.RCC.pllckselr.modify(|_, w| {
-        w.divm1().bits(3)
-            .pllsrc().hse()
-    });
+    p.RCC
+        .pllckselr
+        .modify(|_, w| w.divm1().bits(3).pllsrc().hse());
     // The VCO itself needs to be configured to expect a 8MHz input ("range 8")
     // and at its normal (wide) range. We will also want its P-output, which is
     // the output that's tied to the system clock.
@@ -142,11 +145,16 @@ fn system_init() {
     // to save power -- but they can function as kernel clocks for many of our
     // peripherals, and thus might be useful.
     p.RCC.pllcfgr.modify(|_, w| {
-        w.pll1vcosel().wide_vco()
-            .pll1rge().range8()
-            .divp1en().enabled()
-            .divq1en().enabled()
-            .divr1en().enabled()
+        w.pll1vcosel()
+            .wide_vco()
+            .pll1rge()
+            .range8()
+            .divp1en()
+            .enabled()
+            .divq1en()
+            .enabled()
+            .divr1en()
+            .enabled()
     });
     // Now, we configure the VCO for reals.
     //
@@ -162,11 +170,15 @@ fn system_init() {
     // We set the Q and R outputs to the same frequency, because the right
     // choice isn't obvious yet.
     p.RCC.pll1divr.modify(|_, w| unsafe {
-        w.divn1().bits(70 - 1)
-            .divp1().div2()
+        w.divn1()
+            .bits(70 - 1)
+            .divp1()
+            .div2()
             // Q and R fields aren't modeled correctly in the API, so:
-            .divq1().bits(1)
-            .divr1().bits(1)
+            .divq1()
+            .bits(1)
+            .divr1()
+            .bits(1)
     });
     // Turn on PLL1 and wait for it to lock.
     p.RCC.cr.modify(|_, w| w.pll1on().on());
@@ -186,25 +198,17 @@ fn system_init() {
     // ------   ---
     // CD       D1, D2
     // SR       D3
-    p.RCC.d1cfgr.write(|w| {
-        w.d1cpre().div1()
-            .d1ppre().div1()
-            .hpre().div1()
-    });
-    p.RCC.d2cfgr.write(|w| {
-        w.d2ppre1().div1()
-            .d2ppre2().div1()
-    });
-    p.RCC.d3cfgr.write(|w| {
-        w.d3ppre().div1()
-    });
+    p.RCC
+        .d1cfgr
+        .write(|w| w.d1cpre().div1().d1ppre().div1().hpre().div1());
+    p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
+    p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
 
     // Reconfigure the Flash wait states to support 280MHz operation at VOS0.
     // Table 15 sez we need 6 wait states and 3 cycle programming delay.
-    p.FLASH.acr.write(|w| unsafe {
-        w.latency().bits(6)
-            .wrhighfreq().bits(0b11)
-    });
+    p.FLASH
+        .acr
+        .write(|w| unsafe { w.latency().bits(6).wrhighfreq().bits(0b11) });
     // Because we're running from Flash, we really, really do need Flash to have
     // the right latency before moving on. Poll to see our values get accepted
     // and then barrier.

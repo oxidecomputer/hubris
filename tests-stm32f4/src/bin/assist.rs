@@ -31,15 +31,14 @@ fn main() -> ! {
             |op, msg| -> Result<(), u32> {
                 // Every incoming message uses the same payload type: it's
                 // always u32 -> u32.
-                let (msg, caller) = msg.fixed::<u32, u32>()
-                    .ok_or(1u32)?;
+                let (msg, caller) = msg.fixed::<u32, u32>().ok_or(1u32)?;
 
                 match op {
                     Op::JustReply => {
                         // To demonstrate comprehension, we perform a some
                         // arithmetic on the message and send it back.
                         caller.reply(!msg);
-                    },
+                    }
                     Op::SendBack => {
                         // Immediately resume the caller...
                         let task_id = caller.task_id();
@@ -54,26 +53,28 @@ fn main() -> ! {
                             &[],
                         );
                         // Ignore the result.
-                    },
+                    }
                     Op::LastReply => {
                         caller.reply(last_reply);
-                    },
+                    }
                     Op::Crash => {
                         caller.reply(0);
                         unsafe {
                             (*msg as *const u8).read_volatile();
                         }
-                        panic!("Stray pointer access did not crash! \
-                            Is memory protection working?!");
-                    },
+                        panic!(
+                            "Stray pointer access did not crash! \
+                            Is memory protection working?!"
+                        );
+                    }
                     Op::Panic => {
                         caller.reply(0);
                         panic!("blarg i am dead")
-                    },
+                    }
                     Op::Store => {
                         caller.reply(stored_value);
                         stored_value = *msg;
-                    },
+                    }
                     Op::SendBackWithLoans => {
                         // Immediately resume the caller...
                         let task_id = caller.task_id();
@@ -93,7 +94,7 @@ fn main() -> ! {
                             ],
                         );
                         // Ignore the result.
-                    },
+                    }
                 }
 
                 Ok(())

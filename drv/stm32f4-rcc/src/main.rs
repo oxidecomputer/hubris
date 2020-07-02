@@ -47,8 +47,8 @@
 #![no_main]
 
 use stm32f4::stm32f407 as device;
-use zerocopy::AsBytes;
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -117,10 +117,11 @@ fn main() -> ! {
                 // Every incoming message uses the same payload type and
                 // response type: it's always u32 -> (). So we can do the
                 // check-and-convert here:
-                let (msg, caller) = msg.fixed::<u32, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
+                let (msg, caller) =
+                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
                 let pmask: u32 = 1 << (msg % 32);
-                let bus = Bus::from_u32(msg / 32).ok_or(ResponseCode::BadArg)?;
+                let bus =
+                    Bus::from_u32(msg / 32).ok_or(ResponseCode::BadArg)?;
 
                 // Note: you're probably looking at the match arms below and
                 // saying to yourself, "gosh, I bet we could eliminate some
@@ -134,28 +135,28 @@ fn main() -> ! {
                         Bus::Ahb3 => set_bits!(rcc.ahb3enr, pmask),
                         Bus::Apb1 => set_bits!(rcc.apb1enr, pmask),
                         Bus::Apb2 => set_bits!(rcc.apb2enr, pmask),
-                    }
+                    },
                     Op::DisableClock => match bus {
                         Bus::Ahb1 => clear_bits!(rcc.ahb1enr, pmask),
                         Bus::Ahb2 => clear_bits!(rcc.ahb2enr, pmask),
                         Bus::Ahb3 => clear_bits!(rcc.ahb3enr, pmask),
                         Bus::Apb1 => clear_bits!(rcc.apb1enr, pmask),
                         Bus::Apb2 => clear_bits!(rcc.apb2enr, pmask),
-                    }
+                    },
                     Op::EnterReset => match bus {
                         Bus::Ahb1 => set_bits!(rcc.ahb1rstr, pmask),
                         Bus::Ahb2 => set_bits!(rcc.ahb2rstr, pmask),
                         Bus::Ahb3 => set_bits!(rcc.ahb3rstr, pmask),
                         Bus::Apb1 => set_bits!(rcc.apb1rstr, pmask),
                         Bus::Apb2 => set_bits!(rcc.apb2rstr, pmask),
-                    }
+                    },
                     Op::LeaveReset => match bus {
                         Bus::Ahb1 => clear_bits!(rcc.ahb1rstr, pmask),
                         Bus::Ahb2 => clear_bits!(rcc.ahb2rstr, pmask),
                         Bus::Ahb3 => clear_bits!(rcc.ahb3rstr, pmask),
                         Bus::Apb1 => clear_bits!(rcc.apb1rstr, pmask),
                         Bus::Apb2 => clear_bits!(rcc.apb2rstr, pmask),
-                    }
+                    },
                 }
 
                 caller.reply(());

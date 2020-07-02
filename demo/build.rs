@@ -18,25 +18,37 @@ fn main() {
             let start = range["start"].as_u64().unwrap();
             let end = range["end"].as_u64().unwrap();
             let name = name.to_ascii_uppercase();
-            writeln!(linkscr, "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}", name, start, end - start).unwrap();
+            writeln!(
+                linkscr,
+                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                name,
+                start,
+                end - start
+            )
+            .unwrap();
         }
         writeln!(linkscr, "}}").unwrap();
         writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
         writeln!(linkscr, "SECTIONS {{").unwrap();
         writeln!(linkscr, "  .hubris_app_table : AT(__erodata) {{").unwrap();
         writeln!(linkscr, "    hubris_app_table = .;").unwrap();
-        writeln!(linkscr, "{}", env::var("HUBRIS_DESCRIPTOR").unwrap()).unwrap();
+        writeln!(linkscr, "{}", env::var("HUBRIS_DESCRIPTOR").unwrap())
+            .unwrap();
         writeln!(linkscr, "  }} > FLASH").unwrap();
         writeln!(linkscr, "}} INSERT AFTER .data").unwrap();
         drop(linkscr);
     } else {
         // Generate a placeholder version.
         let mut linkscr = File::create(out.join("memory.x")).unwrap();
-        writeln!(linkscr, "\
+        writeln!(
+            linkscr,
+            "\
             MEMORY {{\n\
                 FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K\n\
                 RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128K\n\
-            }}").unwrap();
+            }}"
+        )
+        .unwrap();
         writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
         writeln!(linkscr, "SECTIONS {{").unwrap();
         writeln!(linkscr, "  .hubris_app_table : AT(__erodata) {{").unwrap();

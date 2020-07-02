@@ -23,7 +23,10 @@
 //! proxy* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
-use abi::{LeaseAttributes, FaultInfo, FaultSource, SchedState, Sysnum, TaskId, TaskState, UsageError};
+use abi::{
+    FaultInfo, FaultSource, LeaseAttributes, SchedState, Sysnum, TaskId,
+    TaskState, UsageError,
+};
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
@@ -168,9 +171,13 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // receive. We simultaneously find out if there are notifications pending.
     if let Some(firing) = tasks[caller].take_notifications() {
         // Pending! Deliver an artificial message from the kernel.
-        tasks[caller]
-            .save_mut()
-            .set_recv_result(TaskId::KERNEL, firing, 0, 0, 0);
+        tasks[caller].save_mut().set_recv_result(
+            TaskId::KERNEL,
+            firing,
+            0,
+            0,
+            0,
+        );
         return Ok(NextTask::Same);
     }
 
@@ -211,7 +218,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
                 }
             }
         }
-        // Third possibility: we need to block; fall through below.
+    // Third possibility: we need to block; fall through below.
     } else {
         // Open Receive
 
@@ -229,9 +236,9 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
         let mut last = caller; // keep track of scan position.
 
         // Is anyone blocked waiting to send to us?
-        while let Some(sender) =
-            task::priority_scan(last, tasks, |t| t.state().is_sending_to(caller_id))
-        {
+        while let Some(sender) = task::priority_scan(last, tasks, |t| {
+            t.state().is_sending_to(caller_id)
+        }) {
             // Oh hello sender!
             match deliver(tasks, sender, caller) {
                 Ok(_) => {
@@ -282,7 +289,9 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
         Ok(x) => x,
     };
 
-    if tasks[callee].state() != &TaskState::Healthy(SchedState::InReply(caller_id)) {
+    if tasks[callee].state()
+        != &TaskState::Healthy(SchedState::InReply(caller_id))
+    {
         // Huh. The target task is off doing something else. This can happen if
         // application-specific supervisory logic unblocks it before we've had a
         // chance to reply (e.g. to implement timeouts).
@@ -319,7 +328,11 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
             // The sender set up a bogus response buffer. How rude. This
             // may well affect scheduling if it wakes the supervisor, but is Ok
             // from our caller's perspective:
-            return Ok(task::force_fault(tasks, callee, FaultInfo::SyscallUsage(e)))
+            return Ok(task::force_fault(
+                tasks,
+                callee,
+                FaultInfo::SyscallUsage(e),
+            ));
         }
     };
     drop(send_args);
@@ -415,7 +428,9 @@ fn borrow_read(
     match copy_result {
         Ok(n) => {
             // Copy succeeded!
-            tasks[caller].save_mut().set_borrow_response_and_length(0, n);
+            tasks[caller]
+                .save_mut()
+                .set_borrow_response_and_length(0, n);
             return Ok(NextTask::Same);
         }
         Err(interact) => {
@@ -459,7 +474,9 @@ fn borrow_write(
     match copy_result {
         Ok(n) => {
             // Copy succeeded!
-            tasks[caller].save_mut().set_borrow_response_and_length(0, n);
+            tasks[caller]
+                .save_mut()
+                .set_borrow_response_and_length(0, n);
             return Ok(NextTask::Same);
         }
         Err(interact) => {
@@ -483,10 +500,9 @@ fn borrow_info(
 
     let lease = borrow_lease(tasks, caller, lender, 0)?;
 
-    tasks[caller].save_mut().set_borrow_info(
-        lease.attributes.bits(),
-        lease.length as usize,
-    );
+    tasks[caller]
+        .save_mut()
+        .set_borrow_info(lease.attributes.bits(), lease.length as usize);
     return Ok(NextTask::Same);
 }
 
@@ -504,7 +520,9 @@ fn borrow_lease(
     let caller_id = current_id(tasks, caller);
 
     // Check state of lender and range of lease table.
-    if tasks[lender].state() != &TaskState::Healthy(SchedState::InReply(caller_id)) {
+    if tasks[lender].state()
+        != &TaskState::Healthy(SchedState::InReply(caller_id))
+    {
         // The alleged lender isn't lending anything at all.
         // Let's assume this is a defecting lender.
         return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
@@ -517,17 +535,22 @@ fn borrow_lease(
             // Huh. Lender has a corrupt lease table. This would normally be
             // caught during entry to SEND, but could occur if the task's state
             // has been rewritten by something (say, a debugger).
-            let wake_hint = task::force_fault(tasks, lender, FaultInfo::SyscallUsage(e));
+            let wake_hint =
+                task::force_fault(tasks, lender, FaultInfo::SyscallUsage(e));
             return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
         }
     };
 
     // Can the lender actually read the lease table, or are they being sneaky?
     if !tasks[lender].can_read(&leases) {
-        let wake_hint = task::force_fault(tasks, lender, FaultInfo::MemoryAccess {
-            address: Some(leases.base_addr() as u32),
-            source: FaultSource::Kernel,
-        });
+        let wake_hint = task::force_fault(
+            tasks,
+            lender,
+            FaultInfo::MemoryAccess {
+                address: Some(leases.base_addr() as u32),
+                source: FaultSource::Kernel,
+            },
+        );
         return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
     }
 
@@ -542,7 +565,9 @@ fn borrow_lease(
             lease.base_address += offset as u32;
             lease.length -= offset as u32;
         } else {
-            return Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
+            return Err(
+                FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into()
+            );
         }
         Ok(lease)
     } else {
@@ -657,13 +682,19 @@ fn irq_control(
                 return Ok(irq.irq);
             }
         }
-        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq)))
+        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))
     })?;
 
     match control {
         0 => crate::arch::disable_irq(irq),
         1 => crate::arch::enable_irq(irq),
-        _ => return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(UsageError::NoIrq))),
+        _ => {
+            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+                UsageError::NoIrq,
+            )))
+        }
     }
 
     Ok(NextTask::Same)
@@ -684,7 +715,9 @@ fn explicit_panic(
             let slice = unsafe { uslice.assume_readable() };
 
             if slice.iter().all(|&c| c < 0x80) {
-                klog!("task @{} panicked: {}", caller, unsafe { core::str::from_utf8_unchecked(slice) });
+                klog!("task @{} panicked: {}", caller, unsafe {
+                    core::str::from_utf8_unchecked(slice)
+                });
             } else {
                 klog!("task @{} panicked: (message unprintable)", caller);
             }

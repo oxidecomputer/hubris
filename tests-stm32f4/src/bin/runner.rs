@@ -158,7 +158,7 @@ fn main() -> ! {
         start_test(i);
 
         // We now start playing the receiver, monitoring messages from both the
-        // kernel and the testsuite. 
+        // kernel and the testsuite.
 
         // TODO this is where we need to set a timer, but to do that, we need to
         // be able to read the current time.
@@ -196,15 +196,17 @@ fn main() -> ! {
                 |state, op: Op, msg| -> Result<(), u32> {
                     match op {
                         Op::ReadAndClearNotes => {
-                            let (_, caller) = msg.fixed::<(), u32>().ok_or(2u32)?;
+                            let (_, caller) =
+                                msg.fixed::<(), u32>().ok_or(2u32)?;
                             caller.reply(state.received_notes);
                             state.received_notes = 0;
-                        },
+                        }
                         Op::TestComplete => {
-                            let (_, caller) = msg.fixed::<(), ()>().ok_or(2u32)?;
+                            let (_, caller) =
+                                msg.fixed::<(), ()>().ok_or(2u32)?;
                             caller.reply(());
                             state.test_status = Some(true);
-                        },
+                        }
                     }
                     Ok(())
                 },
@@ -306,16 +308,21 @@ fn find_and_report_fault() -> bool {
         let s = kipc::read_task_status(i);
         if let TaskState::Faulted { fault, .. } = s {
             match fault {
-                FaultInfo::MemoryAccess { address, source } =>
+                FaultInfo::MemoryAccess { address, source } => {
                     match address {
                         Some(a) => {
                             sys_log!("Task #{} Memory fault at address 0x{:x} ({:?})", i, a, source);
                         }
 
-                        None => sys_log!("Task #{} Memory fault at unknown address", i)
+                        None => sys_log!(
+                            "Task #{} Memory fault at unknown address",
+                            i
+                        ),
                     }
-                FaultInfo::SyscallUsage(e) =>
-                    sys_log!("Task #{} Bad Syscall Usage {:?}", i, e),
+                }
+                FaultInfo::SyscallUsage(e) => {
+                    sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
+                }
                 FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
             };
             if i == TEST_TASK {

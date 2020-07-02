@@ -106,7 +106,7 @@ impl Syscon {
 }
 
 /// Peripheral numbering.
-/// 
+///
 /// Peripheral bit numbers per the LPC55 manual section 4.5 (for the benefit of
 /// the author writing this driver who hates having to look these up. Double
 /// check these later!)
@@ -163,7 +163,7 @@ pub enum Peripheral {
     Usb1Phy = 32 + 32 + 7,
     Freqme = 32 + 32 + 8,
     Rng = 32 + 32 + 13,
-    Sysctl =  32 + 32 + 15,
+    Sysctl = 32 + 32 + 15,
     Usb0Hostm = 32 + 32 + 16,
     Usb0Hosts = 32 + 32 + 17,
     HashAes = 32 + 32 + 18,

@@ -13,8 +13,8 @@
 #![no_main]
 
 use lpc55_pac as device;
-use zerocopy::AsBytes;
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[cfg(not(feature = "standalone"))]
 const SYSCON: Task = Task::syscon_driver;
@@ -50,40 +50,44 @@ fn main() -> ! {
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual USART. These are technically
     // part of the same block for the purposes of a register block
-    // in app.toml but separate for the purposes of writing here 
+    // in app.toml but separate for the purposes of writing here
 
     let flexcomm = unsafe { &*device::FLEXCOMM0::ptr() };
 
     let usart = unsafe { &*device::USART0::ptr() };
 
     // Set USART mode
-    flexcomm.pselid.write( |w| w.persel().usart() );
+    flexcomm.pselid.write(|w| w.persel().usart());
 
-    usart.fifocfg.modify(|_, w| w
-        .enabletx().enabled()
-    );
+    usart.fifocfg.modify(|_, w| w.enabletx().enabled());
 
     // We actually get interrupts from the FIFO
     // Trigger when the FIFO is empty for now
-    usart.fifotrig.modify(|_, w| unsafe { w
-        .txlvl().bits(0)
-        .txlvlena().enabled()
-    });
+    usart
+        .fifotrig
+        .modify(|_, w| unsafe { w.txlvl().bits(0).txlvlena().enabled() });
 
     // This puts us at 9600 baud because it divides nicely with the
-    // 12mhz clock 
+    // 12mhz clock
     usart.brg.write(|w| unsafe { w.brgval().bits(0x7c) });
     usart.osr.write(|w| unsafe { w.osrval().bits(0x9) });
 
     // 8N1 configuration
     usart.cfg.write(|w| unsafe {
-        w.paritysel().bits(0).
-        stoplen().bit(false).
-        datalen().bits(1).
-        loop_().normal().
-        syncen().asynchronous_mode().
-        clkpol().falling_edge().
-        enable().enabled()
+        w.paritysel()
+            .bits(0)
+            .stoplen()
+            .bit(false)
+            .datalen()
+            .bits(1)
+            .loop_()
+            .normal()
+            .syncen()
+            .asynchronous_mode()
+            .clkpol()
+            .falling_edge()
+            .enable()
+            .enabled()
     });
 
     // USART side yet, so this won't trigger notifications yet.
@@ -119,19 +123,31 @@ fn main() -> ! {
                 OP_WRITE => {
                     // Deny incoming writes if we're already running one.
                     if tx.is_some() {
-                        sys_reply(msginfo.sender, ResponseCode::Busy as u32, &[]);
+                        sys_reply(
+                            msginfo.sender,
+                            ResponseCode::Busy as u32,
+                            &[],
+                        );
                         continue;
                     }
 
                     // Check the lease count and characteristics.
                     if msginfo.lease_count != 1 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        sys_reply(
+                            msginfo.sender,
+                            ResponseCode::BadArg as u32,
+                            &[],
+                        );
                         continue;
                     }
 
                     let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
                     if rc != 0 || atts & 1 == 0 {
-                        sys_reply(msginfo.sender, ResponseCode::BadArg as u32, &[]);
+                        sys_reply(
+                            msginfo.sender,
+                            ResponseCode::BadArg as u32,
+                            &[],
+                        );
                         continue;
                     }
 
@@ -145,7 +161,7 @@ fn main() -> ! {
                     usart.intenset.modify(|_, w| w.txidleen().set_bit());
 
                     // We'll do the rest as interrupts arrive.
-                },
+                }
                 _ => sys_reply(msginfo.sender, ResponseCode::BadOp as u32, &[]),
             }
         }
@@ -153,40 +169,72 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm() {
-    let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 43; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        LEAVE_RESET,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 }
 
-fn muck_with_gpios()
-{
-    let rcc_driver = TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+fn muck_with_gpios() {
+    let rcc_driver =
+        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 13; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        LEAVE_RESET,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     // Our GPIOs are P0_29 and P0_30 and need to be set to AF1
     // The existing peripheral API makes doing this via messages
     // maddening so just muck with IOCON manually for now
-    let iocon = unsafe  { &*device::IOCON::ptr() };
-    iocon.pio0_29.write( |w| w.func().alt1().digimode().digital() );
-    iocon.pio0_30.write( |w| w.func().alt1().digimode().digital() );
+    let iocon = unsafe { &*device::IOCON::ptr() };
+    iocon
+        .pio0_29
+        .write(|w| w.func().alt1().digimode().digital());
+    iocon
+        .pio0_30
+        .write(|w| w.func().alt1().digimode().digital());
 }
 
-fn step_transmit(usart: &device::usart0::RegisterBlock, txs: &mut Transmit) -> bool {
+fn step_transmit(
+    usart: &device::usart0::RegisterBlock,
+    txs: &mut Transmit,
+) -> bool {
     let mut byte = 0u8;
     let (rc, len) = sys_borrow_read(txs.task, 0, txs.pos, byte.as_bytes_mut());
     if rc != 0 || len != 1 {
