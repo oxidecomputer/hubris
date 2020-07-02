@@ -636,10 +636,10 @@ macro_rules! sys_log {
 #[macro_export]
 macro_rules! sys_log {
     ($s:expr) => {
-        let _ = cortex_m_semihosting::hprintln!($s);
+        { let _ = cortex_m_semihosting::hprintln!($s); }
     };
     ($s:expr, $($tt:tt)*) => {
-        let _ = cortex_m_semihosting::hprintln!($s, $($tt)*);
+        { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); }
     };
 }
 
