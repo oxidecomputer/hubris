@@ -30,6 +30,8 @@ members = [
     "drv/lpc55-usart",
     "drv/lpc55-i2c",
 
+    "drv/user-leds",
+
     "tests-stm32f4/stub",
     "tests-stm32f4",
 ]
