@@ -49,6 +49,15 @@ requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
+[tasks.usart_driver]
+path = "../drv/stm32h7-usart"
+name = "drv-stm32h7-usart"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["usart1", "gpioa"]
+start = true
+interrupts = {37 = 1}
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -68,6 +77,7 @@ start = true
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
+features = ["uart"]
 priority = 4
 requires = {flash = 8192, ram = 512}
 start = true
@@ -83,7 +93,14 @@ start = true
 address = 0x58024400
 size = 1024
 
+[peripherals.gpioa]
+address = 0x58020000
+size = 1024
+
 [peripherals.gpiog]
 address = 0x58021800
 size = 1024
 
+[peripherals.usart1]
+address = 0x40011000
+size = 1024
