@@ -21,6 +21,14 @@ const RCC: Task = Task::rcc_driver;
 #[cfg(feature = "standalone")]
 const RCC: Task = SELF;
 
+#[cfg(not(feature = "standalone"))]
+const GPIO: Task = Task::gpio_driver;
+
+// For standalone mode -- this won't work, but then, neither will a task without
+// a kernel.
+#[cfg(feature = "standalone")]
+const GPIO: Task = SELF;
+
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
     Write = 1,
@@ -69,22 +77,7 @@ fn main() -> ! {
     // Enable the UART and transmitter.
     usart.cr1.modify(|_, w| w.ue().enabled().te().enabled());
 
-    turn_on_gpioa();
-
-    // TODO: the fact that we interact with GPIOA directly here is an expedient
-    // hack, but control of the GPIOs should probably be centralized somewhere.
-    let gpioa = unsafe { &*device::GPIOA::ptr() };
-
-    // Mux the USART onto the output pins. We're using PA9/10, where USART1 is
-    // selected by Alternate Function 7.
-    gpioa.moder.modify(|_, w| {
-        w.moder9().alternate()
-            .moder10().alternate()
-    });
-    gpioa.afrh.modify(|_, w| {
-        w.afr9().af7()
-            .afr10().af7()
-    });
+    configure_pins();
 
     // Turn on our interrupt. We haven't enabled any interrupt sources at the
     // USART side yet, so this won't trigger notifications yet.
@@ -170,16 +163,24 @@ fn turn_on_usart() {
     assert_eq!(code, 0);
 }
 
-fn turn_on_gpioa() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+fn configure_pins() {
+    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const CONFIGURE: u16 = 1;
+    let atts = 0b10 << 0 // alternate function mode
+        | 0 << 2 // push-pull
+        | 0b10 << 3 // high speed, why not
+        | 0b00 << 5 // no pull up or down
+        | 7 << 7 // AF7 = USART1
+        ;
+    let msg = [
+        0, // port A
+        0, // no pins in 7:0
+        1 << (9 - 8) | 1 << (10 - 8), // pins 9 and 10
+        atts as u8,
+        (atts >> 8) as u8,
+    ];
 
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 96; // see bits in AHB4ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(gpio_driver, CONFIGURE, &msg, &mut [], &[]);
     assert_eq!(code, 0);
 }
 

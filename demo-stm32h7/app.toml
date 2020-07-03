@@ -49,12 +49,20 @@ requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
+[tasks.gpio_driver]
+path = "../drv/stm32h7-gpio"
+name = "drv-stm32h7-gpio"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["all_gpios"]
+start = true
+
 [tasks.usart_driver]
 path = "../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
 priority = 2
 requires = {flash = 16384, ram = 1024}
-uses = ["usart1", "gpioa"]
+uses = ["usart1"]
 start = true
 interrupts = {37 = 1}
 
@@ -64,7 +72,6 @@ name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
 requires = {flash = 16384, ram = 1024}
-uses = ["gpiog"]
 start = true
 
 [tasks.pong]
@@ -93,13 +100,9 @@ start = true
 address = 0x58024400
 size = 1024
 
-[peripherals.gpioa]
+[peripherals.all_gpios]
 address = 0x58020000
-size = 1024
-
-[peripherals.gpiog]
-address = 0x58021800
-size = 1024
+size = 0x2c00
 
 [peripherals.usart1]
 address = 0x40011000

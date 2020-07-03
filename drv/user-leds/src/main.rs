@@ -87,20 +87,12 @@ fn main() -> ! {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// The STM32 specific bits.
-//
-// Parts are shared between the F4 and H7 lines.
+// The STM32F4 specific bits.
 
-#[cfg(all(
-    not(feature = "standalone"),
-    any(feature = "stm32f4", feature = "stm32h7")
-))]
+#[cfg(all(not(feature = "standalone"), any(feature = "stm32f4")))]
 const RCC: Task = Task::rcc_driver;
 
-#[cfg(all(
-    feature = "standalone",
-    any(feature = "stm32f4", feature = "stm32h7")
-))]
+#[cfg(all(feature = "standalone", any(feature = "stm32f4")))]
 const RCC: Task = SELF;
 
 #[cfg(feature = "stm32f4")]
@@ -172,73 +164,102 @@ fn led_toggle(led: Led) {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// The STM32H7 specific bits.
+
+#[cfg(all(not(feature = "standalone"), feature = "stm32h7"))]
+const GPIO: Task = Task::gpio_driver;
+
+#[cfg(all(feature = "standalone", feature = "stm32h7"))]
+const GPIO: Task = SELF;
+
 #[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
     // This assumes an STM32H7B3 DISCOVERY kit, where the LEDs are on G2 and
     // G11.
 
-    // Contact the RCC driver to get power turned on for GPIOG.
-    let rcc_driver =
-        TaskId::for_index_and_gen(RCC as usize, Generation::default());
-    const ENABLE_CLOCK: u16 = 1;
-    let gpiog_pnum = 102; // AHB4ENR=96 + 6
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        gpiog_pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const CONFIGURE: u16 = 1;
+    let atts = 0b01 << 0 // output
+        | 0 << 2 // push-pull
+        | 0b10 << 3 // high speed, why not
+        | 0b00 << 5 // no pull up or down
+        ;
+    let msg = [
+        6,             // port G
+        1 << 2,        // pin 2
+        1 << (11 - 8), // pin 11
+        atts as u8,
+        (atts >> 8) as u8,
+    ];
 
-    // Now, directly manipulate GPIOG.
-    // TODO: this should go through a gpio driver probably.
-    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
-    gpiog
-        .moder
-        .modify(|_, w| w.moder2().output().moder11().output());
+    let (code, _) =
+        userlib::sys_send(gpio_driver, CONFIGURE, &msg, &mut [], &[]);
+    assert_eq!(code, 0);
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
-    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const SET_RESET: u16 = 2;
+    let set_mask = match led {
+        Led::Zero => 1 << 2,
+        Led::One => 1 << 11,
+    };
+    let msg = [
+        6, // port G
+        set_mask as u8,
+        (set_mask >> 8) as u8,
+        0,
+        0,
+    ];
 
-    match led {
-        Led::Zero => gpiog.bsrr.write(|w| w.bs2().set_bit()),
-        Led::One => gpiog.bsrr.write(|w| w.bs11().set_bit()),
-    }
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_RESET, &msg, &mut [], &[]);
+    assert_eq!(code, 0);
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
-    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const SET_RESET: u16 = 2;
+    let reset_mask = match led {
+        Led::Zero => 1 << 2,
+        Led::One => 1 << 11,
+    };
+    let msg = [
+        6, // port G
+        0,
+        0,
+        reset_mask as u8,
+        (reset_mask >> 8) as u8,
+    ];
 
-    match led {
-        Led::Zero => gpiog.bsrr.write(|w| w.br2().set_bit()),
-        Led::One => gpiog.bsrr.write(|w| w.br11().set_bit()),
-    }
+    let (code, _) =
+        userlib::sys_send(gpio_driver, SET_RESET, &msg, &mut [], &[]);
+    assert_eq!(code, 0);
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
-    let gpiog = unsafe { &*stm32h7::stm32h7b3::GPIOG::ptr() };
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    const TOGGLE: u16 = 4;
+    let mask = match led {
+        Led::Zero => 1 << 2,
+        Led::One => 1 << 11,
+    };
+    let msg = [
+        6, // port G
+        mask as u8,
+        (mask >> 8) as u8,
+    ];
 
-    match led {
-        Led::Zero => {
-            if gpiog.odr.read().odr2().bit() {
-                gpiog.bsrr.write(|w| w.br2().set_bit())
-            } else {
-                gpiog.bsrr.write(|w| w.bs2().set_bit())
-            }
-        }
-        Led::One => {
-            if gpiog.odr.read().odr11().bit() {
-                gpiog.bsrr.write(|w| w.br11().set_bit())
-            } else {
-                gpiog.bsrr.write(|w| w.bs11().set_bit())
-            }
-        }
-    }
+    let (code, _) = userlib::sys_send(gpio_driver, TOGGLE, &msg, &mut [], &[]);
+    assert_eq!(code, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
