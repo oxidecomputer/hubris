@@ -164,24 +164,21 @@ fn turn_on_usart() {
 }
 
 fn configure_pins() {
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const CONFIGURE: u16 = 1;
-    let atts = 0b10 << 0 // alternate function mode
-        | 0 << 2 // push-pull
-        | 0b10 << 3 // high speed, why not
-        | 0b00 << 5 // no pull up or down
-        | 7 << 7 // AF7 = USART1
-        ;
-    let msg = [
-        0, // port A
-        0, // no pins in 7:0
-        1 << (9 - 8) | 1 << (10 - 8), // pins 9 and 10
-        atts as u8,
-        (atts >> 8) as u8,
-    ];
+    use drv_stm32h7_gpio_api::*;
 
-    let (code, _) = userlib::sys_send(gpio_driver, CONFIGURE, &msg, &mut [], &[]);
-    assert_eq!(code, 0);
+    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = Gpio::from(gpio_driver);
+
+    const TX_RX_MASK: u16 = (1 << 9) | (1 << 10);
+    gpio_driver.configure(
+        Port::A,
+        TX_RX_MASK,
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::High,
+        Pull::None,
+        Alternate::AF7,
+    ).unwrap();
 }
 
 fn step_transmit(usart: &device::usart1::RegisterBlock, tx: &mut Option<Transmit>) {

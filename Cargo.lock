@@ -272,6 +272,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-gpio-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
@@ -285,6 +295,7 @@ dependencies = [
 name = "drv-stm32h7-usart"
 version = "0.1.0"
 dependencies = [
+ "drv-stm32h7-gpio-api",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -295,6 +306,7 @@ dependencies = [
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
+ "drv-stm32h7-gpio-api",
  "lpc55-pac",
  "num-traits",
  "stm32f4",
