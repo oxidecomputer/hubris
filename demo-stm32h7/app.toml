@@ -4,7 +4,7 @@ target = "thumbv7em-none-eabihf"
 [kernel]
 path = "."
 name = "demo-stm32h7"
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -20,24 +20,26 @@ features = ["itm"]
 [supervisor]
 notification = 1
 
+# Flash sections are mapped into flash bank 1 (of 2).
 [outputs.flash]
 address = 0x08000000
-size = 262144
+size = 1048576
 read = true
 execute = true
 
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
 [outputs.ram]
 address = 0x20000000
-size = 114688
+size = 131072
 read = true
 write = true
-execute = true
+execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
 path = "../task-jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 32768, ram = 1024}
+requires = {flash = 16384, ram = 1024}
 start = true
 features = ["itm"]
 
@@ -53,7 +55,7 @@ start = true
 path = "../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 8192, ram = 1024}
 uses = ["all_gpios"]
 start = true
 
@@ -61,7 +63,7 @@ start = true
 path = "../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 8192, ram = 1024}
 uses = ["usart1"]
 start = true
 interrupts = {37 = 1}
@@ -71,7 +73,7 @@ path = "../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 8192, ram = 1024}
 start = true
 
 [tasks.pong]
