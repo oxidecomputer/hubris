@@ -216,8 +216,14 @@ bitflags::bitflags! {
         /// on devices that include it, and discourages the kernel from using
         /// `memcpy` in the region.
         const DEVICE = 1 << 3;
+        /// Region can be used for DMA or communication with other processors.
+        /// This heavily restricts how this memory can be cached and will hurt
+        /// performance if overused.
+        ///
+        /// This is ignored for `DEVICE` memory, which is already not cached.
+        const DMA = 1 << 4;
 
-        const RESERVED = !((1 << 4) - 1);
+        const RESERVED = !((1 << 5) - 1);
     }
 }
 

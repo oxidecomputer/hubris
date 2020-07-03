@@ -363,14 +363,20 @@ pub fn apply_memory_protection(task: &task::Task) {
         let (tex, scb) = if ratts.contains(app::RegionAttributes::DEVICE) {
             // Device memory.
             (0b000, 0b001)
-        } else {
+        } else if ratts.contains(app::RegionAttributes::DMA) {
             // Conservative settings for normal memory assuming that DMA might
             // be a problem:
             // - Outer and inner write-through.
             // - Read allocate, no write allocate.
             // - Shared.
-            // TODO: could get higher performance by exposing this as a choice.
             (0b000, 0b110)
+        } else {
+            // Aggressive settings for normal memory assume that it is used only
+            // by this processor:
+            // - Outer and inner write-back
+            // - Read and write allocate.
+            // - Not shared.
+            (0b001, 0b011)
         };
         // This is a bit of a hack; it works if the size is a power of two, but
         // will undersize the region if it isn't. We really need to validate the
