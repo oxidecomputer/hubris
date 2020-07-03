@@ -166,6 +166,8 @@ fn led_toggle(led: Led) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // The STM32H7 specific bits.
+//
+// This assumes an STM32H7B3 DISCOVERY kit, where the LEDs are on G2 and G11.
 
 #[cfg(all(not(feature = "standalone"), feature = "stm32h7"))]
 const GPIO: Task = Task::gpio_driver;
@@ -174,92 +176,78 @@ const GPIO: Task = Task::gpio_driver;
 const GPIO: Task = SELF;
 
 #[cfg(feature = "stm32h7")]
+const LED_PORT: drv_stm32h7_gpio_api::Port = drv_stm32h7_gpio_api::Port::G;
+
+#[cfg(feature = "stm32h7")]
+const LED_MASK_0: u16 = 1 << 2;
+
+#[cfg(feature = "stm32h7")]
+const LED_MASK_1: u16 = 1 << 11;
+
+#[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
-    // This assumes an STM32H7B3 DISCOVERY kit, where the LEDs are on G2 and
-    // G11.
+    use drv_stm32h7_gpio_api::*;
 
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const CONFIGURE: u16 = 1;
-    let atts = 0b01 << 0 // output
-        | 0 << 2 // push-pull
-        | 0b10 << 3 // high speed, why not
-        | 0b00 << 5 // no pull up or down
-        ;
-    let msg = [
-        6,             // port G
-        1 << 2,        // pin 2
-        1 << (11 - 8), // pin 11
-        atts as u8,
-        (atts >> 8) as u8,
-    ];
+    let gpio_driver = Gpio::from(gpio_driver);
 
-    let (code, _) =
-        userlib::sys_send(gpio_driver, CONFIGURE, &msg, &mut [], &[]);
-    assert_eq!(code, 0);
+    gpio_driver
+        .configure(
+            LED_PORT,
+            LED_MASK_0 | LED_MASK_1,
+            Mode::Output,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+            Alternate::AF0,
+        )
+        .unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
+    use drv_stm32h7_gpio_api::*;
+
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const SET_RESET: u16 = 2;
-    let set_mask = match led {
-        Led::Zero => 1 << 2,
-        Led::One => 1 << 11,
-    };
-    let msg = [
-        6, // port G
-        set_mask as u8,
-        (set_mask >> 8) as u8,
-        0,
-        0,
-    ];
+    let gpio_driver = Gpio::from(gpio_driver);
 
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_RESET, &msg, &mut [], &[]);
-    assert_eq!(code, 0);
+    let set_mask = match led {
+        Led::Zero => LED_MASK_0,
+        Led::One => LED_MASK_1,
+    };
+    gpio_driver.set_reset(LED_PORT, set_mask, 0).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
+    use drv_stm32h7_gpio_api::*;
+
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const SET_RESET: u16 = 2;
-    let reset_mask = match led {
-        Led::Zero => 1 << 2,
-        Led::One => 1 << 11,
-    };
-    let msg = [
-        6, // port G
-        0,
-        0,
-        reset_mask as u8,
-        (reset_mask >> 8) as u8,
-    ];
+    let gpio_driver = Gpio::from(gpio_driver);
 
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_RESET, &msg, &mut [], &[]);
-    assert_eq!(code, 0);
+    let reset_mask = match led {
+        Led::Zero => LED_MASK_0,
+        Led::One => LED_MASK_1,
+    };
+    gpio_driver.set_reset(LED_PORT, 0, reset_mask).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
+    use drv_stm32h7_gpio_api::*;
+
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    const TOGGLE: u16 = 4;
+    let gpio_driver = Gpio::from(gpio_driver);
     let mask = match led {
-        Led::Zero => 1 << 2,
-        Led::One => 1 << 11,
+        Led::Zero => LED_MASK_0,
+        Led::One => LED_MASK_1,
     };
-    let msg = [
-        6, // port G
-        mask as u8,
-        (mask >> 8) as u8,
-    ];
 
-    let (code, _) = userlib::sys_send(gpio_driver, TOGGLE, &msg, &mut [], &[]);
-    assert_eq!(code, 0);
+    gpio_driver.toggle(LED_PORT, mask).unwrap();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
