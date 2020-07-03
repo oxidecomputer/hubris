@@ -268,8 +268,9 @@ fn initialize_sdram(
     // be confused with the chip's _internal_ banks); controller bank 1 is
     // unused.
     //
-    // At CAS latency 3 this chip can run at up to 166MHz; we're going to run it
-    // at a more convenient multiple, 140MHz.
+    // At CAS latency 3 this chip can run at up to 166MHz, but it appears that
+    // the H7B3's SDRAM interface is limited to 110MHz. The nearest multiple we
+    // can run it at is 280MHz/3, or 93.3333...Mhz.
 
     // Turn on the memory controller's clock. We're going to tap the AHB3 clock,
     // which is 280MHz, which will work nicely.
@@ -287,7 +288,7 @@ fn initialize_sdram(
     p.FMC.sdbank1().sdcr.write(|w| unsafe {
         w.rpipe().bits(0b10) // +2 cycles
             .rburst().set_bit() // use burst mode, kind of
-            .sdclk().bits(0b10) // 1/2 input clock rate (140MHz)
+            .sdclk().bits(0b11) // 1/3 input clock rate (93.33MHz)
     });
     p.FMC.sdbank2().sdcr.write(|w| unsafe {
         w.wp().clear_bit() // don't write protect
@@ -359,7 +360,7 @@ fn initialize_sdram(
     // countdown timer; a refresh is activated when it reaches zero.
     p.FMC.sdrtr.write(|w| unsafe {
         let refresh_ms: u32 = 64; // from datasheet
-        let cycles_per_ms = 140_000; // for 140MHz SDCLK rate
+        let cycles_per_ms = 93_333; // for 93.333MHz SDCLK rate
         let refresh_cycles = refresh_ms * cycles_per_ms;
         let refresh_cyc_per_row = refresh_cycles / 4096; // round down
         let margin = 20; // from STM32H7B3 manual
