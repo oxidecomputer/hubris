@@ -12,6 +12,7 @@ extern crate panic_itm; // breakpoint on `rust_begin_unwind` to catch panics
 #[cfg(feature = "panic-semihosting")]
 extern crate panic_semihosting; // requires a debugger
 
+use core::ops::Deref;
 use cortex_m_rt::pre_init;
 
 // We have to do this if we don't otherwise use it to ensure its vector table
@@ -245,4 +246,306 @@ fn system_init() {
     // Finally, turn off the HSI we used at boot, to save about 400 uA.
     p.RCC.cr.modify(|_, w| w.hsion().off());
     // No need to busy wait here, the moment when it turns off is not important.
+
+    initialize_sdram(&mut cp, &p);
+}
+
+/// Sets up the SDRAM on the STM32H7B3I-DK board.
+///
+/// Note that this function requires a `Peripherals`, meaning it cannot be
+/// executed during `pre_init`. This implies that the kernel (and any code
+/// around `main`) _cannot_ store any information in SDRAM. Tasks, however, are
+/// free to use it as they see fit.
+fn initialize_sdram(
+    cp: &mut cortex_m::Peripherals,
+    p: &stm32h7::stm32h7b3::Peripherals,
+) {
+    // Time to get the SDRAM turned on!
+    //
+    // The STM32H7B3I-DK board has a single SDRAM chip, an ISSI
+    // IS42S16800F-6BLI. That's a 16-bit by 2Mi by 4 bank part in the 6ns-or-so
+    // speed grade. It's attached to SDRAM controller bank 2 on the chip (not to
+    // be confused with the chip's _internal_ banks); controller bank 1 is
+    // unused.
+    //
+    // At CAS latency 3 this chip can run at up to 166MHz; we're going to run it
+    // at a more convenient multiple, 140MHz.
+
+    // Turn on the memory controller's clock. We're going to tap the AHB3 clock,
+    // which is 280MHz, which will work nicely.
+    p.RCC.d1ccipr.modify(|_, w| w.fmcsel().rcc_hclk3());
+    p.RCC.ahb3enr.modify(|_, w| w.fmcen().enabled());
+    cortex_m::asm::dmb();
+
+    // Switch the GPIOs we need. This is kind of a lot of code so it's pulled
+    // out into a separate function.
+    initialize_sdram_pins(&p);
+
+    // Configure basic device features. Some of these apply across both banks
+    // and must be written into controller bank 1's registers, even though we're
+    // not otherwise using controller bank 1.
+    p.FMC.sdbank1().sdcr.write(|w| unsafe {
+        w.rpipe().bits(0b10) // +2 cycles
+            .rburst().set_bit() // use burst mode, kind of
+            .sdclk().bits(0b10) // 1/2 input clock rate (140MHz)
+    });
+    p.FMC.sdbank2().sdcr.write(|w| unsafe {
+        w.wp().clear_bit() // don't write protect
+            .cas().bits(0b11) // CAS=3
+            .nb().set_bit() // 4 banks
+            .mwid().bits(0b01) // 16 data bits
+            .nr().bits(0b01) // 12 row address bits
+            .nc().bits(0b01) // 9 column address bits
+    });
+
+    // Set up timing. Again, some of these settings are global and must be
+    // written to bank 1.
+    p.FMC.sdbank1().sdtr.write(|w| unsafe {
+        w.trp().bits(3 - 1)  // Trp = command period, PRE -> ACT
+            .trc().bits(10 - 1) // Trc = command period ACT -> ACT
+    });
+    p.FMC.sdbank2().sdtr.write(|w| unsafe {
+        w.trcd().bits(3 - 1)  // Trcd = ACT to R/W delay
+            .twr().bits(4 - 1) // Twr is ST-specific, Tras - Trcd
+            .tras().bits(7 - 1) // Tras = command period ACT -> PRE
+            .txsr().bits(10 - 1) // Txsr = exit self refresh -> ACT
+            .tmrd().bits(2 - 1) // Tmrd = mode register program time
+    });
+
+    // Turn on the memory controller. Where does it say to do this in the SDRAM
+    // docs? Nowhere! It's actually difficult to even find the definition of
+    // this register! Whee!
+    p.FMC.bcr1.modify(|_, w| w.fmcen().set_bit());
+
+    // Start a Clock Configuration Enable (001) command to controller bank 2.
+    // This will start clocking the RAM.
+    p.FMC.sdcmr.write(|w| unsafe {
+        w.mode().bits(0b001)
+            .ctb2().set_bit()
+    });
+
+    // The RAM needs 100us after clock is applied to wake up.
+    early_delay(&mut cp.SYST, 280 * 100);
+
+    // Start a PALL (All Bank Precharge) command on controller bank 2.
+    p.FMC.sdcmr.write(|w| unsafe {
+        w.mode().bits(0b010)
+            .ctb2().set_bit()
+    });
+
+    // Start an Auto-Refresh command on controller bank 2. The controller will
+    // automatically repeat this command for the count given at NRFS. Our RAM
+    // doesn't appear to specify this, but the ST docs suggest 8, so... 8!
+    p.FMC.sdcmr.write(|w| unsafe {
+        w.mode().bits(0b011)
+            .ctb2().set_bit()
+            .nrfs().bits(8 - 1) // ??
+    });
+
+    // Start a Load Mode Register command, loading the MRD field into the
+    // SDRAM's config register.
+    p.FMC.sdcmr.write(|w| unsafe {
+        let mrd = 0b000 << 0 // burst length 1
+            | 0b0 << 3 // burst type sequential
+            | 0b11 << 4 // CAS latency 3
+            | 1 << 9 // single location burst
+            ;
+        w.mode().bits(0b100)
+            .ctb2().set_bit()
+            .mrd().bits(mrd)
+    });
+
+    // Configure the refresh rate timer. This controls the reload value of a
+    // countdown timer; a refresh is activated when it reaches zero.
+    p.FMC.sdrtr.write(|w| unsafe {
+        let refresh_ms: u32 = 64; // from datasheet
+        let cycles_per_ms = 140_000; // for 140MHz SDCLK rate
+        let refresh_cycles = refresh_ms * cycles_per_ms;
+        let refresh_cyc_per_row = refresh_cycles / 4096; // round down
+        let margin = 20; // from STM32H7B3 manual
+
+        assert!(refresh_cyc_per_row < (1 << 13) - 1);
+        w.cre().set_bit()
+            .count().bits(refresh_cyc_per_row as u16 - margin)
+    });
+    cortex_m::asm::dmb();
+
+    // All done.
+}
+
+/// Delays for at least `cycles` CPU cycles, using the sys tick timer.
+///
+/// This assumes the systick is not otherwise used, and freely overwrites its
+/// configuration. Thus, this function is not safe to use after the kernel
+/// starts -- but it's kosher during system init.
+fn early_delay(syst: &mut cortex_m::peripheral::SYST, cycles: u32) {
+    assert!(cycles < 1 << 16);
+    unsafe {
+        syst.rvr.write(cycles - 1);
+        syst.cvr.write(0);
+        syst.csr.modify(|v| v | 0b101);
+        while syst.csr.read() & (1 << 16) == 0 {
+            // spin
+        }
+        syst.csr.write(0);
+    }
+}
+
+/// Handy macro for expressing a word with particular bits set.
+///
+/// `bits!(0, 16, 17) == 0x3001`
+macro_rules! bits {
+    ($($bit:expr),*) => { 0 $(| (1 << $bit))* };
+}
+
+fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
+    p.RCC.ahb4enr.modify(|_, w| {
+        w.gpioden().enabled()
+            .gpioeen().enabled()
+            .gpiofen().enabled()
+            .gpiogen().enabled()
+            .gpiohen().enabled()
+    });
+    cortex_m::asm::dmb();
+
+    // PD0  = FMC_D2
+    // PD1  = FMC_D3
+    // PD8  = FMC_D13
+    // PD9  = FMC_D14
+    // PD10 = FMC_D15
+    // PD14 = FMC_D0
+    // PD15 = FMC_D1
+    configure_several_sdram_pins(&p.GPIOD, bits!(0, 1, 8, 9, 10, 14, 15));
+
+    // PE0  = FMC_NBL0
+    // PE1  = FMC_NBL1
+    // PE7  = FMC_D4
+    // PE8  = FMC_D5
+    // PE9  = FMC_D6
+    // PE10 = FMC_D7
+    // PE11 = FMC_D8
+    // PE12 = FMC_D9
+    // PE13 = FMC_D10
+    // PE14 = FMC_D11
+    // PE15 = FMC_D12
+    configure_several_sdram_pins(
+        &p.GPIOE,
+        bits!(0, 1, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+    );
+
+    // PF0  = FMC_A0
+    // PF1  = FMC_A1
+    // PF2  = FMC_A2
+    // PF3  = FMC_A3
+    // PF4  = FMC_A4
+    // PF5  = FMC_A5
+    // PF11 = FMC_SDNRAS
+    // PF12 = FMC_A6
+    // PF13 = FMC_A7
+    // PF14 = FMC_A8
+    // PF15 = FMC_A9
+    configure_several_sdram_pins(&p.GPIOF, bits!(0, 1, 2, 3, 4, 5, 11, 12, 13, 14, 15));
+
+    // PG0  = FMC_A10
+    // PG1  = FMC_A11
+    // PG4  = FMC_BA0
+    // PG5  = FMC_BA1
+    // PG8  = FMC_SDCLK
+    // PG15 = FMC_SDNCAS
+    configure_several_sdram_pins(&p.GPIOG, bits!(0, 1, 4, 5, 8, 15));
+
+    // PH5 = FMC_SDNWE
+    // PH6 = FMC_SDNE1
+    // PH7 = FMC_SDCKE1
+    configure_several_sdram_pins(&p.GPIOH, bits!(5, 6, 7));
+}
+
+/// Performs a sequence of 5 register writes to configure 0-16 GPIO pins in a
+/// single port for SDRAM usage. By referencing the pins as a mask, we can avoid
+/// the need for a port-specific sequence of `.moder0().yes().moder1().yes()`
+/// nonsense.
+///
+/// This could be made general if you need it for something.
+///
+/// Note that `port` is GPIOA because, in the future, all GPIO ports are GPIOA.
+fn configure_several_sdram_pins(
+    port: &impl Deref<Target = stm32h7::stm32h7b3::gpioa::RegisterBlock>,
+    mask: u16,
+) {
+    // If you wanted to make this general, change these constants into
+    // arguments.
+    const MODER_ALTERNATE: u32 = 0b10;
+    const OTYPER_PUSH_PULL: u32 = 0b0;
+    const OSPEEDR_LUDICROUS: u32 = 0b11;
+    const AFR_AF12: u32 = 12;
+
+    // The GPIO config registers come in 1, 2, and 4-bit per field variants. The
+    // user-submitted mask is already correct for the 1-bit fields; we need to
+    // expand it into corresponding 2- and 4-bit masks. We use an outer perfect
+    // shuffle operation for this, which interleaves zeroes from the top 16 bits
+    // into the bottom 16.
+
+    // 1 in each targeted 1bit field.
+    let mask_1 = u32::from(mask);
+    // 0b01 in each targeted 2bit field.
+    let lsbs_2 = outer_perfect_shuffle(mask_1);
+    // 0b0001 in each targeted 4bit field for low half.
+    let lsbs_4l = outer_perfect_shuffle(lsbs_2 & 0xFFFF);
+    // Same for high half.
+    let lsbs_4h = outer_perfect_shuffle(lsbs_2 >> 16);
+
+    // Corresponding masks, with 1s in all field bits instead of just the LSB:
+    let mask_2 = lsbs_2 * 0b11;
+    let mask_4l = lsbs_4l * 0b1111;
+    let mask_4h = lsbs_4h * 0b1111;
+
+    // MODER contains 16x 2-bit fields.
+    port.moder.write(|w| unsafe {
+        w.bits((port.moder.read().bits() & !mask_2)
+            | (MODER_ALTERNATE * lsbs_2))
+    });
+    // OTYPER contains 16x 1-bit fields.
+    port.otyper.write(|w| unsafe {
+        w.bits((port.otyper.read().bits() & !mask_1)
+            | (OTYPER_PUSH_PULL * mask_1))
+    });
+    // OSPEEDR contains 16x 2-bit fields.
+    port.ospeedr.write(|w| unsafe {
+        w.bits((port.ospeedr.read().bits() & !mask_2)
+            | (OSPEEDR_LUDICROUS * lsbs_2))
+    });
+    // AFRx contains 8x 4-bit fields.
+    port.afrl.write(|w| unsafe {
+        w.bits((port.afrl.read().bits() & !mask_4l)
+            | (AFR_AF12 * lsbs_4l))
+    });
+    port.afrh.write(|w| unsafe {
+        w.bits((port.afrh.read().bits() & !mask_4h)
+            | (AFR_AF12 * lsbs_4h))
+    });
+}
+
+/// Interleaves bits in `input` as follows:
+///
+/// - Output bit 0 = input bit 0
+/// - Output bit 1 = input bit 15
+/// - Output bit 2 = input bit 1
+/// - Output bit 3 = input bit 16
+/// ...and so forth.
+///
+/// This is a great example of one of those bit twiddling tricks you never
+/// expected to need. Method from Hacker's Delight.
+///
+/// In practice, this compiles to zero instructions, because we use it with
+/// constant operands (note the `const fn` part).
+const fn outer_perfect_shuffle(mut input: u32) -> u32 {
+    let mut tmp = (input ^ (input >> 8)) & 0x0000ff00;
+    input ^= tmp ^ (tmp << 8);
+    tmp = (input ^ (input >> 4)) & 0x00f000f0;
+    input ^= tmp ^ (tmp << 4);
+    tmp = (input ^ (input >> 2)) & 0x0c0c0c0c;
+    input ^= tmp ^ (tmp << 2);
+    tmp = (input ^ (input >> 1)) & 0x22222222;
+    input ^= tmp ^ (tmp << 1);
+    input
 }
