@@ -437,18 +437,19 @@ pub fn apply_memory_protection(task: &task::Task) {
             0b00 // RW by privilege code only
         };
 
-        // Keep this as the most restrictive for devices and least
-        // restrictive for memory right now.
-        let mair = if ratts.contains(app::RegionAttributes::DEVICE) {
-            0b00000000
+        let (mair, sh) = if ratts.contains(app::RegionAttributes::DEVICE) {
+            // Most restrictive: device memory, outer shared.
+            (0b00000000, 0b10)
+        } else if ratts.contains(app::RegionAttributes::DMA) {
+            // Outer/inner non-cacheable, outer shared.
+            (0b01000100, 0b10)
         } else {
-            0b11111111
+            let rw =
+                u32::from(ratts.contains(app::RegionAttributes::READ)) << 1
+                | u32::from(ratts.contains(app::RegionAttributes::WRITE));
+            // write-back transient, not shared
+            (0b0100_0100 | rw | rw << 4, 0b00)
         };
-
-        // Sharability for normal memory. This is ignored for device memory
-        // Keep this as outer sharable on the safe side for devices (think
-        // about this more later)
-        let sh = 0b10;
 
         // RLAR = our upper bound
         let rlar = region.base + region.size
