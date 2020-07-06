@@ -660,7 +660,7 @@ dependencies = [
 [[package]]
 name = "stm32h7"
 version = "0.11.0"
-source = "git+https://github.com/stm32-rs/stm32-rs-nightlies#3a98a595ed9126ed7e9515c575fb753b60cb9391"
+source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies#0258085314efe2dca393f51cbe4362b37337ffdd"
 dependencies = [
  "bare-metal",
  "cortex-m",

@@ -10,7 +10,7 @@ zerocopy = "0.3.0"
 num-traits = {version = "0.2", default-features = false}
 
 [dependencies.stm32h7]
-git = "https://github.com/stm32-rs/stm32-rs-nightlies"
+git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
 features = ["stm32h7b3"]
 
 [features]
