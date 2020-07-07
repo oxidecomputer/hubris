@@ -1,8 +1,12 @@
+#![feature(try_blocks)]
+
+use std::env;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use structopt::StructOpt;
 
+mod build;
 mod dist;
 mod gdb;
 
@@ -27,6 +31,9 @@ enum Xtask {
         /// Path to the gdb configuation script.
         gdb_cfg: PathBuf,
     },
+
+    /// builds a sub-project
+    Build,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -40,7 +47,34 @@ fn main() -> Result<(), Box<dyn Error>> {
             dist::package(cfg)?;
             gdb::run(gdb_cfg)?;
         }
+        Xtask::Build => {
+            let path = env::current_dir()?;
+            let manifest_path = path.join("Cargo.toml");
+            //let target = "thumbv8m.main-none-eabihf";
+            let target = get_target(&manifest_path)?;
+
+            build::run(&path, &target)?;
+        }
     }
 
     Ok(())
+}
+
+fn get_target(manifest_path: &Path) -> Result<String, Box<dyn Error>> {
+    let contents = std::fs::read(manifest_path)?;
+    let toml: toml::Value = toml::from_slice(&contents)?;
+
+    // we're on nightly, let's enjoy it
+    let target = try {
+        toml.get("package")?
+            .get("metadata")?
+            .get("build")?
+            .get("target")?
+            .as_str()?
+    };
+
+    match target {
+        Some(target) => Ok(target.to_string()),
+        None => Err(String::from("Could not find target, please set [package.metadata.build.target] in Cargo.toml").into()),
+    }
 }
