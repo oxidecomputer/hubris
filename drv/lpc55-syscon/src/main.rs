@@ -158,6 +158,10 @@ fn main() -> ! {
     syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
     // Flexcom4 (the DAC i2c) is also set to 12Mhz
     syscon.fcclksel4().modify(|_, w| w.sel().enum_0x2());
+    // The high speed SPI AKA Flexcomm8 is also set to 12Mhz
+    // Note this can definitely go higher but that involves
+    // turning on PLLs and such
+    syscon.hslspiclksel.modify(|_, w| w.sel().enum_0x2());
 
     // Field messages.
     // Ensure our buffer is aligned properly for a u32 by declaring it as one.
