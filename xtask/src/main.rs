@@ -4,7 +4,10 @@ use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+use serde::Deserialize;
 use structopt::StructOpt;
+
+use indexmap::IndexMap;
 
 mod build;
 mod dist;
@@ -35,22 +38,91 @@ enum Xtask {
     /// builds a sub-project
     Build,
 }
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Config {
+    name: String,
+    target: String,
+    kernel: Kernel,
+    outputs: IndexMap<String, Output>,
+    tasks: IndexMap<String, Task>,
+    #[serde(default)]
+    peripherals: IndexMap<String, Peripheral>,
+    supervisor: Option<Supervisor>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Kernel {
+    path: PathBuf,
+    name: String,
+    requires: IndexMap<String, u32>,
+    #[serde(default)]
+    features: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Supervisor {
+    notification: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Output {
+    address: u32,
+    size: u32,
+    #[serde(default)]
+    read: bool,
+    #[serde(default)]
+    write: bool,
+    #[serde(default)]
+    execute: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Task {
+    path: PathBuf,
+    name: String,
+    requires: IndexMap<String, u32>,
+    priority: u32,
+    #[serde(default)]
+    uses: Vec<String>,
+    #[serde(default)]
+    start: bool,
+    #[serde(default)]
+    features: Vec<String>,
+    #[serde(default)]
+    interrupts: IndexMap<String, u32>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Peripheral {
+    address: u32,
+    size: u32,
+}
+
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let xtask = Xtask::from_args();
 
     match xtask {
         Xtask::Dist { cfg } => {
-            dist::package(cfg)?;
+            dist::package(&cfg)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
-            dist::package(cfg)?;
-            gdb::run(gdb_cfg)?;
+            dist::package(&cfg)?;
+            gdb::run(&cfg, &gdb_cfg)?;
         }
         Xtask::Build => {
             let path = env::current_dir()?;
             let manifest_path = path.join("Cargo.toml");
-            //let target = "thumbv8m.main-none-eabihf";
             let target = get_target(&manifest_path)?;
 
             build::run(&path, &target)?;

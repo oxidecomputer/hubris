@@ -1,15 +1,27 @@
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub fn run(gdb_cfg: PathBuf) -> Result<(), Box<dyn Error>> {
+use crate::Config;
+
+pub fn run(cfg: &Path, gdb_cfg: &Path) -> Result<(), Box<dyn Error>> {
+    let cfg_contents = std::fs::read(&cfg)?;
+    let toml: Config = toml::from_slice(&cfg_contents)?;
+
+    let mut out = PathBuf::from("target");
+    out.push(toml.name);
+    out.push("dist");
+
+    let gdb_path = out.join("script.gdb");
+    let combined_path = out.join("combined.elf");
+
     let mut cmd = Command::new("arm-none-eabi-gdb");
     cmd.arg("-q")
         .arg("-x")
-        .arg("target/dist/script.gdb")
+        .arg(gdb_path)
         .arg("-x")
         .arg(&gdb_cfg)
-        .arg("target/dist/combined.elf");
+        .arg(combined_path);
 
     let status = cmd.status()?;
     if !status.success() {
