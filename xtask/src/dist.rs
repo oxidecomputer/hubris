@@ -7,98 +7,21 @@ use std::process::Command;
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
-use serde::Deserialize;
-use structopt::StructOpt;
 
-/// Builds a collection of cross-compiled binaries at non-overlapping addresses,
-/// and then combines them into a system image with an application descriptor.
-#[derive(Clone, Debug, StructOpt)]
-#[structopt(max_term_width = 80)]
-struct Args {
-    /// Path to the image configuration file, in TOML.
-    cfg: PathBuf,
-}
+use crate::{Config, LoadSegment, Peripheral, Supervisor, Task};
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Config {
-    name: String,
-    target: String,
-    kernel: Kernel,
-    outputs: IndexMap<String, Output>,
-    tasks: IndexMap<String, Task>,
-    #[serde(default)]
-    peripherals: IndexMap<String, Peripheral>,
-    supervisor: Option<Supervisor>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Kernel {
-    path: PathBuf,
-    name: String,
-    requires: IndexMap<String, u32>,
-    #[serde(default)]
-    features: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Supervisor {
-    notification: u32,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Output {
-    address: u32,
-    size: u32,
-    #[serde(default)]
-    read: bool,
-    #[serde(default)]
-    write: bool,
-    #[serde(default)]
-    execute: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Task {
-    path: PathBuf,
-    name: String,
-    requires: IndexMap<String, u32>,
-    priority: u32,
-    #[serde(default)]
-    uses: Vec<String>,
-    #[serde(default)]
-    start: bool,
-    #[serde(default)]
-    features: Vec<String>,
-    #[serde(default)]
-    interrupts: IndexMap<String, u32>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Peripheral {
-    address: u32,
-    size: u32,
-}
-
-struct LoadSegment {
-    source_file: PathBuf,
-    data: Vec<u8>,
-}
-
-pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
-    let out = PathBuf::from("target/dist");
-    std::fs::create_dir_all(&out)?;
-
+pub fn package(cfg: &Path) -> Result<(), Box<dyn Error>> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
     drop(cfg_contents);
 
-    let mut src_dir = cfg.clone();
+    let mut out = PathBuf::from("target");
+    out.push(toml.name);
+    out.push("dist");
+
+    std::fs::create_dir_all(&out)?;
+
+    let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
 
     let mut memories = IndexMap::new();
@@ -242,12 +165,15 @@ pub fn package(cfg: PathBuf) -> Result<(), Box<dyn Error>> {
 
     println!("doing objcopy");
 
+    let srec_path = out.join("combined.srec");
+    let elf_path = out.join("combined.elf");
+
     let mut cmd = Command::new("arm-none-eabi-objcopy");
     cmd.arg("-Isrec")
         .arg("-O")
         .arg("elf32-littlearm")
-        .arg("target/dist/combined.srec")
-        .arg("target/dist/combined.elf");
+        .arg(srec_path)
+        .arg(elf_path);
 
     let status = cmd.status()?;
     if !status.success() {
