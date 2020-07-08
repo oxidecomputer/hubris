@@ -31,11 +31,13 @@ jobs:
             deps: sudo apt-get install binutils-arm-none-eabi
           - os: windows-latest
             deps: |
-              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-              echo ::add-path::$HOME\scoop\shims
+              If (-Not (Test-Path "$env:USERPROFILE\scoop\apps\gcc-arm-none-eabi\9-2020-q2-update")) { 
+                Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+                echo ::add-path::$HOME\scoop\shims
+                scoop bucket add extras
+                scoop install gcc-arm-none-eabi@9-2020-q2-update
+              }
               echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
-              scoop bucket add extras
-              scoop install gcc-arm-none-eabi
 
     steps:
       # check out our code
@@ -50,6 +52,14 @@ jobs:
           profile: minimal
           target: ${{ matrix.target }}
           override: true
+
+      # cache scoop
+      - name: Cache scoop
+        uses: actions/cache@v2
+        if: runner.os == 'Windows'
+        with:
+          path: ~/scoop
+          key: scoop@9-2020-q2-update
 
       # cache the cargo registry & index
       - name: Cache cargo outputs
