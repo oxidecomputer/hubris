@@ -212,9 +212,7 @@ fn build(
         .arg(name);
     if !features.is_empty() {
         cmd.arg("--features");
-        for feature in features {
-            cmd.arg(feature);
-        }
+        cmd.arg(features.join(","));
     }
 
     cmd.current_dir(path);
