@@ -1,5 +1,3 @@
-#![feature(try_blocks)]
-
 use std::env;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -136,14 +134,16 @@ fn get_target(manifest_path: &Path) -> Result<String, Box<dyn Error>> {
     let contents = std::fs::read(manifest_path)?;
     let toml: toml::Value = toml::from_slice(&contents)?;
 
-    // we're on nightly, let's enjoy it
-    let target = try {
-        toml.get("package")?
-            .get("metadata")?
-            .get("build")?
-            .get("target")?
-            .as_str()?
-    };
+    // someday, try blocks will be stable...
+    let target = (|| {
+        Some(
+            toml.get("package")?
+                .get("metadata")?
+                .get("build")?
+                .get("target")?
+                .as_str()?,
+        )
+    })();
 
     match target {
         Some(target) => Ok(target.to_string()),
