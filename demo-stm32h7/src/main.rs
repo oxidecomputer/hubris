@@ -94,6 +94,19 @@ fn system_init() {
     let mut cp = cortex_m::Peripherals::take().unwrap();
     let p = stm32h7::stm32h7b3::Peripherals::take().unwrap();
 
+    // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
+    // property that any attempt to use ITM without having TRCENA set in
+    // DBGMCU results in the FIFO never being ready (that is, ITM writes
+    // spin).  This is not consistent with previous generations (e.g., M3,
+    // M4), but it's also not inconsistent with the docs, which explicitly
+    // warn that stimulus ports are in an undefined state if TRCENA hasn't
+    // been set.  So we enable tracing on ourselves as a first action, even
+    // though that isn't terribly meaningful if there is no debugger to
+    // consume the ITM output.  It follows from the above, but just to be
+    // unequivocal: ANY use of ITM prior to this point will lock the system
+    // if/when an external debugger has not set TRCENA!
+    cp.DCB.enable_trace();
+
     // Turn on CPU I/D caches to improve performance at the higher clock speeds
     // we're about to enable.
     cp.SCB.enable_icache();
