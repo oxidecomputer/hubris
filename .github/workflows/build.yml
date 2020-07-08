@@ -32,6 +32,7 @@ jobs:
 
       # install rust toolchain
       - uses: actions-rs/toolchain@v1
+        id: rust-toolchain
         with:
           # normally we would specify a toolchain here, but we have a
           # rust-toolchain file, so that gets picked up automatically.
