@@ -110,7 +110,7 @@ jobs:
         with:
           path: |
             target
-            !target/lpc55/dist
+            !target/demo/dist
           key: ${{ runner.os }}-build8-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
@@ -127,7 +127,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: target-dist-lpc55
-          path: target/lpc55/dist
+          path: target/demo/dist
 
   build-stm32h7:
     name: ARMv7-M demo build (STM32H7)
@@ -174,7 +174,7 @@ jobs:
         with:
           path: |
             target
-            !target/demo-stm32h7/dist
+            !target/demo/dist
           key: ${{ runner.os }}-build7-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
@@ -191,4 +191,4 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: target-dist-stm32h7
-          path: target/stm32h7/dist
+          path: target/demo/dist
