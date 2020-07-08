@@ -2,12 +2,20 @@ name: build
 on: [push, pull_request]
 
 jobs:
-  build-stm32f4:
-    name: ARMv7-M demo build
+  build:
+    name: dist
     runs-on: '${{ matrix.os }}'
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
+        app: [demo, lpc55, demo-stm32h7]
         include:
+          - app: demo
+            target: thumbv7em-none-eabihf
+          - app: demo-stm32h7
+            target: thumbv7em-none-eabihf
+          - app: lpc55
+            target: thumbv8m.main-none-eabihf
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
           - os: windows-latest
@@ -28,7 +36,7 @@ jobs:
           # normally we would specify a toolchain here, but we have a
           # rust-toolchain file, so that gets picked up automatically.
           profile: minimal
-          target: thumbv7em-none-eabihf
+          target: ${{ matrix.target }}
           override: true
 
       # cache the cargo registry & index
@@ -38,7 +46,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.app }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
@@ -47,7 +55,7 @@ jobs:
           path: |
             target
             !target/demo/dist
-          key: ${{ runner.os }}-build7-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-build-${{ matrix.app }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
       - run: '${{ matrix.deps }}'
@@ -56,139 +64,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: xtask
-          args: dist demo/app.toml
+          args: dist ${{ matrix.app }}/app.toml
 
       # upload the output of our build
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: target-dist-stm32f4
-          path: target/demo/dist
-
-  build-lpc55:
-    name: ARMv8-M demo build
-    runs-on: '${{ matrix.os }}'
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            deps: sudo apt-get install binutils-arm-none-eabi
-          - os: windows-latest
-            deps: |
-              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-              echo ::add-path::$HOME\scoop\shims
-              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
-              scoop bucket add extras
-              scoop install gcc-arm-none-eabi
-
-    steps:
-      # check out our code
-      - uses: actions/checkout@v2
-
-      # install rust toolchain
-      - uses: actions-rs/toolchain@v1
-        with:
-          # normally we would specify a toolchain here, but we have a
-          # rust-toolchain file, so that gets picked up automatically.
-          profile: minimal
-          target: thumbv8m.main-none-eabihf
-          override: true
-
-      # cache the cargo registry & index
-      - name: Cache cargo outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-
-      # cache our build outputs
-      # cache our build outputs. note that we ignore our dist directory.
-      - name: Cache build outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            target
-            !target/demo/dist
-          key: ${{ runner.os }}-build8-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-
-      # install dependencies
-      - run: '${{ matrix.deps }}'
-
-      # invoke our build
-      - uses: actions-rs/cargo@v1
-        with:
-          command: xtask
-          args: dist lpc55/app.toml
-
-      # upload the output of our build
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: target-dist-lpc55
-          path: target/demo/dist
-
-  build-stm32h7:
-    name: ARMv7-M demo build (STM32H7)
-    runs-on: '${{ matrix.os }}'
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            deps: sudo apt-get install binutils-arm-none-eabi
-          - os: windows-latest
-            deps: |
-              Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-              echo ::add-path::$HOME\scoop\shims
-              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
-              scoop bucket add extras
-              scoop install gcc-arm-none-eabi
-
-    steps:
-      # check out our code
-      - uses: actions/checkout@v2
-
-      # install rust toolchain
-      - uses: actions-rs/toolchain@v1
-        with:
-          # normally we would specify a toolchain here, but we have a
-          # rust-toolchain file, so that gets picked up automatically.
-          profile: minimal
-          target: thumbv7em-none-eabihf
-          override: true
-
-      # cache the cargo registry & index
-      - name: Cache cargo outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-
-      # cache our build outputs
-      # cache our build outputs. note that we ignore our dist directory.
-      - name: Cache build outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            target
-            !target/demo/dist
-          key: ${{ runner.os }}-build7-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-
-      # install dependencies
-      - run: '${{ matrix.deps }}'
-
-      # invoke our build
-      - uses: actions-rs/cargo@v1
-        with:
-          command: xtask
-          args: dist demo-stm32h7/app.toml
-
-      # upload the output of our build
-      - name: Upload package artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: target-dist-stm32h7
-          path: target/demo/dist
+          name: dist-${{ matrix.os }}-${{ matrix.app }}
+          path: target/${{ matrix.app }}/dist
