@@ -10,7 +10,7 @@ use path_slash::PathBufExt;
 
 use crate::{Config, LoadSegment, Peripheral, Supervisor, Task};
 
-pub fn package(cfg: &Path) -> Result<(), Box<dyn Error>> {
+pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
     drop(cfg_contents);
@@ -70,6 +70,7 @@ pub fn package(cfg: &Path) -> Result<(), Box<dyn Error>> {
             &task_toml.features,
             &task_memory[name],
             out.join(name),
+            verbose,
             &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)],
         )?;
         let ep = load_elf(&out.join(name), &mut all_output_sections)?;
@@ -97,6 +98,7 @@ pub fn package(cfg: &Path) -> Result<(), Box<dyn Error>> {
         &toml.kernel.features,
         &kern_memory,
         out.join("kernel"),
+        verbose,
         &[("HUBRIS_DESCRIPTOR", &descriptor_text)],
     )?;
     let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
@@ -190,6 +192,7 @@ fn build(
     features: &[String],
     alloc: &IndexMap<String, Range<u32>>,
     dest: PathBuf,
+    verbose: bool,
     meta: &[(&str, &str)],
 ) -> Result<(), Box<dyn Error>> {
     println!("building path {}", path.display());
@@ -210,6 +213,9 @@ fn build(
         .arg(target)
         .arg("--bin")
         .arg(name);
+    if verbose {
+        cmd.arg("-v");
+    }
     if !features.is_empty() {
         cmd.arg("--features");
         cmd.arg(features.join(","));

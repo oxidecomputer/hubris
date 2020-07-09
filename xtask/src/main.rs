@@ -20,6 +20,9 @@ enum Xtask {
     /// Builds a collection of cross-compiled binaries at non-overlapping addresses,
     /// and then combines them into a system image with an application descriptor.
     Dist {
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
     },
@@ -111,11 +114,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let xtask = Xtask::from_args();
 
     match xtask {
-        Xtask::Dist { cfg } => {
-            dist::package(&cfg)?;
+        Xtask::Dist { verbose, cfg } => {
+            dist::package(verbose, &cfg)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
-            dist::package(&cfg)?;
+            dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
         }
         Xtask::Build => {
