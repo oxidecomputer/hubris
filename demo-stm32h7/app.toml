@@ -72,7 +72,7 @@ interrupts = {37 = 1}
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
-features = ["stm32h7"]
+features = ["h7b3"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 start = true
