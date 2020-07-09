@@ -62,7 +62,7 @@ jobs:
         with:
           path: |
             target
-            !target/demo/dist
+            !target/${{ matrix.app }}/dist
           key: ${{ runner.os }}-build-${{ matrix.build }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
