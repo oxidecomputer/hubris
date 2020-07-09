@@ -306,6 +306,7 @@ class Env(object):
         The keys are interpreted as being required for success: if no default
         value is available, it's an error.
         """
+        assert all(isinstance(k, str) for k in keys)
         e = self.subset(keys)._copy_defaults(keys)
         e.require(keys)
         return e

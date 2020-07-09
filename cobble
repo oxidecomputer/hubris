@@ -155,10 +155,13 @@ def init_build_dir(args):
             print('Target evaluation failed in', tgt.ident, '@', env.digest,
                     file=sys.stderr)
         print('--- message ---', file = sys.stderr)
-        print(*e.cause.args, file=sys.stderr)
+        print(str(e.cause), file=sys.stderr)
         print('--- outer environment ---', file=sys.stderr)
-        for k in env:
-            print(k, '=', env[k], file=sys.stderr)
+        if env is not None:
+            for k in env:
+                print(k, '=', env[k], file=sys.stderr)
+        else:
+            print('(empty)', file=sys.stderr)
         print('--- dependency chain ---', file=sys.stderr)
         for dt, de in e.targets[1:]:
             if de is None:

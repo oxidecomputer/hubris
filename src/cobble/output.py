@@ -29,8 +29,14 @@ def write_ninja_files(project,
 
     writer.newline()
 
+    # Variables globally available in Ninja rules:
+    writer.comment('Global rule variables')
+    writer.variable('cobble_project_root', project.inpath())
+    writer.newline()
+
     # Write rules. Sort rules alphabetically by name to make file more
     # predictable.
+    writer.comment('Ninja rules provided by plugins')
     ninja_rules = sorted(project.ninja_rules.items(), key = lambda kv: kv[0])
     for name, rule in ninja_rules:
         writer.rule(name = name, **rule)

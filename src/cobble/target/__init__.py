@@ -188,10 +188,11 @@ class Target(object):
             self._evaluate_memos[env_up] = e
             e.add_dep(self, env_up)
             raise
-        except Exception as e:
-            ee = EvaluationError(e, self, env_up)
-            self._evaluate_memos[env_up] = ee
-            raise ee from e
+        #except Exception as e:
+        #    print('heyo: %r' % e)
+        #    ee = EvaluationError(e, self, env_up)
+        #    self._evaluate_memos[env_up] = ee
+        #    raise ee from e
 
     def _evaluate(self, env_up):
         """Non-memoized implementation of 'evaluate'."""
@@ -340,6 +341,8 @@ class Product(object):
       dependencies.
     - 'order_only' is a frozenset of build-directory-relative paths to
       order-only dependencies.
+    - 'implicit_output' is a tuple of build-directory-relative paths to
+      implicit output files.
     - 'variables' is the dict of variables that will be conveyed into the rule
       for interpolation.
     """
@@ -351,6 +354,7 @@ class Product(object):
             inputs = None,
             implicit = None,
             order_only = None,
+            implicit_outputs = None,
             symlink_as = None,
             dyndep = None):
         """Creates a new Product.
@@ -368,6 +372,7 @@ class Product(object):
         self.outputs = cobble.env.freeze(outputs)
         self.symlink_as = symlink_as
         self.dyndep = dyndep
+        self.implicit_outputs = cobble.env.freeze(implicit_outputs)
 
         self.implicit = env[IMPLICIT.name]
         if implicit: self.implicit |= frozenset(implicit)
