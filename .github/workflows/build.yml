@@ -8,14 +8,21 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        app: [demo, lpc55, demo-stm32h7]
+        build: [stm32f4, lpc55, stm32h7b3]
         include:
-          - app: demo
+          - build: stm32f4
+            app: demo
+            app_toml: app.toml
             target: thumbv7em-none-eabihf
-          - app: demo-stm32h7
+          - build: stm32h7b3
+            app: demo-stm32h7
+            app_toml: app.toml
             target: thumbv7em-none-eabihf
-          - app: lpc55
+          - build: lpc55
+            app: lpc55
+            app_toml: app.toml
             target: thumbv8m.main-none-eabihf
+
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
           - os: windows-latest
@@ -47,7 +54,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ matrix.app }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ matrix.build }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
@@ -56,7 +63,7 @@ jobs:
           path: |
             target
             !target/demo/dist
-          key: ${{ runner.os }}-build-${{ matrix.app }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-build-${{ matrix.build }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
       - run: '${{ matrix.deps }}'
@@ -65,11 +72,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: xtask
-          args: dist ${{ matrix.app }}/app.toml
+          args: dist ${{ matrix.app }}/${{ matrix.app_toml}}
 
       # upload the output of our build
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v1
         with:
-          name: dist-${{ matrix.os }}-${{ matrix.app }}
+          name: dist-${{ matrix.os }}-${{ matrix.build }}
           path: target/${{ matrix.app }}/dist
