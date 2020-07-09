@@ -62,6 +62,7 @@ start = true
 [tasks.usart_driver]
 path = "../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
+features = ["h7b3"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["usart1"]
