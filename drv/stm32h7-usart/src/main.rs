@@ -9,7 +9,11 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "h743")]
+use stm32h7::stm32h743 as device;
+#[cfg(feature = "h7b3")]
 use stm32h7::stm32h7b3 as device;
+
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -64,12 +68,20 @@ fn main() -> ! {
     // Safety: this is needlessly unsafe in the API. The USART is essentially a
     // static, and we access it through a & reference so aliasing is not a
     // concern. Were it literally a static, we could just reference it.
+    #[cfg(feature = "h7b3")]
     let usart = unsafe { &*device::USART1::ptr() };
+    #[cfg(feature = "h743")]
+    let usart = unsafe { &*device::USART3::ptr() };
 
     // The UART has clock and is out of reset, but isn't actually on until we:
     usart.cr1.write(|w| w.ue().enabled());
     // Work out our baud rate divisor.
+    // TODO: this module should _not_ know our clock rate. That's a hack.
+    #[cfg(feature = "h7b3")]
     const CLOCK_HZ: u32 = 280_000_000;
+    #[cfg(feature = "h743")]
+    const CLOCK_HZ: u32 = 200_000_000;
+
     const BAUDRATE: u32 = 115_200;
     const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
     usart.brr.write(|w| w.brr().bits(CYCLES_PER_BIT as u16));
@@ -154,12 +166,17 @@ fn turn_on_usart() {
     let rcc_driver =
         TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
+    #[cfg(feature = "h7b3")]
+    const PNUM: u32 = 196; // USART1
+
+    #[cfg(feature = "h743")]
+    const PNUM: u32 = 146; // USART3
+
     const ENABLE_CLOCK: u16 = 1;
-    let pnum = 196; // see bits in APB2ENR
     let (code, _) = userlib::sys_send(
         rcc_driver,
         ENABLE_CLOCK,
-        pnum.as_bytes(),
+        PNUM.as_bytes(),
         &mut [],
         &[],
     );
@@ -169,7 +186,7 @@ fn turn_on_usart() {
     let (code, _) = userlib::sys_send(
         rcc_driver,
         LEAVE_RESET,
-        pnum.as_bytes(),
+        PNUM.as_bytes(),
         &mut [],
         &[],
     );
@@ -183,11 +200,15 @@ fn configure_pins() {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
-    const TX_RX_MASK: u16 = (1 << 9) | (1 << 10);
+    #[cfg(feature = "h7b3")]
+    const TX_RX_MASK: (Port, u16) = (Port::A, (1 << 9) | (1 << 10));
+    #[cfg(feature = "h743")]
+    const TX_RX_MASK: (Port, u16) = (Port::D, (1 << 8) | (1 << 9));
+
     gpio_driver
         .configure(
-            Port::A,
-            TX_RX_MASK,
+            TX_RX_MASK.0,
+            TX_RX_MASK.1,
             Mode::Alternate,
             OutputType::PushPull,
             Speed::High,
