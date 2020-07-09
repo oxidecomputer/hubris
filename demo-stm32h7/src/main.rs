@@ -286,31 +286,47 @@ fn initialize_sdram(
     // and must be written into controller bank 1's registers, even though we're
     // not otherwise using controller bank 1.
     p.FMC.sdbank1().sdcr.write(|w| unsafe {
-        w.rpipe().bits(0b10) // +2 cycles
-            .rburst().set_bit() // use burst mode, kind of
-            .sdclk().bits(0b11) // 1/3 input clock rate (93.33MHz)
+        w.rpipe()
+            .bits(0b10) // +2 cycles
+            .rburst()
+            .set_bit() // use burst mode, kind of
+            .sdclk()
+            .bits(0b11) // 1/3 input clock rate (93.33MHz)
     });
     p.FMC.sdbank2().sdcr.write(|w| unsafe {
-        w.wp().clear_bit() // don't write protect
-            .cas().bits(0b11) // CAS=3
-            .nb().set_bit() // 4 banks
-            .mwid().bits(0b01) // 16 data bits
-            .nr().bits(0b01) // 12 row address bits
-            .nc().bits(0b01) // 9 column address bits
+        w.wp()
+            .clear_bit() // don't write protect
+            .cas()
+            .bits(0b11) // CAS=3
+            .nb()
+            .set_bit() // 4 banks
+            .mwid()
+            .bits(0b01) // 16 data bits
+            .nr()
+            .bits(0b01) // 12 row address bits
+            .nc()
+            .bits(0b01) // 9 column address bits
     });
 
     // Set up timing. Again, some of these settings are global and must be
     // written to bank 1.
     p.FMC.sdbank1().sdtr.write(|w| unsafe {
-        w.trp().bits(3 - 1)  // Trp = command period, PRE -> ACT
-            .trc().bits(10 - 1) // Trc = command period ACT -> ACT
+        w.trp()
+            .bits(3 - 1) // Trp = command period, PRE -> ACT
+            .trc()
+            .bits(10 - 1) // Trc = command period ACT -> ACT
     });
     p.FMC.sdbank2().sdtr.write(|w| unsafe {
-        w.trcd().bits(3 - 1)  // Trcd = ACT to R/W delay
-            .twr().bits(4 - 1) // Twr is ST-specific, Tras - Trcd
-            .tras().bits(7 - 1) // Tras = command period ACT -> PRE
-            .txsr().bits(10 - 1) // Txsr = exit self refresh -> ACT
-            .tmrd().bits(2 - 1) // Tmrd = mode register program time
+        w.trcd()
+            .bits(3 - 1) // Trcd = ACT to R/W delay
+            .twr()
+            .bits(4 - 1) // Twr is ST-specific, Tras - Trcd
+            .tras()
+            .bits(7 - 1) // Tras = command period ACT -> PRE
+            .txsr()
+            .bits(10 - 1) // Txsr = exit self refresh -> ACT
+            .tmrd()
+            .bits(2 - 1) // Tmrd = mode register program time
     });
 
     // Turn on the memory controller. Where does it say to do this in the SDRAM
@@ -320,27 +336,23 @@ fn initialize_sdram(
 
     // Start a Clock Configuration Enable (001) command to controller bank 2.
     // This will start clocking the RAM.
-    p.FMC.sdcmr.write(|w| unsafe {
-        w.mode().bits(0b001)
-            .ctb2().set_bit()
-    });
+    p.FMC
+        .sdcmr
+        .write(|w| unsafe { w.mode().bits(0b001).ctb2().set_bit() });
 
     // The RAM needs 100us after clock is applied to wake up.
     early_delay(&mut cp.SYST, 280 * 100);
 
     // Start a PALL (All Bank Precharge) command on controller bank 2.
-    p.FMC.sdcmr.write(|w| unsafe {
-        w.mode().bits(0b010)
-            .ctb2().set_bit()
-    });
+    p.FMC
+        .sdcmr
+        .write(|w| unsafe { w.mode().bits(0b010).ctb2().set_bit() });
 
     // Start an Auto-Refresh command on controller bank 2. The controller will
     // automatically repeat this command for the count given at NRFS. Our RAM
     // doesn't appear to specify this, but the ST docs suggest 8, so... 8!
     p.FMC.sdcmr.write(|w| unsafe {
-        w.mode().bits(0b011)
-            .ctb2().set_bit()
-            .nrfs().bits(8 - 1) // ??
+        w.mode().bits(0b011).ctb2().set_bit().nrfs().bits(8 - 1) // ??
     });
 
     // Start a Load Mode Register command, loading the MRD field into the
@@ -351,9 +363,7 @@ fn initialize_sdram(
             | 0b11 << 4 // CAS latency 3
             | 1 << 9 // single location burst
             ;
-        w.mode().bits(0b100)
-            .ctb2().set_bit()
-            .mrd().bits(mrd)
+        w.mode().bits(0b100).ctb2().set_bit().mrd().bits(mrd)
     });
 
     // Configure the refresh rate timer. This controls the reload value of a
@@ -366,8 +376,10 @@ fn initialize_sdram(
         let margin = 20; // from STM32H7B3 manual
 
         assert!(refresh_cyc_per_row < (1 << 13) - 1);
-        w.cre().set_bit()
-            .count().bits(refresh_cyc_per_row as u16 - margin)
+        w.cre()
+            .set_bit()
+            .count()
+            .bits(refresh_cyc_per_row as u16 - margin)
     });
     cortex_m::asm::dmb();
 
@@ -401,11 +413,16 @@ macro_rules! bits {
 
 fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
     p.RCC.ahb4enr.modify(|_, w| {
-        w.gpioden().enabled()
-            .gpioeen().enabled()
-            .gpiofen().enabled()
-            .gpiogen().enabled()
-            .gpiohen().enabled()
+        w.gpioden()
+            .enabled()
+            .gpioeen()
+            .enabled()
+            .gpiofen()
+            .enabled()
+            .gpiogen()
+            .enabled()
+            .gpiohen()
+            .enabled()
     });
     cortex_m::asm::dmb();
 
@@ -445,7 +462,10 @@ fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
     // PF13 = FMC_A7
     // PF14 = FMC_A8
     // PF15 = FMC_A9
-    configure_several_sdram_pins(&p.GPIOF, bits!(0, 1, 2, 3, 4, 5, 11, 12, 13, 14, 15));
+    configure_several_sdram_pins(
+        &p.GPIOF,
+        bits!(0, 1, 2, 3, 4, 5, 11, 12, 13, 14, 15),
+    );
 
     // PG0  = FMC_A10
     // PG1  = FMC_A11
@@ -502,27 +522,29 @@ fn configure_several_sdram_pins(
 
     // MODER contains 16x 2-bit fields.
     port.moder.write(|w| unsafe {
-        w.bits((port.moder.read().bits() & !mask_2)
-            | (MODER_ALTERNATE * lsbs_2))
+        w.bits(
+            (port.moder.read().bits() & !mask_2) | (MODER_ALTERNATE * lsbs_2),
+        )
     });
     // OTYPER contains 16x 1-bit fields.
     port.otyper.write(|w| unsafe {
-        w.bits((port.otyper.read().bits() & !mask_1)
-            | (OTYPER_PUSH_PULL * mask_1))
+        w.bits(
+            (port.otyper.read().bits() & !mask_1) | (OTYPER_PUSH_PULL * mask_1),
+        )
     });
     // OSPEEDR contains 16x 2-bit fields.
     port.ospeedr.write(|w| unsafe {
-        w.bits((port.ospeedr.read().bits() & !mask_2)
-            | (OSPEEDR_LUDICROUS * lsbs_2))
+        w.bits(
+            (port.ospeedr.read().bits() & !mask_2)
+                | (OSPEEDR_LUDICROUS * lsbs_2),
+        )
     });
     // AFRx contains 8x 4-bit fields.
     port.afrl.write(|w| unsafe {
-        w.bits((port.afrl.read().bits() & !mask_4l)
-            | (AFR_AF12 * lsbs_4l))
+        w.bits((port.afrl.read().bits() & !mask_4l) | (AFR_AF12 * lsbs_4l))
     });
     port.afrh.write(|w| unsafe {
-        w.bits((port.afrh.read().bits() & !mask_4h)
-            | (AFR_AF12 * lsbs_4h))
+        w.bits((port.afrh.read().bits() & !mask_4h) | (AFR_AF12 * lsbs_4h))
     });
 }
 
