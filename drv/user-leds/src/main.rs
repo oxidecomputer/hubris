@@ -89,11 +89,17 @@ fn main() -> ! {
 ///////////////////////////////////////////////////////////////////////////////
 // The STM32F4 specific bits.
 
-#[cfg(all(not(feature = "standalone"), any(feature = "stm32f4")))]
-const RCC: Task = Task::rcc_driver;
-
-#[cfg(all(feature = "standalone", any(feature = "stm32f4")))]
-const RCC: Task = SELF;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stm32f4")] {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "standalone")] {
+                const RCC: Task = SELF;
+            } else {
+                const RCC: Task = Task::rcc_driver;
+            }
+        }
+    }
+}
 
 #[cfg(feature = "stm32f4")]
 fn enable_led_pins() {
@@ -169,20 +175,33 @@ fn led_toggle(led: Led) {
 //
 // This assumes an STM32H7B3 DISCOVERY kit, where the LEDs are on G2 and G11.
 
-#[cfg(all(not(feature = "standalone"), feature = "stm32h7"))]
-const GPIO: Task = Task::gpio_driver;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stm32h7")] {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "standalone")] {
+                const GPIO: Task = SELF;
+            } else {
+                const GPIO: Task = Task::gpio_driver;
+            }
+        }
 
-#[cfg(all(feature = "standalone", feature = "stm32h7"))]
-const GPIO: Task = SELF;
-
-#[cfg(feature = "stm32h7")]
-const LED_PORT: drv_stm32h7_gpio_api::Port = drv_stm32h7_gpio_api::Port::G;
-
-#[cfg(feature = "stm32h7")]
-const LED_MASK_0: u16 = 1 << 2;
-
-#[cfg(feature = "stm32h7")]
-const LED_MASK_1: u16 = 1 << 11;
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "h7b3")] {
+                const LED_PORT: drv_stm32h7_gpio_api::Port =
+                    drv_stm32h7_gpio_api::Port::G;
+                const LED_MASK_0: u16 = 1 << 2;
+                const LED_MASK_1: u16 = 1 << 11;
+            } else if #[cfg(feature = "h743")] {
+                const LED_PORT: drv_stm32h7_gpio_api::Port =
+                    drv_stm32h7_gpio_api::Port::B;
+                const LED_MASK_0: u16 = 1 << 0;
+                const LED_MASK_1: u16 = 1 << 14;
+            } else {
+                compile_error!("missing processor feature");
+            }
+        }
+    }
+}
 
 #[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
@@ -253,11 +272,17 @@ fn led_toggle(led: Led) {
 ///////////////////////////////////////////////////////////////////////////////
 // The LPC55 specific bits.
 
-#[cfg(all(not(feature = "standalone"), feature = "lpc55"))]
-const GPIO: Task = Task::gpio_driver;
-
-#[cfg(all(feature = "standalone", feature = "lpc55"))]
-const GPIO: Task = SELF;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "lpc55")] {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "standalone")] {
+                const GPIO: Task = SELF;
+            } else {
+                const GPIO: Task = Task::gpio_driver;
+            }
+        }
+    }
+}
 
 #[cfg(feature = "lpc55")]
 fn enable_led_pins() {
