@@ -8,20 +8,24 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f4, lpc55, stm32h7b3]
+        build: [stm32f4, lpc55, stm32h7b3, stm32h743]
         include:
           - build: stm32f4
-            app: demo
-            app_toml: app.toml
+            app_name: demo
+            app_toml: demo/app.toml
             target: thumbv7em-none-eabihf
           - build: stm32h7b3
-            app: demo-stm32h7
-            app_toml: app.toml
+            app_name: demo-stm32h7b3
+            app_toml: demo-stm32h7/app-h7b3.toml
             target: thumbv7em-none-eabihf
           - build: lpc55
-            app: lpc55
-            app_toml: app.toml
+            app_name: lpc55
+            app_toml: lpc55/app.toml
             target: thumbv8m.main-none-eabihf
+          - build: stm32h743
+            app_name: demo-stm32h743
+            app_toml: demo-stm32h7/app-h743.toml
+            target: thumbv7em-none-eabihf
 
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi
@@ -62,7 +66,7 @@ jobs:
         with:
           path: |
             target
-            !target/${{ matrix.app }}/dist
+            !target/${{ matrix.app_name }}/dist
           key: ${{ runner.os }}-build-${{ matrix.build }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
@@ -72,11 +76,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: xtask
-          args: dist ${{ matrix.app }}/${{ matrix.app_toml}}
+          args: dist ${{ matrix.app_toml}}
 
       # upload the output of our build
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v1
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app }}/dist
+          path: target/${{ matrix.app_name }}/dist

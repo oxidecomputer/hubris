@@ -12,12 +12,21 @@ extern crate panic_itm; // breakpoint on `rust_begin_unwind` to catch panics
 #[cfg(feature = "panic-semihosting")]
 extern crate panic_semihosting; // requires a debugger
 
-use core::ops::Deref;
 use cortex_m_rt::pre_init;
 
 // We have to do this if we don't otherwise use it to ensure its vector table
 // gets linked in.
 extern crate stm32h7;
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "h7b3")] {
+        use stm32h7::stm32h7b3 as device;
+    } else if #[cfg(feature = "h743")] {
+        use stm32h7::stm32h743 as device;
+    } else {
+        compile_error!("processor feature not defined");
+    }
+}
 
 use cortex_m_rt::entry;
 use kern::app::App;
@@ -32,7 +41,15 @@ extern "C" {
 fn main() -> ! {
     system_init();
 
-    const CYCLES_PER_MS: u32 = 280_000;
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "h7b3")] {
+            const CYCLES_PER_MS: u32 = 280_000;
+        } else if #[cfg(feature = "h743")] {
+            const CYCLES_PER_MS: u32 = 400_000;
+        } else {
+            compile_error!("processor feature not defined");
+        }
+    }
 
     unsafe {
         let heap_size =
@@ -46,6 +63,39 @@ fn main() -> ! {
     }
 }
 
+#[cfg(feature = "h743")]
+#[pre_init]
+unsafe fn system_pre_init() {
+    // Configure the power supply to latch the LDO on and prevent further
+    // reconfiguration.
+    //
+    // Normally we would use Peripherals::take() to safely get a reference to
+    // the PWR block, but that function expects RAM to be initialized and
+    // writable. At this point, RAM is neither -- because the chip requires us
+    // to get the power supply configuration right _before it guarantees that
+    // RAM will work._
+    //
+    // Another case of the cortex_m/stm32 crates being designed with simpler
+    // systems in mind.
+
+    // Synthesize a pointer using a const fn (which won't hit RAM) and then
+    // convert it to a reference. We can have a reference to PWR because it's
+    // hardware, and is thus not uninitialized.
+    let pwr = &*device::PWR::ptr();
+    // Poke CR3 to enable the LDO and prevent further writes.
+    pwr.cr3.modify(|_, w| w.ldoen().set_bit());
+
+    // Busy-wait until the ACTVOSRDY bit says that we've stabilized at VOS3.
+    while !pwr.csr1.read().actvosrdy().bit() {
+        // spin
+    }
+
+    // Okay, yay, we can use some RAMs now.
+
+    // We'll do the rest in system_init.
+}
+
+#[cfg(feature = "h7b3")]
 #[pre_init]
 unsafe fn system_pre_init() {
     // Configure our power supply to reflect how we're actually wired up on the
@@ -96,7 +146,16 @@ fn system_init() {
 
     // Use the crate peripheral take mechanism to get peripherals.
     let mut cp = cortex_m::Peripherals::take().unwrap();
-    let p = stm32h7::stm32h7b3::Peripherals::take().unwrap();
+    let p = device::Peripherals::take().unwrap();
+
+    #[cfg(feature = "stm32h743")]
+    {
+        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
+        // read corruption" - limits AXI SRAM read concurrency.
+        p.AXI
+            .targ7_fn_mod
+            .modify(|_, w| w.read_iss_override().set_bit());
+    }
 
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
     // property that any attempt to use ITM without having TRCENA set in
@@ -111,6 +170,20 @@ fn system_init() {
     // if/when an external debugger has not set TRCENA!
     cp.DCB.enable_trace();
 
+    // Make sure debugging works in standby.
+    p.DBGMCU.cr.modify(|_, w| {
+        w.d3dbgcken()
+            .set_bit()
+            .d1dbgcken()
+            .set_bit()
+            .dbgstby_d1()
+            .set_bit()
+            .dbgstop_d1()
+            .set_bit()
+            .dbgsleep_d1()
+            .set_bit()
+    });
+
     // Turn on CPU I/D caches to improve performance at the higher clock speeds
     // we're about to enable.
     cp.SCB.enable_icache();
@@ -120,83 +193,122 @@ fn system_init() {
     // That's approximately correct for 64MHz at VOS3, which is fortunate, since
     // we've been executing instructions out of flash _the whole time._
 
-    // Our goal is now to boost the CPU frequency to its shiny maximum of
-    // 280MHz. This means raising the core supply voltage from VOS3 to VOS0,
-    // adding wait states or reduced divisors to a bunch of things, and then
-    // finally making the actual change.
+    // Our goal is now to boost the CPU frequency to its final level. This means
+    // raising the core supply voltage from VOS3 -- to VOS0 on H7B3, or VOS1 on
+    // H743 -- and adding wait states or reduced divisors to a bunch of things,
+    // and then finally making the actual change.
 
-    // We're allowed to hop directly from VOS3 to VOS0; the manual doesn't say
+    // We're allowed to hop directly from VOS3 to VOS0/1; the manual doesn't say
     // this explicitly but the ST drivers do it.
     //
-    // The D3CR register is called SRDCR in the manual, and at the time of this
-    // writing is incompletely modeled, so we have to unsafe the bits in.
+    // H7B3: The D3CR register is called SRDCR in the manual, and at the time of
+    // this writing is incompletely modeled, so we have to unsafe the bits in.
+    //
+    // H743: Bits are still unsafe but name at least matches the manual. Note
+    // that the H743 encodes VOS1 the same way the H7B3 encodes VOS0.
     p.PWR.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
     // Busy-wait for the voltage to reach the right level.
     while !p.PWR.d3cr.read().vosrdy().bit() {
         // spin
     }
-    // We are now at VOS0.
+    // We are now at VOS1/0.
 
-    // There's a 24MHz crystal on our board. We'll use it as our clock source,
-    // to get higher accuracy than the internal oscillator. Turn on the High
-    // Speed External oscillator.
-    p.RCC.cr.modify(|_, w| w.hseon().set_bit());
-    // Wait for it to stabilize.
-    while !p.RCC.cr.read().hserdy().bit() {
-        // spin
+    // All configurations use PLL1. They just use it differently.
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "h7b3")] {
+            // There's a 24MHz crystal on our board. We'll use it as our clock
+            // source, to get higher accuracy than the internal oscillator. Turn
+            // on the High Speed External oscillator.
+            p.RCC.cr.modify(|_, w| w.hseon().set_bit());
+            // Wait for it to stabilize.
+            while !p.RCC.cr.read().hserdy().bit() {
+                // spin
+            }
+
+            // 24MHz HSE -> DIVM -> VCO input freq: the VCO's input must be in
+            // the range 2-16MHz, so setting DIVM to divide by 3 gets us 8MHz.
+            p.RCC
+                .pllckselr
+                .modify(|_, w| w.divm1().bits(3).pllsrc().hse());
+            // The VCO itself needs to be configured to expect a 8MHz input
+            // ("range 8") and at its normal (wide) range. We will also want its
+            // P-output, which is the output that's tied to the system clock.
+            //
+            // We don't currently use the Q and R outputs, and we could switch
+            // them off to save power -- but they can function as kernel clocks
+            // for many of our peripherals, and thus might be useful.
+            p.RCC.pllcfgr.modify(|_, w| {
+                w.pll1vcosel()
+                    .wide_vco()
+                    .pll1rge()
+                    .range8()
+                    .divp1en()
+                    .enabled()
+                    .divq1en()
+                    .enabled()
+                    .divr1en()
+                    .enabled()
+            });
+            // Now, we configure the VCO for reals.
+            //
+            // The N value is the multiplication factor for the VCO internal
+            // frequency relative to its input. The resulting internal frequency
+            // must be in the range 128-560MHz. To avoid needing to configure
+            // the fractional divider, we configure the VCO to 2x our target
+            // frequency, 560MHz, which is in turn exactly 70x our (divided)
+            // input frequency.
+            //
+            // The P value is the divisor from VCO frequency to system
+            // frequency, so it needs to be 2 to get a 280MHz P-output.
+            //
+            // We set the Q and R outputs to the same frequency, because the
+            // right choice isn't obvious yet.
+            p.RCC.pll1divr.modify(|_, w| unsafe {
+                w.divn1()
+                    .bits(70 - 1)
+                    .divp1()
+                    .div2()
+                    // Q and R fields aren't modeled correctly in the API, so:
+                    .divq1()
+                    .bits(1)
+                    .divr1()
+                    .bits(1)
+            });
+        } else if #[cfg(feature = "h743")] {
+            // The H743 Nucleo board doesn't include an external crystal. Thus,
+            // we use the HSI64 oscillator.
+
+            // PLL1 configuration:
+            // CPU freq = VCO / DIVP = HSI / DIVM * DIVN / DIVP
+            //          = 64 / 4 * 50 / 2
+            //          = 400 Mhz
+            // System clock = 400 Mhz
+            //  HPRE = /2  => AHB/Timer clock = 200 Mhz
+
+            // Configure PLL
+            let divm = 4;
+            let divn = 50;
+            let divp = 2;
+
+            p.RCC.pllckselr.write(|w| {
+                w.pllsrc().hsi()
+                    .divm1().bits(divm)
+            });
+            p.RCC.pllcfgr.write(|w| {
+                w.pll1vcosel().wide_vco()
+                    .pll1rge().range8()
+                    .divp1en().enabled()
+            });
+            p.RCC.pll1divr.write(|w| unsafe {
+                w.divp1().bits(divp - 1)
+                    .divn1().bits(divn - 1)
+            });
+        } else {
+            compile_error!("no processor feature defined");
+        }
     }
 
-    // Configure PLL1 to provide the fast system clock. The configuration is as
-    // follows.
-    //
-    // 24MHz HSE -> DIVM -> VCO input freq: the VCO's input must be in the range
-    // 2-16MHz, so setting DIVM to divide by 3 gets us 8MHz.
-    p.RCC
-        .pllckselr
-        .modify(|_, w| w.divm1().bits(3).pllsrc().hse());
-    // The VCO itself needs to be configured to expect a 8MHz input ("range 8")
-    // and at its normal (wide) range. We will also want its P-output, which is
-    // the output that's tied to the system clock.
-    //
-    // We don't currently use the Q and R outputs, and we could switch them off
-    // to save power -- but they can function as kernel clocks for many of our
-    // peripherals, and thus might be useful.
-    p.RCC.pllcfgr.modify(|_, w| {
-        w.pll1vcosel()
-            .wide_vco()
-            .pll1rge()
-            .range8()
-            .divp1en()
-            .enabled()
-            .divq1en()
-            .enabled()
-            .divr1en()
-            .enabled()
-    });
-    // Now, we configure the VCO for reals.
-    //
-    // The N value is the multiplication factor for the VCO internal frequency
-    // relative to its input. The resulting internal frequency must be in the
-    // range 128-560MHz. To avoid needing to configure the fractional divider,
-    // we configure the VCO to 2x our target frequency, 560MHz, which is in turn
-    // exactly 70x our (divided) input frequency.
-    //
-    // The P value is the divisor from VCO frequency to system frequency, so it
-    // needs to be 2 to get a 280MHz P-output.
-    //
-    // We set the Q and R outputs to the same frequency, because the right
-    // choice isn't obvious yet.
-    p.RCC.pll1divr.modify(|_, w| unsafe {
-        w.divn1()
-            .bits(70 - 1)
-            .divp1()
-            .div2()
-            // Q and R fields aren't modeled correctly in the API, so:
-            .divq1()
-            .bits(1)
-            .divr1()
-            .bits(1)
-    });
     // Turn on PLL1 and wait for it to lock.
     p.RCC.cr.modify(|_, w| w.pll1on().on());
     while !p.RCC.cr.read().pll1rdy().bit() {
@@ -204,38 +316,66 @@ fn system_init() {
     }
 
     // PLL1's frequency will become the system clock, which in turn goes through
-    // a series of dividers to produce clocks for each system bus. Delightfully,
-    // the 7B3 can run all of its buses at the same frequency. So we can just
-    // set everything to 1.
-    //
-    // The clock domains appear to have been renamed after the SVD was
-    // published. Here is the mapping.
-    //
-    // Manual   API
-    // ------   ---
-    // CD       D1, D2
-    // SR       D3
-    p.RCC
-        .d1cfgr
-        .write(|w| w.d1cpre().div1().d1ppre().div1().hpre().div1());
-    p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
-    p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
+    // a series of dividers to produce clocks for each system bus.
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "h7b3")] {
+            // Delightfully, the 7B3 can run all of its buses at the same
+            // frequency. So we can just set everything to 1.
+            //
+            // The clock domains appear to have been renamed after the SVD was
+            // published. Here is the mapping.
+            //
+            // Manual   API
+            // ------   ---
+            // CD       D1, D2
+            // SR       D3
+            p.RCC
+                .d1cfgr
+                .write(|w| w.d1cpre().div1().d1ppre().div1().hpre().div1());
+            p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
+            p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
 
-    // Reconfigure the Flash wait states to support 280MHz operation at VOS0.
-    // Table 15 sez we need 6 wait states and 3 cycle programming delay.
-    p.FLASH
-        .acr
-        .write(|w| unsafe { w.latency().bits(6).wrhighfreq().bits(0b11) });
-    // Because we're running from Flash, we really, really do need Flash to have
-    // the right latency before moving on. Poll to see our values get accepted
-    // and then barrier.
-    while {
-        let r = p.FLASH.acr.read();
-        r.latency().bits() != 6 || r.wrhighfreq().bits() != 0b11
-    } {
-        // spin
+            // Reconfigure the Flash wait states to support 280MHz operation at
+            // VOS0.  Table 15 sez we need 6 wait states and 3 cycle programming
+            // delay.
+            p.FLASH
+                .acr
+                .write(|w| unsafe { w.latency().bits(6).wrhighfreq().bits(0b11) });
+            // Because we're running from Flash, we really, really do need Flash
+            // to have the right latency before moving on. Poll to see our
+            // values get accepted and then barrier.
+            while {
+                let r = p.FLASH.acr.read();
+                r.latency().bits() != 6 || r.wrhighfreq().bits() != 0b11
+            } {
+                // spin
+            }
+            cortex_m::asm::dmb();
+        } else if #[cfg(feature = "h743")] {
+            // Configure peripheral clock dividers to make sure we stay within
+            // range when we change oscillators.
+            p.RCC.d1cfgr.write(|w| {
+                w.d1cpre().div1() // CPU at full rate
+                    .hpre().div2()  // AHB at half that (200mhz)
+                    .d1ppre().div1()    // D1 APB3 at same
+            });
+            // Other peripherals default to AHB/1
+
+            // Configure Flash for 200MHz (AHB) at VOS1: 2WS, 2 programming
+            // delay. See ref man Table 13
+            p.FLASH.acr.write(|w| unsafe { w.latency().bits(2).wrhighfreq().bits(2) });
+            while {
+                let r = p.FLASH.acr.read();
+                r.latency().bits() != 2 || r.wrhighfreq().bits() != 2
+            } {}
+            // Not that reordering is likely here, since we polled, but: we
+            // really do need the Flash to be programmed with more wait states
+            // before switching the clock.
+            cortex_m::asm::dmb();
+        } else {
+            compile_error!("no processor feature defined");
+        }
     }
-    cortex_m::asm::dmb();
 
     // Right! We're all set to change our clock without overclocking anything by
     // accident. Perform the switch.
@@ -244,13 +384,17 @@ fn system_init() {
         // spin
     }
 
-    // Hello from 280MHz!
+    // Hello from 280MHz/400MHz/whatever!
 
-    // Finally, turn off the HSI we used at boot, to save about 400 uA.
-    p.RCC.cr.modify(|_, w| w.hsion().off());
-    // No need to busy wait here, the moment when it turns off is not important.
-
-    initialize_sdram(&mut cp, &p);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "h7b3")] {
+            // Finally, turn off the HSI we used at boot, to save about 400 uA.
+            p.RCC.cr.modify(|_, w| w.hsion().off());
+            // No need to busy wait here, the moment when it turns off is not
+            // important.
+            initialize_sdram(&mut cp, &p);
+        }
+    }
 }
 
 /// Sets up the SDRAM on the STM32H7B3I-DK board.
@@ -259,6 +403,7 @@ fn system_init() {
 /// executed during `pre_init`. This implies that the kernel (and any code
 /// around `main`) _cannot_ store any information in SDRAM. Tasks, however, are
 /// free to use it as they see fit.
+#[cfg(feature = "h7b3")]
 fn initialize_sdram(
     cp: &mut cortex_m::Peripherals,
     p: &stm32h7::stm32h7b3::Peripherals,
@@ -394,6 +539,7 @@ fn initialize_sdram(
 /// This assumes the systick is not otherwise used, and freely overwrites its
 /// configuration. Thus, this function is not safe to use after the kernel
 /// starts -- but it's kosher during system init.
+#[cfg(feature = "h7b3")]
 fn early_delay(syst: &mut cortex_m::peripheral::SYST, cycles: u32) {
     assert!(cycles < 1 << 16);
     unsafe {
@@ -410,10 +556,12 @@ fn early_delay(syst: &mut cortex_m::peripheral::SYST, cycles: u32) {
 /// Handy macro for expressing a word with particular bits set.
 ///
 /// `bits!(0, 16, 17) == 0x3001`
+#[cfg(feature = "h7b3")]
 macro_rules! bits {
     ($($bit:expr),*) => { 0 $(| (1 << $bit))* };
 }
 
+#[cfg(feature = "h7b3")]
 fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
     p.RCC.ahb4enr.modify(|_, w| {
         w.gpioden()
@@ -492,8 +640,9 @@ fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
 /// This could be made general if you need it for something.
 ///
 /// Note that `port` is GPIOA because, in the future, all GPIO ports are GPIOA.
+#[cfg(feature = "h7b3")]
 fn configure_several_sdram_pins(
-    port: &impl Deref<Target = stm32h7::stm32h7b3::gpioa::RegisterBlock>,
+    port: &impl core::ops::Deref<Target = stm32h7::stm32h7b3::gpioa::RegisterBlock>,
     mask: u16,
 ) {
     // If you wanted to make this general, change these constants into
@@ -564,6 +713,7 @@ fn configure_several_sdram_pins(
 ///
 /// In practice, this compiles to zero instructions, because we use it with
 /// constant operands (note the `const fn` part).
+#[cfg(feature = "h7b3")]
 const fn outer_perfect_shuffle(mut input: u32) -> u32 {
     let mut tmp = (input ^ (input >> 8)) & 0x0000ff00;
     input ^= tmp ^ (tmp << 8);
