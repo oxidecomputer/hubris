@@ -75,10 +75,10 @@
 #![no_std]
 #![no_main]
 
-use stm32h7::stm32h7b3 as device;
 use byteorder::LittleEndian;
-use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
+use stm32h7::stm32h7b3 as device;
 use userlib::*;
+use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -159,9 +159,11 @@ fn main() -> ! {
             |op, msg| -> Result<(), ResponseCode> {
                 match op {
                     Op::Configure => {
-                        let (msg, caller) = msg.fixed::<ConfigureRequest, ()>()
+                        let (msg, caller) = msg
+                            .fixed::<ConfigureRequest, ()>()
                             .ok_or(ResponseCode::BadArg)?;
-                        let port = Port::from_u8(msg.port).ok_or(ResponseCode::BadArg)?;
+                        let port = Port::from_u8(msg.port)
+                            .ok_or(ResponseCode::BadArg)?;
                         let reg = gpio_reg(port);
 
                         // The GPIO config registers come in 1, 2, and 4-bit per
@@ -192,60 +194,79 @@ fn main() -> ! {
                         // MODER contains 16x 2-bit fields.
                         let moder_val = u32::from(atts & 0b11);
                         reg.moder.write(|w| unsafe {
-                            w.bits((reg.moder.read().bits() & !mask_2)
-                                | (moder_val * lsbs_2))
+                            w.bits(
+                                (reg.moder.read().bits() & !mask_2)
+                                    | (moder_val * lsbs_2),
+                            )
                         });
                         // OTYPER contains 16x 1-bit fields.
                         let otyper_val = u32::from((atts >> 2) & 1);
                         reg.otyper.write(|w| unsafe {
-                            w.bits((reg.otyper.read().bits() & !mask_1)
-                                | (otyper_val * mask_1))
+                            w.bits(
+                                (reg.otyper.read().bits() & !mask_1)
+                                    | (otyper_val * mask_1),
+                            )
                         });
                         // OSPEEDR contains 16x 2-bit fields.
                         let ospeedr_val = u32::from((atts >> 3) & 0b11);
                         reg.ospeedr.write(|w| unsafe {
-                            w.bits((reg.ospeedr.read().bits() & !mask_2)
-                                | (ospeedr_val * lsbs_2))
+                            w.bits(
+                                (reg.ospeedr.read().bits() & !mask_2)
+                                    | (ospeedr_val * lsbs_2),
+                            )
                         });
                         // PUPDR contains 16x 2-bit fields.
                         let pupdr_val = u32::from((atts >> 5) & 0b11);
                         reg.pupdr.write(|w| unsafe {
-                            w.bits((reg.pupdr.read().bits() & !mask_2)
-                                | (pupdr_val * lsbs_2))
+                            w.bits(
+                                (reg.pupdr.read().bits() & !mask_2)
+                                    | (pupdr_val * lsbs_2),
+                            )
                         });
                         // AFRx contains 8x 4-bit fields.
                         let af_val = u32::from((atts >> 7) & 0b1111);
                         reg.afrl.write(|w| unsafe {
-                            w.bits((reg.afrl.read().bits() & !mask_4l)
-                                | (af_val * lsbs_4l))
+                            w.bits(
+                                (reg.afrl.read().bits() & !mask_4l)
+                                    | (af_val * lsbs_4l),
+                            )
                         });
                         reg.afrh.write(|w| unsafe {
-                            w.bits((reg.afrh.read().bits() & !mask_4h)
-                                | (af_val * lsbs_4h))
+                            w.bits(
+                                (reg.afrh.read().bits() & !mask_4h)
+                                    | (af_val * lsbs_4h),
+                            )
                         });
                         caller.reply(());
                     }
                     Op::SetReset => {
-                        let (msg, caller) = msg.fixed::<SetResetRequest, ()>()
+                        let (msg, caller) = msg
+                            .fixed::<SetResetRequest, ()>()
                             .ok_or(ResponseCode::BadArg)?;
-                        let port = Port::from_u8(msg.port).ok_or(ResponseCode::BadArg)?;
+                        let port = Port::from_u8(msg.port)
+                            .ok_or(ResponseCode::BadArg)?;
                         let reg = gpio_reg(port);
 
-                        reg.bsrr.write(|w| unsafe { w.bits(msg.set_reset.get()) });
+                        reg.bsrr
+                            .write(|w| unsafe { w.bits(msg.set_reset.get()) });
                         caller.reply(());
                     }
                     Op::ReadInput => {
-                        let (msg, caller) = msg.fixed::<u8, u32>()
+                        let (msg, caller) = msg
+                            .fixed::<u8, u32>()
                             .ok_or(ResponseCode::BadArg)?;
-                        let port = Port::from_u8(*msg).ok_or(ResponseCode::BadArg)?;
+                        let port =
+                            Port::from_u8(*msg).ok_or(ResponseCode::BadArg)?;
                         let reg = gpio_reg(port);
 
                         caller.reply(reg.idr.read().bits());
                     }
                     Op::Toggle => {
-                        let (msg, caller) = msg.fixed::<ToggleRequest, ()>()
+                        let (msg, caller) = msg
+                            .fixed::<ToggleRequest, ()>()
                             .ok_or(ResponseCode::BadArg)?;
-                        let port = Port::from_u8(msg.port).ok_or(ResponseCode::BadArg)?;
+                        let port = Port::from_u8(msg.port)
+                            .ok_or(ResponseCode::BadArg)?;
                         let reg = gpio_reg(port);
 
                         // Read current pin *output* states.
@@ -256,7 +277,8 @@ fn main() -> ! {
                         let bsrr_all = state << 16 | state ^ 0xFFFF;
                         // Write that value, but masked as the user requested.
                         let bsrr_mask = u32::from(msg.pins.get()) * 0x1_0001;
-                        reg.bsrr.write(|w| unsafe { w.bits(bsrr_all & bsrr_mask) });
+                        reg.bsrr
+                            .write(|w| unsafe { w.bits(bsrr_all & bsrr_mask) });
                         caller.reply(());
                     }
                 }
@@ -268,16 +290,29 @@ fn main() -> ! {
 }
 
 fn turn_on_all_gpios() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     for port in 0..11 {
         const ENABLE_CLOCK: u16 = 1;
         let pnum = 96 + port; // see bits in AHB4ENR
-        let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+        let (code, _) = userlib::sys_send(
+            rcc_driver,
+            ENABLE_CLOCK,
+            pnum.as_bytes(),
+            &mut [],
+            &[],
+        );
         assert_eq!(code, 0);
 
         const LEAVE_RESET: u16 = 4;
-        let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+        let (code, _) = userlib::sys_send(
+            rcc_driver,
+            LEAVE_RESET,
+            pnum.as_bytes(),
+            &mut [],
+            &[],
+        );
         assert_eq!(code, 0);
     }
 }
@@ -319,4 +354,3 @@ const fn outer_perfect_shuffle(mut input: u32) -> u32 {
     input ^= tmp ^ (tmp << 1);
     input
 }
-

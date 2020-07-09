@@ -10,8 +10,8 @@
 #![no_main]
 
 use stm32h7::stm32h7b3 as device;
-use zerocopy::AsBytes;
 use userlib::*;
+use zerocopy::AsBytes;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -114,8 +114,8 @@ fn main() -> ! {
             |txref, op, msg| match op {
                 Operation::Write => {
                     // Validate lease count and buffer sizes first.
-                    let ((), caller) = msg.fixed_with_leases(1)
-                        .ok_or(ResponseCode::BadArg)?;
+                    let ((), caller) =
+                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
 
                     // Deny incoming writes if we're already running one.
                     if txref.is_some() {
@@ -129,7 +129,7 @@ fn main() -> ! {
                     // later, which is a defection case and we won't reply at
                     // all).
                     if !info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg)
+                        return Err(ResponseCode::BadArg);
                     }
 
                     // Okay! Begin a transfer!
@@ -144,45 +144,63 @@ fn main() -> ! {
 
                     // We'll do the rest as interrupts arrive.
                     Ok(())
-                },
+                }
             },
         );
     }
 }
 
 fn turn_on_usart() {
-    let rcc_driver = TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver =
+        TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 196; // see bits in APB2ENR
-    let (code, _) = userlib::sys_send(rcc_driver, ENABLE_CLOCK, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        ENABLE_CLOCK,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 
     const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(rcc_driver, LEAVE_RESET, pnum.as_bytes(), &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        rcc_driver,
+        LEAVE_RESET,
+        pnum.as_bytes(),
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 }
 
 fn configure_pins() {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
     const TX_RX_MASK: u16 = (1 << 9) | (1 << 10);
-    gpio_driver.configure(
-        Port::A,
-        TX_RX_MASK,
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::High,
-        Pull::None,
-        Alternate::AF7,
-    ).unwrap();
+    gpio_driver
+        .configure(
+            Port::A,
+            TX_RX_MASK,
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+            Alternate::AF7,
+        )
+        .unwrap();
 }
 
-fn step_transmit(usart: &device::usart1::RegisterBlock, tx: &mut Option<Transmit>) {
-
+fn step_transmit(
+    usart: &device::usart1::RegisterBlock,
+    tx: &mut Option<Transmit>,
+) {
     // Clearer than just using replace:
     fn end_transmission(
         usart: &device::usart1::RegisterBlock,
@@ -196,7 +214,9 @@ fn step_transmit(usart: &device::usart1::RegisterBlock, tx: &mut Option<Transmit
 
     if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
-        usart.tdr.write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
+        usart
+            .tdr
+            .write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
 
         txs.pos += 1;
         if txs.pos == txs.len {

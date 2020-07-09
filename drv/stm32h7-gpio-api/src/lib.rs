@@ -133,11 +133,14 @@ impl Gpio {
             | (pull as u16) << 5
             | (af as u16) << 7;
 
-        hl::send(self.0, &ConfigureRequest {
-            port: port as u8,
-            pins: U16::new(pins),
-            packed_attributes: U16::new(packed_attributes),
-        })
+        hl::send(
+            self.0,
+            &ConfigureRequest {
+                port: port as u8,
+                pins: U16::new(pins),
+                packed_attributes: U16::new(packed_attributes),
+            },
+        )
     }
 
     /// Alters some subset of pins in a GPIO port.
@@ -161,18 +164,18 @@ impl Gpio {
             type Err = GpioError;
         }
 
-        hl::send(self.0, &SetResetRequest {
-            port: port as u8,
-            set_pins: U16::new(set_pins),
-            reset_pins: U16::new(reset_pins),
-        })
+        hl::send(
+            self.0,
+            &SetResetRequest {
+                port: port as u8,
+                set_pins: U16::new(set_pins),
+                reset_pins: U16::new(reset_pins),
+            },
+        )
     }
 
     /// Reads the status of the input pins on a port.
-    pub fn read_input(
-        &self,
-        port: Port,
-    ) -> Result<u16, GpioError> {
+    pub fn read_input(&self, port: Port) -> Result<u16, GpioError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct ReadInputRequest(u8);
@@ -187,11 +190,7 @@ impl Gpio {
     }
 
     /// Toggles some subset of pins in a GPIO port.
-    pub fn toggle(
-        &self,
-        port: Port,
-        pins: u16,
-    ) -> Result<(), GpioError> {
+    pub fn toggle(&self, port: Port, pins: u16) -> Result<(), GpioError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct ToggleRequest {
@@ -205,9 +204,12 @@ impl Gpio {
             type Err = GpioError;
         }
 
-        hl::send(self.0, &ToggleRequest {
-            port: port as u8,
-            pins: U16::new(pins),
-        })
+        hl::send(
+            self.0,
+            &ToggleRequest {
+                port: port as u8,
+                pins: U16::new(pins),
+            },
+        )
     }
 }
