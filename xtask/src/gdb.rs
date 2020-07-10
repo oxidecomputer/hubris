@@ -5,6 +5,8 @@ use std::process::Command;
 use crate::Config;
 
 pub fn run(cfg: &Path, gdb_cfg: &Path) -> Result<(), Box<dyn Error>> {
+    ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
+
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
