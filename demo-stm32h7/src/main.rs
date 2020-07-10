@@ -19,12 +19,12 @@ use cortex_m_rt::pre_init;
 extern crate stm32h7;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "h7b3")] {
+    if #[cfg(target_board = "stm32h7b3i-dk")] {
         use stm32h7::stm32h7b3 as device;
-    } else if #[cfg(feature = "h743")] {
+    } else if #[cfg(target_board = "nucleo-h743zi2")] {
         use stm32h7::stm32h743 as device;
     } else {
-        compile_error!("processor feature not defined");
+        compile_error!("target_board unknown or missing");
     }
 }
 
@@ -42,12 +42,12 @@ fn main() -> ! {
     system_init();
 
     cfg_if::cfg_if! {
-        if #[cfg(feature = "h7b3")] {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
             const CYCLES_PER_MS: u32 = 280_000;
-        } else if #[cfg(feature = "h743")] {
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
             const CYCLES_PER_MS: u32 = 400_000;
         } else {
-            compile_error!("processor feature not defined");
+            compile_error!("target_board unknown or missing");
         }
     }
 
@@ -63,7 +63,7 @@ fn main() -> ! {
     }
 }
 
-#[cfg(feature = "h743")]
+#[cfg(target_board = "nucleo-h743zi2")]
 #[pre_init]
 unsafe fn system_pre_init() {
     // Configure the power supply to latch the LDO on and prevent further
@@ -95,7 +95,7 @@ unsafe fn system_pre_init() {
     // We'll do the rest in system_init.
 }
 
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 #[pre_init]
 unsafe fn system_pre_init() {
     // Configure our power supply to reflect how we're actually wired up on the
@@ -216,7 +216,7 @@ fn system_init() {
     // All configurations use PLL1. They just use it differently.
 
     cfg_if::cfg_if! {
-        if #[cfg(feature = "h7b3")] {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
             // There's a 24MHz crystal on our board. We'll use it as our clock
             // source, to get higher accuracy than the internal oscillator. Turn
             // on the High Speed External oscillator.
@@ -275,7 +275,7 @@ fn system_init() {
                     .divr1()
                     .bits(1)
             });
-        } else if #[cfg(feature = "h743")] {
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
             // The H743 Nucleo board doesn't include an external crystal. Thus,
             // we use the HSI64 oscillator.
 
@@ -305,7 +305,7 @@ fn system_init() {
                     .divn1().bits(divn - 1)
             });
         } else {
-            compile_error!("no processor feature defined");
+            compile_error!("target_board unknown or missing");
         }
     }
 
@@ -318,7 +318,7 @@ fn system_init() {
     // PLL1's frequency will become the system clock, which in turn goes through
     // a series of dividers to produce clocks for each system bus.
     cfg_if::cfg_if! {
-        if #[cfg(feature = "h7b3")] {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
             // Delightfully, the 7B3 can run all of its buses at the same
             // frequency. So we can just set everything to 1.
             //
@@ -351,7 +351,7 @@ fn system_init() {
                 // spin
             }
             cortex_m::asm::dmb();
-        } else if #[cfg(feature = "h743")] {
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
             // Configure peripheral clock dividers to make sure we stay within
             // range when we change oscillators.
             p.RCC.d1cfgr.write(|w| {
@@ -373,7 +373,7 @@ fn system_init() {
             // before switching the clock.
             cortex_m::asm::dmb();
         } else {
-            compile_error!("no processor feature defined");
+            compile_error!("target_board unknown or missing");
         }
     }
 
@@ -387,7 +387,7 @@ fn system_init() {
     // Hello from 280MHz/400MHz/whatever!
 
     cfg_if::cfg_if! {
-        if #[cfg(feature = "h7b3")] {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
             // Finally, turn off the HSI we used at boot, to save about 400 uA.
             p.RCC.cr.modify(|_, w| w.hsion().off());
             // No need to busy wait here, the moment when it turns off is not
@@ -403,7 +403,7 @@ fn system_init() {
 /// executed during `pre_init`. This implies that the kernel (and any code
 /// around `main`) _cannot_ store any information in SDRAM. Tasks, however, are
 /// free to use it as they see fit.
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 fn initialize_sdram(
     cp: &mut cortex_m::Peripherals,
     p: &stm32h7::stm32h7b3::Peripherals,
@@ -539,7 +539,7 @@ fn initialize_sdram(
 /// This assumes the systick is not otherwise used, and freely overwrites its
 /// configuration. Thus, this function is not safe to use after the kernel
 /// starts -- but it's kosher during system init.
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 fn early_delay(syst: &mut cortex_m::peripheral::SYST, cycles: u32) {
     assert!(cycles < 1 << 16);
     unsafe {
@@ -556,12 +556,12 @@ fn early_delay(syst: &mut cortex_m::peripheral::SYST, cycles: u32) {
 /// Handy macro for expressing a word with particular bits set.
 ///
 /// `bits!(0, 16, 17) == 0x3001`
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 macro_rules! bits {
     ($($bit:expr),*) => { 0 $(| (1 << $bit))* };
 }
 
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
     p.RCC.ahb4enr.modify(|_, w| {
         w.gpioden()
@@ -640,7 +640,7 @@ fn initialize_sdram_pins(p: &stm32h7::stm32h7b3::Peripherals) {
 /// This could be made general if you need it for something.
 ///
 /// Note that `port` is GPIOA because, in the future, all GPIO ports are GPIOA.
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 fn configure_several_sdram_pins(
     port: &impl core::ops::Deref<Target = stm32h7::stm32h7b3::gpioa::RegisterBlock>,
     mask: u16,
@@ -713,7 +713,7 @@ fn configure_several_sdram_pins(
 ///
 /// In practice, this compiles to zero instructions, because we use it with
 /// constant operands (note the `const fn` part).
-#[cfg(feature = "h7b3")]
+#[cfg(target_board = "stm32h7b3i-dk")]
 const fn outer_perfect_shuffle(mut input: u32) -> u32 {
     let mut tmp = (input ^ (input >> 8)) & 0x0000ff00;
     input ^= tmp ^ (tmp << 8);
