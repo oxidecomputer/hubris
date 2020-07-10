@@ -88,6 +88,9 @@ fn main() -> ! {
 
 ///////////////////////////////////////////////////////////////////////////////
 // The STM32F4 specific bits.
+//
+// STM32F4 is the only platform that still pokes the GPIOs directly, without an
+// intermediary.
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32f4")] {
@@ -173,7 +176,6 @@ fn led_toggle(led: Led) {
 ///////////////////////////////////////////////////////////////////////////////
 // The STM32H7 specific bits.
 //
-// This assumes an STM32H7B3 DISCOVERY kit, where the LEDs are on G2 and G11.
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
@@ -186,18 +188,20 @@ cfg_if::cfg_if! {
         }
 
         cfg_if::cfg_if! {
-            if #[cfg(feature = "h7b3")] {
+            if #[cfg(target_board = "stm32h7b3i-dk")] {
+                // STM32H7B3 DISCOVERY kit; LEDs are on G2 and G11.
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::G;
                 const LED_MASK_0: u16 = 1 << 2;
                 const LED_MASK_1: u16 = 1 << 11;
-            } else if #[cfg(feature = "h743")] {
+            } else if #[cfg(target_board = "nucleo-h743zi2")] {
+                // Nucleo board, LEDs are on B0 and B14.
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::B;
                 const LED_MASK_0: u16 = 1 << 0;
                 const LED_MASK_1: u16 = 1 << 14;
             } else {
-                compile_error!("missing processor feature");
+                compile_error!("no LED mapping for unknown board");
             }
         }
     }

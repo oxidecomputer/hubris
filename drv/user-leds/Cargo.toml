@@ -13,12 +13,13 @@ num-traits = {version = "0.2", default-features = false}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", optional = true}
 cfg-if = "0.1"
 
+[build-dependencies]
+build-util = {path = "../../build-util"}
+
 [features]
 default = ["standalone", "stm32f4"]
 standalone = []
-h7b3 = ["drv-stm32h7-gpio-api", "stm32h7"]
-h743 = ["drv-stm32h7-gpio-api", "stm32h7"]
-stm32h7 = []
+stm32h7 = ["drv-stm32h7-gpio-api"]
 lpc55 = ["lpc55-pac"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

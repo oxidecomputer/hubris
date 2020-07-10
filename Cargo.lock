@@ -298,6 +298,7 @@ dependencies = [
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if",
  "drv-stm32h7-gpio-api",
  "lpc55-pac",
