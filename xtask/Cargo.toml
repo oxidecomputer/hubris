@@ -17,3 +17,4 @@ srec = "0.1"
 goblin = {version = "0.2", features = ["std", "elf32", "endian_fd"]}
 serde_json = "1.0"
 path-slash = "0.1.2"
+ctrlc = "3.1.4"
