@@ -76,6 +76,7 @@
 #![no_main]
 
 use byteorder::LittleEndian;
+use drv_stm32h7_rcc_api::Rcc;
 use stm32h7::stm32h7b3 as device;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
@@ -290,30 +291,15 @@ fn main() -> ! {
 }
 
 fn turn_on_all_gpios() {
-    let rcc_driver =
-        TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
+        RCC as usize,
+        Generation::default(),
+    ));
 
     for port in 0..11 {
-        const ENABLE_CLOCK: u16 = 1;
         let pnum = 96 + port; // see bits in AHB4ENR
-        let (code, _) = userlib::sys_send(
-            rcc_driver,
-            ENABLE_CLOCK,
-            pnum.as_bytes(),
-            &mut [],
-            &[],
-        );
-        assert_eq!(code, 0);
-
-        const LEAVE_RESET: u16 = 4;
-        let (code, _) = userlib::sys_send(
-            rcc_driver,
-            LEAVE_RESET,
-            pnum.as_bytes(),
-            &mut [],
-            &[],
-        );
-        assert_eq!(code, 0);
+        rcc_driver.enable_clock_raw(pnum).unwrap();
+        rcc_driver.leave_reset_raw(pnum).unwrap();
     }
 }
 
