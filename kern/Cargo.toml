@@ -20,6 +20,9 @@ cortex-m-semihosting = {version = "0.3.3", optional = true}
 serde = {version = "1", default-features = false}
 ssmarshal = {version = "1", default-features = false}
 
+[build-dependencies]
+build-util = {path = "../build-util"}
+
 [lib]
 test = false
 bench = false

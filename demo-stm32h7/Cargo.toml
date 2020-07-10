@@ -30,9 +30,7 @@ path = "../kern"
 default-features = false
 
 [build-dependencies]
-which = "3.1"
-serde = "1"
-serde_json = "1"
+build-util = {path = "../build-util"}
 
 # this lets you use `cargo fix`!
 [[bin]]

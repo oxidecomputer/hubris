@@ -2,14 +2,15 @@ cargo-features = ["resolver"]
 
 [workspace]
 members = [
+    "build-util",
+    "xtask",
+
     "abi",
     "demo",
     "demo-stm32h7",
     "lpc55",
     "kern",
     "userlib",
-
-    "xtask",
 
     "task-template",
 

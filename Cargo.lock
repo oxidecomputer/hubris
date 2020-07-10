@@ -11,21 +11,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "addr2line"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "602d785912f476e480434627e8732e6766b760c045bbf897d9dfaa9f4fbd399c"
-dependencies = [
- "gimli",
-]
-
-[[package]]
-name = "adler32"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567b077b825e468cc974f0020d4082ee6e03132512f207ef1a02fd5d00d1f32d"
-
-[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -52,20 +37,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
-name = "backtrace"
-version = "0.3.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05100821de9e028f12ae3d189176b41ee198341eb8f369956407fea2f5cc666c"
-dependencies = [
- "addr2line",
- "cfg-if",
- "libc",
- "miniz_oxide",
- "object",
- "rustc-demangle",
-]
-
-[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -85,6 +56,14 @@ name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
+
+[[package]]
+name = "build-util"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "byteorder"
@@ -173,6 +152,7 @@ dependencies = [
 name = "demo"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -180,16 +160,14 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "serde",
- "serde_json",
  "stm32f4",
- "which",
 ]
 
 [[package]]
 name = "demo-stm32h7"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if",
  "cortex-m",
  "cortex-m-rt",
@@ -198,10 +176,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "serde",
- "serde_json",
  "stm32h7",
- "which",
 ]
 
 [[package]]
@@ -348,21 +323,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
-]
-
-[[package]]
-name = "gimli"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcc8e0c9bce37868955864dbecd2b1ab2bdf967e6f28066d65aaac620444b65c"
-
-[[package]]
 name = "goblin"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -413,6 +373,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "bitflags",
+ "build-util",
  "byteorder",
  "cfg-if",
  "cortex-m",
@@ -447,6 +408,7 @@ dependencies = [
 name = "lpc55"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -455,9 +417,6 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "serde",
- "serde_json",
- "which",
 ]
 
 [[package]]
@@ -469,15 +428,6 @@ dependencies = [
  "bare-metal",
  "cortex-m",
  "vcell",
-]
-
-[[package]]
-name = "miniz_oxide"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791daaae1ed6889560f8c4359194f56648355540573244a5448a83ba1ecc7435"
-dependencies = [
- "adler32",
 ]
 
 [[package]]
@@ -512,12 +462,6 @@ checksum = "ac267bcc07f48ee5f8935ab0d24f316fb722d7a1292e2913f0cc196b29ffd611"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "object"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ab52be62400ca80aa00285d25253d7f7c437b7375c4de678f5405d3afe82ca5"
 
 [[package]]
 name = "panic-halt"
@@ -611,12 +555,6 @@ name = "r0"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd7a31eed1591dcbc95d92ad7161908e72f4677f8fabf2a32ca49b4237cbf211"
-
-[[package]]
-name = "rustc-demangle"
-version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 
 [[package]]
 name = "rustc_version"
@@ -871,6 +809,7 @@ dependencies = [
 name = "tests-stm32f4"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -878,10 +817,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "serde",
- "serde_json",
  "stm32f4",
- "which",
 ]
 
 [[package]]
@@ -965,16 +901,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d67cb4616d99b940db1d6bd28844ff97108b498a6ca850e5b6191a532063286"
 dependencies = [
  "vcell",
-]
-
-[[package]]
-name = "which"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d011071ae14a2f6671d0b74080ae0cd8ebf3a6f8c9589a2cd45f23126fe29724"
-dependencies = [
- "failure",
- "libc",
 ]
 
 [[package]]
