@@ -1,5 +1,6 @@
 name = "demo-stm32h743"
 target = "thumbv7em-none-eabihf"
+board = "nucleo-h743zi2"
 
 [kernel]
 path = "."

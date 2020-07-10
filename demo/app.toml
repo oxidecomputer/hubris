@@ -1,5 +1,6 @@
 name = "demo"
 target = "thumbv7em-none-eabihf"
+board = "stm32f4-discovery"
 
 [kernel]
 path = "../demo"

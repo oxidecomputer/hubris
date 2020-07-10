@@ -1,5 +1,6 @@
 name = "lpc55"
 target = "thumbv8m.main-none-eabihf"
+board = "lpcxpresso55s69"
 
 [kernel]
 path = "../lpc55"
