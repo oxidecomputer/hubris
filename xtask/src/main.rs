@@ -44,6 +44,7 @@ enum Xtask {
 struct Config {
     name: String,
     target: String,
+    board: String,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,

@@ -21,6 +21,15 @@ pub fn expose_m_profile() {
     }
 }
 
+/// Exposes the board type from the `HUBRIS_BOARD` envvar into
+/// `cfg(target_board="...")`.
+pub fn expose_target_board() {
+    if let Ok(board) = env::var("HUBRIS_BOARD") {
+        println!("cargo:rustc-cfg=target_board=\"{}\"", board);
+    }
+    println!("cargo:rerun-if-env-changed=HUBRIS_BOARD");
+}
+
 /// Generates the linker script for a kernel stub program.
 ///
 /// The linker script goes into `OUT_DIR/link.x` and `OUT_DIR` is added to the

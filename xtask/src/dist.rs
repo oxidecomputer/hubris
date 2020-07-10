@@ -65,6 +65,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         let task_toml = &toml.tasks[name];
         build(
             &toml.target,
+            &toml.board,
             &src_dir.join(&task_toml.path),
             &task_toml.name,
             &task_toml.features,
@@ -93,6 +94,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     // Build the kernel.
     build(
         &toml.target,
+        &toml.board,
         &src_dir.join(&toml.kernel.path),
         &toml.kernel.name,
         &toml.kernel.features,
@@ -187,6 +189,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
 
 fn build(
     target: &str,
+    board_name: &str,
     path: &Path,
     name: &str,
     features: &[String],
@@ -232,6 +235,7 @@ fn build(
     for (key, val) in meta {
         cmd.env(key, val);
     }
+    cmd.env("HUBRIS_BOARD", board_name);
 
     let status = cmd.status()?;
     if !status.success() {
