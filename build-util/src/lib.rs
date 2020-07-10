@@ -93,3 +93,99 @@ pub fn generate_hubris_kernel_linker_script() {
     println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
     println!("cargo:rerun-if-env-changed=HUBRIS_DESCRIPTOR");
 }
+
+/// Generates the linker script for a particular instance of a task.
+///
+/// The linker script goes into `OUT_DIR/memory.x`, which `link.x` should
+/// include. `OUT_DIR` is added to the linker search path.
+///
+/// The generation of the script is controlled by the `HUBRIS_PKG_MAP` variable,
+/// whose contents should really be explained here (TODO).
+///
+/// If that variable is not set, generates a default placeholder script.
+pub fn generate_hubris_task_linker_script() {
+    // TODO: this could be refactored to share code with the kernel script
+    // above!
+    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
+    if let Ok(pkg_map) = env::var("HUBRIS_PKG_MAP") {
+        println!("HUBRIS_PKG_MAP = {:#x?}", pkg_map);
+        let map: serde_json::Value = serde_json::from_str(&pkg_map).unwrap();
+        let map = map.as_object().unwrap();
+
+        // Put the linker script somewhere the linker can find it
+        let mut linkscr = File::create(out.join("memory.x")).unwrap();
+        writeln!(linkscr, "MEMORY\n{{").unwrap();
+        for (name, range) in map {
+            let start = range["start"].as_u64().unwrap();
+            let end = range["end"].as_u64().unwrap();
+            let name = name.to_ascii_uppercase();
+            writeln!(
+                linkscr,
+                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                name,
+                start,
+                end - start
+            )
+            .unwrap();
+        }
+        write!(linkscr, "}}").unwrap();
+        drop(linkscr);
+    } else {
+        // We're building outside the context of an image. Generate a
+        // placeholder memory layout.
+        let mut linkscr = File::create(out.join("memory.x")).unwrap();
+        writeln!(
+            linkscr,
+            "\
+            MEMORY {{\n\
+                FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K\n\
+                RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128K\n\
+            }}"
+        )
+        .unwrap();
+        drop(linkscr);
+    }
+}
+
+/// Generates an `OUT_DIR/tasks.rs` file containing the set of tasks in the
+/// application as viewed from the current task.
+///
+/// This relies on the `HUBRIS_TASKS` and `HUBRIS_TASK_SELF` environment
+/// variables.
+/// - `HUBRIS_TASKS` should be a comma-separated list of task names, in order of
+///   index.
+/// - `HUBRIS_TASK_SELF` should be the name of the task being compiled.
+///
+/// If not provided, generates a default bogus `Task` enum.
+pub fn generate_hubris_task_includes() {
+    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    println!("cargo:rerun-if-env-changed=HUBRIS_TASKS");
+    println!("cargo:rerun-if-env-changed=HUBRIS_TASK_SELF");
+    let mut task_enum = vec![];
+    let task_self;
+    let task_count;
+    if let Ok(task_names) = env::var("HUBRIS_TASKS") {
+        println!("HUBRIS_TASKS = {}", task_names);
+        task_self = env::var("HUBRIS_TASK_SELF").unwrap();
+        println!("HUBRIS_TASK_SELF = {}", task_self);
+        for (i, name) in task_names.split(",").enumerate() {
+            task_enum.push(format!("    {} = {},", name, i));
+        }
+        task_count = task_names.split(",").count();
+    } else {
+        task_enum.push("    anonymous = 0,".to_string());
+        task_self = "anonymous".to_string();
+        task_count = 1;
+    }
+    let mut task_file = std::fs::File::create(out.join("tasks.rs")).unwrap();
+    writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
+    writeln!(task_file, "pub enum Task {{").unwrap();
+    for line in task_enum {
+        writeln!(task_file, "{}", line).unwrap();
+    }
+    writeln!(task_file, "}}").unwrap();
+    writeln!(task_file, "pub const SELF: Task = Task::{};", task_self).unwrap();
+    writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
+        .unwrap();
+}
