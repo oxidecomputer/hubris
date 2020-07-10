@@ -861,11 +861,11 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "build-util",
  "num-derive",
  "num-traits",
  "r0 1.0.0",
  "serde",
- "serde_json",
  "ssmarshal",
  "zerocopy",
 ]

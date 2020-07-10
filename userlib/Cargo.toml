@@ -24,8 +24,7 @@ test = false
 bench = false
 
 [build-dependencies]
-serde = "1"
-serde_json = "1"
+build-util = {path = "../build-util"}
 
 [package.metadata.build]
 # Pick ONE of these compilation targets

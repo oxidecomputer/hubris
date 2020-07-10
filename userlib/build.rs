@@ -29,73 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=link.x");
 
     // Generate our memory include from the environment if possible.
-    println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
-    if let Ok(pkg_map) = env::var("HUBRIS_PKG_MAP") {
-        println!("HUBRIS_PKG_MAP = {:#x?}", pkg_map);
-        let map: serde_json::Value = serde_json::from_str(&pkg_map).unwrap();
-        let map = map.as_object().unwrap();
+    build_util::generate_hubris_task_linker_script();
 
-        // Put the linker script somewhere the linker can find it
-        let mut linkscr = File::create(out.join("memory.x")).unwrap();
-        writeln!(linkscr, "MEMORY\n{{").unwrap();
-        for (name, range) in map {
-            let start = range["start"].as_u64().unwrap();
-            let end = range["end"].as_u64().unwrap();
-            let name = name.to_ascii_uppercase();
-            writeln!(
-                linkscr,
-                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
-                name,
-                start,
-                end - start
-            )
-            .unwrap();
-        }
-        write!(linkscr, "}}").unwrap();
-        drop(linkscr);
-    } else {
-        // We're building outside the context of an image. Generate a
-        // placeholder memory layout.
-        let mut linkscr = File::create(out.join("memory.x")).unwrap();
-        writeln!(
-            linkscr,
-            "\
-            MEMORY {{\n\
-                FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 128K\n\
-                RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 128K\n\
-            }}"
-        )
-        .unwrap();
-        drop(linkscr);
-    }
-
-    println!("cargo:rerun-if-env-changed=HUBRIS_TASKS");
-    println!("cargo:rerun-if-env-changed=HUBRIS_TASK_SELF");
-    let mut task_enum = vec![];
-    let task_self;
-    let task_count;
-    if let Ok(task_names) = env::var("HUBRIS_TASKS") {
-        println!("HUBRIS_TASKS = {}", task_names);
-        task_self = env::var("HUBRIS_TASK_SELF").unwrap();
-        println!("HUBRIS_TASK_SELF = {}", task_self);
-        for (i, name) in task_names.split(",").enumerate() {
-            task_enum.push(format!("    {} = {},", name, i));
-        }
-        task_count = task_names.split(",").count();
-    } else {
-        task_enum.push("    anonymous = 0,".to_string());
-        task_self = "anonymous".to_string();
-        task_count = 1;
-    }
-    let mut task_file = std::fs::File::create(out.join("tasks.rs"))?;
-    writeln!(task_file, "#[allow(non_camel_case_types)]")?;
-    writeln!(task_file, "pub enum Task {{")?;
-    for line in task_enum {
-        writeln!(task_file, "{}", line)?;
-    }
-    writeln!(task_file, "}}")?;
-    writeln!(task_file, "pub const SELF: Task = Task::{};", task_self)?;
-    writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)?;
+    build_util::generate_hubris_task_includes();
 
     Ok(())
 }
