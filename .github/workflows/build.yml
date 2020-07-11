@@ -79,8 +79,8 @@ jobs:
           args: dist ${{ matrix.app_toml}}
 
       # upload the output of our build
-      - name: Upload dist artifacts
+      - name: Upload build archive
         uses: actions/upload-artifact@v1
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app_name }}/dist
+          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}.zip
