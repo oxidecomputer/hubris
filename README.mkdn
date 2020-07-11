@@ -8,9 +8,15 @@ RFD41, but has evolved considerably since then.
 
 # Learning
 
-We have some documentation in disjointed files in the `doc/` directory.
+We have some documentation in disjointed files in the `doc/` directory. This
+file gives quick-start information.
 
 # Developing
+
+We currently support Linux and Windows as first-tier platforms. The build
+probably also works on Illumos and Mac; if anyone would like to step up to
+maintain support and a continuous build for those architectures, we'd love the
+help.
 
 ## Prereqs
 
@@ -21,10 +27,13 @@ You will need:
 
 - `openocd` (mostly tested on 0.10)
 
-- The appropriate Rust toolchain target installed: `rustup target add
-  thumbv7em-none-eabihf`
+- The appropriate Rust toolchain target installed:
+  - `rustup target add thumbv7em-none-eabihf`
+  - `rustup target add thumbv8m.main-none-eabihf`
 
 - `itmdump`: `cargo install itm`
+
+- `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`.
 
 ### Windows
 
@@ -48,23 +57,37 @@ Finally, the instructions below invoke shell scripts. They're very small, and
 so for now you can run the commands manually, yourself. We may improve this
 in the future.
 
-## Build and run
+## Build
 
-`cargo build` from the top level directory will not build anything, because a
-single `cargo build` invocation can only do one architecture at a time.
-Likewise, `cargo run` will not do anything either.
+**We do not use `cargo build` or `cargo run` directly because they are too
+inflexible for our purposes.** We have a complex multi-architecture build, which
+is a bit beyond them.
 
-Here's how to build and run the firmware.
+Instead, the repo includes a Cargo extension called `xtask` that namespaces our
+custom build commands.
 
-Connect an STM32F4 Discovery board, which is the currently supported
-demonstrator platform.
+- `cargo xtask dist TOMLFILE` builds a distribution image for the
+  application described by the TOML file.
+  - `cargo xtask dist demo/app.toml` - stm32f4-discovery
+  - `cargo xtask dist lpc55/app.toml` - lpcxpresso55s69
+  - `cargo xtask dist demo-stm32h7/app-h743.toml` - nucleo-ih743zi2
+  - `cargo xtask dist demo-stm32h7/app-h7b3.toml` - stm32h7b3i-dk
+- `cargo xtask build` from within a task or kernel directory builds that one
+  component in isolation. **The result won't actually run,** because it's
+  missing important system context, but this provides a cheaper way to do
+  incremental builds during development. See the `Iterating` section below.
 
-Launch `openocd` in one terminal, *from this directory* so it finds its config
-files:
+## Run
 
-```shell
-$ openocd
-```
+Details depend on your target board. Here are some common evaluation boards we
+support.
+
+### STM32F4 Discovery board
+
+Connect board via USB.
+
+From one terminal, `cd` into the root of this repository and run `openocd`.
+(This causes `openocd` to pick up the `openocd.cfg` at the root.)
 
 From another terminal:
 
@@ -77,31 +100,69 @@ will scroll by some updates, and you will eventually be unceremoniously
 deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 `continue` to run.
 
+### LPCXpresso55S69 board
+
+TODO: we need instructions for this, as it does not use openocd
+
+### ST Nucleo-H743ZI2 board
+
+- Terminal 1: `cd demo-stm32h7; openocd`
+- Terminal 2: `cargo xtask gdb demo-stm32h7/app-h743.toml openocd.gdb`
+
+### ST STM32H7B3I-DK board
+
+- Terminal 1: `cd demo-stm32h7; openocd`
+- Terminal 2: `cargo xtask gdb demo-stm32h7/app-h7b3.toml openocd.gdb`
+
+## Adding a task
+
+To create your own task, the easiest method is:
+
+- Copy `task-template` to a new name.
+- Edit its `Cargo.toml` with your name and a new package name.
+- Add it to the list of workspace members in the root `Cargo.toml`.
+
+You can now run `cargo xtask build` in the task's directory to run a standalone
+build. (See below for details.)
+
+To actually test the task, you need to add it to a system image by editing an
+`app.toml` file. A typical entry for a small task that uses no memory-mapped
+peripherals would read
+
+```toml
+[tasks.name_for_task_in_this_image]
+path = "../my-task-directory"
+name = "my-task-target-name"
+priority = 1
+requires = {flash = 1024, ram = 1024}
+start = true
+```
+
 ## Iterating
 
-During development you'll probably want to build a single task, outside the
-context of an image, to e.g. verify that it compiles. We've set things up so
-that you can build a task to a default, placeholder memory map.
+Because a full image build can take 10 seconds or more, depending on what you've
+changed, when you're iterating on a task or kernel you'll probably want to build
+it *outside* the context of an image. We have a thing called a "standalone
+build" for this.
+
+For instance, to run a standalone build of `task-ping`, run:
 
 ```shell
 $ cd task-ping
-$ cargo build
+$ cargo xtask build
 ```
 
 This magic happens in three parts:
 
-1. Each task directory contains a `.cargo/config` file specifying an
-   architecture (so you don't have to) and a linker script. This file is honored
-   *only* when building inside the task's directory, because Cargo.
-2. Our `build.rs` files that receive information from the `package` xtask will do
-   reasonable defaulty things if that information is missing, e.g. when you
-   build it manually.
+1. Packages that support standalone build have a `package.metadata.build.target`
+   key giving the default target architecture for standalone builds.
+2. Our `build.rs` files that receive information from the `dist` xtask will do
+   reasonable defaulty things if that information is missing, e.g. in this case.
 3. By convention, we set a default feature `"standalone"` for standalone builds,
    and switch it off in the `app.toml` used by the `package` xtask. You can use this
    feature to conditionally compile stuff.
 
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on
-`userlib`.
+`userlib`. You generally do not need a `build.rs` in your task unless you need
+to detect compiler/architecture features or depend on board rev.
 
-To create your own task, the easiest method is to copy `task-template` to a new
-name and edit its `Cargo.toml`.
