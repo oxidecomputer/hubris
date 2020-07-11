@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
+use std::fs::File;
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -16,7 +17,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     drop(cfg_contents);
 
     let mut out = PathBuf::from("target");
-    out.push(toml.name);
+    out.push(&toml.name);
     out.push("dist");
 
     std::fs::create_dir_all(&out)?;
@@ -51,7 +52,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         task_memory.insert(name.clone(), mem);
     }
 
-    let mut infofile = std::fs::File::create(out.join("allocations.txt"))?;
+    let mut infofile = File::create(out.join("allocations.txt"))?;
     writeln!(infofile, "kernel: {:#x?}", kern_memory)?;
     writeln!(infofile, "tasks: {:#x?}", task_memory)?;
     drop(infofile);
@@ -106,7 +107,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
-    let mut mapfile = std::fs::File::create(&out.join("map.txt"))?;
+    let mut mapfile = File::create(&out.join("map.txt"))?;
     writeln!(mapfile, "ADDRESS  END          SIZE FILE")?;
     for (base, sec) in &all_output_sections {
         let size = sec.data.len() as u32;
@@ -152,7 +153,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out.join("combined.srec"), srec_image)?;
 
-    let mut gdb_script = std::fs::File::create(out.join("script.gdb"))?;
+    let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
@@ -183,6 +184,50 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     if !status.success() {
         return Err("command failed, see output for details".into());
     }
+
+    // Bundle everything up into an archive.
+    let mut archive =
+        Archive::new(out.join(format!("build-{}.zip", toml.name)))?;
+
+    archive.text(
+        "README.TXT",
+        "\
+        This is a build archive containing firmware build artifacts.\n\n\
+        - app.toml is the config file used to build the firmware.\n\
+        - git-rev is the commit it was built from, with optional dirty flag.\n\
+        - info/ contains human-readable data like logs.\n\
+        - elf/ contains ELF images for all firmware components.\n\
+        - elf/tasks/ contains each task by name.\n\
+        - elf/kernel is the kernel.\n\
+        - img/ contains the final firmware images.\n",
+    )?;
+
+    let (git_rev, git_dirty) = get_git_status()?;
+    archive.text(
+        "git-rev",
+        format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
+    )?;
+    archive.copy(cfg, "app.toml")?;
+
+    let elf_dir = PathBuf::from("elf");
+    let tasks_dir = elf_dir.join("task");
+    for name in toml.tasks.keys() {
+        archive.copy(out.join(name), tasks_dir.join(name))?;
+    }
+    archive.copy(out.join("kernel"), elf_dir.join("kernel"))?;
+
+    let info_dir = PathBuf::from("info");
+    archive.copy(
+        out.join("allocations.txt"),
+        info_dir.join("allocations.txt"),
+    )?;
+    archive.copy(out.join("map.txt"), info_dir.join("map.txt"))?;
+
+    let img_dir = PathBuf::from("img");
+    archive.copy(out.join("combined.srec"), img_dir.join("combined.srec"))?;
+    archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
+
+    archive.finish()?;
 
     Ok(())
 }
@@ -507,4 +552,101 @@ fn load_elf(
         );
     }
     Ok(elf.header.e_entry as u32)
+}
+
+/// Keeps track of a build archive being constructed.
+struct Archive {
+    /// Place where we'll put the final zip file.
+    final_path: PathBuf,
+    /// Name of temporary file used during construction.
+    tmp_path: PathBuf,
+    /// ZIP output to the temporary file.
+    inner: zip::ZipWriter<File>,
+    /// Options used for every file.
+    opts: zip::write::FileOptions,
+}
+
+impl Archive {
+    /// Creates a new build archive that will, when finished, be placed at
+    /// `dest`.
+    fn new(dest: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        let final_path = PathBuf::from(dest.as_ref());
+
+        let mut tmp_path = final_path.clone();
+        tmp_path.set_extension("zip.partial");
+
+        let archive = File::create(&tmp_path)?;
+        let mut inner = zip::ZipWriter::new(archive);
+        inner.set_comment("hubris build archive v1.0.0");
+        Ok(Self {
+            final_path,
+            tmp_path,
+            inner,
+            opts: zip::write::FileOptions::default()
+                .compression_method(zip::CompressionMethod::Bzip2),
+        })
+    }
+
+    /// Copies the file at `src_path` into the build archive at `zip_path`.
+    fn copy(
+        &mut self,
+        src_path: impl AsRef<Path>,
+        zip_path: impl AsRef<Path>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut input = File::open(src_path)?;
+        self.inner
+            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+        std::io::copy(&mut input, &mut self.inner)?;
+        Ok(())
+    }
+
+    /// Creates a text file in the archive at `zip_path` with `contents`.
+    fn text(
+        &mut self,
+        zip_path: impl AsRef<Path>,
+        contents: impl AsRef<str>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.inner
+            .start_file_from_path(zip_path.as_ref(), self.opts)?;
+        self.inner.write_all(contents.as_ref().as_bytes())?;
+        Ok(())
+    }
+
+    /// Completes the archive and moves it to its intended location.
+    ///
+    /// If you drop an `Archive` without calling this, it will leave a temporary
+    /// file rather than creating the final archive.
+    fn finish(self) -> Result<(), Box<dyn Error>> {
+        let Self {
+            tmp_path,
+            final_path,
+            mut inner,
+            ..
+        } = self;
+        inner.finish()?;
+        drop(inner);
+        std::fs::rename(tmp_path, final_path)?;
+        Ok(())
+    }
+}
+
+/// Gets the status of a git repository containing the current working
+/// directory. Returns two values:
+///
+/// - A `String` containing the git commit hash.
+/// - A `bool` indicating whether the repository has uncommitted changes.
+fn get_git_status() -> Result<(String, bool), Box<dyn Error>> {
+    let mut cmd = Command::new("git");
+    cmd.arg("rev-parse").arg("HEAD");
+    let out = cmd.output()?;
+    if !out.status.success() {
+        return Err("git rev-parse failed".into());
+    }
+    let rev = std::str::from_utf8(&out.stdout)?.trim().to_string();
+
+    let mut cmd = Command::new("git");
+    cmd.arg("diff-index").arg("--quiet").arg("HEAD").arg("--");
+    let status = cmd.status()?;
+
+    Ok((rev, !status.success()))
 }
