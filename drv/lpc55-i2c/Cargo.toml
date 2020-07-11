@@ -4,13 +4,20 @@ version = "0.1.0"
 authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 
+[package.metadata.build]
+# Pick ONE of these compilation targets
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
+# target = "thumbv7m-none-eabi"    # Cortex-M3
+# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
+target = "thumbv8m.main-none-eabihf"
+
 [dependencies]
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.1.0"
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-cortex-m-semihosting = "0.3.3"
-num-traits = {version = "0.2", default-features = false}
+cortex-m-semihosting = "0.3.5"
+num-traits = { version = "0.2.12", default-features = false }
 
 [features]
 default = ["standalone"]
@@ -22,10 +29,3 @@ standalone = []
 name = "drv-lpc55-i2c"
 test = false
 bench = false
-
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv8m.main-none-eabihf"

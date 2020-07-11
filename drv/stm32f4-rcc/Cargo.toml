@@ -4,11 +4,18 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
+[package.metadata.build]
+# Pick ONE of these compilation targets
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
+# target = "thumbv7m-none-eabi"    # Cortex-M3
+# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
+target = "thumbv8m.main-none-eabihf"
+
 [dependencies]
 userlib = {path = "../../userlib"}
-stm32f4 = {version = "0.10.0", features = ["stm32f407"]}
+stm32f4 = { version = "0.11.0", features = ["stm32f407"] }
 zerocopy = "0.3.0"
-num-traits = {version = "0.2", default-features = false}
+num-traits = { version = "0.2.12", default-features = false }
 
 [features]
 default = ["standalone"]
@@ -20,10 +27,3 @@ standalone = []
 name = "drv-stm32f4-rcc"
 test = false
 bench = false
-
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv8m.main-none-eabihf"
