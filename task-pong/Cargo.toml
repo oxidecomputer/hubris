@@ -4,10 +4,17 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
+[package.metadata.build]
+# Pick ONE of these compilation targets
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
+# target = "thumbv7m-none-eabi"    # Cortex-M3
+# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
+target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cortex-m = "0.6.0"
+cortex-m = "0.6.2"
 userlib = {path = "../userlib"}
 drv-user-leds-api = {path = "../drv/user-leds-api"}
 
@@ -19,10 +26,3 @@ standalone = []
 name = "task-pong"
 test = false
 bench = false
-
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)

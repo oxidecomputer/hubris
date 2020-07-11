@@ -4,20 +4,20 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>" ]
 edition = "2018"
 
-[dependencies]
-userlib = {path = "../../userlib"}
-zerocopy = "0.3.0"
-num-traits = {version = "0.2", default-features = false}
-
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[lib]
-test = false
-bench = false
-
 [package.metadata.build]
 # Pick ONE of these compilation targets
 # target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
 # target = "thumbv7m-none-eabi"    # Cortex-M3
 # target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
 target = "thumbv8m.main-none-eabihf"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false

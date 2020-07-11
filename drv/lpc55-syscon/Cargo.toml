@@ -4,12 +4,19 @@ version = "0.1.0"
 authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 
+[package.metadata.build]
+# Pick ONE of these compilation targets
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
+# target = "thumbv7m-none-eabi"    # Cortex-M3
+# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
+target = "thumbv8m.main-none-eabihf"
+
 [dependencies]
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.1.0"
-cortex-m = "0.6.0"
-num-traits = {version = "0.2", default-features = false}
+cortex-m = "0.6.2"
+num-traits = { version = "0.2.12", default-features = false }
 
 [features]
 default = ["standalone"]
@@ -21,10 +28,3 @@ standalone = []
 name = "drv-lpc55-syscon"
 test = false
 bench = false
-
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv8m.main-none-eabihf"

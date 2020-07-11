@@ -4,6 +4,13 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
+[package.metadata.build]
+# Pick ONE of these compilation targets
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
+# target = "thumbv7m-none-eabi"    # Cortex-M3
+# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
+target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
+
 [features]
 default = ["panic-messages"]
 panic-messages = []
@@ -12,12 +19,12 @@ log-semihosting = []
 
 [dependencies]
 abi = {path = "../abi"}
-r0 = "1.0"
-serde = {version = "1", default-features = false}
-ssmarshal = {version = "1", default-features = false}
-zerocopy = "0.3"
-num-traits = {version = "0.2", default-features = false}
-num-derive = "0.3"
+r0 = "1.0.0"
+serde = { version = "1.0.114", default-features = false }
+ssmarshal = { version = "1.0.0", default-features = false }
+zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
+num-derive = "0.3.0"
 
 [lib]
 test = false
@@ -25,10 +32,3 @@ bench = false
 
 [build-dependencies]
 build-util = {path = "../build-util"}
-
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
