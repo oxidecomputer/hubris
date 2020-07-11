@@ -837,7 +837,6 @@ dependencies = [
  "abi",
  "cortex-m",
  "cortex-m-semihosting",
- "stm32f4",
  "userlib",
  "zerocopy",
 ]
