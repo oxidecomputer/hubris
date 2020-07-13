@@ -81,6 +81,15 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
 start = true
 
+[tasks.spi_driver]
+path = "../drv/lpc55-spi"
+name = "drv-lpc55-spi"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm8"]
+start = true
+interrupts = {59 = 1}
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
@@ -129,4 +138,8 @@ size = 4096
 
 [peripherals.pmc]
 address = 0x40020000
+size = 4096
+
+[peripherals.flexcomm8]
+address = 0x4009F000
 size = 4096

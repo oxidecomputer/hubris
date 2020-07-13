@@ -239,6 +239,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-spi"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
@@ -850,6 +862,16 @@ dependencies = [
 
 [[package]]
 name = "task-spam"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-spi"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
