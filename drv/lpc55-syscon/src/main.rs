@@ -106,7 +106,6 @@
 #![no_std]
 #![no_main]
 
-use cortex_m;
 use lpc55_pac as device;
 use zerocopy::AsBytes;
 
