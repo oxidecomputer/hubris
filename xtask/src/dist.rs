@@ -9,7 +9,7 @@ use std::process::Command;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 
-use crate::{Config, LoadSegment, Peripheral, Supervisor, Task};
+use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
 
 pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let cfg_contents = std::fs::read(&cfg)?;
@@ -86,6 +86,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         &toml.peripherals,
         toml.supervisor.as_ref(),
         &task_memory,
+        &toml.outputs,
         &entry_points,
     )? {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
@@ -360,6 +361,7 @@ fn make_descriptors(
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>, Box<dyn Error>> {
     let mut words = vec![];
@@ -433,19 +435,29 @@ fn make_descriptors(
 
     // Task regions
     for alloc in task_allocations.values() {
-        for range in alloc.values() {
+        for (output_name, range) in alloc {
+            let out = &outputs[output_name];
+            let atts = u32::from(out.read)
+                | u32::from(out.write) << 1
+                | u32::from(out.execute) << 2
+                // no option for setting DEVICE for this region
+                ;
+
             words.push(range.start);
             words.push(range.end - range.start);
-            words.push(0b111); // TODO
+            words.push(atts);
             words.push(0);
         }
     }
 
     // Peripheral regions
     for p in peripherals.values() {
+        // Peripherals are always mapped as Device + Read + Write.
+        let atts = 0b1011;
+
         words.push(p.address);
         words.push(p.size);
-        words.push(0b1011); // TODO
+        words.push(atts);
         words.push(0);
     }
 
