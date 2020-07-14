@@ -446,6 +446,9 @@ fn make_descriptors(
             if out.execute {
                 attributes |= abi::RegionAttributes::EXECUTE;
             }
+            if out.dma {
+                attributes |= abi::RegionAttributes::DMA;
+            }
             // no option for setting DEVICE for this region
 
             task_regions[ri] = regions.len() as u8;

@@ -80,6 +80,8 @@ struct Output {
     write: bool,
     #[serde(default)]
     execute: bool,
+    #[serde(default)]
+    dma: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
