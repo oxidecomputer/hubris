@@ -52,19 +52,20 @@ pub unsafe fn start_kernel(
     uassert_eq!(app_header.zeroed_expansion_space, [0; 12]);
 
     // Derive the addresses of the other regions from the app header.
-    let tasks_ptr = app_header_ptr.offset(1) as *const app::TaskDesc;
-    let tasks =
-        core::slice::from_raw_parts(tasks_ptr, app_header.task_count as usize);
-
-    let region_ptr = tasks_ptr.offset(app_header.task_count as isize)
-        as *const app::RegionDesc;
+    // Regions come first.
+    let regions_ptr = app_header_ptr.offset(1) as *const app::RegionDesc;
     let regions = core::slice::from_raw_parts(
-        region_ptr,
+        regions_ptr,
         app_header.region_count as usize,
     );
 
+    let tasks_ptr = regions_ptr.offset(app_header.region_count as isize)
+        as *const app::TaskDesc;
+    let tasks =
+        core::slice::from_raw_parts(tasks_ptr, app_header.task_count as usize);
+
     let interrupts = core::slice::from_raw_parts(
-        region_ptr.offset(app_header.region_count as isize)
+        tasks_ptr.offset(app_header.task_count as isize)
             as *const app::Interrupt,
         app_header.irq_count as usize,
     );
