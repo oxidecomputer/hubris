@@ -386,6 +386,42 @@ fn make_descriptors(
     // pad out to 32 bytes
     words.resize(32 / 4, 0);
 
+    // Region descriptors
+
+    // Null region
+    words.push(0);
+    words.push(32);
+    words.push(0); // no rights
+    words.push(0);
+
+    // Task regions
+    for alloc in task_allocations.values() {
+        for (output_name, range) in alloc {
+            let out = &outputs[output_name];
+            let atts = u32::from(out.read)
+                | u32::from(out.write) << 1
+                | u32::from(out.execute) << 2
+                // no option for setting DEVICE for this region
+                ;
+
+            words.push(range.start);
+            words.push(range.end - range.start);
+            words.push(atts);
+            words.push(0);
+        }
+    }
+
+    // Peripheral regions
+    for p in peripherals.values() {
+        // Peripherals are always mapped as Device + Read + Write.
+        let atts = 0b1011;
+
+        words.push(p.address);
+        words.push(p.size);
+        words.push(atts);
+        words.push(0);
+    }
+
     // Task descriptors
     for (i, (name, task)) in tasks.iter().enumerate() {
         let mut regions = [0; 8];
@@ -423,42 +459,6 @@ fn make_descriptors(
         // Flags
         let flags = if task.start { 1 } else { 0 };
         words.push(flags);
-    }
-
-    // Region descriptors
-
-    // Null region
-    words.push(0);
-    words.push(32);
-    words.push(0); // no rights
-    words.push(0);
-
-    // Task regions
-    for alloc in task_allocations.values() {
-        for (output_name, range) in alloc {
-            let out = &outputs[output_name];
-            let atts = u32::from(out.read)
-                | u32::from(out.write) << 1
-                | u32::from(out.execute) << 2
-                // no option for setting DEVICE for this region
-                ;
-
-            words.push(range.start);
-            words.push(range.end - range.start);
-            words.push(atts);
-            words.push(0);
-        }
-    }
-
-    // Peripheral regions
-    for p in peripherals.values() {
-        // Peripherals are always mapped as Device + Read + Write.
-        let atts = 0b1011;
-
-        words.push(p.address);
-        words.push(p.size);
-        words.push(atts);
-        words.push(0);
     }
 
     // Interrupt response records.
