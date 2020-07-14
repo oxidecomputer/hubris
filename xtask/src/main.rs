@@ -97,6 +97,8 @@ struct Task {
     features: Vec<String>,
     #[serde(default)]
     interrupts: IndexMap<String, u32>,
+    #[serde(default)]
+    sections: IndexMap<String, String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
