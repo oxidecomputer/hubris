@@ -356,6 +356,15 @@ fn cargo_output_dir(
     Ok(PathBuf::from(meta["target_directory"].as_str().unwrap()))
 }
 
+/// Generate the application descriptor table that the kernel uses to find and
+/// start tasks.
+///
+/// The layout of the table is a series of structs from the `abi` crate:
+///
+/// - One `App` header.
+/// - Some number of `RegionDesc` records describing memory regions.
+/// - Some number of `TaskDesc` records describing tasks.
+/// - Some number of `Interrupt` records routing interrupts to tasks.
 fn make_descriptors(
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
@@ -364,112 +373,166 @@ fn make_descriptors(
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>, Box<dyn Error>> {
-    let mut words = vec![];
+    // Generate the three record sections concurrently, using three separate
+    // vecs that we'll later concatenate.
+    let mut regions = vec![];
+    let mut task_descs = vec![];
+    let mut irqs = vec![];
 
-    let region_count = 1 + tasks.len() * 2 + peripherals.len();
+    // Region 0 is the NULL region, used as a placeholder. It gives no access to
+    // memory.
+    regions.push(abi::RegionDesc {
+        base: 0,
+        size: 32, // smallest legal size on ARMv7-M
+        attributes: abi::RegionAttributes::empty(), // no rights
+        reserved_zero: 0,
+    });
 
+    // Regions 1.. are the fixed peripheral regions, shared by tasks that
+    // reference them. We'll build a lookup table so we can find them
+    // efficiently by name later.
     let mut peripheral_index = IndexMap::new();
-    for (i, name) in peripherals.keys().enumerate() {
-        peripheral_index.insert(name.clone(), 1 + i + tasks.len() * 2);
+    for (name, p) in peripherals.iter() {
+        peripheral_index.insert(name, regions.len());
+
+        // Peripherals are always mapped as Device + Read + Write.
+        let attributes = abi::RegionAttributes::DEVICE
+            | abi::RegionAttributes::READ
+            | abi::RegionAttributes::WRITE;
+
+        regions.push(abi::RegionDesc {
+            base: p.address,
+            size: p.size,
+            attributes,
+            reserved_zero: 0,
+        });
     }
 
-    let irq_count = tasks.values().map(|t| t.interrupts.len()).sum::<usize>();
+    // The remaining regions are allocated to tasks on a first-come first-serve
+    // basis.
+    for (i, (name, task)) in tasks.iter().enumerate() {
+        // Regions are referenced by index into the table we just generated.
+        // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
+        let mut task_regions = [0; 8];
+
+        if task.uses.len() + task.requires.len() > 8 {
+            panic!(
+                "task {} uses {} peripherals and {} memories (too many)",
+                name,
+                task.uses.len(),
+                task.requires.len()
+            );
+        }
+
+        // Generate a RegionDesc for each uniquely allocated memory region
+        // referenced by this task, and install them as entries 0..N in the
+        // task's region table.
+        let allocs = &task_allocations[name];
+        for (ri, (output_name, range)) in allocs.iter().enumerate() {
+            let out = &outputs[output_name];
+            let mut attributes = abi::RegionAttributes::empty();
+            if out.read {
+                attributes |= abi::RegionAttributes::READ;
+            }
+            if out.write {
+                attributes |= abi::RegionAttributes::WRITE;
+            }
+            if out.execute {
+                attributes |= abi::RegionAttributes::EXECUTE;
+            }
+            // no option for setting DEVICE for this region
+
+            task_regions[ri] = regions.len() as u8;
+
+            regions.push(abi::RegionDesc {
+                base: range.start,
+                size: range.end - range.start,
+                attributes,
+                reserved_zero: 0,
+            });
+        }
+
+        // For peripherals referenced by the task, we don't need to allocate
+        // _new_ regions, since we did them all in advance. Just record the
+        // entries for the TaskDesc.
+        for (j, name) in task.uses.iter().enumerate() {
+            task_regions[allocs.len() + j] = peripheral_index[name] as u8;
+        }
+
+        let mut flags = abi::TaskFlags::empty();
+        if task.start {
+            flags |= abi::TaskFlags::START_AT_BOOT;
+        }
+        task_descs.push(abi::TaskDesc {
+            regions: task_regions,
+            entry_point: entry_points[name],
+            initial_stack: task_allocations[name]["ram"].end,
+            priority: task.priority,
+            flags,
+        });
+
+        // Interrupts.
+        for (irq_str, &notification) in &task.interrupts {
+            let irq_num = irq_str.parse::<u32>()?;
+            irqs.push(abi::Interrupt {
+                irq: irq_num,
+                task: i as u32,
+                notification,
+            });
+        }
+    }
+
+    // Assemble everything into the final image.
+    let mut words = vec![];
 
     // App header
     words.push(0x1DE_fa7a1);
-    words.push(tasks.len() as u32);
-    words.push(region_count as u32);
-    words.push(irq_count as u32);
+    words.push(task_descs.len() as u32);
+    words.push(regions.len() as u32);
+    words.push(irqs.len() as u32);
     if let Some(supervisor) = supervisor {
         words.push(supervisor.notification);
     }
     // pad out to 32 bytes
     words.resize(32 / 4, 0);
 
-    // Region descriptors
-
-    // Null region
-    words.push(0);
-    words.push(32);
-    words.push(0); // no rights
-    words.push(0);
-
-    // Task regions
-    for alloc in task_allocations.values() {
-        for (output_name, range) in alloc {
-            let out = &outputs[output_name];
-            let atts = u32::from(out.read)
-                | u32::from(out.write) << 1
-                | u32::from(out.execute) << 2
-                // no option for setting DEVICE for this region
-                ;
-
-            words.push(range.start);
-            words.push(range.end - range.start);
-            words.push(atts);
-            words.push(0);
-        }
+    // Flatten region descriptors
+    for rdesc in regions {
+        words.push(rdesc.base);
+        words.push(rdesc.size);
+        words.push(rdesc.attributes.bits());
+        words.push(rdesc.reserved_zero);
     }
 
-    // Peripheral regions
-    for p in peripherals.values() {
-        // Peripherals are always mapped as Device + Read + Write.
-        let atts = 0b1011;
-
-        words.push(p.address);
-        words.push(p.size);
-        words.push(atts);
-        words.push(0);
-    }
-
-    // Task descriptors
-    for (i, (name, task)) in tasks.iter().enumerate() {
-        let mut regions = [0; 8];
-        regions[0] = (1 + 2 * i) as u8;
-        regions[1] = (1 + 2 * i + 1) as u8;
-
-        if task.uses.len() > 6 {
-            panic!("too many peripherals used by task {}", name);
-        }
-
-        for (j, name) in task.uses.iter().enumerate() {
-            regions[2 + j] = peripheral_index[name] as u8;
-        }
-
+    // Flatten task descriptors
+    for tdesc in task_descs {
         // Region table indices
         words.push(
-            u32::from(regions[0])
-                | u32::from(regions[1]) << 8
-                | u32::from(regions[2]) << 16
-                | u32::from(regions[3]) << 24,
+            u32::from(tdesc.regions[0])
+                | u32::from(tdesc.regions[1]) << 8
+                | u32::from(tdesc.regions[2]) << 16
+                | u32::from(tdesc.regions[3]) << 24,
         );
         words.push(
-            u32::from(regions[4])
-                | u32::from(regions[5]) << 8
-                | u32::from(regions[6]) << 16
-                | u32::from(regions[7]) << 24,
+            u32::from(tdesc.regions[4])
+                | u32::from(tdesc.regions[5]) << 8
+                | u32::from(tdesc.regions[6]) << 16
+                | u32::from(tdesc.regions[7]) << 24,
         );
 
-        // Entry point
-        words.push(entry_points[name]);
-        // Initial stack
-        words.push(task_allocations[name]["ram"].end);
-        // Priority
-        words.push(task.priority);
-        // Flags
-        let flags = if task.start { 1 } else { 0 };
-        words.push(flags);
+        words.push(tdesc.entry_point);
+        words.push(tdesc.initial_stack);
+        words.push(tdesc.priority);
+        words.push(tdesc.flags.bits());
     }
 
-    // Interrupt response records.
-    for (i, task) in tasks.values().enumerate() {
-        for (irq_str, &notmask) in &task.interrupts {
-            let irq_num = irq_str.parse::<u32>()?;
-            words.push(irq_num);
-            words.push(i as u32);
-            words.push(notmask);
-        }
+    // Flatten interrupt response records.
+    for idesc in irqs {
+        words.push(idesc.irq);
+        words.push(idesc.task);
+        words.push(idesc.notification);
     }
+
     Ok(words)
 }
 
