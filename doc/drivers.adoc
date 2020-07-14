@@ -1,0 +1,182 @@
+:toc:
+
+= Writing drivers in hubris
+
+One of the purposes of an operating system is to provide a driver abstraction
+for talking to hardware. Most traditional monolithic kernels (e.g. Linux)
+have applications making system calls (`read`, `write`, `ioctl`) directly
+into the kernel where drivers live
+
+```
+        +-----------+   +-----------+   +-----------+
+        |application|   |application|   |application|
+        +-----------+   +-----------+   +-----------+
+             |            |        |         |
+             |            |        |         |
+       +-------------------------------------------------+
+             |            |        |         |
+          +--v---+   +----v-+   +--v---+   +-v----+
+          |driver|   |driver|   |driver|   |driver|
+          +------+   +------+   +------+   +------+
+```
+
+Hubris is based on a microkernel architecture where drivers are unprivileged.
+The primary communication method is `send` and `recv` between tasks. Hardware
+drivers usually exist as a 'server' which listens for messages and changes
+the hardware block accordingly. Multiple applications may call into a single
+server.
+
+```
+             +-----------+  +-----------+  +-----------+
++------------+application|  |application|  |application+----------+
+|            +--+------+-+  +----+------+  +---+-------+          |
+|               |      |         |             |                  |
+|              v+    v------------------v v----+                  |
+|         +------+ +------+ +------+ +------+ +----------+        |
+|         |server| |server| |server| |server| |supervisor|        |
+|         +------+ +------+ +------+ +------+ +----------+        |
+|      +---------------------------------------------------+      |
+|                                                                 |
+|         +----------------------------------------------+        |
+|         |                                              |        |
++-------->+                  kernel                      +<-------+
+          |                                              |
+          +----------------------------------------------+
+```
+
+= High Level Access
+
+In theory, each server can call `recv` and each application can call `send`
+manually. To make life easier, these calls are wrapped via calls in the 
+`userlib::hl` crate. These wrappers take care of typical error handling and
+size validation. A typical server will look like
+
+
+```
+fn main() {
+	turn_on_hardware_clocks();
+	let B = get_hardware_block();
+
+	B.clk.write(|w| w.clock.very_fast());
+
+	B.cfg.modify(|_, w| w.foo.disable().
+				enabled.set());
+
+	let mask = 1;
+	// Data we need during operation. None indicates no operation
+	// in progress.
+	let mut data: Option<BlockDat> = None;
+	let mut buffer = [0; 1];
+
+	loop {
+		// This receives with notification, the alternate
+		// version is hl::recv_without_notification
+		hl::recv(
+			// received buffer
+			&mut buffer,
+			// notifcation mask
+			mask,
+			// data
+			&mut data,
+			// Notification handler
+			|dataref, bits| {
+				if bits & 1 != 0 {
+					// Matches our notification for an
+					// interrupt, do something
+					B.fifowr.write(|w| w.out.bits(buffer));
+				}
+			},
+			// Message handler
+			|dataref, op, msg| match op {
+				Op::Write => {
+					// Caller with 1 lease
+					let ((), caller) =
+                        			msg
+						.fixed_with_leases(1)
+						.ok_or(ResponseCode::BadArg)?
+
+					// Deny incoming writes if we're
+					// already running one.
+                    			if dataref.is_some() {
+                        			return Err(ResponseCode::Busy);
+                    			}
+
+					// Our lease #0 is what is being sent to
+					// the hardware
+					let borrow = caller.borrow(0);
+                    			let info = borrow.info()
+						.ok_or(ResponseCode::BadArg)?;
+                    			// Provide feedback to callers if they
+					// fail to provide a readable lease
+					// (otherwise we'd fail accessing the
+					// borrow later, which is a defection
+					// case and we won't reply at all).
+                    			if !info.attributes.contains(LeaseAttributes::READ) {
+                        			return Err(ResponseCode::BadArg);
+                    			}
+
+					*dataref = Some(Data {
+						task: caller,
+						pos: 0,
+						len: info.len
+					});
+
+					B.intstat.write(|w| w.interrupt_en.set());
+					Ok(())
+				}
+				Op::Read => {
+					// Looks almost identical to Write except
+					// We check the borrow against
+					// LeaseAttributes::WRITE
+
+				}	
+			},
+		);
+	}
+
+}
+```
+
+= Driver API crates
+
+In a similar manner to `send` and `recv` for driver servers, the servers
+themselves may provide wrappers for the benefit of clients. This is
+especially helpful for drivers which may rely on magic numbers for
+setting hardware. If a driver is name `drv-abc123-foo` the API crate
+is typically named `drv-abc123-foo-api`. An example API might look like:
+
+```
+
+enum Op {
+	Write,
+	Read,
+	Reset,
+}
+
+enum Peripheral {
+	Alpha,
+	Bravo,
+	Charlie,
+	Delta,
+	Echo,
+	Foxtrot	
+}
+
+pub struct Data(TaskId);
+
+impl Data {
+	pub fn write(&self, peripheral: Peripheral, entry: u32) {
+		struct WriteData(Peripheral, u32);
+
+		impl hl::Call for WriteData {
+			const OP: u16 = Op::Write as u16;
+			// We don't expect a meaningful response.
+			type Response = ();
+			// Error is just an int
+			type Err = u32;
+		}
+
+		hl::send(self.0, &WriteData(peripheral, entry));
+	}
+}
+```
