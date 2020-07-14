@@ -238,6 +238,9 @@ fn system_init() {
             // We don't currently use the Q and R outputs, and we could switch
             // them off to save power -- but they can function as kernel clocks
             // for many of our peripherals, and thus might be useful.
+            //
+            // (Note that the R clock winds up being the source for the trace
+            // unit.)
             p.RCC.pllcfgr.modify(|_, w| {
                 w.pll1vcosel()
                     .wide_vco()
@@ -299,10 +302,12 @@ fn system_init() {
                 w.pll1vcosel().wide_vco()
                     .pll1rge().range8()
                     .divp1en().enabled()
+                    .divr1en().enabled()
             });
             p.RCC.pll1divr.write(|w| unsafe {
                 w.divp1().bits(divp - 1)
                     .divn1().bits(divn - 1)
+                    .divr1().bits(divp - 1)
             });
         } else {
             compile_error!("target_board unknown or missing");
@@ -359,7 +364,8 @@ fn system_init() {
                     .hpre().div2()  // AHB at half that (200mhz)
                     .d1ppre().div1()    // D1 APB3 at same
             });
-            // Other peripherals default to AHB/1
+            p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
+            p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
 
             // Configure Flash for 200MHz (AHB) at VOS1: 2WS, 2 programming
             // delay. See ref man Table 13
