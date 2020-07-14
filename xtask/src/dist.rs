@@ -71,6 +71,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
             &task_toml.name,
             &task_toml.features,
             &task_memory[name],
+            Some(&task_toml.sections),
             out.join(name),
             verbose,
             &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)],
@@ -101,6 +102,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         &toml.kernel.name,
         &toml.kernel.features,
         &kern_memory,
+        None,
         out.join("kernel"),
         verbose,
         &[("HUBRIS_DESCRIPTOR", &descriptor_text)],
@@ -240,6 +242,7 @@ fn build(
     name: &str,
     features: &[String],
     alloc: &IndexMap<String, Range<u32>>,
+    sections: Option<&IndexMap<String, String>>,
     dest: PathBuf,
     verbose: bool,
     meta: &[(&str, &str)],
@@ -278,6 +281,9 @@ fn build(
                           -C link-arg=-z -C link-arg=max-page-size=0x20",
     );
     cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
+    if let Some(sect) = sections {
+        cmd.env("HUBRIS_ADD_SECTIONS", serde_json::to_string(sect)?);
+    }
     for (key, val) in meta {
         cmd.env(key, val);
     }

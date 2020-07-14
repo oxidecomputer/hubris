@@ -116,9 +116,11 @@ pub fn generate_hubris_task_linker_script() {
     // TODO: this could be refactored to share code with the kernel script
     // above!
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+
+    // If a package map is available, we're running under xtask dist.
     println!("cargo:rerun-if-env-changed=HUBRIS_PKG_MAP");
+    println!("cargo:rerun-if-env-changed=HUBRIS_ADD_SECTIONS");
     if let Ok(pkg_map) = env::var("HUBRIS_PKG_MAP") {
-        println!("HUBRIS_PKG_MAP = {:#x?}", pkg_map);
         let map: serde_json::Value = serde_json::from_str(&pkg_map).unwrap();
         let map = map.as_object().unwrap();
 
@@ -139,6 +141,25 @@ pub fn generate_hubris_task_linker_script() {
             .unwrap();
         }
         write!(linkscr, "}}").unwrap();
+
+        // The task may have defined additional section-to-memory mappings.
+        if let Ok(sects) = env::var("HUBRIS_ADD_SECTIONS") {
+            let map: serde_json::Value = serde_json::from_str(&sects).unwrap();
+            let map = map.as_object().unwrap();
+
+            writeln!(linkscr, "SECTIONS {{").unwrap();
+            for (section, memory) in map {
+                let memory = memory.as_str().unwrap();
+                writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section)
+                    .unwrap();
+                writeln!(linkscr, "    *(.{} .{}.*);", section, section)
+                    .unwrap();
+                writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
+                    .unwrap();
+            }
+            writeln!(linkscr, "}} INSERT BEFORE .got").unwrap();
+        }
+
         drop(linkscr);
     } else {
         // We're building outside the context of an image. Generate a
