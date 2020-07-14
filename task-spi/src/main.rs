@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![feature(llvm_asm)]
 
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
