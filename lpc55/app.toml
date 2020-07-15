@@ -47,6 +47,14 @@ requires = {flash = 16384, ram = 1024}
 uses = ["syscon", "anactrl", "pmc"]
 start = true
 
+[tasks.wwdt_driver]
+path = "../drv/lpc55-wwdt"
+name = "drv-lpc55-wwdt"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["wwdt"]
+start = false
+
 [tasks.gpio_driver]
 path = "../drv/lpc55-gpio"
 name = "drv-lpc55-gpio"
@@ -112,6 +120,14 @@ name = "task-spam"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 
+[tasks.dogsitter]
+path = "../task-dogsitter"
+name = "task-dogsitter"
+features = []
+priority = 2
+requires = {flash = 8192, ram = 512}
+start = false
+
 [peripherals.syscon]
 address = 0x40000000
 size = 4096
@@ -142,4 +158,8 @@ size = 4096
 
 [peripherals.flexcomm8]
 address = 0x4009F000
+size = 4096
+
+[peripherals.wwdt]
+address = 0x4000C000
 size = 4096

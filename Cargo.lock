@@ -281,6 +281,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-wwdt"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
@@ -820,6 +832,15 @@ dependencies = [
  "quote",
  "syn",
  "unicode-xid",
+]
+
+[[package]]
+name = "task-dogsitter"
+version = "0.1.0"
+dependencies = [
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

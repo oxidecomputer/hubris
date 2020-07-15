@@ -16,6 +16,7 @@ enum Op {
     DisableClock = 2,
     EnterReset = 3,
     LeaveReset = 4,
+    ConfigureWwdt = 5,
 }
 
 #[derive(Clone, Debug)]
@@ -102,6 +103,20 @@ impl Syscon {
         }
 
         hl::send(self.0, &LeaveReset(peripheral)).unwrap()
+    }
+
+    pub fn configure_wwdt(&self, peripheral: Peripheral) {
+        #[derive(AsBytes)]
+        #[repr(C)]
+        struct ConfigureWwdt(Peripheral);
+
+        impl hl::Call for ConfigureWwdt {
+            const OP: u16 = Op::ConfigureWwdt as u16;
+            type Response = ();
+            type Err = u32;
+        }
+
+        hl::send(self.0, &ConfigureWwdt(peripheral)).unwrap()
     }
 }
 
