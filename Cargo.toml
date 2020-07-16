@@ -20,6 +20,7 @@ members = [
     "task-idle",
     "task-spam2",
     "task-spi",
+    "task-puftest",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",

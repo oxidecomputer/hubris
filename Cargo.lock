@@ -275,6 +275,7 @@ name = "drv-lpc55-usart"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-syscon-api",
  "lpc55-pac",
  "userlib",
  "zerocopy",
@@ -857,6 +858,17 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "drv-user-leds-api",
+ "userlib",
+]
+
+[[package]]
+name = "task-puftest"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
  "userlib",
 ]
 

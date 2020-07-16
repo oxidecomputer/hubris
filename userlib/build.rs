@@ -32,6 +32,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::generate_hubris_task_linker_script();
 
     build_util::generate_hubris_task_includes();
+//        writeln!(linkscr, "flash_init = 0x130071fd;").unwrap();
+//        writeln!(linkscr, "bootloader_data = 0x130010f0;").unwrap();
+//        writeln!(linkscr, "flash_erase = 0x130072a3;").unwrap();
+//        writeln!(linkscr, "flash_program = 0x13007309;").unwrap();
+//        writeln!(linkscr, "flash_verify_erase = 0x130072d5;").unwrap();
+//        writeln!(linkscr, "do_bootloader = 0x13014939;").unwrap();
 
     Ok(())
 }

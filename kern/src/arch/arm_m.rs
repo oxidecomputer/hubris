@@ -485,7 +485,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     unsafe {
         const ENABLE: u32 = 0b001;
         const PRIVDEFENA: u32 = 0b100;
-        mpu.ctrl.write(ENABLE | PRIVDEFENA);
+        mpu.ctrl.write(0);
         // From the ARMv8m MPU manual
         //
         // The final step is to enable the MPU by writing to MPU_CTRL. Code
@@ -575,7 +575,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Safety: this has no memory safety implications. The worst it can do is
     // cause us to fault, which is safe. The register API doesn't know this.
     unsafe {
-        mpu.ctrl.write(ENABLE | PRIVDEFENA);
+        mpu.ctrl.write(0);
     }
 
     unsafe {

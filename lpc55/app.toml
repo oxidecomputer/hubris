@@ -79,7 +79,6 @@ name = "drv-lpc55-i2c"
 priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
-start = true
 
 [tasks.spi_driver]
 path = "../drv/lpc55-spi"
@@ -96,7 +95,6 @@ name = "task-ping"
 features = ["uart"]
 priority = 4
 requires = {flash = 8192, ram = 1024}
-start = true
 
 [tasks.pong]
 path = "../task-pong"
@@ -104,13 +102,14 @@ name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 uses = ["iocon"]
-start = true
 
-[tasks.spam]
-path = "../task-spam2"
-name = "task-spam"
+[tasks.puftest]
+path = "../task-puftest"
+name = "task-puftest"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 32768, ram = 4096}
+start = true
+uses = ["puf"]
 
 [peripherals.syscon]
 address = 0x40000000
@@ -142,4 +141,8 @@ size = 4096
 
 [peripherals.flexcomm8]
 address = 0x4009F000
+size = 4096
+
+[peripherals.puf]
+address = 0x4003B000
 size = 4096

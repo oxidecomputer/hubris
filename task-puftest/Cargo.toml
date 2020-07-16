@@ -1,15 +1,17 @@
 [package]
-name = "drv-lpc55-usart"
+name = "task-puftest"
 version = "0.1.0"
 authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
-zerocopy = "0.3.0"
+# suppress default features to avoid including panic message collection, to
+# ensure the puftest task remains tiny.
+userlib = {path = "../userlib", default-features = false}
+cortex-m = {version = "0.6", features = ["inline-asm"]}
 lpc55-pac = "0.1.0"
 cortex-m-semihosting = "0.3.3"
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+drv-lpc55-syscon-api = {path = "../drv/lpc55-syscon-api"}
 
 [features]
 default = ["standalone"]
@@ -18,13 +20,10 @@ standalone = []
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-lpc55-usart"
+name = "task-puftest"
 test = false
 bench = false
 
 [package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
 target = "thumbv8m.main-none-eabihf"
+
