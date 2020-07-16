@@ -136,6 +136,12 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         "elf32-littlearm",
         &out.join("combined.elf"),
     )?;
+    objcopy_translate_format(
+        "srec",
+        &out.join("combined.srec"),
+        "ihex",
+        &out.join("combined.ihex"),
+    )?;
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
@@ -193,6 +199,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let img_dir = PathBuf::from("img");
     archive.copy(out.join("combined.srec"), img_dir.join("combined.srec"))?;
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
+    archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
 
     archive.finish()?;
 
