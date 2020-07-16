@@ -126,35 +126,16 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     }
     drop(mapfile);
 
-    // Write out combined SREC file.
-    let mut srec_out = vec![];
-    srec_out.push(srec::Record::S0("hubris".to_string()));
-    for (base, sec) in all_output_sections {
-        // SREC record size limit is 255 (0xFF). 32-bit addressed records
-        // additionally contain a four-byte address and one-byte checksum, for a
-        // payload limit of 255 - 5.
-        let mut addr = base;
-        for chunk in sec.data.chunks(255 - 5) {
-            srec_out.push(srec::Record::S3(srec::Data {
-                address: srec::Address32(addr),
-                data: chunk.to_vec(),
-            }));
-            addr += chunk.len() as u32;
-        }
-    }
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
+    // Generate combined SREC, which is our source of truth for combined images.
+    write_srec(&all_output_sections, kentry, &out.join("combined.srec"))?;
 
-    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out.join("combined.srec"), srec_image)?;
+    // Convert SREC to other formats for convenience.
+    objcopy_translate_format(
+        "srec",
+        &out.join("combined.srec"),
+        "elf32-littlearm",
+        &out.join("combined.elf"),
+    )?;
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
@@ -170,23 +151,6 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         )?;
     }
     drop(gdb_script);
-
-    println!("doing objcopy");
-
-    let srec_path = out.join("combined.srec");
-    let elf_path = out.join("combined.elf");
-
-    let mut cmd = Command::new("arm-none-eabi-objcopy");
-    cmd.arg("-Isrec")
-        .arg("-O")
-        .arg("elf32-littlearm")
-        .arg(srec_path)
-        .arg(elf_path);
-
-    let status = cmd.status()?;
-    if !status.success() {
-        return Err("command failed, see output for details".into());
-    }
 
     // Bundle everything up into an archive.
     let mut archive =
@@ -733,4 +697,61 @@ fn get_git_status() -> Result<(String, bool), Box<dyn Error>> {
     let status = cmd.status()?;
 
     Ok((rev, !status.success()))
+}
+
+fn write_srec(
+    sections: &BTreeMap<u32, LoadSegment>,
+    kentry: u32,
+    out: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let mut srec_out = vec![];
+    srec_out.push(srec::Record::S0("hubris".to_string()));
+    for (&base, sec) in sections {
+        // SREC record size limit is 255 (0xFF). 32-bit addressed records
+        // additionally contain a four-byte address and one-byte checksum, for a
+        // payload limit of 255 - 5.
+        let mut addr = base;
+        for chunk in sec.data.chunks(255 - 5) {
+            srec_out.push(srec::Record::S3(srec::Data {
+                address: srec::Address32(addr),
+                data: chunk.to_vec(),
+            }));
+            addr += chunk.len() as u32;
+        }
+    }
+    let out_sec_count = srec_out.len() - 1; // header
+    if out_sec_count < 0x1_00_00 {
+        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
+    } else if out_sec_count < 0x1_00_00_00 {
+        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
+    } else {
+        panic!("SREC limit of 2^24 output sections exceeded");
+    }
+
+    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
+
+    let srec_image = srec::writer::generate_srec_file(&srec_out);
+    std::fs::write(out, srec_image)?;
+    Ok(())
+}
+
+fn objcopy_translate_format(
+    in_format: &str,
+    src: &Path,
+    out_format: &str,
+    dest: &Path,
+) -> Result<(), Box<dyn Error>> {
+    let mut cmd = Command::new("arm-none-eabi-objcopy");
+    cmd.arg("-I")
+        .arg(in_format)
+        .arg("-O")
+        .arg(out_format)
+        .arg(src)
+        .arg(dest);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        return Err("objcopy failed, see output for details".into());
+    }
+    Ok(())
 }
