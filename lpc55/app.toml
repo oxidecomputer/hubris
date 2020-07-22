@@ -81,6 +81,14 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
 start = true
 
+[tasks.rng_driver]
+path = "../drv/lpc55-rng"
+name = "drv-lpc55-rng"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["rng", "pmc"]
+start = true
+
 [tasks.spi_driver]
 path = "../drv/lpc55-spi"
 name = "drv-lpc55-spi"
@@ -142,4 +150,8 @@ size = 4096
 
 [peripherals.flexcomm8]
 address = 0x4009F000
+size = 4096
+
+[peripherals.rng]
+address = 0x4003A000
 size = 4096
