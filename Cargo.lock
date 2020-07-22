@@ -239,6 +239,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-rng"
+version = "0.1.0"
+dependencies = [
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-spi"
 version = "0.1.0"
 dependencies = [
