@@ -117,7 +117,6 @@ enum Op {
     DisableClock = 2,
     EnterReset = 3,
     LeaveReset = 4,
-    ConfigureWwdt = 5,
 }
 
 #[derive(FromPrimitive)]
@@ -163,6 +162,19 @@ fn main() -> ! {
     // turning on PLLs and such
     syscon.hslspiclksel.modify(|_, w| w.sel().enum_0x2());
 
+    // configure the wwdt
+    syscon.wdtclkdiv.write(|w| unsafe {
+        w.reset()
+            .clear_bit()
+            .halt()
+            .clear_bit()
+            .div()
+            // divide by 64
+            //
+            // TODO: is this the value we want here?
+            .bits(0b11_1111)
+    });
+
     // Field messages.
     // Ensure our buffer is aligned properly for a u32 by declaring it as one.
     let mut buffer = [0u32; 1];
@@ -203,23 +215,6 @@ fn main() -> ! {
                         Reg::R1 => clear_bit!(syscon.presetctrl1, pmask),
                         Reg::R2 => clear_bit!(syscon.presetctrl2, pmask),
                     },
-                    Op::ConfigureWwdt => {
-                        // to configure the wwdt, we first have to set up the divider
-                        syscon.wdtclkdiv.write(|w| unsafe {
-                            w.reset()
-                                .clear_bit()
-                                .halt()
-                                .clear_bit()
-                                .div()
-                                // divide by 64
-                                //
-                                // TODO: is this the value we want here?
-                                .bits(0b11_1111)
-                        });
-
-                        // enable the WDCLK
-                        syscon.ahbclkctrl0.write(|w| w.wwdt().set_bit())
-                    }
                 }
 
                 caller.reply(());

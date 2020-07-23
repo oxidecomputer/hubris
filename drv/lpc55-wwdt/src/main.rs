@@ -45,8 +45,8 @@ fn main() -> ! {
 
     let wwdt = unsafe { &*device::WWDT::ptr() };
 
-    // first step, ask the syscon to do some configuration, and then leave the reset
-    syscon.configure_wwdt(Peripheral::Wwdt);
+    syscon.enable_clock(Peripheral::Wwdt);
+
     syscon.leave_reset(Peripheral::Wwdt);
 
     // write 0 to wdtof so that if it's 1 on next boot, we know it's the wwdt that caused the reset
