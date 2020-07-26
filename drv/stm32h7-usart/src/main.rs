@@ -162,20 +162,20 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    use drv_stm32h7_rcc_api::Rcc;
+    use drv_stm32h7_rcc_api::{Peripheral, Rcc};
     let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
         RCC as usize,
         Generation::default(),
     ));
 
     #[cfg(feature = "h7b3")]
-    const PNUM: usize = 196; // USART1
+    const PORT: Peripheral = Peripheral::Usart1;
 
     #[cfg(feature = "h743")]
-    const PNUM: usize = 146; // USART3
+    const PORT: Peripheral = Peripheral::Usart3;
 
-    rcc_driver.enable_clock_raw(PNUM).unwrap();
-    rcc_driver.leave_reset_raw(PNUM).unwrap();
+    rcc_driver.enable_clock(PORT);
+    rcc_driver.leave_reset(PORT);
 }
 
 fn configure_pins() {
