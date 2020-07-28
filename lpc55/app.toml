@@ -84,6 +84,7 @@ name = "drv-lpc55-i2c"
 priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
+interrupts = {18 = 1}
 start = true
 
 [tasks.rng_driver]

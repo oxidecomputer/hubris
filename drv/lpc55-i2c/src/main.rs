@@ -29,7 +29,7 @@ const SYSCON: Task = Task::syscon_driver;
 #[cfg(feature = "standalone")]
 const SYSCON: Task = Task::anonymous;
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, PartialEq)]
 enum Op {
     Write = 1,
     Read = 2,
@@ -48,10 +48,117 @@ impl From<ResponseCode> for u32 {
 }
 
 struct Transmit {
-    addr: u8,
+    op: Op,
     caller: hl::Caller<()>,
+    state: TransmitState,
+    addr: u8,
     len: usize,
     pos: usize,
+}
+
+#[derive(PartialEq, Debug)]
+enum TransmitState {
+    Starting,
+    Transmitting,
+    Stopping,
+    ClearingInterrupt,
+    Done,
+}
+
+impl Transmit {
+    fn step(
+        &mut self,
+        i2c: &device::i2c0::RegisterBlock,
+    ) -> Result<(), ResponseCode> {
+        match self.state {
+            TransmitState::Starting => {
+                if !i2c.stat.read().mststate().is_idle() {
+                    return Err(ResponseCode::Busy);
+                }
+
+                let mut addr = self.addr << 1;
+
+                // If we're reading, we need to set this bit. Otherwise, we're
+                // writing.
+                if self.op == Op::Read {
+                    addr |= 1;
+                }
+
+                i2c.mstdat.modify(|_, w| unsafe { w.data().bits(addr) });
+                i2c.mstctl.write(|w| w.mststart().start());
+
+                self.state = TransmitState::Transmitting;
+            }
+            TransmitState::Transmitting => {
+                // are we done trasmitting bytes?
+                if self.pos == self.len {
+                    self.state = TransmitState::Stopping;
+                    return Ok(());
+                }
+
+                let ready = match self.op {
+                    Op::Write => i2c.stat.read().mststate().is_transmit_ready(),
+                    Op::Read => i2c.stat.read().mststate().is_receive_ready(),
+                };
+
+                if !ready {
+                    return Err(ResponseCode::Busy);
+                }
+
+                let borrow = self.caller.borrow(0);
+                match self.op {
+                    Op::Write => {
+                        let byte: u8 = borrow
+                            .read_at(self.pos)
+                            .ok_or(ResponseCode::BadArg)?;
+
+                        i2c.mstdat
+                            .modify(|_, w| unsafe { w.data().bits(byte) });
+                    }
+                    Op::Read => {
+                        let byte = i2c.mstdat.read().data().bits();
+                        borrow
+                            .write_at(self.pos, byte)
+                            .ok_or(ResponseCode::BadArg)?;
+                    }
+                }
+
+                i2c.mstctl.write(|w| w.mstcontinue().continue_());
+
+                self.pos += 1;
+            }
+            TransmitState::Stopping => {
+                let ready = match self.op {
+                    Op::Write => i2c.stat.read().mststate().is_transmit_ready(),
+                    Op::Read => i2c.stat.read().mststate().is_receive_ready(),
+                };
+
+                if !ready {
+                    return Err(ResponseCode::Busy);
+                }
+
+                // time to stop!
+                i2c.mstctl.write(|w| w.mststop().stop());
+
+                self.state = TransmitState::ClearingInterrupt;
+            }
+            TransmitState::ClearingInterrupt => {
+                if !i2c.stat.read().mststate().is_idle() {
+                    return Err(ResponseCode::Busy);
+                }
+
+                // now that we're done, turn off the interrupt
+                i2c.intenclr.write(|w| w.mstpendingclr().set_bit());
+
+                self.state = TransmitState::Done;
+            }
+            TransmitState::Done => {
+                // If we're done, then we're done. No need to do anything else.
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -84,56 +191,98 @@ fn main() -> ! {
     // Our main clock is 12 Mhz. The HAL crate was making some interesting
     // claims about clocking as well. 100 kbs sounds nice?
     i2c.clkdiv.modify(|_, w| unsafe { w.divval().bits(0x9) });
+
     i2c.msttime
         .modify(|_, w| w.mstsclhigh().bits(0x4).mstscllow().bits(0x4));
 
+    // turn on interrupts
+    sys_irq_control(1, true);
+
     // Field messages.
     let mut buffer = [0; 1];
+
+    let mask = 1;
+
+    let mut transmission: Option<Transmit> = None;
+
     loop {
-        hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::Write => {
-                let (&addr, caller) = msg
-                    .fixed_with_leases::<u8, ()>(1)
-                    .ok_or(ResponseCode::BadArg)?;
+        hl::recv(
+            &mut buffer,
+            mask,
+            &mut transmission,
+            |transmission, notification| {
+                if notification & 1 != 0 {
+                    // Okay so... This take is really annoying. Reply consumes
+                    // caller, and so if we don't use take, we can't call it.
+                    // But that means we have to put it back whenever we don't
+                    // actually want to use it, which is annoying and
+                    // error-prone. But I haven't come up with a cleaner way,
+                    // so for now, here we are.
+                    if let Some(mut txs) = transmission.take() {
+                        // check mstpending
+                        if !i2c.stat.read().mstpending().is_pending() {
+                            //spurious, put it back
+                            *transmission = Some(txs);
+                        } else {
+                            txs.step(&i2c).unwrap_or_else(|code| {
+                                sys_reply(
+                                    txs.caller.task_id(),
+                                    code as u32,
+                                    &[],
+                                )
+                            });
+
+                            if txs.state == TransmitState::Done {
+                                txs.caller.reply(());
+                            } else {
+                                *transmission = Some(txs);
+                            }
+                        }
+                    }
+
+                    // re-enable interrupts
+                    sys_irq_control(1, true);
+                }
+            },
+            |transmission, op, msg| {
+                let (&addr, caller) =
+                    msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
 
                 let info =
                     caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
-                if !info.attributes.contains(LeaseAttributes::READ) {
+
+                // if we want to read, we need to write into our buffer,
+                // and if we want to write, we need to read from our buffer
+                let attr = match op {
+                    Op::Read => LeaseAttributes::WRITE,
+                    Op::Write => LeaseAttributes::READ,
+                };
+
+                if !info.attributes.contains(attr) {
                     return Err(ResponseCode::BadArg);
                 }
 
-                write_a_buffer(
-                    &i2c,
-                    Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    },
-                )
-            }
-            Op::Read => {
-                let (&addr, caller) = msg
-                    .fixed_with_leases::<u8, ()>(1)
-                    .ok_or(ResponseCode::BadArg)?;
+                // Deny incoming writes if we're already running one. 
+                if transmission.is_some() { 
+                    return Err(ResponseCode::Busy); 
+                } 
 
-                let info =
-                    caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
-                if !info.attributes.contains(LeaseAttributes::WRITE) {
-                    return Err(ResponseCode::BadArg);
-                }
+                // stash this away for the interrupt handler
+                *transmission = Some(Transmit {
+                    op,
+                    addr,
+                    caller,
+                    pos: 0,
+                    len: info.len,
+                    state: TransmitState::Starting,
+                });
 
-                read_a_buffer(
-                    &i2c,
-                    Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    },
-                )
-            }
-        });
+                // enable the interrupt
+                i2c.intenset.write(|w| w.mstpendingen().enabled());
+
+                Ok(())
+            },
+        )
     }
 }
 
@@ -157,101 +306,4 @@ fn muck_with_gpios(syscon: &Syscon) {
     iocon
         .pio1_20
         .write(|w| w.func().alt5().digimode().digital());
-}
-
-fn write_a_buffer(
-    i2c: &device::i2c0::RegisterBlock,
-    mut txs: Transmit,
-) -> Result<(), ResponseCode> {
-    // Address to write to
-    i2c.mstdat
-        .modify(|_, w| unsafe { w.data().bits(txs.addr << 1) });
-
-    // and send it away!
-    i2c.mstctl.write(|w| w.mststart().start());
-
-    while i2c.stat.read().mstpending().is_in_progress() {
-        continue;
-    }
-
-    if !i2c.stat.read().mststate().is_transmit_ready() {
-        return Err(ResponseCode::Busy);
-    }
-
-    let borrow = txs.caller.borrow(0);
-
-    while txs.pos < txs.len {
-        let byte: u8 = borrow.read_at(txs.pos).ok_or(ResponseCode::BadArg)?;
-        txs.pos += 1;
-
-        i2c.mstdat.modify(|_, w| unsafe { w.data().bits(byte) });
-
-        i2c.mstctl.write(|w| w.mstcontinue().continue_());
-
-        while i2c.stat.read().mstpending().is_in_progress() {
-            continue;
-        }
-
-        if !i2c.stat.read().mststate().is_transmit_ready() {
-            return Err(ResponseCode::Busy);
-        }
-    }
-
-    i2c.mstctl.write(|w| w.mststop().stop());
-
-    while i2c.stat.read().mstpending().is_in_progress() {}
-
-    if !i2c.stat.read().mststate().is_idle() {
-        return Err(ResponseCode::Busy);
-    }
-
-    txs.caller.reply(());
-    Ok(())
-}
-
-fn read_a_buffer(
-    i2c: &device::i2c0::RegisterBlock,
-    mut txs: Transmit,
-) -> Result<(), ResponseCode> {
-    i2c.mstdat
-        .modify(|_, w| unsafe { w.data().bits((txs.addr << 1) | 1) });
-
-    i2c.mstctl.write(|w| w.mststart().start());
-
-    while i2c.stat.read().mstpending().is_in_progress() {}
-
-    if !i2c.stat.read().mststate().is_receive_ready() {
-        return Err(ResponseCode::BadArg);
-    }
-
-    let borrow = txs.caller.borrow(0);
-
-    while txs.pos < txs.len - 1 {
-        let byte = i2c.mstdat.read().data().bits();
-        borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
-
-        i2c.mstctl.write(|w| w.mstcontinue().continue_());
-
-        while i2c.stat.read().mstpending().is_in_progress() {}
-
-        if !i2c.stat.read().mststate().is_receive_ready() {
-            return Err(ResponseCode::BadArg);
-        }
-
-        txs.pos += 1;
-    }
-
-    let byte = i2c.mstdat.read().data().bits();
-    borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
-
-    i2c.mstctl.write(|w| w.mststop().stop());
-
-    while i2c.stat.read().mstpending().is_in_progress() {}
-
-    if !i2c.stat.read().mststate().is_idle() {
-        return Err(ResponseCode::BadArg);
-    }
-
-    txs.caller.reply(());
-    Ok(())
 }
