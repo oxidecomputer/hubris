@@ -80,6 +80,9 @@ pub unsafe fn start_kernel(
         uassert!(region.base.wrapping_add(region.size) >= region.base);
         // Check for suspicious use of reserved word
         uassert_eq!(region.reserved_zero, 0);
+
+        #[cfg(armv7m)]
+        uassert!(region.size.is_power_of_two());
     }
 
     // Validate tasks next.
