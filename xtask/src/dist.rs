@@ -83,6 +83,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     // Format the descriptors for the kernel build.
     let mut descriptor_text = vec![];
     for word in make_descriptors(
+        &toml.target,
         &toml.tasks,
         &toml.peripherals,
         toml.supervisor.as_ref(),
@@ -343,6 +344,7 @@ fn cargo_output_dir(
 /// - Some number of `TaskDesc` records describing tasks.
 /// - Some number of `Interrupt` records routing interrupts to tasks.
 fn make_descriptors(
+    target: &str,
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
@@ -369,7 +371,20 @@ fn make_descriptors(
     // reference them. We'll build a lookup table so we can find them
     // efficiently by name later.
     let mut peripheral_index = IndexMap::new();
+
+    // ARMv6-M and ARMv7-M require that memory regions be a power of two.
+    // ARMv8-M does not.
+    let power_of_two_required = match target {
+        "thumbv8m.main-none-eabihf" => false,
+        "thumbv7em-none-eabihf" => true,
+        t => panic!("Unknown mpu requirements for target '{}'", t),
+    };
+
     for (name, p) in peripherals.iter() {
+        if power_of_two_required && !p.size.is_power_of_two() {
+            panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+        }
+
         peripheral_index.insert(name, regions.len());
 
         // Peripherals are always mapped as Device + Read + Write.
