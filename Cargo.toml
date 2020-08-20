@@ -5,6 +5,7 @@ members = [
     "build-util",
     "xtask",
     "nxp-structs",
+    "cfpa-update",
 
     "abi",
     "demo",
