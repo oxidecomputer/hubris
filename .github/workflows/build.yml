@@ -31,15 +31,24 @@ jobs:
             deps: sudo apt-get install binutils-arm-none-eabi
           - os: windows-latest
             deps: |
-              If (-Not (Test-Path "$env:USERPROFILE\scoop\apps\gcc-arm-none-eabi\9-2020-q2-update")) { 
+              If (-Not (Test-Path "$env:USERPROFILE\scoop\shims")) {
                 Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-                echo ::add-path::$HOME\scoop\shims
-                scoop bucket add extras
-                scoop install gcc-arm-none-eabi@9-2020-q2-update
+              }
+              If (-Not (Test-Path "$env:USERPROFILE\scoop\apps\gcc-arm-none-eabi\9-2020-q2-update")) {
+                Invoke-Expression -Command "$env:USERPROFILE\scoop\shims\scoop bucket add extras"
+                Invoke-Expression -Command "$env:USERPROFILE\scoop\shims\scoop install gcc-arm-none-eabi@9-2020-q2-update"
+              }
+              If (-Not (Test-Path "$env:USERPROFILE\scoop\apps\openssl")) {
+                Invoke-Expression -Command "$env:USERPROFILE\scoop\shims\scoop install openssl"
               }
               echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+              echo ::add-path::$HOME\scoop\apps\openssl\current\bin
 
     steps:
+      - name: Set env
+        # make sure the windows env gets set
+        run: echo "::set-env name=X86_64_PC_WINDOWS_MSVC_OPENSSL_DIR::$HOME\scoop\apps\openssl\current"
+
       # check out our code
       - uses: actions/checkout@v2
 
