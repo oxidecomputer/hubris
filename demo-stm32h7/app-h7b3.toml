@@ -16,7 +16,7 @@ requires = {flash = 32768, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["itm", "h7b3"]
+features = ["semihosting", "h7b3"]
 
 [supervisor]
 notification = 1
@@ -36,13 +36,22 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+[tasks.ltdc_driver]
+path = "../drv/stm32h7-ltdc"
+name = "drv-stm32h7-ltdc"
+features = ["h7b3"]
+priority = 2
+start = true
+uses = ["ltdc"]
+requires = {flash = 262144, ram = 1024}
+
 [tasks.jefe]
 path = "../task-jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 1024}
 start = true
-features = ["itm"]
+features = ["semihosting"]
 
 [tasks.rcc_driver]
 path = "../drv/stm32h7-rcc"
@@ -106,8 +115,13 @@ size = 1024
 
 [peripherals.all_gpios]
 address = 0x58020000
-size = 0x2c00
+size = 0x4000
 
 [peripherals.usart1]
 address = 0x40011000
 size = 1024
+
+[peripherals.ltdc]
+address = 0x50001000
+size = 0x1000
+

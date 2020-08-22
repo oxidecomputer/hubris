@@ -323,6 +323,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-ltdc"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [

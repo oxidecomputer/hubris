@@ -278,6 +278,37 @@ fn system_init() {
                     .divr1()
                     .bits(1)
             });
+
+            // Okay, now it's time for PLL3, which we want to be able to use
+            // to drive the display.  This needs to be a 9.5MHz clock, and the
+            // logic looks similar to the above:  first, set PLL 3 to have
+            // the same prescaler, yielding 8 Mhz (we don't need to set the
+            // PLL source; that's been set above.
+            p.RCC
+                .pllckselr
+                .modify(|_, w| w.divm3().bits(3));
+
+            // Configure the VCO similarly for PLL3. We only care about enabling
+            // the R output.
+            p.RCC.pllcfgr.modify(|_, w| {
+                w.pll3vcosel()
+                    .wide_vco()
+                    .pll3rge()
+                    .range8()
+                    .divr3en()
+                    .enabled()
+            });
+
+            // We need a 9.5 MHz clock to drive the display.  We set our
+            // multiplier to be 76 (the LCM of 9.5 and 8), and then divide
+            // down by 64 to yield 9.5.
+            p.RCC.pll3divr.modify(|_, w| unsafe {
+                w.divn3()
+                    .bits(76 - 1)
+                    .divr3()
+                    .bits(64 - 1)
+                    // .bits(8)
+            });
         } else if #[cfg(target_board = "nucleo-h743zi2")] {
             // The H743 Nucleo board doesn't include an external crystal. Thus,
             // we use the HSI64 oscillator.
@@ -324,6 +355,12 @@ fn system_init() {
     // a series of dividers to produce clocks for each system bus.
     cfg_if::cfg_if! {
         if #[cfg(target_board = "stm32h7b3i-dk")] {
+            // Turn on PLL3 (for the display) and wait for it to lock.
+            p.RCC.cr.modify(|_, w| w.pll3on().on());
+            while !p.RCC.cr.read().pll3rdy().bit() {
+                // spin
+            }
+
             // Delightfully, the 7B3 can run all of its buses at the same
             // frequency. So we can just set everything to 1.
             //
@@ -399,6 +436,8 @@ fn system_init() {
             // No need to busy wait here, the moment when it turns off is not
             // important.
             initialize_sdram(&mut cp, &p);
+
+
         }
     }
 }

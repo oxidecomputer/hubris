@@ -106,7 +106,7 @@ size = 1024
 
 [peripherals.all_gpios]
 address = 0x58020000
-size = 0x2c00
+size = 0x4000
 
 [peripherals.usart3]
 address = 0x40004800
