@@ -23,8 +23,7 @@ const GPIO: Task = SELF;
 
 #[derive(FromPrimitive)]
 enum Op {
-    Write = 1,
-    Read = 2,
+    WriteRead = 1,
 }
 
 #[repr(u32)]
@@ -62,7 +61,6 @@ fn main() -> ! {
 
     // Disable PE
     i2c.cr1.write(|w| { w.pe().clear_bit() });
-    hprintln!("PE cleared");
 
     // We want to set our timing to acheive a 100 kHz SCL. Given our APB4
     // peripheral clock of 280 MHz, here is how we configure our timing:
@@ -83,8 +81,6 @@ fn main() -> ! {
         .sdadel().bits(0)
     });
 
-    hprintln!("TIMINGR set to {:x}", i2c.timingr.read().bits());
-
     i2c.oar1.write(|w| { w.oa1en().clear_bit() });
     i2c.oar1.write(|w| { w
         .oa1en().set_bit()
@@ -92,11 +88,7 @@ fn main() -> ! {
         .oa1().bits(0)
     });
 
-    hprintln!("OAR1 set to 0");
-
     i2c.cr2.write(|w| { w.autoend().set_bit().nack().set_bit() });
-
-    hprintln!("CR2 set to AUTOEND+NACK");
 
     i2c.oar2.write(|w| { w.oa2en().clear_bit() });
     i2c.oar2.write(|w| { w
@@ -104,63 +96,41 @@ fn main() -> ! {
         .oa2().bits(0)
     });
 
-    hprintln!("OAR2 set to 0");
-
     i2c.cr1.write(|w| { w
         .gcen().clear_bit()
         .nostretch().clear_bit()
     });
 
-    hprintln!("CR1 set to {:x}", i2c.cr1.read().bits());
-
     i2c.cr1.write(|w| { w.pe().set_bit() });
-
-    hprintln!("PE enabled");
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::Write => {
+            Op::WriteRead => {
                 let (&addr, caller) = msg
-                    .fixed_with_leases::<u8, ()>(1)
+                    .fixed_with_leases::<u8, ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
-                let info =
-                    caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
-                if !info.attributes.contains(LeaseAttributes::READ) {
+                let wbuf = caller.borrow(0);
+                let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
+
+                if !winfo.attributes.contains(LeaseAttributes::READ) {
                     return Err(ResponseCode::BadArg);
                 }
 
-                write_a_buffer(
+                let rbuf = caller.borrow(1);
+                let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
+
+                write_read(
                     &i2c,
-                    Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    },
-                )
-            }
+                    addr,
+                    winfo.len,
+                    |pos| { wbuf.read_at(pos) },
+                    rinfo.len,
+                    |pos, byte| { rbuf.write_at(pos, byte) },
+                )?;
 
-            Op::Read => {
-                let (&addr, caller) = msg
-                    .fixed_with_leases::<u8, ()>(1)
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let info =
-                    caller.borrow(0).info().ok_or(ResponseCode::BadArg)?;
-                if !info.attributes.contains(LeaseAttributes::WRITE) {
-                    return Err(ResponseCode::BadArg);
-                }
-
-                read_a_buffer(
-                    &i2c,
-                    Transmit {
-                        addr,
-                        caller,
-                        pos: 0,
-                        len: info.len,
-                    },
-                )
+                caller.reply(());
+                Ok(())
             }
         });
     }
@@ -203,175 +173,117 @@ fn configure_pins() {
         .unwrap();
 }
 
-fn write_a_buffer(
+fn write_read(
     i2c: &device::i2c3::RegisterBlock,
-    mut txs: Transmit,
+    addr: u8,
+    wlen: usize,
+    getbyte: impl Fn(usize) -> Option<u8>,
+    rlen: usize,
+    putbyte: impl Fn(usize, u8) -> Option<()>,
 ) -> Result<(), ResponseCode> {
-    hprintln!("writing to addr 0x{:x}!", txs.addr);
+    hprintln!("in write_read for addr {:x}", addr);
 
-    if txs.len > 255 {
-        // For now, we don't support writing more than 255 bytes
+    if wlen == 0 && rlen == 0 {
+        // We must have either a write OR a read -- while perhaps valid to
+        // support both being zero as a way of testing an address for a
+        // NACK, it's not a mode that we (currently) support.
         return Err(ResponseCode::BadArg);
     }
 
-    i2c.cr2.modify(|_, w| { w
-        .nbytes().bits(txs.len as u8)
-        .autoend().set_bit()
-        .add10().clear_bit()
-        .sadd().bits((txs.addr << 1).into())
-        .rd_wrn().clear_bit()
-        .start().set_bit()
-    });
-
-    // Start our borrow at index 0
-    let borrow = txs.caller.borrow(0);
-
-    while txs.pos < txs.len {
-        loop {
-            let isr = i2c.isr.read();
-
-            if isr.nackf().is_nack() {
-                return Err(ResponseCode::NACK);
-            }
-
-            if isr.txis().is_empty() {
-                break;
-            }
-        }
-
-        // Get a single byte
-        let byte: u8 = borrow.read_at(txs.pos).ok_or(ResponseCode::BadArg)?;
-
-        // And send it!
-        i2c.txdr.write(|w| w.txdata().bits(byte));
-        txs.pos += 1;
-    }
-
-    let isr = i2c.isr.read();
-    hprintln!("isr after write complete: {:x}", isr.bits());
-
-    txs.caller.reply(());
-    Ok(())
-}
-
-fn read_a_buffer(
-    i2c: &device::i2c3::RegisterBlock,
-    mut txs: Transmit,
-) -> Result<(), ResponseCode> {
-    hprintln!("reading from addr 0x{:x}!", txs.addr);
-
-    if txs.len > 255 {
-        // For now, we don't support reading more than 255 bytes
+    if wlen > 255 || rlen > 255 {
+        // For now, we don't support writing or reading more than 255 bytes
         return Err(ResponseCode::BadArg);
     }
 
-    i2c.cr2.modify(|_, w| { w
-        .nbytes().bits(txs.len as u8)
-        .autoend().set_bit()
-        .add10().clear_bit()
-        .sadd().bits((txs.addr << 1).into())
-        .rd_wrn().set_bit()
-        .start().set_bit()
-    });
+    if wlen > 0 {
+        i2c.cr2.modify(|_, w| { w
+            .nbytes().bits(wlen as u8)
+            .autoend().clear_bit()
+            .add10().clear_bit()
+            .sadd().bits((addr << 1).into())
+            .rd_wrn().clear_bit()
+            .start().set_bit()
+        });
 
-    // Start our borrow at index 0
-    let borrow = txs.caller.borrow(0);
+        let mut pos = 0;
 
-    while txs.pos < txs.len {
-        loop {
-            let isr = i2c.isr.read();
+        while pos < wlen {
+            loop {
+                let isr = i2c.isr.read();
 
-            if isr.nackf().is_nack() {
-                return Err(ResponseCode::NACK);
+                if isr.nackf().is_nack() {
+                    return Err(ResponseCode::NACK);
+                }
+
+                if isr.txis().is_empty() {
+                    break;
+                }
             }
 
-            if !isr.rxne().is_empty() {
-                break;
-            }
+            // Get a single byte
+            let byte: u8 = getbyte(pos).ok_or(ResponseCode::BadArg)?;
+
+            // And send it!
+            i2c.txdr.write(|w| w.txdata().bits(byte));
+            pos += 1;
         }
 
-        // Read it!
-        let byte: u8 = i2c.rxdr.read().rxdata().bits();
-        borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
-        txs.pos += 1;
-    }
-
-    txs.caller.reply(());
-    Ok(())
-}
-
-fn read_a_register(
-    i2c: &device::i2c3::RegisterBlock,
-    mut txs: Transmit,
-) -> Result<(), ResponseCode> {
-    hprintln!("reading register from addr 0x{:x}!", txs.addr);
-
-    if txs.len > 255 {
-        // For now, we don't support reading more than 255 bytes
-        return Err(ResponseCode::BadArg);
-    }
-
-    i2c.cr2.modify(|_, w| { w
-        .nbytes().bits(1)
-        .autoend().clear_bit()
-        .add10().clear_bit()
-        .sadd().bits((txs.addr << 1).into())
-        .rd_wrn().clear_bit()
-        .start().set_bit()
-    });
-
-    loop {
-        let isr = i2c.isr.read();
-
-        if isr.nackf().is_nack() {
-            return Err(ResponseCode::NACK);
-        }
-
-        if isr.txis().is_empty() {
-            break;
+        // All done; now spin until our transfer is complete...
+        while !i2c.isr.read().tc().is_complete() {
+            continue;
         }
     }
 
-    // Hardcoded
-    i2c.txdr.write(|w| w.txdata().bits(0x0b));
+    if rlen > 0 {
+        //
+        // If we have both a write and a read, we deliberately do not send
+        // a STOP between them to force the RESTART (many devices do not
+        // permit a STOP between a register address write and a subsequent
+        // read).
+        //
+        i2c.cr2.modify(|_, w| { w
+            .nbytes().bits(rlen as u8)
+            .autoend().clear_bit()
+            .add10().clear_bit()
+            .sadd().bits((addr << 1).into())
+            .rd_wrn().set_bit()
+            .start().set_bit()
+        });
 
-    i2c.cr2.modify(|_, w| { w
-        .nbytes().bits(txs.len as u8)
-        .add10().clear_bit()
-        .sadd().bits((txs.addr << 1).into())
-        .rd_wrn().set_bit()
-        .start().set_bit()
-    });
+        let mut pos = 0;
 
-    // Start our borrow at index 0
-    let borrow = txs.caller.borrow(0);
+        while pos < rlen {
+            loop {
+                let isr = i2c.isr.read();
 
-    while txs.pos < txs.len {
-        loop {
-            let isr = i2c.isr.read();
+                if isr.nackf().is_nack() {
+                    return Err(ResponseCode::NACK);
+                }
 
-            if isr.nackf().is_nack() {
-                return Err(ResponseCode::NACK);
+                if !isr.rxne().is_empty() {
+                    break;
+                }
             }
 
-            if !isr.rxne().is_empty() {
-                break;
-            }
+            // Read it!
+            let byte: u8 = i2c.rxdr.read().rxdata().bits();
+            putbyte(pos, byte).ok_or(ResponseCode::BadArg)?;
+            pos += 1;
         }
 
-        // Read it!
-        let byte: u8 = i2c.rxdr.read().rxdata().bits();
-        borrow.write_at(txs.pos, byte).ok_or(ResponseCode::BadArg)?;
-        txs.pos += 1;
+        // All done; now spin until our transfer is complete...
+        while !i2c.isr.read().tc().is_complete() {
+            continue;
+        }
     }
 
-    while !i2c.isr.read().tc().is_complete() {
-        continue;
-    }
-
+    //
+    // Whether we did a write alone, a read alone, or a write followed
+    // by a read, we're done now -- manually send a STOP.
+    //
     i2c.cr2.modify(|_, w| { w.stop().set_bit() });
 
-    txs.caller.reply(());
+    hprintln!("done write_read");
+
     Ok(())
 }
-
