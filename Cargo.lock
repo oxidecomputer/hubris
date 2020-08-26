@@ -219,7 +219,6 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
- "byteorder",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -338,6 +337,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-semihosting",
+ "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "num-traits",

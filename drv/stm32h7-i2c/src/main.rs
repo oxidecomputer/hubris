@@ -7,7 +7,7 @@
 use stm32h7::stm32h7b3 as device;
 
 use userlib::*;
-use cortex_m_semihosting::hprintln;
+use drv_i2c_api::{Interface, Op};
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -21,16 +21,12 @@ const GPIO: Task = Task::gpio_driver;
 #[cfg(feature = "standalone")]
 const GPIO: Task = SELF;
 
-#[derive(FromPrimitive)]
-enum Op {
-    WriteRead = 1,
-}
-
 #[repr(u32)]
 enum ResponseCode {
     BadArg = 1,
     NoDevice = 2,
     Busy = 3,
+    BadInterface = 4,
 }
 
 impl From<ResponseCode> for u32 {
@@ -39,25 +35,17 @@ impl From<ResponseCode> for u32 {
     }
 }
 
-struct Transmit {
-    addr: u8,
-    caller: hl::Caller<()>,
-    len: usize,
-    pos: usize,
-}
-
 #[export_name = "main"]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c();
 
     configure_pins();
-    hprintln!("Pins configured");
 
     let i2c = unsafe { &*device::I2C4::ptr() };
 
     // Field messages.
-    let mut buffer = [0; 1];
+    let mut buffer = [0; 2];
 
     // Disable PE
     i2c.cr1.write(|w| { w.pe().clear_bit() });
@@ -106,9 +94,16 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead => {
-                let (&addr, caller) = msg
-                    .fixed_with_leases::<u8, ()>(2)
+                let (&[addr, interface], caller) = msg
+                    .fixed_with_leases::<[u8; 2], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
+
+                match Interface::from_u8(interface) {
+                    Some(Interface::I2C4) => {}
+                    _ => {
+                        return Err(ResponseCode::BadInterface);
+                    }
+                }
 
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
@@ -181,8 +176,6 @@ fn write_read(
     rlen: usize,
     putbyte: impl Fn(usize, u8) -> Option<()>,
 ) -> Result<(), ResponseCode> {
-    hprintln!("in write_read for addr {:x}", addr);
-
     if wlen == 0 && rlen == 0 {
         // We must have either a write OR a read -- while perhaps valid to
         // support both being zero as a way of testing an address for a
@@ -282,8 +275,6 @@ fn write_read(
     // by a read, we're done now -- manually send a STOP.
     //
     i2c.cr2.modify(|_, w| { w.stop().set_bit() });
-
-    hprintln!("done write_read");
 
     Ok(())
 }

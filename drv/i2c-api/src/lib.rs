@@ -2,16 +2,16 @@
 
 #![no_std]
 
-use byteorder::LittleEndian;
 use zerocopy::{AsBytes, FromBytes};
 
 use userlib::*;
 
-enum Op {
+#[derive(FromPrimitive)]
+pub enum Op {
     WriteRead = 1,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum Interface {
     I2C0 = 0,
     I2C1 = 1,
@@ -38,6 +38,7 @@ pub enum I2cError {
     BadArg,
     NoDevice,
     Busy,
+    BadInterface,
 }
 
 impl From<u32> for I2cError {
@@ -47,6 +48,7 @@ impl From<u32> for I2cError {
             1 => I2cError::BadArg,
             2 => I2cError::NoDevice,
             3 => I2cError::Busy,
+            4 => I2cError::BadInterface,
             _ => panic!(),
         }
     }
@@ -65,7 +67,7 @@ impl I2c {
         let (code, _) = sys_send(
             self.0,
             Op::WriteRead as u16,
-            &[address],
+            &[address, interface as u8],
             &mut [],
             &[ Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut()) ],
         );
