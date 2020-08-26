@@ -28,9 +28,9 @@ enum Op {
 
 #[repr(u32)]
 enum ResponseCode {
-    BadArg = 2,
+    BadArg = 1,
+    NoDevice = 2,
     Busy = 3,
-    NACK = 4,
 }
 
 impl From<ResponseCode> for u32 {
@@ -212,7 +212,7 @@ fn write_read(
                 let isr = i2c.isr.read();
 
                 if isr.nackf().is_nack() {
-                    return Err(ResponseCode::NACK);
+                    return Err(ResponseCode::NoDevice);
                 }
 
                 if isr.txis().is_empty() {
@@ -257,7 +257,7 @@ fn write_read(
                 let isr = i2c.isr.read();
 
                 if isr.nackf().is_nack() {
-                    return Err(ResponseCode::NACK);
+                    return Err(ResponseCode::NoDevice);
                 }
 
                 if !isr.rxne().is_empty() {

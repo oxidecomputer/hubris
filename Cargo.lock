@@ -216,6 +216,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-i2c-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -852,6 +862,7 @@ name = "task-adt7420"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-i2c-api",
  "userlib",
  "zerocopy",
 ]
