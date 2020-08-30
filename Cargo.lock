@@ -861,8 +861,10 @@ dependencies = [
 name = "task-adt7420"
 version = "0.1.0"
 dependencies = [
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]

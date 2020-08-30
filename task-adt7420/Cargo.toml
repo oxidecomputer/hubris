@@ -4,22 +4,20 @@ version = "0.1.0"
 authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
-
 [dependencies]
 userlib = {path = "../userlib", default-features = false}
 drv-i2c-api = {path = "../drv/i2c-api"}
-cortex-m-semihosting = "0.3.5"
+cortex-m = "0.6.2"
+cortex-m-semihosting = { version = "0.3.5", optional = true }
 zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["itm"]
+h7b3 = []
+itm = [ "userlib/log-itm" ]
+semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

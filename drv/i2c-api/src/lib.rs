@@ -24,11 +24,15 @@ pub enum Interface {
 }
 
 #[derive(Clone, Debug)]
-pub struct I2c(TaskId);
+pub struct I2c {
+    task: TaskId,
+    interface: Interface,
+    address: u8,
+}
 
-impl From<TaskId> for I2c {
-    fn from(t: TaskId) -> Self {
-        Self(t)
+impl I2c {
+    pub fn new(task: TaskId, interface: Interface, address: u8) -> Self {
+        Self { task: task, interface: interface, address: address }
     }
 }
 
@@ -58,18 +62,16 @@ impl I2c {
     /// Reads a register, with register address of type R and value of type V
     pub fn read_reg<R: AsBytes, V: Default + AsBytes + FromBytes>(
         &self,
-        interface: Interface,
-        address: u8,
         reg: R,
     ) -> Result<V, I2cError> {
         let mut val = V::default();
 
         let (code, _) = sys_send(
-            self.0,
+            self.task,
             Op::WriteRead as u16,
-            &[address, interface as u8],
+            &[self.address, self.interface as u8],
             &mut [],
-            &[ Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut()) ],
+            &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
 
         if code != 0 {
