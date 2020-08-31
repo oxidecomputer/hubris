@@ -1,0 +1,11 @@
+[package]
+name = "nxp-structs"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+packed_struct = "0.3.0"
+packed_struct_codegen = "0.3.0"
