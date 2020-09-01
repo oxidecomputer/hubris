@@ -102,14 +102,11 @@ deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 
 ### LPCXpresso55S69 board
 
-The LPCXpresso55S69 is somewhat of a mess because of a
-regrettable firmware issue on the built-on on-chip debugger:  
-<a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">the LPC-Link2 does not correctly support SWO/SWV</a>.
+The LPCXpresso55S69 is somewhat of a mess because  
+the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
 
-To use the LPCXpresso55S69, you will need <a
-href="https://github.com/mbedmicro/pyOCD">, version 0.27.0 or later.
-You can verify that you need to upgrade the firmware by running
-`pyocd list`:
+To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">, version 0.27.0 or later.
+You can verify that you need to upgrade the firmware by running `pyocd list`:
 
 ```shell
 $ pyocd list
