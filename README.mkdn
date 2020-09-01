@@ -91,7 +91,7 @@ From one terminal, `cd` into the root of this repository and run `openocd`.
 
 From another terminal:
 
-```shell
+```console
 $ cargo xtask gdb demo/app.toml openocd.gdb
 ```
 
@@ -294,7 +294,7 @@ build" for this.
 
 For instance, to run a standalone build of `task-ping`, run:
 
-```shell
+```console
 $ cd task-ping
 $ cargo xtask build
 ```
