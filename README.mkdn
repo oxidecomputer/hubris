@@ -108,7 +108,7 @@ The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip debugger,
 If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
 
 
-```shell
+```console
 $ pyocd list
   #   Probe                                           Unique ID
 -----------------------------------------------------------------
@@ -119,7 +119,7 @@ It's also possible that you have the Segger J-Link firmware -- firmware
 that will make its odious presence known by prompting for you to accept license
 terms whenever running `pyocd list`!
 
-```shell
+```console
 $ pyocd list
   #   Probe                                                       Unique ID
 -----------------------------------------------------------------------------
@@ -147,7 +147,7 @@ left side of the board; it is labelled "DFU".
 
 2. Run `scripts/boot_lpcscrypt` from the installed LPCScrypt software:
 
-```shell
+```console
 $ /usr/local/lpcscrypt/scripts/boot_lpcscrypt 
 Looking for DFU devices with VID 1fc9 PID 000c ...
 dfu-util -d 1fc9:000c -c 1 -i 0 -t 2048 -R  -D /usr/local/lpcscrypt/scripts/../bin/LPCScrypt_228.bin.hdr
@@ -157,14 +157,14 @@ $
 
 3. Run `lpcscrypt clockslow`:
 
-```shell
+```console
 $ /usr/local/lpcscrypt/bin/lpcscrypt clockslow
 $
 ```
 
 4. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
 
-```shell
+```console
 $ /usr/local/lpcscrypt/bin/lpcscrypt program +c ~/hubris/support/lpc4322_bl_crc.bin BankA
 ..
 Programmed 57344 bytes to 0x1a000000 in 0.827s (67.717KB/sec)
@@ -175,7 +175,7 @@ $
 
 6. There should now be a USB mass storage device named `MAINTENANCE`
 
-```shell
+```console
 # fdisk -l
 Disk /dev/nvme0n1: 477 GiB, 512110190592 bytes, 1000215216 sectors
 Disk model: Micron 2200S NVMe 512GB
@@ -222,14 +222,14 @@ URL: https://os.mbed.com/platforms/LPCXpresso55S69/
 
 7. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
 
-```shell
+```console
 $ sudo cp ~/hubris/support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin /mnt
 $
 ```
 
 8. Unmount (or otherwise sync) the USB drive:
 
-```shell
+```console
 # umount /mnt
 #
 ```
@@ -238,7 +238,7 @@ $
 
 Verify that you are on the new firmware by running `pyocd list`:
 
-```shell
+```console
 $ pyocd list
   #   Probe                        Unique ID                                         
 -------------------------------------------------------------------------------------
