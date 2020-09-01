@@ -248,8 +248,8 @@ $ pyocd list
 
 Once RickLink is running:
 
-- Terminal 1: `pyocd gdbserver -t lpc55s69`
-- Terminal 2: `telnet localhost 4444`
+- Terminal 1: `pyocd gdbserver -t lpc55s69` 
+- Terminal 2: `telnet localhost 4444` (semihosting output)
 - Terminal 3: `cargo xtask gdb lpc55/app.toml openocd.gdb`
 
 ### ST Nucleo-H743ZI2 board
