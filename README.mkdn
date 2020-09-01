@@ -102,11 +102,12 @@ deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 
 ### LPCXpresso55S69 board
 
+To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">pyOCD</a>, version 0.27.0 or later.
+
 The LPCXpresso55S69 is somewhat of a mess because  
 the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
+If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
 
-To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">, version 0.27.0 or later.
-You can verify that you need to upgrade the firmware by running `pyocd list`:
 
 ```shell
 $ pyocd list
@@ -127,7 +128,7 @@ $ pyocd list
 ```
 
 In either of these cases you must -- as a one-time step -- install new
-firmware on the LPC-Link2.  This is a build of the (open source) 
+firmware on the LPC-Link2.  The new firmware is a build of the (open source) 
 <a href="https://github.com/oxidecomputer/DAPLink">DAPLink</a> (which
 we affectionally call "RickLink" after
 the engineer who managed to get it all built -- no small feat!).
