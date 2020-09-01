@@ -104,8 +104,7 @@ deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 
 To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">pyOCD</a>, version 0.27.0 or later.
 
-The LPCXpresso55S69 is somewhat of a mess because  
-the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
+The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
 If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
 
 
@@ -118,7 +117,7 @@ $ pyocd list
 
 It's also possible that you have the Segger J-Link firmware -- firmware
 that will make its odious presence known by prompting for you to accept license
-terms (!!) whenever running `pyocd list`:
+terms whenever running `pyocd list`!
 
 ```shell
 $ pyocd list
@@ -129,9 +128,9 @@ $ pyocd list
 
 In either of these cases you must -- as a one-time step -- install new
 firmware on the LPC-Link2.  The new firmware is a build of the (open source) 
-<a href="https://github.com/oxidecomputer/DAPLink">DAPLink</a> (which
-we affectionally call "RickLink" after
-the engineer who managed to get it all built -- no small feat!).
+<a href="https://github.com/oxidecomputer/DAPLink">DAPLink</a>, which
+we affectionally call **RickLink** after
+the engineer who managed to get it all built -- no small feat!
 
 There are two files that you will need, both contained in the Hubris repository:
 
@@ -141,6 +140,7 @@ There are two files that you will need, both contained in the Hubris repository:
 
 You will additionally need the <a
 href="https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT">LPCScrypt program</a> from NXP.
+Here are the steps to install RickLink:
 
 1. Install the DFU jumper. This can be found next to the SWD header on the
 left side of the board; it is labelled "DFU".
