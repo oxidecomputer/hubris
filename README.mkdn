@@ -140,6 +140,7 @@ There are two files that you will need, both contained in the Hubris repository:
 
 You will additionally need the <a
 href="https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT">LPCScrypt program</a> from NXP.
+
 Here are the steps to install RickLink:
 
 1. Install the DFU jumper. This can be found next to the SWD header on the
