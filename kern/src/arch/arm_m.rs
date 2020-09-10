@@ -905,6 +905,7 @@ pub unsafe extern "C" fn MemoryManagement() {
         movw r1, #:lower16:CURRENT_TASK_PTR
         movt r1, #:upper16:CURRENT_TASK_PTR
         ldr r1, [r1]
+        mrs r2, PSP
         b mem_manage_fault
         ",
         options(noreturn),
@@ -929,7 +930,11 @@ bitflags::bitflags! {
 /// Rust entry point for memory management fault.
 #[allow(non_snake_case)]
 #[no_mangle]
-unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
+unsafe extern "C" fn mem_manage_fault(
+    exc_return: u32,
+    task: *mut task::Task,
+    psp: u32,
+) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
     let scb = &*cortex_m::peripheral::SCB::ptr();
@@ -944,11 +949,29 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
 
     if from_thread_mode {
         // Build up a FaultInfo record describing what we know.
-        let address = if mmfsr.contains(Mmfsr::MMARVALID) { Some(mmfar) } else { None };
-        let fault = FaultInfo::MemoryAccess {
-            address,
-            source: FaultSource::User,
+        let fault = if mmfsr.contains(Mmfsr::MSTKERR) {
+            // It's up to us to clear fault conditions in MMFSR; we
+            // clear the MSTKERR condition by writing its bit in CFSR.
+            scb.cfsr.write(Mmfsr::MSTKERR.bits as u32);
+
+            // If we have an MSTKERR, we know very little other than the
+            // fact that the user's stack pointer is so trashed that we
+            // can't store through it.  (In particular, we seem to have no
+            // way at getting at our faulted PC.)
+            FaultInfo::StackOverflow {
+                address: psp,
+            }
+        } else {
+            FaultInfo::MemoryAccess {
+                address: if mmfsr.contains(Mmfsr::MMARVALID) {
+                    Some(mmfar)
+                } else {
+                    None
+                },
+                source: FaultSource::User,
+            }
         };
+
         with_task_table(|tasks| {
             let idx = (task as usize - tasks.as_ptr() as usize)
                 / core::mem::size_of::<task::Task>();
@@ -956,7 +979,32 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
             // PendSV routine anyway.
             let _ = task::force_fault(tasks, idx, fault);
         });
+
         pend_context_switch_from_isr();
+
+        // We have a bit of an annoyance to deal with: on ARMv8, when an MPU
+        // fault is taken on an exception (that is, an MSTKERR), the PSP is
+        // set not to the kernel stack where the MPU fault occurs (as it is on
+        // ARMv7), but rather remains as the original (bad) address.  If we
+        // attempt to return from the exception with this same (bad) PSP, we
+        // will get a MUNSTKERR.  (If not handled, this would cause us to loop
+        // just dropping MUNSTKERRs on ourselves without actually making it
+        // the PendSV handler.)  This is unfortunate because we know that we
+        // will never *actually* be returning to this task (we are, after all,
+        // dead), and we're just trying to get to our PendSV handler to
+        // properly dispose of our body; it seems abrasively pedantic for the
+        // processor to actually check PSP.  To placate the pedantry, however,
+        // we set PSP to a value that we *know* to be good:  our saved PSP.
+        // That this isn't actually pointing to any state we care about is
+        // beside the point:  satisfied that our PSP won't induce an MPU
+        // fault, the processor leaves us alone to get to the PendSV handler,
+        // from which we can find another task to run.
+        #[cfg(armv8m)]
+        asm!("
+            msr PSP, {bernie_psp}
+            ",
+            bernie_psp = in(reg) (*task).save().psp,
+        )
     } else {
         // Uh. This fault originates from the kernel. Let's try to make the
         // panic as clear as possible.

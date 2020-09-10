@@ -15,6 +15,12 @@ const UART: Task = SELF;
 #[cfg(all(not(feature = "standalone"), feature = "uart"))]
 const UART: Task = Task::usart_driver;
 
+#[inline(never)]
+fn stackblow() {
+    let c = [0xdeu8; 8192];
+    uart_send(&c[0..1024]);
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let user_leds = get_user_leds();
@@ -22,22 +28,25 @@ fn main() -> ! {
     let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
     const PING_OP: u16 = 1;
     let mut response = [0; 16];
-    let mut iterations = 0usize;
     loop {
         uart_send(b"Ping!\r\n");
         // Signal that we're entering send:
         user_leds.led_on(0).unwrap();
 
-        iterations += 1;
-        if iterations == 1000 {
+        let (code, _len) =
+            sys_send(peer, PING_OP, b"hello", &mut response, &[]);
+
+        if code % 2000 == 0 {
             // mwa ha ha ha
             unsafe {
                 (0 as *const u8).read_volatile();
             }
         }
 
-        let (_code, _len) =
-            sys_send(peer, PING_OP, b"hello", &mut response, &[]);
+        if code % 1000 == 0 {
+            // ka-boom
+            stackblow();
+        }
     }
 }
 

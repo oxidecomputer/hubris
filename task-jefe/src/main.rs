@@ -55,6 +55,13 @@ fn main() -> ! {
                                 ),
                             }
                         }
+                        abi::FaultInfo::StackOverflow { address, .. } => {
+                            sys_log!(
+                                "Task #{} Stack overflow at address 0x{:x}",
+                                i,
+                                address
+                            );
+                        }
                         abi::FaultInfo::SyscallUsage(e) => {
                             sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
                         }

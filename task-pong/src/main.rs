@@ -7,7 +7,8 @@ use userlib::*;
 pub fn main() -> ! {
     const TIMER_NOTIFICATION: u32 = 1;
     const INTERVAL: u64 = 500;
-    const SUCCESS_RESPONSE: u32 = 0;
+
+    let mut response: u32 = 0;
 
     let user_leds = get_user_leds();
 
@@ -22,7 +23,8 @@ pub fn main() -> ! {
 
         if msginfo.sender != TaskId::KERNEL {
             // We'll just assume this is a ping message and reply.
-            sys_reply(msginfo.sender, SUCCESS_RESPONSE, &[]);
+            sys_reply(msginfo.sender, response, &[]);
+            response += 1;
         } else {
             // This is a notification message. We've only got one notification
             // enabled, so we know full well which it is without looking.
