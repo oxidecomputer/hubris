@@ -898,14 +898,32 @@ pub fn enable_irq(n: u32) {
 #[naked]
 pub unsafe extern "C" fn MemoryManagement() {
     asm!("
-        @ Get the exc_return value into an argument register, which is
-        @ difficult to do from higher-level code.
-        mov r0, lr
-        @ While we're being unsafe, go ahead and read the current task pointer.
-        movw r1, #:lower16:CURRENT_TASK_PTR
-        movt r1, #:upper16:CURRENT_TASK_PTR
-        ldr r1, [r1]
-        b mem_manage_fault
+        @ Read the current task pointer.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        mrs r12, PSP
+
+        @ Now, to aid those who will debug what induced this fault, save our
+        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+        @ address and the xPSR) is already on our stack as part of the fault;
+        @ we'll store our remaining registers, plus the PSP (now in r12), plus
+        @ exc_return (now in LR) into the save region in the current task.
+        stm r0, {{r4-r12, lr}}
+
+        bl mem_manage_fault
+
+        @ Our task has changed; reload it.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+
+        @ Restore volatile registers, plus load PSP into r12
+        ldm r0, {{r4-r12, lr}}
+        msr PSP, r12
+
+        @ resume
+        bx lr
         ",
         options(noreturn),
     );
@@ -929,13 +947,15 @@ bitflags::bitflags! {
 /// Rust entry point for memory management fault.
 #[allow(non_snake_case)]
 #[no_mangle]
-unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
+unsafe extern "C" fn mem_manage_fault(
+    task: *mut task::Task,
+) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
     let scb = &*cortex_m::peripheral::SCB::ptr();
 
     // Who faulted?
-    let from_thread_mode = exc_return & 0b1000 != 0;
+    let from_thread_mode = (*task).save().exc_return & 0b1000 != 0;
     // What did they do? MemManage status is in bits 7:0 of the Configurable
     // Fault Status Register.
     let mmfsr = Mmfsr::from_bits_truncate(scb.cfsr.read() as u8);
@@ -944,19 +964,53 @@ unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
 
     if from_thread_mode {
         // Build up a FaultInfo record describing what we know.
-        let address = if mmfsr.contains(Mmfsr::MMARVALID) { Some(mmfar) } else { None };
-        let fault = FaultInfo::MemoryAccess {
-            address,
-            source: FaultSource::User,
+        let fault = if mmfsr.contains(Mmfsr::MSTKERR) {
+            // It's up to us to clear fault conditions in MMFSR; we
+            // clear the MSTKERR condition by writing its bit in CFSR.
+            scb.cfsr.write(Mmfsr::MSTKERR.bits as u32);
+
+            // If we have an MSTKERR, we know very little other than the
+            // fact that the user's stack pointer is so trashed that we
+            // can't store through it.  (In particular, we seem to have no
+            // way at getting at our faulted PC.)
+            FaultInfo::StackOverflow {
+                address: (*task).save().psp,
+            }
+        } else {
+            FaultInfo::MemoryAccess {
+                address: if mmfsr.contains(Mmfsr::MMARVALID) {
+                    Some(mmfar)
+                } else {
+                    None
+                },
+                source: FaultSource::User,
+            }
         };
+
+        // We are now going to force a fault on our current task and directly
+        // switch to a task to run.  (It may be tempting to use PendSV here,
+        // but that won't work on ARMv8-M in the presence of MPU faults on
+        // PSP:  even with PendSV pending, ARMv8-M will generate a MUNSTKERR
+        // when returning from an exception with a PSP that generates an MPU
+        // fault!)
         with_task_table(|tasks| {
             let idx = (task as usize - tasks.as_ptr() as usize)
                 / core::mem::size_of::<task::Task>();
-            // Ignore the scheduling hint -- we aren't able to forward it to the
-            // PendSV routine anyway.
-            let _ = task::force_fault(tasks, idx, fault);
+
+            let next = match task::force_fault(tasks, idx, fault) {
+                task::NextTask::Specific(i) => i,
+                task::NextTask::Other => task::select(idx, tasks),
+                task::NextTask::Same => idx,
+            };
+
+            if next == idx {
+                panic!("attempt to return to Task #{} after fault", idx);
+            }
+
+            let next = &mut tasks[next];
+            apply_memory_protection(next);
+            set_current_task(next);
         });
-        pend_context_switch_from_isr();
     } else {
         // Uh. This fault originates from the kernel. Let's try to make the
         // panic as clear as possible.

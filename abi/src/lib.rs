@@ -352,8 +352,8 @@ impl From<SchedState> for TaskState {
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
-    /// `source` `User`), or from checks on kernel syscall arguments (`source`
-    /// `Kernel`).
+    /// `source` `User`), from overflowing a stack, or from checks on kernel
+    /// syscall arguments (`source` `Kernel`).
     MemoryAccess {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
@@ -362,6 +362,9 @@ pub enum FaultInfo {
         /// Origin of the fault.
         source: FaultSource,
     },
+    /// A task has overflowed its stack. We can always determine the bad
+    /// stack address, but we can't determine the PC
+    StackOverflow { address: u32 },
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
     SyscallUsage(UsageError),
