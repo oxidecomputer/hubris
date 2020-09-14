@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../userlib", features = ["log-itm"]}
-cortex-m = "0.6.2"
+cortex-m = "0.6.3"
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 

@@ -45,13 +45,6 @@ members = [
 default-members = []
 resolver = "2"
 
-[patch.crates-io]
-#
-# Until https://github.com/rust-embedded/cortex-m/pull/227 is pulled into
-# a cortex-m release, we ned to pull from the Oxide branch with the fix.
-#
-cortex-m = { git = "https://github.com/oxidecomputer/cortex-m.git", branch = "itm-reserved-bits" }
-
 [profile.release]
 codegen-units = 1 # better optimizations
 debug = true # symbols are nice and they don't increase the size on Flash

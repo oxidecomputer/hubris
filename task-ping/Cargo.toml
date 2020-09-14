@@ -14,7 +14,7 @@ target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cortex-m = "0.6.2"
+cortex-m = "0.6.3"
 userlib = {path = "../userlib"}
 drv-user-leds-api = {path = "../drv/user-leds-api"}
 
