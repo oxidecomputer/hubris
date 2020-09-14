@@ -15,7 +15,7 @@ target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
 # suppress default features to avoid including panic message collection, to
 # ensure the idle task remains tiny.
 userlib = {path = "../userlib", default-features = false}
-cortex-m = { version = "0.6.2", features = ["inline-asm"] }
+cortex-m = { version = "0.6.3", features = ["inline-asm"] }
 
 [features]
 default = ["standalone"]

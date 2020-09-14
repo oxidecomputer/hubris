@@ -15,7 +15,7 @@ target = "thumbv8m.main-none-eabihf"
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.1.0"
-cortex-m = "0.6.2"
+cortex-m = "0.6.3"
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]
