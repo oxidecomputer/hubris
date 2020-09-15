@@ -28,7 +28,7 @@ jobs:
             target: thumbv7em-none-eabihf
 
           - os: ubuntu-latest
-            deps: sudo apt-get install binutils-arm-none-eabi
+            deps: sudo apt-get install binutils-arm-none-eabi libudev-dev
           - os: windows-latest
             deps: |
               If (-Not (Test-Path "$env:USERPROFILE\scoop\shims")) {
@@ -48,6 +48,13 @@ jobs:
     steps:
       # check out our code
       - uses: actions/checkout@v2
+      - name: Update submodule
+        env:
+          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
+          SSH_PUBKEY_FOR_SUBMODULE: ${{secrets.SSH_PUBKEY_FOR_SUBMODULE}}
+        run: |
+            mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
+        shell: bash
 
       # install rust toolchain
       - uses: actions-rs/toolchain@v1
