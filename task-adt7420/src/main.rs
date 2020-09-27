@@ -47,6 +47,57 @@ fn validate(i2c: &I2c) -> bool {
     }
 }
 
+// Roll on const generics!
+struct TempBufferBySecond {
+    last: Option<usize>,
+    values: [f32; 3600],
+}
+
+struct TempBufferByMinute {
+    last: Option<usize>,
+    values: [f32; 4320],
+}
+
+#[no_mangle]
+static mut TEMPS_BYSECOND: TempBufferBySecond = TempBufferBySecond {
+    last: None,
+    values: [0.0; 3600]
+};
+
+#[no_mangle]
+static mut TEMPS_BYMINUTE: TempBufferByMinute = TempBufferByMinute {
+    last: None,
+    values: [0.0; 4320]
+};
+
+fn store_temp_byminute(val: f32) {
+    let mut temps = unsafe { &mut TEMPS_BYMINUTE };
+
+    let index = match temps.last {
+        None => 0,
+        Some(val) => (val + 1) % temps.values.len(),
+    };
+
+    temps.values[index] = val;
+    temps.last = Some(index);
+}
+
+fn store_temp_bysecond(val: f32) {
+    let mut temps = unsafe { &mut TEMPS_BYSECOND };
+
+    let index = match temps.last {
+        None => 0,
+        Some(val) => (val + 1) % temps.values.len(),
+    };
+
+    temps.values[index] = val;
+    temps.last = Some(index);
+
+    if index % 60 == 0 {
+        store_temp_byminute(val);
+    }
+}
+
 //
 // Converts a tuple of two u8s (an MSB and an LSB) comprising a 13-bit value
 // into a signed, floating point Celsius temperature value.  (This has been
@@ -73,8 +124,15 @@ fn read_temp(i2c: &I2c) {
     match i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
         Ok(buf) => {
             let temp = convert_temp13((buf[0], buf[1]));
+
+            store_temp_bysecond(temp);
+
             let f = convert_fahrenheit(temp);
-            sys_log!("adt7420: temp is {} degrees C, {} degrees F", temp, f);
+
+            // Avoid default formatting to save a bunch of text and stack
+            sys_log!("adt7420: temp is {}.{:03} degrees C, {}.{:03} degrees F",
+                temp as i32, (((temp + 0.0005) * 1000.0) as i32) % 1000,
+                f as i32, (((f + 0.0005) * 1000.0) as i32) % 1000);
         }
         Err(err) => {
             sys_log!("adt7420: failed to read temp: {:?}", err);

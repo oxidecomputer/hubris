@@ -107,7 +107,7 @@ path = "../task-adt7420"
 name = "task-adt7420"
 features = ["h7b3", "itm"]
 priority = 3
-requires = {flash = 36864, ram = 8192}
+requires = {flash = 8192, ram = 32768 }
 start = true
 
 [tasks.idle]
