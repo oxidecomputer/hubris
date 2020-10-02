@@ -483,7 +483,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 
     unsafe {
-        const ENABLE: u32 = 0b001;
+        const ENABLE: u32 = 0b000;
         const PRIVDEFENA: u32 = 0b100;
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
         // From the ARMv8m MPU manual
@@ -570,7 +570,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         &*cortex_m::peripheral::MPU::ptr()
     };
 
-    const ENABLE: u32 = 0b001;
+    const ENABLE: u32 = 0b000;
     const PRIVDEFENA: u32 = 0b100;
     // Safety: this has no memory safety implications. The worst it can do is
     // cause us to fault, which is safe. The register API doesn't know this.
@@ -804,6 +804,7 @@ unsafe extern "C" fn pendsv_entry() {
     });
 }
 
+
 #[allow(non_snake_case)]
 #[no_mangle]
 pub unsafe extern "C" fn DefaultHandler() {
@@ -834,6 +835,7 @@ pub unsafe extern "C" fn DefaultHandler() {
         // 15=SysTick is handled above by its own handler
 
         x if x > 16 => {
+
             // Hardware interrupt
             let irq_num = exception_num - 16;
             let switch = with_task_table(|tasks| {

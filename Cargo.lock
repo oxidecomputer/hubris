@@ -238,6 +238,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-escalate"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [

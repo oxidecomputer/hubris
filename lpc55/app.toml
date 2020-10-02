@@ -18,8 +18,8 @@ read = true
 execute = true
 
 [outputs.ram]
-address = 0x20000000
-size = 114688
+address = 0x20004000
+size = 98304
 read = true
 write = true
 execute = true
@@ -106,11 +106,12 @@ requires = {flash = 8192, ram = 1024}
 uses = ["iocon"]
 start = true
 
-[tasks.spam]
-path = "../task-spam2"
-name = "task-spam"
+[tasks.escalate]
+path = "../drv/lpc55-escalate"
+name = "drv-lpc55-escalate"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 32768, ram = 4096}
+start = true
 
 [peripherals.syscon]
 address = 0x40000000
@@ -143,3 +144,4 @@ size = 4096
 [peripherals.flexcomm8]
 address = 0x4009F000
 size = 4096
+

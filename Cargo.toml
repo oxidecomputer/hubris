@@ -35,6 +35,7 @@ members = [
     "drv/lpc55-usart",
     "drv/lpc55-i2c",
     "drv/lpc55-spi",
+    "drv/lpc55-escalate",
 
     "drv/user-leds",
     "drv/user-leds-api",
