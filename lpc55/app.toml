@@ -6,7 +6,7 @@ board = "lpcxpresso55s69"
 path = "../lpc55"
 name = "lpc55"
 requires = {flash = 65536, ram = 4096}
-features = ["semihosting"]
+features = ["itm"]
 
 [supervisor]
 notification = 1
@@ -22,7 +22,7 @@ address = 0x20000000
 size = 114688
 read = true
 write = true
-execute = true
+execute = false
 
 [tasks.jefe]
 path = "../task-jefe"
@@ -30,7 +30,7 @@ name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 4096}
 start = true
-features = ["semihosting"]
+features = ["itm"]
 
 [tasks.idle]
 path = "../task-idle"
