@@ -365,6 +365,19 @@ pub enum FaultInfo {
     /// A task has overflowed its stack. We can always determine the bad
     /// stack address, but we can't determine the PC
     StackOverflow { address: u32 },
+    /// A task has induced a bus error
+    BusError {
+        address: Option<u32>,
+        source: FaultSource,
+    },
+    /// Divide-by-zero
+    DivideByZero,
+    /// Attempt to execute non-executable memory
+    IllegalText,
+    /// Execution of an illegal instruction
+    IllegalInstruction,
+    /// Other invalid operation, with 32-bit code
+    InvalidOperation(u32),
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
     SyscallUsage(UsageError),
