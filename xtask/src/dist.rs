@@ -122,6 +122,13 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     // from here on need not trigger a clean
     std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
 
+    let id = toml
+        .tasks
+        .get_index_of("log")
+        .expect("must have a log task");
+
+    let hubris_log_task_id = id.to_string();
+
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
 
@@ -138,8 +145,6 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         )
         .context(format!("failed to generate linker script for {}", name))?;
 
-        fs::copy("task-link.x", "target/link.x")?;
-
         build(
             &toml.target,
             &toml.board,
@@ -150,6 +155,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             verbose,
             &task_names,
             &toml.secure,
+            &hubris_log_task_id,
+            true,
         )
         .context(format!("failed to build {}", name))?;
 
@@ -185,9 +192,6 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     generate_kernel_linker_script("memory.x", &kern_memory, &descriptor_text);
 
-    // this one was for the tasks, but we don't want to use it for the kernel
-    fs::remove_file("target/link.x")?;
-
     // Build the kernel.
     build(
         &toml.target,
@@ -199,6 +203,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         verbose,
         "",
         &toml.secure,
+        &hubris_log_task_id,
+        false,
     )?;
     let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -450,6 +456,8 @@ fn build(
     verbose: bool,
     task_names: &str,
     secure: &Option<bool>,
+    hubris_log_task_id: &str,
+    include_defmt: bool,
 ) -> Result<()> {
     println!("building path {}", path.display());
 
@@ -493,14 +501,21 @@ fn build(
         "RUSTFLAGS",
         &format!(
             "-C link-arg=-Tlink.x \
-        -L {} \
-        -C link-arg=-z -C link-arg=common-page-size=0x20 \
-        -C link-arg=-z -C link-arg=max-page-size=0x20",
+            {} \
+            -L {} \
+            -C link-arg=-z -C link-arg=common-page-size=0x20 \
+            -C link-arg=-z -C link-arg=max-page-size=0x20",
+            if include_defmt {
+                "-C link-arg=-Tdefmt.x"
+            } else {
+                ""
+            },
             canonical_cargo_out_dir.display()
         ),
     );
 
     cmd.env("HUBRIS_TASKS", task_names);
+    cmd.env("HUBRIS_LOG_TASK_ID", hubris_log_task_id);
     cmd.env("HUBRIS_BOARD", board_name);
 
     if let Some(s) = secure {
@@ -659,7 +674,7 @@ fn make_descriptors(
         }
 
         if power_of_two_required && !task.requires["ram"].is_power_of_two() {
-            panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
+            panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["ram"]);
         }
 
         // Regions are referenced by index into the table we just generated.

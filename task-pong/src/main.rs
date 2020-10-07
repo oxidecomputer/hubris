@@ -5,6 +5,8 @@ use userlib::*;
 
 #[export_name = "main"]
 pub fn main() -> ! {
+    defmt::debug!("Pong task starting!");
+
     const TIMER_NOTIFICATION: u32 = 1;
     const INTERVAL: u64 = 500;
 
@@ -20,10 +22,12 @@ pub fn main() -> ! {
         let msginfo = sys_recv_open(&mut msg, TIMER_NOTIFICATION);
 
         if msginfo.sender != TaskId::KERNEL {
+            defmt::debug!("PONG!");
             // We'll just assume this is a ping message and reply.
             sys_reply(msginfo.sender, response, &[]);
             response += 1;
         } else {
+            defmt::debug!("toggling leds");
             // This is a notification message. We've only got one notification
             // enabled, so we know full well which it is without looking.
             dl += INTERVAL;

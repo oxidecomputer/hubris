@@ -1,0 +1,3 @@
+# Log
+
+A central logging service for Hubris.

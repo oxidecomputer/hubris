@@ -1,0 +1,31 @@
+:toc:
+
+= Logging in hubris
+
+Logging is a common task in many systems, and we've built out some support
+for it in Hubris! Like many things, this comes in the form of a task,
+creatively named `task-log`.
+
+== Using logging
+
+We are using the `defmt` library to do logs. It works like this:
+
+1. You call a macro like `defmt::debug!("put this in the logs")`.
+2. The userlib library has the neccesary support code to send this
+   to the `log` task.
+3. The log task will a save a ring buffer of logs, and will also send the
+   logs out over ITM for external capture.
+
+Right now, `defmt`'s binary encoding of log messages is unstable, and so it
+also embeds a copy of its own version into the binary as well, so that the
+tooling can verify that you're using the same version on the host side.
+
+== Log wire format
+
+The log task will send out messages over ITM. Currently, the messages are
+in this format:
+
+* `[0x01, 0xde]`, a magic number to start off our log frame
+* A two byte, big endian id of the task that created the log line
+* A two byte, big endian length of the rest of the message
+* The rest of the message, which is currently a defmt log frame

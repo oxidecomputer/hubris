@@ -5,10 +5,22 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [features]
-default = ["panic-messages"]
+default = [
+    "panic-messages",
+    "defmt-trace",
+]
+
 panic-messages = []
+log = []
 log-itm = []
 log-semihosting = []
+
+defmt-default = []
+defmt-trace = []
+defmt-debug = []
+defmt-info = []
+defmt-warn = []
+defmt-error = []
 
 [dependencies]
 abi = {path = "../abi"}
@@ -16,6 +28,7 @@ serde = { version = "1.0.114", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
+defmt = "0.1.0"
 
 #
 # In order to use macros as discriminants in enums that make use of derive

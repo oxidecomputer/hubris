@@ -3,7 +3,7 @@
 
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
-use cortex_m_semihosting::hprintln;
+use defmt;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
@@ -16,7 +16,7 @@ const I2C: Task = Task::i2c_driver;
 fn main() -> ! {
     let addr: &[u8] = &[0x0];
     let i2c = TaskId::for_index_and_gen(I2C as usize, Generation::default());
-    hprintln!("Starting to spam!").ok();
+    defmt::debug!("Starting to spam!");
     loop {
         let mut recv: [u8; 4] = [0; 4];
         let a: &mut [u8] = &mut recv;
@@ -25,15 +25,15 @@ fn main() -> ! {
         let (code, _) =
             sys_send(i2c, 1, &[0x1a], &mut [], &[Lease::from(addr)]);
         if code != 0 {
-            hprintln!("Got error code{}", code).ok();
+            defmt::error!("Got error code: {:u32}", code);
         } else {
-            hprintln!("Success").ok();
+            defmt::debug!("Success");
         }
         let (code, _) = sys_send(i2c, 2, &[0x1a], &mut [], &[Lease::from(a)]);
         if code != 0 {
-            hprintln!("Got error code{}", code).ok();
+            defmt::error!("Got error code: {:u32}", code);
         } else {
-            hprintln!("Got buffer {:x?}", recv).ok();
+            defmt::debug!("Success");
         }
     }
 }

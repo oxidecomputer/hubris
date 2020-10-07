@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -38,6 +38,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(task_file, "}}").unwrap();
     writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
+        .unwrap();
+
+    println!("cargo:rustc-link-search={}", out.display());
+    // Only re-run the build script when task-link.x is changed,
+    // instead of when any part of the source code changes.
+    println!("cargo:rerun-if-changed=task-link.x");
+
+    let log_task_id =
+        env::var("HUBRIS_LOG_TASK_ID").unwrap_or(String::from("0"));
+
+    let link_script_template = fs::read_to_string("../task-link.x")?
+        .replace("HUBRIS_LOG_TASK_ID", &log_task_id);
+
+    File::create(out.join("link.x"))
+        .unwrap()
+        .write_all(link_script_template.as_bytes())
         .unwrap();
 
     Ok(())

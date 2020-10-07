@@ -1,0 +1,29 @@
+[package]
+name = "task-log"
+version = "0.1.0"
+authors = ["Steve Klabnik <steve.klabnik@oxide.computer>"]
+edition = "2018"
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[dependencies]
+userlib = {path = "../userlib"}
+cortex-m = "0.6.3"
+zerocopy = "0.3.0"
+cortex-m-semihosting = "0.3.5"
+byteorder = { version = "1.3.4", default-features = false }
+
+[features]
+default = [
+    "standalone",
+]
+standalone = []
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-log"
+test = false
+bench = false

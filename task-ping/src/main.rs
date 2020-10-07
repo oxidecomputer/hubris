@@ -44,7 +44,11 @@ fn main() -> ! {
     let faultme = [nullread, divzero];
 
     let mut response = [0; 16];
+
+    defmt::debug!("Ping task starting!");
+
     loop {
+        defmt::debug!("Ping!");
         uart_send(b"Ping!\r\n");
 
         let (code, _len) =
@@ -53,6 +57,8 @@ fn main() -> ! {
         if code % FAULT_EVERY != 0 {
             continue;
         }
+
+        defmt::error!("SOMEONE SET UP US THE BOMB");
 
         let op = (code / FAULT_EVERY) as usize % faultme.len();
         faultme[op]();

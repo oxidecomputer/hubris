@@ -3,7 +3,6 @@
 
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
-use cortex_m_semihosting::hprintln;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
@@ -15,7 +14,7 @@ const SPI: Task = Task::spi_driver;
 #[export_name = "main"]
 fn main() -> ! {
     let spi = TaskId::for_index_and_gen(SPI as usize, Generation::default());
-    hprintln!("Waiting to receive SPI data").ok();
+    defmt::debug!("Waiting to receive SPI data");
     loop {
         let mut recv: [u8; 4] = [0; 4];
         let b: &mut [u8] = &mut recv;
@@ -34,9 +33,9 @@ fn main() -> ! {
         let (code, _) =
             sys_send(spi, op, &[], &mut [], &[Lease::from(a), Lease::from(b)]);
         if code != 0 {
-            hprintln!("Got error code {}", code).ok();
+            defmt::debug!("Got error code {:u32}", code);
         } else {
-            hprintln!("Got buffer {:x?}", recv).ok();
+            defmt::debug!("Got buffer {:[u8; 5]}", recv);
         }
     }
 }

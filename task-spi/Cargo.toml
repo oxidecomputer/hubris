@@ -7,17 +7,28 @@ edition = "2018"
 [dependencies]
 # suppress default features to avoid including panic message collection, to
 # ensure the spi task remains tiny.
-userlib = {path = "../userlib", default-features = false}
+userlib = {path = "../userlib", default-features = false, features = ["log"]}
 cortex-m-semihosting = "0.3.5"
 zerocopy = "0.3.0"
 cfg-if = "0.1.10"
+lpc55-pac = "0.1.0"
+defmt = "0.1.0"
 
 [build-dependencies]
 build-util = {path = "../build-util"}
 
 [features]
-default = ["standalone"]
+default = [
+    "standalone",
+    "defmt-trace",
+]
 standalone = []
+defmt-default = []
+defmt-trace = []
+defmt-debug = []
+defmt-info = []
+defmt-warn = []
+defmt-error = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

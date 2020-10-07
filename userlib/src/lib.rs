@@ -34,6 +34,9 @@ use core::marker::PhantomData;
 pub mod hl;
 pub mod kipc;
 
+#[cfg(feature = "log")]
+mod logging;
+
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Lease<'a> {
@@ -920,3 +923,9 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
 // When building a single task outside the context of an application, there will
 // be exactly one "task" in the enum, called `anonymous`.
 include!(concat!(env!("OUT_DIR"), "/tasks.rs"));
+
+/// For now, we are not using defmt's timestamp functionality.
+#[defmt::timestamp]
+fn timestamp() -> u64 {
+    0
+}

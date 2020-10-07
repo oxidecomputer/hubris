@@ -72,17 +72,25 @@ start = true
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
-features = ["uart"]
+features = ["uart", "defmt-trace"]
 priority = 4
-requires = {flash = 8192, ram = 512}
+requires = {flash = 8192, ram = 4096}
 stacksize = 512
+start = true
+
+[tasks.log]
+path = "../task-log"
+name = "task-log"
+priority = 3
+requires = {flash = 32768, ram = 4096}
 start = true
 
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
+features = ["defmt-trace"]
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 8192, ram = 4096}
 start = true
 
 [tasks.idle]
