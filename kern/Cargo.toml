@@ -4,13 +4,6 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
-
 [features]
 default = ["klog-itm"]
 klog-semihosting = ["cortex-m-semihosting"]
@@ -26,6 +19,10 @@ cortex-m = "0.6.3"
 cortex-m-semihosting = { version = "0.3.5", optional = true }
 serde = { version = "1.0.114", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
 
 [build-dependencies]
 build-util = {path = "../build-util"}

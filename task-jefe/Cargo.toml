@@ -4,13 +4,6 @@ version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
-
 [dependencies]
 abi = {path = "../abi"}
 userlib = {path = "../userlib"}
@@ -23,6 +16,10 @@ default = ["standalone"]
 standalone = ["itm"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

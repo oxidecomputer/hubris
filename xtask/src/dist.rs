@@ -1,17 +1,18 @@
 use std::collections::{BTreeMap, HashMap};
-use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use anyhow::{bail, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 
 use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
 
-pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
+pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
     drop(cfg_contents);
@@ -64,17 +65,23 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     let mut entry_points = HashMap::<_, _>::default();
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
+        generate_task_linker_script(
+            "memory.x",
+            &task_memory[name],
+            Some(&task_toml.sections),
+        );
+
+        fs::copy("task-link.x", "target/link.x")?;
+
         build(
             &toml.target,
             &toml.board,
             &src_dir.join(&task_toml.path),
             &task_toml.name,
             &task_toml.features,
-            &task_memory[name],
-            Some(&task_toml.sections),
             out.join(name),
             verbose,
-            &[("HUBRIS_TASKS", &task_names), ("HUBRIS_TASK_SELF", name)],
+            &task_names,
         )?;
         let ep = load_elf(&out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
@@ -95,6 +102,11 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     }
     let descriptor_text = descriptor_text.join("\n");
 
+    generate_kernel_linker_script("memory.x", &kern_memory, &descriptor_text);
+
+    // this one was for the tasks, but we don't want to use it for the kernel
+    fs::remove_file("target/link.x")?;
+
     // Build the kernel.
     build(
         &toml.target,
@@ -102,11 +114,9 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
         &src_dir.join(&toml.kernel.path),
         &toml.kernel.name,
         &toml.kernel.features,
-        &kern_memory,
-        None,
         out.join("kernel"),
         verbose,
-        &[("HUBRIS_DESCRIPTOR", &descriptor_text)],
+        "",
     )?;
     let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -207,18 +217,87 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn generate_task_linker_script(
+    name: &str,
+    map: &IndexMap<String, Range<u32>>,
+    sections: Option<&IndexMap<String, String>>,
+) {
+    // Put the linker script somewhere the linker can find it
+    let mut linkscr =
+        File::create(Path::new(&format!("target/{}", name))).unwrap();
+
+    writeln!(linkscr, "MEMORY\n{{").unwrap();
+    for (name, range) in map {
+        let start = range.start;
+        let end = range.end;
+        let name = name.to_ascii_uppercase();
+        writeln!(
+            linkscr,
+            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            name,
+            start,
+            end - start
+        )
+        .unwrap();
+    }
+    write!(linkscr, "}}").unwrap();
+
+    // The task may have defined additional section-to-memory mappings.
+    if let Some(map) = sections {
+        writeln!(linkscr, "SECTIONS {{").unwrap();
+        for (section, memory) in map {
+            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section).unwrap();
+            writeln!(linkscr, "    *(.{} .{}.*);", section, section).unwrap();
+            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
+                .unwrap();
+        }
+        writeln!(linkscr, "}} INSERT BEFORE .got").unwrap();
+    }
+}
+
+fn generate_kernel_linker_script(
+    name: &str,
+    map: &IndexMap<String, Range<u32>>,
+    descriptor: &str,
+) {
+    // Put the linker script somewhere the linker can find it
+    let mut linkscr =
+        File::create(Path::new(&format!("target/{}", name))).unwrap();
+
+    writeln!(linkscr, "MEMORY\n{{").unwrap();
+    for (name, range) in map {
+        let start = range.start;
+        let end = range.end;
+        let name = name.to_ascii_uppercase();
+        writeln!(
+            linkscr,
+            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            name,
+            start,
+            end - start
+        )
+        .unwrap();
+    }
+    writeln!(linkscr, "}}").unwrap();
+    writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
+    writeln!(linkscr, "SECTIONS {{").unwrap();
+    writeln!(linkscr, "  .hubris_app_table : AT(__erodata) {{").unwrap();
+    writeln!(linkscr, "    hubris_app_table = .;").unwrap();
+    writeln!(linkscr, "{}", descriptor).unwrap();
+    writeln!(linkscr, "  }} > FLASH").unwrap();
+    writeln!(linkscr, "}} INSERT AFTER .data").unwrap();
+}
+
 fn build(
     target: &str,
     board_name: &str,
     path: &Path,
     name: &str,
     features: &[String],
-    alloc: &IndexMap<String, Range<u32>>,
-    sections: Option<&IndexMap<String, String>>,
     dest: PathBuf,
     verbose: bool,
-    meta: &[(&str, &str)],
-) -> Result<(), Box<dyn Error>> {
+    task_names: &str,
+) -> Result<()> {
     println!("building path {}", path.display());
 
     // NOTE: current_dir's docs suggest that you should use canonicalize for
@@ -230,13 +309,12 @@ fn build(
     // are not including a path in the binary name, so everything is peachy. If
     // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
-    cmd.arg("build")
+    cmd.arg("rustc")
         .arg("--release")
         .arg("--no-default-features")
         .arg("--target")
-        .arg(target)
-        .arg("--bin")
-        .arg(name);
+        .arg(target);
+
     if verbose {
         cmd.arg("-v");
     }
@@ -245,28 +323,39 @@ fn build(
         cmd.arg(features.join(","));
     }
 
+    let mut cargo_out = cargo_output_dir(target, path)?;
+
+    // the target dir for each project is set to the same dir, but it ends up
+    // looking something like:
+    //
+    // foo/bar/../target
+    // foo/baz/../target
+    //
+    // these resolve to the same dirs but since their text changes, this causes
+    // rebuilds. by canonicalizing it, you get foo/target for every one.
+    let canonical_cargo_out_dir = fs::canonicalize(&cargo_out)?;
+
     cmd.current_dir(path);
     cmd.env(
         "RUSTFLAGS",
-        "-C link-arg=-Tlink.x \
-                          -C link-arg=-z -C link-arg=common-page-size=0x20 \
-                          -C link-arg=-z -C link-arg=max-page-size=0x20",
+        &format!(
+            "-C link-arg=-Tlink.x \
+        -L {} \
+        -C link-arg=-z -C link-arg=common-page-size=0x20 \
+        -C link-arg=-z -C link-arg=max-page-size=0x20",
+            canonical_cargo_out_dir.display()
+        ),
     );
-    cmd.env("HUBRIS_PKG_MAP", serde_json::to_string(&alloc)?);
-    if let Some(sect) = sections {
-        cmd.env("HUBRIS_ADD_SECTIONS", serde_json::to_string(sect)?);
-    }
-    for (key, val) in meta {
-        cmd.env(key, val);
-    }
+
+    cmd.env("HUBRIS_TASKS", task_names);
+
     cmd.env("HUBRIS_BOARD", board_name);
 
     let status = cmd.status()?;
     if !status.success() {
-        return Err("command failed, see output for details".into());
+        bail!("command failed, see output for details");
     }
 
-    let mut cargo_out = cargo_output_dir(target, path)?;
     cargo_out.push(target);
     cargo_out.push("release");
     cargo_out.push(name);
@@ -280,7 +369,7 @@ fn build(
 fn allocate(
     free: &mut IndexMap<String, Range<u32>>,
     needs: &IndexMap<String, u32>,
-) -> Result<IndexMap<String, Range<u32>>, Box<dyn Error>> {
+) -> Result<IndexMap<String, Range<u32>>> {
     let mut taken = IndexMap::new();
     for (name, need) in needs {
         let need = if need.is_power_of_two() {
@@ -293,26 +382,24 @@ fn allocate(
         if let Some(range) = free.get_mut(name) {
             let base = (range.start + need_mask) & !need_mask;
             if base >= range.end || need > range.end - base {
-                return Err(format!(
+                bail!(
                     "out of {}: can't allocate {} more after base {:x}",
-                    name, need, base
+                    name,
+                    need,
+                    base
                 )
-                .into());
             }
             let end = base + need;
             taken.insert(name.clone(), base..end);
             range.start = end;
         } else {
-            return Err(format!("unknown output memory {}", name).into());
+            bail!("unknown output memory {}", name);
         }
     }
     Ok(taken)
 }
 
-fn cargo_output_dir(
-    target: &str,
-    path: &Path,
-) -> Result<PathBuf, Box<dyn Error>> {
+fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
     //
@@ -327,7 +414,7 @@ fn cargo_output_dir(
 
     let output = cmd.output()?;
     if !output.status.success() {
-        return Err("command failed, see output for details".into());
+        bail!("command failed, see output for details");
     }
 
     let meta: serde_json::Value = serde_json::from_slice(&output.stdout)?;
@@ -351,7 +438,7 @@ fn make_descriptors(
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
-) -> Result<Vec<u32>, Box<dyn Error>> {
+) -> Result<Vec<u32>> {
     // Generate the three record sections concurrently, using three separate
     // vecs that we'll later concatenate.
     let mut regions = vec![];
@@ -538,7 +625,7 @@ fn make_descriptors(
 fn load_srec(
     input: &Path,
     output: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32, Box<dyn Error>> {
+) -> Result<u32> {
     let srec_text = std::fs::read_to_string(input)?;
     for record in srec::reader::read_records(&srec_text) {
         let record = record?;
@@ -548,13 +635,12 @@ fn load_srec(
                 let range =
                     data.address.0..data.address.0 + data.data.len() as u32;
                 if let Some(overlap) = output.range(range.clone()).next() {
-                    return Err(format!(
+                    bail!(
                         "{}: record address range {:x?} overlaps {:x}",
                         input.display(),
                         range,
                         overlap.0
                     )
-                    .into());
                 }
                 output.insert(
                     data.address.0,
@@ -575,7 +661,7 @@ fn load_srec(
 fn load_elf(
     input: &Path,
     output: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32, Box<dyn Error>> {
+) -> Result<u32> {
     use goblin::container::Container;
     use goblin::elf::program_header::PT_LOAD;
 
@@ -583,10 +669,10 @@ fn load_elf(
     let elf = goblin::elf::Elf::parse(&file_image)?;
 
     if elf.header.container()? != Container::Little {
-        return Err("where did you get a big-endian image?".into());
+        bail!("where did you get a big-endian image?");
     }
     if elf.header.e_machine != goblin::elf::header::EM_ARM {
-        return Err("this is not an ARM file".into());
+        bail!("this is not an ARM file");
     }
 
     // Good enough.
@@ -605,13 +691,12 @@ fn load_elf(
         // Check for address overlap
         let range = addr..addr + size as u32;
         if let Some(overlap) = output.range(range.clone()).next() {
-            return Err(format!(
+            bail!(
                 "{}: record address range {:x?} overlaps {:x}",
                 input.display(),
                 range,
                 overlap.0
-            )
-            .into());
+            );
         }
         output.insert(
             addr,
@@ -639,7 +724,7 @@ struct Archive {
 impl Archive {
     /// Creates a new build archive that will, when finished, be placed at
     /// `dest`.
-    fn new(dest: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+    fn new(dest: impl AsRef<Path>) -> Result<Self> {
         let final_path = PathBuf::from(dest.as_ref());
 
         let mut tmp_path = final_path.clone();
@@ -662,7 +747,7 @@ impl Archive {
         &mut self,
         src_path: impl AsRef<Path>,
         zip_path: impl AsRef<Path>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let mut input = File::open(src_path)?;
         self.inner
             .start_file_from_path(zip_path.as_ref(), self.opts)?;
@@ -675,7 +760,7 @@ impl Archive {
         &mut self,
         zip_path: impl AsRef<Path>,
         contents: impl AsRef<str>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         self.inner
             .start_file_from_path(zip_path.as_ref(), self.opts)?;
         self.inner.write_all(contents.as_ref().as_bytes())?;
@@ -686,7 +771,7 @@ impl Archive {
     ///
     /// If you drop an `Archive` without calling this, it will leave a temporary
     /// file rather than creating the final archive.
-    fn finish(self) -> Result<(), Box<dyn Error>> {
+    fn finish(self) -> Result<()> {
         let Self {
             tmp_path,
             final_path,
@@ -705,12 +790,12 @@ impl Archive {
 ///
 /// - A `String` containing the git commit hash.
 /// - A `bool` indicating whether the repository has uncommitted changes.
-fn get_git_status() -> Result<(String, bool), Box<dyn Error>> {
+fn get_git_status() -> Result<(String, bool)> {
     let mut cmd = Command::new("git");
     cmd.arg("rev-parse").arg("HEAD");
     let out = cmd.output()?;
     if !out.status.success() {
-        return Err("git rev-parse failed".into());
+        bail!("git rev-parse failed");
     }
     let rev = std::str::from_utf8(&out.stdout)?.trim().to_string();
 
@@ -725,7 +810,7 @@ fn write_srec(
     sections: &BTreeMap<u32, LoadSegment>,
     kentry: u32,
     out: &Path,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let mut srec_out = vec![];
     srec_out.push(srec::Record::S0("hubris".to_string()));
     for (&base, sec) in sections {
@@ -762,7 +847,7 @@ fn objcopy_translate_format(
     src: &Path,
     out_format: &str,
     dest: &Path,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let mut cmd = Command::new("arm-none-eabi-objcopy");
     cmd.arg("-I")
         .arg(in_format)
@@ -773,7 +858,7 @@ fn objcopy_translate_format(
 
     let status = cmd.status()?;
     if !status.success() {
-        return Err("objcopy failed, see output for details".into());
+        bail!("objcopy failed, see output for details");
     }
     Ok(())
 }

@@ -52,7 +52,7 @@ enum Op {
 const SYSCON: Task = Task::syscon_driver;
 
 #[cfg(feature = "standalone")]
-const SYSCON: Task = SELF;
+const SYSCON: Task = Task::anonymous;
 
 #[repr(u32)]
 enum ResponseCode {

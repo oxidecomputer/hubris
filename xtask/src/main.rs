@@ -1,13 +1,13 @@
-use std::env;
-use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use anyhow::Result;
+use structopt::StructOpt;
 
 use serde::Deserialize;
-use structopt::StructOpt;
 
 use indexmap::IndexMap;
 
-mod build;
+mod check;
 mod dist;
 mod gdb;
 
@@ -36,9 +36,22 @@ enum Xtask {
         gdb_cfg: PathBuf,
     },
 
-    /// builds a sub-project
-    Build,
+    /// Runs `cargo check` on a specific task
+    Check {
+        /// the target to build for, uses [package.metadata.build.target] if not passed
+        #[structopt(long)]
+        target: Option<String>,
+
+        /// the package you're trying to build, uses current directory if not passed
+        #[structopt(short)]
+        package: Option<String>,
+
+        /// check all packages, not only one
+        #[structopt(long)]
+        all: bool,
+    },
 }
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Config {
@@ -115,7 +128,7 @@ struct LoadSegment {
     data: Vec<u8>,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let xtask = Xtask::from_args();
 
     match xtask {
@@ -126,35 +139,54 @@ fn main() -> Result<(), Box<dyn Error>> {
             dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
         }
-        Xtask::Build => {
-            let path = env::current_dir()?;
-            let manifest_path = path.join("Cargo.toml");
-            let target = get_target(&manifest_path)?;
+        Xtask::Check {
+            package,
+            target,
+            all,
+        } => {
+            if !all {
+                check::run(package, target)?;
+            } else {
+                let packages = [
+                    "abi",
+                    "drv-lpc55-gpio",
+                    "drv-lpc55-i2c",
+                    "drv-lpc55-rng",
+                    "drv-lpc55-spi",
+                    "drv-lpc55-syscon-api",
+                    "drv-lpc55-syscon",
+                    "drv-lpc55-usart",
+                    "drv-stm32f4-rcc",
+                    "drv-stm32f4-usart",
+                    "drv-stm32h7-gpio-api",
+                    "drv-stm32h7-gpio",
+                    "drv-stm32h7-rcc",
+                    "drv-stm32h7-usart",
+                    "drv-user-leds-api",
+                    "drv-user-leds",
+                    "kern",
+                    "task-idle",
+                    "task-jefe",
+                    "task-ping",
+                    "task-pong",
+                    "task-spam",
+                    "task-spi",
+                    "task-template",
+                    "userlib",
+                    "demo",
+                    "demo-stm32h7",
+                    "lpc55",
+                ];
 
-            build::run(&path, &target)?;
+                for package in &packages {
+                    check::run(
+                        Some(package.to_string()),
+                        Some("thumbv7em-none-eabihf".to_string()),
+                    )?;
+                }
+            }
         }
     }
 
     Ok(())
-}
-
-fn get_target(manifest_path: &Path) -> Result<String, Box<dyn Error>> {
-    let contents = std::fs::read(manifest_path)?;
-    let toml: toml::Value = toml::from_slice(&contents)?;
-
-    // someday, try blocks will be stable...
-    let target = (|| {
-        Some(
-            toml.get("package")?
-                .get("metadata")?
-                .get("build")?
-                .get("target")?
-                .as_str()?,
-        )
-    })();
-
-    match target {
-        Some(target) => Ok(target.to_string()),
-        None => Err(String::from("Could not find target, please set [package.metadata.build.target] in Cargo.toml").into()),
-    }
 }

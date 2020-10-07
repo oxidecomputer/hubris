@@ -6,7 +6,8 @@ name = "demo-stm32h7"
 version = "0.1.0"
 
 [features]
-default = ["itm"]
+default = ["itm", "standalone"]
+standalone = ["h743"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 h743 = ["stm32h7/stm32h743"]

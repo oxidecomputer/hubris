@@ -1,10 +1,9 @@
-use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::Config;
 
-pub fn run(cfg: &Path, gdb_cfg: &Path) -> Result<(), Box<dyn Error>> {
+pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
     ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
 
     let cfg_contents = std::fs::read(&cfg)?;
@@ -27,7 +26,7 @@ pub fn run(cfg: &Path, gdb_cfg: &Path) -> Result<(), Box<dyn Error>> {
 
     let status = cmd.status()?;
     if !status.success() {
-        return Err("command failed, see output for details".into());
+        anyhow::bail!("command failed, see output for details");
     }
 
     Ok(())
