@@ -23,7 +23,7 @@ const RCC: Task = Task::rcc_driver;
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
-const RCC: Task = SELF;
+const RCC: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const GPIO: Task = Task::gpio_driver;
@@ -31,7 +31,7 @@ const GPIO: Task = Task::gpio_driver;
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
-const GPIO: Task = SELF;
+const GPIO: Task = Task::anonymous;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {

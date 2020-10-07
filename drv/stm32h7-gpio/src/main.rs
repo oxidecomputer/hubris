@@ -142,7 +142,7 @@ const RCC: Task = Task::rcc_driver;
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
-const RCC: Task = SELF;
+const RCC: Task = Task::anonymous;
 
 #[export_name = "main"]
 fn main() -> ! {

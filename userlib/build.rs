@@ -16,22 +16,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!()
     }
 
-    // Put the linker script somewhere the linker can find it
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    File::create(out.join("link.x"))
-        .unwrap()
-        .write_all(include_bytes!("link.x"))
+    println!("cargo:rerun-if-env-changed=HUBRIS_TASKS");
+    let mut task_enum = vec![];
+    let task_count;
+    if let Ok(task_names) = env::var("HUBRIS_TASKS") {
+        println!("HUBRIS_TASKS = {}", task_names);
+        for (i, name) in task_names.split(",").enumerate() {
+            task_enum.push(format!("    {} = {},", name, i));
+        }
+        task_count = task_names.split(",").count();
+    } else {
+        task_enum.push("    anonymous = 0,".to_string());
+        task_count = 1;
+    }
+    let mut task_file = File::create(out.join("tasks.rs")).unwrap();
+    writeln!(task_file, "#[allow(non_camel_case_types)]").unwrap();
+    writeln!(task_file, "pub enum Task {{").unwrap();
+    for line in task_enum {
+        writeln!(task_file, "{}", line).unwrap();
+    }
+    writeln!(task_file, "}}").unwrap();
+    writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
         .unwrap();
-    println!("cargo:rustc-link-search={}", out.display());
-
-    // Only re-run the build script when link.x is changed,
-    // instead of when any part of the source code changes.
-    println!("cargo:rerun-if-changed=link.x");
-
-    // Generate our memory include from the environment if possible.
-    build_util::generate_hubris_task_linker_script();
-
-    build_util::generate_hubris_task_includes();
 
     Ok(())
 }

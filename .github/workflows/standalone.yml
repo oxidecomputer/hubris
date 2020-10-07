@@ -1,0 +1,51 @@
+name: standalone
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: standalone build
+    runs-on: ubuntu-latest
+
+    steps:
+      # check out our code
+      - uses: actions/checkout@v2
+
+      # install rust toolchain
+      - uses: actions-rs/toolchain@v1
+        id: rust-toolchain
+        with:
+          # normally we would specify a toolchain here, but we have a
+          # rust-toolchain file, so that gets picked up automatically.
+          profile: minimal
+          target: thumbv7em-none-eabihf
+          override: true
+
+      # see https://github.com/actions-rs/toolchain/issues/16#issuecomment-626190948
+      - run: rustup target add thumbv8m.main-none-eabihf
+
+      # cache the cargo registry & index
+      - name: Cache cargo outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # cache our build outputs. note that we ignore our dist directory.
+      - name: Cache build outputs
+        uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: build-standalone-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      # install dependencies
+      - run: sudo apt-get install binutils-arm-none-eabi
+
+      # check that everything builds
+      - name: Check standalone build
+        uses: actions-rs/cargo@v1
+        with:
+          command: xtask
+          args: check --all
