@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(asm)]
 
 use userlib::*;
 
@@ -21,12 +22,120 @@ fn stackblow() {
     uart_send(&c[0..1024]);
 }
 
+#[inline(never)]
+fn execdata() {
+    unsafe {
+        let c = [0x4770u16]; // bx lr
+
+        let mut val: u32 = core::mem::transmute(&c);
+
+        // set the Thumb bit
+        val |= 1;
+
+        let f: extern "C" fn(&[u16]) = core::mem::transmute(val);
+        f(&c);
+    }
+}
+
+static BXLR: [u16; 1] = [0x4770u16];
+
+#[inline(never)]
+fn illop() {
+    unsafe {
+        // This should attempt to execute with the Thumb bit clear, so
+        // should trap on an "illegal operation"
+        let val: u32 = core::mem::transmute(&BXLR);
+        asm!("bx r0", in("r0") val);
+    }
+}
+
+#[inline(never)]
+fn nullread() {
+    unsafe {
+        // 0 is not in a region we can access; memory fault
+        (0 as *const u8).read_volatile();
+    }
+}
+
+#[inline(never)]
+fn nullexec() {
+    unsafe {
+        let val: u32 = 1;
+        let f: extern "C" fn() = core::mem::transmute(val);
+        f();
+    }
+}
+
+#[inline(never)]
+fn textoob() {
+    unsafe {
+        // fly off the end of our text -- which will either induce
+        // a memory fault (end of MPU-provided region) or a bus error
+        // (reading never-written flash on some MCUs/boards, e.g. LPC55)
+        let mut val: u32 = core::mem::transmute(&main);
+
+        loop {
+            (val as *const u8).read_volatile();
+            val += 1;
+        }
+    }
+}
+
+#[inline(never)]
+fn stackoob() {
+    let c = [0xdeu8; 16];
+
+    unsafe {
+        // fly off the end of our stack on inducing a memory fault
+        let mut val: u32 = core::mem::transmute(&c);
+
+        loop {
+            (val as *const u8).read_volatile();
+            val += 1;
+        }
+    }
+}
+
+#[inline(never)]
+fn busfault() {
+    unsafe {
+        // unprivileged software reading CSFR is a bus error
+        (0xe000ed28 as *const u32).read_volatile();
+    }
+}
+
+#[inline(never)]
+fn illinst() {
+    unsafe {
+        // an illegal instruction
+        asm!("udf 0xde");
+    }
+}
+
+#[inline(never)]
+fn divzero() {
+    unsafe {
+        // Divide by 0
+        let p: u32 = 123;
+        let q: u32 = 0;
+        let _res: u32;
+        asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let user_leds = get_user_leds();
 
     let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
     const PING_OP: u16 = 1;
+    const FAULT_EVERY: u32 = 100;
+
+    let faultme = [
+        nullread, nullexec, stackblow, textoob, execdata, illop, stackoob,
+        busfault, illinst, divzero,
+    ];
+
     let mut response = [0; 16];
     loop {
         uart_send(b"Ping!\r\n");
@@ -36,17 +145,13 @@ fn main() -> ! {
         let (code, _len) =
             sys_send(peer, PING_OP, b"hello", &mut response, &[]);
 
-        if code % 2000 == 0 {
-            // mwa ha ha ha
-            unsafe {
-                (0 as *const u8).read_volatile();
-            }
+        if code % FAULT_EVERY != 0 {
+            continue;
         }
 
-        if code % 1000 == 0 {
-            // ka-boom
-            stackblow();
-        }
+        let op = (code / FAULT_EVERY) as usize % faultme.len();
+        faultme[op]();
+        sys_panic(b"unexpected non-fault!");
     }
 }
 
