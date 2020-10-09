@@ -898,48 +898,54 @@ pub fn enable_irq(n: u32) {
 }
 
 #[repr(u8)]
+#[allow(dead_code)]
 enum FaultType {
-    MemoryManagement = 10,
-    BusFault = 11,
-    UsageFault = 12,
+    MemoryManagement = 4,
+    BusFault = 5,
+    UsageFault = 6,
 }
 
-macro_rules! configurable_fault {
-    ($fault_type:tt) => ({
-        asm!("
-            @ Read the current task pointer.
-            movw r0, #:lower16:CURRENT_TASK_PTR
-            movt r0, #:upper16:CURRENT_TASK_PTR
-            ldr r0, [r0]
-            mrs r12, PSP
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn configurable_fault() {
+    asm!(
+        "
+        @ Read the current task pointer.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        mrs r12, PSP
 
-            @ Now, to aid those who will debug what induced this fault, save
-            @ our context.  Some of our context (namely, r0-r3, r12, LR, the
-            @ return address and the xPSR) is already on our stack as part of
-            @ the fault; we'll store our remaining registers, plus the PSP
-            @ (now in r12), plus exc_return (now in LR) into the save region
-            @ in the current task.
-            stm r0, {{r4-r12, lr}}
+        @ Now, to aid those who will debug what induced this fault, save our
+        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+        @ address and the xPSR) is already on our stack as part of the fault;
+        @ we'll store our remaining registers, plus the PSP (now in r12), plus
+        @ exc_return (now in LR) into the save region in the current task.
+        stm r0, {{r4-r12, lr}}
 
-            mov r1, {fault_type}
-            bl fault
+        @ Pull our fault number out of IPSR, allowing for program text to be
+        @ shared across all configurable faults.  (Note that the exception
+        @ number is the bottom 9 bits, but we need only look at the bottom 4
+        @ bits as this handler is only used for exceptions with numbers less
+        @ than 16.)
+        mrs r1, IPSR
+        and r1, r1, #0xf
+        bl handle_fault
 
-            @ Our task has changed; reload it.
-            movw r0, #:lower16:CURRENT_TASK_PTR
-            movt r0, #:upper16:CURRENT_TASK_PTR
-            ldr r0, [r0]
+        @ Our task has changed; reload it.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
 
-            @ Restore volatile registers, plus load PSP into r12
-            ldm r0, {{r4-r12, lr}}
-            msr PSP, r12
+        @ Restore volatile registers, plus load PSP into r12
+        ldm r0, {{r4-r12, lr}}
+        msr PSP, r12
 
-            @ resume
-            bx lr
-            ",
-            fault_type = const FaultType::$fault_type as u8,
-            options(noreturn),
-        );
-    });
+        @ resume
+        bx lr
+        ",
+        options(noreturn),
+    );
 }
 
 /// Initial entry point for handling a memory management fault.
@@ -947,7 +953,7 @@ macro_rules! configurable_fault {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn MemoryManagement() {
-    configurable_fault!(MemoryManagement);
+    configurable_fault()
 }
 
 /// Initial entry point for handling a bus fault.
@@ -955,7 +961,7 @@ pub unsafe extern "C" fn MemoryManagement() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn BusFault() {
-    configurable_fault!(BusFault);
+    configurable_fault()
 }
 
 /// Initial entry point for handling a usage fault.
@@ -963,7 +969,7 @@ pub unsafe extern "C" fn BusFault() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn UsageFault() {
-    configurable_fault!(UsageFault);
+    configurable_fault()
 }
 
 bitflags::bitflags! {
@@ -973,11 +979,11 @@ bitflags::bitflags! {
         // Bits 0-7: MMFSR (Memory Management Fault Status Register)
         const IACCVIOL = 1 << 0;
         const DACCVIOL = 1 << 1;
-        // bit 2 of MMFSR reserved
+        // MMFSR bit 2 reserved
         const MUNSTKERR = 1 << 3;
         const MSTKERR = 1 << 4;
         const MLSPERR = 1 << 5;
-        // bit 6 of MMFSR reserved
+        // MMFSR bit 6 reserved
         const MMARVALID = 1 << 7;
 
         // Bits 8-15: BFSR (Bus Fault Status Register)
@@ -987,7 +993,7 @@ bitflags::bitflags! {
         const UNSTKERR = 1 << (8 + 3);
         const STKERR = 1 << (8 + 4);
         const LSPERR = 1 << (8 + 5);
-        // bit 6 of BFSR reserved
+        // BFSR bit 6 reserved
         const BFARVALID = 1 << (8 + 7);
 
         // Bits 16-31: UFSR (Usage Fault Status Register)
@@ -999,18 +1005,17 @@ bitflags::bitflags! {
         #[cfg(armv8m)]
         const STKOF = 1 << (16 + 4);
 
-        // bits 4-7 reserved on ARMv7-M -- 5-7 on ARMv8-M
+        // UFSR bits 4-7 reserved on ARMv7-M -- 5-7 on ARMv8-M
         const UNALIGNED = 1 << (16 + 8);
         const DIVBYZERO = 1 << (16 + 9);
 
-        // bits 10-31 reserved
+        // UFSR bits 10-31 reserved
     }
 }
 
-/// Rust entry point for memory management fault.
-#[allow(non_snake_case)]
+/// Rust entry point for fault.
 #[no_mangle]
-unsafe extern "C" fn fault(
+unsafe extern "C" fn handle_fault(
     task: *mut task::Task,
     fault_type: FaultType,
 ) {
@@ -1024,9 +1029,20 @@ unsafe extern "C" fn fault(
 
     if !from_thread_mode {
         // Uh. This fault originates from the kernel. Let's try to make the
-        // panic as clear as possible.
-        panic!("Fault in kernel mode\nCFSR = 0x{:08x}\nMMFAR = 0x{:08x}",
-            cfsr.bits(), scb.mmfar.read());
+        // panic as clear and as information-rich as possible, while trying
+        // to not consume unnecessary program text (i.e., it isn't worth
+        // conditionally printing MMFAR or BFAR only on a MemoryManagement
+        // fault or a BusFault, respectively).  In that vein, note that we
+        // promote our fault type to a u32 to not pull in the Display trait
+        // for u8.
+        panic!(
+            "Kernel fault {}: \
+            CFSR=0x{:08x}, MMFAR=0x{:08x}, BFAR=0x{:08x}",
+            (fault_type as u8) as u32,
+            cfsr.bits(),
+            scb.mmfar.read(),
+            scb.bfar.read(),
+        );
     }
 
     let fault = match fault_type {
@@ -1053,16 +1069,14 @@ unsafe extern "C" fn fault(
             }
         }
 
-        FaultType::BusFault => {
-            FaultInfo::BusError {
-                address: if cfsr.contains(Cfsr::BFARVALID) {
-                    Some(scb.bfar.read())
-                } else {
-                    None
-                },
-                source: FaultSource::User,
-            }
-        }
+        FaultType::BusFault => FaultInfo::BusError {
+            address: if cfsr.contains(Cfsr::BFARVALID) {
+                Some(scb.bfar.read())
+            } else {
+                None
+            },
+            source: FaultSource::User,
+        },
 
         FaultType::UsageFault => {
             if cfsr.contains(Cfsr::DIVBYZERO) {
