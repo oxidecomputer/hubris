@@ -268,7 +268,9 @@ bitflags::bitflags! {
 }
 
 /// Response code returned by the kernel if the peer died or was restarted.
-pub const DEAD: u32 = !0;
+pub const fn dead_response_code(new_generation: Generation) -> u32 {
+    0xffff_ff00 + new_generation.0 as u32
+}
 
 /// Response code returned by the kernel if a lender has defected.
 pub const DEFECT: u32 = 1;

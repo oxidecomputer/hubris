@@ -675,8 +675,12 @@ pub fn check_task_id_against_table(
     }
 
     // Check for dead task ID.
-    if table[id.index()].generation != id.generation() {
-        return Err(UserError::Recoverable(abi::DEAD, NextTask::Same));
+    let table_generation = table[id.index()].generation;
+
+    if table_generation != id.generation() {
+        let code = abi::dead_response_code(table_generation);
+
+        return Err(UserError::Recoverable(code, NextTask::Same));
     }
 
     return Ok(id.index());
