@@ -118,7 +118,8 @@ fn divzero() {
         // Divide by 0
         let p: u32 = 123;
         let q: u32 = 0;
-        asm!("udiv r0, r1, r0", in("r1") p, in("r0") q);
+        let _res: u32;
+        asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
     }
 }
 
