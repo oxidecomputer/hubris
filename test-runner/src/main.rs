@@ -297,6 +297,58 @@ fn start_test(id: usize) {
     assert_eq!(len, 0);
 }
 
+fn log_fault(t: usize, fault: &FaultInfo) {
+    match fault {
+        FaultInfo::MemoryAccess { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Memory fault at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Memory fault at unknown address", t);
+            }
+        },
+
+        FaultInfo::BusError { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Bus error at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Bus error at unknown address", t);
+            }
+        },
+
+        FaultInfo::StackOverflow { address, .. } => {
+            sys_log!("Task #{} Stack overflow at address 0x{:x}", t, address);
+        }
+
+        FaultInfo::DivideByZero => {
+            sys_log!("Task #{} Divide-by-zero", t);
+        }
+
+        FaultInfo::IllegalText => {
+            sys_log!("Task #{} Illegal text", t);
+        }
+
+        FaultInfo::IllegalInstruction => {
+            sys_log!("Task #{} Illegal instruction", t);
+        }
+
+        FaultInfo::InvalidOperation(details) => {
+            sys_log!("Task #{} Invalid operation: 0x{:08x}", t, details);
+        }
+
+        FaultInfo::SyscallUsage(e) => {
+            sys_log!("Task #{} Bad Syscall Usage {:?}", t, e);
+        }
+
+        FaultInfo::Panic => {
+            sys_log!("Task #{} Panic!", t);
+        }
+    }
+}
+
 /// Scans the kernel's task table looking for a task that has fallen over.
 /// Prints any that are found.
 ///
@@ -307,25 +359,7 @@ fn find_and_report_fault() -> bool {
     for i in 0..NUM_TASKS {
         let s = kipc::read_task_status(i);
         if let TaskState::Faulted { fault, .. } = s {
-            match fault {
-                FaultInfo::MemoryAccess { address, source } => {
-                    match address {
-                        Some(a) => {
-                            sys_log!("Task #{} Memory fault at address 0x{:x} ({:?})", i, a, source);
-                        }
-
-                        None => sys_log!(
-                            "Task #{} Memory fault at unknown address",
-                            i
-                        ),
-                    }
-                }
-                FaultInfo::SyscallUsage(e) => {
-                    sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
-                }
-                FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
-                _ => {}
-            };
+            log_fault(i, &fault);
             if i == TEST_TASK {
                 tester_faulted = true;
                 restart_tester();

@@ -1,0 +1,24 @@
+[package]
+name = "test-suite"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6.3"
+zerocopy = "0.3.0"
+userlib = {path = "../userlib"}
+num-traits = { version = "0.2.12", default-features = false }
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[[bin]]
+name = "test-suite"
+test = false
+bench = false
