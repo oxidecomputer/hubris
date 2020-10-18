@@ -42,10 +42,10 @@ members = [
     "drv/user-leds",
     "drv/user-leds-api",
 
-    "tests-stm32f4",
-    "test-runner",
-    "test-assist",
-    "test-suite",
+    "test/tests-stm32f4",
+    "test/test-runner",
+    "test/test-assist",
+    "test/test-suite",
 ]
 default-members = []
 resolver = "2"

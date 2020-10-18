@@ -27,12 +27,12 @@ features = ["stm32f407", "rt"]
 version = "0.11.0"
 
 [dependencies.kern]
-path = "../kern"
+path = "../../kern"
 default-features = false
 
 # this lets you use `cargo fix`!
 [[bin]]
 name = "task-tests"
-path = "../demo/src"
+path = "../../demo/src"
 test = false
 bench = false
