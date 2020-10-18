@@ -978,16 +978,6 @@ name = "task-tests"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "num-traits",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "tests-stm32f4"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -995,6 +985,36 @@ dependencies = [
  "panic-itm",
  "panic-semihosting",
  "stm32f4",
+]
+
+[[package]]
+name = "test-assist"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "test-runner"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "test-suite"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "num-traits",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
