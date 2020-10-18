@@ -1,12 +1,12 @@
 [package]
-name = "test-assist"
+name = "test-runner"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
+userlib = {path = "../../userlib"}
 cortex-m = "0.6.3"
-userlib = {path = "../userlib"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 
@@ -20,6 +20,6 @@ itm = [ "userlib/log-itm" ]
 target = "thumbv7em-none-eabihf"
 
 [[bin]]
-name = "test-assist"
+name = "test-runner"
 test = false
 bench = false

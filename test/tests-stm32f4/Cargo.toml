@@ -27,7 +27,7 @@ features = ["stm32f407", "rt"]
 version = "0.11.0"
 
 [dependencies.kern]
-path = "../kern"
+path = "../../kern"
 default-features = false
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
