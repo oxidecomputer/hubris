@@ -4,18 +4,8 @@
 #![no_main]
 
 use userlib::*;
+use test_api::*;
 use zerocopy::AsBytes;
-
-#[derive(FromPrimitive)]
-enum Op {
-    JustReply = 0,
-    SendBack = 1,
-    LastReply = 2,
-    Crash = 3,
-    Panic = 4,
-    Store = 5,
-    SendBackWithLoans = 6,
-}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -34,12 +24,12 @@ fn main() -> ! {
                 let (msg, caller) = msg.fixed::<u32, u32>().ok_or(1u32)?;
 
                 match op {
-                    Op::JustReply => {
+                    AssistOp::JustReply => {
                         // To demonstrate comprehension, we perform a some
                         // arithmetic on the message and send it back.
                         caller.reply(!msg);
                     }
-                    Op::SendBack => {
+                    AssistOp::SendBack => {
                         // Immediately resume the caller...
                         let task_id = caller.task_id();
                         caller.reply(*msg);
@@ -54,10 +44,10 @@ fn main() -> ! {
                         );
                         // Ignore the result.
                     }
-                    Op::LastReply => {
+                    AssistOp::LastReply => {
                         caller.reply(last_reply);
                     }
-                    Op::Crash => {
+                    AssistOp::Crash => {
                         caller.reply(0);
                         unsafe {
                             (*msg as *const u8).read_volatile();
@@ -67,15 +57,15 @@ fn main() -> ! {
                             Is memory protection working?!"
                         );
                     }
-                    Op::Panic => {
+                    AssistOp::Panic => {
                         caller.reply(0);
                         panic!("blarg i am dead")
                     }
-                    Op::Store => {
+                    AssistOp::Store => {
                         caller.reply(stored_value);
                         stored_value = *msg;
                     }
-                    Op::SendBackWithLoans => {
+                    AssistOp::SendBackWithLoans => {
                         // Immediately resume the caller...
                         let task_id = caller.task_id();
                         caller.reply(*msg);

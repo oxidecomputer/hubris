@@ -16,6 +16,7 @@
 
 use core::sync::atomic::{AtomicU8, Ordering};
 use userlib::*;
+use test_api::*;
 use zerocopy::AsBytes;
 
 /// Helper macro for building a list of functions with their names.
@@ -54,7 +55,7 @@ fn test_send() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        0,
+        AssistOp::JustReply as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -73,7 +74,7 @@ fn test_recv_reply() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        1,
+        AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -102,7 +103,7 @@ fn test_recv_reply() {
     // Call back to the assistant and request a copy of our most recent reply.
     let (rc, len) = sys_send(
         assist,
-        2,
+        AssistOp::LastReply as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -124,7 +125,7 @@ fn test_fault_reporting() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        3,
+        AssistOp::Crash as u16,
         &bad_address.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -153,8 +154,13 @@ fn test_panic() {
 
     // Ask the assistant to panic.
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 4, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[]
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -183,7 +189,7 @@ fn test_restart() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -198,7 +204,7 @@ fn test_restart() {
     let value2 = 0x1DE_u32;
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value2.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -215,7 +221,7 @@ fn test_restart() {
     // Swap values again.
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -235,8 +241,13 @@ fn test_borrow_info() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[]
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -273,8 +284,13 @@ fn test_borrow_read() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[]
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -309,8 +325,13 @@ fn test_borrow_write() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[]
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -358,7 +379,7 @@ fn test_supervisor_fault_notification() {
         // Request a crash
         let (rc, len) = sys_send(
             assist,
-            4,
+            AssistOp::Panic as u16,
             &0u32.to_le_bytes(),
             response.as_bytes_mut(),
             &[],
@@ -460,21 +481,11 @@ fn restart_assistant() {
 fn read_runner_notifications() -> u32 {
     let runner = TaskId::for_index_and_gen(0, Generation::default());
     let mut response = 0u32;
-    let (rc, len) = sys_send(runner, 0, &[], response.as_bytes_mut(), &[]);
+    let op = RunnerOp::ReadAndClearNotes as u16;
+    let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
-}
-
-/// Test protocol used by the runner to feed us instructions.
-#[derive(FromPrimitive)]
-enum Op {
-    /// Get the number of test cases (`() -> usize`).
-    GetCaseCount = 1,
-    /// Get the name of a case (`usize -> [u8]`).
-    GetCaseName = 2,
-    /// Run a case, replying before it starts (`usize -> ()`).
-    RunCase = 3,
 }
 
 /// Actual entry point.
@@ -507,12 +518,12 @@ fn main() -> ! {
             &mut buffer,
             |op, msg| -> Result<(), u32> {
                 match op {
-                    Op::GetCaseCount => {
+                    SuiteOp::GetCaseCount => {
                         let (_, caller) =
                             msg.fixed::<(), usize>().ok_or(2u32)?;
                         caller.reply(TESTS.len());
                     }
-                    Op::GetCaseName => {
+                    SuiteOp::GetCaseName => {
                         let (&idx, caller) =
                             msg.fixed::<usize, [u8; 64]>().ok_or(2u32)?;
                         let mut name_buf = [b' '; 64];
@@ -522,7 +533,7 @@ fn main() -> ! {
                             .copy_from_slice(&name.as_bytes()[..name_len]);
                         caller.reply(name_buf);
                     }
-                    Op::RunCase => {
+                    SuiteOp::RunCase => {
                         let (&idx, caller) =
                             msg.fixed::<usize, ()>().ok_or(2u32)?;
                         let caller_tid = caller.task_id();
@@ -530,9 +541,11 @@ fn main() -> ! {
 
                         TESTS[idx].1();
 
+                        let op = RunnerOp::TestComplete as u16;
+
                         // Call back with status.
                         let (rc, len) =
-                            sys_send(caller_tid, 0xFFFF, &[], &mut [], &[]);
+                            sys_send(caller_tid, op, &[], &mut [], &[]);
                         assert_eq!(rc, 0);
                         assert_eq!(len, 0);
                     }

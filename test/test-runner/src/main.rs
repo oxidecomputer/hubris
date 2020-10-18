@@ -82,6 +82,7 @@
 
 use core::sync::atomic::{AtomicU8, Ordering};
 use userlib::*;
+use test_api::*;
 use zerocopy::AsBytes;
 
 /// Helper macro for producing output on stimulus port 8.
@@ -108,17 +109,6 @@ const TEST_TASK: usize = 1;
 /// that the testsuite won't get restarted any other way, so our number should
 /// not become wrong.
 static TEST_GEN: AtomicU8 = AtomicU8::new(0);
-
-/// Operations we expose when we're playing receiver.
-#[derive(FromPrimitive)]
-enum Op {
-    /// Reads out, and clears, the accumulated set of notifications we've
-    /// received (`() -> u32`).
-    ReadAndClearNotes = 0,
-    /// Signals that a test is complete, and that the runner is switching back
-    /// to passive mode (`() -> ()`).
-    TestComplete = 0xFFFF,
-}
 
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;
@@ -193,15 +183,15 @@ fn main() -> ! {
                         }
                     }
                 },
-                |state, op: Op, msg| -> Result<(), u32> {
+                |state, op: RunnerOp, msg| -> Result<(), u32> {
                     match op {
-                        Op::ReadAndClearNotes => {
+                        RunnerOp::ReadAndClearNotes => {
                             let (_, caller) =
                                 msg.fixed::<(), u32>().ok_or(2u32)?;
                             caller.reply(state.received_notes);
                             state.received_notes = 0;
                         }
-                        Op::TestComplete => {
+                        RunnerOp::TestComplete => {
                             let (_, caller) =
                                 msg.fixed::<(), ()>().ok_or(2u32)?;
                             caller.reply(());
@@ -273,7 +263,8 @@ fn tester_task_id() -> TaskId {
 fn get_case_count() -> usize {
     let tid = tester_task_id();
     let mut response = 0;
-    let (rc, len) = sys_send(tid, 1, &[], response.as_bytes_mut(), &[]);
+    let op = SuiteOp::GetCaseCount as u16;
+    let (rc, len) = sys_send(tid, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
@@ -284,7 +275,8 @@ fn get_case_count() -> usize {
 /// with spaces).
 fn get_case_name(id: usize, buf: &mut [u8]) -> &[u8] {
     let tid = tester_task_id();
-    let (rc, len) = sys_send(tid, 2, &id.as_bytes(), buf, &[]);
+    let op = SuiteOp::GetCaseName as u16;
+    let (rc, len) = sys_send(tid, op, &id.as_bytes(), buf, &[]);
     assert_eq!(rc, 0);
     &buf[..len.min(buf.len())]
 }
@@ -292,7 +284,8 @@ fn get_case_name(id: usize, buf: &mut [u8]) -> &[u8] {
 /// Contacts the testsuite to ask to start case `id`.
 fn start_test(id: usize) {
     let tid = tester_task_id();
-    let (rc, len) = sys_send(tid, 3, &id.as_bytes(), &mut [], &[]);
+    let op = SuiteOp::RunCase as u16;
+    let (rc, len) = sys_send(tid, op, &id.as_bytes(), &mut [], &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 0);
 }
