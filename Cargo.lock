@@ -1301,11 +1301,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-api"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
 name = "test-assist"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
  "num-traits",
+ "test-api",
  "userlib",
  "zerocopy",
 ]
@@ -1316,6 +1325,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "num-traits",
+ "test-api",
  "userlib",
  "zerocopy",
 ]
@@ -1326,6 +1336,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "num-traits",
+ "test-api",
  "userlib",
  "zerocopy",
 ]
