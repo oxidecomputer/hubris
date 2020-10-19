@@ -12,6 +12,8 @@ use path_slash::PathBufExt;
 
 use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
 
+use lpc55_support::{crc_image, signed_image};
+
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
@@ -153,6 +155,34 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         "ihex",
         &out.join("combined.ihex"),
     )?;
+    objcopy_translate_format(
+        "srec",
+        &out.join("combined.srec"),
+        "binary",
+        &out.join("combined.bin"),
+    )?;
+
+    if let Some(signing) = toml.sign_method.as_ref() {
+        if signing.method == "crc" {
+            crc_image::update_crc(
+                &out.join("combined.bin"),
+                &out.join("combined_crc.bin"),
+            )?;
+        } else if signing.method == "secure_boot" {
+            let priv_key = signing.priv_key.as_ref().unwrap();
+            let root_cert = signing.root_cert.as_ref().unwrap();
+            signed_image::sign_image(
+                &out.join("combined.bin"),
+                &src_dir.join(&priv_key),
+                &src_dir.join(&root_cert),
+                &out.join("combined_signed.bin"),
+                &out.join("CMPA.bin"),
+            )?;
+        } else {
+            eprintln!("Invalid sign method {}", signing.method);
+            std::process::exit(1);
+        }
+    }
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
@@ -211,6 +241,21 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     archive.copy(out.join("combined.srec"), img_dir.join("combined.srec"))?;
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
+    archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
+    if let Some(signing) = toml.sign_method.as_ref() {
+        if signing.method == "crc" {
+            archive.copy(
+                out.join("combined_crc.bin"),
+                img_dir.join("combined_crc.bin"),
+            )?;
+        } else if signing.method == "secure_boot" {
+            archive.copy(
+                out.join("combined_signed.bin"),
+                img_dir.join("combined_signed.bin"),
+            )?;
+            archive.copy(out.join("CMPA.bin"), img_dir.join("CMPA.bin"))?;
+        }
+    }
 
     archive.finish()?;
 

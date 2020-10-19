@@ -58,12 +58,21 @@ struct Config {
     name: String,
     target: String,
     board: String,
+    sign_method: Option<Signing>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     peripherals: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Signing {
+    method: String,
+    priv_key: Option<PathBuf>,
+    root_cert: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
