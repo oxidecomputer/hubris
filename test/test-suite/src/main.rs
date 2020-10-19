@@ -34,7 +34,16 @@ macro_rules! test_cases {
 test_cases! {
     test_send,
     test_recv_reply,
-    test_fault_reporting,
+    test_fault_badmem,
+    test_fault_stackoverflow,
+    test_fault_execdata,
+    test_fault_illop,
+    test_fault_nullexec,
+    test_fault_textoob,
+    test_fault_stackoob,
+    test_fault_buserror,
+    test_fault_illinst,
+    test_fault_divzero,
     test_panic,
     test_restart,
     test_borrow_info,
@@ -113,20 +122,17 @@ fn test_recv_reply() {
     assert_eq!(response, reply_token);
 }
 
-/// Tests that a fault in a task causes a state change into the `Faulted` state.
-/// Specifically, this tests a memory fault, which ensures that the address
-/// reporting is correct, and that the MPU is on.
-fn test_fault_reporting() {
+/// Helper routine to send a message to the assistant telling it to fault,
+/// and then verifying that the fault caused a state change into the `Faulted`
+/// state, returning the actual fault info.
+fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     let assist = assist_task_id();
 
-    // Ask the assistant to dereference a bogus address, which will crash it if
-    // the MPU is on.
-    let bad_address = 5u32;
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        AssistOp::Crash as u16,
-        &bad_address.to_le_bytes(),
+        op as u16,
+        &arg.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
     );
@@ -136,16 +142,91 @@ fn test_fault_reporting() {
 
     // Ask the kernel to report the assistant's state.
     let status = kipc::read_task_status(ASSIST as usize);
+
+    match status {
+        TaskState::Faulted { fault, original_state } => {
+            assert_eq!(original_state, SchedState::Runnable);
+            fault
+        }
+        _ => {
+            panic!("expected fault");
+        }
+    }
+}
+
+/// Tests a memory fault, which ensures that the address reporting is correct,
+/// and that the MPU is on.
+fn test_fault_badmem() {
+    let bad_address = 5u32;
+    let fault = test_fault(AssistOp::BadMemory, bad_address);
+
+    assert_eq!(fault, FaultInfo::MemoryAccess {
+        address: Some(bad_address),
+        source: FaultSource::User,
+    });
+}
+
+fn test_fault_stackoverflow() {
+    let fault = test_fault(AssistOp::StackOverflow, 0);
+
+    match fault {
+        FaultInfo::StackOverflow { .. } => {}
+        _ => { 
+            panic!("expected StackOverflow; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_execdata() {
+    assert_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
+}
+
+fn test_fault_illop() {
+    let fault = test_fault(AssistOp::IllegalOperation, 0);
+
+    match fault {
+        FaultInfo::InvalidOperation { .. } => {}
+        _ => {
+            panic!("expected InvalidOperation; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_nullexec() {
+    assert_eq!(test_fault(AssistOp::BadExec, 0), FaultInfo::IllegalText);
+}
+
+fn test_fault_textoob() {
+    let fault = test_fault(AssistOp::TextOutOfBounds, 0);
+    panic!("textoob: {:?}", fault);
+}
+
+fn test_fault_stackoob() {
+    let fault = test_fault(AssistOp::StackOutOfBounds, 0);
+    panic!("stackoob: {:?}", fault);
+}
+
+fn test_fault_buserror() {
+    let fault = test_fault(AssistOp::BusError, 0);
+
+    match fault {
+        FaultInfo::BusError { .. } => {}
+        _ => { 
+            panic!("expected BusFault; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_illinst() {
     assert_eq!(
-        status,
-        TaskState::Faulted {
-            fault: FaultInfo::MemoryAccess {
-                address: Some(bad_address),
-                source: FaultSource::User,
-            },
-            original_state: SchedState::Runnable,
-        },
+        test_fault(AssistOp::IllegalInstruction, 0),
+        FaultInfo::IllegalInstruction
     );
+}
+
+/// Tests that division-by-zero results in a DivideByZero fault
+fn test_fault_divzero() {
+    assert_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
 }
 
 /// Tests that a `panic!` in a task is recorded as a fault.

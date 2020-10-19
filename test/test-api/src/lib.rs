@@ -3,15 +3,24 @@
 use userlib::*;
 
 /// Operations that are performed by the test-assist
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug, PartialEq)]
 pub enum AssistOp {
     JustReply = 0,
     SendBack = 1,
     LastReply = 2,
-    Crash = 3,
+    BadMemory = 3,
     Panic = 4,
     Store = 5,
     SendBackWithLoans = 6,
+    DivZero = 7,
+    StackOverflow = 8,
+    ExecData = 9,
+    IllegalOperation = 10,
+    BadExec = 11,
+    TextOutOfBounds = 12,
+    StackOutOfBounds = 13,
+    BusError = 14,
+    IllegalInstruction = 15,
 }
 
 /// Operations that are performed by the test-suite
