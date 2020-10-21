@@ -6,7 +6,7 @@ use userlib::*;
 use zerocopy::AsBytes;
 
 #[cfg(feature = "standalone")]
-const OHNO2: Task = SELF;
+const OHNO2: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const OHNO2: Task = Task::oh_no2;

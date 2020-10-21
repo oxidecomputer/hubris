@@ -324,6 +324,7 @@ fn find_and_report_fault() -> bool {
                     sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
                 }
                 FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
+                _ => {}
             };
             if i == TEST_TASK {
                 tester_faulted = true;

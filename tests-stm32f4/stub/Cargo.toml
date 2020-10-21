@@ -5,6 +5,7 @@ name = "tests-stm32f4"
 version = "0.1.0"
 
 [features]
+default = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 
@@ -23,6 +24,10 @@ version = "0.11.0"
 [dependencies.kern]
 path = "../../kern"
 default-features = false
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
 
 # this lets you use `cargo fix`!
 [[bin]]
