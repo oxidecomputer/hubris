@@ -15,6 +15,10 @@ default = ["standalone"]
 standalone = []
 itm = ["userlib/log-itm"]
 
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]

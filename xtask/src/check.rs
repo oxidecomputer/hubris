@@ -1,5 +1,4 @@
 use std::env;
-use std::path::Path;
 use std::process::Command;
 
 use anyhow::{bail, Result};
@@ -26,21 +25,17 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
         package.unwrap().to_string()
     });
 
-    let target = target.unwrap_or_else(|| {
-        let path = env::current_dir().unwrap();
-        let manifest_path = path.join("Cargo.toml");
-
-        get_target(&manifest_path).unwrap()
-    });
-
     println!("checking: {}", package);
 
     let mut cmd = Command::new("cargo");
     cmd.arg("check");
     cmd.arg("-p");
     cmd.arg(&package);
-    cmd.arg("--target");
-    cmd.arg(target);
+
+    if target.is_some() {
+        cmd.arg("--target");
+        cmd.arg(target.unwrap());
+    }
 
     // this is only actually used for demo-stm32h7 but is harmless to include, so let's do
     // it unconditionally
@@ -53,25 +48,4 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn get_target(manifest_path: &Path) -> Result<String> {
-    let contents = std::fs::read(manifest_path)?;
-    let toml: toml::Value = toml::from_slice(&contents)?;
-
-    // someday, try blocks will be stable...
-    let target = (|| {
-        Some(
-            toml.get("package")?
-                .get("metadata")?
-                .get("build")?
-                .get("target")?
-                .as_str()?,
-        )
-    })();
-
-    match target {
-        Some(target) => Ok(target.to_string()),
-        None => bail!("Could not find target, please set [package.metadata.build.target] in Cargo.toml"),
-    }
 }

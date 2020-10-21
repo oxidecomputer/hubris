@@ -436,7 +436,7 @@ const ASSIST: Task = Task::assist;
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
-const ASSIST: Task = SELF;
+const ASSIST: Task = Task::anonymous;
 
 /// Tracks the current generation of the assistant task as we restart it.
 static ASSIST_GEN: AtomicU8 = AtomicU8::new(0);

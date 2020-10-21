@@ -33,6 +33,10 @@ default-features = false
 [build-dependencies]
 build-util = {path = "../build-util"}
 
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
 # this lets you use `cargo fix`!
 [[bin]]
 name = "demo-stm32h7"
