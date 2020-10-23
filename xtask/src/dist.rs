@@ -25,6 +25,27 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     std::fs::create_dir_all(&out)?;
 
+    let timestamp_file = out.join("timestamp");
+
+    use filetime::FileTime;
+
+    let rebuild = match std::fs::metadata(&timestamp_file) {
+        Ok(timestamp_metadata) => {
+            let timestamp_filetime =
+                FileTime::from_last_modification_time(&timestamp_metadata);
+
+            let metadata = std::fs::metadata(cfg)?;
+            let app_filetime = FileTime::from_last_modification_time(&metadata);
+
+            app_filetime > timestamp_filetime
+        }
+        Err(_) => {
+            println!("no timestamp file found; re-building.");
+
+            true
+        }
+    };
+
     let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
 
@@ -65,6 +86,29 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let task_names = task_names.join(",");
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
+
+    // if we need to rebuild, we should clean everything before we start building
+    if rebuild {
+        println!("app.toml has changed; rebuilding all tasks");
+
+        cargo_clean(&toml.kernel.name)?;
+
+        for name in toml.tasks.keys() {
+            // this feels redundant, don't we already have the name? consider
+            // our supervisor:
+            //
+            // [tasks.jefe]
+            // path = "../task-jefe"
+            // name = "task-jefe"
+            //
+            // the "name" in the key is jefe, but the package name is in
+            // tasks.jefe.name, and that's what we need to give to cargo
+            let task_toml = &toml.tasks[name];
+
+            cargo_clean(&task_toml.name)?;
+        }
+    }
+
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
         generate_task_linker_script(
@@ -258,6 +302,9 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     }
 
     archive.finish()?;
+
+    // update our timestamp file now that we've had a successful build
+    File::create(&timestamp_file)?;
 
     Ok(())
 }
@@ -905,5 +952,21 @@ fn objcopy_translate_format(
     if !status.success() {
         bail!("objcopy failed, see output for details");
     }
+    Ok(())
+}
+
+fn cargo_clean(name: &str) -> Result<()> {
+    println!("cleaning {}", name);
+
+    let mut cmd = Command::new("cargo");
+    cmd.arg("clean");
+    cmd.arg("-p");
+    cmd.arg(name);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
     Ok(())
 }
