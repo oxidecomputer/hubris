@@ -125,10 +125,10 @@ pub struct App {
     /// Should have the value `CURRENT_APP_MAGIC`.
     pub magic: u32,
     /// Number of tasks. This many `TaskDesc` records will immediately follow
-    /// the app header.
+    /// the `RegionDesc` records that follow the app header.
     pub task_count: u32,
     /// Number of memory regions in the address space layout. This many
-    /// `RegionDesc` records will immediately follow the `TaskDesc` array.
+    /// `RegionDesc` records will immediately follow the app header.
     pub region_count: u32,
     /// Number of interrupt response records that will follow the `RegionDesc`
     /// records.
