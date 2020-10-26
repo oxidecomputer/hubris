@@ -2,7 +2,7 @@
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
-name = "task-tests"
+name = "tests-stm32f4"
 version = "0.1.0"
 
 [features]
@@ -32,7 +32,7 @@ default-features = false
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "task-tests"
+name = "tests-stm32f4"
 path = "../../demo/src"
 test = false
 bench = false
