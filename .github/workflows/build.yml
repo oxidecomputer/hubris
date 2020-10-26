@@ -92,6 +92,8 @@ jobs:
 
       # invoke our build
       - uses: actions-rs/cargo@v1
+        env:
+          RUST_BACKTRACE: 1
         with:
           command: xtask
           args: dist ${{ matrix.app_toml}}
