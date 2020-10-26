@@ -4,7 +4,7 @@ board = "stm32f4-discovery"
 
 [kernel]
 path = "../../demo"
-name = "tests-stm32f4"
+name = "demo"
 requires = {flash = 65536, ram = 4096}
 features = ["itm"]
 
