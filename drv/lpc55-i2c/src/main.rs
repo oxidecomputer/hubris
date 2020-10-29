@@ -262,10 +262,10 @@ fn main() -> ! {
                     return Err(ResponseCode::BadArg);
                 }
 
-                // Deny incoming writes if we're already running one. 
-                if transmission.is_some() { 
-                    return Err(ResponseCode::Busy); 
-                } 
+                // Deny incoming writes if we're already running one.
+                if transmission.is_some() {
+                    return Err(ResponseCode::Busy);
+                }
 
                 // stash this away for the interrupt handler
                 *transmission = Some(Transmit {
