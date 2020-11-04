@@ -42,6 +42,7 @@ members = [
     "drv/user-leds-api",
 
     "test/tests-stm32f4",
+    "test/tests-lpc55",
     "test/test-runner",
     "test/test-assist",
     "test/test-suite",
