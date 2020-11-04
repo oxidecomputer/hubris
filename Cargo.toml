@@ -21,8 +21,6 @@ members = [
     "task-idle",
     "task-spam2",
     "task-spi",
-    "task-oh-no",
-    "task-oh-no2",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",

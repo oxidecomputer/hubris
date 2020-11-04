@@ -1222,26 +1222,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-oh_no"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-semihosting",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-oh_no2"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-semihosting",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
