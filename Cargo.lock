@@ -995,6 +995,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-lpc55"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
+
+[[package]]
 name = "tests-stm32f4"
 version = "0.1.0"
 dependencies = [
