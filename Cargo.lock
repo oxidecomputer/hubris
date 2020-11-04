@@ -974,20 +974,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-tests"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "kern",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
- "stm32f4",
-]
-
-[[package]]
 name = "test-api"
 version = "0.1.0"
 dependencies = [
@@ -1026,6 +1012,20 @@ dependencies = [
  "test-api",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "tests-stm32f4"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32f4",
 ]
 
 [[package]]
