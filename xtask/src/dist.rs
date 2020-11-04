@@ -12,6 +12,8 @@ use path_slash::PathBufExt;
 
 use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
 
+use lpc55_support::{crc_image, signed_image};
+
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
@@ -22,6 +24,27 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     out.push("dist");
 
     std::fs::create_dir_all(&out)?;
+
+    let timestamp_file = out.join("timestamp");
+
+    use filetime::FileTime;
+
+    let rebuild = match std::fs::metadata(&timestamp_file) {
+        Ok(timestamp_metadata) => {
+            let timestamp_filetime =
+                FileTime::from_last_modification_time(&timestamp_metadata);
+
+            let metadata = std::fs::metadata(cfg)?;
+            let app_filetime = FileTime::from_last_modification_time(&metadata);
+
+            app_filetime > timestamp_filetime
+        }
+        Err(_) => {
+            println!("no timestamp file found; re-building.");
+
+            true
+        }
+    };
 
     let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
@@ -63,6 +86,29 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let task_names = task_names.join(",");
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
+
+    // if we need to rebuild, we should clean everything before we start building
+    if rebuild {
+        println!("app.toml has changed; rebuilding all tasks");
+
+        cargo_clean(&toml.kernel.name)?;
+
+        for name in toml.tasks.keys() {
+            // this feels redundant, don't we already have the name? consider
+            // our supervisor:
+            //
+            // [tasks.jefe]
+            // path = "../task-jefe"
+            // name = "task-jefe"
+            //
+            // the "name" in the key is jefe, but the package name is in
+            // tasks.jefe.name, and that's what we need to give to cargo
+            let task_toml = &toml.tasks[name];
+
+            cargo_clean(&task_toml.name)?;
+        }
+    }
+
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
         generate_task_linker_script(
@@ -153,6 +199,34 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         "ihex",
         &out.join("combined.ihex"),
     )?;
+    objcopy_translate_format(
+        "srec",
+        &out.join("combined.srec"),
+        "binary",
+        &out.join("combined.bin"),
+    )?;
+
+    if let Some(signing) = toml.sign_method.as_ref() {
+        if signing.method == "crc" {
+            crc_image::update_crc(
+                &out.join("combined.bin"),
+                &out.join("combined_crc.bin"),
+            )?;
+        } else if signing.method == "secure_boot" {
+            let priv_key = signing.priv_key.as_ref().unwrap();
+            let root_cert = signing.root_cert.as_ref().unwrap();
+            signed_image::sign_image(
+                &out.join("combined.bin"),
+                &src_dir.join(&priv_key),
+                &src_dir.join(&root_cert),
+                &out.join("combined_signed.bin"),
+                &out.join("CMPA.bin"),
+            )?;
+        } else {
+            eprintln!("Invalid sign method {}", signing.method);
+            std::process::exit(1);
+        }
+    }
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
@@ -211,8 +285,26 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     archive.copy(out.join("combined.srec"), img_dir.join("combined.srec"))?;
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
+    archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
+    if let Some(signing) = toml.sign_method.as_ref() {
+        if signing.method == "crc" {
+            archive.copy(
+                out.join("combined_crc.bin"),
+                img_dir.join("combined_crc.bin"),
+            )?;
+        } else if signing.method == "secure_boot" {
+            archive.copy(
+                out.join("combined_signed.bin"),
+                img_dir.join("combined_signed.bin"),
+            )?;
+            archive.copy(out.join("CMPA.bin"), img_dir.join("CMPA.bin"))?;
+        }
+    }
 
     archive.finish()?;
+
+    // update our timestamp file now that we've had a successful build
+    File::create(&timestamp_file)?;
 
     Ok(())
 }
@@ -860,5 +952,21 @@ fn objcopy_translate_format(
     if !status.success() {
         bail!("objcopy failed, see output for details");
     }
+    Ok(())
+}
+
+fn cargo_clean(name: &str) -> Result<()> {
+    println!("cleaning {}", name);
+
+    let mut cmd = Command::new("cargo");
+    cmd.arg("clean");
+    cmd.arg("-p");
+    cmd.arg(name);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
     Ok(())
 }

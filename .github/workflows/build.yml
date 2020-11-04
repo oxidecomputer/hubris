@@ -28,20 +28,26 @@ jobs:
             target: thumbv7em-none-eabihf
 
           - os: ubuntu-latest
-            deps: sudo apt-get install binutils-arm-none-eabi
+            deps: sudo apt-get install binutils-arm-none-eabi libudev-dev
           - os: windows-latest
             deps: |
-              If (-Not (Test-Path "$env:USERPROFILE\scoop\apps\gcc-arm-none-eabi\9-2020-q2-update")) { 
-                Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
-                echo ::add-path::$HOME\scoop\shims
-                scoop bucket add extras
-                scoop install gcc-arm-none-eabi@9-2020-q2-update
-              }
-              echo ::add-path::$HOME\scoop\apps\gcc-arm-none-eabi\current\bin
+              Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
+              echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
+              echo "VCPKG_ROOT=$Env:VCPKG_INSTALLATION_ROOT" >> $Env:GITHUB_ENV
+              vcpkg install openssl:x64-windows
+    env:
+      VCPKGRS_DYNAMIC: 1
 
     steps:
       # check out our code
       - uses: actions/checkout@v2
+      - name: Update submodule
+        env:
+          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
+          SSH_PUBKEY_FOR_SUBMODULE: ${{secrets.SSH_PUBKEY_FOR_SUBMODULE}}
+        run: |
+            mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
+        shell: bash
 
       # install rust toolchain
       - uses: actions-rs/toolchain@v1
@@ -53,14 +59,6 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      # cache scoop
-      - name: Cache scoop
-        uses: actions/cache@v2
-        if: runner.os == 'Windows'
-        with:
-          path: ~/scoop
-          key: scoop@9-2020-q2-update
-
       # cache the cargo registry & index
       - name: Cache cargo outputs
         uses: actions/cache@v2
@@ -69,6 +67,15 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache vcpkg 
+        uses: actions/cache@v2
+        with:
+          path: C:\vcpkg\downloads
+          key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
+            ${{ runner.os }}-vcpkg-download-
 
       # cache our build outputs. note that we ignore our dist directory.
       - name: Cache build outputs
@@ -80,10 +87,13 @@ jobs:
           key: ${{ runner.os }}-build-${{ matrix.build }}-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
-      - run: '${{ matrix.deps }}'
+      - name: Install dependencies
+        run: '${{ matrix.deps }}'
 
       # invoke our build
       - uses: actions-rs/cargo@v1
+        env:
+          RUST_BACKTRACE: 1
         with:
           command: xtask
           args: dist ${{ matrix.app_toml}}

@@ -15,6 +15,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Update submodule
+        env:
+          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
+          SSH_PUBKEY_FOR_SUBMODULE: ${{secrets.SSH_PUBKEY_FOR_SUBMODULE}}
+        run: |
+            mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
+        shell: bash
+
       - uses: actions-rs/toolchain@v1
         with:
           # normally we would specify a toolchain here, but we have a
@@ -30,7 +38,7 @@ jobs:
 
       - name: Check for modified files
         id: git-check
-        run: echo ::set-output name=modified::$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)
+        run: echo ::set-output name=modified::$(if git diff-index --ignore-submodules --quiet HEAD --; then echo "false"; else echo "true"; fi)
       - name: Commit changes, if any
         if: steps.git-check.outputs.modified == 'true'
         run: |

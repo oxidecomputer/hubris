@@ -58,12 +58,21 @@ struct Config {
     name: String,
     target: String,
     board: String,
+    sign_method: Option<Signing>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     peripherals: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Signing {
+    method: String,
+    priv_key: Option<PathBuf>,
+    root_cert: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -147,42 +156,37 @@ fn main() -> Result<()> {
             if !all {
                 check::run(package, target)?;
             } else {
-                let packages = [
-                    "abi",
-                    "drv-lpc55-gpio",
-                    "drv-lpc55-i2c",
-                    "drv-lpc55-rng",
-                    "drv-lpc55-spi",
-                    "drv-lpc55-syscon-api",
-                    "drv-lpc55-syscon",
-                    "drv-lpc55-usart",
-                    "drv-stm32f4-rcc",
-                    "drv-stm32f4-usart",
-                    "drv-stm32h7-gpio-api",
-                    "drv-stm32h7-gpio",
-                    "drv-stm32h7-rcc",
-                    "drv-stm32h7-usart",
-                    "drv-user-leds-api",
-                    "drv-user-leds",
-                    "kern",
-                    "task-idle",
-                    "task-jefe",
-                    "task-ping",
-                    "task-pong",
-                    "task-spam",
-                    "task-spi",
-                    "task-template",
-                    "userlib",
-                    "demo",
-                    "demo-stm32h7",
-                    "lpc55",
-                ];
+                use cargo_metadata::MetadataCommand;
 
-                for package in &packages {
-                    check::run(
-                        Some(package.to_string()),
-                        Some("thumbv7em-none-eabihf".to_string()),
-                    )?;
+                let metadata = MetadataCommand::new()
+                    .manifest_path("./Cargo.toml")
+                    .exec()
+                    .unwrap();
+
+                #[derive(Debug, Deserialize)]
+                struct CustomMetadata {
+                    build: Option<BuildMetadata>,
+                }
+
+                #[derive(Debug, Deserialize)]
+                struct BuildMetadata {
+                    target: Option<String>,
+                }
+
+                for id in &metadata.workspace_members {
+                    let package = metadata
+                        .packages
+                        .iter()
+                        .find(|p| &p.id == id)
+                        .unwrap()
+                        .clone();
+
+                    let m: Option<CustomMetadata> =
+                        serde_json::from_value(package.metadata)?;
+
+                    let target = (|| m?.build?.target)();
+
+                    check::run(Some(package.name), target)?;
                 }
             }
         }
