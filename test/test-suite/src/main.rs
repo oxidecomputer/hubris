@@ -46,6 +46,7 @@ test_cases! {
     test_fault_divzero,
     test_panic,
     test_restart,
+    test_restart_taskgen,
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
@@ -312,6 +313,59 @@ fn test_restart() {
 
     // Confirm that the assistant lost our old value and returned to boot state.
     assert_eq!(response, 0);
+}
+
+/// Tests that when our task dies, we get an error code that consists of
+/// the new generation in the lower bits.
+fn test_restart_taskgen() {
+    let assist = assist_task_id();
+
+    // Ask the assistant to panic.
+    let mut response = 0_u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[]
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    // Read status back from the kernel, check it, and bounce the assistant.
+    let status = kipc::read_task_status(ASSIST as usize);
+    assert_eq!(
+        status,
+        TaskState::Faulted {
+            fault: FaultInfo::Panic,
+            original_state: SchedState::Runnable,
+        },
+    );
+    restart_assistant();
+
+    // Now when we make another call with the old task, this should fail
+    // with a hint as to our generation.
+    let payload = 0xDEAD_F00Du32;
+    let mut response = 0_u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBack as u16,
+        &payload.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+
+    assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
+
+    assert_ne!(
+        assist.generation(),
+        Generation::from((rc & 0xff) as u8)
+    );
+
+    assert_eq!(
+        assist_task_id().generation(),
+        Generation::from((rc & 0xff) as u8)
+    );
 }
 
 /// Tests that the basic `borrow_info` mechanics work by soliciting a

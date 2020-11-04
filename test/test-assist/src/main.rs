@@ -16,7 +16,7 @@ fn badread(arg: u32) {
 }
 
 fn panic(_arg: u32) {
-    panic!("blarg i am dead");
+    panic!("wow this blew up, here's my soundcloud");
 }
 
 #[inline(never)]
