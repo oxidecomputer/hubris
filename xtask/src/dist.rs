@@ -91,7 +91,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
 
-        cargo_clean(&toml.kernel.name)?;
+        cargo_clean(&toml.kernel.name, &toml.target)?;
 
         for name in toml.tasks.keys() {
             // this feels redundant, don't we already have the name? consider
@@ -105,7 +105,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             // tasks.jefe.name, and that's what we need to give to cargo
             let task_toml = &toml.tasks[name];
 
-            cargo_clean(&task_toml.name)?;
+            cargo_clean(&task_toml.name, &toml.target)?;
         }
     }
 
@@ -955,13 +955,16 @@ fn objcopy_translate_format(
     Ok(())
 }
 
-fn cargo_clean(name: &str) -> Result<()> {
+fn cargo_clean(name: &str, target: &str) -> Result<()> {
     println!("cleaning {}", name);
 
     let mut cmd = Command::new("cargo");
     cmd.arg("clean");
     cmd.arg("-p");
     cmd.arg(name);
+    cmd.arg("--release");
+    cmd.arg("--target");
+    cmd.arg(target);
 
     let status = cmd.status()?;
     if !status.success() {
