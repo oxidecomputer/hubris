@@ -30,6 +30,6 @@ default-features = false
 # since test builds don't work for cross compilation.
 [[bin]]
 name = "tests-stm32f4"
-path = "../demo/src/main.rs"
+path = "../../demo/src/main.rs"
 test = false
 bench = false
