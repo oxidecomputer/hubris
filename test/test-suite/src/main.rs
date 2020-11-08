@@ -15,8 +15,8 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicU8, Ordering};
-use userlib::*;
 use test_api::*;
+use userlib::*;
 use zerocopy::AsBytes;
 
 /// Helper macro for building a list of functions with their names.
@@ -145,7 +145,10 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     let status = kipc::read_task_status(ASSIST as usize);
 
     match status {
-        TaskState::Faulted { fault, original_state } => {
+        TaskState::Faulted {
+            fault,
+            original_state,
+        } => {
             assert_eq!(original_state, SchedState::Runnable);
             fault
         }
@@ -161,10 +164,13 @@ fn test_fault_badmem() {
     let bad_address = 5u32;
     let fault = test_fault(AssistOp::BadMemory, bad_address);
 
-    assert_eq!(fault, FaultInfo::MemoryAccess {
-        address: Some(bad_address),
-        source: FaultSource::User,
-    });
+    assert_eq!(
+        fault,
+        FaultInfo::MemoryAccess {
+            address: Some(bad_address),
+            source: FaultSource::User,
+        }
+    );
 }
 
 fn test_fault_stackoverflow() {
@@ -172,7 +178,7 @@ fn test_fault_stackoverflow() {
 
     match fault {
         FaultInfo::StackOverflow { .. } => {}
-        _ => { 
+        _ => {
             panic!("expected StackOverflow; found {:?}", fault);
         }
     }
@@ -212,7 +218,7 @@ fn test_fault_buserror() {
 
     match fault {
         FaultInfo::BusError { .. } => {}
-        _ => { 
+        _ => {
             panic!("expected BusFault; found {:?}", fault);
         }
     }
@@ -241,7 +247,7 @@ fn test_panic() {
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
         response.as_bytes_mut(),
-        &[]
+        &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
@@ -327,7 +333,7 @@ fn test_restart_taskgen() {
         AssistOp::Panic as u16,
         &0u32.to_le_bytes(),
         response.as_bytes_mut(),
-        &[]
+        &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
@@ -357,10 +363,7 @@ fn test_restart_taskgen() {
 
     assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
 
-    assert_ne!(
-        assist.generation(),
-        Generation::from((rc & 0xff) as u8)
-    );
+    assert_ne!(assist.generation(), Generation::from((rc & 0xff) as u8));
 
     assert_eq!(
         assist_task_id().generation(),
@@ -381,7 +384,7 @@ fn test_borrow_info() {
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
         response.as_bytes_mut(),
-        &[]
+        &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
@@ -424,7 +427,7 @@ fn test_borrow_read() {
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
         response.as_bytes_mut(),
-        &[]
+        &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
@@ -465,7 +468,7 @@ fn test_borrow_write() {
         AssistOp::SendBackWithLoans as u16,
         &0u32.to_le_bytes(),
         response.as_bytes_mut(),
-        &[]
+        &[],
     );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
