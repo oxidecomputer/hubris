@@ -10,10 +10,6 @@ default = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
 [dependencies]
 cortex-m = "0.6.3"
 cortex-m-rt = "0.6.12"
