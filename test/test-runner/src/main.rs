@@ -80,7 +80,7 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
