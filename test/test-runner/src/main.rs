@@ -80,7 +80,7 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use userlib::*;
 use test_api::*;
 use zerocopy::AsBytes;
@@ -110,11 +110,13 @@ const TEST_TASK: usize = 1;
 /// not become wrong.
 static TEST_GEN: AtomicU8 = AtomicU8::new(0);
 
+static TEST_KICK: AtomicU32 = AtomicU32::new(0);
+static TEST_RUNS: AtomicU32 = AtomicU32::new(0);
+
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;
 
-#[export_name = "main"]
-fn main() -> ! {
+fn test_run() {
     // Get things rolling by restarting the test task. This ensures that it's
     // running, so that we don't depend on the `start` key in `app.toml` for
     // correctness.
@@ -220,10 +222,19 @@ fn main() -> ! {
     } else {
         test_output!("done FAIL");
     }
+}
 
-    // Go idle until reset.
+#[export_name = "main"]
+fn main() -> ! {
     loop {
-        cortex_m::asm::wfi();
+        test_run();
+        TEST_RUNS.fetch_add(1, Ordering::SeqCst);
+
+        while TEST_KICK.load(Ordering::SeqCst) == 0 {
+            continue;
+        }
+
+        TEST_KICK.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
