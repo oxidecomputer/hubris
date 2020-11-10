@@ -81,8 +81,8 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicU8, AtomicU32, Ordering};
-use userlib::*;
 use test_api::*;
+use userlib::*;
 use zerocopy::AsBytes;
 
 /// Helper macro for producing output on stimulus port 8.

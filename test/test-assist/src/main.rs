@@ -4,8 +4,8 @@
 #![no_main]
 #![feature(asm)]
 
-use userlib::*;
 use test_api::*;
+use userlib::*;
 use zerocopy::AsBytes;
 
 #[inline(never)]
