@@ -59,6 +59,7 @@ struct Config {
     target: String,
     board: String,
     sign_method: Option<Signing>,
+    secure: Option<bool>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
