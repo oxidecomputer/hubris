@@ -328,7 +328,7 @@ pub fn reinitialize(task: &mut task::Task) {
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
     // TODO: this assumes floating point is in use.
-    task.save_mut().exc_return = 0xFFFFFFED;
+    task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
 #[cfg(armv7m)]
@@ -654,11 +654,12 @@ pub unsafe extern "C" fn SVCall() {
                                 @ note: now barrier here because exc return
                                 @ serves as barrier
 
-        mov lr, #0xFFFFFFED     @ materialize EXC_RETURN value to
+        mov lr, {exc_return}    @ materialize EXC_RETURN value to
                                 @ return into thread mode, PSP, FP on
 
         bx lr                   @ branch into user mode
         ",
+        exc_return = const EXC_RETURN_CONST as u32,
         options(noreturn),
     )
 }
@@ -1122,3 +1123,6 @@ unsafe extern "C" fn handle_fault(
         set_current_task(next);
     });
 }
+
+// Constants that may change depending on configuration
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));
