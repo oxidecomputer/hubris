@@ -612,7 +612,11 @@ pub unsafe extern "C" fn SVCall() {
     // of an M-series processor you're targeting -- so I've punted on this for
     // the time being.
     asm!("
-        cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
+        mov r0, lr
+        mov r1, #0xFFFFFFF3     @ mask to get mode and SPSEL from EXC_RETURN
+        bic r0, r1
+        cmp r0, #0x8            @ Checking for thread mode and main stack
+                                @ to see if we're coming from inside the kernel
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
         @ the common case is handled by branch-not-taken as it's faster
