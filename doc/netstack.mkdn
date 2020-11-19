@@ -1,0 +1,359 @@
+# Network stack sketch
+
+
+The network stack provides networking abstractions to other parts of the system,
+and manages one or more network interface drivers. It is intended to be more
+reliable than the drivers: should one NIC fail, we should be able to route
+traffic out the other while we're bringing the first back up (or trying to, at
+least).
+
+There are a bunch of moving parts to achieving this. This document looks at some
+possibilities.
+
+## Responsibilities of the network stack
+
+The fundamental job of the network stack is to turn higher-level networking
+operations performed by clients into lower-level operations against particular
+network interfaces, relieving clients from having to _all_ manage these details.
+
+The network stack is responsible for managing any bits of state that are
+per-interface or per-station, rather than per-client, e.g. our MAC and IP
+addresses.
+
+The stack _may_ be responsible for associating port numbers and the like with
+clients. If we fully trusted our clients not to impersonate each other, we might
+be able to leave this a free-for-all; however, (1) I don't trust our clients
+because I'm the one writing some of them, and (2) the need to hook certain
+ports, like DHCP, within the stack itself means the stack has to do at least
+_some_ port filtering.
+
+Finally, it's worth noting that this document is focused on message-oriented or
+datagram protocols. Stream/connection-oriented protocols like TCP might be
+necessary at some point, but we're trying to avoid them. We're assuming that
+management traffic will be based either directly on IP, or on UDP. If an
+application wants to implement a stream-control protocol atop UDP (such as
+HTTP/3) they'll currently have to do it themselves. We can revisit this decision
+if it becomes annoying, of course.
+
+## Pingback pattern
+
+There's an API design pattern that appears a lot in this document, and I wanted
+to pause and give it a name. I call it the *pingback pattern.*
+
+This is used in cases where a higher-priority / more-trusted task needs to send
+a message to a lower-priority / less-trusted task, e.g. when the network stack
+needs to notify a client of traffic arriving. It cannot SEND to the client,
+because that would let the client block the network stack forever, at the
+expense of all other clients.
+
+Instead, the higher-priority task posts an agreed-upon notification bit to the
+lower-priority task. When the lower-priority task notices this (at the next RECV
+with a notification mask that allows it), it responds by SENDing back to the
+higher priority task to see what's up.
+
+This is a workaround for the absence of the *asynchronous send* facility
+described in the initial Hubris report, which I have avoided implementing. It is
+strictly less powerful and strictly more costly, but will get us where we need
+to go today.
+
+I'm referring to this as pingback rather than callback because callback is a
+very overloaded term, and notifications are more like pings than calls.
+
+## Client-to-stack interface
+
+I suggest implementing a *conceptual model* pretty similar to sockets, to reduce
+the amount of code required in clients, provide some insulation against
+malformed client messages, and improve developer familiarity. Sockets aren't the
+only way to achieve some of these aims: we could also provide every client with
+a raw Ethernet VLAN, for instance. But then everyone has to do their own
+Ethernet/IP encapsulation and we waste a bunch of Flash.
+
+So, the network stack agrees to maintain, on behalf of clients, information
+about what traffic they are interested in receiving and what they are capable of
+sending. It also agrees to abstract _some_ protocols, handling encapsulation for
+(at minimum) IP and UDP.
+
+Because of Hubris's static application assumption, we could also eliminate the
+concept of "opening" a socket, and configure all network access at compile time.
+This might be useful, but needs more thought, so I'll leave this out of scope
+for now.
+
+### Interface trust relationship
+
+By using the network, clients implicitly trust the network stack. Even if they
+don't necessarily trust it to faithfully deliver their packets (which, per the
+end-to-end principle, is a good idea), they at least trust it to _return_ when
+they call it.
+
+To prevent inversion, the network stack needs to be higher priority than all its
+clients.
+
+### Event model
+
+When a client is waiting for a packet, we could have them block in RECV from the
+network stack -- but as we saw above, the network stack is never going to SEND
+for trust reasons, so that won't work. Instead, a client waits for a
+notification, and then calls back to collect the packet.
+
+Similarly, when a client wishes to send a packet, outgoing buffer space may not
+be available. They SEND to the network stack, and the network stack could block
+them until space becomes available -- but they may have other things they want
+to do. Instead, the network stack could agree to notify them later, when the
+space becomes available.
+
+Furthermore, most clients are unwilling to wait _forever_ for network activity,
+and may wish to impose a timeout -- so that if a packet isn't received within
+one second, say, it performs a periodic maintenance task and then tries again.
+The standard Hubris timer facility can wake a task from RECV, but can
+deliberately not interrupt SEND.
+
+Taken together, these requirements suggest an _asynchronous_ interface to the
+network stack, based around events and notifications. Events are propagated from
+the stack to clients. Events that can occur in the current design include:
+
+- Packet received that matches a socket.
+- Transmit buffer space freed up.
+- Link status or configuration changed.
+
+Each client can configure the precise notification bits they want to associate
+with each event.
+
+This is essentially a `select`/`epoll`-first architecture.
+
+### Sending a packet
+
+When a client sends a packet, the network stack takes responsibility for that
+packet, allowing the client to recycle its memory. This requires copying it out
+of client RAM.
+
+From the client's perspective, sending a packet results in one of two
+conditions:
+
+- The network stack accepts the packet.
+- The network stack didn't have space available for the packet.
+
+In the latter case, the client can request a notification when space _does_
+become available and try again. Or, the client can drop the packet. An API
+equivalent to POSIX `sendmsg` might enter a loop listening for notifications
+from the network stack, or the previously configured timeout, whichever comes
+first.
+
+### Receiving packets
+
+When a socket is created, a client registers an "incoming data notification
+set" with the network stack. When a packet arrives matching that socket's
+filter, the network stack posts the notification set to the client task.
+
+This means a client can check for incoming data at any time by executing a RECV
+with the previously agreed upon notification bits unmasked. This is sufficient
+for the client to find out that new packets have arrived, but not their
+contents; for that, the client must SEND a request to the network stack, lending
+a buffer where incoming packets should be deposited.
+
+If a client is not multiplexing multiple sources of events, it may also just
+SEND to the network stack asking for new messages; if nothing is available, the
+network stack will say so.
+
+### Learning about configuration changes
+
+A client may register a notification set to be posted if the configuration
+relevant to a socket changes. (For instance, perhaps all links are down, or the
+IP address associated with the interface for a UDP socket has changed due to
+local link conflict.)
+
+If it receives this notification, it can SEND back to the network stack to get
+the config information it cares about.
+
+
+## Stack to driver interface
+
+The stack-to-driver interface is oriented around moving packets into
+driver-controlled DMA queues. Drivers are abstracted as tasks that manage one or
+more Ethernet links, including their low-level configuration and the transport
+of data along them.
+
+### Interface trust relationship
+
+Drivers are less trusted, and lower priority, than the network stack. This means
+the stack cannot SEND directly to the drivers, and must use notifications
+instead.
+
+However, there is a timeliness constraint. When a driver SENDs up to the network
+stack to get data associated with a notification, it becomes insensitive to
+events like interrupts. Depending on the design of the network interface
+hardware, this could cause corruption or data loss. The network stack must
+respond *promptly* to driver requests to avoid this, and drivers implicitly
+trust that the stack will do this faithfully.
+
+### Sending frames to the driver
+
+When the network stack wishes to send a frame, it selects a link to send on, and
+posts a notification to the associated driver.
+
+The driver then SENDs back to retrieve the frame. If the driver's outgoing
+queues are full and the link is slow, this event may be delayed; between the
+network stack's initial notificaton and the call back, the network stack needs
+to either buffer the frame, or decide to say "nevermind" and drop it. In the
+latter case, when the driver calls back, there will be no data to send, and the
+driver will return to its main loop.
+
+### Receiving frames from the driver
+
+I'll assume the driver finds out about incoming frames by hardware interrupt --
+which the kernel translates into a notification posted to the driver.
+
+The driver is expected to scan its status registers (or equivalent) and discover
+the nature of the wakeup, and then SEND immediately to the network stack,
+loaning the new frame.
+
+The network stack is required to _immediately_ decide whether the incoming
+frame, or needs to be dropped. Either way, it REPLYs to the driver, signaling
+that the frame's memory in the DMA queue can safely be reused.
+
+This imposes timeliness restrictions on the network stack, but they are
+necessary because of how NIC hardware usually works: the memory for incoming
+packets is usually managed as a ring buffer, such that a slot must be freed
+before it _or any later slot_ can be reused. We need to evacuate packets from
+that queue as quickly as possible.
+
+### Driver configuration
+
+If the network stack wishes to change or inspect driver configuration, it posts
+a notification to the driver task.
+
+The driver then calls back, either requesting a new configuration, or reporting
+its current configuration.
+
+These operations would be used to, for example, take a link down.
+
+### Other asynchronous events
+
+Links may asynchronously go up or down (perhaps their cables have been
+unplugged). When this occurs, and the driver learns of it, the driver SENDs to
+the stack a message describing the change.
+
+The stack records this message and REPLYs promptly.
+
+### Driver liveness/health monitoring
+
+The network stack monitors the operation of driver tasks. The stack-driver
+interface has some innate signals that can be used for health monitoring:
+
+- If the driver says the link is up, are sent frames being accepted, or backing
+  up?
+- Does the driver respond to configuration requests in a reasonable amount of
+  time?
+- Are the driver's request messages legal in the IPC protocol?
+
+We might additionally want to add a checkin operation specifically for health
+monitoring. Such an operation might work as follows:
+
+- The network stack periodically pokes the driver with a notification.
+- The driver is expected to respond, in a reasonable amount of time, with a
+  checkin message. This message contains a magic cookie received at the _last_
+  checkin (or zero if the driver has just restarted).
+- The stack responds to this with the _next_ magic cookie.
+
+Or something to that effect.
+
+
+## Network stack internals
+
+This is where things get fuzzier, but some aspects of the architecture are
+implied by the descriptions above.
+
+### Copies
+
+In particular, this design is _not_ going out of its way to minimize copies.
+This is a knock-on effect of the decision not to implement full-fledged
+asynchronous sends and borrow-forwarding. If it proves disasterous we can
+revisit it.
+
+We could copy directly from borrow-to-borrow if we _happen_ to, for instance,
+have a driver check in for outgoing packets at a moment when a client is blocked
+trying to send. We could encapsulate the packet directly into driver memory in
+this case. However, because of the desire to multiplex multiple event sources
+(such as timers) in clients, this scenario is not actually possible, because
+clients do not get blocked in send across a network stack RECV.
+
+And so, as a message moves through the network stack, it will be copied _at
+least_ twice. Consider send:
+
+1. Frame copied from network stack incoming DMA queue to network-stack-owned
+   memory, to free up DMA queue slot.
+2. Payload part of frame copied from network-stack-owned memory into client
+   buffer when client checks in next.
+
+I've considered options for avoiding this, but all require kernel changes, so
+I'd like to postpone them until we see a bottleneck here.
+
+### Buffers
+
+So, this means the network stack is managing a pool of buffers. We have several
+options for how to organize this. The main ones I'm considering are:
+
+1. Have a big pool that is first-come, first-serve. This has the problem that
+   chatty low-priority operations can potentially starve out high-priority
+   operations. It does, however, let us conserve RAM by "overcommitting" --
+   having a buffer pool sized on the assumption that not every client is using
+   it at once.
+
+2. Dedicate buffers to each socket, sized by configuration or on creation. This
+   makes the operation of each socket independent, but reserves enough RAM for
+   the maximum buffer depth of every socket at once.
+
+3. Dedicate buffer pools for each task priority level. This preserves the
+   operation of task priorities in the network stack, while allowing some
+   overcommit to save RAM. In this case, tasks within a single priority could
+   starve each other -- though this is already true of CPU time. 
+
+It isn't immediately clear which of these to prefer, though I am inclined to
+start with the _second one_ for ease of implementation, and introduce a shared
+buffer pool if required.
+
+### Sockets
+
+Speaking of sockets, what's a socket? In our case: a socket is a record in the
+network stack describing one of the ways a particular client wants to interact
+with the network.
+
+Sockets probably exist at _at least_ three levels of abstraction: raw Ethernet
+sockets, raw IP sockets, and UDP sockets. In each case, clients need to specify
+the class of traffic they want to send/receive; in the case of a UDP socket,
+this means the local port number, and possibly a specific IP address. The
+network stack maintains this information as a set of routing filters, to map
+incoming Ethernet frames to different clients.
+
+The information associated with a socket is also used to handle encapsulation --
+applying it on transmit, and removing it on receive. Besides making higher-level
+protocols more convenient for clients, this can also ensure that clients only
+send traffic of the kind they originally described.
+
+In addition, each socket stores the following:
+
+- The task ID of the owning task. This includes the generation, so the network
+  stack can notice when a task restarts the next time it checks in, in case
+  cleanup action is required.
+
+- Client-provided notification sets for different network stack events. (These
+  could all be different, could all be zero if the client doesn't care, or could
+  all be the same value if the client treats all events the same.)
+
+- Any statistics or counts we want.
+
+Let's assume any given client's sockets are kept in an array associated with
+that client, and indexed by small dense integers, kinda like file descriptors.
+This lets a client refer to any of its sockets easily, but prevents referring to
+other task's sockets.
+
+Each client is probably allocated a fixed number of sockets at config time. The
+specific details of each socket -- this one is UDP port 123, this one is
+Ethertype 0x1DE0 -- could be configured statically, but could also be provided
+during some sort of "open" operation.
+
+We could also consider configuring mandatory access control for the network --
+preventing some tasks from using it all, restricting others to particular types
+of sockets or ports, etc. This has some of the same benefits as statically
+configuring sockets while leaving the door open for some dynamic behavior, e.g.
+allowing a task to have up to N UDP sockets available on any of the following
+ports, perhaps.
