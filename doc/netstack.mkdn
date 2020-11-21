@@ -118,7 +118,8 @@ the stack to clients. Events that can occur in the current design include:
 Each client can configure the precise notification bits they want to associate
 with each event.
 
-This is essentially a `select`/`epoll`-first architecture.
+To draw a Unix analogy, this is essentially starting with `kqueue` instead of
+with `read`.
 
 ### Sending a packet
 
@@ -357,3 +358,75 @@ of sockets or ports, etc. This has some of the same benefits as statically
 configuring sockets while leaving the door open for some dynamic behavior, e.g.
 allowing a task to have up to N UDP sockets available on any of the following
 ports, perhaps.
+
+
+## Appendix: a straw example
+
+Here is a sketch of a task that sends periodic outgoing packets to some
+address/port PEER from local UDP port 123. Packets are sent once a second, and
+may be delayed by a lack of available outgoing DMA buffers.
+
+Incoming packets are handled immediately (or at least, there's a placeholder for
+doing so).
+
+This program uses different notification bits to distinguish send/recv ready on
+one socket, and the system timer. Other approaches are possible, but requires
+the fewest abstractions. It's deliberately written close to the syscall level.
+
+```rust
+fn main() {
+    let net = find_netstack();
+    
+    const S123_IN: u32 = 1 << 0;
+    const S123_OUT: u32 = 1 << 1;
+    let s123 = net.create_udp_socket(
+        123,  // port
+        S123_IN, // recv ready notification
+        S123_OUT, // send ready notification
+    ).unwrap();
+
+    let mut next_wake_time = now() + Duration::from_secs(1);
+
+    const TIMER: u32 = 1 << 4;
+
+    set_timer(next_wake_time, TIMER);
+    loop {
+        let m = recv();
+        if m.is_notification() {
+            if m.op & TIMER != 0 {
+                // Handle timer firing by trying to send our periodic packet.
+                if net.send_packet_to(s123, "hello", PEER, S123_OUT).is_ok() {
+                    // Packet was able to be sent synchronously.
+                } else {
+                    // We'll get the notification we requested when space is
+                    // open.
+                }
+
+                next_wake_time += Duration::from_secs(1);
+                set_timer(next_wake_time, TIMER);
+            }
+            if m.op & S123_IN != 0 {
+                // A packet has arrived on UDP 123.
+                let mut buffer = [0; 1024];
+                if net.read_packet(s123, &buffer).is_ok() {
+                    // Process packet
+                } else {
+                    // Spurious notification, no packet.
+                }
+            }
+            if m.op & S123_OUT != 0 {
+                // Space has opened up! Try to send our periodic message again.
+                if net.send_packet_to(s123, "hello", PEER, S123_OUT).is_ok() {
+                    // We're good
+                } else {
+                    // Spurious notification, but we have re-registered for
+                    // notification, so keep waiting.
+                }
+            }
+        } else {
+            // someone sent us a message
+            // implement IPC protocol here
+        }
+    }
+}
+```
