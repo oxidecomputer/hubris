@@ -205,12 +205,23 @@ fn test_fault_nullexec() {
 
 fn test_fault_textoob() {
     let fault = test_fault(AssistOp::TextOutOfBounds, 0);
-    panic!("textoob: {:?}", fault);
+
+    match fault {
+        FaultInfo::BusError { .. } | FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
 }
 
 fn test_fault_stackoob() {
     let fault = test_fault(AssistOp::StackOutOfBounds, 0);
-    panic!("stackoob: {:?}", fault);
+    match fault {
+        FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected MemoryAccess; found {:?}", fault);
+        }
+    }
 }
 
 fn test_fault_buserror() {
@@ -362,7 +373,7 @@ fn test_restart_taskgen() {
     );
 
     assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
-
+    assert_eq!(len, 0);
     assert_ne!(assist.generation(), Generation::from((rc & 0xff) as u8));
 
     assert_eq!(
