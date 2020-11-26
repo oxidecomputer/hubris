@@ -128,6 +128,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             out.join(name),
             verbose,
             &task_names,
+            &toml.secure,
         )?;
         let ep = load_elf(&out.join(name), &mut all_output_sections)?;
         entry_points.insert(name.clone(), ep);
@@ -163,6 +164,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         out.join("kernel"),
         verbose,
         "",
+        &toml.secure,
     )?;
     let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -389,6 +391,7 @@ fn build(
     dest: PathBuf,
     verbose: bool,
     task_names: &str,
+    secure: &Option<bool>,
 ) -> Result<()> {
     println!("building path {}", path.display());
 
@@ -442,6 +445,14 @@ fn build(
     cmd.env("HUBRIS_TASKS", task_names);
 
     cmd.env("HUBRIS_BOARD", board_name);
+
+    if let Some(s) = secure {
+        if *s {
+            cmd.env("HUBRIS_SECURE", "1");
+        } else {
+            cmd.env("HUBRIS_SECURE", "0");
+        }
+    }
 
     let status = cmd.status()?;
     if !status.success() {

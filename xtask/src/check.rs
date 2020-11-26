@@ -11,18 +11,11 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
         let toml: toml::Value = toml::from_slice(&contents).unwrap();
 
         // someday, try blocks will be stable...
-        let package = (|| {
-            Some(
-                toml.get("package")
-                    .unwrap()
-                    .get("name")
-                    .unwrap()
-                    .as_str()
-                    .unwrap(),
-            )
-        })();
-
-        package.unwrap().to_string()
+        toml.get("package")
+            .and_then(|v| v.get("name"))
+            .and_then(|v| v.as_str())
+            .expect("Couldn't find [package.name]; pass -p <package> to check a specific package or --all to check all packages")
+            .to_string()
     });
 
     println!("checking: {}", package);

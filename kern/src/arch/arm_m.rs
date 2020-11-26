@@ -333,7 +333,7 @@ pub fn reinitialize(task: &mut task::Task) {
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
     // TODO: this assumes floating point is in use.
-    task.save_mut().exc_return = 0xFFFFFFED;
+    task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
 #[cfg(armv7m)]
@@ -618,7 +618,11 @@ pub unsafe extern "C" fn SVCall() {
     // of an M-series processor you're targeting -- so I've punted on this for
     // the time being.
     asm!("
-        cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
+        mov r0, lr
+        mov r1, #0xFFFFFFF3     @ mask to get mode and SPSEL from EXC_RETURN
+        bic r0, r1
+        cmp r0, #0x8            @ Checking for thread mode and main stack
+                                @ to see if we're coming from inside the kernel
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
         @ the common case is handled by branch-not-taken as it's faster
@@ -656,11 +660,12 @@ pub unsafe extern "C" fn SVCall() {
                                 @ note: now barrier here because exc return
                                 @ serves as barrier
 
-        mov lr, #0xFFFFFFED     @ materialize EXC_RETURN value to
+        mov lr, {exc_return}    @ materialize EXC_RETURN value to
                                 @ return into thread mode, PSP, FP on
 
         bx lr                   @ branch into user mode
         ",
+        exc_return = const EXC_RETURN_CONST as u32,
         options(noreturn),
     )
 }
@@ -1124,3 +1129,6 @@ unsafe extern "C" fn handle_fault(
         set_current_task(next);
     });
 }
+
+// Constants that may change depending on configuration
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));
