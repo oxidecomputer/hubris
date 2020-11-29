@@ -120,6 +120,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         fs::copy("task-link.x", "target/link.x")?;
 
         build(
+            &toml.name,
             &toml.target,
             &toml.board,
             &src_dir.join(&task_toml.path),
@@ -156,6 +157,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     // Build the kernel.
     build(
+        &toml.name,
         &toml.target,
         &toml.board,
         &src_dir.join(&toml.kernel.path),
@@ -383,10 +385,11 @@ fn generate_kernel_linker_script(
 }
 
 fn build(
+    name: &str,
     target: &str,
     board_name: &str,
     path: &Path,
-    name: &str,
+    task_name: &str,
     features: &[String],
     dest: PathBuf,
     verbose: bool,
@@ -443,7 +446,7 @@ fn build(
     );
 
     cmd.env("HUBRIS_TASKS", task_names);
-
+    cmd.env("HUBRIS_NAME", name);
     cmd.env("HUBRIS_BOARD", board_name);
 
     if let Some(s) = secure {
@@ -461,7 +464,7 @@ fn build(
 
     cargo_out.push(target);
     cargo_out.push("release");
-    cargo_out.push(name);
+    cargo_out.push(task_name);
 
     println!("{} -> {}", cargo_out.display(), dest.display());
     std::fs::copy(&cargo_out, dest)?;

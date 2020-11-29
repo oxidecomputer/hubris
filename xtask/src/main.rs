@@ -9,6 +9,7 @@ use indexmap::IndexMap;
 
 mod check;
 mod dist;
+mod flash;
 mod gdb;
 
 #[derive(Debug, StructOpt)]
@@ -20,6 +21,15 @@ enum Xtask {
     /// Builds a collection of cross-compiled binaries at non-overlapping addresses,
     /// and then combines them into a system image with an application descriptor.
     Dist {
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
+    /// Runs `xtask dist` and flashes the image onto an attached target
+    Flash {
         /// Request verbosity from tools we shell out to.
         #[structopt(short)]
         verbose: bool,
@@ -144,6 +154,10 @@ fn main() -> Result<()> {
     match xtask {
         Xtask::Dist { verbose, cfg } => {
             dist::package(verbose, &cfg)?;
+        }
+        Xtask::Flash { verbose, cfg } => {
+            dist::package(verbose, &cfg)?;
+            flash::run(verbose, &cfg)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, &cfg)?;
