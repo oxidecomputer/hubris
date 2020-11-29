@@ -9,11 +9,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut const_file = File::create(out.join("consts.rs")).unwrap();
 
-    // The kernel is used by disjoint images, as captured in the "name"
-    // field of the app.toml (and passed to us via the HUBRIS_NAME environment
-    // variable); it must be rebuilt if/when we change what we're building.
-    println!("cargo:rerun-if-env-changed=HUBRIS_NAME");
-
     println!("cargo:rerun-if-env-changed=HUBRIS_SECURE");
     writeln!(
         const_file,
