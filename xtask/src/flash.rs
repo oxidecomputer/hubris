@@ -11,13 +11,11 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
-    println!("{:?}", toml);
-
     let mut out = PathBuf::from("target");
     out.push(toml.name);
     out.push("dist");
 
-    let (mut flash, mut reset) = match toml.board.as_str() {
+    let (mut flash, reset) = match toml.board.as_str() {
         "lpcxpresso55s69" => {
             let mut flash = Command::new("pyocd");
             flash
@@ -28,14 +26,39 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 .arg("hex")
                 .arg(out.join("combined.ihex"));
 
-            if verbose {
-                flash.arg("-v");
-            }
-
             let mut reset = Command::new("pyocd");
             reset.arg("reset").arg("-t").arg("lpc55s69");
 
-            (flash, reset)
+            if verbose {
+                flash.arg("-v");
+                reset.arg("-v");
+            }
+
+            (flash, Some(reset))
+        }
+        "stm32f4-discovery" | "nucleo-h743zi2" | "stm32h7b3i-dk" => {
+            let cfg = if toml.board == "stm32f4-discovery" {
+                "./demo/openocd.cfg"
+            } else {
+                "./demo-stm32h7/openocd.cfg"
+            };
+
+            let mut flash = Command::new("openocd");
+
+            flash
+                .arg("-f")
+                .arg(cfg)
+                .arg("-c")
+                .arg(format!(
+                    "program {} verify reset",
+                    out.join("combined.srec").to_string_lossy()
+                ))
+                .arg("-c")
+                .arg("sleep 2000")
+                .arg("-c")
+                .arg("exit");
+
+            (flash, None)
         }
         _ => {
             anyhow::bail!("unrecognized board {}", toml.board);
@@ -50,12 +73,14 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
         anyhow::bail!("flash command ({:?}) failed; see output", flash);
     }
 
-    let status = reset
-        .status()
-        .with_context(|| format!("failed to reset ({:?})", reset))?;
+    if let Some(mut reset) = reset {
+        let status = reset
+            .status()
+            .with_context(|| format!("failed to reset ({:?})", reset))?;
 
-    if !status.success() {
-        anyhow::bail!("reset command ({:?}) failed; see output", reset);
+        if !status.success() {
+            anyhow::bail!("reset command ({:?}) failed; see output", reset);
+        }
     }
 
     Ok(())

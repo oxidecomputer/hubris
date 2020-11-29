@@ -11,6 +11,7 @@ mod check;
 mod dist;
 mod flash;
 mod gdb;
+mod test;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -44,6 +45,20 @@ enum Xtask {
 
         /// Path to the gdb configuation script.
         gdb_cfg: PathBuf,
+    },
+
+    /// Runs `xtask dist`, `xtask flash` and then `humility test`
+    Test {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Do not flash a new image; just run `humility test`
+        #[structopt(short)]
+        noflash: bool,
+
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
     },
 
     /// Runs `cargo check` on a specific task
@@ -162,6 +177,14 @@ fn main() -> Result<()> {
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
+        }
+        Xtask::Test { cfg, noflash, verbose } => {
+            if !noflash {
+                dist::package(verbose, &cfg)?;
+                flash::run(verbose, &cfg)?;
+            }
+
+            test::run(verbose, &cfg)?;
         }
         Xtask::Check {
             package,
