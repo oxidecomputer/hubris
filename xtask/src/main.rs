@@ -178,7 +178,11 @@ fn main() -> Result<()> {
             dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
         }
-        Xtask::Test { cfg, noflash, verbose } => {
+        Xtask::Test {
+            cfg,
+            noflash,
+            verbose,
+        } => {
             if !noflash {
                 dist::package(verbose, &cfg)?;
                 flash::run(verbose, &cfg)?;

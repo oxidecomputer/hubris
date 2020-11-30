@@ -1,5 +1,5 @@
-use std::collections::{BTreeMap, HashMap};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::hash::Hasher;
 use std::io::Write;
