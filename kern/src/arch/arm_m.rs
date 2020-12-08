@@ -366,10 +366,9 @@ pub fn apply_memory_protection(task: &task::Task) {
         } else if ratts.contains(app::RegionAttributes::DMA) {
             // Conservative settings for normal memory assuming that DMA might
             // be a problem:
-            // - Outer and inner write-through.
-            // - Read allocate, no write allocate.
+            // - Outer and inner non-cacheable.
             // - Shared.
-            (0b000, 0b110)
+            (0b001, 0b100)
         } else {
             // Aggressive settings for normal memory assume that it is used only
             // by this processor:
