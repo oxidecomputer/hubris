@@ -7,6 +7,21 @@
 //! you probably want `core::sync::atomic::fence` instead. This crate is mostly
 //! intended for ordering `volatile` accesses, which have no defined interaction
 //! with atomics, for better or worse.
+//!
+//! Note that there are two things this crate explicitly does _not_ do:
+//!
+//! 1. **Cache maintenance.** If you're trying to get data written out to main
+//!    memory so that it becomes visible to a DMA-capable peripheral, for
+//!    example, a memory barrier is likely _necessary_ but is almost certainly
+//!    not _sufficient._ Knowing what _is_ sufficient requires system-specific
+//!    knowledge and is out of scope here.
+//!
+//! 2. **Self-modifying code.** The barriers provided by this crate are not
+//!    sufficient to handle cases where you have made changes to the code you're
+//!    executing -- or certain other actions that look similar, such as
+//!    remapping the memory you're executing from, altering its execute or
+//!    no-execute bits, etc. Again, doing this correctly requires more
+//!    system-specific knowledge than this crate can reasonably possess.
 
 #![no_std]
 #![feature(asm)]
