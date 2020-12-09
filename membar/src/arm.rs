@@ -23,7 +23,7 @@ fn dmb() {
     // 1. Something prevents the compiler from reordering memory accesses across
     //    the `asm!` above, in which case we don't need the fence.
     //
-    // 2. Somethin _doesn't,_ in which case the compiler can move accesses
+    // 2. Something _doesn't,_ in which case the compiler can move accesses
     //    _between_ the `asm!` and the fence, and we cannot achieve our desired
     //    semantics and have lost the game.
     //
