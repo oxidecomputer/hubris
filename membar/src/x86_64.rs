@@ -16,8 +16,9 @@ pub fn arch_specific_load_store() {
 #[inline(always)]
 pub fn arch_specific_store_load() {
     unsafe {
-        asm!("mfence", options(nomem, nostack));
+        asm!("mfence", options(nostack));
     }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
 #[inline(always)]

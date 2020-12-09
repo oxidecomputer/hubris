@@ -10,11 +10,25 @@
 #[inline(always)]
 fn dmb() {
     unsafe {
-        asm!(
-            "dmb sy",
-            options(nomem, nostack),
-        );
+        // We have omitted `nomem`, even though this technically does not access
+        // memory, to try to prevent motion of memory accesses across this
+        // instruction. Does this work? Who knows! The current inline asm spec
+        // does not say.
+        asm!("dmb sy", options(nostack, preserves_flags));
     }
+    // This is pretty belt-and-suspenders, and like a real belt and suspenders,
+    // it's an odd combination that looks silly. We have included this compiler
+    // fence out of an abundance of caution, but one of two things must be true:
+    //
+    // 1. Something prevents the compiler from reordering memory accesses across
+    //    the `asm!` above, in which case we don't need the fence.
+    //
+    // 2. Somethin _doesn't,_ in which case the compiler can move accesses
+    //    _between_ the `asm!` and the fence, and we cannot achieve our desired
+    //    semantics and have lost the game.
+    //
+    // Let's hope it's #1 and we can remove the fence.
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
 #[inline(always)]
