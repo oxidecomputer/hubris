@@ -1,16 +1,26 @@
 //! x86-64 barrier operations.
 //!
-//! These are taken from Doug Lea's cookbook for Java implementations here:
-//! http://gee.cs.oswego.edu/dl/jmm/cookbook.html
+//! If anyone finds a concise definitive mapping of SSE2 barrier instructions to
+//! the terminology used in this crate, please link it here. Until then, here is
+//! a list of resources that partially helped if you overlap them just right.
+//!
+//! https://stackoverflow.com/questions/20316124/does-it-make-any-sense-to-use-the-lfence-instruction-on-x86-x86-64-processors
+//! https://stackoverflow.com/questions/27627969/why-is-or-isnt-sfence-lfence-equivalent-to-mfence
 
 #[inline(always)]
 pub fn arch_specific_load_load() {
-    // no-op
+    unsafe {
+        asm!("lfence", options(nostack));
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
 #[inline(always)]
 pub fn arch_specific_load_store() {
-    // no-op
+    unsafe {
+        asm!("lfence", options(nostack));
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
 
 #[inline(always)]
@@ -23,5 +33,8 @@ pub fn arch_specific_store_load() {
 
 #[inline(always)]
 pub fn arch_specific_store_store() {
-    // no-op
+    unsafe {
+        asm!("sfence", options(nostack));
+    }
+    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
 }
