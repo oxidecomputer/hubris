@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use path_slash::PathBufExt;
 
 use anyhow::Context;
 
@@ -45,16 +46,18 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
 
             let mut flash = Command::new("openocd");
 
+            // Note that OpenOCD only deals with slash paths, not native paths
+            // (that is, its file arguments are forward-slashed delimited even
+            // when/where the path separator is a back-slash) -- so we be sure
+            // to always give it a slash path for the `program` argument.
             flash
                 .arg("-f")
                 .arg(cfg)
                 .arg("-c")
                 .arg(format!(
                     "program {} verify reset",
-                    out.join("combined.srec").to_string_lossy()
+                    out.join("combined.srec").to_slash().unwrap()
                 ))
-                .arg("-c")
-                .arg("sleep 2000")
                 .arg("-c")
                 .arg("exit");
 
