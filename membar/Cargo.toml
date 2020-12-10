@@ -1,0 +1,10 @@
+[package]
+name = "membar"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cfg-if = "0.1.10"
