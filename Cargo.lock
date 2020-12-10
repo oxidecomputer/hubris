@@ -396,6 +396,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-eth"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32h7-gpio"
 version = "0.1.0"
 dependencies = [
