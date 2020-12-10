@@ -802,29 +802,70 @@ macro_rules! sys_log {
 #[doc(hidden)]
 #[no_mangle]
 #[link_section = ".text.start"]
+#[naked]
 pub unsafe extern "C" fn _start() -> ! {
-    // Symbols from the linker script:
-    extern "C" {
-        static mut __sbss: u32;
-        static mut __ebss: u32;
-        static mut __sdata: u32;
-        static mut __edata: u32;
-        static __sidata: u32;
-    }
-
     // Provided by the user program:
     extern "Rust" {
         fn main() -> !;
     }
 
-    // Initialize RAM
-    r0::zero_bss(&mut __sbss, &mut __ebss);
-    r0::init_data(&mut __sdata, &mut __edata, &__sidata);
+    asm!("
+        @ Copy data initialization image into data section.
+        @ Note: this assumes that both source and destination are 32-bit
+        @ aligned and padded to 4-byte boundary.
 
-    // Do *not* reorder any instructions from main above this point.
-    core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+        movw r0, #:lower16:__edata  @ upper bound in r0
+        movt r0, #:upper16:__edata
 
-    main()
+        movw r1, #:lower16:__sidata @ source in r1
+        movt r1, #:upper16:__sidata
+
+        movw r2, #:lower16:__sdata  @ dest in r2
+        movt r2, #:upper16:__sdata
+
+        b 1f                        @ check for zero-sized data
+
+    2:  ldr r3, [r1], #4            @ read and advance source
+        str r3, [r2], #4            @ write and advance dest
+
+    1:  cmp r2, r0                  @ has dest reached the upper bound?
+        bne 2b                      @ if not, repeat
+
+        @ Zero BSS section.
+
+        movw r0, #:lower16:__ebss   @ upper bound in r0
+        movt r0, #:upper16:__ebss
+
+        movw r1, #:lower16:__sbss   @ base in r1
+        movt r1, #:upper16:__sbss
+
+        movs r2, #0                 @ materialize a zero
+
+        b 1f                        @ check for zero-sized BSS
+
+    2:  str r2, [r1], #4            @ zero one word and advance
+
+    1:  cmp r1, r0                  @ has base reached bound?
+        bne 2b                      @ if not, repeat
+
+        @ Be extra careful to ensure that those side effects are
+        @ visible to the user program.
+
+        dsb         @ complete all writes
+        isb         @ and flush the pipeline
+
+        @ Now, to the user entry point. We call it in case it
+        @ returns. (It's not supposed to.) We reference it through
+        @ a sym operand because it's a Rust func and may be mangled.
+        bl {main}
+
+        @ The noreturn option below will automatically generate an
+        @ undefined instruction trap past this point, should main
+        @ return.
+        ",
+        main = sym main,
+        options(noreturn),
+    )
 }
 
 #[cfg(feature = "panic-messages")]
