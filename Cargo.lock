@@ -701,6 +701,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "membar"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

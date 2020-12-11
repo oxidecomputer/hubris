@@ -4,6 +4,7 @@ cargo-features = ["resolver"]
 members = [
     "build-util",
     "xtask",
+    "membar",
 
     "abi",
     "demo",

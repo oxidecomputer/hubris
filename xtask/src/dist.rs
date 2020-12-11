@@ -599,6 +599,14 @@ fn make_descriptors(
     // The remaining regions are allocated to tasks on a first-come first-serve
     // basis.
     for (i, (name, task)) in tasks.iter().enumerate() {
+        if power_of_two_required && !task.requires["flash"].is_power_of_two() {
+            panic!("Flash for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
+        }
+
+        if power_of_two_required && !task.requires["ram"].is_power_of_two() {
+            panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
+        }
+
         // Regions are referenced by index into the table we just generated.
         // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
         let mut task_regions = [0; 8];

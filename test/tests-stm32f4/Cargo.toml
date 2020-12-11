@@ -26,11 +26,8 @@ version = "0.11.0"
 path = "../../kern"
 default-features = false
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
-# this lets you use `cargo fix`!
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
 [[bin]]
 name = "tests-stm32f4"
 path = "../../demo/src/main.rs"
