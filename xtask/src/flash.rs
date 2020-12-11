@@ -1,6 +1,6 @@
+use path_slash::PathBufExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use path_slash::PathBufExt;
 
 use anyhow::Context;
 
