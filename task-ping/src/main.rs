@@ -43,9 +43,7 @@ fn main() -> ! {
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
 
-    let faultme = [
-        nullread, divzero,
-    ];
+    let faultme = [nullread, divzero];
 
     let mut response = [0; 16];
     loop {
