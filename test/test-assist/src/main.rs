@@ -67,7 +67,7 @@ fn textoob(_arg: u32) {
         // fly off the end of our text -- which will either induce
         // a memory fault (end of MPU-provided region) or a bus error
         // (reading never-written flash on some MCUs/boards, e.g. LPC55)
-        let mut val: u32 = core::mem::transmute(&main);
+        let mut val: u32 = core::mem::transmute(main as fn() -> _);
 
         loop {
             (val as *const u8).read_volatile();
