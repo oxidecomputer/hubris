@@ -23,6 +23,10 @@ lpc55-pac = "0.1.0"
 path = "../../kern"
 default-features = false
 
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv8m.main-none-eabihf"
+
 # this lets you use `cargo fix`!
 [[bin]]
 name = "tests-lpc55"
