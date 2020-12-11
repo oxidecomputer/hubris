@@ -17,98 +17,10 @@ const UART: Task = Task::anonymous;
 const UART: Task = Task::usart_driver;
 
 #[inline(never)]
-fn stackblow() {
-    let c = [0xdeu8; 8192];
-    uart_send(&c[0..1024]);
-}
-
-#[inline(never)]
-fn execdata() {
-    unsafe {
-        let c = [0x4770u16]; // bx lr
-
-        let mut val: u32 = core::mem::transmute(&c);
-
-        // set the Thumb bit
-        val |= 1;
-
-        let f: extern "C" fn(&[u16]) = core::mem::transmute(val);
-        f(&c);
-    }
-}
-
-static BXLR: [u16; 1] = [0x4770u16];
-
-#[inline(never)]
-fn illop() {
-    unsafe {
-        // This should attempt to execute with the Thumb bit clear, so
-        // should trap on an "illegal operation"
-        let val: u32 = core::mem::transmute(&BXLR);
-        asm!("bx r0", in("r0") val);
-    }
-}
-
-#[inline(never)]
 fn nullread() {
     unsafe {
         // 0 is not in a region we can access; memory fault
         (0 as *const u8).read_volatile();
-    }
-}
-
-#[inline(never)]
-fn nullexec() {
-    unsafe {
-        let val: u32 = 1;
-        let f: extern "C" fn() = core::mem::transmute(val);
-        f();
-    }
-}
-
-#[inline(never)]
-fn textoob() {
-    unsafe {
-        // fly off the end of our text -- which will either induce
-        // a memory fault (end of MPU-provided region) or a bus error
-        // (reading never-written flash on some MCUs/boards, e.g. LPC55)
-        let mut val: u32 = core::mem::transmute(&main);
-
-        loop {
-            (val as *const u8).read_volatile();
-            val += 1;
-        }
-    }
-}
-
-#[inline(never)]
-fn stackoob() {
-    let c = [0xdeu8; 16];
-
-    unsafe {
-        // fly off the end of our stack on inducing a memory fault
-        let mut val: u32 = core::mem::transmute(&c);
-
-        loop {
-            (val as *const u8).read_volatile();
-            val += 1;
-        }
-    }
-}
-
-#[inline(never)]
-fn busfault() {
-    unsafe {
-        // unprivileged software reading CSFR is a bus error
-        (0xe000ed28 as *const u32).read_volatile();
-    }
-}
-
-#[inline(never)]
-fn illinst() {
-    unsafe {
-        // an illegal instruction
-        asm!("udf 0xde");
     }
 }
 
@@ -132,8 +44,7 @@ fn main() -> ! {
     const FAULT_EVERY: u32 = 100;
 
     let faultme = [
-        nullread, nullexec, stackblow, textoob, execdata, illop, stackoob,
-        busfault, illinst, divzero,
+        nullread, divzero,
     ];
 
     let mut response = [0; 16];
