@@ -11,6 +11,7 @@ mod check;
 mod dist;
 mod flash;
 mod gdb;
+mod humility;
 mod test;
 
 #[derive(Debug, StructOpt)]
@@ -45,6 +46,15 @@ enum Xtask {
 
         /// Path to the gdb configuation script.
         gdb_cfg: PathBuf,
+    },
+
+    /// Runs `humility`, passing any arguments
+    Humility {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Options to pass to Humility
+        options: Vec<String>,
     },
 
     /// Runs `xtask dist`, `xtask flash` and then `humility test`
@@ -177,6 +187,9 @@ fn main() -> Result<()> {
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
+        }
+        Xtask::Humility { cfg, options } => {
+            humility::run(&cfg, &options)?;
         }
         Xtask::Test {
             cfg,
