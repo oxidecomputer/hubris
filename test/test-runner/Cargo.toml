@@ -12,7 +12,7 @@ zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]
-default = ["standalone"]
+default = ["standalone", "itm"]
 standalone = []
 itm = [ "userlib/log-itm" ]
 
