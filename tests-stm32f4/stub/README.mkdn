@@ -1,4 +1,0 @@
-# Test kernel stub
-
-This provides a binary target for the kernel on STM32F4, for the tests to run
-on.

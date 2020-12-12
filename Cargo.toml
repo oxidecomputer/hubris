@@ -21,8 +21,6 @@ members = [
     "task-idle",
     "task-spam2",
     "task-spi",
-    "task-oh-no",
-    "task-oh-no2",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",
@@ -44,8 +42,11 @@ members = [
     "drv/user-leds",
     "drv/user-leds-api",
 
-    "tests-stm32f4/stub",
-    "tests-stm32f4",
+    "test/tests-stm32f4",
+    "test/tests-lpc55",
+    "test/test-runner",
+    "test/test-assist",
+    "test/test-suite",
 ]
 default-members = []
 resolver = "2"

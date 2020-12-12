@@ -25,7 +25,8 @@ You will need:
 - The nightly toolchain. (It will *probably* automatically install when you try
   to build, but people have had issues.)
 
-- `openocd` (mostly tested on 0.10)
+- `openocd` (mostly tested on 0.10) or (if using the LPC55)
+  `pyocd` (0.27 or later)
 
 - The appropriate Rust toolchain target installed:
   - `rustup target add thumbv7em-none-eabihf`
@@ -34,6 +35,9 @@ You will need:
 - `itmdump`: `cargo install itm`
 
 - `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`.
+
+- The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
+  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
 
 ### Windows
 
@@ -261,6 +265,86 @@ Once RickLink is running:
 
 - Terminal 1: `cd demo-stm32h7; openocd`
 - Terminal 2: `cargo xtask gdb demo-stm32h7/app-h7b3.toml openocd.gdb`
+
+## Flash
+
+An image within a Hubris archive can be flashed directly onto a target board
+by running `cargo xtask flash` and specifying the appropriate
+TOML file.  This will run `cargo xtask dist` and then execute the appropriate
+command (either OpenOCD or pyOCD) to flash the image; the exact invocation
+depends on the board:
+
+- LPCXpresso55S69: `cargo xtask flash lpc55/app.toml`
+- STM32F4 Discovery board: `cargo xtask flash demo/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtash flash demo-stm32h7/app-h743.toml`
+- ST STM32H7B3I-DK board: `cargo xtask flash demo-stm32h7/app-h7b3.toml`
+
+## Debug
+
+The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
+is run _in situ_ by specifying an archive on a directly connected board,
+or postmortem by specifying a dump.  As a convenience for development,
+Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
+on a machine with an STM32F4 Discovery board directly attached:
+
+```console
+$ cargo xtask humility demo/app.toml tasks
+    Finished dev [optimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/xtask humility demo/app.toml tasks`
+humility: attached via ST-Link
+ID ADDR     TASK               GEN STATE    
+ 0 20000108 jefe                 0 Healthy(InRecv(None))     
+ 1 20000178 rcc_driver           0 Healthy(InRecv(None))     
+ 2 200001e8 usart_driver         0 Healthy(InRecv(None))     
+ 3 20000258 user_leds            0 Healthy(Runnable)          <-
+ 4 200002c8 ping                48 Healthy(Runnable)         
+ 5 20000338 pong                 0 Healthy(InRecv(None))     
+ 6 200003a8 idle                 0 Healthy(Runnable)         
+```
+
+## Testing
+
+The Hubris kernel is tested with a dedicated _test image_ that includes a test
+runner, assistant and test suite.  The test image emits its results via ITM.
+While these results can be interpreted manually, `humility test` automates
+this.  `humility test` itself is most easily run via `cargo xtask test`, which
+runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
+and `cargo xtask humility test`.  The exact invocation depends on the board:
+
+- LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
+- STM32F4 Discovery board: `cargo xtask test test/tests-stm32f4/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
+- ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
+
+See the [documentation for `humility
+test`](https://github.com/oxidecomputer/humility#humility-test) for details
+on test results.
+
+## Debugging tests
+
+Output from tests is captured by `humility test`; `sys_log!()` calls to
+tests can be added and then captured in a `humility test` dump.  To capture
+a dump from tests that are otherwise passing, use `cargo xtask humility`
+directly and pass the `-d` flag, e.g.:
+
+```console
+$ cargo xtask humility test/tests-stm32f4/app.toml -- test -d
+...
+humility: attached via ST-Link
+humility: TPIU sync packet found at offset 1
+humility: ITM synchronization packet found at offset 12
+humility: expecting 22 cases
+humility: running test_send ... ok
+...
+humility: running test_timer_notify ... ok
+humility: running test_timer_notify_past ... ok
+humility: tests completed: pass
+humility: test output dumped to hubris.testout.2
+```
+
+if one needs to both run GDB and the test suite, use `cargo xtask gdb`
+with the test image's TOML and the appropriate GDB file, and then place
+breakpoints at the test of interest.
 
 ## Adding a task
 

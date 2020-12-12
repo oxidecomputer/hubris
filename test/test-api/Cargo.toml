@@ -1,26 +1,19 @@
 [package]
-name = "task-oh_no"
+name = "test-api"
 version = "0.1.0"
-authors = ["Steve Klabnik <steve.klabnik@oxide.computer>"]
+authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+num-traits = { version = "0.2.12", default-features = false }
 
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
 
-[dependencies]
-userlib = {path = "../userlib"}
-cortex-m = "0.6.2"
-cortex-m-semihosting = { version = "0.3.5" }
-zerocopy = "0.3.0"
-
-[features]
-default = ["standalone"]
-standalone = []
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
-[[bin]]
-name = "task-oh_no"
+[lib]
 test = false
 bench = false

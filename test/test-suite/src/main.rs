@@ -15,6 +15,7 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicU8, Ordering};
+use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -33,9 +34,19 @@ macro_rules! test_cases {
 test_cases! {
     test_send,
     test_recv_reply,
-    test_fault_reporting,
+    test_fault_badmem,
+    test_fault_stackoverflow,
+    test_fault_execdata,
+    test_fault_illop,
+    test_fault_nullexec,
+    test_fault_textoob,
+    test_fault_stackoob,
+    test_fault_buserror,
+    test_fault_illinst,
+    test_fault_divzero,
     test_panic,
     test_restart,
+    test_restart_taskgen,
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
@@ -54,7 +65,7 @@ fn test_send() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        0,
+        AssistOp::JustReply as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -73,7 +84,7 @@ fn test_recv_reply() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        1,
+        AssistOp::SendBack as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -102,7 +113,7 @@ fn test_recv_reply() {
     // Call back to the assistant and request a copy of our most recent reply.
     let (rc, len) = sys_send(
         assist,
-        2,
+        AssistOp::LastReply as u16,
         &challenge.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -112,20 +123,17 @@ fn test_recv_reply() {
     assert_eq!(response, reply_token);
 }
 
-/// Tests that a fault in a task causes a state change into the `Faulted` state.
-/// Specifically, this tests a memory fault, which ensures that the address
-/// reporting is correct, and that the MPU is on.
-fn test_fault_reporting() {
+/// Helper routine to send a message to the assistant telling it to fault,
+/// and then verifying that the fault caused a state change into the `Faulted`
+/// state, returning the actual fault info.
+fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     let assist = assist_task_id();
 
-    // Ask the assistant to dereference a bogus address, which will crash it if
-    // the MPU is on.
-    let bad_address = 5u32;
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        3,
-        &bad_address.to_le_bytes(),
+        op as u16,
+        &arg.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
     );
@@ -135,16 +143,108 @@ fn test_fault_reporting() {
 
     // Ask the kernel to report the assistant's state.
     let status = kipc::read_task_status(ASSIST as usize);
-    assert_eq!(
-        status,
+
+    match status {
         TaskState::Faulted {
-            fault: FaultInfo::MemoryAccess {
-                address: Some(bad_address),
-                source: FaultSource::User,
-            },
-            original_state: SchedState::Runnable,
-        },
+            fault,
+            original_state,
+        } => {
+            assert_eq!(original_state, SchedState::Runnable);
+            fault
+        }
+        _ => {
+            panic!("expected fault");
+        }
+    }
+}
+
+/// Tests a memory fault, which ensures that the address reporting is correct,
+/// and that the MPU is on.
+fn test_fault_badmem() {
+    let bad_address = 5u32;
+    let fault = test_fault(AssistOp::BadMemory, bad_address);
+
+    assert_eq!(
+        fault,
+        FaultInfo::MemoryAccess {
+            address: Some(bad_address),
+            source: FaultSource::User,
+        }
     );
+}
+
+fn test_fault_stackoverflow() {
+    let fault = test_fault(AssistOp::StackOverflow, 0);
+
+    match fault {
+        FaultInfo::StackOverflow { .. } => {}
+        _ => {
+            panic!("expected StackOverflow; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_execdata() {
+    assert_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
+}
+
+fn test_fault_illop() {
+    let fault = test_fault(AssistOp::IllegalOperation, 0);
+
+    match fault {
+        FaultInfo::InvalidOperation { .. } => {}
+        _ => {
+            panic!("expected InvalidOperation; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_nullexec() {
+    assert_eq!(test_fault(AssistOp::BadExec, 0), FaultInfo::IllegalText);
+}
+
+fn test_fault_textoob() {
+    let fault = test_fault(AssistOp::TextOutOfBounds, 0);
+
+    match fault {
+        FaultInfo::BusError { .. } | FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_stackoob() {
+    let fault = test_fault(AssistOp::StackOutOfBounds, 0);
+    match fault {
+        FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected MemoryAccess; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_buserror() {
+    let fault = test_fault(AssistOp::BusError, 0);
+
+    match fault {
+        FaultInfo::BusError { .. } => {}
+        _ => {
+            panic!("expected BusFault; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_illinst() {
+    assert_eq!(
+        test_fault(AssistOp::IllegalInstruction, 0),
+        FaultInfo::IllegalInstruction
+    );
+}
+
+/// Tests that division-by-zero results in a DivideByZero fault
+fn test_fault_divzero() {
+    assert_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
 }
 
 /// Tests that a `panic!` in a task is recorded as a fault.
@@ -153,8 +253,13 @@ fn test_panic() {
 
     // Ask the assistant to panic.
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 4, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -183,7 +288,7 @@ fn test_restart() {
     let mut response = 0_u32;
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -198,7 +303,7 @@ fn test_restart() {
     let value2 = 0x1DE_u32;
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value2.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -215,7 +320,7 @@ fn test_restart() {
     // Swap values again.
     let (rc, len) = sys_send(
         assist,
-        5,
+        AssistOp::Store as u16,
         &value.to_le_bytes(),
         response.as_bytes_mut(),
         &[],
@@ -227,6 +332,56 @@ fn test_restart() {
     assert_eq!(response, 0);
 }
 
+/// Tests that when our task dies, we get an error code that consists of
+/// the new generation in the lower bits.
+fn test_restart_taskgen() {
+    let assist = assist_task_id();
+
+    // Ask the assistant to panic.
+    let mut response = 0_u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::Panic as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    // Read status back from the kernel, check it, and bounce the assistant.
+    let status = kipc::read_task_status(ASSIST as usize);
+    assert_eq!(
+        status,
+        TaskState::Faulted {
+            fault: FaultInfo::Panic,
+            original_state: SchedState::Runnable,
+        },
+    );
+    restart_assistant();
+
+    // Now when we make another call with the old task, this should fail
+    // with a hint as to our generation.
+    let payload = 0xDEAD_F00Du32;
+    let mut response = 0_u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBack as u16,
+        &payload.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+
+    assert_eq!(rc & 0xffff_ff00, 0xffff_ff00);
+    assert_eq!(len, 0);
+    assert_ne!(assist.generation(), Generation::from((rc & 0xff) as u8));
+
+    assert_eq!(
+        assist_task_id().generation(),
+        Generation::from((rc & 0xff) as u8)
+    );
+}
+
 /// Tests that the basic `borrow_info` mechanics work by soliciting a
 /// stereotypical loan from the assistant.
 fn test_borrow_info() {
@@ -235,8 +390,13 @@ fn test_borrow_info() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -273,8 +433,13 @@ fn test_borrow_read() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -309,8 +474,13 @@ fn test_borrow_write() {
     // Ask the assistant to call us back with two particularly shaped loans
     // (which are hardcoded in the assistant, not encoded here).
     let mut response = 0_u32;
-    let (rc, len) =
-        sys_send(assist, 6, &0u32.to_le_bytes(), response.as_bytes_mut(), &[]);
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBackWithLoans as u16,
+        &0u32.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     // Don't actually care about the response in this case
@@ -358,7 +528,7 @@ fn test_supervisor_fault_notification() {
         // Request a crash
         let (rc, len) = sys_send(
             assist,
-            4,
+            AssistOp::Panic as u16,
             &0u32.to_le_bytes(),
             response.as_bytes_mut(),
             &[],
@@ -460,21 +630,11 @@ fn restart_assistant() {
 fn read_runner_notifications() -> u32 {
     let runner = TaskId::for_index_and_gen(0, Generation::default());
     let mut response = 0u32;
-    let (rc, len) = sys_send(runner, 0, &[], response.as_bytes_mut(), &[]);
+    let op = RunnerOp::ReadAndClearNotes as u16;
+    let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
-}
-
-/// Test protocol used by the runner to feed us instructions.
-#[derive(FromPrimitive)]
-enum Op {
-    /// Get the number of test cases (`() -> usize`).
-    GetCaseCount = 1,
-    /// Get the name of a case (`usize -> [u8]`).
-    GetCaseName = 2,
-    /// Run a case, replying before it starts (`usize -> ()`).
-    RunCase = 3,
 }
 
 /// Actual entry point.
@@ -507,12 +667,12 @@ fn main() -> ! {
             &mut buffer,
             |op, msg| -> Result<(), u32> {
                 match op {
-                    Op::GetCaseCount => {
+                    SuiteOp::GetCaseCount => {
                         let (_, caller) =
                             msg.fixed::<(), usize>().ok_or(2u32)?;
                         caller.reply(TESTS.len());
                     }
-                    Op::GetCaseName => {
+                    SuiteOp::GetCaseName => {
                         let (&idx, caller) =
                             msg.fixed::<usize, [u8; 64]>().ok_or(2u32)?;
                         let mut name_buf = [b' '; 64];
@@ -522,7 +682,7 @@ fn main() -> ! {
                             .copy_from_slice(&name.as_bytes()[..name_len]);
                         caller.reply(name_buf);
                     }
-                    Op::RunCase => {
+                    SuiteOp::RunCase => {
                         let (&idx, caller) =
                             msg.fixed::<usize, ()>().ok_or(2u32)?;
                         let caller_tid = caller.task_id();
@@ -530,9 +690,11 @@ fn main() -> ! {
 
                         TESTS[idx].1();
 
+                        let op = RunnerOp::TestComplete as u16;
+
                         // Call back with status.
                         let (rc, len) =
-                            sys_send(caller_tid, 0xFFFF, &[], &mut [], &[]);
+                            sys_send(caller_tid, op, &[], &mut [], &[]);
                         assert_eq!(rc, 0);
                         assert_eq!(len, 0);
                     }
