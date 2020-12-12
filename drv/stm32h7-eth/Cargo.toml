@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
+membar = {path = "../../membar"}
 
 [build-dependencies]
 build-util = {path = "../../build-util"}

@@ -2,6 +2,9 @@
 
 #![no_std]
 #![no_main]
+#![feature(min_const_generics)]
+
+mod ring;
 
 use userlib::*;
 
