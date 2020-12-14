@@ -89,9 +89,10 @@ pub unsafe trait Descriptor: 'static {
     /// Marks this descriptor as owned by the hardware, by setting the OWN bit,
     /// and simultaneously gives up further access to the descriptor.
     ///
-    /// Note: self is `'static` because that gives self move semantics, i.e. the
-    /// caller cannot use `self` again. If it were `&mut self` then `self` could
-    /// be a reborrow, and the caller could retain access.
+    /// Note: self is `'static` because it makes the reference move instead of
+    /// reborrow, so the caller _loses access to it_ and cannot use it again.
+    /// If it were `&mut self` then `self` could be a reborrow, and the caller
+    /// could retain access.
     fn set_owned_by_hw(&'static mut self);
 
     /// Flag controlling whether a newly created ring of this type is
