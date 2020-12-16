@@ -63,8 +63,8 @@ fn main() -> ! {
                     message_len: U16::new(message_len as u16),
                 };
 
-                let total_size =
-                    core::mem::size_of::<LogHeader>() + message_len;
+                let header_size = core::mem::size_of::<LogHeader>();
+                let total_size = header_size + message_len;
                 let header_bytes = header.as_bytes();
 
                 // header
@@ -75,7 +75,7 @@ fn main() -> ! {
 
                 // message
                 for (idx, &byte) in contents.iter().enumerate() {
-                    buffer[next_index(write_pos, 6 + idx)] = byte;
+                    buffer[next_index(write_pos, header_size + idx)] = byte;
                 }
                 cortex_m::itm::write_all(stim, &contents);
 
