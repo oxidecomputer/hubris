@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use byteorder::BigEndian;
+use byteorder::LittleEndian;
 use userlib::*;
 use zerocopy::{AsBytes, U16};
 
@@ -20,9 +20,9 @@ impl From<ResponseCode> for u32 {
 #[derive(AsBytes)]
 #[repr(C)]
 struct LogHeader {
-    magic: U16<BigEndian>,
-    caller_id: U16<BigEndian>,
-    message_len: U16<BigEndian>,
+    magic: U16<LittleEndian>,
+    caller_id: U16<LittleEndian>,
+    message_len: U16<LittleEndian>,
 }
 
 const BUFFER_LEN: usize = 2048;
