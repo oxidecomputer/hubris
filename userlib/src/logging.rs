@@ -48,11 +48,11 @@ unsafe impl defmt::Logger for Logger {
 #[cfg(not(standalone))]
 fn send_to_log_task() {
     extern "C" {
-        static log_task_id: u16;
+        static __log_task_id: u16;
     }
 
     unsafe {
-        let log_id = *(&log_task_id as *const u16);
+        let log_id = *(&__log_task_id as *const u16);
 
         let log =
             TaskId::for_index_and_gen(log_id as usize, Generation::default());

@@ -22,7 +22,7 @@ SECTIONS
   {
     *(.rodata .rodata.*);
 
-    log_task_id = .;
+    __log_task_id = .;
     SHORT(HUBRIS_LOG_TASK_ID);
 
     /* 4-byte align the end (VMA) of this section.
