@@ -27,7 +27,7 @@ const SYSCON: Task = Task::syscon_driver;
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
-const SYSCON: Task = SELF;
+const SYSCON: Task = Task::anonymous;
 
 #[derive(FromPrimitive)]
 enum Op {

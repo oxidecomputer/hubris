@@ -7,7 +7,7 @@ use cortex_m_semihosting::hprintln;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
-const I2C: Task = SELF;
+const I2C: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const I2C: Task = Task::i2c_driver;

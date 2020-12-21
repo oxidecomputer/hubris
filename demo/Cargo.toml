@@ -5,20 +5,17 @@ readme = "README.md"
 name = "demo"
 version = "0.1.0"
 
-[package.metadata.build]
-# Pick ONE of these compilation targets
-# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+
-# target = "thumbv7m-none-eabi"    # Cortex-M3
-# target = "thumbv7em-none-eabi"   # Cortex-M4 and Cortex-M7 (no FPU)
-target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
-
 [features]
 default = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
 [dependencies]
-cortex-m = "0.6.2"
+cortex-m = "0.6.3"
 cortex-m-rt = "0.6.12"
 cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
@@ -32,9 +29,6 @@ version = "0.11.0"
 [dependencies.kern]
 path = "../kern"
 default-features = false
-
-[build-dependencies]
-build-util = {path = "../build-util"}
 
 # this lets you use `cargo fix`!
 [[bin]]

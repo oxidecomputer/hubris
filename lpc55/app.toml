@@ -6,7 +6,12 @@ board = "lpcxpresso55s69"
 path = "../lpc55"
 name = "lpc55"
 requires = {flash = 65536, ram = 4096}
-features = ["semihosting"]
+features = ["itm"]
+
+[sign-method]
+method = "secure_boot"
+priv-key = "../fake_certs/fake_private_key.pem"
+root-cert = "../fake_certs/fake_certificate.der.crt"
 
 [supervisor]
 notification = 1
@@ -30,7 +35,7 @@ name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 4096}
 start = true
-features = ["semihosting"]
+features = ["itm"]
 
 [tasks.idle]
 path = "../task-idle"
@@ -79,6 +84,14 @@ name = "drv-lpc55-i2c"
 priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
+start = true
+
+[tasks.rng_driver]
+path = "../drv/lpc55-rng"
+name = "drv-lpc55-rng"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["rng", "pmc"]
 start = true
 
 [tasks.spi_driver]
@@ -142,4 +155,8 @@ size = 4096
 
 [peripherals.flexcomm8]
 address = 0x4009F000
+size = 4096
+
+[peripherals.rng]
+address = 0x4003A000
 size = 4096

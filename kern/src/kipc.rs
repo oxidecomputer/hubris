@@ -1,6 +1,6 @@
 //! Implementation of IPC operations on the virtual kernel task.
 
-use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError, DEAD};
+use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError};
 
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
@@ -140,7 +140,9 @@ fn restart_task(
                 {
                     // Please accept our sincere condolences on behalf of the
                     // kernel.
-                    task.save_mut().set_error_response(DEAD);
+                    let code = abi::dead_response_code(peer.generation());
+
+                    task.save_mut().set_error_response(code);
                     task.set_healthy_state(SchedState::Runnable);
                 }
                 _ => (),

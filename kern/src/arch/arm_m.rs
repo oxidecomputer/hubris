@@ -157,6 +157,11 @@ static mut IRQ_TABLE_SIZE: usize = 0;
 #[no_mangle]
 static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 
+/// To allow our clock frequency to be easily determined from a debugger, we
+/// store it in memory.
+#[no_mangle]
+static mut CLOCK_FREQ_KHZ: u32 = 0;
+
 /// ARMvx-M volatile registers that must be saved across context switches.
 ///
 /// TODO: this set is a great start but is missing half the FPU registers.
@@ -328,7 +333,7 @@ pub fn reinitialize(task: &mut task::Task) {
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
     // TODO: this assumes floating point is in use.
-    task.save_mut().exc_return = 0xFFFFFFED;
+    task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
 #[cfg(armv7m)]
@@ -366,10 +371,9 @@ pub fn apply_memory_protection(task: &task::Task) {
         } else if ratts.contains(app::RegionAttributes::DMA) {
             // Conservative settings for normal memory assuming that DMA might
             // be a problem:
-            // - Outer and inner write-through.
-            // - Read allocate, no write allocate.
+            // - Outer and inner non-cacheable.
             // - Shared.
-            (0b000, 0b110)
+            (0b001, 0b100)
         } else {
             // Aggressive settings for normal memory assume that it is used only
             // by this processor:
@@ -496,8 +500,6 @@ pub fn apply_memory_protection(task: &task::Task) {
         cortex_m::asm::dmb();
         cortex_m::asm::isb();
     }
-
-
 }
 
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
@@ -532,6 +534,13 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         // SysTick and PendSV also to 0xFF
         scb.shpr[10].write(0xFF);
         scb.shpr[11].write(0xFF);
+
+        // ARM's default disposition is that division by zero doesn't actually
+        // fail, but rather returns 0. (!)  It's unclear how placating this
+        // kind of programmatic sloppiness doesn't ultimately end in tears;
+        // we explicitly configure ourselves to trap on any divide by zero.
+        const DIV_0_TRP: u32 = 1 << 4;
+        scb.ccr.modify(|x| x | DIV_0_TRP);
 
         // Now, force all external interrupts to 0xFF too, so they can't preempt
         // the kernel.
@@ -579,6 +588,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     }
 
     unsafe {
+        CLOCK_FREQ_KHZ = tick_divisor;
         CURRENT_TASK_PTR = Some(NonNull::from(task));
     }
 
@@ -607,7 +617,11 @@ pub unsafe extern "C" fn SVCall() {
     // of an M-series processor you're targeting -- so I've punted on this for
     // the time being.
     asm!("
-        cmp lr, #0xFFFFFFF9     @ is it coming from inside the kernel?
+        mov r0, lr
+        mov r1, #0xFFFFFFF3     @ mask to get mode and SPSEL from EXC_RETURN
+        bic r0, r1
+        cmp r0, #0x8            @ Checking for thread mode and main stack
+                                @ to see if we're coming from inside the kernel
         beq 1f                  @ if so, we're starting the first task;
                                 @ jump ahead.
         @ the common case is handled by branch-not-taken as it's faster
@@ -645,11 +659,12 @@ pub unsafe extern "C" fn SVCall() {
                                 @ note: now barrier here because exc return
                                 @ serves as barrier
 
-        mov lr, #0xFFFFFFED     @ materialize EXC_RETURN value to
+        mov lr, {exc_return}    @ materialize EXC_RETURN value to
                                 @ return into thread mode, PSP, FP on
 
         bx lr                   @ branch into user mode
         ",
+        exc_return = const EXC_RETURN_CONST as u32,
         options(noreturn),
     )
 }
@@ -824,8 +839,8 @@ pub unsafe extern "C" fn DefaultHandler() {
         2 => panic!("NMI"),
         // 3=HardFault is handled elsewhere
         // 4=MemManage is handled below
-        5 => panic!("BusFault"),
-        6 => panic!("UsageFault"),
+        // 5=BusFault is handled below
+        // 6=UsageFault is handled below
         // 7-10 are currently reserved
         // 11=SVCall is handled above by its own handler
         12 => panic!("DebugMon"),
@@ -892,76 +907,227 @@ pub fn enable_irq(n: u32) {
     }
 }
 
-/// Initial entry point for handling a memory management fault.
-#[allow(non_snake_case)]
-#[no_mangle]
+#[repr(u8)]
+#[allow(dead_code)]
+enum FaultType {
+    MemoryManagement = 4,
+    BusFault = 5,
+    UsageFault = 6,
+}
+
+#[inline(never)]
 #[naked]
-pub unsafe extern "C" fn MemoryManagement() {
-    asm!("
-        @ Get the exc_return value into an argument register, which is
-        @ difficult to do from higher-level code.
-        mov r0, lr
-        @ While we're being unsafe, go ahead and read the current task pointer.
-        movw r1, #:lower16:CURRENT_TASK_PTR
-        movt r1, #:upper16:CURRENT_TASK_PTR
-        ldr r1, [r1]
-        b mem_manage_fault
+unsafe extern "C" fn configurable_fault() {
+    asm!(
+        "
+        @ Read the current task pointer.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+        mrs r12, PSP
+
+        @ Now, to aid those who will debug what induced this fault, save our
+        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+        @ address and the xPSR) is already on our stack as part of the fault;
+        @ we'll store our remaining registers, plus the PSP (now in r12), plus
+        @ exc_return (now in LR) into the save region in the current task.
+        stm r0, {{r4-r12, lr}}
+
+        @ Pull our fault number out of IPSR, allowing for program text to be
+        @ shared across all configurable faults.  (Note that the exception
+        @ number is the bottom 9 bits, but we need only look at the bottom 4
+        @ bits as this handler is only used for exceptions with numbers less
+        @ than 16.)
+        mrs r1, IPSR
+        and r1, r1, #0xf
+        bl handle_fault
+
+        @ Our task has changed; reload it.
+        movw r0, #:lower16:CURRENT_TASK_PTR
+        movt r0, #:upper16:CURRENT_TASK_PTR
+        ldr r0, [r0]
+
+        @ Restore volatile registers, plus load PSP into r12
+        ldm r0, {{r4-r12, lr}}
+        msr PSP, r12
+
+        @ resume
+        bx lr
         ",
         options(noreturn),
     );
 }
 
+/// Initial entry point for handling a memory management fault.
+#[allow(non_snake_case)]
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn MemoryManagement() {
+    configurable_fault()
+}
+
+/// Initial entry point for handling a bus fault.
+#[allow(non_snake_case)]
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn BusFault() {
+    configurable_fault()
+}
+
+/// Initial entry point for handling a usage fault.
+#[allow(non_snake_case)]
+#[no_mangle]
+#[naked]
+pub unsafe extern "C" fn UsageFault() {
+    configurable_fault()
+}
+
 bitflags::bitflags! {
-    /// Bits in the Memory Management Fault Status Register.
+    /// Bits in the Configurable Fault Status Register.
     #[repr(transparent)]
-    struct Mmfsr: u8 {
+    struct Cfsr: u32 {
+        // Bits 0-7: MMFSR (Memory Management Fault Status Register)
         const IACCVIOL = 1 << 0;
         const DACCVIOL = 1 << 1;
-        // bit 2 reserved
+        // MMFSR bit 2 reserved
         const MUNSTKERR = 1 << 3;
         const MSTKERR = 1 << 4;
         const MLSPERR = 1 << 5;
-        // bit 6 reserved
+        // MMFSR bit 6 reserved
         const MMARVALID = 1 << 7;
+
+        // Bits 8-15: BFSR (Bus Fault Status Register)
+        const IBUSERR = 1 << (8 + 0);
+        const PRECISERR = 1 << (8 + 1);
+        const IMPRECISERR = 1 << (8 + 2);
+        const UNSTKERR = 1 << (8 + 3);
+        const STKERR = 1 << (8 + 4);
+        const LSPERR = 1 << (8 + 5);
+        // BFSR bit 6 reserved
+        const BFARVALID = 1 << (8 + 7);
+
+        // Bits 16-31: UFSR (Usage Fault Status Register)
+        const UNDEFINSTR = 1 << (16 + 0);
+        const INVSTATE = 1 << (16 + 1);
+        const INVPC = 1 << (16 + 2);
+        const NOCP = 1 << (16 + 3);
+
+        #[cfg(armv8m)]
+        const STKOF = 1 << (16 + 4);
+
+        // UFSR bits 4-7 reserved on ARMv7-M -- 5-7 on ARMv8-M
+        const UNALIGNED = 1 << (16 + 8);
+        const DIVBYZERO = 1 << (16 + 9);
+
+        // UFSR bits 10-31 reserved
     }
 }
 
-/// Rust entry point for memory management fault.
-#[allow(non_snake_case)]
+/// Rust entry point for fault.
 #[no_mangle]
-unsafe extern "C" fn mem_manage_fault(exc_return: u32, task: *mut task::Task) {
+unsafe extern "C" fn handle_fault(
+    task: *mut task::Task,
+    fault_type: FaultType,
+) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
     let scb = &*cortex_m::peripheral::SCB::ptr();
+    let cfsr = Cfsr::from_bits_truncate(scb.cfsr.read());
 
     // Who faulted?
-    let from_thread_mode = exc_return & 0b1000 != 0;
-    // What did they do? MemManage status is in bits 7:0 of the Configurable
-    // Fault Status Register.
-    let mmfsr = Mmfsr::from_bits_truncate(scb.cfsr.read() as u8);
-    // Where did they do it? Faulting address in MMFAR (when available).
-    let mmfar = scb.mmfar.read();
+    let from_thread_mode = (*task).save().exc_return & 0b1000 != 0;
 
-    if from_thread_mode {
-        // Build up a FaultInfo record describing what we know.
-        let address = if mmfsr.contains(Mmfsr::MMARVALID) { Some(mmfar) } else { None };
-        let fault = FaultInfo::MemoryAccess {
-            address,
-            source: FaultSource::User,
-        };
-        with_task_table(|tasks| {
-            let idx = (task as usize - tasks.as_ptr() as usize)
-                / core::mem::size_of::<task::Task>();
-            // Ignore the scheduling hint -- we aren't able to forward it to the
-            // PendSV routine anyway.
-            let _ = task::force_fault(tasks, idx, fault);
-        });
-        pend_context_switch_from_isr();
-    } else {
+    if !from_thread_mode {
         // Uh. This fault originates from the kernel. Let's try to make the
-        // panic as clear as possible.
-        panic!("Memory management fault in kernel mode\nMMFSR = {:?}\nMMFAR = 0x{:08x}",
-            mmfsr, mmfar);
+        // panic as clear and as information-rich as possible, while trying
+        // to not consume unnecessary program text (i.e., it isn't worth
+        // conditionally printing MMFAR or BFAR only on a MemoryManagement
+        // fault or a BusFault, respectively).  In that vein, note that we
+        // promote our fault type to a u32 to not pull in the Display trait
+        // for u8.
+        panic!(
+            "Kernel fault {}: \
+            CFSR=0x{:08x}, MMFAR=0x{:08x}, BFAR=0x{:08x}",
+            (fault_type as u8) as u32,
+            cfsr.bits(),
+            scb.mmfar.read(),
+            scb.bfar.read(),
+        );
     }
+
+    let fault = match fault_type {
+        FaultType::MemoryManagement => {
+            if cfsr.contains(Cfsr::MSTKERR) {
+                // If we have an MSTKERR, we know very little other than the
+                // fact that the user's stack pointer is so trashed that we
+                // can't store through it.  (In particular, we seem to have no
+                // way at getting at our faulted PC.)
+                FaultInfo::StackOverflow {
+                    address: (*task).save().psp,
+                }
+            } else if cfsr.contains(Cfsr::IACCVIOL) {
+                FaultInfo::IllegalText
+            } else {
+                FaultInfo::MemoryAccess {
+                    address: if cfsr.contains(Cfsr::MMARVALID) {
+                        Some(scb.mmfar.read())
+                    } else {
+                        None
+                    },
+                    source: FaultSource::User,
+                }
+            }
+        }
+
+        FaultType::BusFault => FaultInfo::BusError {
+            address: if cfsr.contains(Cfsr::BFARVALID) {
+                Some(scb.bfar.read())
+            } else {
+                None
+            },
+            source: FaultSource::User,
+        },
+
+        FaultType::UsageFault => {
+            if cfsr.contains(Cfsr::DIVBYZERO) {
+                FaultInfo::DivideByZero
+            } else if cfsr.contains(Cfsr::UNDEFINSTR) {
+                FaultInfo::IllegalInstruction
+            } else {
+                FaultInfo::InvalidOperation(cfsr.bits())
+            }
+        }
+    };
+
+    // Because we are responsible for clearing all conditions, we write back
+    // the value of CFSR that we read
+    scb.cfsr.write(cfsr.bits());
+
+    // We are now going to force a fault on our current task and directly
+    // switch to a task to run.  (It may be tempting to use PendSV here,
+    // but that won't work on ARMv8-M in the presence of MPU faults on
+    // PSP:  even with PendSV pending, ARMv8-M will generate a MUNSTKERR
+    // when returning from an exception with a PSP that generates an MPU
+    // fault!)
+    with_task_table(|tasks| {
+        let idx = (task as usize - tasks.as_ptr() as usize)
+            / core::mem::size_of::<task::Task>();
+
+        let next = match task::force_fault(tasks, idx, fault) {
+            task::NextTask::Specific(i) => i,
+            task::NextTask::Other => task::select(idx, tasks),
+            task::NextTask::Same => idx,
+        };
+
+        if next == idx {
+            panic!("attempt to return to Task #{} after fault", idx);
+        }
+
+        let next = &mut tasks[next];
+        apply_memory_protection(next);
+        set_current_task(next);
+    });
 }
 
+// Constants that may change depending on configuration
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));

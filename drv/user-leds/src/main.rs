@@ -96,7 +96,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "stm32f4")] {
         cfg_if::cfg_if! {
             if #[cfg(feature = "standalone")] {
-                const RCC: Task = SELF;
+                const RCC: Task = Task::anonymous;
             } else {
                 const RCC: Task = Task::rcc_driver;
             }
@@ -181,7 +181,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
         cfg_if::cfg_if! {
             if #[cfg(feature = "standalone")] {
-                const GPIO: Task = SELF;
+                const GPIO: Task = Task::anonymous;
             } else {
                 const GPIO: Task = Task::gpio_driver;
             }
@@ -280,7 +280,7 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "lpc55")] {
         cfg_if::cfg_if! {
             if #[cfg(feature = "standalone")] {
-                const GPIO: Task = SELF;
+                const GPIO: Task = Task::anonymous;
             } else {
                 const GPIO: Task = Task::gpio_driver;
             }

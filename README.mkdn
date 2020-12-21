@@ -25,7 +25,8 @@ You will need:
 - The nightly toolchain. (It will *probably* automatically install when you try
   to build, but people have had issues.)
 
-- `openocd` (mostly tested on 0.10)
+- `openocd` (mostly tested on 0.10) or (if using the LPC55)
+  `pyocd` (0.27 or later)
 
 - The appropriate Rust toolchain target installed:
   - `rustup target add thumbv7em-none-eabihf`
@@ -34,6 +35,9 @@ You will need:
 - `itmdump`: `cargo install itm`
 
 - `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`.
+
+- The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
+  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
 
 ### Windows
 
@@ -91,7 +95,7 @@ From one terminal, `cd` into the root of this repository and run `openocd`.
 
 From another terminal:
 
-```shell
+```console
 $ cargo xtask gdb demo/app.toml openocd.gdb
 ```
 
@@ -102,7 +106,155 @@ deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 
 ### LPCXpresso55S69 board
 
-TODO: we need instructions for this, as it does not use openocd
+To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">pyOCD</a>, version 0.27.0 or later.
+
+The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
+If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
+
+
+```console
+$ pyocd list
+  #   Probe                                           Unique ID
+-----------------------------------------------------------------
+  0   NXP Semiconductors LPC-LINK2 CMSIS-DAP V5.361   JSAQCQIQ
+```
+
+It's also possible that you have the Segger J-Link firmware -- firmware
+that will make its odious presence known by prompting for you to accept license
+terms whenever running `pyocd list`!
+
+```console
+$ pyocd list
+  #   Probe                                                       Unique ID
+-----------------------------------------------------------------------------
+  0   Segger J-Link LPCXpresso V2 compiled Apr  4 2019 16:54:03   726424936
+```
+
+In either of these cases you must -- as a one-time step -- install new
+firmware on the LPC-Link2.  The new firmware is a build of the (open source) 
+<a href="https://github.com/oxidecomputer/DAPLink">DAPLink</a>, which
+we affectionally call **RickLink** after
+the engineer who managed to get it all built -- no small feat!
+
+There are two files that you will need, both contained in the Hubris repository:
+
+- <a href="./support/lpc4322_bl_crc.bin">lpc4322_bl_crc.bin</a>
+- <a
+  href="./support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin">lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin</a>
+
+You will additionally need the <a
+href="https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT">LPCScrypt program</a> from NXP.
+
+Here are the steps to install RickLink:
+
+1. Install the DFU jumper. This can be found next to the SWD header on the
+left side of the board; it is labelled "DFU".
+
+2. Run `scripts/boot_lpcscrypt` from the installed LPCScrypt software:
+
+```console
+$ /usr/local/lpcscrypt/scripts/boot_lpcscrypt 
+Looking for DFU devices with VID 1fc9 PID 000c ...
+dfu-util -d 1fc9:000c -c 1 -i 0 -t 2048 -R  -D /usr/local/lpcscrypt/scripts/../bin/LPCScrypt_228.bin.hdr
+Booted LPCScrypt target (1fc9:000c) with /usr/local/lpcscrypt/scripts/../bin/LPCScrypt_228.bin.hdr
+$
+```
+
+3. Run `lpcscrypt clockslow`:
+
+```console
+$ /usr/local/lpcscrypt/bin/lpcscrypt clockslow
+$
+```
+
+4. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
+
+```console
+$ /usr/local/lpcscrypt/bin/lpcscrypt program +c ~/hubris/support/lpc4322_bl_crc.bin BankA
+..
+Programmed 57344 bytes to 0x1a000000 in 0.827s (67.717KB/sec)
+$
+```
+
+5. Assuming it is successful, remove the DFU jumper and disconnect/reconnect USB
+
+6. There should now be a USB mass storage device named `MAINTENANCE`
+
+```console
+# fdisk -l
+Disk /dev/nvme0n1: 477 GiB, 512110190592 bytes, 1000215216 sectors
+Disk model: Micron 2200S NVMe 512GB
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: gpt
+Disk identifier: A8653F99-39AB-4F67-A9C9-524A2864856E
+
+Device             Start        End   Sectors   Size Type
+/dev/nvme0n1p1      2048    1050623   1048576   512M EFI System
+/dev/nvme0n1p2   1050624  967393279 966342656 460.8G Linux filesystem
+/dev/nvme0n1p3 967393280 1000214527  32821248  15.7G Linux swap
+
+
+Disk /dev/sda: 64.1 MiB, 67174400 bytes, 131200 sectors
+Disk model: VFS
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x00000000
+# mount /dev/sda /mnt
+# ls /mnt
+DETAILS.TXT  PRODINFO.HTM
+# cat /mnt/DETAILS.TXT
+# DAPLink Firmware - see https://mbed.com/daplink
+Unique ID: 02360b000d96e4fc00000000000000000000000097969905
+HIC ID: 97969905
+Auto Reset: 1
+Automation allowed: 1
+Overflow detection: 1
+Daplink Mode: Interface
+Interface Version: 0254
+Bootloader Version: 0254
+Git SHA: f499eb6ec4a847a2b78831fe1acc856fd8eb2f28
+Local Mods: 1
+USB Interfaces: MSD, CDC, HID, WebUSB
+Bootloader CRC: 0x09974fb3
+Interface CRC: 0x7174ab4c
+Remount count: 0
+URL: https://os.mbed.com/platforms/LPCXpresso55S69/
+```
+
+7. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
+
+```console
+$ sudo cp ~/hubris/support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin /mnt
+$
+```
+
+8. Unmount (or otherwise sync) the USB drive:
+
+```console
+# umount /mnt
+#
+```
+
+9. Unplug and replug the USB cable.
+
+Verify that you are on the new firmware by running `pyocd list`:
+
+```console
+$ pyocd list
+  #   Probe                        Unique ID                                         
+-------------------------------------------------------------------------------------
+  0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
+```
+
+Once RickLink is running:
+
+- Terminal 1: `pyocd gdbserver -t lpc55s69` 
+- Terminal 2: `telnet localhost 4444` (semihosting output)
+- Terminal 3: `cargo xtask gdb lpc55/app.toml openocd.gdb`
 
 ### ST Nucleo-H743ZI2 board
 
@@ -113,6 +265,86 @@ TODO: we need instructions for this, as it does not use openocd
 
 - Terminal 1: `cd demo-stm32h7; openocd`
 - Terminal 2: `cargo xtask gdb demo-stm32h7/app-h7b3.toml openocd.gdb`
+
+## Flash
+
+An image within a Hubris archive can be flashed directly onto a target board
+by running `cargo xtask flash` and specifying the appropriate
+TOML file.  This will run `cargo xtask dist` and then execute the appropriate
+command (either OpenOCD or pyOCD) to flash the image; the exact invocation
+depends on the board:
+
+- LPCXpresso55S69: `cargo xtask flash lpc55/app.toml`
+- STM32F4 Discovery board: `cargo xtask flash demo/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtash flash demo-stm32h7/app-h743.toml`
+- ST STM32H7B3I-DK board: `cargo xtask flash demo-stm32h7/app-h7b3.toml`
+
+## Debug
+
+The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
+is run _in situ_ by specifying an archive on a directly connected board,
+or postmortem by specifying a dump.  As a convenience for development,
+Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
+on a machine with an STM32F4 Discovery board directly attached:
+
+```console
+$ cargo xtask humility demo/app.toml tasks
+    Finished dev [optimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/xtask humility demo/app.toml tasks`
+humility: attached via ST-Link
+ID ADDR     TASK               GEN STATE    
+ 0 20000108 jefe                 0 Healthy(InRecv(None))     
+ 1 20000178 rcc_driver           0 Healthy(InRecv(None))     
+ 2 200001e8 usart_driver         0 Healthy(InRecv(None))     
+ 3 20000258 user_leds            0 Healthy(Runnable)          <-
+ 4 200002c8 ping                48 Healthy(Runnable)         
+ 5 20000338 pong                 0 Healthy(InRecv(None))     
+ 6 200003a8 idle                 0 Healthy(Runnable)         
+```
+
+## Testing
+
+The Hubris kernel is tested with a dedicated _test image_ that includes a test
+runner, assistant and test suite.  The test image emits its results via ITM.
+While these results can be interpreted manually, `humility test` automates
+this.  `humility test` itself is most easily run via `cargo xtask test`, which
+runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
+and `cargo xtask humility test`.  The exact invocation depends on the board:
+
+- LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
+- STM32F4 Discovery board: `cargo xtask test test/tests-stm32f4/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
+- ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
+
+See the [documentation for `humility
+test`](https://github.com/oxidecomputer/humility#humility-test) for details
+on test results.
+
+## Debugging tests
+
+Output from tests is captured by `humility test`; `sys_log!()` calls to
+tests can be added and then captured in a `humility test` dump.  To capture
+a dump from tests that are otherwise passing, use `cargo xtask humility`
+directly and pass the `-d` flag, e.g.:
+
+```console
+$ cargo xtask humility test/tests-stm32f4/app.toml -- test -d
+...
+humility: attached via ST-Link
+humility: TPIU sync packet found at offset 1
+humility: ITM synchronization packet found at offset 12
+humility: expecting 22 cases
+humility: running test_send ... ok
+...
+humility: running test_timer_notify ... ok
+humility: running test_timer_notify_past ... ok
+humility: tests completed: pass
+humility: test output dumped to hubris.testout.2
+```
+
+if one needs to both run GDB and the test suite, use `cargo xtask gdb`
+with the test image's TOML and the appropriate GDB file, and then place
+breakpoints at the test of interest.
 
 ## Adding a task
 
@@ -147,7 +379,7 @@ build" for this.
 
 For instance, to run a standalone build of `task-ping`, run:
 
-```shell
+```console
 $ cd task-ping
 $ cargo xtask build
 ```

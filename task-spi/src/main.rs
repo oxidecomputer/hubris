@@ -7,7 +7,7 @@ use cortex_m_semihosting::hprintln;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
-const SPI: Task = SELF;
+const SPI: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const SPI: Task = Task::spi_driver;

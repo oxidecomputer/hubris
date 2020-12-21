@@ -6,14 +6,15 @@ name = "demo-stm32h7"
 version = "0.1.0"
 
 [features]
-default = ["itm"]
+default = ["itm", "standalone"]
+standalone = ["h743"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 h743 = ["stm32h7/stm32h743"]
 h7b3 = ["stm32h7/stm32h7b3"]
 
 [dependencies]
-cortex-m = { version = "0.6.2", features = ["inline-asm"] }
+cortex-m = { version = "0.6.3", features = ["inline-asm"] }
 cortex-m-rt = "0.6.12"
 cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
@@ -32,9 +33,12 @@ default-features = false
 [build-dependencies]
 build-util = {path = "../build-util"}
 
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
 # this lets you use `cargo fix`!
 [[bin]]
 name = "demo-stm32h7"
 test = false
 bench = false
-

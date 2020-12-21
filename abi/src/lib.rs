@@ -125,10 +125,10 @@ pub struct App {
     /// Should have the value `CURRENT_APP_MAGIC`.
     pub magic: u32,
     /// Number of tasks. This many `TaskDesc` records will immediately follow
-    /// the app header.
+    /// the `RegionDesc` records that follow the app header.
     pub task_count: u32,
     /// Number of memory regions in the address space layout. This many
-    /// `RegionDesc` records will immediately follow the `TaskDesc` array.
+    /// `RegionDesc` records will immediately follow the app header.
     pub region_count: u32,
     /// Number of interrupt response records that will follow the `RegionDesc`
     /// records.
@@ -268,7 +268,9 @@ bitflags::bitflags! {
 }
 
 /// Response code returned by the kernel if the peer died or was restarted.
-pub const DEAD: u32 = !0;
+pub const fn dead_response_code(new_generation: Generation) -> u32 {
+    0xffff_ff00 + new_generation.0 as u32
+}
 
 /// Response code returned by the kernel if a lender has defected.
 pub const DEFECT: u32 = 1;
@@ -352,8 +354,8 @@ impl From<SchedState> for TaskState {
 pub enum FaultInfo {
     /// The task has violated memory access rules. This may have come from a
     /// memory protection fault while executing the task (in the case of
-    /// `source` `User`), or from checks on kernel syscall arguments (`source`
-    /// `Kernel`).
+    /// `source` `User`), from overflowing a stack, or from checks on kernel
+    /// syscall arguments (`source` `Kernel`).
     MemoryAccess {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
@@ -362,6 +364,22 @@ pub enum FaultInfo {
         /// Origin of the fault.
         source: FaultSource,
     },
+    /// A task has overflowed its stack. We can always determine the bad
+    /// stack address, but we can't determine the PC
+    StackOverflow { address: u32 },
+    /// A task has induced a bus error
+    BusError {
+        address: Option<u32>,
+        source: FaultSource,
+    },
+    /// Divide-by-zero
+    DivideByZero,
+    /// Attempt to execute non-executable memory
+    IllegalText,
+    /// Execution of an illegal instruction
+    IllegalInstruction,
+    /// Other invalid operation, with 32-bit code
+    InvalidOperation(u32),
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
     SyscallUsage(UsageError),

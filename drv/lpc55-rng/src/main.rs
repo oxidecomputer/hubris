@@ -1,0 +1,85 @@
+//! Random Number Generation
+//!
+//! This task will produce random u32 values for you, if you ask nicely.
+//!
+//! An example:
+//!
+//! ```ignore
+//! #[derive(AsBytes)]
+//! #[repr(C)]
+//! struct FetchRandomNumber;
+//!
+//! impl hl::Call for FetchRandomNumber {
+//!     const OP: u16 = 0;
+//!     type Response = u32;
+//!     type Err = u32;
+//! }
+//!
+//! let num = hl::send(rng, &FetchRandomNumber).expect("could not ask the rng for a number");
+//!
+//! hprintln!("got {} from the rng", num).ok();
+//! ```
+
+#![no_std]
+#![no_main]
+
+use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use userlib::*;
+use zerocopy::AsBytes;
+
+use lpc55_pac as device;
+
+#[cfg(not(feature = "standalone"))]
+const SYSCON: Task = Task::syscon_driver;
+
+// For standalone mode -- this won't work, but then, neither will a task without
+// a kernel.
+#[cfg(feature = "standalone")]
+const SYSCON: Task = Task::anonymous;
+
+#[repr(u32)]
+enum ResponseCode {
+    BadArg = 1,
+    PoweredOff = 2,
+}
+
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
+}
+
+#[export_name = "main"]
+fn main() -> ! {
+    let syscon =
+        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let syscon = Syscon::from(syscon);
+
+    syscon.enable_clock(Peripheral::Rng);
+
+    let rng = unsafe { &*device::RNG::ptr() };
+    let pmc = unsafe { &*device::PMC::ptr() };
+
+    let mut buffer = [0u32; 1];
+
+    loop {
+        hl::recv_without_notification(
+            buffer.as_bytes_mut(),
+            |_op: u16, msg| -> Result<(), ResponseCode> {
+                let (_msg, caller) =
+                    msg.fixed::<(), u32>().ok_or(ResponseCode::BadArg)?;
+
+                // if the oscilator is powered off, we won't get good RNG.
+                if pmc.pdruncfg0.read().pden_rng().is_poweredoff() {
+                    return Err(ResponseCode::PoweredOff);
+                }
+
+                let number = rng.random_number.read().bits();
+
+                caller.reply(number);
+
+                Ok(())
+            },
+        );
+    }
+}

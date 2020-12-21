@@ -24,6 +24,58 @@
 
 use userlib::*;
 
+fn log_fault(t: usize, fault: &abi::FaultInfo) {
+    match fault {
+        abi::FaultInfo::MemoryAccess { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Memory fault at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Memory fault at unknown address", t);
+            }
+        },
+
+        abi::FaultInfo::BusError { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Bus error at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Bus error at unknown address", t);
+            }
+        },
+
+        abi::FaultInfo::StackOverflow { address, .. } => {
+            sys_log!("Task #{} Stack overflow at address 0x{:x}", t, address);
+        }
+
+        abi::FaultInfo::DivideByZero => {
+            sys_log!("Task #{} Divide-by-zero", t);
+        }
+
+        abi::FaultInfo::IllegalText => {
+            sys_log!("Task #{} Illegal text", t);
+        }
+
+        abi::FaultInfo::IllegalInstruction => {
+            sys_log!("Task #{} Illegal instruction", t);
+        }
+
+        abi::FaultInfo::InvalidOperation(details) => {
+            sys_log!("Task #{} Invalid operation: 0x{:08x}", t, details);
+        }
+
+        abi::FaultInfo::SyscallUsage(e) => {
+            sys_log!("Task #{} Bad Syscall Usage {:?}", t, e);
+        }
+
+        abi::FaultInfo::Panic => {
+            sys_log!("Task #{} Panic!", t);
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("viva el jefe");
@@ -42,24 +94,8 @@ fn main() -> ! {
             for i in 0..NUM_TASKS {
                 let s = kipc::read_task_status(i);
                 if let abi::TaskState::Faulted { fault, .. } = s {
-                    match fault {
-                        abi::FaultInfo::MemoryAccess { address, .. } => {
-                            match address {
-                                Some(a) => {
-                                    sys_log!("Task #{} Memory fault at address 0x{:x}", i, a);
-                                }
+                    log_fault(i, &fault);
 
-                                None => sys_log!(
-                                    "Task #{} Memory fault at unknown address",
-                                    i
-                                ),
-                            }
-                        }
-                        abi::FaultInfo::SyscallUsage(e) => {
-                            sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
-                        }
-                        abi::FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
-                    };
                     // Stand it back up.
                     kipc::restart_task(i, true);
                 }

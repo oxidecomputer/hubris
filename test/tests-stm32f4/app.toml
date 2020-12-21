@@ -1,0 +1,55 @@
+name = "tests-stm32f4"
+target = "thumbv7em-none-eabihf"
+board = "stm32f4-discovery"
+
+[kernel]
+path = "../../demo"
+name = "demo"
+requires = {flash = 65536, ram = 4096}
+features = ["itm"]
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x08000000
+size = 262144
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 114688
+read = true
+write = true
+execute = false
+
+[tasks.runner]
+path = "../test-runner"
+name = "test-runner"
+priority = 0
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.suite]
+path = "../test-suite"
+name = "test-suite"
+priority = 2
+requires = {flash = 32768, ram = 4096}
+start = true
+
+[tasks.assist]
+path = "../test-assist"
+name = "test-assist"
+priority = 1
+requires = {flash = 8192, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.idle]
+path = "../../task-idle"
+name = "task-idle"
+priority = 3
+requires = {flash = 256, ram = 256}
+start = true
