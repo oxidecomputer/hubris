@@ -25,7 +25,7 @@ tooling can verify that you're using the same version on the host side.
 The log task will send out messages over ITM. Currently, the messages are
 in this format:
 
-* `[0x01, 0xde]`, a magic number to start off our log frame
-* A two byte, big endian id of the task that created the log line
-* A two byte, big endian length of the rest of the message
+* `[0xde, 0x01]`, a little endian magic number to start off our log frame
+* A two byte, little endian id of the task that created the log line
+* A two byte, little endian length of the rest of the message
 * The rest of the message, which is currently a defmt log frame
