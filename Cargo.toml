@@ -9,6 +9,7 @@ members = [
     "abi",
     "demo",
     "demo-stm32h7",
+    "gemini-bu",
     "lpc55",
     "kern",
     "userlib",
