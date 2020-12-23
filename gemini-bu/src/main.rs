@@ -229,20 +229,26 @@ fn system_init() {
         let divn = 50;
         let divp = 2;
 
-        p.RCC.pllckselr.write(|w| {
-            w.pllsrc().hsi()
-                .divm1().bits(divm)
-        });
+        p.RCC
+            .pllckselr
+            .write(|w| w.pllsrc().hsi().divm1().bits(divm));
         p.RCC.pllcfgr.write(|w| {
-            w.pll1vcosel().wide_vco()
-                .pll1rge().range8()
-                .divp1en().enabled()
-                .divr1en().enabled()
+            w.pll1vcosel()
+                .wide_vco()
+                .pll1rge()
+                .range8()
+                .divp1en()
+                .enabled()
+                .divr1en()
+                .enabled()
         });
         p.RCC.pll1divr.write(|w| unsafe {
-            w.divp1().bits(divp - 1)
-                .divn1().bits(divn - 1)
-                .divr1().bits(divp - 1)
+            w.divp1()
+                .bits(divp - 1)
+                .divn1()
+                .bits(divn - 1)
+                .divr1()
+                .bits(divp - 1)
         });
     }
 
@@ -257,9 +263,12 @@ fn system_init() {
     // Configure peripheral clock dividers to make sure we stay within
     // range when we change oscillators.
     p.RCC.d1cfgr.write(|w| {
-        w.d1cpre().div1() // CPU at full rate
-            .hpre().div2()  // AHB at half that (200mhz)
-            .d1ppre().div2()    // D1 APB3 a further 1/2 down (100mhz)
+        w.d1cpre()
+            .div1() // CPU at full rate
+            .hpre()
+            .div2() // AHB at half that (200mhz)
+            .d1ppre()
+            .div2() // D1 APB3 a further 1/2 down (100mhz)
     });
     // Other APB buses at HCLK/2 = CPU/4 = 100MHz
     p.RCC.d2cfgr.write(|w| w.d2ppre1().div2().d2ppre2().div2());
@@ -267,7 +276,9 @@ fn system_init() {
 
     // Configure Flash for 200MHz (AHB) at VOS1: 2WS, 2 programming
     // delay. See ref man Table 13
-    p.FLASH.acr.write(|w| unsafe { w.latency().bits(2).wrhighfreq().bits(2) });
+    p.FLASH
+        .acr
+        .write(|w| unsafe { w.latency().bits(2).wrhighfreq().bits(2) });
     while {
         let r = p.FLASH.acr.read();
         r.latency().bits() != 2 || r.wrhighfreq().bits() != 2
