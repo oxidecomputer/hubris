@@ -430,6 +430,7 @@ dependencies = [
 name = "drv-stm32h7-i2c"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",

@@ -6,6 +6,15 @@
 #[cfg(feature = "h7b3")]
 use stm32h7::stm32h7b3 as device;
 
+#[cfg(feature = "h743")]
+use stm32h7::stm32h743 as device;
+
+#[cfg(feature = "h7b3")]
+use device::i2c3::RegisterBlock;
+
+#[cfg(feature = "h743")]
+use device::i2c1::RegisterBlock;
+
 use userlib::*;
 use drv_i2c_api::{Interface, Op};
 
@@ -42,7 +51,11 @@ fn main() -> ! {
 
     configure_pins();
 
+    #[cfg(feature = "h7b3")]
     let i2c = unsafe { &*device::I2C4::ptr() };
+
+    #[cfg(feature = "h743")]
+    let i2c = unsafe { &*device::I2C2::ptr() };
 
     // Field messages.
     let mut buffer = [0; 2];
@@ -50,24 +63,51 @@ fn main() -> ! {
     // Disable PE
     i2c.cr1.write(|w| { w.pe().clear_bit() });
 
-    // We want to set our timing to acheive a 100 kHz SCL. Given our APB4
-    // peripheral clock of 280 MHz, here is how we configure our timing:
-    //
-    // - A PRESC of 7, yielding a t_presc of 28.57 ns.
-    // - An SCLH of 137 (0x89), yielding a t_sclh of 3942.86 ns.
-    // - An SCLL of 207 (0xcf), yielding a t_scll of 5942.86 ns.
-    //
-    // Taken together, this yields a t_scl of 9885.71 ns.  Which, when added
-    // to our t_sync1 and t_sync2 will be close to our target of 10000 ns.
-    // Finally, we set SCLDEL to 8 and SDADEL to 0 -- values that come from
-    // the STM32CubeMX tool (as advised by 52.4.10).
-    i2c.timingr.write(|w| { w
-        .presc().bits(7)
-        .sclh().bits(137)
-        .scll().bits(207)
-        .scldel().bits(8)
-        .sdadel().bits(0)
-    });
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "h7b3")] {
+            // We want to set our timing to achieve a 100kHz SCL. Given our
+            // APB4 peripheral clock of 280MHz, here is how we configure our
+            // timing:
+            //
+            // - A PRESC of 7, yielding a t_presc of 28.57 ns.
+            // - An SCLH of 137 (0x89), yielding a t_sclh of 3942.86 ns.
+            // - An SCLL of 207 (0xcf), yielding a t_scll of 5942.86 ns.
+            //
+            // Taken together, this yields a t_scl of 9885.71 ns.  Which, when
+            // added to our t_sync1 and t_sync2 will be close to our target of
+            // 10000 ns.  Finally, we set SCLDEL to 8 and SDADEL to 0 --
+            // values that come from the STM32CubeMX tool (as advised by
+            // 52.4.10).
+            i2c.timingr.write(|w| { w
+                .presc().bits(7)
+                .sclh().bits(137)
+                .scll().bits(207)
+                .scldel().bits(8)
+                .sdadel().bits(0)
+            });
+        } else if #[cfg(feature = "h743")] {
+            // Here our APB1 peripheral clock is 100MHz, yielding the
+            // following:
+            //
+            // - A PRESC of 1, yielding a t_presc of 20 ns
+            // - An SCLH of 236 (0xec), yielding a t_sclh of 4740 ns
+            // - An SCLL of 255 (0xff), yielding a t_scll of 5120 ns
+            //
+            // Taken together, this yields a t_scl of 9860 ns, which (as
+            // above) when added to t_sync1 and t_sync2 will be close to our
+            // target of 10000 ns.  Finally, we set SCLDEL to 12 and SDADEL to
+            // 0 -- values that come from from the STM32CubeMX tool.
+            i2c.timingr.write(|w| { w
+                .presc().bits(1)
+                .sclh().bits(236)
+                .scll().bits(255)
+                .scldel().bits(12)
+                .sdadel().bits(0)
+            });
+        } else {
+            compile_error!("unknown STM32H7 variant");
+        }
+    }
 
     i2c.oar1.write(|w| { w.oa1en().clear_bit() });
     i2c.oar1.write(|w| { w
@@ -99,7 +139,12 @@ fn main() -> ! {
                     .ok_or(ResponseCode::BadArg)?;
 
                 match Interface::from_u8(interface) {
+                    #[cfg(feature = "h7b3")]
                     Some(Interface::I2C4) => {}
+
+                    #[cfg(feature = "h743")]
+                    Some(Interface::I2C2) => {}
+
                     _ => {
                         return Err(ResponseCode::BadInterface);
                     }
@@ -141,6 +186,9 @@ fn turn_on_i2c() {
     #[cfg(feature = "h7b3")]
     const PORT: Peripheral = Peripheral::I2c4;
 
+    #[cfg(feature = "h743")]
+    const PORT: Peripheral = Peripheral::I2c2;
+
     rcc_driver.enable_clock(PORT);
     rcc_driver.leave_reset(PORT);
 }
@@ -152,13 +200,18 @@ fn configure_pins() {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
+    // On the H7B3, enable I2C4
     #[cfg(feature = "h7b3")]
-    const I2C4_MASK: (Port, u16) = (Port::D, (1 << 12) | (1 << 13));
+    const I2C_MASK: (Port, u16) = (Port::D, (1 << 12) | (1 << 13));
+
+    // On the H743, enable I2C2
+    #[cfg(feature = "h743")]
+    const I2C_MASK: (Port, u16) = (Port::F, (1 << 0) | (1 << 1));
 
     gpio_driver
         .configure(
-            I2C4_MASK.0,
-            I2C4_MASK.1,
+            I2C_MASK.0,
+            I2C_MASK.1,
             Mode::Alternate,
             OutputType::OpenDrain,
             Speed::High,
@@ -169,7 +222,7 @@ fn configure_pins() {
 }
 
 fn write_read(
-    i2c: &device::i2c3::RegisterBlock,
+    i2c: &RegisterBlock,
     addr: u8,
     wlen: usize,
     getbyte: impl Fn(usize) -> Option<u8>,

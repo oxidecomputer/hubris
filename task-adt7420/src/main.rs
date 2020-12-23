@@ -145,6 +145,9 @@ fn main() -> ! {
     #[cfg(feature = "h7b3")]
     const INTERFACE: Interface = Interface::I2C4;
 
+    #[cfg(feature = "h743")]
+    const INTERFACE: Interface = Interface::I2C2;
+
     let i2c = I2c::new(
         TaskId::for_index_and_gen(I2C as usize, Generation::default()),
         INTERFACE,
