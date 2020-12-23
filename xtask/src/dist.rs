@@ -116,6 +116,10 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         }
     }
 
+    // now that we're clean, update our buildstamp file; any failure to build
+    // from here on need not trigger a clean
+    std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
+
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
         generate_task_linker_script(
@@ -311,9 +315,6 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     }
 
     archive.finish()?;
-
-    // update our buildstamp file now that we've had a successful build
-    std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
 
     Ok(())
 }
