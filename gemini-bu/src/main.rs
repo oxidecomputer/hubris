@@ -78,6 +78,8 @@ unsafe fn system_pre_init() {
     // We'll do the rest in system_init.
 }
 
+const USE_EXTERNAL_CRYSTAL: bool = true;
+
 fn system_init() {
     // Basic RAMs are working, power is stable, and the runtime has initialized
     // static variables.
@@ -88,14 +90,11 @@ fn system_init() {
     let mut cp = cortex_m::Peripherals::take().unwrap();
     let p = device::Peripherals::take().unwrap();
 
-    #[cfg(feature = "stm32h743")]
-    {
-        // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
-        // read corruption" - limits AXI SRAM read concurrency.
-        p.AXI
-            .targ7_fn_mod
-            .modify(|_, w| w.read_iss_override().set_bit());
-    }
+    // Workaround for erratum 2.2.9 "Reading from AXI SRAM may lead to data
+    // read corruption" - limits AXI SRAM read concurrency.
+    p.AXI
+        .targ7_fn_mod
+        .modify(|_, w| w.read_iss_override().set_bit());
 
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
     // property that any attempt to use ITM without having TRCENA set in
@@ -134,18 +133,14 @@ fn system_init() {
     // we've been executing instructions out of flash _the whole time._
 
     // Our goal is now to boost the CPU frequency to its final level. This means
-    // raising the core supply voltage from VOS3 -- to VOS0 on H7B3, or VOS1 on
-    // H743 -- and adding wait states or reduced divisors to a bunch of things,
-    // and then finally making the actual change.
+    // raising the core supply voltage from VOS3 -- to VOS1 on H753 -- and
+    // adding wait states or reduced divisors to a bunch of things, and then
+    // finally making the actual change.
 
-    // We're allowed to hop directly from VOS3 to VOS0/1; the manual doesn't say
+    // We're allowed to hop directly from VOS3 to VOS1; the manual doesn't say
     // this explicitly but the ST drivers do it.
     //
-    // H7B3: The D3CR register is called SRDCR in the manual, and at the time of
-    // this writing is incompletely modeled, so we have to unsafe the bits in.
-    //
-    // H743: Bits are still unsafe but name at least matches the manual. Note
-    // that the H743 encodes VOS1 the same way the H7B3 encodes VOS0.
+    // Bits are still unsafe in the API but name at least matches the manual.
     p.PWR.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
     // Busy-wait for the voltage to reach the right level.
     while !p.PWR.d3cr.read().vosrdy().bit() {
@@ -153,39 +148,103 @@ fn system_init() {
     }
     // We are now at VOS1/0.
 
-    // All configurations use PLL1. They just use it differently.
+    if USE_EXTERNAL_CRYSTAL {
+        // There's an 8MHz crystal on our board. We'll use it as our clock
+        // source, to get higher accuracy than the internal oscillator. Turn
+        // on the High Speed External oscillator.
+        p.RCC.cr.modify(|_, w| w.hseon().set_bit());
+        // Wait for it to stabilize.
+        while !p.RCC.cr.read().hserdy().bit() {
+            // spin
+        }
 
-    // This clock setup code is based on the H743 Nucleo code, which didn't
-    // include an external crystal -- so it uses HSI64. (TODO: fix for actual
-    // Gemini crystal on HSE.)
+        // 8MHz HSE -> DIVM -> VCO input freq: the VCO's input must be in the
+        // range 2-16MHz, so we want to bypass the prescaler by setting DIVM to
+        // 1.
+        p.RCC
+            .pllckselr
+            .modify(|_, w| w.divm1().bits(1).pllsrc().hse());
+        // The VCO itself needs to be configured to expect a 8MHz input
+        // ("wide input range" or, on the slightly later parts, "range 8") and
+        // at its normal (wide) output range. We will also want its P-output,
+        // which is the output that's tied to the system clock.
+        //
+        // We don't currently use the Q and R outputs, and we could switch
+        // them off to save power -- but they can function as kernel clocks
+        // for many of our peripherals, and thus might be useful.
+        //
+        // (Note that the R clock winds up being the source for the trace
+        // unit, so saying we don't use it is a little facetious.)
+        p.RCC.pllcfgr.modify(|_, w| {
+            w.pll1vcosel()
+                .wide_vco()
+                .pll1rge()
+                .range8()
+                .divp1en()
+                .enabled()
+                .divq1en()
+                .enabled()
+                .divr1en()
+                .enabled()
+        });
+        // Now, we configure the VCO for reals.
+        //
+        // The N value is the multiplication factor for the VCO internal
+        // frequency relative to its input. The resulting internal frequency
+        // must be in the range 192-836MHz. To avoid needing to configure
+        // the fractional divider, we configure the VCO to 2x our target
+        // frequency, 800MHz, which is in turn exactly 100x our (divided)
+        // input frequency.
+        //
+        // The P value is the divisor from VCO frequency to system
+        // frequency, so it needs to be 2 to get a 400MHz P-output.
+        //
+        // We set the Q and R outputs to the same frequency, because the
+        // right choice isn't obvious yet.
+        p.RCC.pll1divr.modify(|_, w| unsafe {
+            w.divn1()
+                .bits(100 - 1)
+                .divp1()
+                .div2()
+                // Q and R fields aren't modeled correctly in the API, so:
+                .divq1()
+                .bits(1)
+                .divr1()
+                .bits(1)
+        });
+    } else {
+        // This clock setup code is based on the H743 Nucleo code, which didn't
+        // include an external crystal -- so it uses HSI64. (TODO: fix for
+        // actual Gemini crystal on HSE.)
 
-    // PLL1 configuration:
-    // CPU freq = VCO / DIVP = HSI / DIVM * DIVN / DIVP
-    //          = 64 / 4 * 50 / 2
-    //          = 400 Mhz
-    // System clock = 400 Mhz
-    //  HPRE = /2  => AHB/Timer clock = 200 Mhz
+        // PLL1 configuration:
+        // CPU freq = VCO / DIVP = HSI / DIVM * DIVN / DIVP
+        //          = 64 / 4 * 50 / 2
+        //          = 400 Mhz
+        // System clock = 400 Mhz
+        //  HPRE = /2  => AHB/Timer clock = 200 Mhz
 
-    // Configure PLL
-    let divm = 4;
-    let divn = 50;
-    let divp = 2;
+        // Configure PLL
+        let divm = 4;
+        let divn = 50;
+        let divp = 2;
 
-    p.RCC.pllckselr.write(|w| {
-        w.pllsrc().hsi()
-            .divm1().bits(divm)
-    });
-    p.RCC.pllcfgr.write(|w| {
-        w.pll1vcosel().wide_vco()
-            .pll1rge().range8()
-            .divp1en().enabled()
-            .divr1en().enabled()
-    });
-    p.RCC.pll1divr.write(|w| unsafe {
-        w.divp1().bits(divp - 1)
-            .divn1().bits(divn - 1)
-            .divr1().bits(divp - 1)
-    });
+        p.RCC.pllckselr.write(|w| {
+            w.pllsrc().hsi()
+                .divm1().bits(divm)
+        });
+        p.RCC.pllcfgr.write(|w| {
+            w.pll1vcosel().wide_vco()
+                .pll1rge().range8()
+                .divp1en().enabled()
+                .divr1en().enabled()
+        });
+        p.RCC.pll1divr.write(|w| unsafe {
+            w.divp1().bits(divp - 1)
+                .divn1().bits(divn - 1)
+                .divr1().bits(divp - 1)
+        });
+    }
 
     // Turn on PLL1 and wait for it to lock.
     p.RCC.cr.modify(|_, w| w.pll1on().on());
@@ -200,10 +259,11 @@ fn system_init() {
     p.RCC.d1cfgr.write(|w| {
         w.d1cpre().div1() // CPU at full rate
             .hpre().div2()  // AHB at half that (200mhz)
-            .d1ppre().div1()    // D1 APB3 at same
+            .d1ppre().div2()    // D1 APB3 a further 1/2 down (100mhz)
     });
-    p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
-    p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
+    // Other APB buses at HCLK/2 = CPU/4 = 100MHz
+    p.RCC.d2cfgr.write(|w| w.d2ppre1().div2().d2ppre2().div2());
+    p.RCC.d3cfgr.write(|w| w.d3ppre().div2());
 
     // Configure Flash for 200MHz (AHB) at VOS1: 2WS, 2 programming
     // delay. See ref man Table 13
