@@ -358,14 +358,18 @@ fn system_init() {
             cortex_m::asm::dmb();
         } else if #[cfg(target_board = "nucleo-h743zi2")] {
             // Configure peripheral clock dividers to make sure we stay within
-            // range when we change oscillators.
+            // range when we change oscillators.  At VOS1, the AHB frequency is
+            // limited to 200Mhz and the APB frequency is limited to 100MHz
+            // (from Table 122 in the datasheet).
             p.RCC.d1cfgr.write(|w| {
                 w.d1cpre().div1() // CPU at full rate
-                    .hpre().div2()  // AHB at half that (200mhz)
-                    .d1ppre().div1()    // D1 APB3 at same
+                    .hpre().div2()  // AHB at half that (200MHz)
+                    .d1ppre().div1()    // D1 APB3 at half that again (100MHz)
             });
-            p.RCC.d2cfgr.write(|w| w.d2ppre1().div1().d2ppre2().div1());
-            p.RCC.d3cfgr.write(|w| w.d3ppre().div1());
+
+            // Clamp our APBs at 100MHz
+            p.RCC.d2cfgr.write(|w| w.d2ppre1().div2().d2ppre2().div2());
+            p.RCC.d3cfgr.write(|w| w.d3ppre().div2());
 
             // Configure Flash for 200MHz (AHB) at VOS1: 2WS, 2 programming
             // delay. See ref man Table 13
