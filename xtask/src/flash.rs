@@ -37,7 +37,8 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
 
             (flash, Some(reset))
         }
-        "stm32f4-discovery" | "nucleo-h743zi2" | "stm32h7b3i-dk" | "gemini-bu-1" => {
+        "stm32f4-discovery" | "nucleo-h743zi2" | "stm32h7b3i-dk"
+        | "gemini-bu-1" => {
             let cfg = if toml.board == "stm32f4-discovery" {
                 "./demo/openocd.cfg"
             } else {
