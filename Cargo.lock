@@ -1330,6 +1330,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-gemini-bu"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32h7",
+]
+
+[[package]]
 name = "tests-lpc55"
 version = "0.1.0"
 dependencies = [
