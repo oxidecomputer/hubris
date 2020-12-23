@@ -29,8 +29,12 @@ SECTIONS
     __erodata = .;
   } > FLASH
 
-  /* ## Sections in RAM */
-  /* ### .data */
+  /*
+   * Sections in RAM
+   *
+   * NOTE: the userlib runtime assumes that these sections
+   * are 4-byte aligned and padded to 4-byte boundaries.
+   */
   .data : AT(__erodata) ALIGN(4)
   {
     . = ALIGN(4);
@@ -43,7 +47,6 @@ SECTIONS
   /* LMA of .data */
   __sidata = LOADADDR(.data);
 
-  /* ### .bss */
   .bss : ALIGN(4)
   {
     . = ALIGN(4);
@@ -53,7 +56,6 @@ SECTIONS
     __ebss = .;
   } > RAM
 
-  /* ### .uninit */
   .uninit (NOLOAD) : ALIGN(4)
   {
     . = ALIGN(4);

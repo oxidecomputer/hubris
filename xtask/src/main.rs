@@ -9,7 +9,10 @@ use indexmap::IndexMap;
 
 mod check;
 mod dist;
+mod flash;
 mod gdb;
+mod humility;
+mod test;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -27,6 +30,15 @@ enum Xtask {
         cfg: PathBuf,
     },
 
+    /// Runs `xtask dist` and flashes the image onto an attached target
+    Flash {
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
     /// Runs `xtask dist` and then runs a properly configured gdb for you.
     Gdb {
         /// Path to the image configuration file, in TOML.
@@ -34,6 +46,29 @@ enum Xtask {
 
         /// Path to the gdb configuation script.
         gdb_cfg: PathBuf,
+    },
+
+    /// Runs `humility`, passing any arguments
+    Humility {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Options to pass to Humility
+        options: Vec<String>,
+    },
+
+    /// Runs `xtask dist`, `xtask flash` and then `humility test`
+    Test {
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Do not flash a new image; just run `humility test`
+        #[structopt(short)]
+        noflash: bool,
+
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
     },
 
     /// Runs `cargo check` on a specific task
@@ -145,9 +180,28 @@ fn main() -> Result<()> {
         Xtask::Dist { verbose, cfg } => {
             dist::package(verbose, &cfg)?;
         }
+        Xtask::Flash { verbose, cfg } => {
+            dist::package(verbose, &cfg)?;
+            flash::run(verbose, &cfg)?;
+        }
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
+        }
+        Xtask::Humility { cfg, options } => {
+            humility::run(&cfg, &options)?;
+        }
+        Xtask::Test {
+            cfg,
+            noflash,
+            verbose,
+        } => {
+            if !noflash {
+                dist::package(verbose, &cfg)?;
+                flash::run(verbose, &cfg)?;
+            }
+
+            test::run(verbose, &cfg)?;
         }
         Xtask::Check {
             package,

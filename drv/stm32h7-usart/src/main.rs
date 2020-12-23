@@ -15,7 +15,6 @@ use stm32h7::stm32h743 as device;
 use stm32h7::stm32h7b3 as device;
 
 use userlib::*;
-use zerocopy::AsBytes;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -163,34 +162,20 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    let rcc_driver =
-        TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
+        RCC as usize,
+        Generation::default(),
+    ));
 
     #[cfg(feature = "h7b3")]
-    const PNUM: u32 = 196; // USART1
+    const PORT: Peripheral = Peripheral::Usart1;
 
     #[cfg(feature = "h743")]
-    const PNUM: u32 = 146; // USART3
+    const PORT: Peripheral = Peripheral::Usart3;
 
-    const ENABLE_CLOCK: u16 = 1;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        PNUM.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        LEAVE_RESET,
-        PNUM.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    rcc_driver.enable_clock(PORT);
+    rcc_driver.leave_reset(PORT);
 }
 
 fn configure_pins() {

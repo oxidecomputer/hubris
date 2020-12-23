@@ -157,6 +157,11 @@ static mut IRQ_TABLE_SIZE: usize = 0;
 #[no_mangle]
 static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 
+/// To allow our clock frequency to be easily determined from a debugger, we
+/// store it in memory.
+#[no_mangle]
+static mut CLOCK_FREQ_KHZ: u32 = 0;
+
 /// ARMvx-M volatile registers that must be saved across context switches.
 ///
 /// TODO: this set is a great start but is missing half the FPU registers.
@@ -583,6 +588,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     }
 
     unsafe {
+        CLOCK_FREQ_KHZ = tick_divisor;
         CURRENT_TASK_PTR = Some(NonNull::from(task));
     }
 

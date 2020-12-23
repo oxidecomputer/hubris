@@ -1,5 +1,7 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
+use std::hash::Hasher;
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -17,31 +19,36 @@ use lpc55_support::{crc_image, signed_image};
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
+
+    let mut hasher = DefaultHasher::new();
+    hasher.write(&cfg_contents);
+    let buildhash = hasher.finish();
     drop(cfg_contents);
 
     let mut out = PathBuf::from("target");
+    let buildstamp_file = out.join("buildstamp");
+
     out.push(&toml.name);
     out.push("dist");
 
     std::fs::create_dir_all(&out)?;
 
-    let timestamp_file = out.join("timestamp");
-
-    use filetime::FileTime;
-
-    let rebuild = match std::fs::metadata(&timestamp_file) {
-        Ok(timestamp_metadata) => {
-            let timestamp_filetime =
-                FileTime::from_last_modification_time(&timestamp_metadata);
-
-            let metadata = std::fs::metadata(cfg)?;
-            let app_filetime = FileTime::from_last_modification_time(&metadata);
-
-            app_filetime > timestamp_filetime
+    let rebuild = match std::fs::read(&buildstamp_file) {
+        Ok(contents) => {
+            if let Ok(contents) = std::str::from_utf8(&contents) {
+                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
+                    buildhash != cmp
+                } else {
+                    println!("buildstamp file contents unknown; re-building.");
+                    true
+                }
+            } else {
+                println!("buildstamp file contents corrupt; re-building.");
+                true
+            }
         }
         Err(_) => {
-            println!("no timestamp file found; re-building.");
-
+            println!("no buildstamp file found; re-building.");
             true
         }
     };
@@ -305,8 +312,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     archive.finish()?;
 
-    // update our timestamp file now that we've had a successful build
-    File::create(&timestamp_file)?;
+    // update our buildstamp file now that we've had a successful build
+    std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
 
     Ok(())
 }
@@ -443,7 +450,6 @@ fn build(
     );
 
     cmd.env("HUBRIS_TASKS", task_names);
-
     cmd.env("HUBRIS_BOARD", board_name);
 
     if let Some(s) = secure {

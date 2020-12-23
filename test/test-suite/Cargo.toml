@@ -1,35 +1,25 @@
 [package]
-name = "task-tests"
+name = "test-suite"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../userlib", features = ["log-itm"]}
 cortex-m = "0.6.3"
 zerocopy = "0.3.0"
+userlib = {path = "../../userlib"}
 num-traits = { version = "0.2.12", default-features = false }
+test-api = {path = "../test-api"}
 
 [features]
 default = ["standalone"]
 standalone = []
-itm = ["userlib/log-itm"]
 
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
 [[bin]]
-name = "testsuite"
-test = false
-bench = false
-[[bin]]
-name = "runner"
-test = false
-bench = false
-[[bin]]
-name = "assist"
+name = "test-suite"
 test = false
 bench = false

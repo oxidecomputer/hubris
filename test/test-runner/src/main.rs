@@ -80,7 +80,8 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -109,22 +110,13 @@ const TEST_TASK: usize = 1;
 /// not become wrong.
 static TEST_GEN: AtomicU8 = AtomicU8::new(0);
 
-/// Operations we expose when we're playing receiver.
-#[derive(FromPrimitive)]
-enum Op {
-    /// Reads out, and clears, the accumulated set of notifications we've
-    /// received (`() -> u32`).
-    ReadAndClearNotes = 0,
-    /// Signals that a test is complete, and that the runner is switching back
-    /// to passive mode (`() -> ()`).
-    TestComplete = 0xFFFF,
-}
+static TEST_KICK: AtomicU32 = AtomicU32::new(0);
+static TEST_RUNS: AtomicU32 = AtomicU32::new(0);
 
 /// We are sensitive to all notifications, to catch unexpected ones in test.
 const ALL_NOTIFICATIONS: u32 = !0;
 
-#[export_name = "main"]
-fn main() -> ! {
+fn test_run() {
     // Get things rolling by restarting the test task. This ensures that it's
     // running, so that we don't depend on the `start` key in `app.toml` for
     // correctness.
@@ -193,15 +185,15 @@ fn main() -> ! {
                         }
                     }
                 },
-                |state, op: Op, msg| -> Result<(), u32> {
+                |state, op: RunnerOp, msg| -> Result<(), u32> {
                     match op {
-                        Op::ReadAndClearNotes => {
+                        RunnerOp::ReadAndClearNotes => {
                             let (_, caller) =
                                 msg.fixed::<(), u32>().ok_or(2u32)?;
                             caller.reply(state.received_notes);
                             state.received_notes = 0;
                         }
-                        Op::TestComplete => {
+                        RunnerOp::TestComplete => {
                             let (_, caller) =
                                 msg.fixed::<(), ()>().ok_or(2u32)?;
                             caller.reply(());
@@ -230,10 +222,19 @@ fn main() -> ! {
     } else {
         test_output!("done FAIL");
     }
+}
 
-    // Go idle until reset.
+#[export_name = "main"]
+fn main() -> ! {
     loop {
-        cortex_m::asm::wfi();
+        test_run();
+        TEST_RUNS.fetch_add(1, Ordering::SeqCst);
+
+        while TEST_KICK.load(Ordering::SeqCst) == 0 {
+            continue;
+        }
+
+        TEST_KICK.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
@@ -273,7 +274,8 @@ fn tester_task_id() -> TaskId {
 fn get_case_count() -> usize {
     let tid = tester_task_id();
     let mut response = 0;
-    let (rc, len) = sys_send(tid, 1, &[], response.as_bytes_mut(), &[]);
+    let op = SuiteOp::GetCaseCount as u16;
+    let (rc, len) = sys_send(tid, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     response
@@ -284,7 +286,8 @@ fn get_case_count() -> usize {
 /// with spaces).
 fn get_case_name(id: usize, buf: &mut [u8]) -> &[u8] {
     let tid = tester_task_id();
-    let (rc, len) = sys_send(tid, 2, &id.as_bytes(), buf, &[]);
+    let op = SuiteOp::GetCaseName as u16;
+    let (rc, len) = sys_send(tid, op, &id.as_bytes(), buf, &[]);
     assert_eq!(rc, 0);
     &buf[..len.min(buf.len())]
 }
@@ -292,9 +295,62 @@ fn get_case_name(id: usize, buf: &mut [u8]) -> &[u8] {
 /// Contacts the testsuite to ask to start case `id`.
 fn start_test(id: usize) {
     let tid = tester_task_id();
-    let (rc, len) = sys_send(tid, 3, &id.as_bytes(), &mut [], &[]);
+    let op = SuiteOp::RunCase as u16;
+    let (rc, len) = sys_send(tid, op, &id.as_bytes(), &mut [], &[]);
     assert_eq!(rc, 0);
     assert_eq!(len, 0);
+}
+
+fn log_fault(t: usize, fault: &FaultInfo) {
+    match fault {
+        FaultInfo::MemoryAccess { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Memory fault at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Memory fault at unknown address", t);
+            }
+        },
+
+        FaultInfo::BusError { address, .. } => match address {
+            Some(a) => {
+                sys_log!("Task #{} Bus error at address 0x{:x}", t, a);
+            }
+
+            None => {
+                sys_log!("Task #{} Bus error at unknown address", t);
+            }
+        },
+
+        FaultInfo::StackOverflow { address, .. } => {
+            sys_log!("Task #{} Stack overflow at address 0x{:x}", t, address);
+        }
+
+        FaultInfo::DivideByZero => {
+            sys_log!("Task #{} Divide-by-zero", t);
+        }
+
+        FaultInfo::IllegalText => {
+            sys_log!("Task #{} Illegal text", t);
+        }
+
+        FaultInfo::IllegalInstruction => {
+            sys_log!("Task #{} Illegal instruction", t);
+        }
+
+        FaultInfo::InvalidOperation(details) => {
+            sys_log!("Task #{} Invalid operation: 0x{:08x}", t, details);
+        }
+
+        FaultInfo::SyscallUsage(e) => {
+            sys_log!("Task #{} Bad Syscall Usage {:?}", t, e);
+        }
+
+        FaultInfo::Panic => {
+            sys_log!("Task #{} Panic!", t);
+        }
+    }
 }
 
 /// Scans the kernel's task table looking for a task that has fallen over.
@@ -307,25 +363,7 @@ fn find_and_report_fault() -> bool {
     for i in 0..NUM_TASKS {
         let s = kipc::read_task_status(i);
         if let TaskState::Faulted { fault, .. } = s {
-            match fault {
-                FaultInfo::MemoryAccess { address, source } => {
-                    match address {
-                        Some(a) => {
-                            sys_log!("Task #{} Memory fault at address 0x{:x} ({:?})", i, a, source);
-                        }
-
-                        None => sys_log!(
-                            "Task #{} Memory fault at unknown address",
-                            i
-                        ),
-                    }
-                }
-                FaultInfo::SyscallUsage(e) => {
-                    sys_log!("Task #{} Bad Syscall Usage {:?}", i, e)
-                }
-                FaultInfo::Panic => sys_log!("Task #{} Panic!", i),
-                _ => {}
-            };
+            log_fault(i, &fault);
             if i == TEST_TASK {
                 tester_faulted = true;
                 restart_tester();
