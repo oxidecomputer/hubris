@@ -201,19 +201,19 @@ cfg_if::cfg_if! {
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "stm32h7b3i-dk")] {
-                // STM32H7B3 DISCOVERY kit; LEDs are on G2 and G11.
+                // STM32H7B3 DISCOVERY kit: LEDs are on G2 and G11.
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::G;
                 const LED_MASK_0: u16 = 1 << 2;
                 const LED_MASK_1: u16 = 1 << 11;
             } else if #[cfg(target_board = "nucleo-h743zi2")] {
-                // Nucleo board, LEDs are on B0 and B14.
+                // Nucleo board: LEDs are on B0 and B14.
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::B;
                 const LED_MASK_0: u16 = 1 << 0;
                 const LED_MASK_1: u16 = 1 << 14;
             } else if #[cfg(target_board = "gemini-bu-1")] {
-                // Gemini bringup SP, LEDs are on PI8, PI9
+                // Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::I;
                 const LED_MASK_0: u16 = 1 << 8;
