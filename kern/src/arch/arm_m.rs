@@ -963,7 +963,7 @@ unsafe extern "C" fn configurable_fault() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn MemoryManagement() {
-    configurable_fault()
+    asm!("b {0}", sym configurable_fault, options(noreturn))
 }
 
 /// Initial entry point for handling a bus fault.
@@ -971,7 +971,7 @@ pub unsafe extern "C" fn MemoryManagement() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn BusFault() {
-    configurable_fault()
+    asm!("b {0}", sym configurable_fault, options(noreturn))
 }
 
 /// Initial entry point for handling a usage fault.
@@ -979,7 +979,7 @@ pub unsafe extern "C" fn BusFault() {
 #[no_mangle]
 #[naked]
 pub unsafe extern "C" fn UsageFault() {
-    configurable_fault()
+    asm!("b {0}", sym configurable_fault, options(noreturn))
 }
 
 bitflags::bitflags! {

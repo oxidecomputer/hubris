@@ -2,16 +2,14 @@
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
-name = "tests-stm32h7"
+name = "tests-gemini-bu"
 version = "0.1.0"
 
 [features]
-default = ["itm", "standalone"]
-standalone = ["h743"]
+default = ["standalone"]
+standalone = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
-h743 = ["stm32h7/stm32h743"]
-h7b3 = ["stm32h7/stm32h7b3"]
 
 [dependencies]
 cortex-m = { version = "0.6.3", features = ["inline-asm"] }
@@ -24,7 +22,7 @@ cfg-if = "0.1.10"
 
 [dependencies.stm32h7]
 git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-features = ["rt"]
+features = ["rt", "stm32h743"]
 
 [dependencies.kern]
 path = "../../kern"
@@ -39,7 +37,7 @@ target = "thumbv7em-none-eabihf"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "tests-stm32h7"
-path = "../../demo-stm32h7/src/main.rs"
+name = "tests-gemini-bu"
+path = "../../gemini-bu/src/main.rs"
 test = false
 bench = false
