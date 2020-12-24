@@ -36,10 +36,22 @@ enum Op {
     Toggle = 3,
 }
 
-#[derive(FromPrimitive)]
-enum Led {
-    Zero = 0,
-    One = 1,
+cfg_if::cfg_if! {
+    if #[cfg(not(target_board = "gemini-bu-1"))] {
+        #[derive(FromPrimitive)]
+        enum Led {
+            Zero = 0,
+            One = 1,
+        }
+    } else {
+        #[derive(FromPrimitive)]
+        enum Led {
+            Zero = 0,
+            One = 1,
+            Two = 2,
+            Three = 3,
+        }
+    }
 }
 
 #[repr(u32)]
@@ -201,11 +213,13 @@ cfg_if::cfg_if! {
                 const LED_MASK_0: u16 = 1 << 0;
                 const LED_MASK_1: u16 = 1 << 14;
             } else if #[cfg(target_board = "gemini-bu-1")] {
-                // Nucleo board, LEDs are on PI8, PI9
+                // Gemini bringup SP, LEDs are on PI8, PI9
                 const LED_PORT: drv_stm32h7_gpio_api::Port =
                     drv_stm32h7_gpio_api::Port::I;
                 const LED_MASK_0: u16 = 1 << 8;
                 const LED_MASK_1: u16 = 1 << 9;
+                const LED_MASK_2: u16 = 1 << 10;
+                const LED_MASK_3: u16 = 1 << 11;
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -221,10 +235,18 @@ fn enable_led_pins() {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
+    cfg_if::cfg_if! {
+        if #[cfg(not(target_board = "gemini-bu-1"))] {
+            let mask = LED_MASK_0 | LED_MASK_1;
+        } else {
+            let mask = LED_MASK_0 | LED_MASK_1 | LED_MASK_2 | LED_MASK_3;
+        }
+    }
+
     gpio_driver
         .configure(
             LED_PORT,
-            LED_MASK_0 | LED_MASK_1,
+            mask,
             Mode::Output,
             OutputType::PushPull,
             Speed::High,
@@ -232,6 +254,27 @@ fn enable_led_pins() {
             Alternate::AF0,
         )
         .unwrap();
+
+    // The STM32H7B3 DISCOVERY board's LEDs are -- contrary to the docs --
+    // active low; turn them off now
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
+            led_off(Led::Zero);
+            led_off(Led::One);
+        }
+    }
+}
+
+#[cfg(feature = "stm32h7")]
+fn led_mask(led: Led) -> u16 {
+    match led {
+        Led::Zero => LED_MASK_0,
+        Led::One => LED_MASK_1,
+        #[cfg(target_board = "gemini-bu-1")]
+        Led::Two => LED_MASK_2,
+        #[cfg(target_board = "gemini-bu-1")]
+        Led::Three => LED_MASK_3,
+    }
 }
 
 #[cfg(feature = "stm32h7")]
@@ -242,11 +285,17 @@ fn led_on(led: Led) {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
-    let set_mask = match led {
-        Led::Zero => LED_MASK_0,
-        Led::One => LED_MASK_1,
-    };
-    gpio_driver.set_reset(LED_PORT, set_mask, 0).unwrap();
+    let mask = led_mask(led);
+
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
+            let (set, reset) = (0, mask);
+        } else {
+            let (set, reset) = (mask, 0);
+        }
+    }
+
+    gpio_driver.set_reset(LED_PORT, set, reset).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
@@ -257,11 +306,17 @@ fn led_off(led: Led) {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
-    let reset_mask = match led {
-        Led::Zero => LED_MASK_0,
-        Led::One => LED_MASK_1,
-    };
-    gpio_driver.set_reset(LED_PORT, 0, reset_mask).unwrap();
+    let mask = led_mask(led);
+
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "stm32h7b3i-dk")] {
+            let (set, reset) = (mask, 0);
+        } else {
+            let (set, reset) = (0, mask);
+        }
+    }
+
+    gpio_driver.set_reset(LED_PORT, set, reset).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
@@ -271,12 +326,8 @@ fn led_toggle(led: Led) {
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
-    let mask = match led {
-        Led::Zero => LED_MASK_0,
-        Led::One => LED_MASK_1,
-    };
 
-    gpio_driver.toggle(LED_PORT, mask).unwrap();
+    gpio_driver.toggle(LED_PORT, led_mask(led)).unwrap();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -311,6 +362,11 @@ fn enable_led_pins() {
     let iocon = unsafe { &*device::IOCON::ptr() };
     iocon.pio1_4.modify(|_, w| w.digimode().digital());
     iocon.pio1_6.modify(|_, w| w.digimode().digital());
+
+    // Both LEDs are active low -- so they will light when we set the
+    // direction of the pin if we don't explicitly turn them off first
+    led_off(Led::Zero);
+    led_off(Led::One);
 
     // red led
     let (code, _) =
