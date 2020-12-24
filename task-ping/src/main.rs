@@ -37,8 +37,6 @@ fn divzero() {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let user_leds = get_user_leds();
-
     let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
@@ -48,8 +46,6 @@ fn main() -> ! {
     let mut response = [0; 16];
     loop {
         uart_send(b"Ping!\r\n");
-        // Signal that we're entering send:
-        user_leds.led_on(0).unwrap();
 
         let (code, _len) =
             sys_send(peer, PING_OP, b"hello", &mut response, &[]);
@@ -62,19 +58,6 @@ fn main() -> ! {
         faultme[op]();
         sys_panic(b"unexpected non-fault!");
     }
-}
-
-fn get_user_leds() -> drv_user_leds_api::UserLeds {
-    #[cfg(not(feature = "standalone"))]
-    const USER_LEDS: Task = Task::user_leds;
-
-    #[cfg(feature = "standalone")]
-    const USER_LEDS: Task = Task::anonymous;
-
-    drv_user_leds_api::UserLeds::from(TaskId::for_index_and_gen(
-        USER_LEDS as usize,
-        Generation::default(),
-    ))
 }
 
 #[cfg(feature = "uart")]
