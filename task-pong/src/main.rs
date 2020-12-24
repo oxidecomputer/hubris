@@ -12,14 +12,12 @@ pub fn main() -> ! {
 
     let user_leds = get_user_leds();
 
+    let mut current = 0;
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
     sys_set_timer(Some(dl), TIMER_NOTIFICATION);
     loop {
         let msginfo = sys_recv_open(&mut msg, TIMER_NOTIFICATION);
-
-        // Signal that we have received
-        user_leds.led_off(0).unwrap();
 
         if msginfo.sender != TaskId::KERNEL {
             // We'll just assume this is a ping message and reply.
@@ -30,7 +28,22 @@ pub fn main() -> ! {
             // enabled, so we know full well which it is without looking.
             dl += INTERVAL;
             sys_set_timer(Some(dl), TIMER_NOTIFICATION);
-            user_leds.led_toggle(1).unwrap();
+
+            // Toggle the current LED -- and if we've run out, start over
+            loop {
+                match user_leds.led_toggle(current >> 1) {
+                    Ok(_) => {
+                        current = current + 1;
+                        break;
+                    }
+                    Err(drv_user_leds_api::LedError::NoSuchLed) => {
+                        current = 0;
+                    }
+                    _ => {
+                        panic!("unhandled Led error");
+                    }
+                };
+            }
         }
     }
 }
