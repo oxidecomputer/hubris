@@ -192,6 +192,10 @@ impl<'a> Message<'a> {
             self.fixed()
         }
     }
+
+    pub fn lease_count(&self) -> usize {
+        self.lease_count
+    }
 }
 
 /// A typed handle to a task, used to send a single reply of type `R`.
@@ -256,6 +260,7 @@ impl<R> Caller<R> {
 /// The borrow handle borrows the `Caller` to keep you from accidentally holding
 /// the borrow after you reply to the caller (causing it to revoke the lease).
 /// This is an error-robustness thing and not a safety thing.
+#[derive(Clone)]
 pub struct Borrow<'caller> {
     id: TaskId,
     index: usize,

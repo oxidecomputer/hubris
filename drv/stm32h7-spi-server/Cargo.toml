@@ -1,0 +1,33 @@
+[package]
+name = "drv-stm32h7-spi-server"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
+drv-stm32h7-spi = {path = "../stm32h7-spi"}
+drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
+drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
+cortex-m = "0.6.3"
+
+[dependencies.stm32h7]
+git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
+features = ["stm32h743"]
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32h7-spi-server"
+test = false
+bench = false

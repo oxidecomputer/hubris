@@ -529,6 +529,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-spi"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "stm32h7",
+ "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi-server"
+version = "0.1.0"
+dependencies = [
+ "cortex-m 0.6.7",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "drv-stm32h7-spi",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-usart"
 version = "0.1.0"
 dependencies = [
