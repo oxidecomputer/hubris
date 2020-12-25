@@ -71,6 +71,15 @@ uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
 
+[tasks.spi2_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["spi2"]
+start = true
+interrupts = {36 = 1}
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -109,6 +118,10 @@ size = 0x0800
 [peripherals.gpios3]
 address = 0x58022800
 size = 0x0400
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
 
 [peripherals.usart3]
 address = 0x40004800

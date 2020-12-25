@@ -17,13 +17,13 @@ fn main() -> ! {
     let spi = TaskId::for_index_and_gen(SPI as usize, Generation::default());
     hprintln!("Waiting to receive SPI data").ok();
     loop {
-        let mut recv: [u8; 5] = [0; 5];
-        let a: &mut [u8] = &mut recv;
-        let (code, _) = sys_send(spi, 2, &[], &mut [], &[Lease::from(a)]);
+        let mut buf: [u8; 4] = [0xDE, 0xAD, 0xBE, 0xEF];
+        let (code, _) =
+            sys_send(spi, 2, &[], &mut [], &[Lease::from(&mut buf[..])]);
         if code != 0 {
             hprintln!("Got error code {}", code).ok();
         } else {
-            hprintln!("Got buffer {:x?}", recv).ok();
+            hprintln!("Got buffer {:x?}", buf).ok();
         }
     }
 }

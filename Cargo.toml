@@ -32,6 +32,8 @@ members = [
     "drv/stm32h7-gpio-api",
     "drv/stm32h7-rcc",
     "drv/stm32h7-rcc-api",
+    "drv/stm32h7-spi",
+    "drv/stm32h7-spi-server",
     "drv/stm32h7-usart",
 
     "drv/lpc55-syscon",
