@@ -11,7 +11,7 @@ pub enum Op {
     WriteRead = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum Interface {
     I2C0 = 0,
     I2C1 = 1,
@@ -25,9 +25,9 @@ pub enum Interface {
 
 #[derive(Clone, Debug)]
 pub struct I2c {
-    task: TaskId,
-    interface: Interface,
-    address: u8,
+    pub task: TaskId,
+    pub interface: Interface,
+    pub address: u8,
 }
 
 impl I2c {

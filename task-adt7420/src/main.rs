@@ -31,17 +31,19 @@ enum Register {
 }
 
 fn validate(i2c: &I2c) -> bool {
+    let bus = i2c.interface;
+
     match i2c.read_reg::<u8, u8>(Register::ID as u8) {
         Ok(id) if id == ADT7420_ID => {
-            sys_log!("adt7420: detected!");
+            sys_log!("adt7420: {:?}: detected!", bus);
             true
         }
         Ok(id) => {
-            sys_log!("adt7420: incorrect ID {:x}", id);
+            sys_log!("adt7420: {:?}: incorrect ID {:x}", bus, id);
             false
         }
         Err(err) => {
-            sys_log!("adt7420: failed to read ID: {:?}", err);
+            sys_log!("adt7420: {:?}: failed to read ID: {:?}", bus, err);
             false
         }
     }
@@ -121,6 +123,8 @@ fn convert_fahrenheit(temp: f32) -> f32 {
 }
 
 fn read_temp(i2c: &I2c) {
+    let bus = i2c.interface;
+
     match i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
         Ok(buf) => {
             let temp = convert_temp13((buf[0], buf[1]));
@@ -130,43 +134,46 @@ fn read_temp(i2c: &I2c) {
             let f = convert_fahrenheit(temp);
 
             // Avoid default formatting to save a bunch of text and stack
-            sys_log!("adt7420: temp is {}.{:03} degrees C, {}.{:03} degrees F",
+            sys_log!("adt7420: {:?}: temp is {}.{:03} degrees C, \
+                {}.{:03} degrees F",
+                bus,
                 temp as i32, (((temp + 0.0005) * 1000.0) as i32) % 1000,
                 f as i32, (((f + 0.0005) * 1000.0) as i32) % 1000);
         }
         Err(err) => {
-            sys_log!("adt7420: failed to read temp: {:?}", err);
+            sys_log!("adt7420: {:?}: failed to read temp: {:?}", bus, err);
         }
     };
 }
 
+fn i2c(interface: Interface) -> (I2c, bool) {
+    (I2c::new(
+        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+        interface,
+        ADT7420_ADDRESS
+    ), false)
+}
+
 #[export_name = "main"]
 fn main() -> ! {
-    #[cfg(feature = "h7b3")]
-    const INTERFACE: Interface = Interface::I2C4;
-
-    #[cfg(feature = "h743")]
-    const INTERFACE: Interface = Interface::I2C2;
-
-    let i2c = I2c::new(
-        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
-        INTERFACE,
-        ADT7420_ADDRESS
-    );
-
-    let mut configured = false;
+    let mut busses = [
+        i2c(Interface::I2C1),
+        i2c(Interface::I2C2),
+        i2c(Interface::I2C3),
+        i2c(Interface::I2C4),
+    ];
 
     loop {
         hl::sleep_for(1000);
 
-        if !configured {
-            if !validate(&i2c) {
-                continue;
+        for bus in &mut busses {
+            if bus.1 {
+                read_temp(&bus.0);
+            } else {
+                if validate(&bus.0) {
+                    bus.1 = true;
+                }
             }
-
-            configured = true;
         }
-
-        read_temp(&i2c);
     }
 }

@@ -17,6 +17,8 @@ use device::i2c1::RegisterBlock;
 
 use userlib::*;
 use drv_i2c_api::{Interface, Op};
+use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use drv_stm32h7_gpio_api::*;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -44,22 +46,112 @@ impl From<ResponseCode> for u32 {
     }
 }
 
+type GetBlock = fn() -> *const RegisterBlock;
+
+cfg_if::cfg_if! {
+    if #[cfg(target_board = "stm32h7b3i-dk")] {
+        const I2C_BUSSES: [(Interface, Peripheral, GetBlock); 1] = [
+            (Interface::I2C4, Peripheral::I2c4, device::I2C4::ptr),
+        ];
+
+        const I2C_PINS: [(Port, Alternate, u16); 1] = [
+            (Port::D, Alternate::AF4, (1 << 12) | (1 << 13))
+        ];
+    } else if #[cfg(target_board = "gemini-bu-1")] {
+        const I2C_BUSSES: [(Interface, Peripheral, GetBlock); 4] = [
+            (Interface::I2C1, Peripheral::I2c1, device::I2C1::ptr),
+            (Interface::I2C2, Peripheral::I2c2, device::I2C2::ptr),
+            (Interface::I2C3, Peripheral::I2c3, device::I2C3::ptr),
+            (Interface::I2C4, Peripheral::I2c4, device::I2C4::ptr),
+        ];
+
+        const I2C_PINS: [(Port, Alternate, u16); 6] = [
+            (Port::B, Alternate::AF4, (1 << 8) | (1 << 9)),     // I2C1
+            (Port::D, Alternate::AF4, (1 << 12) | (1 << 13)),   // I2C4
+            (Port::F, Alternate::AF4, (1 << 0) | (1 << 1)),     // I2C2
+            (Port::F, Alternate::AF4, (1 << 14) | (1 << 15)),   // I2C4
+            (Port::H, Alternate::AF4, (1 << 7) | (1 << 8)),     // I2C3
+            (Port::H, Alternate::AF4, (1 << 11) | (1 << 12)),   // I2C4
+        ];
+    } else {
+        compile_error!("no I2C busses/pins for unknown board");
+    }
+}
+
+fn bus(interface: u8) -> Option<GetBlock> {
+    match Interface::from_u8(interface) {
+        Some(interface) => {
+            for i in &I2C_BUSSES {
+                if interface == i.0 {
+                    return Some(i.2);
+                }
+            }
+            None
+        }
+        _ => {
+            None
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c();
-
     configure_pins();
-
-    #[cfg(feature = "h7b3")]
-    let i2c = unsafe { &*device::I2C4::ptr() };
-
-    #[cfg(feature = "h743")]
-    let i2c = unsafe { &*device::I2C2::ptr() };
+    configure_busses();
 
     // Field messages.
     let mut buffer = [0; 2];
 
+    loop {
+        hl::recv_without_notification(&mut buffer, |op, msg| match op {
+            Op::WriteRead => {
+                let (&[addr, interface], caller) = msg
+                    .fixed_with_leases::<[u8; 2], ()>(2)
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let i2cp = bus(interface).ok_or(ResponseCode::BadInterface)?;
+                let i2c = unsafe { &*i2cp() };
+                let wbuf = caller.borrow(0);
+                let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
+
+                if !winfo.attributes.contains(LeaseAttributes::READ) {
+                    return Err(ResponseCode::BadArg);
+                }
+
+                let rbuf = caller.borrow(1);
+                let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
+
+                write_read(
+                    i2c,
+                    addr,
+                    winfo.len,
+                    |pos| { wbuf.read_at(pos) },
+                    rinfo.len,
+                    |pos, byte| { rbuf.write_at(pos, byte) },
+                )?;
+
+                caller.reply(());
+                Ok(())
+            }
+        });
+    }
+}
+
+fn turn_on_i2c() {
+    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
+        RCC as usize,
+        Generation::default(),
+    ));
+
+    for bus in &I2C_BUSSES {
+        rcc_driver.enable_clock(bus.1);
+        rcc_driver.leave_reset(bus.1);
+    }
+}
+
+fn configure_bus(i2c: &RegisterBlock) {
     // Disable PE
     i2c.cr1.write(|w| { w.pe().clear_bit() });
 
@@ -130,95 +222,33 @@ fn main() -> ! {
     });
 
     i2c.cr1.write(|w| { w.pe().set_bit() });
+}
 
-    loop {
-        hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::WriteRead => {
-                let (&[addr, interface], caller) = msg
-                    .fixed_with_leases::<[u8; 2], ()>(2)
-                    .ok_or(ResponseCode::BadArg)?;
-
-                match Interface::from_u8(interface) {
-                    #[cfg(feature = "h7b3")]
-                    Some(Interface::I2C4) => {}
-
-                    #[cfg(feature = "h743")]
-                    Some(Interface::I2C2) => {}
-
-                    _ => {
-                        return Err(ResponseCode::BadInterface);
-                    }
-                }
-
-                let wbuf = caller.borrow(0);
-                let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
-
-                if !winfo.attributes.contains(LeaseAttributes::READ) {
-                    return Err(ResponseCode::BadArg);
-                }
-
-                let rbuf = caller.borrow(1);
-                let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
-
-                write_read(
-                    &i2c,
-                    addr,
-                    winfo.len,
-                    |pos| { wbuf.read_at(pos) },
-                    rinfo.len,
-                    |pos, byte| { rbuf.write_at(pos, byte) },
-                )?;
-
-                caller.reply(());
-                Ok(())
-            }
-        });
+fn configure_busses() {
+    for bus in &I2C_BUSSES {
+        let i2c = unsafe { &*bus.2() };
+        configure_bus(i2c);
     }
 }
 
-fn turn_on_i2c() {
-    use drv_stm32h7_rcc_api::{Peripheral, Rcc};
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
-
-    #[cfg(feature = "h7b3")]
-    const PORT: Peripheral = Peripheral::I2c4;
-
-    #[cfg(feature = "h743")]
-    const PORT: Peripheral = Peripheral::I2c2;
-
-    rcc_driver.enable_clock(PORT);
-    rcc_driver.leave_reset(PORT);
-}
-
 fn configure_pins() {
-    use drv_stm32h7_gpio_api::*;
-
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
-    // On the H7B3, enable I2C4
-    #[cfg(feature = "h7b3")]
-    const I2C_MASK: (Port, u16) = (Port::D, (1 << 12) | (1 << 13));
-
-    // On the H743, enable I2C2
-    #[cfg(feature = "h743")]
-    const I2C_MASK: (Port, u16) = (Port::F, (1 << 0) | (1 << 1));
-
-    gpio_driver
-        .configure(
-            I2C_MASK.0,
-            I2C_MASK.1,
-            Mode::Alternate,
-            OutputType::OpenDrain,
-            Speed::High,
-            Pull::None,
-            Alternate::AF4
-        )
-        .unwrap();
+    for pin in &I2C_PINS {
+        gpio_driver
+            .configure(
+                pin.0,
+                pin.2,
+                Mode::Alternate,
+                OutputType::OpenDrain,
+                Speed::High,
+                Pull::None,
+                pin.1
+            )
+            .unwrap();
+    }
 }
 
 fn write_read(
