@@ -141,7 +141,18 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &task_names,
             &toml.secure,
         )?;
-        let ep = load_elf(&out.join(name), &mut all_output_sections)?;
+
+        let (ep, flash) = load_elf(&out.join(name), &mut all_output_sections)?;
+
+        if flash > task_toml.requires["flash"] as usize {
+            bail!(
+                "{} has insufficient flash: specified {} bytes, needs {}",
+                task_toml.name,
+                task_toml.requires["flash"],
+                flash
+            );
+        }
+
         entry_points.insert(name.clone(), ep);
     }
 
@@ -177,7 +188,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         "",
         &toml.secure,
     )?;
-    let kentry = load_elf(&out.join("kernel"), &mut all_output_sections)?;
+    let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
     // Write a map file, because that seems nice.
     let mut mapfile = File::create(&out.join("map.txt"))?;
@@ -779,7 +790,7 @@ fn load_srec(
 fn load_elf(
     input: &Path,
     output: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
+) -> Result<(u32, usize)> {
     use goblin::container::Container;
     use goblin::elf::program_header::PT_LOAD;
 
@@ -793,6 +804,8 @@ fn load_elf(
         bail!("this is not an ARM file");
     }
 
+    let mut flash = 0;
+
     // Good enough.
     for phdr in &elf.program_headers {
         // Skip sections that aren't intended to be loaded.
@@ -805,6 +818,8 @@ fn load_elf(
         // This distinction is important for things like the rodata image, which
         // is loaded in flash but expected to be copied to RAM.
         let addr = phdr.p_paddr as u32;
+
+        flash += size;
 
         // Check for address overlap
         let range = addr..addr + size as u32;
@@ -824,7 +839,11 @@ fn load_elf(
             },
         );
     }
-    Ok(elf.header.e_entry as u32)
+
+    // Return both our entry and the total allocated flash, allowing the
+    // caller to assure that the allocated flash does not exceed the task's
+    // required flash
+    Ok((elf.header.e_entry as u32, flash))
 }
 
 /// Keeps track of a build archive being constructed.
