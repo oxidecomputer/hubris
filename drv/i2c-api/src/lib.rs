@@ -23,6 +23,22 @@ pub enum Interface {
     I2C7 = 7,
 }
 
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+pub enum ReservedAddress {
+    GeneralCall = 0b0000_000,
+    CBUSAddress = 0b0000_001,
+    FutureBus = 0b0000_010,
+    FuturePurposes = 0b0000_011,
+    HighSpeedReserved00 = 0b0000_100,
+    HighSpeedReserved01 = 0b0000_101,
+    HighSpeedReserved10 = 0b0000_110,
+    HighSpeedReserved11 = 0b0000_111,
+    TenBit00 = 0b1111_100,
+    TenBit01 = 0b1111_101,
+    TenBit10 = 0b1111_110,
+    TenBit11 = 0b1111_111,
+}
+
 #[derive(Clone, Debug)]
 pub struct I2c {
     pub task: TaskId,
@@ -43,6 +59,7 @@ pub enum I2cError {
     NoDevice,
     Busy,
     BadInterface,
+    ReservedAddress,
 }
 
 impl From<u32> for I2cError {
@@ -53,6 +70,7 @@ impl From<u32> for I2cError {
             2 => I2cError::NoDevice,
             3 => I2cError::Busy,
             4 => I2cError::BadInterface,
+            5 => I2cError::ReservedAddress,
             _ => panic!(),
         }
     }

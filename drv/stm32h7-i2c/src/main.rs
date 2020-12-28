@@ -16,7 +16,7 @@ use device::i2c3::RegisterBlock;
 use device::i2c1::RegisterBlock;
 
 use userlib::*;
-use drv_i2c_api::{Interface, Op};
+use drv_i2c_api::{Interface, Op, ReservedAddress};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 
@@ -38,6 +38,7 @@ enum ResponseCode {
     NoDevice = 2,
     Busy = 3,
     BadInterface = 4,
+    ReservedAddress = 5,
 }
 
 impl From<ResponseCode> for u32 {
@@ -122,6 +123,10 @@ fn main() -> ! {
 
                 let rbuf = caller.borrow(1);
                 let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
+
+                if let Some(_) = ReservedAddress::from_u8(addr) {
+                    return Err(ResponseCode::ReservedAddress);
+                }
 
                 write_read(
                     i2c,
@@ -286,8 +291,8 @@ fn write_read(
         while pos < wlen {
             loop {
                 let isr = i2c.isr.read();
-
                 if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| { w.nackcf().set_bit() });
                     return Err(ResponseCode::NoDevice);
                 }
 
@@ -333,6 +338,7 @@ fn write_read(
                 let isr = i2c.isr.read();
 
                 if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| { w.nackcf().set_bit() });
                     return Err(ResponseCode::NoDevice);
                 }
 
