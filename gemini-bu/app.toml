@@ -104,6 +104,13 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
 
+[tasks.log]
+path = "../task-log"
+name = "task-log"
+priority = 3
+requires = {flash = 32768, ram = 4096}
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
