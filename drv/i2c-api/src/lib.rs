@@ -48,7 +48,11 @@ pub struct I2c {
 
 impl I2c {
     pub fn new(task: TaskId, interface: Interface, address: u8) -> Self {
-        Self { task: task, interface: interface, address: address }
+        Self {
+            task: task,
+            interface: interface,
+            address: address,
+        }
     }
 }
 

@@ -1262,6 +1262,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-i2c"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-idle"
 version = "0.1.0"
 dependencies = [

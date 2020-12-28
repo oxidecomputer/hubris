@@ -20,6 +20,7 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-i2c",
     "task-spam2",
     "task-spi",
     "task-adt7420",
