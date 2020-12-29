@@ -24,18 +24,21 @@ static I2C_DEBUG_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static I2C_DEBUG_ERRORS: AtomicU32 = AtomicU32::new(0);
 static I2C_DEBUG_KICK: AtomicU32 = AtomicU32::new(0);
 static I2C_DEBUG_READY: AtomicU32 = AtomicU32::new(0);
-static I2C_DEBUG_BUS: AtomicI32 = AtomicI32::new(-1);
+static I2C_DEBUG_CONTROLLER: AtomicI32 = AtomicI32::new(-1);
+static I2C_DEBUG_PORT: AtomicI32 = AtomicI32::new(-1);
+static I2C_DEBUG_MUX: AtomicI32 = AtomicI32::new(-1);
+static I2C_DEBUG_SEGMENT: AtomicI32 = AtomicI32::new(-1);
 static I2C_DEBUG_DEVICE: AtomicI32 = AtomicI32::new(-1);
 static I2C_DEBUG_REGISTER: AtomicI32 = AtomicI32::new(-1);
 
-fn scan_bus(interface: Interface) {
+fn scan_controller(controller: Controller) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    sys_log!("i2c_debug: scanning bus {:?}", interface);
+    sys_log!("i2c_debug: scanning controller {:?}", controller);
 
     for addr in 0..128 {
-        let i2c = I2c::new(task, interface, addr);
+        let i2c = I2c::new(task, controller, None, None, addr);
         let result = i2c.read_reg::<u8, u8>(0);
         results[addr as usize] = match result {
             Ok(result) => { Some(Ok(result as u32)) },
@@ -44,13 +47,13 @@ fn scan_bus(interface: Interface) {
     }
 }
 
-fn scan_device(interface: Interface, addr: u8) {
+fn scan_device(controller: Controller, addr: u8) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    sys_log!("i2c_debug: scanning bus {:?}, addr 0x{:x}", interface, addr);
+    sys_log!("i2c_debug: scanning controller {:?}, addr 0x{:x}", controller, addr);
 
-    let i2c = I2c::new(task, interface, addr);
+    let i2c = I2c::new(task, controller, None, None, addr);
 
     for reg in 0..=0xff {
         let result = i2c.read_reg::<u8, u8>(reg);
@@ -81,36 +84,39 @@ fn main() -> ! {
 
         I2C_DEBUG_KICK.fetch_sub(1, Ordering::SeqCst);
 
-        let bus = I2C_DEBUG_BUS.swap(-1, Ordering::SeqCst);
+        let controller = I2C_DEBUG_CONTROLLER.swap(-1, Ordering::SeqCst);
+        let port = I2C_DEBUG_PORT.swap(-1, Ordering::SeqCst);
+        let mux = I2C_DEBUG_MUX.swap(-1, Ordering::SeqCst);
+        let segment = I2C_DEBUG_SEGMENT.swap(-1, Ordering::SeqCst);
         let device = I2C_DEBUG_DEVICE.swap(-1, Ordering::SeqCst);
         let register = I2C_DEBUG_REGISTER.swap(-1, Ordering::SeqCst);
 
-        sys_log!("i2c_debug: bus={}, device=0x{:x}, register=0x{:x}",
-            bus, device, register);
+        sys_log!("i2c_debug: controller={}, device=0x{:x}, register=0x{:x}",
+            controller, device, register);
 
-        if bus == -1 {
-            sys_log!("i2c_debug: bus must be set");
+        if controller == -1 {
+            sys_log!("i2c_debug: controller must be set");
             I2C_DEBUG_ERRORS.fetch_add(1, Ordering::SeqCst);
             continue;
         }
 
-        let interface = match Interface::from_i32(bus) {
-            Some(interface) => { interface }
+        let controller = match Controller::from_i32(controller) {
+            Some(controller) => { controller }
             None => {
-                sys_log!("i2c_debug: invalid bus value {}", bus);
+                sys_log!("i2c_debug: invalid controller value {}", controller);
                 I2C_DEBUG_ERRORS.fetch_add(1, Ordering::SeqCst);
                 continue;
             }
         };
 
         if device == -1 {
-            scan_bus(interface);
+            scan_controller(controller);
             I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
             continue;
         }
 
         if register == -1 {
-            scan_device(interface, device as u8);
+            scan_device(controller, device as u8);
             I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
             continue;
         }

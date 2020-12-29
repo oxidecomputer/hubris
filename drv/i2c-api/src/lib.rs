@@ -12,7 +12,7 @@ pub enum Op {
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
-pub enum Interface {
+pub enum Controller {
     I2C0 = 0,
     I2C1 = 1,
     I2C2 = 2,
@@ -39,18 +39,53 @@ pub enum ReservedAddress {
     TenBit11 = 0b1111_111,
 }
 
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+pub enum Port {
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+    F = 5,
+    G = 6,
+    H = 7,
+    I = 8,
+    J = 9,
+    K = 10,
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+pub enum Mux {
+    M0 = 0,
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+pub enum Segment {
+    S0 = 0,
+}
+
 #[derive(Clone, Debug)]
 pub struct I2c {
     pub task: TaskId,
-    pub interface: Interface,
+    pub controller: Controller,
     pub address: u8,
+    pub segment: Option<(Mux, Segment)>,
+    pub port: Option<Port>
 }
 
 impl I2c {
-    pub fn new(task: TaskId, interface: Interface, address: u8) -> Self {
+    pub fn new(
+        task: TaskId,
+        controller: Controller,
+        port: Option<Port>,
+        segment: Option<(Mux, Segment)>,
+        address: u8
+    ) -> Self {
         Self {
             task: task,
-            interface: interface,
+            controller: controller,
+            port: port,
+            segment: segment,
             address: address,
         }
     }
@@ -62,7 +97,7 @@ pub enum I2cError {
     BadArg,
     NoDevice,
     Busy,
-    BadInterface,
+    BadController,
     ReservedAddress,
 }
 
@@ -73,7 +108,7 @@ impl From<u32> for I2cError {
             1 => I2cError::BadArg,
             2 => I2cError::NoDevice,
             3 => I2cError::Busy,
-            4 => I2cError::BadInterface,
+            4 => I2cError::BadController,
             5 => I2cError::ReservedAddress,
             _ => panic!(),
         }
@@ -91,7 +126,7 @@ impl I2c {
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
-            &[self.address, self.interface as u8],
+            &[self.address, self.controller as u8],
             &mut [],
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );

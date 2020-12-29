@@ -31,7 +31,7 @@ enum Register {
 }
 
 fn validate(i2c: &I2c) -> bool {
-    let bus = i2c.interface;
+    let controller = i2c.controller;
 
     match i2c.read_reg::<u8, u8>(Register::ID as u8) {
         Ok(id) if id == ADT7420_ID => {
@@ -123,7 +123,7 @@ fn convert_fahrenheit(temp: f32) -> f32 {
 }
 
 fn read_temp(i2c: &I2c) {
-    let bus = i2c.interface;
+    let interface = i2c.interface;
 
     match i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
         Ok(buf) => {
@@ -136,12 +136,12 @@ fn read_temp(i2c: &I2c) {
             // Avoid default formatting to save a bunch of text and stack
             sys_log!("adt7420: {:?}: temp is {}.{:03} degrees C, \
                 {}.{:03} degrees F",
-                bus,
+                interface,
                 temp as i32, (((temp + 0.0005) * 1000.0) as i32) % 1000,
                 f as i32, (((f + 0.0005) * 1000.0) as i32) % 1000);
         }
         Err(err) => {
-            sys_log!("adt7420: {:?}: failed to read temp: {:?}", bus, err);
+            sys_log!("adt7420: {:?}: failed to read temp: {:?}", interface, err);
         }
     };
 }
@@ -150,13 +150,15 @@ fn i2c(interface: Interface) -> (I2c, bool) {
     (I2c::new(
         TaskId::for_index_and_gen(I2C as usize, Generation::default()),
         interface,
+        None,
+        None,
         ADT7420_ADDRESS
     ), false)
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut busses = [
+    let mut interfaces = [
         i2c(Interface::I2C1),
         i2c(Interface::I2C2),
         i2c(Interface::I2C3),
@@ -168,9 +170,9 @@ fn main() -> ! {
 
         for bus in &mut busses {
             if bus.1 {
-                read_temp(&bus.0);
+                read_temp(&interface.0);
             } else {
-                if validate(&bus.0) {
+                if validate(&interface.0) {
                     bus.1 = true;
                 }
             }

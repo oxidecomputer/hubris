@@ -16,7 +16,7 @@ use device::i2c3::RegisterBlock;
 use device::i2c1::RegisterBlock;
 
 use userlib::*;
-use drv_i2c_api::{Interface, Op, ReservedAddress};
+use drv_i2c_api::{Controller, Op, ReservedAddress};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 
@@ -37,7 +37,7 @@ enum ResponseCode {
     BadArg = 1,
     NoDevice = 2,
     Busy = 3,
-    BadInterface = 4,
+    BadController = 4,
     ReservedAddress = 5,
 }
 
@@ -51,19 +51,19 @@ type GetBlock = fn() -> *const RegisterBlock;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "stm32h7b3i-dk")] {
-        const I2C_BUSSES: [(Interface, Peripheral, GetBlock); 1] = [
-            (Interface::I2C4, Peripheral::I2c4, device::I2C4::ptr),
+        const I2C_CONTROLLERS: [(Controller, Peripheral, GetBlock); 1] = [
+            (Controller::I2C4, Peripheral::I2c4, device::I2C4::ptr),
         ];
 
         const I2C_PINS: [(Port, Alternate, u16); 1] = [
             (Port::D, Alternate::AF4, (1 << 12) | (1 << 13))
         ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
-        const I2C_BUSSES: [(Interface, Peripheral, GetBlock); 4] = [
-            (Interface::I2C1, Peripheral::I2c1, device::I2C1::ptr),
-            (Interface::I2C2, Peripheral::I2c2, device::I2C2::ptr),
-            (Interface::I2C3, Peripheral::I2c3, device::I2C3::ptr),
-            (Interface::I2C4, Peripheral::I2c4, device::I2C4::ptr),
+        const I2C_CONTROLLERS: [(Controller, Peripheral, GetBlock); 4] = [
+            (Controller::I2C1, Peripheral::I2c1, device::I2C1::ptr),
+            (Controller::I2C2, Peripheral::I2c2, device::I2C2::ptr),
+            (Controller::I2C3, Peripheral::I2c3, device::I2C3::ptr),
+            (Controller::I2C4, Peripheral::I2c4, device::I2C4::ptr),
         ];
 
         const I2C_PINS: [(Port, Alternate, u16); 6] = [
@@ -75,15 +75,15 @@ cfg_if::cfg_if! {
             (Port::H, Alternate::AF4, (1 << 11) | (1 << 12)),   // I2C4
         ];
     } else {
-        compile_error!("no I2C busses/pins for unknown board");
+        compile_error!("no I2C controllers/pins for unknown board");
     }
 }
 
-fn bus(interface: u8) -> Option<GetBlock> {
-    match Interface::from_u8(interface) {
-        Some(interface) => {
-            for i in &I2C_BUSSES {
-                if interface == i.0 {
+fn reg(controller: u8) -> Option<GetBlock> {
+    match Controller::from_u8(controller) {
+        Some(controller) => {
+            for i in &I2C_CONTROLLERS {
+                if controller == i.0 {
                     return Some(i.2);
                 }
             }
@@ -100,7 +100,7 @@ fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c();
     configure_pins();
-    configure_busses();
+    configure_controllers();
 
     // Field messages.
     let mut buffer = [0; 2];
@@ -108,11 +108,11 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead => {
-                let (&[addr, interface], caller) = msg
+                let (&[addr, controller], caller) = msg
                     .fixed_with_leases::<[u8; 2], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
-                let i2cp = bus(interface).ok_or(ResponseCode::BadInterface)?;
+                let i2cp = reg(controller).ok_or(ResponseCode::BadController)?;
                 let i2c = unsafe { &*i2cp() };
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
@@ -150,13 +150,13 @@ fn turn_on_i2c() {
         Generation::default(),
     ));
 
-    for bus in &I2C_BUSSES {
-        rcc_driver.enable_clock(bus.1);
-        rcc_driver.leave_reset(bus.1);
+    for controller in &I2C_CONTROLLERS {
+        rcc_driver.enable_clock(controller.1);
+        rcc_driver.leave_reset(controller.1);
     }
 }
 
-fn configure_bus(i2c: &RegisterBlock) {
+fn configure_controller(i2c: &RegisterBlock) {
     // Disable PE
     i2c.cr1.write(|w| { w.pe().clear_bit() });
 
@@ -229,10 +229,10 @@ fn configure_bus(i2c: &RegisterBlock) {
     i2c.cr1.write(|w| { w.pe().set_bit() });
 }
 
-fn configure_busses() {
-    for bus in &I2C_BUSSES {
-        let i2c = unsafe { &*bus.2() };
-        configure_bus(i2c);
+fn configure_controllers() {
+    for controller in &I2C_CONTROLLERS {
+        let i2c = unsafe { &*controller.2() };
+        configure_controller(i2c);
     }
 }
 
