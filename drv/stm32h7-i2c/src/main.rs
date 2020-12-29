@@ -276,6 +276,15 @@ fn write_read(
         return Err(ResponseCode::BadArg);
     }
 
+    // Before we talk to the controller, spin until it isn't busy
+    loop {
+        let isr = i2c.isr.read();
+
+        if !isr.busy().is_busy() {
+            break;
+        }
+    }
+
     if wlen > 0 {
         i2c.cr2.modify(|_, w| { w
             .nbytes().bits(wlen as u8)
@@ -291,6 +300,7 @@ fn write_read(
         while pos < wlen {
             loop {
                 let isr = i2c.isr.read();
+
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| { w.nackcf().set_bit() });
                     return Err(ResponseCode::NoDevice);
