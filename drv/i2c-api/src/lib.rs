@@ -39,19 +39,20 @@ pub enum ReservedAddress {
     TenBit11 = 0b1111_111,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum Port {
-    A = 0,
-    B = 1,
-    C = 2,
-    D = 3,
-    E = 4,
-    F = 5,
-    G = 6,
-    H = 7,
-    I = 8,
-    J = 9,
-    K = 10,
+    Default = 0,
+    A = 1,
+    B = 2,
+    C = 3,
+    D = 4,
+    E = 5,
+    F = 6,
+    G = 7,
+    H = 8,
+    I = 9,
+    J = 10,
+    K = 11,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -68,16 +69,16 @@ pub enum Segment {
 pub struct I2c {
     pub task: TaskId,
     pub controller: Controller,
-    pub address: u8,
+    pub port: Port,
     pub segment: Option<(Mux, Segment)>,
-    pub port: Option<Port>
+    pub address: u8,
 }
 
 impl I2c {
     pub fn new(
         task: TaskId,
         controller: Controller,
-        port: Option<Port>,
+        port: Port,
         segment: Option<(Mux, Segment)>,
         address: u8
     ) -> Self {
@@ -99,6 +100,8 @@ pub enum I2cError {
     Busy,
     BadController,
     ReservedAddress,
+    BadPort,
+    BadDefaultPort,
 }
 
 impl From<u32> for I2cError {
@@ -110,6 +113,8 @@ impl From<u32> for I2cError {
             3 => I2cError::Busy,
             4 => I2cError::BadController,
             5 => I2cError::ReservedAddress,
+            6 => I2cError::BadPort,
+            7 => I2cError::BadDefaultPort,
             _ => panic!(),
         }
     }
@@ -126,7 +131,7 @@ impl I2c {
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
-            &[self.address, self.controller as u8],
+            &[self.address, self.controller as u8, self.port as u8],
             &mut [],
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );

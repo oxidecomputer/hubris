@@ -16,7 +16,7 @@ use device::i2c3::RegisterBlock;
 use device::i2c1::RegisterBlock;
 
 use userlib::*;
-use drv_i2c_api::{Controller, Op, ReservedAddress};
+use drv_i2c_api::{Controller, Op, ReservedAddress, Port};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 
@@ -39,6 +39,8 @@ enum ResponseCode {
     Busy = 3,
     BadController = 4,
     ReservedAddress = 5,
+    BadPort = 6,
+    BadDefaultPort = 7,
 }
 
 impl From<ResponseCode> for u32 {
@@ -50,6 +52,7 @@ impl From<ResponseCode> for u32 {
 struct I2cPin {
     controller: Controller,
     port: Port,
+    gpio_port: drv_stm32h7_gpio_api::Port,
     function: Alternate,
     mask: u16,
 }
@@ -85,31 +88,37 @@ cfg_if::cfg_if! {
         const I2C_PINS: [I2cPin; 6] = [ I2cPin {
             controller: Controller::I2C1,
             port: Port::B,
+            gpio_port: drv_stm32h7_gpio_api::Port::B,
             function: Alternate::AF4,
             mask: (1 << 8) | (1 << 9),
         }, I2cPin {
             controller: Controller::I2C4,
             port: Port::D,
+            gpio_port: drv_stm32h7_gpio_api::Port::D,
             function: Alternate::AF4,
             mask: (1 << 12) | (1 << 13),
         }, I2cPin {
             controller: Controller::I2C2,
             port: Port::F,
+            gpio_port: drv_stm32h7_gpio_api::Port::F,
             function: Alternate::AF4,
             mask: (1 << 0) | (1 << 1),
         }, I2cPin {
             controller: Controller::I2C4,
             port: Port::F,
+            gpio_port: drv_stm32h7_gpio_api::Port::F,
             function: Alternate::AF4,
             mask: (1 << 14) | (1 << 15),
         }, I2cPin {
             controller: Controller::I2C3,
             port: Port::H,
+            gpio_port: drv_stm32h7_gpio_api::Port::H,
             function: Alternate::AF4,
             mask: (1 << 7) | (1 << 8),
         }, I2cPin {
             controller: Controller::I2C4,
             port: Port::H,
+            gpio_port: drv_stm32h7_gpio_api::Port::H,
             function: Alternate::AF4,
             mask: (1 << 11) | (1 << 12),
         } ];
@@ -138,6 +147,34 @@ fn lookup_controller(
     Err(ResponseCode::BadController)
 }
 
+fn lookup_pin<'a>(
+    controller: Controller,
+    port: Port
+) -> Result<&'a I2cPin, ResponseCode> {
+    let pins = unsafe { &I2C_PINS };
+    let mut default = None;
+
+    for pin in pins {
+        if pin.controller != controller {
+            continue;
+        }
+
+        if pin.port == port {
+            return Ok(pin);
+        }
+
+        if port == Port::Default {
+            if default.is_none() {
+                default = Some(pin);
+            } else {
+                return Err(ResponseCode::BadDefaultPort);
+            }
+        }
+    }
+
+    default.ok_or(ResponseCode::BadPort)
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
@@ -151,11 +188,13 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead => {
-                let (&[addr, controller], caller) = msg
-                    .fixed_with_leases::<[u8; 2], ()>(2)
+                let (&[addr, controller, port], caller) = msg
+                    .fixed_with_leases::<[u8; 3], ()>(3)
                     .ok_or(ResponseCode::BadArg)?;
 
+                let port = Port::from_u8(port).ok_or(ResponseCode::BadPort)?;
                 let controller = lookup_controller(controller)?;
+                let pin = lookup_pin(controller.controller, port)?;
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
 
@@ -298,6 +337,52 @@ fn configure_controllers() {
     }
 }
 
+fn configure_port(
+    controller: &mut I2cController,
+    port: Port
+) -> Result<(), ResponseCode> {
+    let p = controller.port.unwrap();
+
+    if p == port {
+        return Ok(());
+    }
+
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = Gpio::from(gpio_driver);
+
+    let dest = lookup_pin(controller.controller, port)?;
+    let src = lookup_pin(controller.controller, p).ok().unwrap();
+
+    gpio_driver
+        .configure(
+            src.gpio_port,
+            src.mask,
+            Mode::Alternate,
+            OutputType::OpenDrain,
+            Speed::High,
+            Pull::None,
+            Alternate::AF0,
+        )
+        .unwrap();
+
+    gpio_driver
+        .configure(
+            dest.gpio_port,
+            dest.mask,
+            Mode::Alternate,
+            OutputType::OpenDrain,
+            Speed::High,
+            Pull::None,
+            dest.function,
+        )
+        .unwrap();
+
+    controller.port = Some(port);
+
+    Ok(())
+}
+
 fn configure_pins() {
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
@@ -310,7 +395,7 @@ fn configure_pins() {
             None => {
                 gpio_driver
                     .configure(
-                        pin.port,
+                        pin.gpio_port,
                         pin.mask,
                         Mode::Alternate,
                         OutputType::OpenDrain,

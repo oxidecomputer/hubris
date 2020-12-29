@@ -38,7 +38,7 @@ fn scan_controller(controller: Controller) {
     sys_log!("i2c_debug: scanning controller {:?}", controller);
 
     for addr in 0..128 {
-        let i2c = I2c::new(task, controller, None, None, addr);
+        let i2c = I2c::new(task, controller, Port::Default, None, addr);
         let result = i2c.read_reg::<u8, u8>(0);
         results[addr as usize] = match result {
             Ok(result) => { Some(Ok(result as u32)) },
@@ -53,7 +53,7 @@ fn scan_device(controller: Controller, addr: u8) {
 
     sys_log!("i2c_debug: scanning controller {:?}, addr 0x{:x}", controller, addr);
 
-    let i2c = I2c::new(task, controller, None, None, addr);
+    let i2c = I2c::new(task, controller, Port::Default, None, addr);
 
     for reg in 0..=0xff {
         let result = i2c.read_reg::<u8, u8>(reg);

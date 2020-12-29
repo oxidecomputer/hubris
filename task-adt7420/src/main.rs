@@ -123,7 +123,7 @@ fn convert_fahrenheit(temp: f32) -> f32 {
 }
 
 fn read_temp(i2c: &I2c) {
-    let interface = i2c.interface;
+    let controller = i2c.controller;
 
     match i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
         Ok(buf) => {
@@ -146,11 +146,11 @@ fn read_temp(i2c: &I2c) {
     };
 }
 
-fn i2c(interface: Interface) -> (I2c, bool) {
+fn i2c(controller: Controller) -> (I2c, bool) {
     (I2c::new(
         TaskId::for_index_and_gen(I2C as usize, Generation::default()),
-        interface,
-        None,
+        controller,
+        Port::Default,
         None,
         ADT7420_ADDRESS
     ), false)
