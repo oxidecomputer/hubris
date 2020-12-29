@@ -47,6 +47,19 @@ impl From<ResponseCode> for u32 {
     }
 }
 
+struct I2cPin {
+    controller: Controller,
+    port: Port,
+    function: Alternate,
+    mask: u16,
+}
+
+struct I2cController<'a> {
+    controller: Controller,
+    port: Option<Port>,
+    registers: Option<&'a RegisterBlock>,
+}
+
 type GetBlock = fn() -> *const RegisterBlock;
 
 cfg_if::cfg_if! {
@@ -59,40 +72,70 @@ cfg_if::cfg_if! {
             (Port::D, Alternate::AF4, (1 << 12) | (1 << 13))
         ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
-        const I2C_CONTROLLERS: [(Controller, Peripheral, GetBlock); 4] = [
-            (Controller::I2C1, Peripheral::I2c1, device::I2C1::ptr),
-            (Controller::I2C2, Peripheral::I2c2, device::I2C2::ptr),
-            (Controller::I2C3, Peripheral::I2c3, device::I2C3::ptr),
-            (Controller::I2C4, Peripheral::I2c4, device::I2C4::ptr),
-        ];
+        static mut I2C_CONTROLLERS: [I2cController; 4] = [ I2cController {
+            controller: Controller::I2C1, registers: None, port: None
+        }, I2cController {
+            controller: Controller::I2C2, registers: None, port: None
+        }, I2cController {
+            controller: Controller::I2C3, registers: None, port: None
+        }, I2cController {
+            controller: Controller::I2C4, registers: None, port: None
+        } ];
 
-        const I2C_PINS: [(Port, Alternate, u16); 6] = [
-            (Port::B, Alternate::AF4, (1 << 8) | (1 << 9)),     // I2C1
-            (Port::D, Alternate::AF4, (1 << 12) | (1 << 13)),   // I2C4
-            (Port::F, Alternate::AF4, (1 << 0) | (1 << 1)),     // I2C2
-            (Port::F, Alternate::AF4, (1 << 14) | (1 << 15)),   // I2C4
-            (Port::H, Alternate::AF4, (1 << 7) | (1 << 8)),     // I2C3
-            (Port::H, Alternate::AF4, (1 << 11) | (1 << 12)),   // I2C4
-        ];
+        const I2C_PINS: [I2cPin; 6] = [ I2cPin {
+            controller: Controller::I2C1,
+            port: Port::B,
+            function: Alternate::AF4,
+            mask: (1 << 8) | (1 << 9),
+        }, I2cPin {
+            controller: Controller::I2C4,
+            port: Port::D,
+            function: Alternate::AF4,
+            mask: (1 << 12) | (1 << 13),
+        }, I2cPin {
+            controller: Controller::I2C2,
+            port: Port::F,
+            function: Alternate::AF4,
+            mask: (1 << 0) | (1 << 1),
+        }, I2cPin {
+            controller: Controller::I2C4,
+            port: Port::F,
+            function: Alternate::AF4,
+            mask: (1 << 14) | (1 << 15),
+        }, I2cPin {
+            controller: Controller::I2C3,
+            port: Port::H,
+            function: Alternate::AF4,
+            mask: (1 << 7) | (1 << 8),
+        }, I2cPin {
+            controller: Controller::I2C4,
+            port: Port::H,
+            function: Alternate::AF4,
+            mask: (1 << 11) | (1 << 12),
+        } ];
     } else {
         compile_error!("no I2C controllers/pins for unknown board");
     }
 }
 
-fn reg(controller: u8) -> Option<GetBlock> {
+fn lookup_controller(
+    controller: u8
+) -> Result<&'static mut I2cController<'static>, ResponseCode> {
+
     match Controller::from_u8(controller) {
         Some(controller) => {
-            for i in &I2C_CONTROLLERS {
-                if controller == i.0 {
-                    return Some(i.2);
+            let controllers = unsafe { &mut I2C_CONTROLLERS };
+
+            for mut c in controllers {
+                if c.controller == controller {
+                    return Ok(c);
                 }
             }
-            None
         }
-        _ => {
-            None
-        }
+        _ => {}
     }
+
+    Err(ResponseCode::BadController)
 }
 
 #[export_name = "main"]
@@ -112,8 +155,7 @@ fn main() -> ! {
                     .fixed_with_leases::<[u8; 2], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
-                let i2cp = reg(controller).ok_or(ResponseCode::BadController)?;
-                let i2c = unsafe { &*i2cp() };
+                let controller = lookup_controller(controller)?;
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
 
@@ -129,7 +171,7 @@ fn main() -> ! {
                 }
 
                 write_read(
-                    i2c,
+                    controller.registers.unwrap(),
                     addr,
                     winfo.len,
                     |pos| { wbuf.read_at(pos) },
@@ -145,14 +187,24 @@ fn main() -> ! {
 }
 
 fn turn_on_i2c() {
+    let controllers = unsafe { &I2C_CONTROLLERS };
+
     let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
         RCC as usize,
         Generation::default(),
     ));
 
-    for controller in &I2C_CONTROLLERS {
-        rcc_driver.enable_clock(controller.1);
-        rcc_driver.leave_reset(controller.1);
+    for controller in controllers {
+        let peripheral = match controller.controller {
+            Controller::I2C1 => Peripheral::I2c1,
+            Controller::I2C2 => Peripheral::I2c2,
+            Controller::I2C3 => Peripheral::I2c3,
+            Controller::I2C4 => Peripheral::I2c4,
+            _ => { panic!() }
+        };
+
+        rcc_driver.enable_clock(peripheral);
+        rcc_driver.leave_reset(peripheral);
     }
 }
 
@@ -230,9 +282,19 @@ fn configure_controller(i2c: &RegisterBlock) {
 }
 
 fn configure_controllers() {
-    for controller in &I2C_CONTROLLERS {
-        let i2c = unsafe { &*controller.2() };
-        configure_controller(i2c);
+    let mut controllers = unsafe { &mut I2C_CONTROLLERS };
+
+    for controller in controllers {
+        let func = match controller.controller {
+            Controller::I2C1 => device::I2C1::ptr,
+            Controller::I2C2 => device::I2C2::ptr,
+            Controller::I2C3 => device::I2C3::ptr,
+            Controller::I2C4 => device::I2C4::ptr,
+            _ => { panic!() }
+        };
+
+        controller.registers = Some(unsafe { &*func() });
+        configure_controller(controller.registers.unwrap());
     }
 }
 
@@ -242,17 +304,25 @@ fn configure_pins() {
     let gpio_driver = Gpio::from(gpio_driver);
 
     for pin in &I2C_PINS {
-        gpio_driver
-            .configure(
-                pin.0,
-                pin.2,
-                Mode::Alternate,
-                OutputType::OpenDrain,
-                Speed::High,
-                Pull::None,
-                pin.1
-            )
-            .unwrap();
+        let controller = lookup_controller(pin.controller as u8).ok().unwrap();
+
+        match controller.port {
+            None => {
+                gpio_driver
+                    .configure(
+                        pin.port,
+                        pin.mask,
+                        Mode::Alternate,
+                        OutputType::OpenDrain,
+                        Speed::High,
+                        Pull::None,
+                        pin.function
+                    )
+                .unwrap();
+                controller.port = Some(pin.port);
+            }
+            Some(_) => {}
+        }
     }
 }
 
