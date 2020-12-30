@@ -183,18 +183,19 @@ fn main() -> ! {
     configure_controllers();
 
     // Field messages.
-    let mut buffer = [0; 2];
+    let mut buffer = [0; 3];
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead => {
                 let (&[addr, controller, port], caller) = msg
-                    .fixed_with_leases::<[u8; 3], ()>(3)
+                    .fixed_with_leases::<[u8; 3], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
                 let port = Port::from_u8(port).ok_or(ResponseCode::BadPort)?;
                 let controller = lookup_controller(controller)?;
                 let pin = lookup_pin(controller.controller, port)?;
+
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
 
@@ -208,6 +209,8 @@ fn main() -> ! {
                 if let Some(_) = ReservedAddress::from_u8(addr) {
                     return Err(ResponseCode::ReservedAddress);
                 }
+
+                configure_port(controller, pin);
 
                 write_read(
                     controller.registers.unwrap(),
@@ -339,19 +342,18 @@ fn configure_controllers() {
 
 fn configure_port(
     controller: &mut I2cController,
-    port: Port
-) -> Result<(), ResponseCode> {
+    pin: &I2cPin,
+) {
     let p = controller.port.unwrap();
 
-    if p == port {
-        return Ok(());
+    if p == pin.port {
+        return;
     }
 
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
 
-    let dest = lookup_pin(controller.controller, port)?;
     let src = lookup_pin(controller.controller, p).ok().unwrap();
 
     gpio_driver
@@ -368,19 +370,17 @@ fn configure_port(
 
     gpio_driver
         .configure(
-            dest.gpio_port,
-            dest.mask,
+            pin.gpio_port,
+            pin.mask,
             Mode::Alternate,
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,
-            dest.function,
+            pin.function,
         )
         .unwrap();
 
-    controller.port = Some(port);
-
-    Ok(())
+    controller.port = Some(pin.port);
 }
 
 fn configure_pins() {

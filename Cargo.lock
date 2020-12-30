@@ -1253,6 +1253,7 @@ dependencies = [
 name = "task-adt7420"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
