@@ -342,6 +342,23 @@ cfg_if::cfg_if! {
                 const GPIO: Task = Task::gpio_driver;
             }
         }
+
+        cfg_if::cfg_if! {
+            if #[cfg(target_board = "lpcxpresso55s69")] {
+                const LED_ZERO_GPIO: u8 = 38;
+                const LED_ONE_GPIO: u8 = 36;
+            } else {
+                compile_error!("no LED mapping for unknown board");
+            }
+        }
+    }
+}
+
+#[cfg(feature = "lpc55")]
+const fn led_gpio_num(led: Led) -> u8 {
+    match led {
+        Led::Zero => LED_ZERO_GPIO,
+        Led::One => LED_ONE_GPIO,
     }
 }
 
@@ -360,22 +377,36 @@ fn enable_led_pins() {
     // also have some degree of safety. If the pins aren't in digital mode
     // the GPIO toggling will work but reading the value won't
     let iocon = unsafe { &*device::IOCON::ptr() };
-    iocon.pio1_4.modify(|_, w| w.digimode().digital());
-    iocon.pio1_6.modify(|_, w| w.digimode().digital());
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "lpcxpresso55s69")] {
+            iocon.pio1_4.modify(|_, w| w.digimode().digital());
+            iocon.pio1_6.modify(|_, w| w.digimode().digital());
+        } else {
+            compile_error!("no LED IOCON mapping for unknown board");
+        }
+    }
 
     // Both LEDs are active low -- so they will light when we set the
     // direction of the pin if we don't explicitly turn them off first
     led_off(Led::Zero);
     led_off(Led::One);
 
-    // red led
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_DIR, &[38, 1], &mut [], &[]);
+    // Start driving GPIOs as outputs.
+    let (code, _) = userlib::sys_send(
+        gpio_driver,
+        SET_DIR,
+        &[LED_ZERO_GPIO, 1],
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
-
-    // blue led
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_DIR, &[36, 1], &mut [], &[]);
+    let (code, _) = userlib::sys_send(
+        gpio_driver,
+        SET_DIR,
+        &[LED_ONE_GPIO, 1],
+        &mut [],
+        &[],
+    );
     assert_eq!(code, 0);
 }
 
@@ -384,10 +415,7 @@ fn led_on(led: Led) {
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
-    let idx = match led {
-        Led::Zero => 36,
-        Led::One => 38,
-    };
+    let idx = led_gpio_num(led);
     let (code, _) =
         userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
     assert_eq!(code, 0);
@@ -398,10 +426,7 @@ fn led_off(led: Led) {
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
-    let idx = match led {
-        Led::Zero => 36,
-        Led::One => 38,
-    };
+    let idx = led_gpio_num(led);
     let (code, _) =
         userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
     assert_eq!(code, 0);
@@ -413,10 +438,7 @@ fn led_toggle(led: Led) {
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     const SET_VAL: u16 = 2;
     const READ_VAL: u16 = 3;
-    let idx = match led {
-        Led::Zero => 36,
-        Led::One => 38,
-    };
+    let idx = led_gpio_num(led);
     let mut val: u32 = 0;
 
     let (code, _) = userlib::sys_send(
