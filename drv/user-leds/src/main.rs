@@ -347,6 +347,9 @@ cfg_if::cfg_if! {
             if #[cfg(target_board = "lpcxpresso55s69")] {
                 const LED_ZERO_GPIO: u8 = 38;
                 const LED_ONE_GPIO: u8 = 36;
+            } else if #[cfg(target_board = "gemini-bu-rot-1")] {
+                const LED_ZERO_GPIO: u8 = 15;
+                const LED_ONE_GPIO: u8 = 31;
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -381,6 +384,9 @@ fn enable_led_pins() {
         if #[cfg(target_board = "lpcxpresso55s69")] {
             iocon.pio1_4.modify(|_, w| w.digimode().digital());
             iocon.pio1_6.modify(|_, w| w.digimode().digital());
+        } else if #[cfg(target_board = "gemini-bu-rot-1")] {
+            iocon.pio0_15.modify(|_, w| w.digimode().digital());
+            iocon.pio0_31.modify(|_, w| w.digimode().digital());
         } else {
             compile_error!("no LED IOCON mapping for unknown board");
         }
