@@ -59,30 +59,60 @@ struct I2cPin {
 
 struct I2cController<'a> {
     controller: Controller,
+    peripheral: Peripheral,
+    getblock: fn() -> *const RegisterBlock,
+    notification: u32,
     port: Option<Port>,
     registers: Option<&'a RegisterBlock>,
 }
 
-type GetBlock = fn() -> *const RegisterBlock;
-
 cfg_if::cfg_if! {
     if #[cfg(target_board = "stm32h7b3i-dk")] {
-        const I2C_CONTROLLERS: [(Controller, Peripheral, GetBlock); 1] = [
-            (Controller::I2C4, Peripheral::I2c4, device::I2C4::ptr),
-        ];
+        static mut I2C_CONTROLLERS: [I2cController; 1] = [ I2cController {
+            controller: Controller::I2C4,
+            peripheral: Peripheral::I2c4,
+            getblock: device::I2C4::ptr,
+            notification: (1 << (4 - 1)),
+            registers: None,
+            port: None,
+        } ];
 
-        const I2C_PINS: [(Port, Alternate, u16); 1] = [
-            (Port::D, Alternate::AF4, (1 << 12) | (1 << 13))
-        ];
+        const I2C_PINS: [I2cPin; 1] = [ I2cPin {
+            controller: Controller::I2C4,
+            port: Port::D,
+            gpio_port: drv_stm32h7_gpio_api::Port::D,
+            function: Alternate::AF4,
+            mask: (1 << 12) | (1 << 13),
+        } ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
         static mut I2C_CONTROLLERS: [I2cController; 4] = [ I2cController {
-            controller: Controller::I2C1, registers: None, port: None
+            controller: Controller::I2C1,
+            peripheral: Peripheral::I2c1,
+            getblock: device::I2C1::ptr,
+            notification: (1 << (1 - 1)),
+            registers: None,
+            port: None,
         }, I2cController {
-            controller: Controller::I2C2, registers: None, port: None
+            controller: Controller::I2C2,
+            peripheral: Peripheral::I2c2,
+            getblock: device::I2C2::ptr,
+            notification: (1 << (2 - 1)),
+            registers: None,
+            port: None,
         }, I2cController {
-            controller: Controller::I2C3, registers: None, port: None
+            controller: Controller::I2C3,
+            peripheral: Peripheral::I2c3,
+            getblock: device::I2C3::ptr,
+            notification: (1 << (3 - 1)),
+            registers: None,
+            port: None,
         }, I2cController {
-            controller: Controller::I2C4, registers: None, port: None
+            controller: Controller::I2C4,
+            peripheral: Peripheral::I2c4,
+            getblock: device::I2C4::ptr,
+            notification: (1 << (4 - 1)),
+            registers: None,
+            port: None,
         } ];
 
         const I2C_PINS: [I2cPin; 6] = [ I2cPin {
@@ -214,6 +244,7 @@ fn main() -> ! {
 
                 write_read(
                     controller.registers.unwrap(),
+                    controller.notification,
                     addr,
                     winfo.len,
                     |pos| { wbuf.read_at(pos) },
@@ -237,16 +268,8 @@ fn turn_on_i2c() {
     ));
 
     for controller in controllers {
-        let peripheral = match controller.controller {
-            Controller::I2C1 => Peripheral::I2c1,
-            Controller::I2C2 => Peripheral::I2c2,
-            Controller::I2C3 => Peripheral::I2c3,
-            Controller::I2C4 => Peripheral::I2c4,
-            _ => { panic!() }
-        };
-
-        rcc_driver.enable_clock(peripheral);
-        rcc_driver.leave_reset(peripheral);
+        rcc_driver.enable_clock(controller.peripheral);
+        rcc_driver.leave_reset(controller.peripheral);
     }
 }
 
@@ -300,6 +323,7 @@ fn configure_controller(i2c: &RegisterBlock) {
         }
     }
 
+    // WTALF?!
     i2c.oar1.write(|w| { w.oa1en().clear_bit() });
     i2c.oar1.write(|w| { w
         .oa1en().set_bit()
@@ -315,28 +339,27 @@ fn configure_controller(i2c: &RegisterBlock) {
         .oa2().bits(0)
     });
 
-    i2c.cr1.write(|w| { w
-        .gcen().clear_bit()
-        .nostretch().clear_bit()
+    i2c.cr1.modify(|_, w| { w
+        .gcen().clear_bit()             // disable General Call
+        .nostretch().clear_bit()        // disable clock stretching
+        .errie().set_bit()              // emable Error Interrupt
+        .tcie().set_bit()               // enable Transfer Complete interrupt
+        .stopie().set_bit()             // enable Stop Detection interrupt
+        .nackie().set_bit()             // enable NACK interrupt
+        .rxie().set_bit()               // enable RX interrupt
+        .txie().set_bit()               // enable TX interrupt
     });
 
-    i2c.cr1.write(|w| { w.pe().set_bit() });
+    i2c.cr1.modify(|_, w| { w.pe().set_bit() });
 }
 
 fn configure_controllers() {
     let mut controllers = unsafe { &mut I2C_CONTROLLERS };
 
     for controller in controllers {
-        let func = match controller.controller {
-            Controller::I2C1 => device::I2C1::ptr,
-            Controller::I2C2 => device::I2C2::ptr,
-            Controller::I2C3 => device::I2C3::ptr,
-            Controller::I2C4 => device::I2C4::ptr,
-            _ => { panic!() }
-        };
-
-        controller.registers = Some(unsafe { &*func() });
+        controller.registers = Some(unsafe { &*(controller.getblock)() });
         configure_controller(controller.registers.unwrap());
+        sys_irq_control(controller.notification, true);
     }
 }
 
@@ -413,6 +436,7 @@ fn configure_pins() {
 
 fn write_read(
     i2c: &RegisterBlock,
+    notification: u32,
     addr: u8,
     wlen: usize,
     getbyte: impl Fn(usize) -> Option<u8>,
@@ -464,6 +488,9 @@ fn write_read(
                 if isr.txis().is_empty() {
                     break;
                 }
+
+                let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+                sys_irq_control(notification, true);
             }
 
             // Get a single byte
@@ -476,7 +503,8 @@ fn write_read(
 
         // All done; now spin until our transfer is complete...
         while !i2c.isr.read().tc().is_complete() {
-            continue;
+            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+            sys_irq_control(notification, true);
         }
     }
 
@@ -500,6 +528,9 @@ fn write_read(
 
         while pos < rlen {
             loop {
+                let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+                sys_irq_control(notification, true);
+
                 let isr = i2c.isr.read();
 
                 if isr.nackf().is_nack() {
@@ -520,7 +551,8 @@ fn write_read(
 
         // All done; now spin until our transfer is complete...
         while !i2c.isr.read().tc().is_complete() {
-            continue;
+            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+            sys_irq_control(notification, true);
         }
     }
 
