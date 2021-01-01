@@ -67,6 +67,23 @@ cfg_if::cfg_if! {
             function: Alternate::AF4,
             mask: (1 << 12) | (1 << 13),
         } ];
+    } else if #[cfg(target_board = "nucleo-h743zi2")] {
+        static mut I2C_CONTROLLERS: [I2cController; 1] = [ I2cController {
+            controller: Controller::I2C2,
+            peripheral: Peripheral::I2c2,
+            getblock: device::I2C2::ptr,
+            notification: (1 << (2 - 1)),
+            registers: None,
+            port: None,
+        } ];
+
+        const I2C_PINS: [I2cPin; 1] = [ I2cPin {
+            controller: Controller::I2C2,
+            port: Port::F,
+            gpio_port: drv_stm32h7_gpio_api::Port::F,
+            function: Alternate::AF4,
+            mask: (1 << 0) | (1 << 1),
+        } ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
         static mut I2C_CONTROLLERS: [I2cController; 4] = [ I2cController {
             controller: Controller::I2C1,
