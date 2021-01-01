@@ -12,6 +12,21 @@ pub enum Op {
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u32)]
+pub enum ResponseCode {
+    Dead = core::u32::MAX,
+    BadResponse = 1,
+    BadArg = 2,
+    NoDevice = 3,
+    BadController = 4,
+    ReservedAddress = 5,
+    BadPort = 6,
+    BadDefaultPort = 7,
+    NoRegister = 8,
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u8)]
 pub enum Controller {
     I2C0 = 0,
     I2C1 = 1,
@@ -92,31 +107,9 @@ impl I2c {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum I2cError {
-    Dead = !0,
-    BadArg,
-    NoDevice,
-    Busy,
-    BadController,
-    ReservedAddress,
-    BadPort,
-    BadDefaultPort,
-}
-
-impl From<u32> for I2cError {
-    fn from(x: u32) -> Self {
-        match x {
-            core::u32::MAX => I2cError::Dead,
-            1 => I2cError::BadArg,
-            2 => I2cError::NoDevice,
-            3 => I2cError::Busy,
-            4 => I2cError::BadController,
-            5 => I2cError::ReservedAddress,
-            6 => I2cError::BadPort,
-            7 => I2cError::BadDefaultPort,
-            _ => panic!(),
-        }
+impl From<ResponseCode> for u32 {
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
     }
 }
 
@@ -125,7 +118,7 @@ impl I2c {
     pub fn read_reg<R: AsBytes, V: Default + AsBytes + FromBytes>(
         &self,
         reg: R,
-    ) -> Result<V, I2cError> {
+    ) -> Result<V, ResponseCode> {
         let mut val = V::default();
 
         let (code, _) = sys_send(
@@ -137,7 +130,7 @@ impl I2c {
         );
 
         if code != 0 {
-            Err(I2cError::from(code))
+            Err(ResponseCode::from_u32(code).ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
         }

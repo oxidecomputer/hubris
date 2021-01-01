@@ -16,7 +16,7 @@ use device::i2c3::RegisterBlock;
 use device::i2c1::RegisterBlock;
 
 use userlib::*;
-use drv_i2c_api::{Controller, Op, ReservedAddress, Port};
+use drv_i2c_api::{Controller, Op, ReservedAddress, Port, ResponseCode};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 
@@ -31,23 +31,6 @@ const GPIO: Task = Task::gpio_driver;
 
 #[cfg(feature = "standalone")]
 const GPIO: Task = SELF;
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 1,
-    NoDevice = 2,
-    Busy = 3,
-    BadController = 4,
-    ReservedAddress = 5,
-    BadPort = 6,
-    BadDefaultPort = 7,
-}
-
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
-}
 
 struct I2cPin {
     controller: Controller,
@@ -501,8 +484,20 @@ fn write_read(
             pos += 1;
         }
 
-        // All done; now spin until our transfer is complete...
-        while !i2c.isr.read().tc().is_complete() {
+        // All done; now spin until our transfer is complete -- or until
+        // we've been NACK'd (denoting an illegal register value)
+        loop {
+            let isr = i2c.isr.read();
+
+            if isr.nackf().is_nack() {
+                i2c.icr.write(|w| { w.nackcf().set_bit() });
+                return Err(ResponseCode::NoRegister);
+            }
+
+            if isr.tc().is_complete() {
+                break;
+            }
+
             let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
             sys_irq_control(notification, true);
         }

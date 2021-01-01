@@ -3,9 +3,9 @@
 
 // Make sure we actually link in userlib, despite not using any of it explicitly
 // - we need it for our _start routine.
-use userlib::*;
+use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use drv_i2c_api::*;
-use core::sync::atomic::{AtomicU32, AtomicI32, Ordering};
+use userlib::*;
 
 #[cfg(feature = "standalone")]
 const I2C: Task = SELF;
@@ -19,7 +19,8 @@ const I2C: Task = Task::i2c_driver;
 // changing "humility i2c"!
 //
 #[no_mangle]
-static mut I2C_DEBUG_RESULTS: [Option<Result<u32, I2cError>>; 256] = [None; 256];
+static mut I2C_DEBUG_RESULTS: [Option<Result<u32, ResponseCode>>; 256] =
+    [None; 256];
 static I2C_DEBUG_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static I2C_DEBUG_ERRORS: AtomicU32 = AtomicU32::new(0);
 static I2C_DEBUG_KICK: AtomicU32 = AtomicU32::new(0);
@@ -44,8 +45,8 @@ fn scan_controller(controller: Controller, port: Port) {
         let i2c = I2c::new(task, controller, port, None, addr);
         let result = i2c.read_reg::<u8, u8>(0);
         results[addr as usize] = match result {
-            Ok(result) => { Some(Ok(result as u32)) },
-            Err(err) => { Some(Err(err)) }
+            Ok(result) => Some(Ok(result as u32)),
+            Err(err) => Some(Err(err)),
         };
     }
 }
@@ -54,15 +55,19 @@ fn scan_device(controller: Controller, port: Port, addr: u8) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    sys_log!("i2c_debug: scanning controller {:?}, addr 0x{:x}", controller, addr);
+    sys_log!(
+        "i2c_debug: scanning controller {:?}, addr 0x{:x}",
+        controller,
+        addr
+    );
 
     let i2c = I2c::new(task, controller, port, None, addr);
 
     for reg in 0..=0xff {
         let result = i2c.read_reg::<u8, u8>(reg);
         results[reg as usize] = match result {
-            Ok(result) => { Some(Ok(result as u32)) },
-            Err(err) => { Some(Err(err)) }
+            Ok(result) => Some(Ok(result as u32)),
+            Err(err) => Some(Err(err)),
         };
     }
 }
@@ -108,7 +113,7 @@ fn main() -> ! {
         }
 
         let controller = match Controller::from_i32(controller) {
-            Some(controller) => { controller }
+            Some(controller) => controller,
             None => {
                 sys_log!("i2c_debug: invalid controller value {}", controller);
                 I2C_DEBUG_ERRORS.fetch_add(1, Ordering::SeqCst);
