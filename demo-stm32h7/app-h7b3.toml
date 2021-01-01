@@ -71,8 +71,8 @@ start = true
 interrupts = {37 = 1}
 
 [tasks.i2c_driver]
-path = "../drv/stm32h7-i2c"
-name = "drv-stm32h7-i2c"
+path = "../drv/stm32h7-i2c-server"
+name = "drv-stm32h7-i2c-server"
 features = ["h7b3"]
 priority = 2
 requires = {flash = 16384, ram = 1024}

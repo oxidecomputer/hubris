@@ -9,16 +9,11 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-#[cfg(feature = "h7b3")]
-use device::i2c3::RegisterBlock;
-
-#[cfg(feature = "h743")]
-use device::i2c1::RegisterBlock;
-
 use userlib::*;
 use drv_i2c_api::{Controller, Op, ReservedAddress, Port, ResponseCode};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
+use drv_stm32h7_i2c::*;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -31,23 +26,6 @@ const GPIO: Task = Task::gpio_driver;
 
 #[cfg(feature = "standalone")]
 const GPIO: Task = SELF;
-
-struct I2cPin {
-    controller: Controller,
-    port: Port,
-    gpio_port: drv_stm32h7_gpio_api::Port,
-    function: Alternate,
-    mask: u16,
-}
-
-struct I2cController<'a> {
-    controller: Controller,
-    peripheral: Peripheral,
-    getblock: fn() -> *const RegisterBlock,
-    notification: u32,
-    port: Option<Port>,
-    registers: Option<&'a RegisterBlock>,
-}
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "stm32h7b3i-dk")] {
@@ -273,92 +251,11 @@ fn turn_on_i2c() {
     }
 }
 
-fn configure_controller(i2c: &RegisterBlock) {
-    // Disable PE
-    i2c.cr1.write(|w| { w.pe().clear_bit() });
-
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "h7b3")] {
-            // We want to set our timing to achieve a 100kHz SCL. Given our
-            // APB4 peripheral clock of 280MHz, here is how we configure our
-            // timing:
-            //
-            // - A PRESC of 7, yielding a t_presc of 28.57 ns.
-            // - An SCLH of 137 (0x89), yielding a t_sclh of 3942.86 ns.
-            // - An SCLL of 207 (0xcf), yielding a t_scll of 5942.86 ns.
-            //
-            // Taken together, this yields a t_scl of 9885.71 ns.  Which, when
-            // added to our t_sync1 and t_sync2 will be close to our target of
-            // 10000 ns.  Finally, we set SCLDEL to 8 and SDADEL to 0 --
-            // values that come from the STM32CubeMX tool (as advised by
-            // 52.4.10).
-            i2c.timingr.write(|w| { w
-                .presc().bits(7)
-                .sclh().bits(137)
-                .scll().bits(207)
-                .scldel().bits(8)
-                .sdadel().bits(0)
-            });
-        } else if #[cfg(feature = "h743")] {
-            // Here our APB1 peripheral clock is 100MHz, yielding the
-            // following:
-            //
-            // - A PRESC of 1, yielding a t_presc of 20 ns
-            // - An SCLH of 236 (0xec), yielding a t_sclh of 4740 ns
-            // - An SCLL of 255 (0xff), yielding a t_scll of 5120 ns
-            //
-            // Taken together, this yields a t_scl of 9860 ns, which (as
-            // above) when added to t_sync1 and t_sync2 will be close to our
-            // target of 10000 ns.  Finally, we set SCLDEL to 12 and SDADEL to
-            // 0 -- values that come from from the STM32CubeMX tool.
-            i2c.timingr.write(|w| { w
-                .presc().bits(1)
-                .sclh().bits(236)
-                .scll().bits(255)
-                .scldel().bits(12)
-                .sdadel().bits(0)
-            });
-        } else {
-            compile_error!("unknown STM32H7 variant");
-        }
-    }
-
-    // WTALF?!
-    i2c.oar1.write(|w| { w.oa1en().clear_bit() });
-    i2c.oar1.write(|w| { w
-        .oa1en().set_bit()
-        .oa1mode().clear_bit()
-        .oa1().bits(0)
-    });
-
-    i2c.cr2.write(|w| { w.autoend().set_bit().nack().set_bit() });
-
-    i2c.oar2.write(|w| { w.oa2en().clear_bit() });
-    i2c.oar2.write(|w| { w
-        .oa2en().set_bit()
-        .oa2().bits(0)
-    });
-
-    i2c.cr1.modify(|_, w| { w
-        .gcen().clear_bit()             // disable General Call
-        .nostretch().clear_bit()        // disable clock stretching
-        .errie().set_bit()              // emable Error Interrupt
-        .tcie().set_bit()               // enable Transfer Complete interrupt
-        .stopie().set_bit()             // enable Stop Detection interrupt
-        .nackie().set_bit()             // enable NACK interrupt
-        .rxie().set_bit()               // enable RX interrupt
-        .txie().set_bit()               // enable TX interrupt
-    });
-
-    i2c.cr1.modify(|_, w| { w.pe().set_bit() });
-}
-
 fn configure_controllers() {
     let mut controllers = unsafe { &mut I2C_CONTROLLERS };
 
     for controller in controllers {
-        controller.registers = Some(unsafe { &*(controller.getblock)() });
-        configure_controller(controller.registers.unwrap());
+        controller.configure();
         sys_irq_control(controller.notification, true);
     }
 }

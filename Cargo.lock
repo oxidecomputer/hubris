@@ -430,12 +430,27 @@ dependencies = [
 name = "drv-stm32h7-i2c"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-i2c-server"
+version = "0.1.0"
+dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
+ "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",
  "num-traits",
  "stm32h7",
