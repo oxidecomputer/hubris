@@ -63,18 +63,11 @@ cfg_if::cfg_if! {
             mask: (1 << 0) | (1 << 1),
         } ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
-        static mut I2C_CONTROLLERS: [I2cController; 4] = [ I2cController {
+        static mut I2C_CONTROLLERS: [I2cController; 3] = [ I2cController {
             controller: Controller::I2C1,
             peripheral: Peripheral::I2c1,
             getblock: device::I2C1::ptr,
             notification: (1 << (1 - 1)),
-            registers: None,
-            port: None,
-        }, I2cController {
-            controller: Controller::I2C2,
-            peripheral: Peripheral::I2c2,
-            getblock: device::I2C2::ptr,
-            notification: (1 << (2 - 1)),
             registers: None,
             port: None,
         }, I2cController {
@@ -93,7 +86,7 @@ cfg_if::cfg_if! {
             port: None,
         } ];
 
-        const I2C_PINS: [I2cPin; 6] = [ I2cPin {
+        const I2C_PINS: [I2cPin; 5] = [ I2cPin {
             controller: Controller::I2C1,
             port: Port::B,
             gpio_port: drv_stm32h7_gpio_api::Port::B,
@@ -105,12 +98,6 @@ cfg_if::cfg_if! {
             gpio_port: drv_stm32h7_gpio_api::Port::D,
             function: Alternate::AF4,
             mask: (1 << 12) | (1 << 13),
-        }, I2cPin {
-            controller: Controller::I2C2,
-            port: Port::F,
-            gpio_port: drv_stm32h7_gpio_api::Port::F,
-            function: Alternate::AF4,
-            mask: (1 << 0) | (1 << 1),
         }, I2cPin {
             controller: Controller::I2C4,
             port: Port::F,
@@ -246,8 +233,7 @@ fn turn_on_i2c() {
     ));
 
     for controller in controllers {
-        rcc_driver.enable_clock(controller.peripheral);
-        rcc_driver.leave_reset(controller.peripheral);
+        controller.enable(&rcc_driver);
     }
 }
 

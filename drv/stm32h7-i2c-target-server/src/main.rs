@@ -89,11 +89,8 @@ fn main() -> ! {
     let mut register = None;
 
     'addrloop: loop {
-        sys_log!("top of loop");
-
         let is_write = loop {
             let isr = i2c.isr.read();
-            sys_log!("top loop: {:x}", isr.bits());
 
             if isr.stopf().is_stop() {
                 i2c.icr.write(|w| { w.stopcf().set_bit() });
@@ -108,15 +105,13 @@ fn main() -> ! {
             sys_irq_control(notification, true);
         };
 
-        sys_log!("is_write is {}", is_write);
-
         // Clear our Address interrupt
         i2c.icr.write(|w| { w.addrcf().set_bit() });
 
         if is_write {
+            i2c.cr2.modify(|_, w| { w.nbytes().bits(1) });
             'rxloop: loop {
                 let isr = i2c.isr.read();
-                sys_log!("rxloop: {:x}!", isr.bits());
 
                 if isr.addr().is_match_() {
                     //
@@ -135,12 +130,12 @@ fn main() -> ! {
 
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| { w.stopcf().set_bit() });
-                    continue 'addrloop;
+                    break 'rxloop;
                 }
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| { w.nackcf().set_bit() });
-                    continue 'addrloop;
+                    break 'rxloop;
                 }
 
                 if isr.rxne().is_not_empty() {
@@ -149,7 +144,6 @@ fn main() -> ! {
                     // for additional bytes.
                     //
                     register = Some(i2c.rxdr.read().rxdata().bits());
-                    sys_log!("received {:x}!", register.unwrap());
                     continue 'rxloop;
                 }
 
@@ -179,7 +173,6 @@ fn main() -> ! {
 
         'txloop: loop {
             let isr = i2c.isr.read();
-            sys_log!("txloop: {:x}!", isr.bits());
 
             if isr.tc().is_complete() {
                 //
