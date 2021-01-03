@@ -41,6 +41,8 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
         | "gemini-bu-1" => {
             let cfg = if toml.board == "stm32f4-discovery" {
                 "./demo/openocd.cfg"
+            } else if toml.board == "gemini-bu-1" {
+                "./gemini-bu/openocd.cfg"
             } else {
                 "./demo-stm32h7/openocd.cfg"
             };
