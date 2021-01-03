@@ -18,6 +18,14 @@ probably also works on Illumos and Mac; if anyone would like to step up to
 maintain support and a continuous build for those architectures, we'd love the
 help.
 
+To submit changes for review, push them to a new branch in this repo (_not_ a
+separate GitHub fork) and submit a pull request to merge that branch into
+master.  (Pull requests from separate GitHub forks do not currently work.
+First, the pre-integration checks do not get run automatically in forks, so
+you'd have to enable Actions in your fork.  More importantly, these checks
+require configuration of a repository secret in order to clone private
+submodules, so they'll fail when run from a fork.)
+
 ## Prereqs
 
 You will need:
@@ -26,15 +34,23 @@ You will need:
   to build, but people have had issues.)
 
 - `openocd` (mostly tested on 0.10) or (if using the LPC55)
-  `pyocd` (0.27 or later)
+  `pyocd` (0.27 or later).  Note that the 0.10 release of OpenOCD predates the
+  STLink v3.  People are using various post-0.10 builds provided by system
+  package managers.  If you're going to use Homebrew on macOS to install
+  OpenOCD, you need to use `brew install --head openocd` to build the tip of the
+  main branch rather than using the latest binary release.
 
 - The appropriate Rust toolchain target installed:
-  - `rustup target add thumbv7em-none-eabihf`
-  - `rustup target add thumbv8m.main-none-eabihf`
+  - `rustup target add thumbv7em-none-eabihf` (for the STM32)
+  - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
 - `itmdump`: `cargo install itm`
 
-- `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`.
+- `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`, typically from your system's
+  package manager using package names like `arm-none-eabi-binutils` and
+  `arm-none-eabi-gdb`.  macOS users might check out
+  [homebrew-arm](https://github.com/osx-cross/homebrew-arm), a Homebrew repo
+  with formulae that install the official ARM binaries.
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
   - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
@@ -76,6 +92,7 @@ custom build commands.
   - `cargo xtask dist lpc55/app.toml` - lpcxpresso55s69
   - `cargo xtask dist demo-stm32h7/app-h743.toml` - nucleo-ih743zi2
   - `cargo xtask dist demo-stm32h7/app-h7b3.toml` - stm32h7b3i-dk
+  - `cargo xtask dist gemini-bu/app.toml` - Gemini bringup board
 - `cargo xtask build` from within a task or kernel directory builds that one
   component in isolation. **The result won't actually run,** because it's
   missing important system context, but this provides a cheaper way to do
@@ -85,6 +102,11 @@ custom build commands.
 
 Details depend on your target board. Here are some common evaluation boards we
 support.
+
+### Gemini bringup board
+
+See the Gemini Bringup [Getting
+Started](https://github.com/oxidecomputer/gemini-bringup#getting-started) docs.
 
 ### STM32F4 Discovery board
 
