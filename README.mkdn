@@ -167,8 +167,8 @@ the engineer who managed to get it all built -- no small feat!
 
 There are two files that you will need, both contained in the Hubris repository:
 
-- [lpc4322_bl_crc.bin]("./support/lpc4322_bl_crc.bin")
-- [lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin]("./support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin")
+- [lpc4322_bl_crc.bin](./support/lpc4322_bl_crc.bin)
+- [lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin](./support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin)
 
 You will additionally need the [LPCScrypt program](https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT)
 from NXP.
