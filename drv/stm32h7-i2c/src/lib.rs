@@ -111,7 +111,7 @@ impl<'a> I2cController<'a> {
         self.registers = Some(i2c);
     }
 
-    pub fn configure_as_target(&mut self, address: u8) {
+    fn configure_as_target(&mut self, address: u8) {
         assert!(self.registers.is_none());
         assert!(address & 0b1000_0000 == 0);
 
@@ -147,5 +147,152 @@ impl<'a> I2cController<'a> {
 
         i2c.cr1.modify(|_, w| { w.pe().set_bit() });
         self.registers = Some(i2c);
+    }
+
+    pub fn operate_as_target<'b>(
+        &mut self,
+        address: u8,
+        mut enable: impl FnMut(u32),
+        mut wfi: impl FnMut(u32),
+        mut readreg: impl FnMut(Option<u8>, &mut [u8]) -> Option<usize>
+    ) -> ! {
+        self.configure_as_target(address);
+
+        let mut wbuf = [0; 4];
+
+        let i2c = self.registers.unwrap();
+        let notification = self.notification;
+
+        enable(notification);
+
+        let mut register = None;
+
+        'addrloop: loop {
+            let is_write = loop {
+                let isr = i2c.isr.read();
+
+                if isr.stopf().is_stop() {
+                    i2c.icr.write(|w| { w.stopcf().set_bit() });
+                    continue;
+                }
+
+                if isr.addr().is_match_() {
+                    break isr.dir().is_write();
+                }
+
+                wfi(notification);
+                enable(notification);
+            };
+
+            // Clear our Address interrupt
+            i2c.icr.write(|w| { w.addrcf().set_bit() });
+
+            if is_write {
+                i2c.cr2.modify(|_, w| { w.nbytes().bits(1) });
+                'rxloop: loop {
+                    let isr = i2c.isr.read();
+
+                    if isr.addr().is_match_() {
+                        //
+                        // If we have an address match, check to see if this is
+                        // change in direction; if it is, break out of our receive
+                        // loop.
+                        //
+                        if !isr.dir().is_write() {
+                            i2c.icr.write(|w| { w.addrcf().set_bit() });
+                            break 'rxloop;
+                        }
+
+                        i2c.icr.write(|w| { w.addrcf().set_bit() });
+                        continue 'rxloop;
+                    }
+
+                    if isr.stopf().is_stop() {
+                        i2c.icr.write(|w| { w.stopcf().set_bit() });
+                        break 'rxloop;
+                    }
+
+                    if isr.nackf().is_nack() {
+                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        break 'rxloop;
+                    }
+
+                    if isr.rxne().is_not_empty() {
+                        //
+                        // We have a byte; we'll read it, and continue to wait
+                        // for additional bytes.
+                        //
+                        register = Some(i2c.rxdr.read().rxdata().bits());
+                        continue 'rxloop;
+                    }
+
+                    wfi(notification);
+                    enable(notification);
+                }
+            }
+
+            let wlen = match readreg(register, &mut wbuf) {
+                None => {
+                    //
+                    // We have read from an invalid register; NACK it
+                    //
+                    i2c.cr2.modify(|_, w| { w
+                        .nbytes().bits(0)
+                        .nack().set_bit()
+                    });
+                    continue 'addrloop;
+                }
+                Some(len) => len
+            };
+
+            // This is a read from the controller.  Because SBC is set, we must
+            // indicate the number of bytes that we will send.
+            i2c.cr2.modify(|_, w| { w.nbytes().bits(wlen as u8) });
+            let mut pos = 0;
+
+            'txloop: loop {
+                let isr = i2c.isr.read();
+
+                if isr.tc().is_complete() {
+                    //
+                    // We're done -- write the stop bit, and kick out to our
+                    // address loop.
+                    //
+                    i2c.cr2.modify(|_, w| { w.stop().set_bit() });
+                    continue 'addrloop;
+                }
+
+                if isr.addr().is_match_() {
+                    //
+                    // We really aren't expecting this, so kick out to the top
+                    // of the loop to try to make sense of it.
+                    //
+                    continue 'addrloop;
+                }
+
+                if isr.txis().is_empty() {
+                    if pos < wlen {
+                        i2c.txdr.write(|w| { w.txdata().bits(wbuf[pos]) });
+                        pos += 1;
+                        continue 'txloop;
+                    } else {
+                        //
+                        // We're not really expecting this -- NACK and kick
+                        // out.
+                        //
+                        i2c.cr2.modify(|_, w| { w.nack().set_bit() });
+                        continue 'addrloop;
+                    }
+                }
+
+                if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| { w.nackcf().set_bit() });
+                    continue 'addrloop;
+                }
+
+                wfi(notification);
+                enable(notification);
+            }
+        }
     }
 }
