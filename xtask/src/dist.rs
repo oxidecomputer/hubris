@@ -691,13 +691,14 @@ fn make_descriptors(
             // bits, it's much easier to conceive of a world in which one
             // has misunderstood that the second number in the interrupt
             // tuple is in fact a mask, not an index.
-            if (notification & (notification - 1)) != 0 {
+            if notification.count_ones() != 1 {
                 bail!(
                     "task {}: IRQ {}: notification mask (0b{:b}) \
-                    has multiple bits set",
+                    has {} bits set (expected exactly one)",
                     name,
                     irq_str,
-                    notification
+                    notification,
+                    notification.count_ones()
                 );
             }
 
