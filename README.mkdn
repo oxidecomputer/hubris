@@ -44,7 +44,8 @@ You will need:
   - `rustup target add thumbv7em-none-eabihf` (for the STM32)
   - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
-- `itmdump`: `cargo install itm`
+- [libusb](https://libusb.info/), typically found from your system's package
+  manager as `libusb-1.0.0` or similar.
 
 - `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`, typically from your system's
   package manager using package names like `arm-none-eabi-binutils` and
@@ -98,6 +99,10 @@ custom build commands.
   missing important system context, but this provides a cheaper way to do
   incremental builds during development. See the `Iterating` section below.
 
+Note: Because the Hubris repository contains submodules, before building, you
+must update submodules, either via `git clone --recursive`, or
+`git submodule update --init` or similar.
+
 ## Run
 
 Details depend on your target board. Here are some common evaluation boards we
@@ -128,9 +133,11 @@ deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 
 ### LPCXpresso55S69 board
 
-To use the LPCXpresso55S69, you will need <a href="https://github.com/mbedmicro/pyOCD">pyOCD</a>, version 0.27.0 or later.
+To use the LPCXpresso55S69, you will need [pyOCD](https://github.com/mbedmicro/pyOCD), version 0.27.0 or later.
 
-The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip debugger, LPC-Link2, <a href="https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442">does not correctly support SWO/SWV</a>.
+The LPCXpresso55S69 is somewhat of a mess because the built-on on-chip
+debugger, LPC-Link2, [does not correctly support SWO/SWV](https://community.nxp.com/t5/LPC-Microcontrollers/SWO-SWV-on-LPC-Link2-with-CMSIS-DAP/m-p/1079442)
+
 If you have the stock LPC-Link2, it will report itself this way via `pyocd list`:
 
 
@@ -154,18 +161,17 @@ $ pyocd list
 
 In either of these cases you must -- as a one-time step -- install new
 firmware on the LPC-Link2.  The new firmware is a build of the (open source) 
-<a href="https://github.com/oxidecomputer/DAPLink">DAPLink</a>, which
+[DAPLink](https://github.com/oxidecomputer/DAPLink), which
 we affectionally call **RickLink** after
 the engineer who managed to get it all built -- no small feat!
 
 There are two files that you will need, both contained in the Hubris repository:
 
-- <a href="./support/lpc4322_bl_crc.bin">lpc4322_bl_crc.bin</a>
-- <a
-  href="./support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin">lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin</a>
+- [lpc4322_bl_crc.bin](./support/lpc4322_bl_crc.bin)
+- [lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin](./support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin)
 
-You will additionally need the <a
-href="https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT">LPCScrypt program</a> from NXP.
+You will additionally need the [LPCScrypt program](https://www.nxp.com/design/microcontrollers-developer-resources/lpc-microcontroller-utilities/lpcscrypt-v2-1-1:LPCSCRYPT)
+from NXP.
 
 Here are the steps to install RickLink:
 
@@ -278,6 +284,26 @@ Once RickLink is running:
 - Terminal 2: `telnet localhost 4444` (semihosting output)
 - Terminal 3: `cargo xtask gdb lpc55/app.toml openocd.gdb`
 
+### LPC55S28 on Gemini carrier board
+
+Note that the RickLink running on the LPCXpresso55S69 can *also* be used 
+as the debugger for the LPC55S28 on the Gemini carrier board.  To do this,
+first, follow all of the instructions above to get RickLink onto your
+LPCXpresso55S69.  Then:
+
+1. Using a soldering iron, solder a two-pin header on J5. J5 can be
+   be found to the left of P1 and below the "Debugger" jumper (J3).
+
+2. Put a jumper on the new header
+
+3. Move the "Debugger" jumper (J3) to "Ext".
+
+4. Use a SWD cable (10-pin 2x5 1.27mm pitch cable) to connect the SWD on the
+   LPCXpresso55S69 to the SWD underneath the carrier board on Gemini (J202)
+
+(To allow your RickLink to once again debug its local LPC55S69,
+remove the jumper on J5 and move J3 to "Loc".)
+
 ### ST Nucleo-H743ZI2 board
 
 - Terminal 1: `cd demo-stm32h7; openocd`
@@ -287,6 +313,22 @@ Once RickLink is running:
 
 - Terminal 1: `cd demo-stm32h7; openocd`
 - Terminal 2: `cargo xtask gdb demo-stm32h7/app-h7b3.toml openocd.gdb`
+
+### Multiple boards simultaneously
+
+If multiple probes are attached, tools may struggle to find the right one at
+the right time.  In particular, OpenOCD will pick the first one that it finds;
+to force OpenOCD to pick a *particular* probe,
+you can ascertain the serial number of the probe (e.g., from `humility probe`)
+and then specify that serial number in the corresponding `openocd.cfg` by
+adding, e.g.:
+
+```
+interface hla
+hla_serial 271828182845904523536028
+```
+
+(Where `271828182845904523536028` is the serial number of the probe.)
 
 ## Flash
 
@@ -300,6 +342,7 @@ depends on the board:
 - STM32F4 Discovery board: `cargo xtask flash demo/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtash flash demo-stm32h7/app-h743.toml`
 - ST STM32H7B3I-DK board: `cargo xtask flash demo-stm32h7/app-h7b3.toml`
+- Gemini bringup board: `cargo xtask flash gemini-bu/app.toml`
 
 ## Debug
 
