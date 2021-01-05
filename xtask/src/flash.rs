@@ -37,6 +37,26 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
 
             (flash, Some(reset))
         }
+        "gemini-bu-rot-1" => {
+            let mut flash = Command::new("pyocd");
+            flash
+                .arg("flash")
+                .arg("-t")
+                .arg("lpc55s28")
+                .arg("--format")
+                .arg("hex")
+                .arg(out.join("combined.ihex"));
+
+            let mut reset = Command::new("pyocd");
+            reset.arg("reset").arg("-t").arg("lpc55s28");
+
+            if verbose {
+                flash.arg("-v");
+                reset.arg("-v");
+            }
+
+            (flash, Some(reset))
+        }
         "stm32f4-discovery" | "nucleo-h743zi2" | "stm32h7b3i-dk"
         | "gemini-bu-1" => {
             let cfg = if toml.board == "stm32f4-discovery" {

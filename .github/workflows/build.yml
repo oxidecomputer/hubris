@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f4, lpc55, stm32h7b3, stm32h743, gemini]
+        build: [stm32f4, lpc55, stm32h7b3, stm32h743, gemini, gemini-rot]
         include:
           - build: stm32f4
             app_name: demo
@@ -30,6 +30,10 @@ jobs:
             app_name: gemini-bu
             app_toml: gemini-bu/app.toml
             target: thumbv7em-none-eabihf
+          - build: gemini-rot
+            app_name: gemini-bu-rot
+            app_toml: gemini-bu-rot/app.toml
+            target: thumbv8m.main-none-eabihf
 
           - os: ubuntu-latest
             deps: sudo apt-get install binutils-arm-none-eabi libudev-dev
