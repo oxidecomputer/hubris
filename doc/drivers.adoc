@@ -60,8 +60,7 @@ fn main() {
 
 	B.clk.write(|w| w.clock.very_fast());
 
-	B.cfg.modify(|_, w| w.foo.disable().
-				enabled.set());
+	B.cfg.modify(|_, w| w.foo.disable().enabled.set());
 
 	let mask = 1;
 	// Data we need during operation. None indicates no operation
