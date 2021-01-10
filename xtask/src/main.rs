@@ -84,6 +84,11 @@ enum Xtask {
         /// check all packages, not only one
         #[structopt(long)]
         all: bool,
+
+        /// specifies check command to execute. Options include "check" and
+        /// "clippy" (superset of "check").
+        #[structopt(long, default_value = "check")]
+        command: String,
     },
 }
 
@@ -207,9 +212,18 @@ fn main() -> Result<()> {
             package,
             target,
             all,
+            command,
         } => {
+            let command = match &command[..] {
+                "clippy" => check::SubCommand::Clippy,
+                "check" => check::SubCommand::Check,
+                other => {
+                    anyhow::bail!("Unexpected check subcommand: {}", other);
+                }
+            };
+
             if !all {
-                check::run(package, target)?;
+                check::run(command, package, target)?;
             } else {
                 use cargo_metadata::MetadataCommand;
 
@@ -241,7 +255,7 @@ fn main() -> Result<()> {
 
                     let target = (|| m?.build?.target)();
 
-                    check::run(Some(package.name), target)?;
+                    check::run(command, Some(package.name), target)?;
                 }
             }
         }

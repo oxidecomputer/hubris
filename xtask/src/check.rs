@@ -3,7 +3,26 @@ use std::process::Command;
 
 use anyhow::{bail, Result};
 
-pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
+#[derive(Clone, Copy, PartialEq)]
+pub enum SubCommand {
+    Check,
+    Clippy,
+}
+
+impl SubCommand {
+    fn as_str(&self) -> &'static str {
+        match *self {
+            SubCommand::Check => "check",
+            SubCommand::Clippy => "clippy",
+        }
+    }
+}
+
+pub fn run(
+    subcommand: SubCommand,
+    package: Option<String>,
+    target: Option<String>,
+) -> Result<()> {
     let package = package.unwrap_or_else(|| {
         let path = env::current_dir().unwrap();
         let manifest_path = path.join("Cargo.toml");
@@ -21,7 +40,17 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     println!("checking: {}", package);
 
     let mut cmd = Command::new("cargo");
-    cmd.arg("check");
+    cmd.arg(subcommand.as_str());
+    if subcommand == SubCommand::Clippy {
+        // TODO: Remove this argument once resolved on stable:
+        //
+        // https://github.com/rust-lang/rust-clippy/issues/4612
+        //
+        // TL;DR: Switching back and forth between "clippy" and "check"
+        // caches the results from one execution. This means a succeeding
+        // "check" execution may hide a failing "clippy" execution.
+        cmd.arg("-Zunstable-options");
+    }
     cmd.arg("-p");
     cmd.arg(&package);
 
