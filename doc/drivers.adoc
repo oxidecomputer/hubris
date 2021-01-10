@@ -52,7 +52,8 @@ manually. To make life easier, these calls are wrapped via calls in the
 size validation. A typical server will look like
 
 
-```
+[source, rust]
+---------------------------------------------------------------------
 fn main() {
 	turn_on_hardware_clocks();
 	let B = get_hardware_block();
@@ -135,7 +136,7 @@ fn main() {
 	}
 
 }
-```
+---------------------------------------------------------------------
 
 = Driver API crates
 
@@ -145,8 +146,8 @@ especially helpful for drivers which may rely on magic numbers for
 setting hardware. If a driver is name `drv-abc123-foo` the API crate
 is typically named `drv-abc123-foo-api`. An example API might look like:
 
-```
-
+[source, rust]
+---------------------------------------------------------------------
 enum Op {
 	Write,
 	Read,
@@ -179,4 +180,4 @@ impl Data {
 		hl::send(self.0, &WriteData(peripheral, entry));
 	}
 }
-```
+---------------------------------------------------------------------
