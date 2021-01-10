@@ -20,7 +20,7 @@ const UART: Task = Task::usart_driver;
 fn nullread() {
     unsafe {
         // 0 is not in a region we can access; memory fault
-        (0 as *const u8).read_volatile();
+        core::ptr::null::<u8>().read_volatile();
     }
 }
 

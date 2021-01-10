@@ -5,7 +5,7 @@ use anyhow::Context;
 
 use crate::Config;
 
-pub fn run(cfg: &Path, options: &Vec<String>) -> anyhow::Result<()> {
+pub fn run(cfg: &Path, options: &[String]) -> anyhow::Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 

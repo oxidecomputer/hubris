@@ -15,7 +15,7 @@
 //!
 //! For performance and (believe it or not) simplicity, this implementation uses
 //! several different interrupt service routines:
-//! 
+//!
 //! - `SVCall` implements the `SVC` instruction used to make syscalls.
 //! - `SysTick` handles interrupts from the System Tick Timer, used to maintain
 //! the kernel timestamp.
@@ -72,11 +72,11 @@ use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
 
-use abi::{FaultSource, FaultInfo};
 use crate::app;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+use abi::{FaultInfo, FaultSource};
 
 /// Log things from kernel context. This macro is made visible to the rest of
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
@@ -96,8 +96,8 @@ use crate::umem::USlice;
 ///
 #[cfg(not(any(feature = "klog-semihosting", feature = "klog-itm")))]
 macro_rules! klog {
-    ($s:expr) => { };
-    ($s:expr, $($tt:tt)*) => { };
+    ($s:expr) => {};
+    ($s:expr, $($tt:tt)*) => {};
 }
 
 #[cfg(feature = "klog-itm")]
@@ -126,18 +126,18 @@ macro_rules! klog {
 
 macro_rules! uassert {
     ($cond : expr) => {
-        if ! $cond {
+        if !$cond {
             panic!("Assertion failed!");
         }
-    }
+    };
 }
 
 macro_rules! uassert_eq {
     ($cond1 : expr, $cond2 : expr) => {
-        if ! ($cond1 == $cond2) {
+        if !($cond1 == $cond2) {
             panic!("Assertion failed!");
         }
-    }
+    };
 }
 
 /// On ARMvx-M we use a global to record the task table position and extent.
@@ -448,15 +448,15 @@ pub fn apply_memory_protection(task: &task::Task) {
             // Outer/inner non-cacheable, outer shared.
             (0b01000100, 0b10)
         } else {
-            let rw =
-                u32::from(ratts.contains(app::RegionAttributes::READ)) << 1
+            let rw = u32::from(ratts.contains(app::RegionAttributes::READ))
+                << 1
                 | u32::from(ratts.contains(app::RegionAttributes::WRITE));
             // write-back transient, not shared
             (0b0100_0100 | rw | rw << 4, 0b00)
         };
 
         // RLAR = our upper bound
-        let rlar = region.base + region.size
+        let rlar = (region.base + region.size)
                 | (i as u32) << 1 // AttrIndx
                 | (1 << 0); // enable
 
@@ -472,11 +472,11 @@ pub fn apply_memory_protection(task: &task::Task) {
             // MAIR
             if rnr < 4 {
                 let mut mair0 = (0xe000_edc0 as *const u32).read_volatile();
-                mair0 = mair0 | (mair as u32) << (rnr * 8);
+                mair0 |= (mair as u32) << (rnr * 8);
                 core::ptr::write_volatile(0xe000_edc0 as *mut u32, mair0);
             } else {
                 let mut mair1 = (0xe000_edc4 as *const u32).read_volatile();
-                mair1 = mair1 | (mair as u32) << ((rnr - 4) * 8);
+                mair1 |= (mair as u32) << ((rnr - 4) * 8);
                 core::ptr::write_volatile(0xe000_edc4 as *mut u32, mair1);
             }
             // RBAR
@@ -680,7 +680,9 @@ pub unsafe extern "C" fn SVCall() {
 ///
 /// You can use this safely at kernel entry points, exactly once, to create a
 /// reference to the task table.
-pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R{
+pub unsafe fn with_task_table<R>(
+    body: impl FnOnce(&mut [task::Task]) -> R,
+) -> R {
     let tasks = core::slice::from_raw_parts_mut(
         TASK_TABLE_BASE.expect("kernel not started").as_mut(),
         TASK_TABLE_SIZE,
@@ -694,7 +696,7 @@ pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R
 ///
 /// Because the lifetime of the reference passed into `body` is anonymous, the
 /// reference can't easily be stored, which is deliberate.
-pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R{
+pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R {
     // Safety: as long as a legit pointer was stored in IRQ_TABLE_BASE, or no
     // pointer has been stored, we can do this safely.
     let table = unsafe {
@@ -747,6 +749,7 @@ fn safe_sys_tick_handler(ticks: &mut u64, tasks: &mut [task::Task]) {
     // accidentally do it again.
     *ticks += 1;
     let now = Timestamp::from(*ticks);
+    #[allow(clippy::drop_ref)]
     drop(ticks);
 
     // Process any timers.
@@ -770,7 +773,8 @@ fn pend_context_switch_from_isr() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    asm!("
+    asm!(
+        "
         @ store volatile state.
         @ first, get a pointer to the current task.
         movw r0, #:lower16:CURRENT_TASK_PTR
@@ -847,7 +851,6 @@ pub unsafe extern "C" fn DefaultHandler() {
         // 13 is currently reserved
         // 14=PendSV is handled above by its own handler
         // 15=SysTick is handled above by its own handler
-
         x if x > 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;

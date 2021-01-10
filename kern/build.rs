@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     build_util::expose_m_profile();
 
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -39,5 +39,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(const_file, "pub const EXC_RETURN_CONST : u32 = 0xFFFFFFED;")
             .unwrap();
     }
-    Ok(())
 }

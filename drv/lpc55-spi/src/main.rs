@@ -268,7 +268,7 @@ fn write_byte(spi: &device::spi0::RegisterBlock, tx: &mut Option<Transmit>) {
         // not easy. For now just send 0 if we're trying to receive but
         // not actually write
         spi.fifowr
-            .write(|w| unsafe { w.len().bits(7).txdata().bits(0x00 as u16) });
+            .write(|w| unsafe { w.len().bits(7).txdata().bits(0x00_u16) });
 
         return;
     }
@@ -305,14 +305,11 @@ fn write_byte(spi: &device::spi0::RegisterBlock, tx: &mut Option<Transmit>) {
         });
         if txs.pos == txs.len {
             spi.fifointenclr.write(|w| w.txlvl().set_bit());
-            core::mem::replace(tx, None).unwrap().task.reply(());
+            tx.take().unwrap().task.reply(());
         }
     } else {
         spi.fifointenclr.write(|w| w.txlvl().set_bit());
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
+        tx.take().unwrap().task.reply_fail(ResponseCode::BadArg);
     }
 }
 
@@ -328,19 +325,16 @@ fn read_byte(spi: &device::spi0::RegisterBlock, tx: &mut Option<Transmit>) {
 
     let borrow = txs.task.borrow(0);
 
-    if let Some(_) = borrow.write_at(txs.pos, byte) {
+    if borrow.write_at(txs.pos, byte).is_some() {
         txs.pos += 1;
         if txs.pos == txs.len {
             spi.fifointenclr.write(|w| w.txlvl().set_bit());
             spi.fifointenclr.write(|w| w.rxlvl().set_bit());
-            core::mem::replace(tx, None).unwrap().task.reply(());
+            tx.take().unwrap().task.reply(());
         }
     } else {
         spi.fifointenclr.write(|w| w.txlvl().set_bit());
         spi.fifointenclr.write(|w| w.rxlvl().set_bit());
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
+        tx.take().unwrap().task.reply_fail(ResponseCode::BadArg);
     }
 }

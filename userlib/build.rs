@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     // Do an architecture check.
     if env::var("CARGO_CFG_TARGET_OS").unwrap() != "none" {
         eprintln!("***********************************************");
@@ -22,10 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let task_count;
     if let Ok(task_names) = env::var("HUBRIS_TASKS") {
         println!("HUBRIS_TASKS = {}", task_names);
-        for (i, name) in task_names.split(",").enumerate() {
+        for (i, name) in task_names.split(',').enumerate() {
             task_enum.push(format!("    {} = {},", name, i));
         }
-        task_count = task_names.split(",").count();
+        task_count = task_names.split(',').count();
     } else {
         task_enum.push("    anonymous = 0,".to_string());
         task_count = 1;
@@ -39,6 +39,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(task_file, "}}").unwrap();
     writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
         .unwrap();
-
-    Ok(())
 }

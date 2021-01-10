@@ -25,9 +25,9 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     cmd.arg("-p");
     cmd.arg(&package);
 
-    if target.is_some() {
+    if let Some(target) = target {
         cmd.arg("--target");
-        cmd.arg(target.unwrap());
+        cmd.arg(target);
     }
 
     // this is only actually used for demo-stm32h7 but is harmless to include, so let's do

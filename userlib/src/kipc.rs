@@ -24,6 +24,6 @@ pub fn restart_task(task: usize, start: bool) {
     ssmarshal::serialize(&mut buf, &msg)
         .map_err(|_| ())
         .unwrap();
-    let (rc, _len) = sys_send(TaskId::KERNEL, 2, &mut buf, &mut [], &[]);
+    let (rc, _len) = sys_send(TaskId::KERNEL, 2, &buf, &mut [], &[]);
     assert_eq!(rc, 0);
 }

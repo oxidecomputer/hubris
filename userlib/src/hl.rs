@@ -89,20 +89,18 @@ pub fn recv<'a, O, E, S>(
     let sender = rm.sender;
     if rm.sender == TaskId::KERNEL {
         notify(state, rm.operation);
-    } else {
-        if let Some(op) = O::from_u32(rm.operation) {
-            let m = Message {
-                buffer: &buffer[..rm.message_len],
-                sender: rm.sender,
-                response_capacity: rm.response_capacity,
-                lease_count: rm.lease_count,
-            };
-            if let Err(e) = msg(state, op, m) {
-                sys_reply(sender, e.into(), &[]);
-            }
-        } else {
-            sys_reply(sender, 1, &[]);
+    } else if let Some(op) = O::from_u32(rm.operation) {
+        let m = Message {
+            buffer: &buffer[..rm.message_len],
+            sender: rm.sender,
+            response_capacity: rm.response_capacity,
+            lease_count: rm.lease_count,
+        };
+        if let Err(e) = msg(state, op, m) {
+            sys_reply(sender, e.into(), &[]);
         }
+    } else {
+        sys_reply(sender, 1, &[]);
     }
 }
 
@@ -291,9 +289,7 @@ impl Borrow<'_> {
     /// client.
     pub fn read_fully_at(&self, offset: usize, dest: &mut [u8]) -> Option<()> {
         let (rc, n) = sys_borrow_read(self.id, self.index, offset, dest);
-        if rc != 0 {
-            None
-        } else if n != dest.len() {
+        if rc != 0 || n != dest.len() {
             None
         } else {
             Some(())
@@ -320,9 +316,7 @@ impl Borrow<'_> {
         let mut dest = T::default();
         let (rc, n) =
             sys_borrow_read(self.id, self.index, offset, dest.as_bytes_mut());
-        if rc != 0 {
-            None
-        } else if n != core::mem::size_of::<T>() {
+        if rc != 0 || n != core::mem::size_of::<T>() {
             None
         } else {
             Some(dest)
@@ -346,9 +340,7 @@ impl Borrow<'_> {
     {
         let (rc, n) =
             sys_borrow_write(self.id, self.index, offset, value.as_bytes());
-        if rc != 0 {
-            None
-        } else if n != core::mem::size_of::<T>() {
+        if rc != 0 || n != core::mem::size_of::<T>() {
             None
         } else {
             Some(())

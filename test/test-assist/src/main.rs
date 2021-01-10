@@ -62,6 +62,7 @@ fn badexec(_arg: u32) {
 }
 
 #[inline(never)]
+#[allow(clippy::transmutes_expressible_as_ptr_casts)]
 fn textoob(_arg: u32) {
     unsafe {
         // fly off the end of our text -- which will either induce

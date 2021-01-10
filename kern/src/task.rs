@@ -683,7 +683,7 @@ pub fn check_task_id_against_table(
         return Err(UserError::Recoverable(code, NextTask::Same));
     }
 
-    return Ok(id.index());
+    Ok(id.index())
 }
 
 /// Selects a new task to run after `previous`. Tries to be fair, kind of.

@@ -83,7 +83,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::BorrowWrite) => borrow_write(tasks, current),
         Ok(Sysnum::BorrowInfo) => borrow_info(tasks, current),
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
-        Ok(Sysnum::Panic) => explicit_panic(tasks, current),
+        Ok(Sysnum::Panic) => Ok(explicit_panic(tasks, current)),
         Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
         Err(_) => {
             // Bogus syscall number! That's a fault.
@@ -156,7 +156,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     tasks[caller].set_healthy_state(SchedState::InSend(callee_id));
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
-    return Ok(NextTask::Other.combine(next_task));
+    Ok(NextTask::Other.combine(next_task))
 }
 
 /// Implementation of the RECV IPC primitive.
@@ -364,7 +364,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
-    return Ok(NextTask::Same);
+    Ok(NextTask::Same)
 }
 
 /// Implementation of the `SET_TIMER` syscall.
@@ -431,12 +431,12 @@ fn borrow_read(
             tasks[caller]
                 .save_mut()
                 .set_borrow_response_and_length(0, n);
-            return Ok(NextTask::Same);
+            Ok(NextTask::Same)
         }
         Err(interact) => {
             let wake_hint = interact.apply_to_src(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
+            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
         }
     }
 }
@@ -477,12 +477,12 @@ fn borrow_write(
             tasks[caller]
                 .save_mut()
                 .set_borrow_response_and_length(0, n);
-            return Ok(NextTask::Same);
+            Ok(NextTask::Same)
         }
         Err(interact) => {
             let wake_hint = interact.apply_to_dst(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
+            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
         }
     }
 }
@@ -503,7 +503,7 @@ fn borrow_info(
     tasks[caller]
         .save_mut()
         .set_borrow_info(lease.attributes.bits(), lease.length as usize);
-    return Ok(NextTask::Same);
+    Ok(NextTask::Same)
 }
 
 fn borrow_lease(
@@ -564,12 +564,10 @@ fn borrow_lease(
         if offset <= lease.length as usize {
             lease.base_address += offset as u32;
             lease.length -= offset as u32;
+            Ok(lease)
         } else {
-            return Err(
-                FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into()
-            );
+            Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
         }
-        Ok(lease)
     } else {
         // Borrower provided an invalid lease number. Borrower was told the
         // number of leases on successful RECV and should respect that. (Note:
@@ -700,10 +698,7 @@ fn irq_control(
     Ok(NextTask::Same)
 }
 
-fn explicit_panic(
-    tasks: &mut [Task],
-    caller: usize,
-) -> Result<NextTask, UserError> {
+fn explicit_panic(tasks: &mut [Task], caller: usize) -> NextTask {
     // Make an attempt at printing the message.
     let args = tasks[caller].save().as_panic_args();
     let message = args.message();
@@ -724,5 +719,5 @@ fn explicit_panic(
         }
     }
 
-    Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
+    task::force_fault(tasks, caller, FaultInfo::Panic)
 }

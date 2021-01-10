@@ -94,20 +94,20 @@ pub unsafe fn start_kernel(
         for &region_idx in &task.regions {
             uassert!(region_idx < app_header.region_count as u8);
             let region = &regions[region_idx as usize];
-            if task.entry_point.wrapping_sub(region.base) < region.size {
-                if region.attributes.contains(app::RegionAttributes::EXECUTE) {
-                    entry_pt_found = true;
-                }
+            if task.entry_point.wrapping_sub(region.base) < region.size
+                && region.attributes.contains(app::RegionAttributes::EXECUTE)
+            {
+                entry_pt_found = true;
             }
             // Note that stack pointer is compared using <=, because it's okay
             // to have it point just off the end as the stack is initially
             // empty.
-            if task.initial_stack.wrapping_sub(region.base) <= region.size {
-                if region.attributes.contains(
+            if task.initial_stack.wrapping_sub(region.base) <= region.size
+                && region.attributes.contains(
                     app::RegionAttributes::READ | app::RegionAttributes::WRITE,
-                ) {
-                    stack_ptr_found = true;
-                }
+                )
+            {
+                stack_ptr_found = true;
             }
         }
 

@@ -697,7 +697,7 @@ fn make_descriptors(
     let mut words = vec![];
 
     // App header
-    words.push(0x1DE_fa7a1);
+    words.push(abi::CURRENT_APP_MAGIC);
     words.push(task_descs.len() as u32);
     words.push(regions.len() as u32);
     words.push(irqs.len() as u32);

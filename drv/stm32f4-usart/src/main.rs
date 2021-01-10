@@ -220,7 +220,7 @@ fn step_transmit(
         state: &mut Option<Transmit>,
     ) -> hl::Caller<()> {
         usart.cr1.modify(|_, w| w.txeie().disabled());
-        core::mem::replace(state, None).unwrap().caller
+        state.take().unwrap().caller
     }
 
     let txs = if let Some(txs) = tx { txs } else { return };
