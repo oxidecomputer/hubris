@@ -62,13 +62,12 @@ fn badexec(_arg: u32) {
 }
 
 #[inline(never)]
-#[allow(clippy::transmutes_expressible_as_ptr_casts)]
 fn textoob(_arg: u32) {
     unsafe {
         // fly off the end of our text -- which will either induce
         // a memory fault (end of MPU-provided region) or a bus error
         // (reading never-written flash on some MCUs/boards, e.g. LPC55)
-        let mut val: u32 = core::mem::transmute(main as fn() -> _);
+        let mut val = main as fn() -> _ as usize;
 
         loop {
             (val as *const u8).read_volatile();
