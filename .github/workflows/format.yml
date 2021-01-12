@@ -6,11 +6,24 @@
 name: auto-format
 on: pull_request
 jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispath", "schedule"]'
   format:
+    needs: skip_duplicate_jobs
     # Check if the PR is not from a fork
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
+      - uses: fkirc/skip-duplicate-actions@master
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
