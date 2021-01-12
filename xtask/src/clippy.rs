@@ -14,14 +14,22 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
         toml.get("package")
             .and_then(|v| v.get("name"))
             .and_then(|v| v.as_str())
-            .expect("Couldn't find [package.name]; pass -p <package> to check a specific package or --all to check all packages")
+            .expect("Couldn't find [package.name]; pass -p <package> to run clippy on a specific package or --all to check all packages")
             .to_string()
     });
 
-    println!("checking: {}", package);
+    println!("Running clippy on: {}", package);
 
     let mut cmd = Command::new("cargo");
-    cmd.arg("check");
+    cmd.arg("clippy");
+    // TODO: Remove this argument once resolved on stable:
+    //
+    // https://github.com/rust-lang/rust-clippy/issues/4612
+    //
+    // TL;DR: Switching back and forth between "clippy" and "check"
+    // caches the results from one execution. This means a succeeding
+    // "check" execution may hide a failing "clippy" execution.
+    cmd.arg("-Zunstable-options");
     cmd.arg("-p");
     cmd.arg(&package);
 
