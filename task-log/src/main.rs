@@ -31,7 +31,7 @@ const BUFFER_LEN: usize = 2048;
 fn main() -> ! {
     let mut message_buffer = [0u32; 1];
 
-    let stim = unsafe { &mut (*cortex_m::peripheral::ITM::ptr()).stim[0] };
+    let stim = unsafe { &mut (*cortex_m::peripheral::ITM::ptr()).stim[3] };
 
     let mut buffer: [u8; BUFFER_LEN] = [0; BUFFER_LEN];
     let mut write_pos = 0;
