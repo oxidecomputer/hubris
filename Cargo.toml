@@ -14,6 +14,7 @@ members = [
     "lpc55",
     "kern",
     "userlib",
+    "lpc55_romapi",
 
     "task-template",
 
