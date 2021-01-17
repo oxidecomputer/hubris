@@ -268,7 +268,7 @@ fn write_byte(spi: &device::spi0::RegisterBlock, tx: &mut Option<Transmit>) {
         // not easy. For now just send 0 if we're trying to receive but
         // not actually write
         spi.fifowr
-            .write(|w| unsafe { w.len().bits(7).txdata().bits(0x00_u16) });
+            .write(|w| unsafe { w.len().bits(7).txdata().bits(0) });
 
         return;
     }
