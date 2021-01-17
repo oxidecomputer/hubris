@@ -16,7 +16,19 @@ pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
     let gdb_path = out.join("script.gdb");
     let combined_path = out.join("combined.elf");
 
-    let mut cmd = Command::new("arm-none-eabi-gdb");
+    let mut cmd = None;
+
+    const GDB_NAMES: [&str; 2] = ["arm-none-eabi-gdb", "gdb-multiarch"];
+    for candidate in &GDB_NAMES {
+        if Command::new(candidate).arg("--version").status().is_ok() {
+            cmd = Some(Command::new(candidate));
+            break;
+        }
+    }
+
+    let mut cmd =
+        cmd.ok_or(anyhow::anyhow!("GDB not found.  Tried: {:?}", GDB_NAMES))?;
+
     cmd.arg("-q")
         .arg("-x")
         .arg(gdb_path)
