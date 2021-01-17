@@ -72,6 +72,30 @@ fn scan_device(controller: Controller, port: Port, addr: u8) {
     }
 }
 
+fn read_register(
+    controller: Controller,
+    port: Port,
+    addr: u8,
+    register: u8
+) {
+    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+
+    sys_log!(
+        "i2c_debug: reading controller {:?}, addr 0x{:x}, register 0x{:x}",
+        controller,
+        addr,
+        register
+    );
+
+    let i2c = I2c::new(task, controller, port, None, addr);
+
+    results[0] = match i2c.read_reg::<u8, u8>(register) {
+        Ok(result) => Some(Ok(result as u32)),
+        Err(err) => Some(Err(err)),
+    };
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     loop {
@@ -98,12 +122,13 @@ fn main() -> ! {
         let port = *p;
         *p = Port::Default;
 
-        let mux = I2C_DEBUG_MUX.swap(-1, Ordering::SeqCst);
+        let _mux = I2C_DEBUG_MUX.swap(-1, Ordering::SeqCst);
         let segment = I2C_DEBUG_SEGMENT.swap(-1, Ordering::SeqCst);
         let device = I2C_DEBUG_DEVICE.swap(-1, Ordering::SeqCst);
         let register = I2C_DEBUG_REGISTER.swap(-1, Ordering::SeqCst);
 
-        sys_log!("i2c_debug: controller={}, port={:?}, device=0x{:x}, register=0x{:x}",
+        sys_log!("i2c_debug: controller={}, \
+            port={:?}, device=0x{:x}, register=0x{:x}",
             controller, port, device, register);
 
         if controller == -1 {
@@ -133,7 +158,7 @@ fn main() -> ! {
             continue;
         }
 
-        sys_log!("i2c_debug: register reading not yet implemented");
-        I2C_DEBUG_ERRORS.fetch_add(1, Ordering::SeqCst);
+        read_register(controller, port, device as u8, register as u8);
+        I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
     }
 }
