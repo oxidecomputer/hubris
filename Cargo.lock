@@ -431,6 +431,8 @@ name = "drv-stm32h7-i2c"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "cortex-m",
+ "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
@@ -1286,6 +1288,7 @@ name = "task-adt7420"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",

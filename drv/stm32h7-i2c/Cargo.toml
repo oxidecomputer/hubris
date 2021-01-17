@@ -11,6 +11,8 @@ num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
 drv-i2c-api = {path = "../i2c-api"}
+cortex-m-semihosting = "0.3.5"
+cortex-m = { version = "0.6.2", features = ["inline-asm"] }
 cfg-if = "0.1.10"
 
 [dependencies.stm32h7]

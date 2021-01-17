@@ -8,6 +8,8 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+use userlib::*;
+
 #[cfg(feature = "h7b3")]
 pub type RegisterBlock = device::i2c3::RegisterBlock;
 
@@ -29,6 +31,54 @@ pub struct I2cController<'a> {
     pub notification: u32,
     pub port: Option<drv_i2c_api::Port>,
     pub registers: Option<&'a RegisterBlock>,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct RingbufEntry {
+    line: u16,
+    count: u16,
+    payload: u32
+}
+
+#[derive(Debug)]
+struct Ringbuf {
+    last: Option<usize>,
+    buffer: [RingbufEntry; 128],
+}
+
+#[no_mangle]
+static mut RINGBUF: Ringbuf = Ringbuf {
+    last: None,
+    buffer: [RingbufEntry { line: 0, count: 0, payload: 0 }; 128],
+};
+
+fn ringbuf_entry(line: u16, payload: u32) {
+    let ringbuf = unsafe { &mut RINGBUF };
+
+    let ndx = match ringbuf.last {
+        None => 0,
+        Some(last) => {
+            let ent = &mut ringbuf.buffer[last];
+
+            if ent.line == line && ent.payload == payload {
+                ent.count += 1;
+                return;
+            }
+
+            if last + 1 >= ringbuf.buffer.len() {
+                0
+            } else {
+                last + 1
+            }
+        }
+    };
+
+    let ent = &mut ringbuf.buffer[ndx];
+    ent.line = line;
+    ent.payload = payload;
+    ent.count = 1;
+
+    ringbuf.last = Some(ndx);
 }
 
 impl<'a> I2cController<'a> {
@@ -96,6 +146,7 @@ impl<'a> I2cController<'a> {
 
         self.configure_timing(i2c);
 
+        #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // must enable clock stretching
@@ -132,10 +183,11 @@ impl<'a> I2cController<'a> {
             .oa2en().clear_bit()
         });
 
+        #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // enable clock stretching
-            .sbc().set_bit()            // enable byte control 
+            .sbc().clear_bit()          // disable byte control 
             .errie().set_bit()          // emable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
             .stopie().set_bit()         // enable Stop Detection interrupt
@@ -158,6 +210,8 @@ impl<'a> I2cController<'a> {
     ) -> ! {
         self.configure_as_target(address);
 
+        ringbuf_entry(line!() as u16, 0);
+
         let mut wbuf = [0; 4];
 
         let i2c = self.registers.unwrap();
@@ -170,6 +224,7 @@ impl<'a> I2cController<'a> {
         'addrloop: loop {
             let is_write = loop {
                 let isr = i2c.isr.read();
+                ringbuf_entry(line!() as u16, isr.bits());
 
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| { w.stopcf().set_bit() });
@@ -177,6 +232,7 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.addr().is_match_() {
+                    ringbuf_entry(line!() as u16, 0xaaaa);
                     break isr.dir().is_write();
                 }
 
@@ -188,9 +244,10 @@ impl<'a> I2cController<'a> {
             i2c.icr.write(|w| { w.addrcf().set_bit() });
 
             if is_write {
-                i2c.cr2.modify(|_, w| { w.nbytes().bits(1) });
+                ringbuf_entry(line!() as u16, 0xbbbb);
                 'rxloop: loop {
                     let isr = i2c.isr.read();
+                    ringbuf_entry(line!() as u16, isr.bits());
 
                     if isr.addr().is_match_() {
                         //
@@ -223,6 +280,8 @@ impl<'a> I2cController<'a> {
                         // for additional bytes.
                         //
                         register = Some(i2c.rxdr.read().rxdata().bits());
+                        ringbuf_entry(line!() as u16,
+                            (0xabab << 16) | (register.unwrap() as u32));
                         continue 'rxloop;
                     }
 
@@ -234,33 +293,24 @@ impl<'a> I2cController<'a> {
             let wlen = match readreg(register, &mut wbuf) {
                 None => {
                     //
-                    // We have read from an invalid register; NACK it
+                    // We have read from an invalid register, but we don't
+                    // have a way of immediately NACK'ing it -- so we will
+                    // instead indicate that we have zero bytes to send,
+                    // which will in fact send one byte when we flush TXDR
+                    // below (upshot being that we won't actually NACK invalid
+                    // registers at all -- but many I2C targets can't/don't).
                     //
-                    i2c.cr2.modify(|_, w| { w
-                        .nbytes().bits(0)
-                        .nack().set_bit()
-                    });
-                    continue 'addrloop;
+                    0
                 }
                 Some(len) => len
             };
 
-            // This is a read from the controller.  Because SBC is set, we must
-            // indicate the number of bytes that we will send.
-            i2c.cr2.modify(|_, w| { w.nbytes().bits(wlen as u8) });
             let mut pos = 0;
 
             'txloop: loop {
                 let isr = i2c.isr.read();
 
-                if isr.tc().is_complete() {
-                    //
-                    // We're done -- write the stop bit, and kick out to our
-                    // address loop.
-                    //
-                    i2c.cr2.modify(|_, w| { w.stop().set_bit() });
-                    continue 'addrloop;
-                }
+                ringbuf_entry(line!() as u16, isr.bits());
 
                 if isr.addr().is_match_() {
                     //
@@ -270,24 +320,29 @@ impl<'a> I2cController<'a> {
                     continue 'addrloop;
                 }
 
+                if isr.nackf().is_nack() {
+                    ringbuf_entry(line!() as u16, 0xeeee);
+                    i2c.icr.write(|w| { w.nackcf().set_bit() });
+                    continue 'addrloop;
+                }
+
                 if isr.txis().is_empty() {
                     if pos < wlen {
                         i2c.txdr.write(|w| { w.txdata().bits(wbuf[pos]) });
+                        ringbuf_entry(line!() as u16, wbuf[pos] as u32);
                         pos += 1;
                         continue 'txloop;
                     } else {
                         //
-                        // We're not really expecting this -- NACK and kick
-                        // out.
+                        // Nothing more to send -- flush TXDR.  (This bogus
+                        // byte will only be seen on the wire if we haven't
+                        // sent anything at all.)
                         //
-                        i2c.cr2.modify(|_, w| { w.nack().set_bit() });
-                        continue 'addrloop;
+                        ringbuf_entry(line!() as u16, 0xcccc);
+                        i2c.txdr.write(|w| { w.txdata().bits(0x1d) });
+                        i2c.isr.modify(|_, w| { w.txe().set_bit() });
+                        continue 'txloop;
                     }
-                }
-
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| { w.nackcf().set_bit() });
-                    continue 'addrloop;
                 }
 
                 wfi(notification);

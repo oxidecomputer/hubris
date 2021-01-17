@@ -7,11 +7,12 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-use userlib::*;
 use drv_i2c_api::{Controller, Port};
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
+use drv_i2c_api::*;
+use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -24,6 +25,12 @@ const GPIO: Task = Task::gpio_driver;
 
 #[cfg(feature = "standalone")]
 const GPIO: Task = SELF;
+
+#[cfg(not(feature = "standalone"))]
+const I2C: Task = Task::i2c_driver;
+
+#[cfg(feature = "standalone")]
+const I2C: Task = SELF;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gemini-bu-1")] {
@@ -71,6 +78,22 @@ fn configure_pin() {
     controller.port = Some(pin.port);
 }
 
+const ADT7420_ADDRESS: u8 = 0x48;
+const ADT7420_ID: u8 = 0xcb;
+
+const ADT7420_REG_TEMPMSB: u8 = 0;
+const ADT7420_REG_ID: u8 = 0xb;
+
+fn i2c(controller: Controller, port: Port) -> (I2c, bool) {
+    (I2c::new(
+        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+        controller,
+        port,
+        None,
+        ADT7420_ADDRESS
+    ), false)
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let controller = unsafe { &mut I2C_CONTROLLER };
@@ -90,13 +113,53 @@ fn main() -> ! {
         let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
     };
 
+    let i2c = I2c::new(
+        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+        Controller::I2C4,
+        Port::D,
+        None,
+        ADT7420_ADDRESS
+    );
+
     let mut response = |register, buf: &mut [u8]| -> Option<usize> {
         match register {
-            Some(val) => { 
-                buf[0] = val;
-                Some(1)
+            Some(val) if val == ADT7420_REG_TEMPMSB => { 
+                match i2c.read_reg::<u8, [u8; 2]>(0 as u8) {
+                    Ok(rval) => {
+                        buf[0] = rval[0];
+                        buf[1] = rval[1];
+
+                        sys_log!("returning {:x} {:x}", rval[0], rval[1]);
+                        Some(2)
+                    }
+
+                    Err(err) => {
+                        sys_log!("failed to read temp: {:?}", err);
+                        buf[0] = 0xff;
+                        Some(1)
+                    }
+                }
             }
-            _ => { Some(0) }
+
+            Some(val) if val == ADT7420_REG_ID => {
+                match i2c.read_reg::<u8, u8>(val) {
+                    Ok(rval) => {
+                        buf[0] = rval;
+                        Some (1)
+                    }
+
+                    Err(err) => {
+                        sys_log!("failed to read reg {:x}: {:?}", val, err);
+                        buf[0] = 0xff;
+                        Some(1)
+                    }
+                }
+            }
+
+            _ => {
+                buf[0] = 0xfe;
+                None
+            }
         }
     };
 
@@ -104,5 +167,5 @@ fn main() -> ! {
         sys_irq_control(notification, true);
     };
 
-    controller.operate_as_target(0x1d, enable, wfi, &mut response);
+    controller.operate_as_target(ADT7420_ADDRESS, enable, wfi, &mut response);
 }

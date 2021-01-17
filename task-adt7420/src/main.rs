@@ -166,10 +166,18 @@ fn i2c(controller: Controller, port: Port) -> (I2c, bool) {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut devices = [
-        i2c(Controller::I2C4, Port::D),
-        i2c(Controller::I2C4, Port::H),
-    ];
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "gemini-bu-1")] {
+            let mut devices = [
+                i2c(Controller::I2C4, Port::D),
+                i2c(Controller::I2C4, Port::H),
+            ];
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+            let mut devices = [
+                i2c(Controller::I2C2, Port::Default),
+            ];
+        }
+    }
 
     loop {
         hl::sleep_for(1000);

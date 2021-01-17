@@ -98,13 +98,21 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
 
-[tasks.ping]
-path = "../task-ping"
-name = "task-ping"
-features = ["uart"]
-priority = 4
-requires = {flash = 8192, ram = 512}
-start = true
+# [tasks.ping]
+# path = "../task-ping"
+# name = "task-ping"
+# features = ["uart"]
+# priority = 4
+# requires = {flash = 8192, ram = 512}
+# start = true
+
+# [tasks.adt7420]
+# path = "../task-adt7420"
+#name = "task-adt7420"
+#f eatures = ["h7b3", "itm"]
+#priority = 3
+#requires = {flash = 8192, ram = 32768 }
+#start = true
 
 [tasks.i2c_debug]
 path = "../task-i2c"
