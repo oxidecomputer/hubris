@@ -13,6 +13,7 @@ members = [
     "gemini-bu-rot",
     "lpc55",
     "kern",
+    "ringbuf",
     "userlib",
 
     "task-template",
