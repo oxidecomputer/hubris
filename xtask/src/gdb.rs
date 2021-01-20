@@ -26,8 +26,9 @@ pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
         }
     }
 
-    let mut cmd =
-        cmd.ok_or_else(|| anyhow::anyhow!("GDB not found.  Tried: {:?}", GDB_NAMES))?;
+    let mut cmd = cmd.ok_or_else(|| {
+        anyhow::anyhow!("GDB not found.  Tried: {:?}", GDB_NAMES)
+    })?;
 
     cmd.arg("-q")
         .arg("-x")
