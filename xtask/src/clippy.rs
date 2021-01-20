@@ -33,10 +33,21 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     cmd.arg("-p");
     cmd.arg(&package);
 
-    if target.is_some() {
+    if let Some(target) = target {
         cmd.arg("--target");
-        cmd.arg(target.unwrap());
+        cmd.arg(target);
     }
+
+    // Clippy arguments
+    cmd.arg("--");
+    cmd.arg("-D");
+    cmd.arg("clippy::all");
+    cmd.arg("-A");
+    cmd.arg("clippy::missing_safety_doc");
+    cmd.arg("-A");
+    cmd.arg("clippy::identity_op");
+    cmd.arg("-A");
+    cmd.arg("clippy::too_many_arguments");
 
     // this is only actually used for demo-stm32h7 but is harmless to include, so let's do
     // it unconditionally
