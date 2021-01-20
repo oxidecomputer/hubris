@@ -63,7 +63,7 @@ jobs:
           key: build-standalone-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
-      - run: sudo apt-get install binutils-arm-none-eabi libudev-dev
+      - run: sudo apt update && sudo apt install binutils-arm-none-eabi libudev-dev
 
       # check that everything builds
       - name: Check standalone build
