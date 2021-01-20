@@ -685,6 +685,23 @@ fn make_descriptors(
         // Interrupts.
         for (irq_str, &notification) in &task.interrupts {
             let irq_num = irq_str.parse::<u32>()?;
+
+            // While it's possible to conceive of a world in which one
+            // might want to have a single interrupt set multiple notification
+            // bits, it's much easier to conceive of a world in which one
+            // has misunderstood that the second number in the interrupt
+            // tuple is in fact a mask, not an index.
+            if notification.count_ones() != 1 {
+                bail!(
+                    "task {}: IRQ {}: notification mask (0b{:b}) \
+                    has {} bits set (expected exactly one)",
+                    name,
+                    irq_str,
+                    notification,
+                    notification.count_ones()
+                );
+            }
+
             irqs.push(abi::Interrupt {
                 irq: irq_num,
                 task: i as u32,
