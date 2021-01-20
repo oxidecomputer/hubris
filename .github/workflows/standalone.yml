@@ -63,7 +63,7 @@ jobs:
           key: build-standalone-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
-      - run: sudo apt-get install binutils-arm-none-eabi=2.27-9ubuntu1+9 libudev-dev=237-3ubuntu10.44
+      - run: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi=2.27-9ubuntu1+9 libudev-dev=237-3ubuntu10.44
 
       # check that everything builds
       - name: Check standalone build
