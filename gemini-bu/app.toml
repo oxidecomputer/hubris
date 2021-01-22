@@ -131,6 +131,14 @@ priority = 3
 requires = {flash = 8192, ram = 32768 }
 start = true
 
+[tasks.ltc4306]
+path = "../task-ltc4306"
+name = "task-ltc4306"
+features = ["stm32h7"]
+priority = 3
+requires = {flash = 8192, ram = 1024 }
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"

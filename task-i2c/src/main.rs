@@ -34,6 +34,7 @@ static I2C_DEBUG_MUX: AtomicI32 = AtomicI32::new(-1);
 static I2C_DEBUG_SEGMENT: AtomicI32 = AtomicI32::new(-1);
 static I2C_DEBUG_DEVICE: AtomicI32 = AtomicI32::new(-1);
 static I2C_DEBUG_REGISTER: AtomicI32 = AtomicI32::new(-1);
+static I2C_DEBUG_VALUE: AtomicI32 = AtomicI32::new(-1);
 
 fn scan_controller(controller: Controller, port: Port) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
@@ -82,7 +83,7 @@ fn read_register(
     let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     sys_log!(
-        "i2c_debug: reading controller {:?}, addr 0x{:x}, register 0x{:x}",
+        "i2c_debug: reading {:?}, addr 0x{:x}, register 0x{:x}",
         controller,
         addr,
         register
@@ -92,6 +93,36 @@ fn read_register(
 
     results[0] = match i2c.read_reg::<u8, u8>(register) {
         Ok(result) => Some(Ok(result as u32)),
+        Err(err) => Some(Err(err)),
+    };
+}
+
+fn write_register(
+    controller: Controller,
+    port: Port,
+    addr: u8,
+    register: u8,
+    value: u8,
+) {
+    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+
+    sys_log!(
+        "i2c_debug: writing {:?}, addr 0x{:x}, register 0x{:x}: 0x{:x}",
+        controller,
+        addr,
+        register,
+        value
+    );
+
+    let i2c = I2c::new(task, controller, port, None, addr);
+
+    let mut buf = [0u8; 2];
+    buf[0] = register;
+    buf[1] = value;
+
+    results[0] = match i2c.write(&buf) {
+        Ok(_) => Some(Ok(value as u32)),
         Err(err) => Some(Err(err)),
     };
 }
@@ -125,11 +156,12 @@ fn main() -> ! {
         let _mux = I2C_DEBUG_MUX.swap(-1, Ordering::SeqCst);
         let segment = I2C_DEBUG_SEGMENT.swap(-1, Ordering::SeqCst);
         let device = I2C_DEBUG_DEVICE.swap(-1, Ordering::SeqCst);
-        let register = I2C_DEBUG_REGISTER.swap(-1, Ordering::SeqCst);
+        let reg = I2C_DEBUG_REGISTER.swap(-1, Ordering::SeqCst);
+        let value = I2C_DEBUG_VALUE.swap(-1, Ordering::SeqCst);
 
         sys_log!("i2c_debug: controller={}, \
             port={:?}, device=0x{:x}, register=0x{:x}",
-            controller, port, device, register);
+            controller, port, device, reg);
 
         if controller == -1 {
             sys_log!("i2c_debug: controller must be set");
@@ -152,13 +184,19 @@ fn main() -> ! {
             continue;
         }
 
-        if register == -1 {
+        if reg == -1 {
             scan_device(controller, port, device as u8);
             I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
             continue;
         }
 
-        read_register(controller, port, device as u8, register as u8);
+        if value == -1 {
+            read_register(controller, port, device as u8, reg as u8);
+            I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
+            continue;
+        }
+
+        write_register(controller, port, device as u8, reg as u8, value as u8);
         I2C_DEBUG_REQUESTS.fetch_add(1, Ordering::SeqCst);
     }
 }

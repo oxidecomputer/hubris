@@ -1349,6 +1349,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-ltc4306"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

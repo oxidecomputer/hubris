@@ -135,4 +135,23 @@ impl I2c {
             Ok(val)
         }
     }
+
+    /// Writes a buffer
+    pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
+        let empty = [0u8; 1];
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &[self.address, self.controller as u8, self.port as u8],
+            &mut [],
+            &[Lease::from(buffer), Lease::from(&empty[0..0])],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code).ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(())
+        }
+    }
 }
