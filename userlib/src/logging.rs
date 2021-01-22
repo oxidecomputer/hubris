@@ -1,3 +1,19 @@
+//! User logging
+//!
+//! This module provides helper functionality related to logging. If your task
+//! wants to produce log messages, this is how it's done.
+//!
+//! This module is enabled by a feature flag. Please include `userlib` in your
+//! task like this:
+//!
+//! ```toml
+//! userlib = {path = "../userlib", features = ["log"]}
+//! ```
+//!
+//! Enabling this feature will add 258 bytes of flash to your task. This is
+//! because we need to create a small buffer to produce the full log message in
+//! before sending it to the log task.
+
 use crate::{sys_send, Lease};
 
 use abi::{Generation, TaskId};
@@ -6,6 +22,18 @@ use core::{
     ptr::NonNull,
     sync::atomic::{AtomicBool, Ordering},
 };
+
+#[macro_export]
+macro_rules! debug {
+    ($fmt:expr) => (defmt::debug!($fmt));
+    ($fmt:expr, $($arg:tt)*) => (defmt::debug!($fmt, $($arg)*));
+}
+
+#[macro_export]
+macro_rules! error {
+    ($fmt:expr) => (defmt::error!($fmt));
+    ($fmt:expr, $($arg:tt)*) => (defmt::error!($fmt, $($arg)*));
+}
 
 #[defmt::global_logger]
 struct Logger;

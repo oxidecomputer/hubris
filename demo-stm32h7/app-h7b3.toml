@@ -84,13 +84,12 @@ path = "../task-pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 4096}
-features = ["defmt-trace"]
 start = true
 
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
-features = ["uart", "defmt-trace"]
+features = ["uart"]
 priority = 4
 requires = {flash = 8192, ram = 4096}
 stacksize = 512

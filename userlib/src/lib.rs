@@ -29,13 +29,17 @@ pub use abi::*;
 pub use num_derive::{FromPrimitive, ToPrimitive};
 pub use num_traits::{FromPrimitive, ToPrimitive};
 
+// for our logging macros
+#[doc(hidden)]
+pub use defmt;
+
 use core::marker::PhantomData;
 
 pub mod hl;
 pub mod kipc;
 
 #[cfg(feature = "log")]
-mod logging;
+pub mod logging;
 
 #[derive(Debug)]
 #[repr(transparent)]

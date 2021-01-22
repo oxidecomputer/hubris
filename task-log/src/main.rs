@@ -1,3 +1,23 @@
+//! System logging service
+//!
+//! If your task has logging needs, this task is here to help. The `userlib`
+//! package contains a helpful `log` module that will help you work with this
+//! task to produce log messages. If you're trying to produce logs, see the
+//! documentation over there for more details.
+//!
+//! If you don't want to use those helpers for some reason, or you are curious
+//! about the details, here's how this task works. You can send this task a
+//! message, and also, a loan. That loan should refer to a log message, up
+//! to 256 bytes in length. This task will take a copy of that message, and
+//! add some header information, and save it into an internal ring buffer. It
+//! will also send that over stim port #3.
+//!
+//! The message sent should be created by the defmt package, as all of our
+//! tooling assumes that it's encoded this way. This means that a static message
+//! will be very small, and more complex ones will be fairly tiny. There is a
+//! maximum length of 256 bytes for any given message.
+
+
 #![no_std]
 #![no_main]
 

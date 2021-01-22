@@ -10,20 +10,10 @@ edition = "2018"
 cortex-m = "0.6.3"
 userlib = {path = "../userlib", features = ["log"]}
 drv-user-leds-api = {path = "../drv/user-leds-api"}
-defmt = "0.1.0"
 
 [features]
-default = [
-    "standalone",
-    "defmt-trace",
-]
+default = ["standalone"]
 standalone = []
-defmt-default = []
-defmt-trace = []
-defmt-debug = []
-defmt-info = []
-defmt-warn = []
-defmt-error = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

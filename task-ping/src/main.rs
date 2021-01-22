@@ -45,10 +45,10 @@ fn main() -> ! {
 
     let mut response = [0; 16];
 
-    defmt::debug!("Ping task starting!");
+    userlib::debug!("Ping task starting!");
 
     loop {
-        defmt::debug!("Ping!");
+        userlib::debug!("Ping!");
         uart_send(b"Ping!\r\n");
 
         let (code, _len) =
@@ -58,7 +58,7 @@ fn main() -> ! {
             continue;
         }
 
-        defmt::error!("SOMEONE SET UP US THE BOMB");
+        userlib::error!("SOMEONE SET UP US THE BOMB");
 
         let op = (code / FAULT_EVERY) as usize % faultme.len();
         faultme[op]();
