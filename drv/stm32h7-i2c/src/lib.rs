@@ -34,6 +34,29 @@ pub struct I2cController<'a> {
     pub registers: Option<&'a RegisterBlock>,
 }
 
+pub enum I2cMuxDriver {
+    LTC4306,
+}
+
+pub enum I2cError {
+    NoDevice,
+    NoRegister
+}
+
+pub struct I2cMux {
+    pub controller: drv_i2c_api::Controller,
+    pub port: drv_i2c_api::Port,
+    pub driver: I2cMuxDriver,
+    pub enable: (
+        drv_stm32h7_gpio_api::Port,
+        drv_stm32h7_gpio_api::Alternate, 
+        u16
+    ),
+    pub address: u8,
+    pub segments: u8,
+    pub segment: Option<u8>,
+}
+
 ringbuf!(u32, 4, 0);
 
 impl<'a> I2cController<'a> {
@@ -115,6 +138,145 @@ impl<'a> I2cController<'a> {
 
         i2c.cr1.modify(|_, w| { w.pe().set_bit() });
         self.registers = Some(i2c);
+    }
+
+    pub fn write_read(
+        &self,
+        addr: u8,
+        wlen: usize,
+        getbyte: impl Fn(usize) -> Option<u8>,
+        rlen: usize,
+        putbyte: impl Fn(usize, u8) -> Option<()>,
+        mut enable: impl FnMut(u32),
+        mut wfi: impl FnMut(u32),
+    ) -> Result<(), I2cError> {
+        assert!(wlen > 0 || rlen > 0);
+        assert!(wlen <= 255 && rlen <= 255);
+
+        let i2c = self.registers.unwrap();
+        let notification = self.notification;
+
+        // Before we talk to the controller, spin until it isn't busy
+        loop {
+            let isr = i2c.isr.read();
+
+            if !isr.busy().is_busy() {
+                break;
+            }
+        }
+
+        if wlen > 0 {
+            i2c.cr2.modify(|_, w| { w
+                .nbytes().bits(wlen as u8)
+                .autoend().clear_bit()
+                .add10().clear_bit()
+                .sadd().bits((addr << 1).into())
+                .rd_wrn().clear_bit()
+                .start().set_bit()
+            });
+
+            let mut pos = 0;
+
+            while pos < wlen {
+                loop {
+                    let isr = i2c.isr.read();
+
+                    if isr.nackf().is_nack() {
+                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        return Err(I2cError::NoDevice);
+                    }
+
+                    if isr.txis().is_empty() {
+                        break;
+                    }
+
+                    wfi(notification);
+                    enable(notification);
+                }
+
+                // Get a single byte. This is safe to unwrap because our
+                // length has been specified as a parameter.
+                let byte: u8 = getbyte(pos).unwrap();
+
+                // And send it!
+                i2c.txdr.write(|w| w.txdata().bits(byte));
+                pos += 1;
+            }
+
+            // All done; now block until our transfer is complete -- or until
+            // we've been NACK'd (denoting an illegal register value)
+            loop {
+                let isr = i2c.isr.read();
+
+                if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| { w.nackcf().set_bit() });
+                    return Err(I2cError::NoRegister);
+                }
+
+                if isr.tc().is_complete() {
+                    break;
+                }
+
+                wfi(notification);
+                enable(notification);
+            }
+        }
+
+        if rlen > 0 {
+            //
+            // If we have both a write and a read, we deliberately do not send
+            // a STOP between them to force the RESTART (many devices do not
+            // permit a STOP between a register address write and a subsequent
+            // read).
+            //
+            i2c.cr2.modify(|_, w| { w
+                .nbytes().bits(rlen as u8)
+                .autoend().clear_bit()
+                .add10().clear_bit()
+                .sadd().bits((addr << 1).into())
+                .rd_wrn().set_bit()
+                .start().set_bit()
+            });
+
+            let mut pos = 0;
+
+            while pos < rlen {
+                loop {
+                    wfi(notification);
+                    enable(notification);
+
+                    let isr = i2c.isr.read();
+
+                    if isr.nackf().is_nack() {
+                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        return Err(I2cError::NoDevice);
+                    }
+
+                    if !isr.rxne().is_empty() {
+                        break;
+                    }
+                }
+
+                // Read it!
+                let byte: u8 = i2c.rxdr.read().rxdata().bits();
+                putbyte(pos, byte).unwrap();
+                pos += 1;
+            }
+
+            // All done; now block until our transfer is complete...
+            while !i2c.isr.read().tc().is_complete() {
+                wfi(notification);
+                enable(notification);
+            }
+        }
+
+        //
+        // Whether we did a write alone, a read alone, or a write followed
+        // by a read, we're done now -- manually send a STOP.
+        //
+        i2c.cr2.modify(|_, w| { w.stop().set_bit() });
+
+        Ok(())
     }
 
     fn configure_as_target(&mut self, address: u8) {

@@ -78,6 +78,9 @@ pub enum Mux {
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum Segment {
     S0 = 0,
+    S1 = 1,
+    S2 = 2,
+    S3 = 3,
 }
 
 #[derive(Clone, Debug)]

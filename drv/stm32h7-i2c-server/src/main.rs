@@ -45,6 +45,8 @@ cfg_if::cfg_if! {
             function: Alternate::AF4,
             mask: (1 << 12) | (1 << 13),
         } ];
+
+        static mut I2C_MUXES: [I2cMux; 0] = [];
     } else if #[cfg(target_board = "nucleo-h743zi2")] {
         static mut I2C_CONTROLLERS: [I2cController; 1] = [ I2cController {
             controller: Controller::I2C2,
@@ -62,6 +64,8 @@ cfg_if::cfg_if! {
             function: Alternate::AF4,
             mask: (1 << 0) | (1 << 1),
         } ];
+
+        static mut I2C_MUXES: [I2cMux; 0] = [];
     } else if #[cfg(target_board = "gemini-bu-1")] {
         static mut I2C_CONTROLLERS: [I2cController; 3] = [ I2cController {
             controller: Controller::I2C1,
@@ -116,6 +120,16 @@ cfg_if::cfg_if! {
             gpio_port: drv_stm32h7_gpio_api::Port::H,
             function: Alternate::AF4,
             mask: (1 << 11) | (1 << 12),
+        } ];
+
+        static mut I2C_MUXES: [I2cMux; 1] = [ I2cMux {
+            controller: Controller::I2C4,
+            port: Port::F,
+            driver: I2cMuxDriver::LTC4306,
+            enable: (drv_stm32h7_gpio_api::Port::G, Alternate::AF0, (1 << 0)),
+            address: 0x44,
+            segments: 4,
+            segment: None,
         } ];
     } else {
         compile_error!("no I2C controllers/pins for unknown board");
@@ -176,9 +190,18 @@ fn main() -> ! {
     turn_on_i2c();
     configure_pins();
     configure_controllers();
+    configure_muxes();
 
     // Field messages.
     let mut buffer = [0; 3];
+
+    let enable = |notification| {
+        sys_irq_control(notification, true);
+    };
+
+    let wfi = |notification| {
+        let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+    };
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -207,18 +230,44 @@ fn main() -> ! {
 
                 configure_port(controller, pin);
 
-                write_read(
-                    controller.registers.unwrap(),
-                    controller.notification,
+                if winfo.len == 0 && rinfo.len == 0 {
+                    // We must have either a write OR a read -- while perhaps
+                    // valid to support both being zero as a way of testing an
+                    // address for a NACK, it's not a mode that we (currently)
+                    // support.
+                    return Err(ResponseCode::BadArg);
+                }
+
+                if winfo.len > 255 || rinfo.len > 255 {
+                    // For now, we don't support writing or reading more than
+                    // 255 bytes.
+                    return Err(ResponseCode::BadArg);
+                }
+
+                match controller.write_read(
                     addr,
                     winfo.len,
                     |pos| { wbuf.read_at(pos) },
                     rinfo.len,
                     |pos, byte| { rbuf.write_at(pos, byte) },
-                )?;
-
-                caller.reply(());
-                Ok(())
+                    enable,
+                    wfi,
+                ) {
+                    Err(code) => {
+                        Err(match code {
+                            I2cError::NoDevice => {
+                                ResponseCode::NoDevice
+                            },
+                            I2cError::NoRegister => {
+                                ResponseCode::NoRegister
+                            }
+                        })
+                    },
+                    Ok(_) => {
+                        caller.reply(());
+                        Ok(())
+                    }
+                }
             }
         });
     }
@@ -317,145 +366,25 @@ fn configure_pins() {
     }
 }
 
-fn write_read(
-    i2c: &RegisterBlock,
-    notification: u32,
-    addr: u8,
-    wlen: usize,
-    getbyte: impl Fn(usize) -> Option<u8>,
-    rlen: usize,
-    putbyte: impl Fn(usize, u8) -> Option<()>,
-) -> Result<(), ResponseCode> {
-    if wlen == 0 && rlen == 0 {
-        // We must have either a write OR a read -- while perhaps valid to
-        // support both being zero as a way of testing an address for a
-        // NACK, it's not a mode that we (currently) support.
-        return Err(ResponseCode::BadArg);
+fn configure_muxes() {
+    let gpio_driver =
+        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = Gpio::from(gpio_driver);
+    let muxes = unsafe { &I2C_MUXES };
+
+    for mux in muxes {
+        gpio_driver
+            .configure(
+                mux.enable.0,
+                mux.enable.2,
+                Mode::Output,
+                OutputType::PushPull,
+                Speed::High,
+                Pull::None,
+                mux.enable.1,
+            )
+            .unwrap();
+
+        gpio_driver.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
     }
-
-    if wlen > 255 || rlen > 255 {
-        // For now, we don't support writing or reading more than 255 bytes
-        return Err(ResponseCode::BadArg);
-    }
-
-    // Before we talk to the controller, spin until it isn't busy
-    loop {
-        let isr = i2c.isr.read();
-
-        if !isr.busy().is_busy() {
-            break;
-        }
-    }
-
-    if wlen > 0 {
-        i2c.cr2.modify(|_, w| { w
-            .nbytes().bits(wlen as u8)
-            .autoend().clear_bit()
-            .add10().clear_bit()
-            .sadd().bits((addr << 1).into())
-            .rd_wrn().clear_bit()
-            .start().set_bit()
-        });
-
-        let mut pos = 0;
-
-        while pos < wlen {
-            loop {
-                let isr = i2c.isr.read();
-
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| { w.nackcf().set_bit() });
-                    return Err(ResponseCode::NoDevice);
-                }
-
-                if isr.txis().is_empty() {
-                    break;
-                }
-
-                let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-                sys_irq_control(notification, true);
-            }
-
-            // Get a single byte
-            let byte: u8 = getbyte(pos).ok_or(ResponseCode::BadArg)?;
-
-            // And send it!
-            i2c.txdr.write(|w| w.txdata().bits(byte));
-            pos += 1;
-        }
-
-        // All done; now spin until our transfer is complete -- or until
-        // we've been NACK'd (denoting an illegal register value)
-        loop {
-            let isr = i2c.isr.read();
-
-            if isr.nackf().is_nack() {
-                i2c.icr.write(|w| { w.nackcf().set_bit() });
-                return Err(ResponseCode::NoRegister);
-            }
-
-            if isr.tc().is_complete() {
-                break;
-            }
-
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-            sys_irq_control(notification, true);
-        }
-    }
-
-    if rlen > 0 {
-        //
-        // If we have both a write and a read, we deliberately do not send
-        // a STOP between them to force the RESTART (many devices do not
-        // permit a STOP between a register address write and a subsequent
-        // read).
-        //
-        i2c.cr2.modify(|_, w| { w
-            .nbytes().bits(rlen as u8)
-            .autoend().clear_bit()
-            .add10().clear_bit()
-            .sadd().bits((addr << 1).into())
-            .rd_wrn().set_bit()
-            .start().set_bit()
-        });
-
-        let mut pos = 0;
-
-        while pos < rlen {
-            loop {
-                let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-                sys_irq_control(notification, true);
-
-                let isr = i2c.isr.read();
-
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| { w.nackcf().set_bit() });
-                    return Err(ResponseCode::NoDevice);
-                }
-
-                if !isr.rxne().is_empty() {
-                    break;
-                }
-            }
-
-            // Read it!
-            let byte: u8 = i2c.rxdr.read().rxdata().bits();
-            putbyte(pos, byte).ok_or(ResponseCode::BadArg)?;
-            pos += 1;
-        }
-
-        // All done; now spin until our transfer is complete...
-        while !i2c.isr.read().tc().is_complete() {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-            sys_irq_control(notification, true);
-        }
-    }
-
-    //
-    // Whether we did a write alone, a read alone, or a write followed
-    // by a read, we're done now -- manually send a STOP.
-    //
-    i2c.cr2.modify(|_, w| { w.stop().set_bit() });
-
-    Ok(())
 }
