@@ -49,7 +49,7 @@ jobs:
             target: thumbv8m.main-none-eabihf
 
           - os: ubuntu-latest
-            deps: sudo apt-get install binutils-arm-none-eabi libudev-dev
+            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi=2.27-9ubuntu1+9 libudev-dev=237-3ubuntu10.44
           - os: windows-latest
             deps: |
               Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
