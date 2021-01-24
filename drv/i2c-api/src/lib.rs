@@ -28,6 +28,8 @@ pub enum ResponseCode {
     NoMux,
     NoSegment,
     SegmentFailed,
+    BadMuxAddress,
+    BadMuxRegister,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]

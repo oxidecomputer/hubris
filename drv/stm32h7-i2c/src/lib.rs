@@ -8,8 +8,6 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-use ringbuf::*;
-
 #[cfg(feature = "h7b3")]
 pub type RegisterBlock = device::i2c3::RegisterBlock;
 
@@ -55,8 +53,6 @@ pub struct I2cMux {
     pub address: u8,
     pub segment: Option<drv_i2c_api::Segment>,
 }
-
-ringbuf!(u32, 4, 0);
 
 impl<'a> I2cController<'a> {
     pub fn enable(&self, rcc_driver: &drv_stm32h7_rcc_api::Rcc) {
@@ -145,7 +141,7 @@ impl<'a> I2cController<'a> {
         wlen: usize,
         getbyte: impl Fn(usize) -> u8,
         rlen: usize,
-        putbyte: impl Fn(usize, u8),
+        mut putbyte: impl FnMut(usize, u8),
         mut enable: impl FnMut(u32),
         mut wfi: impl FnMut(u32),
     ) -> Result<(), I2cError> {
@@ -325,8 +321,6 @@ impl<'a> I2cController<'a> {
     ) -> ! {
         self.configure_as_target(address);
 
-        ringbuf_entry!(0);
-
         let mut wbuf = [0; 4];
 
         let i2c = self.registers.unwrap();
@@ -339,7 +333,6 @@ impl<'a> I2cController<'a> {
         'addrloop: loop {
             let is_write = loop {
                 let isr = i2c.isr.read();
-                ringbuf_entry!(isr.bits());
 
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| { w.stopcf().set_bit() });
@@ -347,7 +340,6 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.addr().is_match_() {
-                    ringbuf_entry!(0xaaaa);
                     break isr.dir().is_write();
                 }
 
@@ -359,10 +351,8 @@ impl<'a> I2cController<'a> {
             i2c.icr.write(|w| { w.addrcf().set_bit() });
 
             if is_write {
-                ringbuf_entry!(0xbbbb);
                 'rxloop: loop {
                     let isr = i2c.isr.read();
-                    ringbuf_entry!(isr.bits());
 
                     if isr.addr().is_match_() {
                         //
@@ -395,7 +385,6 @@ impl<'a> I2cController<'a> {
                         // for additional bytes.
                         //
                         register = Some(i2c.rxdr.read().rxdata().bits());
-                        ringbuf_entry!(register.unwrap() as u32);
                         continue 'rxloop;
                     }
 
@@ -424,8 +413,6 @@ impl<'a> I2cController<'a> {
             'txloop: loop {
                 let isr = i2c.isr.read();
 
-                ringbuf_entry!(isr.bits());
-
                 if isr.addr().is_match_() {
                     //
                     // We really aren't expecting this, so kick out to the top
@@ -435,7 +422,6 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.nackf().is_nack() {
-                    ringbuf_entry!(0xeeee);
                     i2c.icr.write(|w| { w.nackcf().set_bit() });
                     continue 'addrloop;
                 }
@@ -443,7 +429,6 @@ impl<'a> I2cController<'a> {
                 if isr.txis().is_empty() {
                     if pos < wlen {
                         i2c.txdr.write(|w| { w.txdata().bits(wbuf[pos]) });
-                        ringbuf_entry!(wbuf[pos] as u32);
                         pos += 1;
                         continue 'txloop;
                     } else {
@@ -452,7 +437,6 @@ impl<'a> I2cController<'a> {
                         // byte will only be seen on the wire if we haven't
                         // sent anything at all.)
                         //
-                        ringbuf_entry!(0xcccc);
                         i2c.txdr.write(|w| { w.txdata().bits(0x1d) });
                         i2c.isr.modify(|_, w| { w.txe().set_bit() });
                         continue 'txloop;

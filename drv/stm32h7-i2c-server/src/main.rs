@@ -145,7 +145,7 @@ fn lookup_controller(
 ) -> Result<&'static mut I2cController<'static>, ResponseCode> {
     let controllers = unsafe { &mut I2C_CONTROLLERS };
 
-    for mut c in controllers {
+    for c in controllers {
         if c.controller == controller {
             return Ok(c);
         }
@@ -186,12 +186,12 @@ fn configure_mux(
     controller: &I2cController,
     port: Port,
     mux: Option<(Mux, Segment)>,
-    mut enable: impl FnMut(u32),
-    mut wfi: impl FnMut(u32),
+    enable: impl FnMut(u32),
+    wfi: impl FnMut(u32),
 ) -> Result<(), ResponseCode> {
     match mux {
         Some((id, segment)) => {
-            let muxes = unsafe { &I2C_MUXES };
+            let mut muxes = unsafe { &mut I2C_MUXES };
 
             for mux in muxes {
                 if mux.controller != controller.controller {
@@ -210,6 +210,13 @@ fn configure_mux(
                     if current == segment {
                         return Ok(());
                     }
+
+                    //
+                    // Beyond this point, we want any failure to set our new
+                    // segment to leave our segment unset rather than having
+                    // it point to the old segment.
+                    //
+                    mux.segment = None;
                 } 
 
                 //
@@ -223,7 +230,9 @@ fn configure_mux(
                     }
                 };
 
-                enable_segment(mux, controller, port, segment, enable, wfi)?;
+                enable_segment(mux, controller, segment, enable, wfi)?;
+                mux.segment = Some(segment);
+
                 return Ok(());
             }
 
@@ -264,9 +273,14 @@ fn main() -> ! {
                 let (addr, controller, port, mux) =
                     Marshal::unmarshal(payload)?;
 
+                if let Some(_) = ReservedAddress::from_u8(addr) {
+                    return Err(ResponseCode::ReservedAddress);
+                }
+
                 let controller = lookup_controller(controller)?;
                 let pin = lookup_pin(controller.controller, port)?;
 
+                configure_port(controller, pin);
                 configure_mux(controller, port, mux, enable, wfi)?;
 
                 let wbuf = caller.borrow(0);
@@ -278,12 +292,6 @@ fn main() -> ! {
 
                 let rbuf = caller.borrow(1);
                 let rinfo = rbuf.info().ok_or(ResponseCode::BadArg)?;
-
-                if let Some(_) = ReservedAddress::from_u8(addr) {
-                    return Err(ResponseCode::ReservedAddress);
-                }
-
-                configure_port(controller, pin);
 
                 if winfo.len == 0 && rinfo.len == 0 {
                     // We must have either a write OR a read -- while perhaps
