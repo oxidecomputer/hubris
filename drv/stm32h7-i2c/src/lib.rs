@@ -8,7 +8,6 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-use userlib::*;
 use ringbuf::*;
 
 #[cfg(feature = "h7b3")]
@@ -46,6 +45,7 @@ pub enum I2cError {
 pub struct I2cMux {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::Port,
+    pub id: drv_i2c_api::Mux,
     pub driver: I2cMuxDriver,
     pub enable: (
         drv_stm32h7_gpio_api::Port,
@@ -53,8 +53,7 @@ pub struct I2cMux {
         u16
     ),
     pub address: u8,
-    pub segments: u8,
-    pub segment: Option<u8>,
+    pub segment: Option<drv_i2c_api::Segment>,
 }
 
 ringbuf!(u32, 4, 0);
@@ -144,9 +143,9 @@ impl<'a> I2cController<'a> {
         &self,
         addr: u8,
         wlen: usize,
-        getbyte: impl Fn(usize) -> Option<u8>,
+        getbyte: impl Fn(usize) -> u8,
         rlen: usize,
-        putbyte: impl Fn(usize, u8) -> Option<()>,
+        putbyte: impl Fn(usize, u8),
         mut enable: impl FnMut(u32),
         mut wfi: impl FnMut(u32),
     ) -> Result<(), I2cError> {
@@ -194,9 +193,8 @@ impl<'a> I2cController<'a> {
                     enable(notification);
                 }
 
-                // Get a single byte. This is safe to unwrap because our
-                // length has been specified as a parameter.
-                let byte: u8 = getbyte(pos).unwrap();
+                // Get a single byte. 
+                let byte: u8 = getbyte(pos);
 
                 // And send it!
                 i2c.txdr.write(|w| w.txdata().bits(byte));
@@ -259,7 +257,7 @@ impl<'a> I2cController<'a> {
 
                 // Read it!
                 let byte: u8 = i2c.rxdr.read().rxdata().bits();
-                putbyte(pos, byte).unwrap();
+                putbyte(pos, byte);
                 pos += 1;
             }
 

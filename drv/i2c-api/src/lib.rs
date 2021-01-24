@@ -23,6 +23,11 @@ pub enum ResponseCode {
     BadPort = 6,
     BadDefaultPort = 7,
     NoRegister = 8,
+    BadMux = 9,
+    BadSegment = 10,
+    NoMux,
+    NoSegment,
+    SegmentFailed,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
@@ -55,6 +60,7 @@ pub enum ReservedAddress {
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u8)]
 pub enum Port {
     Default = 0,
     A = 1,
@@ -70,17 +76,19 @@ pub enum Port {
     K = 11,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u8)]
 pub enum Mux {
-    M0 = 0,
+    M1 = 1,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u8)]
 pub enum Segment {
-    S0 = 0,
     S1 = 1,
     S2 = 2,
     S3 = 3,
+    S4 = 4,
 }
 
 #[derive(Clone, Debug)]
@@ -90,6 +98,42 @@ pub struct I2c {
     pub port: Port,
     pub segment: Option<(Mux, Segment)>,
     pub address: u8,
+}
+
+pub trait Marshal<T> {
+    fn marshal(&self) -> T;
+    fn unmarshal(val: &T) -> Result<Self, ResponseCode> where Self: Sized;
+}
+
+impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
+    fn marshal(&self) -> [u8; 4] {
+        [
+            self.0,
+            self.1 as u8,
+            self.2 as u8, 
+            match self.3 {
+                Some((mux, seg)) => 0b1000_0000 | ((mux as u8) << 4) | (seg as u8),
+                None => 0,
+            }
+        ]
+    }
+    fn unmarshal(val: &[u8; 4]) -> Result<Self, ResponseCode> {
+        Ok((
+            val[0],
+            Controller::from_u8(val[1]).ok_or(ResponseCode::BadController)?,
+            Port::from_u8(val[2]).ok_or(ResponseCode::BadPort)?,
+            if val[3] == 0 {
+                None
+            } else {
+                Some((
+                    Mux::from_u8((val[3] & 0b0111_0000) >> 4)
+                        .ok_or(ResponseCode::BadMux)?,
+                    Segment::from_u8(val[3] & 0b0000_1111)
+                        .ok_or(ResponseCode::BadSegment)?
+                ))
+            }
+        ))
+    }
 }
 
 impl I2c {
@@ -127,7 +171,9 @@ impl I2c {
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
-            &[self.address, self.controller as u8, self.port as u8],
+            &Marshal::marshal(&(
+                self.address, self.controller, self.port, self.segment
+            )),
             &mut [],
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
@@ -146,7 +192,9 @@ impl I2c {
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
-            &[self.address, self.controller as u8, self.port as u8],
+            &Marshal::marshal(&(
+                self.address, self.controller, self.port, self.segment
+            )),
             &mut [],
             &[Lease::from(buffer), Lease::from(&empty[0..0])],
         );

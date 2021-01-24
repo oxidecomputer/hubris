@@ -9,11 +9,15 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-use userlib::*;
-use drv_i2c_api::{Controller, Op, ReservedAddress, Port, ResponseCode};
-use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use drv_i2c_api::*;
+use drv_i2c_api::Port;
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
+use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use userlib::*;
+
+mod ltc4306;
+use ltc4306::*;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -125,10 +129,10 @@ cfg_if::cfg_if! {
         static mut I2C_MUXES: [I2cMux; 1] = [ I2cMux {
             controller: Controller::I2C4,
             port: Port::F,
+            id: Mux::M1,
             driver: I2cMuxDriver::LTC4306,
             enable: (drv_stm32h7_gpio_api::Port::G, Alternate::AF0, (1 << 0)),
             address: 0x44,
-            segments: 4,
             segment: None,
         } ];
     } else {
@@ -137,20 +141,14 @@ cfg_if::cfg_if! {
 }
 
 fn lookup_controller(
-    controller: u8
+    controller: Controller,
 ) -> Result<&'static mut I2cController<'static>, ResponseCode> {
+    let controllers = unsafe { &mut I2C_CONTROLLERS };
 
-    match Controller::from_u8(controller) {
-        Some(controller) => {
-            let controllers = unsafe { &mut I2C_CONTROLLERS };
-
-            for mut c in controllers {
-                if c.controller == controller {
-                    return Ok(c);
-                }
-            }
+    for mut c in controllers {
+        if c.controller == controller {
+            return Ok(c);
         }
-        _ => {}
     }
 
     Err(ResponseCode::BadController)
@@ -158,7 +156,7 @@ fn lookup_controller(
 
 fn lookup_pin<'a>(
     controller: Controller,
-    port: Port
+    port: Port,
 ) -> Result<&'a I2cPin, ResponseCode> {
     let pins = unsafe { &I2C_PINS };
     let mut default = None;
@@ -184,6 +182,59 @@ fn lookup_pin<'a>(
     default.ok_or(ResponseCode::BadPort)
 }
 
+fn configure_mux(
+    controller: &I2cController,
+    port: Port,
+    mux: Option<(Mux, Segment)>,
+    mut enable: impl FnMut(u32),
+    mut wfi: impl FnMut(u32),
+) -> Result<(), ResponseCode> {
+    match mux {
+        Some((id, segment)) => {
+            let muxes = unsafe { &I2C_MUXES };
+
+            for mux in muxes {
+                if mux.controller != controller.controller {
+                    continue;
+                }
+
+                if mux.port != port || mux.id != id {
+                    continue;
+                }
+            
+                //
+                // We have our mux -- determine if the current segment matches
+                // our specified segment...
+                //
+                if let Some(current) = mux.segment {
+                    if current == segment {
+                        return Ok(());
+                    }
+                } 
+
+                //
+                // If we're here, our mux is valid, but the current segment is
+                // not the specfied segment; we will now call upon our
+                // driver to enable this segment.
+                //
+                let enable_segment = match mux.driver {
+                    I2cMuxDriver::LTC4306 => {
+                        ltc4306_enable_segment
+                    }
+                };
+
+                enable_segment(mux, controller, port, segment, enable, wfi)?;
+                return Ok(());
+            }
+
+            Err(ResponseCode::NoMux)
+        }
+        None => {
+            Ok(())
+        },
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
@@ -193,7 +244,7 @@ fn main() -> ! {
     configure_muxes();
 
     // Field messages.
-    let mut buffer = [0; 3];
+    let mut buffer = [0; 4];
 
     let enable = |notification| {
         sys_irq_control(notification, true);
@@ -206,13 +257,17 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead => {
-                let (&[addr, controller, port], caller) = msg
-                    .fixed_with_leases::<[u8; 3], ()>(2)
+                let (payload, caller) = msg
+                    .fixed_with_leases::<[u8; 4], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
-                let port = Port::from_u8(port).ok_or(ResponseCode::BadPort)?;
+                let (addr, controller, port, mux) =
+                    Marshal::unmarshal(payload)?;
+
                 let controller = lookup_controller(controller)?;
                 let pin = lookup_pin(controller.controller, port)?;
+
+                configure_mux(controller, port, mux, enable, wfi)?;
 
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
@@ -247,22 +302,16 @@ fn main() -> ! {
                 match controller.write_read(
                     addr,
                     winfo.len,
-                    |pos| { wbuf.read_at(pos) },
+                    |pos| wbuf.read_at(pos).unwrap(),
                     rinfo.len,
-                    |pos, byte| { rbuf.write_at(pos, byte) },
+                    |pos, byte| rbuf.write_at(pos, byte).unwrap(),
                     enable,
                     wfi,
                 ) {
-                    Err(code) => {
-                        Err(match code {
-                            I2cError::NoDevice => {
-                                ResponseCode::NoDevice
-                            },
-                            I2cError::NoRegister => {
-                                ResponseCode::NoRegister
-                            }
-                        })
-                    },
+                    Err(code) => Err(match code {
+                        I2cError::NoDevice => ResponseCode::NoDevice,
+                        I2cError::NoRegister => ResponseCode::NoRegister,
+                    }),
                     Ok(_) => {
                         caller.reply(());
                         Ok(())
@@ -295,10 +344,7 @@ fn configure_controllers() {
     }
 }
 
-fn configure_port(
-    controller: &mut I2cController,
-    pin: &I2cPin,
-) {
+fn configure_port(controller: &mut I2cController, pin: &I2cPin) {
     let p = controller.port.unwrap();
 
     if p == pin.port {
@@ -344,7 +390,7 @@ fn configure_pins() {
     let gpio_driver = Gpio::from(gpio_driver);
 
     for pin in &I2C_PINS {
-        let controller = lookup_controller(pin.controller as u8).ok().unwrap();
+        let controller = lookup_controller(pin.controller).ok().unwrap();
 
         match controller.port {
             None => {
@@ -356,9 +402,9 @@ fn configure_pins() {
                         OutputType::OpenDrain,
                         Speed::High,
                         Pull::None,
-                        pin.function
+                        pin.function,
                     )
-                .unwrap();
+                    .unwrap();
                 controller.port = Some(pin.port);
             }
             Some(_) => {}
@@ -385,6 +431,8 @@ fn configure_muxes() {
             )
             .unwrap();
 
-        gpio_driver.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
+        gpio_driver
+            .set_reset(mux.enable.0, mux.enable.2, 0)
+            .unwrap();
     }
 }
