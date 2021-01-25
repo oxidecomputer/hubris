@@ -25,9 +25,10 @@ pub enum ResponseCode {
     NoRegister = 8,
     BadMux = 9,
     BadSegment = 10,
-    NoMux,
-    NoSegment,
-    SegmentFailed,
+    MuxNotFound,
+    SegmentNotFound,
+    SegmentDisconnected,
+    MuxDisconnected,
     BadMuxAddress,
     BadMuxRegister,
 }

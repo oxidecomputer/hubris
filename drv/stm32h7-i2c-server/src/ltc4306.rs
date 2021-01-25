@@ -67,8 +67,8 @@ fn read_reg_u8(
     mux: &I2cMux, 
     controller: &I2cController,
     reg: u8,
-    mut enable: impl FnMut(u32),
-    mut wfi: impl FnMut(u32)
+    enable: impl FnMut(u32),
+    wfi: impl FnMut(u32)
 ) -> Result<u8, ResponseCode> {
     let mut rval = [0u8; 1];
     let wlen = 1;
@@ -95,8 +95,8 @@ fn write_reg_u8(
     controller: &I2cController,
     reg: u8,
     val: u8,
-    mut enable: impl FnMut(u32),
-    mut wfi: impl FnMut(u32)
+    enable: impl FnMut(u32),
+    wfi: impl FnMut(u32)
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -119,11 +119,9 @@ pub fn ltc4306_enable_segment(
     mux: &I2cMux,
     controller: &I2cController,
     segment: Segment,
-    mut enable: impl FnMut(u32),
-    mut wfi: impl FnMut(u32),
+    enable: impl FnMut(u32) + Copy,
+    wfi: impl FnMut(u32) + Copy,
 ) -> Result<(), ResponseCode> {
-    // let reg0 = Register0(read_reg_u8(mux, controller, 0, enable, wfi)?);
-
     let mut reg3 = Register3(0);
 
     match segment {
@@ -131,9 +129,18 @@ pub fn ltc4306_enable_segment(
         Segment::S2 => { reg3.set_bus2_connected(true); }
         Segment::S3 => { reg3.set_bus3_connected(true); }
         Segment::S4 => { reg3.set_bus4_connected(true); }
+        _ => { return Err(ResponseCode::SegmentNotFound); }
     }
 
     write_reg_u8(mux, controller, 3, reg3.0, enable, wfi)?;
 
-    Ok(())
+    let reg0 = Register0(read_reg_u8(mux, controller, 0, enable, wfi)?);
+
+    if !reg0.not_failed() {
+        Err(ResponseCode::SegmentDisconnected)
+    } else if !reg0.connected() {
+        Err(ResponseCode::MuxDisconnected)
+    } else {
+        Ok(())
+    }
 }

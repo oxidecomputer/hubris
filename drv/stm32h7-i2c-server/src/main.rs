@@ -186,8 +186,8 @@ fn configure_mux(
     controller: &I2cController,
     port: Port,
     mux: Option<(Mux, Segment)>,
-    enable: impl FnMut(u32),
-    wfi: impl FnMut(u32),
+    enable: impl FnMut(u32) + Copy,
+    wfi: impl FnMut(u32) + Copy,
 ) -> Result<(), ResponseCode> {
     match mux {
         Some((id, segment)) => {
@@ -236,7 +236,7 @@ fn configure_mux(
                 return Ok(());
             }
 
-            Err(ResponseCode::NoMux)
+            Err(ResponseCode::MuxNotFound)
         }
         None => {
             Ok(())
@@ -255,11 +255,11 @@ fn main() -> ! {
     // Field messages.
     let mut buffer = [0; 4];
 
-    let enable = |notification| {
+    let enable = move |notification| {
         sys_irq_control(notification, true);
     };
 
-    let wfi = |notification| {
+    let wfi = move |notification| {
         let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
     };
 
