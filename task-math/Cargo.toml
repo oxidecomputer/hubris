@@ -1,0 +1,25 @@
+[package]
+name = "task-math"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../userlib"}
+cortex-m-semihosting = "0.3.5"
+lib-casper = {path = "../lib-casper", default-features = false}
+
+[features]
+default = ["standalone"]
+standalone = ["lib-casper/standalone"]
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-math"
+test = false
+bench = false

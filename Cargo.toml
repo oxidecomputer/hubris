@@ -23,6 +23,9 @@ members = [
     "task-idle",
     "task-spam2",
     "task-spi",
+    "task-math",
+
+    "lib-casper",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",

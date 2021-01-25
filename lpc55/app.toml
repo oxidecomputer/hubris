@@ -6,7 +6,7 @@ board = "lpcxpresso55s69"
 path = "../lpc55"
 name = "lpc55"
 requires = {flash = 65536, ram = 4096}
-features = ["itm"]
+features = ["semihosting"]
 
 [sign-method]
 method = "secure_boot"
@@ -35,7 +35,7 @@ name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 4096}
 start = true
-features = ["itm"]
+features = ["semihosting"]
 
 [tasks.idle]
 path = "../task-idle"
@@ -119,11 +119,21 @@ requires = {flash = 8192, ram = 1024}
 uses = ["iocon"]
 start = true
 
-[tasks.spam]
-path = "../task-spam2"
-name = "task-spam"
+[tasks.math]
+path = "../task-math"
+name = "task-math"
 priority = 3
 requires = {flash = 8192, ram = 1024}
+uses = ["sram", "casper"]
+start = true
+
+[peripherals.casper]
+address = 0x400a5000
+size = 4096
+
+[peripherals.sram]
+address = 0x14000000
+size = 0x20000
 
 [peripherals.syscon]
 address = 0x40000000
