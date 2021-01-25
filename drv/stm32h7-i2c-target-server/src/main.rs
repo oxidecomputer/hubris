@@ -113,15 +113,30 @@ fn main() -> ! {
         let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
     };
 
-    let i2c = I2c::new(
+    let i2c = [ I2c::new(
         TaskId::for_index_and_gen(I2C as usize, Generation::default()),
         Controller::I2C4,
-        Port::D,
-        None,
+        Port::F,
+        Some((Mux::M1, Segment::S1)),
         ADT7420_ADDRESS
-    );
+    ), I2c::new(
+        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+        Controller::I2C4,
+        Port::F,
+        Some((Mux::M1, Segment::S4)),
+        ADT7420_ADDRESS
+    )];
 
-    let mut response = |register, buf: &mut [u8]| -> Option<usize> {
+    let mut response = |addr, register, buf: &mut [u8]| -> Option<usize> {
+        let i2c: &I2c = if addr == ADT7420_ADDRESS - 1 {
+            &i2c[0]
+        } else if addr == ADT7420_ADDRESS + 1 {
+            &i2c[1] 
+        } else {
+            sys_log!("bogus addr {:x}", addr);
+            return None;
+        };
+
         match register {
             Some(val) if val == ADT7420_REG_TEMPMSB => { 
                 match i2c.read_reg::<u8, [u8; 2]>(0 as u8) {
@@ -167,5 +182,11 @@ fn main() -> ! {
         sys_irq_control(notification, true);
     };
 
-    controller.operate_as_target(ADT7420_ADDRESS, enable, wfi, &mut response);
+    controller.operate_as_target(
+        ADT7420_ADDRESS - 1,
+        Some(ADT7420_ADDRESS + 1),
+        enable,
+        wfi,
+        &mut response
+    );
 }

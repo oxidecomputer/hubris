@@ -56,7 +56,7 @@ fn validate(i2c: &I2c) -> bool {
     }
 }
 
-ringbuf!((f32, f32), 1024, (0.0, 0.0));
+ringbuf!((f32, f32), 128, (0.0, 0.0));
 
 //
 // Converts a tuple of two u8s (an MSB and an LSB) comprising a 13-bit value
@@ -107,13 +107,13 @@ fn read_temp(i2c: &I2c) {
     };
 }
 
-fn i2c(controller: Controller, port: Port) -> (I2c, bool) {
+fn i2c(controller: Controller, port: Port, addr: u8) -> (I2c, bool) {
     (I2c::new(
         TaskId::for_index_and_gen(I2C as usize, Generation::default()),
         controller,
         port,
         None,
-        ADT7420_ADDRESS
+        addr,
     ), false)
 }
 
@@ -122,12 +122,13 @@ fn main() -> ! {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
             let mut devices = [
-                i2c(Controller::I2C4, Port::D),
-                i2c(Controller::I2C4, Port::H),
+                i2c(Controller::I2C4, Port::D, ADT7420_ADDRESS),
+                i2c(Controller::I2C4, Port::H, ADT7420_ADDRESS),
             ];
         } else if #[cfg(target_board = "nucleo-h743zi2")] {
             let mut devices = [
-                i2c(Controller::I2C2, Port::Default),
+                i2c(Controller::I2C2, Port::Default, ADT7420_ADDRESS - 1),
+                i2c(Controller::I2C2, Port::Default, ADT7420_ADDRESS + 1),
             ];
         }
     }

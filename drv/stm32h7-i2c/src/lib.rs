@@ -273,7 +273,7 @@ impl<'a> I2cController<'a> {
         Ok(())
     }
 
-    fn configure_as_target(&mut self, address: u8) {
+    fn configure_as_target(&mut self, address: u8, secondary: Option<u8>) {
         assert!(self.registers.is_none());
         assert!(address & 0b1000_0000 == 0);
 
@@ -285,14 +285,22 @@ impl<'a> I2cController<'a> {
         self.configure_timing(i2c);
 
         i2c.oar1.modify(|_, w| { w
-            .oa1en().set_bit()
-            .oa1mode().clear_bit()
-            .oa1().bits((address << 1).into())
+            .oa1en().set_bit()                      // own-address enable
+            .oa1mode().clear_bit()                  // 7-bit address
+            .oa1().bits((address << 1).into())      // address bits
         });
 
-        i2c.oar2.modify(|_, w| { w
-            .oa2en().clear_bit()
-        });
+        if let Some(address) = secondary {
+            i2c.oar2.modify(|_, w| { w
+                .oa2en().set_bit()                  // own-address-2 enable
+                .oa2().bits(address.into())         // address bits
+                .oa2msk().bits(0)                   // mask 0 == exact match
+            });
+        } else {
+            i2c.oar2.modify(|_, w| { w
+                .oa2en().clear_bit()                // own-address 2 disable
+            });
+        }
 
         #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
@@ -315,11 +323,12 @@ impl<'a> I2cController<'a> {
     pub fn operate_as_target<'b>(
         &mut self,
         address: u8,
+        secondary: Option<u8>,
         mut enable: impl FnMut(u32),
         mut wfi: impl FnMut(u32),
-        mut readreg: impl FnMut(Option<u8>, &mut [u8]) -> Option<usize>
+        mut readreg: impl FnMut(u8, Option<u8>, &mut [u8]) -> Option<usize>
     ) -> ! {
-        self.configure_as_target(address);
+        self.configure_as_target(address, secondary);
 
         let mut wbuf = [0; 4];
 
@@ -331,7 +340,7 @@ impl<'a> I2cController<'a> {
         let mut register = None;
 
         'addrloop: loop {
-            let is_write = loop {
+            let (is_write, addr) = loop {
                 let isr = i2c.isr.read();
 
                 if isr.stopf().is_stop() {
@@ -340,7 +349,7 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.addr().is_match_() {
-                    break isr.dir().is_write();
+                    break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
                 wfi(notification);
@@ -393,7 +402,7 @@ impl<'a> I2cController<'a> {
                 }
             }
 
-            let wlen = match readreg(register, &mut wbuf) {
+            let wlen = match readreg(addr, register, &mut wbuf) {
                 None => {
                     //
                     // We have read from an invalid register, but we don't

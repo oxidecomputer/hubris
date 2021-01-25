@@ -111,7 +111,7 @@ path = "../task-i2c"
 name = "task-i2c"
 features = ["itm"]
 priority = 3
-requires = {flash = 16384, ram = 8192 }
+requires = {flash = 32768, ram = 8192 }
 start = true
 
 [tasks.adt7420]
