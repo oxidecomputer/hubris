@@ -109,7 +109,8 @@ struct Config {
     name: String,
     target: String,
     board: String,
-    sign_method: Option<Signing>,
+    #[serde(default)]
+    signing: IndexMap<String, Signing>,
     secure: Option<bool>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
