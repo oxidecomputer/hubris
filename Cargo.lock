@@ -893,6 +893,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hypocalls"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "lpc55_romapi",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "zerocopy",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -933,9 +946,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.82"
+version = "0.2.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89203f3fba0a3795506acaad8ebce3c80c0af93f994d5a1d7a0b1eeb23271929"
+checksum = "7eb0c4e9c72ee9d69b767adebc5f4788462a3b45624acd919475c92597bcaf4f"
 
 [[package]]
 name = "libudev"
@@ -1527,6 +1540,24 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "stage0"
+version = "0.1.0"
+dependencies = [
+ "cortex-m 0.6.7",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "ecdsa",
+ "hmac",
+ "lpc55-pac",
+ "lpc55_romapi",
+ "p256",
+ "panic-halt",
+ "panic-semihosting",
+ "sha2",
+ "zerocopy",
+]
 
 [[package]]
 name = "stm32f4"

@@ -1,0 +1,28 @@
+[package]
+name = "stage0"
+version = "0.1.0"
+authors = ["Laura Abbott <laura@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+cortex-m = "0.6.3"
+cortex-m-rt = "0.6.12"
+cortex-m-semihosting = "0.3.5"
+panic-semihosting = "0.5.3"
+lpc55_romapi = { path = "../lpc55_romapi" }
+panic-halt = "0.2.0"
+lpc55-pac = "0.1.0"
+ecdsa = { git = "https://github.com/oxidecomputer/RustCrypto_signatures.git", branch = "oxide_branch", default-features = false }
+p256 = { git = "https://github.com/oxidecomputer/elliptic-curves.git", branch = "oxide_branch", default-features = false, features = ["ecdsa", "ecdsa-core"] }
+hmac = { version = "0.10.1", default-features = false }
+sha2 = { version = "0.9.2", default-features = false }
+zerocopy = "0.3.0"
+
+[package.metadata.build]
+target = "thumbv8m.main-none-eabihf"
+
+[[bin]]
+name = "stage0"
+test = false
+bench = false
+

@@ -2,33 +2,60 @@ name = "lpc55"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 stacksize = 1024
+secure = false
 
 [kernel]
 path = "../lpc55"
 name = "lpc55"
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 32768, ram = 4096}
 features = ["itm"]
-
-[signing.combined]
-method = "rsa"
-priv-key = "../fake_certs/fake_private_key.pem"
-root-cert = "../fake_certs/fake_certificate.der.crt"
 
 [supervisor]
 notification = 1
 
-[outputs.flash]
+[outputs.bootloader_sram]
+address = 0x14000000
+size = 0x8000
+
+[outputs.bootloader_flash]
 address = 0x00000000
-size = 645120
+size = 0x8000
+
+[outputs.bootloader_ram]
+address = 0x20000000
+size = 0x4000
+
+[outputs.flash]
+address = 0x00008000
+size = 0x95800
 read = true
 execute = true
 
 [outputs.ram]
-address = 0x20000000
-size = 114688
+address = 0x20004000
+size = 0x18000
 read = true
 write = true
 execute = true
+
+[signing.combined]
+method = "ecc"
+priv-key = "../fake_certs/p256-private-key.der"
+
+[signing.bootloader]
+method = "rsa"
+priv-key = "../fake_certs/fake_private_key.pem"
+root-cert = "../fake_certs/fake_certificate.der.crt"
+
+[bootloader]
+path = "../stage0"
+name = "stage0"
+sections = {"flash_hypo" = "flash"}
+sharedsyms = ["write_to_flash"]
+imagea-flash-start = 0x8000
+imagea-flash-size = 0x95800
+imagea-ram-start = 0x20004000
+imagea-ram-size = 0x18000
 
 [tasks.jefe]
 path = "../task-jefe"

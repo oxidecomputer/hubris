@@ -2,7 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::hash::Hasher;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -121,6 +121,115 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     // now that we're clean, update our buildstamp file; any failure to build
     // from here on need not trigger a clean
     std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
+    let mut shared_syms: Option<&[String]> = None;
+
+    // If there is a bootloader, build it first as there may be dependencies
+    // for applications
+    if let Some(bootloader) = toml.bootloader.as_ref() {
+        let mut bootloader_memory = IndexMap::new();
+        let flash = memories.get("bootloader_flash").unwrap();
+        let ram = memories.get("bootloader_ram").unwrap();
+        let sram = memories.get("bootloader_sram").unwrap();
+        let image_flash = if let Some(end) = bootloader
+            .imagea_flash_start
+            .checked_add(bootloader.imagea_flash_size)
+        {
+            bootloader.imagea_flash_start..end
+        } else {
+            eprintln!("image flash size is incorrect");
+            std::process::exit(1);
+        };
+        let image_ram = if let Some(end) = bootloader
+            .imagea_ram_start
+            .checked_add(bootloader.imagea_ram_size)
+        {
+            bootloader.imagea_ram_start..end
+        } else {
+            eprintln!("image ram size is incorrect");
+            std::process::exit(1);
+        };
+
+        bootloader_memory.insert(String::from("FLASH"), flash.clone());
+        bootloader_memory.insert(String::from("RAM"), ram.clone());
+        bootloader_memory.insert(String::from("SRAM"), sram.clone());
+        bootloader_memory
+            .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
+        bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
+
+        let kernel_start = kern_memory.get("flash").unwrap().start;
+
+        if kernel_start != bootloader_memory.get("FLASH").unwrap().end {
+            panic!("mismatch between bootloader end and hubris start! check app.toml!");
+        }
+
+        shared_syms = Some(&bootloader.sharedsyms);
+
+        generate_bootloader_linker_script(
+            "memory.x",
+            &bootloader_memory,
+            Some(&bootloader.sections),
+            &bootloader.sharedsyms,
+        );
+
+        // If there is a stray link.x around from a previous build remove it
+        // The file not existing isn't an error
+        let _ = fs::remove_file("target/link.x");
+
+        build(
+            &toml.target,
+            &toml.board,
+            &src_dir.join(&bootloader.path),
+            &bootloader.name,
+            &bootloader.features,
+            out.join(&bootloader.name),
+            verbose,
+            &task_names,
+            &None,
+            &shared_syms,
+        )?;
+
+        // Need a bootloader binary for signing
+        objcopy_translate_format(
+            "elf32-littlearm",
+            &out.join(&bootloader.name),
+            "binary",
+            &out.join("bootloader.bin"),
+        )?;
+
+        if let Some(signing) = toml.signing.get("bootloader") {
+            do_sign_file(signing, &out, &src_dir, "bootloader")?;
+        }
+
+        // We need to get the absolute symbols for the non-secure application
+        // to call into the secure application. The easiest approach right now
+        // is to generate the table in a separate section, objcopy just that
+        // section and then re-insert those bits into the application section
+        // via linker.
+
+        objcopy_grab_binary(
+            "elf32-littlearm",
+            &out.join(&bootloader.name),
+            &out.join("addr_blob.bin"),
+        )?;
+
+        let mut f = std::fs::File::open(&out.join("addr_blob.bin"))?;
+
+        let mut bytes = Vec::new();
+
+        f.read_to_end(&mut bytes)?;
+
+        let mut linkscr =
+            File::create(Path::new(&format!("target/table.ld"))).unwrap();
+
+        for b in bytes {
+            writeln!(linkscr, "BYTE(0x{:x})", b).unwrap();
+        }
+
+        drop(linkscr);
+    } else {
+        // Just create a new empty file
+        File::create(Path::new(&format!("target/table.ld"))).unwrap();
+    }
 
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
@@ -150,6 +259,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             verbose,
             &task_names,
             &toml.secure,
+            &shared_syms,
         )
         .context(format!("failed to build {}", name))?;
 
@@ -199,6 +309,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         verbose,
         "",
         &toml.secure,
+        &None,
     )?;
     let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -246,6 +357,51 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         do_sign_file(signing, &out, &src_dir, "combined")?;
     }
 
+    // Okay we now have signed hubris image and signed bootloader
+    // Time to combine the two!
+    if let Some(bootloader) = toml.bootloader.as_ref() {
+        let file_image = std::fs::read(&out.join(&bootloader.name))?;
+        let elf = goblin::elf::Elf::parse(&file_image)?;
+
+        let bootloader_entry = elf.header.e_entry as u32;
+
+        let bootloader_fname =
+            if let Some(signing) = toml.signing.get("bootloader") {
+                format!("bootloader_{}.bin", signing.method)
+            } else {
+                "bootloader.bin".into()
+            };
+
+        let hubris_fname = if let Some(signing) = toml.signing.get("combined") {
+            format!("combined_{}.bin", signing.method)
+        } else {
+            "combined.bin".into()
+        };
+
+        let bootloader = toml.outputs.get("bootloader_flash").unwrap().address;
+        let flash = toml.outputs.get("flash").unwrap().address;
+        smash_bootloader(
+            &out.join(bootloader_fname),
+            bootloader,
+            &out.join(hubris_fname),
+            flash,
+            bootloader_entry,
+            &out.join("final.srec"),
+        )?;
+
+        objcopy_translate_format(
+            "srec",
+            &out.join("final.srec"),
+            "elf32-littlearm",
+            &out.join("final.elf"),
+        )?;
+    } else {
+        std::fs::copy(
+            &mut out.join("combined.elf").to_str().unwrap(),
+            &mut out.join("final.elf").to_str().unwrap(),
+        )?;
+    }
+
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
         gdb_script,
@@ -257,6 +413,13 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             gdb_script,
             "add-symbol-file {}",
             out.join(name).to_slash().unwrap()
+        )?;
+    }
+    if let Some(bootloader) = toml.bootloader.as_ref() {
+        writeln!(
+            gdb_script,
+            "add-symbol-file {}",
+            out.join(&bootloader.name).to_slash().unwrap()
         )?;
     }
     drop(gdb_script);
@@ -304,6 +467,10 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
     archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
+    if let Some(bootloader) = toml.bootloader.as_ref() {
+        archive
+            .copy(out.join(&bootloader.name), img_dir.join(&bootloader.name))?;
+    }
     for s in toml.signing.keys() {
         let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
         archive.copy(out.join(&name), img_dir.join(&name))?;
@@ -311,6 +478,59 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     archive.finish()?;
 
+    Ok(())
+}
+
+fn smash_bootloader(
+    bootloader: &PathBuf,
+    bootloader_addr: u32,
+    hubris: &PathBuf,
+    hubris_addr: u32,
+    entry: u32,
+    out: &PathBuf,
+) -> Result<()> {
+    let mut srec_out = vec![];
+    srec_out.push(srec::Record::S0("hubris+bootloader".to_string()));
+
+    let bootloader = std::fs::read(bootloader)?;
+
+    let mut addr = bootloader_addr;
+    for chunk in bootloader.chunks(255 - 5) {
+        srec_out.push(srec::Record::S3(srec::Data {
+            address: srec::Address32(addr),
+            data: chunk.to_vec(),
+        }));
+        addr += chunk.len() as u32;
+    }
+
+    drop(bootloader);
+
+    let hubris = std::fs::read(hubris)?;
+
+    let mut addr = hubris_addr;
+    for chunk in hubris.chunks(255 - 5) {
+        srec_out.push(srec::Record::S3(srec::Data {
+            address: srec::Address32(addr),
+            data: chunk.to_vec(),
+        }));
+        addr += chunk.len() as u32;
+    }
+
+    drop(hubris);
+
+    let out_sec_count = srec_out.len() - 1; // header
+    if out_sec_count < 0x1_00_00 {
+        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
+    } else if out_sec_count < 0x1_00_00_00 {
+        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
+    } else {
+        panic!("SREC limit of 2^24 output sections exceeded");
+    }
+
+    srec_out.push(srec::Record::S7(srec::Address32(entry)));
+
+    let srec_image = srec::writer::generate_srec_file(&srec_out);
+    std::fs::write(out, srec_image)?;
     Ok(())
 }
 
@@ -346,6 +566,86 @@ fn do_sign_file(
         eprintln!("Invalid sign method {}", sign.method);
         std::process::exit(1);
     }
+}
+
+fn generate_bootloader_linker_script(
+    name: &str,
+    map: &IndexMap<String, Range<u32>>,
+    sections: Option<&IndexMap<String, String>>,
+    sharedsyms: &[String],
+) {
+    // Put the linker script somewhere the linker can find it
+    let mut linkscr =
+        File::create(Path::new(&format!("target/{}", name))).unwrap();
+
+    writeln!(linkscr, "MEMORY\n{{").unwrap();
+    for (name, range) in map {
+        let start = range.start;
+        let end = range.end;
+        let name = name.to_ascii_uppercase();
+        writeln!(
+            linkscr,
+            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            name,
+            start,
+            end - start
+        )
+        .unwrap();
+    }
+    writeln!(linkscr, "}}").unwrap();
+
+    // Mappings for the secure entry. This needs to live in flash and be
+    // aligned to 32 bytes.
+    if let Some(map) = sections {
+        writeln!(linkscr, "SECTIONS {{").unwrap();
+
+        for (section, memory) in map {
+            writeln!(linkscr, "  .{} : ALIGN(32) {{", section).unwrap();
+            writeln!(linkscr, "    __start_{} = .;", section).unwrap();
+            writeln!(linkscr, "    KEEP(*(.{} .{}.*));", section, section)
+                .unwrap();
+            writeln!(linkscr, "     . = ALIGN(32);").unwrap();
+            writeln!(linkscr, "    __end_{} = .;", section).unwrap();
+            writeln!(linkscr, "    PROVIDE(address_of_start_{} = .);", section)
+                .unwrap();
+            writeln!(linkscr, "    LONG(__start_{});", section).unwrap();
+            writeln!(linkscr, "    PROVIDE(address_of_end_{} = .);", section)
+                .unwrap();
+            writeln!(linkscr, "    LONG(__end_{});", section).unwrap();
+
+            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
+                .unwrap();
+        }
+        writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
+    }
+
+    // Symbol addresses to be exported to tasks. This gets stripped
+    // later
+    writeln!(linkscr, "SECTIONS {{").unwrap();
+    writeln!(linkscr, "  .fake_output : ALIGN(32) {{").unwrap();
+
+    for s in sharedsyms {
+        writeln!(linkscr, "    LONG({});", s).unwrap();
+    }
+    writeln!(linkscr, "  }} > FLASH").unwrap();
+
+    writeln!(linkscr, "  .symbol_defs : {{").unwrap();
+
+    writeln!(linkscr, "  PROVIDE(address_of_imagea_flash = .);").unwrap();
+    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_FLASH));").unwrap();
+    writeln!(linkscr, "  PROVIDE(address_of_imagea_ram = .);").unwrap();
+    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_RAM));").unwrap();
+    writeln!(linkscr, "  }} > FLASH").unwrap();
+
+    writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
+
+    writeln!(linkscr, "SECTIONS {{").unwrap();
+    writeln!(linkscr, "  .attest (NOLOAD) : {{").unwrap();
+    writeln!(linkscr, "  KEEP(*(.attestation .attestation.*))").unwrap();
+    writeln!(linkscr, "  }} > SRAM").unwrap();
+    writeln!(linkscr, "}} INSERT AFTER .uninit").unwrap();
+
+    writeln!(linkscr, "IMAGEA = ORIGIN(IMAGEA_FLASH);").unwrap();
 }
 
 fn generate_task_linker_script(
@@ -404,6 +704,13 @@ fn generate_task_linker_script(
         writeln!(linkscr, "}} INSERT BEFORE .got")?;
     }
 
+    writeln!(linkscr, "SECTIONS {{").unwrap();
+    writeln!(linkscr, " .addr_table : ALIGN(32) {{").unwrap();
+    writeln!(linkscr, "    __bootloader_fn_table = .;").unwrap();
+    writeln!(linkscr, " INCLUDE table.ld").unwrap();
+    writeln!(linkscr, " }} > FLASH").unwrap();
+    writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
+
     Ok(())
 }
 
@@ -450,6 +757,7 @@ fn build(
     verbose: bool,
     task_names: &str,
     secure: &Option<bool>,
+    shared_syms: &Option<&[String]>,
 ) -> Result<()> {
     println!("building path {}", path.display());
 
@@ -502,6 +810,12 @@ fn build(
 
     cmd.env("HUBRIS_TASKS", task_names);
     cmd.env("HUBRIS_BOARD", board_name);
+
+    if let Some(s) = shared_syms {
+        if !s.is_empty() {
+            cmd.env("SHARED_SYMS", s.join(","));
+        }
+    }
 
     if let Some(s) = secure {
         if *s {
@@ -1040,6 +1354,23 @@ fn write_srec(
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out, srec_image)?;
+    Ok(())
+}
+
+fn objcopy_grab_binary(in_format: &str, src: &Path, dest: &Path) -> Result<()> {
+    let mut cmd = Command::new("arm-none-eabi-objcopy");
+    cmd.arg("-I")
+        .arg(in_format)
+        .arg("-O")
+        .arg("binary")
+        .arg("--only-section=.fake_output")
+        .arg(src)
+        .arg(dest);
+
+    let status = cmd.status()?;
+    if !status.success() {
+        bail!("objcopy failed, see output for details");
+    }
     Ok(())
 }
 
