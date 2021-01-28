@@ -26,7 +26,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 .arg("lpc55s69")
                 .arg("--format")
                 .arg("hex")
-                .arg(out.join("combined.ihex"));
+                .arg(out.join("final.ihex"));
 
             let mut reset = Command::new("pyocd");
             reset.arg("reset").arg("-t").arg("lpc55s69");
@@ -53,7 +53,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 .arg("lpc55s28")
                 .arg("--format")
                 .arg("hex")
-                .arg(out.join("combined.ihex"));
+                .arg(out.join("final.ihex"));
 
             let mut reset = Command::new("pyocd");
             reset.arg("reset").arg("-t").arg("lpc55s28");
@@ -98,7 +98,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 .arg("-c")
                 .arg(format!(
                     "program {} verify reset",
-                    out.join("combined.srec").to_slash().unwrap()
+                    out.join("final.srec").to_slash().unwrap()
                 ))
                 .arg("-c")
                 .arg("exit");
