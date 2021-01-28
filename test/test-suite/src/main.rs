@@ -69,8 +69,32 @@ test_cases! {
     test_task_fault_injection,
     test_refresh_task_id_basic,
     test_refresh_task_id_off_by_one,
-    test_refresh_task_id_off_by_many
+    test_refresh_task_id_off_by_many,
+    test_lpc55_flash_write
 }
+
+#[cfg(feature = "lpc55")]
+fn test_lpc55_flash_write() {
+    // Minimum write size is 512 bytes
+    let buf: [u8; 512] = [0xdd; 512];
+
+    let result = hypocalls::hypo_write_to_flash(0, &buf);
+
+    assert_eq!(result, hypocalls::FlashStatus::Success);
+
+    // Verify that we reject non-zero ids
+    let result = hypocalls::hypo_write_to_flash(1, &buf);
+    assert_eq!(result, hypocalls::FlashStatus::InvalidArg);
+
+    // Verify that we fail to write smaller buffers
+    let small: [u8; 32] = [0xcc; 32];
+
+    let result = hypocalls::hypo_write_to_flash(0, &small);
+    assert_eq!(result, hypocalls::FlashStatus::AlignmentError);
+}
+
+#[cfg(not(feature = "lpc55"))]
+fn test_lpc55_flash_write() {}
 
 /// Tests that we can send a message to our assistant, and that the assistant
 /// can reply. Technically this is also a test of RECV/REPLY on the assistant

@@ -14,7 +14,7 @@ pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
     out.push("dist");
 
     let gdb_path = out.join("script.gdb");
-    let combined_path = out.join("combined.elf");
+    let combined_path = out.join("final.elf");
 
     let mut cmd = None;
 
