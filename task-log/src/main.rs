@@ -17,7 +17,6 @@
 //! will be very small, and more complex ones will be fairly tiny. There is a
 //! maximum length of 256 bytes for any given message.
 
-
 #![no_std]
 #![no_main]
 
