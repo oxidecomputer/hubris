@@ -7,7 +7,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -480,7 +480,10 @@ fn build(
         }
     }
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to run rustc ({:?})", cmd))?;
+
     if !status.success() {
         bail!("command failed, see output for details");
     }
@@ -963,7 +966,9 @@ fn get_git_status() -> Result<(String, bool)> {
 
     let mut cmd = Command::new("git");
     cmd.arg("diff-index").arg("--quiet").arg("HEAD").arg("--");
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to get git status ({:?})", cmd))?;
 
     Ok((rev, !status.success()))
 }
@@ -1018,7 +1023,10 @@ fn objcopy_translate_format(
         .arg(src)
         .arg(dest);
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to objcopy ({:?})", cmd))?;
+
     if !status.success() {
         bail!("objcopy failed, see output for details");
     }
@@ -1036,7 +1044,10 @@ fn cargo_clean(name: &str, target: &str) -> Result<()> {
     cmd.arg("--target");
     cmd.arg(target);
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to cargo clean ({:?})", cmd))?;
+
     if !status.success() {
         bail!("command failed, see output for details");
     }
