@@ -12,9 +12,11 @@ use anyhow::{bail, Context, Result};
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 
-use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
+use crate::{
+    Config, LoadSegment, Output, Peripheral, Signing, Supervisor, Task,
+};
 
-use lpc55_support::{crc_image, signed_image};
+use lpc55_support::{crc_image, sign_ecc, signed_image};
 
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
@@ -230,26 +232,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &out.join("combined.bin"),
     )?;
 
-    if let Some(signing) = toml.sign_method.as_ref() {
-        if signing.method == "crc" {
-            crc_image::update_crc(
-                &out.join("combined.bin"),
-                &out.join("combined_crc.bin"),
-            )?;
-        } else if signing.method == "secure_boot" {
-            let priv_key = signing.priv_key.as_ref().unwrap();
-            let root_cert = signing.root_cert.as_ref().unwrap();
-            signed_image::sign_image(
-                &out.join("combined.bin"),
-                &src_dir.join(&priv_key),
-                &src_dir.join(&root_cert),
-                &out.join("combined_signed.bin"),
-                &out.join("CMPA.bin"),
-            )?;
-        } else {
-            eprintln!("Invalid sign method {}", signing.method);
-            std::process::exit(1);
-        }
+    if let Some(signing) = toml.signing.get("combined") {
+        do_sign_file(signing, &out, &src_dir, "combined")?;
     }
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
@@ -310,24 +294,48 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
     archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
-    if let Some(signing) = toml.sign_method.as_ref() {
-        if signing.method == "crc" {
-            archive.copy(
-                out.join("combined_crc.bin"),
-                img_dir.join("combined_crc.bin"),
-            )?;
-        } else if signing.method == "secure_boot" {
-            archive.copy(
-                out.join("combined_signed.bin"),
-                img_dir.join("combined_signed.bin"),
-            )?;
-            archive.copy(out.join("CMPA.bin"), img_dir.join("CMPA.bin"))?;
-        }
+    for s in toml.signing.keys() {
+        let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
+        archive.copy(out.join(&name), img_dir.join(&name))?;
     }
 
     archive.finish()?;
 
     Ok(())
+}
+
+fn do_sign_file(
+    sign: &Signing,
+    out: &PathBuf,
+    src_dir: &PathBuf,
+    fname: &str,
+) -> Result<()> {
+    if sign.method == "crc" {
+        crc_image::update_crc(
+            &out.join(format!("{}.bin", fname)),
+            &out.join(format!("{}_crc.bin", fname)),
+        )
+    } else if sign.method == "rsa" {
+        let priv_key = sign.priv_key.as_ref().unwrap();
+        let root_cert = sign.root_cert.as_ref().unwrap();
+        signed_image::sign_image(
+            &out.join(format!("{}.bin", fname)),
+            &src_dir.join(&priv_key),
+            &src_dir.join(&root_cert),
+            &out.join(format!("{}_rsa.bin", fname)),
+            &out.join("CMPA.bin"),
+        )
+    } else if sign.method == "ecc" {
+        let priv_key = sign.priv_key.as_ref().unwrap();
+        sign_ecc::ecc_sign_image(
+            &out.join(format!("{}.bin", fname)),
+            &src_dir.join(&priv_key),
+            &out.join(format!("{}_ecc.bin", fname)),
+        )
+    } else {
+        eprintln!("Invalid sign method {}", sign.method);
+        std::process::exit(1);
+    }
 }
 
 fn generate_task_linker_script(
