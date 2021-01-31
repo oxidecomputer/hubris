@@ -4,7 +4,7 @@ ENTRY(_start);
 
 SECTIONS
 {
-  PROVIDE(_stack_start = ORIGIN(RAM) + LENGTH(RAM));
+  PROVIDE(_stack_start = ORIGIN(STACK) + LENGTH(STACK));
 
   PROVIDE(_stext = ORIGIN(FLASH));
 

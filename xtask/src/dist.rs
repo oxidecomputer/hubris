@@ -124,11 +124,28 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
+
+        let stacksize = match task_toml.stacksize {
+            Some(stacksize) => stacksize,
+            None => match toml.stacksize {
+                Some(stacksize) => stacksize,
+                None => {
+                    bail!(format!(
+                        "{} does not have a stack size \
+                        specified and there is no default",
+                        name
+                    ))
+                }
+            },
+        };
+
         generate_task_linker_script(
             "memory.x",
             &task_memory[name],
             Some(&task_toml.sections),
-        );
+            stacksize,
+        )
+        .context(format!("failed to generate linker script for {}", name))?;
 
         fs::copy("task-link.x", "target/link.x")?;
 
@@ -142,7 +159,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             verbose,
             &task_names,
             &toml.secure,
-        )?;
+        )
+        .context(format!("failed to build {}", name))?;
 
         let (ep, flash) = load_elf(&out.join(name), &mut all_output_sections)?;
 
@@ -166,6 +184,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &toml.peripherals,
         toml.supervisor.as_ref(),
         &task_memory,
+        toml.stacksize,
         &toml.outputs,
         &entry_points,
     )? {
@@ -342,38 +361,60 @@ fn generate_task_linker_script(
     name: &str,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-) {
+    stacksize: u32,
+) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
+    let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
 
-    writeln!(linkscr, "MEMORY\n{{").unwrap();
+    macro_rules! emit {
+        ($sec:expr, $start:expr, $size:expr) => {
+            writeln!(
+                linkscr,
+                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                $sec, $start, $size
+            )?;
+        };
+    }
+
+    writeln!(linkscr, "MEMORY\n{{")?;
     for (name, range) in map {
-        let start = range.start;
+        let mut start = range.start;
         let end = range.end;
         let name = name.to_ascii_uppercase();
-        writeln!(
-            linkscr,
-            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
-            name,
-            start,
-            end - start
-        )
-        .unwrap();
+
+        // Our stack comes out of RAM
+        if name == "RAM" {
+            if stacksize & 0x7 != 0 {
+                // If we are not 8-byte aligned, the kernel will not be
+                // pleased -- and can't be blamed for a little rudeness;
+                // check this here and fail explicitly if it's unaligned.
+                bail!("specified stack size is not 8-byte aligned");
+            }
+
+            emit!("STACK", start, stacksize);
+            start += stacksize;
+
+            if start > end {
+                bail!("specified stack size is greater than RAM size");
+            }
+        }
+
+        emit!(name, start, end - start);
     }
-    write!(linkscr, "}}").unwrap();
+    writeln!(linkscr, "}}")?;
 
     // The task may have defined additional section-to-memory mappings.
     if let Some(map) = sections {
-        writeln!(linkscr, "SECTIONS {{").unwrap();
+        writeln!(linkscr, "SECTIONS {{")?;
         for (section, memory) in map {
-            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section).unwrap();
-            writeln!(linkscr, "    *(.{} .{}.*);", section, section).unwrap();
-            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
-                .unwrap();
+            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
+            writeln!(linkscr, "    *(.{} .{}.*);", section, section)?;
+            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())?;
         }
-        writeln!(linkscr, "}} INSERT BEFORE .got").unwrap();
+        writeln!(linkscr, "}} INSERT BEFORE .got")?;
     }
+
+    Ok(())
 }
 
 fn generate_kernel_linker_script(
@@ -568,6 +609,7 @@ fn make_descriptors(
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>> {
@@ -685,10 +727,12 @@ fn make_descriptors(
         if task.start {
             flags |= abi::TaskFlags::START_AT_BOOT;
         }
+
         task_descs.push(abi::TaskDesc {
             regions: task_regions,
             entry_point: entry_points[name],
-            initial_stack: task_allocations[name]["ram"].end,
+            initial_stack: task_allocations[name]["ram"].start
+                + task.stacksize.unwrap_or(stacksize.unwrap()),
             priority: task.priority,
             flags,
         });

@@ -1,6 +1,7 @@
 name = "tests-stm32h743"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h743zi2"
+stacksize = 1024
 
 [kernel]
 path = "../../demo-stm32h7"
@@ -64,4 +65,5 @@ path = "../../task-idle"
 name = "task-idle"
 priority = 3
 requires = {flash = 256, ram = 256}
+stacksize = 256
 start = true
