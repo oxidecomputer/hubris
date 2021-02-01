@@ -13,6 +13,32 @@
 //! Enabling this feature will add 258 bytes of flash to your task. This is
 //! because we need to create a small buffer to produce the full log message in
 //! before sending it to the log task.
+//!
+//! There are two macros you can use, currently: `debug!` and `error!`. We may
+//! add more if needed in the future.
+//!
+//! # Examples
+//!
+//! Basic usage:
+//!
+//! ```
+//! userlib::debug!("Ping task starting!");
+//! ```
+//!
+//! # Internals: defmt
+//!
+//! These macros are built off of the defmt crate, and basically re-export them.
+//! We do this for a few reasons. First of all, by defining our own macros, we
+//! insert an architectural seam; if we ever desire switching away from defmt,
+//! we'll be able to do so.
+//!
+//! Beyond that, doing this means that you don't have to go through the trouble
+//! of depending on defmt in your task; you can use this version from userlib,
+//! which you are probably already using. Given the whole system shares one
+//! version of userlib, this also has a side benefit of not accidentally using
+//! different defmt versions in different tasks. Defmt already has the ability
+//! to detect such a situation and show an error, but ideally, you could never
+//! get into that inconsistent state in the first place.
 
 use crate::{sys_send, Lease};
 
