@@ -93,8 +93,9 @@ path = "../drv/lpc55-rng"
 name = "drv-lpc55-rng"
 priority = 2
 requires = {flash = 16384, ram = 1024}
-uses = ["rng", "pmc"]
+uses = ["rng"]
 start = true
+stacksize = 1000
 
 [tasks.spi_driver]
 path = "../drv/lpc55-spi"

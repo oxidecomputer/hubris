@@ -24,9 +24,11 @@
 #![no_main]
 
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use rand_core::{block::BlockRng, RngCore};
 use userlib::*;
 use zerocopy::AsBytes;
 
+use drv_lpc55_rng_core as rng_core;
 use lpc55_pac as device;
 
 #[cfg(not(feature = "standalone"))]
@@ -57,10 +59,16 @@ fn main() -> ! {
 
     syscon.enable_clock(Peripheral::Rng);
 
-    let rng = unsafe { &*device::RNG::ptr() };
+    let registers = unsafe { &*device::RNG::ptr() };
+    let mut rng = rng_core::Rng::from(registers);
+
     let pmc = unsafe { &*device::PMC::ptr() };
 
     let mut buffer = [0u32; 1];
+
+    rng.initialize();
+
+    let mut wrapped = BlockRng::new(rng_core::ReseedingCore::new(0x10000, rng));
 
     loop {
         hl::recv_without_notification(
@@ -74,7 +82,7 @@ fn main() -> ! {
                     return Err(ResponseCode::PoweredOff);
                 }
 
-                let number = rng.random_number.read().bits();
+                let number = wrapped.next_u32();
 
                 caller.reply(number);
 

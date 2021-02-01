@@ -1,23 +1,17 @@
 [package]
-name = "drv-lpc55-rng"
+name = "lpc55-rng-api"
 version = "0.1.0"
-authors = ["Steve Klabnik <steve.klabnik@oxide.computer>",]
+authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
-
-[features]
-default = ["standalone", "rng"]
-standalone = []
-rng = ["chacha20/rng"]
 
 [dependencies]
 userlib = {path = "../../userlib"}
 zerocopy = "0.3.0"
-lpc55-pac = "0.1.0"
-num-traits = { version = "0.2.12", default-features = false }
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-drv-lpc55-rng-core = {path = "../lpc55-rng-core"}
 rand_core = { version = "0.5.0", default-features = false }
-chacha20 = "0.6.0"
+
+[features]
+default = ["standalone"]
+standalone = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]
@@ -25,7 +19,6 @@ target = "thumbv8m.main-none-eabihf"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-rng"
+[lib]
 test = false
 bench = false
