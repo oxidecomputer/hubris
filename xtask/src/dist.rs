@@ -7,7 +7,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -125,25 +125,16 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
 
-        let stacksize = match task_toml.stacksize {
-            Some(stacksize) => stacksize,
-            None => match toml.stacksize {
-                Some(stacksize) => stacksize,
-                None => {
-                    bail!(format!(
-                        "{} does not have a stack size \
-                        specified and there is no default",
-                        name
-                    ))
-                }
-            },
-        };
-
         generate_task_linker_script(
             "memory.x",
             &task_memory[name],
             Some(&task_toml.sections),
-            stacksize,
+            task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+                anyhow!(
+                    "{}: no stack size specified and there is no default",
+                    name
+                )
+            })?,
         )
         .context(format!("failed to generate linker script for {}", name))?;
 
@@ -366,14 +357,13 @@ fn generate_task_linker_script(
     // Put the linker script somewhere the linker can find it
     let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
 
-    macro_rules! emit {
-        ($sec:expr, $start:expr, $size:expr) => {
-            writeln!(
-                linkscr,
-                "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
-                $sec, $start, $size
-            )?;
-        };
+    fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
+        writeln!(
+            linkscr,
+            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            sec, o, l
+        )?;
+        Ok(())
     }
 
     writeln!(linkscr, "MEMORY\n{{")?;
@@ -391,7 +381,7 @@ fn generate_task_linker_script(
                 bail!("specified stack size is not 8-byte aligned");
             }
 
-            emit!("STACK", start, stacksize);
+            emit(&mut linkscr, "STACK", start, stacksize)?;
             start += stacksize;
 
             if start > end {
@@ -399,7 +389,7 @@ fn generate_task_linker_script(
             }
         }
 
-        emit!(name, start, end - start);
+        emit(&mut linkscr, &name, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
 

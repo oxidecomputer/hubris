@@ -337,12 +337,11 @@ pub fn reinitialize(task: &mut task::Task) {
         )
         .unwrap();
 
-        let len = uslice.len();
         uassert!(task.can_write(&uslice));
         let zap = unsafe { &mut uslice.assume_writable() };
 
-        for i in 0..len {
-            zap[i] = 0xbaddcafe;
+        for word in zap.iter_mut() {
+            *word = 0xbaddcafe;
         }
     }
 
