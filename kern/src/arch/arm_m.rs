@@ -301,21 +301,49 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
+    let initial_stack = task.descriptor().initial_stack;
+
     // Modern ARMv7-M machines require 8-byte stack alignment.
     // TODO: it is a little rude to assert this in an operation that can be used
     // after boot... but we do want to ensure that this condition holds...
-    uassert!(task.descriptor().initial_stack & 0x7 == 0);
+    uassert!(initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     let mut uslice: USlice<ExtendedExceptionFrame> = USlice::from_raw(
-        task.descriptor().initial_stack as usize - frame_size,
+        initial_stack as usize - frame_size,
         1,
     )
     .unwrap();
     uassert!(task.can_write(&uslice));
+
+    // Before we set our frame, find the region that contains our initial stack
+    // pointer, and zap the region from the base to the stack pointer with a
+    // distinct (and storied) pattern.
+    for region in task.region_table().iter() {
+        if initial_stack < region.base {
+            continue;
+        }
+
+        if initial_stack > region.base + region.size {
+            continue;
+        }
+
+        let mut uslice: USlice<u32> = USlice::from_raw(
+            region.base as usize,
+            (initial_stack as usize - frame_size - region.base as usize) >> 2,
+        )
+        .unwrap();
+
+        uassert!(task.can_write(&uslice));
+        let zap = unsafe { &mut uslice.assume_writable() };
+
+        for word in zap.iter_mut() {
+            *word = 0xbaddcafe;
+        }
+    }
 
     let frame = unsafe { &mut uslice.assume_writable()[0] };
 

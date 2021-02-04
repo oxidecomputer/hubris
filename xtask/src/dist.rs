@@ -7,7 +7,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -124,11 +124,19 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
+
         generate_task_linker_script(
             "memory.x",
             &task_memory[name],
             Some(&task_toml.sections),
-        );
+            task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+                anyhow!(
+                    "{}: no stack size specified and there is no default",
+                    name
+                )
+            })?,
+        )
+        .context(format!("failed to generate linker script for {}", name))?;
 
         fs::copy("task-link.x", "target/link.x")?;
 
@@ -142,7 +150,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             verbose,
             &task_names,
             &toml.secure,
-        )?;
+        )
+        .context(format!("failed to build {}", name))?;
 
         let (ep, flash) = load_elf(&out.join(name), &mut all_output_sections)?;
 
@@ -166,6 +175,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &toml.peripherals,
         toml.supervisor.as_ref(),
         &task_memory,
+        toml.stacksize,
         &toml.outputs,
         &entry_points,
     )? {
@@ -342,38 +352,59 @@ fn generate_task_linker_script(
     name: &str,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-) {
+    stacksize: u32,
+) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
+    let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
 
-    writeln!(linkscr, "MEMORY\n{{").unwrap();
-    for (name, range) in map {
-        let start = range.start;
-        let end = range.end;
-        let name = name.to_ascii_uppercase();
+    fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
             linkscr,
             "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
-            name,
-            start,
-            end - start
-        )
-        .unwrap();
+            sec, o, l
+        )?;
+        Ok(())
     }
-    write!(linkscr, "}}").unwrap();
+
+    writeln!(linkscr, "MEMORY\n{{")?;
+    for (name, range) in map {
+        let mut start = range.start;
+        let end = range.end;
+        let name = name.to_ascii_uppercase();
+
+        // Our stack comes out of RAM
+        if name == "RAM" {
+            if stacksize & 0x7 != 0 {
+                // If we are not 8-byte aligned, the kernel will not be
+                // pleased -- and can't be blamed for a little rudeness;
+                // check this here and fail explicitly if it's unaligned.
+                bail!("specified stack size is not 8-byte aligned");
+            }
+
+            emit(&mut linkscr, "STACK", start, stacksize)?;
+            start += stacksize;
+
+            if start > end {
+                bail!("specified stack size is greater than RAM size");
+            }
+        }
+
+        emit(&mut linkscr, &name, start, end - start)?;
+    }
+    writeln!(linkscr, "}}")?;
 
     // The task may have defined additional section-to-memory mappings.
     if let Some(map) = sections {
-        writeln!(linkscr, "SECTIONS {{").unwrap();
+        writeln!(linkscr, "SECTIONS {{")?;
         for (section, memory) in map {
-            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section).unwrap();
-            writeln!(linkscr, "    *(.{} .{}.*);", section, section).unwrap();
-            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
-                .unwrap();
+            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
+            writeln!(linkscr, "    *(.{} .{}.*);", section, section)?;
+            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())?;
         }
-        writeln!(linkscr, "}} INSERT BEFORE .got").unwrap();
+        writeln!(linkscr, "}} INSERT BEFORE .got")?;
     }
+
+    Ok(())
 }
 
 fn generate_kernel_linker_script(
@@ -480,7 +511,10 @@ fn build(
         }
     }
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to run rustc ({:?})", cmd))?;
+
     if !status.success() {
         bail!("command failed, see output for details");
     }
@@ -565,6 +599,7 @@ fn make_descriptors(
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>> {
@@ -682,10 +717,12 @@ fn make_descriptors(
         if task.start {
             flags |= abi::TaskFlags::START_AT_BOOT;
         }
+
         task_descs.push(abi::TaskDesc {
             regions: task_regions,
             entry_point: entry_points[name],
-            initial_stack: task_allocations[name]["ram"].end,
+            initial_stack: task_allocations[name]["ram"].start
+                + task.stacksize.unwrap_or(stacksize.unwrap()),
             priority: task.priority,
             flags,
         });
@@ -963,7 +1000,9 @@ fn get_git_status() -> Result<(String, bool)> {
 
     let mut cmd = Command::new("git");
     cmd.arg("diff-index").arg("--quiet").arg("HEAD").arg("--");
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to get git status ({:?})", cmd))?;
 
     Ok((rev, !status.success()))
 }
@@ -1018,7 +1057,10 @@ fn objcopy_translate_format(
         .arg(src)
         .arg(dest);
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to objcopy ({:?})", cmd))?;
+
     if !status.success() {
         bail!("objcopy failed, see output for details");
     }
@@ -1036,7 +1078,10 @@ fn cargo_clean(name: &str, target: &str) -> Result<()> {
     cmd.arg("--target");
     cmd.arg(target);
 
-    let status = cmd.status()?;
+    let status = cmd
+        .status()
+        .context(format!("failed to cargo clean ({:?})", cmd))?;
+
     if !status.success() {
         bail!("command failed, see output for details");
     }
