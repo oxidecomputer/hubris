@@ -93,8 +93,10 @@ struct Config {
     name: String,
     target: String,
     board: String,
-    sign_method: Option<Signing>,
+    #[serde(default)]
+    signing: IndexMap<String, Signing>,
     secure: Option<bool>,
+    stacksize: Option<u32>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
@@ -149,6 +151,7 @@ struct Task {
     name: String,
     requires: IndexMap<String, u32>,
     priority: u32,
+    stacksize: Option<u32>,
     #[serde(default)]
     uses: Vec<String>,
     #[serde(default)]

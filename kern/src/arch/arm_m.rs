@@ -15,7 +15,7 @@
 //!
 //! For performance and (believe it or not) simplicity, this implementation uses
 //! several different interrupt service routines:
-//! 
+//!
 //! - `SVCall` implements the `SVC` instruction used to make syscalls.
 //! - `SysTick` handles interrupts from the System Tick Timer, used to maintain
 //! the kernel timestamp.
@@ -72,11 +72,11 @@ use core::ptr::NonNull;
 
 use zerocopy::FromBytes;
 
-use abi::{FaultSource, FaultInfo};
 use crate::app;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+use abi::{FaultInfo, FaultSource};
 
 /// Log things from kernel context. This macro is made visible to the rest of
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
@@ -96,8 +96,8 @@ use crate::umem::USlice;
 ///
 #[cfg(not(any(feature = "klog-semihosting", feature = "klog-itm")))]
 macro_rules! klog {
-    ($s:expr) => { };
-    ($s:expr, $($tt:tt)*) => { };
+    ($s:expr) => {};
+    ($s:expr, $($tt:tt)*) => {};
 }
 
 #[cfg(feature = "klog-itm")]
@@ -126,18 +126,18 @@ macro_rules! klog {
 
 macro_rules! uassert {
     ($cond : expr) => {
-        if ! $cond {
+        if !$cond {
             panic!("Assertion failed!");
         }
-    }
+    };
 }
 
 macro_rules! uassert_eq {
     ($cond1 : expr, $cond2 : expr) => {
-        if ! ($cond1 == $cond2) {
+        if !($cond1 == $cond2) {
             panic!("Assertion failed!");
         }
-    }
+    };
 }
 
 /// On ARMvx-M we use a global to record the task table position and extent.
@@ -301,21 +301,49 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
+    let initial_stack = task.descriptor().initial_stack;
+
     // Modern ARMv7-M machines require 8-byte stack alignment.
     // TODO: it is a little rude to assert this in an operation that can be used
     // after boot... but we do want to ensure that this condition holds...
-    uassert!(task.descriptor().initial_stack & 0x7 == 0);
+    uassert!(initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     let mut uslice: USlice<ExtendedExceptionFrame> = USlice::from_raw(
-        task.descriptor().initial_stack as usize - frame_size,
+        initial_stack as usize - frame_size,
         1,
     )
     .unwrap();
     uassert!(task.can_write(&uslice));
+
+    // Before we set our frame, find the region that contains our initial stack
+    // pointer, and zap the region from the base to the stack pointer with a
+    // distinct (and storied) pattern.
+    for region in task.region_table().iter() {
+        if initial_stack < region.base {
+            continue;
+        }
+
+        if initial_stack > region.base + region.size {
+            continue;
+        }
+
+        let mut uslice: USlice<u32> = USlice::from_raw(
+            region.base as usize,
+            (initial_stack as usize - frame_size - region.base as usize) >> 2,
+        )
+        .unwrap();
+
+        uassert!(task.can_write(&uslice));
+        let zap = unsafe { &mut uslice.assume_writable() };
+
+        for word in zap.iter_mut() {
+            *word = 0xbaddcafe;
+        }
+    }
 
     let frame = unsafe { &mut uslice.assume_writable()[0] };
 
@@ -448,8 +476,8 @@ pub fn apply_memory_protection(task: &task::Task) {
             // Outer/inner non-cacheable, outer shared.
             (0b01000100, 0b10)
         } else {
-            let rw =
-                u32::from(ratts.contains(app::RegionAttributes::READ)) << 1
+            let rw = u32::from(ratts.contains(app::RegionAttributes::READ))
+                << 1
                 | u32::from(ratts.contains(app::RegionAttributes::WRITE));
             // write-back transient, not shared
             (0b0100_0100 | rw | rw << 4, 0b00)
@@ -680,7 +708,9 @@ pub unsafe extern "C" fn SVCall() {
 ///
 /// You can use this safely at kernel entry points, exactly once, to create a
 /// reference to the task table.
-pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R{
+pub unsafe fn with_task_table<R>(
+    body: impl FnOnce(&mut [task::Task]) -> R,
+) -> R {
     let tasks = core::slice::from_raw_parts_mut(
         TASK_TABLE_BASE.expect("kernel not started").as_mut(),
         TASK_TABLE_SIZE,
@@ -694,7 +724,7 @@ pub unsafe fn with_task_table<R>(body: impl FnOnce(&mut [task::Task]) -> R) -> R
 ///
 /// Because the lifetime of the reference passed into `body` is anonymous, the
 /// reference can't easily be stored, which is deliberate.
-pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R{
+pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R {
     // Safety: as long as a legit pointer was stored in IRQ_TABLE_BASE, or no
     // pointer has been stored, we can do this safely.
     let table = unsafe {
@@ -770,7 +800,8 @@ fn pend_context_switch_from_isr() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    asm!("
+    asm!(
+        "
         @ store volatile state.
         @ first, get a pointer to the current task.
         movw r0, #:lower16:CURRENT_TASK_PTR
@@ -847,7 +878,6 @@ pub unsafe extern "C" fn DefaultHandler() {
         // 13 is currently reserved
         // 14=PendSV is handled above by its own handler
         // 15=SysTick is handled above by its own handler
-
         x if x > 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;

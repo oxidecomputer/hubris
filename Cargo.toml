@@ -15,6 +15,7 @@ members = [
     "kern",
     "ringbuf",
     "userlib",
+    "lpc55_romapi",
 
     "task-template",
 

@@ -7,14 +7,16 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 
-use crate::{Config, LoadSegment, Output, Peripheral, Supervisor, Task};
+use crate::{
+    Config, LoadSegment, Output, Peripheral, Signing, Supervisor, Task,
+};
 
-use lpc55_support::{crc_image, signed_image};
+use lpc55_support::{crc_image, sign_ecc, signed_image};
 
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
@@ -122,11 +124,19 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
     for name in toml.tasks.keys() {
         let task_toml = &toml.tasks[name];
+
         generate_task_linker_script(
             "memory.x",
             &task_memory[name],
             Some(&task_toml.sections),
-        );
+            task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+                anyhow!(
+                    "{}: no stack size specified and there is no default",
+                    name
+                )
+            })?,
+        )
+        .context(format!("failed to generate linker script for {}", name))?;
 
         fs::copy("task-link.x", "target/link.x")?;
 
@@ -140,7 +150,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             verbose,
             &task_names,
             &toml.secure,
-        )?;
+        )
+        .context(format!("failed to build {}", name))?;
 
         let (ep, flash) = load_elf(&out.join(name), &mut all_output_sections)?;
 
@@ -164,6 +175,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &toml.peripherals,
         toml.supervisor.as_ref(),
         &task_memory,
+        toml.stacksize,
         &toml.outputs,
         &entry_points,
     )? {
@@ -230,26 +242,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &out.join("combined.bin"),
     )?;
 
-    if let Some(signing) = toml.sign_method.as_ref() {
-        if signing.method == "crc" {
-            crc_image::update_crc(
-                &out.join("combined.bin"),
-                &out.join("combined_crc.bin"),
-            )?;
-        } else if signing.method == "secure_boot" {
-            let priv_key = signing.priv_key.as_ref().unwrap();
-            let root_cert = signing.root_cert.as_ref().unwrap();
-            signed_image::sign_image(
-                &out.join("combined.bin"),
-                &src_dir.join(&priv_key),
-                &src_dir.join(&root_cert),
-                &out.join("combined_signed.bin"),
-                &out.join("CMPA.bin"),
-            )?;
-        } else {
-            eprintln!("Invalid sign method {}", signing.method);
-            std::process::exit(1);
-        }
+    if let Some(signing) = toml.signing.get("combined") {
+        do_sign_file(signing, &out, &src_dir, "combined")?;
     }
 
     let mut gdb_script = File::create(out.join("script.gdb"))?;
@@ -310,19 +304,9 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
     archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
-    if let Some(signing) = toml.sign_method.as_ref() {
-        if signing.method == "crc" {
-            archive.copy(
-                out.join("combined_crc.bin"),
-                img_dir.join("combined_crc.bin"),
-            )?;
-        } else if signing.method == "secure_boot" {
-            archive.copy(
-                out.join("combined_signed.bin"),
-                img_dir.join("combined_signed.bin"),
-            )?;
-            archive.copy(out.join("CMPA.bin"), img_dir.join("CMPA.bin"))?;
-        }
+    for s in toml.signing.keys() {
+        let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
+        archive.copy(out.join(&name), img_dir.join(&name))?;
     }
 
     archive.finish()?;
@@ -330,42 +314,97 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     Ok(())
 }
 
+fn do_sign_file(
+    sign: &Signing,
+    out: &PathBuf,
+    src_dir: &PathBuf,
+    fname: &str,
+) -> Result<()> {
+    if sign.method == "crc" {
+        crc_image::update_crc(
+            &out.join(format!("{}.bin", fname)),
+            &out.join(format!("{}_crc.bin", fname)),
+        )
+    } else if sign.method == "rsa" {
+        let priv_key = sign.priv_key.as_ref().unwrap();
+        let root_cert = sign.root_cert.as_ref().unwrap();
+        signed_image::sign_image(
+            &out.join(format!("{}.bin", fname)),
+            &src_dir.join(&priv_key),
+            &src_dir.join(&root_cert),
+            &out.join(format!("{}_rsa.bin", fname)),
+            &out.join("CMPA.bin"),
+        )
+    } else if sign.method == "ecc" {
+        let priv_key = sign.priv_key.as_ref().unwrap();
+        sign_ecc::ecc_sign_image(
+            &out.join(format!("{}.bin", fname)),
+            &src_dir.join(&priv_key),
+            &out.join(format!("{}_ecc.bin", fname)),
+        )
+    } else {
+        eprintln!("Invalid sign method {}", sign.method);
+        std::process::exit(1);
+    }
+}
+
 fn generate_task_linker_script(
     name: &str,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-) {
+    stacksize: u32,
+) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
+    let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
 
-    writeln!(linkscr, "MEMORY\n{{").unwrap();
-    for (name, range) in map {
-        let start = range.start;
-        let end = range.end;
-        let name = name.to_ascii_uppercase();
+    fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
             linkscr,
             "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
-            name,
-            start,
-            end - start
-        )
-        .unwrap();
+            sec, o, l
+        )?;
+        Ok(())
     }
-    write!(linkscr, "}}").unwrap();
+
+    writeln!(linkscr, "MEMORY\n{{")?;
+    for (name, range) in map {
+        let mut start = range.start;
+        let end = range.end;
+        let name = name.to_ascii_uppercase();
+
+        // Our stack comes out of RAM
+        if name == "RAM" {
+            if stacksize & 0x7 != 0 {
+                // If we are not 8-byte aligned, the kernel will not be
+                // pleased -- and can't be blamed for a little rudeness;
+                // check this here and fail explicitly if it's unaligned.
+                bail!("specified stack size is not 8-byte aligned");
+            }
+
+            emit(&mut linkscr, "STACK", start, stacksize)?;
+            start += stacksize;
+
+            if start > end {
+                bail!("specified stack size is greater than RAM size");
+            }
+        }
+
+        emit(&mut linkscr, &name, start, end - start)?;
+    }
+    writeln!(linkscr, "}}")?;
 
     // The task may have defined additional section-to-memory mappings.
     if let Some(map) = sections {
-        writeln!(linkscr, "SECTIONS {{").unwrap();
+        writeln!(linkscr, "SECTIONS {{")?;
         for (section, memory) in map {
-            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section).unwrap();
-            writeln!(linkscr, "    *(.{} .{}.*);", section, section).unwrap();
-            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
-                .unwrap();
+            writeln!(linkscr, "  .{} (NOLOAD) : ALIGN(4) {{", section)?;
+            writeln!(linkscr, "    *(.{} .{}.*);", section, section)?;
+            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())?;
         }
-        writeln!(linkscr, "}} INSERT BEFORE .got").unwrap();
+        writeln!(linkscr, "}} INSERT BEFORE .got")?;
     }
+
+    Ok(())
 }
 
 fn generate_kernel_linker_script(
@@ -560,6 +599,7 @@ fn make_descriptors(
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
     task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
 ) -> Result<Vec<u32>> {
@@ -677,10 +717,12 @@ fn make_descriptors(
         if task.start {
             flags |= abi::TaskFlags::START_AT_BOOT;
         }
+
         task_descs.push(abi::TaskDesc {
             regions: task_regions,
             entry_point: entry_points[name],
-            initial_stack: task_allocations[name]["ram"].end,
+            initial_stack: task_allocations[name]["ram"].start
+                + task.stacksize.unwrap_or(stacksize.unwrap()),
             priority: task.priority,
             flags,
         });
@@ -694,13 +736,14 @@ fn make_descriptors(
             // bits, it's much easier to conceive of a world in which one
             // has misunderstood that the second number in the interrupt
             // tuple is in fact a mask, not an index.
-            if (notification & (notification - 1)) != 0 {
+            if notification.count_ones() != 1 {
                 bail!(
                     "task {}: IRQ {}: notification mask (0b{:b}) \
-                    has multiple bits set",
+                    has {} bits set (expected exactly one)",
                     name,
                     irq_str,
-                    notification
+                    notification,
+                    notification.count_ones()
                 );
             }
 

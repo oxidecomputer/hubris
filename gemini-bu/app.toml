@@ -1,6 +1,7 @@
 name = "gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
+stacksize = 1024
 
 [kernel]
 path = "."
@@ -136,6 +137,7 @@ path = "../task-idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}
+stacksize = 256
 start = true
 
 [peripherals.rcc]
