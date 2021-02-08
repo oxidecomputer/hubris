@@ -1,0 +1,35 @@
+[package]
+name = "task-max31790"
+version = "0.1.0"
+authors = ["Bryan Cantrill <bryan@oxide.computer>"]
+edition = "2018"
+
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[dependencies]
+userlib = {path = "../userlib", default-features = false}
+ringbuf = {path = "../ringbuf" }
+drv-i2c-api = {path = "../drv/i2c-api"}
+cortex-m = "0.6.2"
+cortex-m-semihosting = { version = "0.3.5", optional = true }
+zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
+cfg-if = "0.1.10"
+bitfield = "0.13"
+
+[build-dependencies]
+build-util = {path = "../build-util"}
+
+[features]
+default = ["standalone"]
+standalone = ["itm"]
+itm = [ "userlib/log-itm" ]
+semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-max31790"
+test = false
+bench = false
