@@ -1590,6 +1590,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-ds2482"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-i2c"
 version = "0.1.0"
 dependencies = [

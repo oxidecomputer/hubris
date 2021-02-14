@@ -140,6 +140,15 @@ priority = 3
 requires = {flash = 8192, ram = 2048 }
 start = true
 
+[tasks.ds2482]
+path = "../task-ds2482"
+name = "task-ds2482"
+features = ["itm"]
+priority = 3
+requires = {flash = 16384, ram = 8192 }
+stacksize = 2048
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"

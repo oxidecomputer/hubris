@@ -27,6 +27,8 @@ members = [
     "task-spam2",
     "task-spi",
     "task-adt7420",
+    "task-max31790",
+    "task-ds2482",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",

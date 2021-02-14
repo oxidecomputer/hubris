@@ -121,10 +121,19 @@ fn i2c(controller: Controller, port: Port, addr: u8) -> (I2c, bool) {
 fn main() -> ! {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            let mut devices = [
-                i2c(Controller::I2C4, Port::D, ADT7420_ADDRESS),
-                i2c(Controller::I2C4, Port::H, ADT7420_ADDRESS),
-            ];
+            let mut devices = [ (I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S1)),
+                ADT7420_ADDRESS
+            ), false), (I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S4)),
+                ADT7420_ADDRESS
+            ), false)];
         } else if #[cfg(target_board = "nucleo-h743zi2")] {
             let mut devices = [
                 i2c(Controller::I2C2, Port::Default, ADT7420_ADDRESS - 1),
