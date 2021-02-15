@@ -157,6 +157,8 @@ impl<'a> Ds2482<'a> {
     pub fn reset(&self) -> Result<(), Error> {
         let i2c = self.i2c;
 
+        self.poll_until_notbusy()?;
+
         send_command(i2c, Command::OneWireReset, None)?;
         self.poll_until_notbusy()?;
 

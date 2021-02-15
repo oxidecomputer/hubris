@@ -69,8 +69,6 @@ impl Ds18b20 {
         let lsb = read_byte()?;
         let msb = read_byte()?;
 
-        sys_log!("lsb is {:x}, msb is {:x}", lsb, msb);
-
         Ok(convert(lsb, msb))
     }
 }
