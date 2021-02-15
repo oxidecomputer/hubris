@@ -118,6 +118,23 @@ fn divzero(_arg: u32) {
     }
 }
 
+#[inline(never)]
+fn eat_some_pi(highregs: bool) {
+    let mut pi = [0x40490fdb; 16];
+
+    for i in 1..16 {
+        pi[i] += i << 23;
+    }
+
+    unsafe {
+        if !highregs {
+            asm!("vldm {0}, {{s0-s15}}", in(reg) &pi);
+        } else {
+            asm!("vldm {0}, {{s16-s31}}", in(reg) &pi);
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("assistant starting");
@@ -195,6 +212,10 @@ fn main() -> ! {
                             ],
                         );
                         // Ignore the result.
+                    }
+                    AssistOp::EatSomePi => {
+                        eat_some_pi(*msg > 0);
+                        caller.reply(*msg);
                     }
                     _ => {
                         // Anything else should be fatal

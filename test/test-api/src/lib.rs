@@ -21,6 +21,7 @@ pub enum AssistOp {
     StackOutOfBounds = 13,
     BusError = 14,
     IllegalInstruction = 15,
+    EatSomePi = 16,
 }
 
 /// Operations that are performed by the test-suite

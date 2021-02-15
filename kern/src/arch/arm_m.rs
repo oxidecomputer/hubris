@@ -163,8 +163,6 @@ static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 static mut CLOCK_FREQ_KHZ: u32 = 0;
 
 /// ARMvx-M volatile registers that must be saved across context switches.
-///
-/// TODO: this set is a great start but is missing half the FPU registers.
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct SavedState {
@@ -179,6 +177,22 @@ pub struct SavedState {
     r11: u32,
     psp: u32,
     exc_return: u32,
+    s16: u32,
+    s17: u32,
+    s18: u32,
+    s19: u32,
+    s20: u32,
+    s21: u32,
+    s22: u32,
+    s23: u32,
+    s24: u32,
+    s25: u32,
+    s26: u32,
+    s27: u32,
+    s28: u32,
+    s29: u32,
+    s30: u32,
+    s31: u32,
     // NOTE: the above fields must be kept contiguous!
 }
 
@@ -663,7 +677,8 @@ pub unsafe extern "C" fn SVCall() {
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
         @ now, store volatile registers, plus the PSP in r12, plus LR.
-        stm r1, {{r4-r12, lr}}
+        stm r1!, {{r4-r12, lr}}
+        vstm r1, {{s16-s31}}
 
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
@@ -675,7 +690,8 @@ pub unsafe extern "C" fn SVCall() {
         movt r0, #:upper16:CURRENT_TASK_PTR
         ldr r0, [r0]
         @ restore volatile registers, plus load PSP into r12
-        ldm r0, {{r4-r12, lr}}
+        ldm r0!, {{r4-r12, lr}}
+        vldm r0, {{s16-s31}}
         msr PSP, r12
 
         @ resume
@@ -811,7 +827,8 @@ pub unsafe extern "C" fn PendSV() {
         @ fetching into r12 means the order in the stm below is right.
         mrs r12, PSP
         @ now, store volatile registers, plus the PSP in r12, plus LR.
-        stm r1, {{r4-r12, lr}}
+        stm r1!, {{r4-r12, lr}}
+        vstm r1, {{s16-s31}}
 
         @ syscall number is passed in r11. Move it into r0 to pass it as an
         @ argument to the handler, then call the handler.
@@ -822,7 +839,8 @@ pub unsafe extern "C" fn PendSV() {
         movt r0, #:upper16:CURRENT_TASK_PTR
         ldr r0, [r0]
         @ restore volatile registers, plus load PSP into r12
-        ldm r0, {{r4-r12, lr}}
+        ldm r0!, {{r4-r12, lr}}
+        vldm r0, {{s16-s31}}
         msr PSP, r12
 
         @ resume
@@ -961,6 +979,10 @@ unsafe extern "C" fn configurable_fault() {
         @ address and the xPSR) is already on our stack as part of the fault;
         @ we'll store our remaining registers, plus the PSP (now in r12), plus
         @ exc_return (now in LR) into the save region in the current task.
+        @ Note that we explicitly refrain from saving the floating point
+        @ registers here:  touching the floating point registers will induce
+        @ a lazy save on the stack, which will compound any faults related to
+        @ an inability to store to the stack!
         stm r0, {{r4-r12, lr}}
 
         @ Pull our fault number out of IPSR, allowing for program text to be
@@ -978,7 +1000,8 @@ unsafe extern "C" fn configurable_fault() {
         ldr r0, [r0]
 
         @ Restore volatile registers, plus load PSP into r12
-        ldm r0, {{r4-r12, lr}}
+        ldm r0!, {{r4-r12, lr}}
+        vldm r0, {{s16-s31}}
         msr PSP, r12
 
         @ resume
@@ -1132,6 +1155,15 @@ unsafe extern "C" fn handle_fault(
     // Because we are responsible for clearing all conditions, we write back
     // the value of CFSR that we read
     scb.cfsr.write(cfsr.bits());
+
+    // We are going to switch away from this (dead) task, so explicitly clear
+    // the Lazy Stack Preservation Active bit in our Floating Point Context
+    // Control register to prevent our subsequent restore of the new
+    // tasks floating point registers from storing floating point registers
+    // to the dead task's potentially invalid stack.
+    const LSPACT: u32 = 1 << 0;
+    let fpu = &*cortex_m::peripheral::FPU::ptr();
+    fpu.fpccr.modify(|x| x & !LSPACT);
 
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.  (It may be tempting to use PendSV here,

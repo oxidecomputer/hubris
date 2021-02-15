@@ -1,7 +1,7 @@
 name = "tests-stm32h743"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h743zi2"
-stacksize = 1024
+stacksize = 1400
 
 [kernel]
 path = "../../demo-stm32h7"
