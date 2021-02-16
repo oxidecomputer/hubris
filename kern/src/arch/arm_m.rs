@@ -981,9 +981,13 @@ unsafe extern "C" fn configurable_fault() {
         @ exc_return (now in LR) into the save region in the current task.
         @ Note that we explicitly refrain from saving the floating point
         @ registers here:  touching the floating point registers will induce
-        @ a lazy save on the stack, which will compound any faults related to
-        @ an inability to store to the stack!
-        stm r0, {{r4-r12, lr}}
+        @ a lazy save on the stack, which is clearly bad news if we have
+        @ overflowed our stack!  We do want to ultimately save them to aid
+        @ debuggability, however, so we pass the address to which they should
+        @ be saved to our fault handler, which will take the necessary
+        @ measures to save them safely.
+        mov r2, r0
+        stm r2!, {{r4-r12, lr}}
 
         @ Pull our fault number out of IPSR, allowing for program text to be
         @ shared across all configurable faults.  (Note that the exception
@@ -1081,6 +1085,7 @@ bitflags::bitflags! {
 unsafe extern "C" fn handle_fault(
     task: *mut task::Task,
     fault_type: FaultType,
+    fpsave: *mut u32
 ) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
@@ -1108,47 +1113,47 @@ unsafe extern "C" fn handle_fault(
         );
     }
 
-    let fault = match fault_type {
+    let (fault, stackinvalid) = match fault_type {
         FaultType::MemoryManagement => {
             if cfsr.contains(Cfsr::MSTKERR) {
                 // If we have an MSTKERR, we know very little other than the
                 // fact that the user's stack pointer is so trashed that we
                 // can't store through it.  (In particular, we seem to have no
                 // way at getting at our faulted PC.)
-                FaultInfo::StackOverflow {
+                (FaultInfo::StackOverflow {
                     address: (*task).save().psp,
-                }
+                }, true)
             } else if cfsr.contains(Cfsr::IACCVIOL) {
-                FaultInfo::IllegalText
+                (FaultInfo::IllegalText, false)
             } else {
-                FaultInfo::MemoryAccess {
+                (FaultInfo::MemoryAccess {
                     address: if cfsr.contains(Cfsr::MMARVALID) {
                         Some(scb.mmfar.read())
                     } else {
                         None
                     },
                     source: FaultSource::User,
-                }
+                }, false)
             }
         }
 
-        FaultType::BusFault => FaultInfo::BusError {
+        FaultType::BusFault => (FaultInfo::BusError {
             address: if cfsr.contains(Cfsr::BFARVALID) {
                 Some(scb.bfar.read())
             } else {
                 None
             },
             source: FaultSource::User,
-        },
+        }, false),
 
         FaultType::UsageFault => {
-            if cfsr.contains(Cfsr::DIVBYZERO) {
+            (if cfsr.contains(Cfsr::DIVBYZERO) {
                 FaultInfo::DivideByZero
             } else if cfsr.contains(Cfsr::UNDEFINSTR) {
                 FaultInfo::IllegalInstruction
             } else {
                 FaultInfo::InvalidOperation(cfsr.bits())
-            }
+            }, false)
         }
     };
 
@@ -1156,14 +1161,20 @@ unsafe extern "C" fn handle_fault(
     // the value of CFSR that we read
     scb.cfsr.write(cfsr.bits());
 
-    // We are going to switch away from this (dead) task, so explicitly clear
-    // the Lazy Stack Preservation Active bit in our Floating Point Context
-    // Control register to prevent our subsequent restore of the new
-    // tasks floating point registers from storing floating point registers
-    // to the dead task's potentially invalid stack.
-    const LSPACT: u32 = 1 << 0;
-    let fpu = &*cortex_m::peripheral::FPU::ptr();
-    fpu.fpccr.modify(|x| x & !LSPACT);
+    if stackinvalid {
+        // We know that we have an invalid stack; to prevent our subsequent
+        // save of the dead task's floating point registers from storing
+        // floating point registers to the invalid stack, we explicitly clear
+        // the Lazy Stack Preservation Active bit in our Floating Point
+        // Context Control register.
+        const LSPACT: u32 = 1 << 0;
+        let fpu = &*cortex_m::peripheral::FPU::ptr();
+        fpu.fpccr.modify(|x| x & !LSPACT);
+    }
+
+    // It's safe to store our floating point registers; store them now to
+    // preserve as much state as possible for debugging.
+    asm!("vstm {0}, {{s16-s31}}", in(reg) fpsave);
 
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.  (It may be tempting to use PendSV here,

@@ -217,6 +217,13 @@ fn main() -> ! {
                         eat_some_pi(*msg > 0);
                         caller.reply(*msg);
                     }
+                    AssistOp::PiAndDie => {
+                        eat_some_pi(false);
+                        eat_some_pi(true);
+                        caller.reply(0);
+                        illinst(0);
+                        panic!("unexpectedly survived {:?}", op);
+                    }
                     _ => {
                         // Anything else should be fatal
                         for (which, func) in &fatalops {

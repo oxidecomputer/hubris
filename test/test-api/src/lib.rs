@@ -22,6 +22,7 @@ pub enum AssistOp {
     BusError = 14,
     IllegalInstruction = 15,
     EatSomePi = 16,
+    PiAndDie = 17,
 }
 
 /// Operations that are performed by the test-suite

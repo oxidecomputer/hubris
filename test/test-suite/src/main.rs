@@ -37,6 +37,7 @@ test_cases! {
     test_recv_reply,
     test_floating_point_lowregs,
     test_floating_point_highregs,
+    test_floating_point_fault,
     test_fault_badmem,
     test_fault_stackoverflow,
     test_fault_execdata,
@@ -657,6 +658,10 @@ fn test_floating_point_lowregs() {
 
 fn test_floating_point_highregs() {
     test_floating_point(true);
+}
+
+fn test_floating_point_fault() {
+    test_fault(AssistOp::PiAndDie, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
