@@ -1,7 +1,7 @@
 name = "tests-stm32h7b3"
 target = "thumbv7em-none-eabihf"
 board = "stm32h7b3i-dk"
-stacksize = 1024
+stacksize = 1400
 
 [kernel]
 path = "../../demo-stm32h7"
