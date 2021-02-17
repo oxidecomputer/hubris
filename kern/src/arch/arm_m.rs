@@ -985,7 +985,12 @@ unsafe extern "C" fn configurable_fault() {
         @ overflowed our stack!  We do want to ultimately save them to aid
         @ debuggability, however, so we pass the address to which they should
         @ be saved to our fault handler, which will take the necessary
-        @ measures to save them safely.
+        @ measures to save them safely.  Finally, note that deferring the
+        @ save to later in handle_fault assumes that the floating point
+        @ registers are not in fact touched before determmining the fault type
+        @ and disabling lazy saving accordingly; should that assumption not
+        @ hold, we will need to be (ironically?) less lazy about disabling
+        @ lazy saving...
         mov r2, r0
         stm r2!, {{r4-r12, lr}}
 
