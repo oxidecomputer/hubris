@@ -17,6 +17,7 @@ zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 cfg-if = "0.1.10"
 bitfield = "0.13"
+drv-i2c-devices = { path = "../drv/i2c-devices" }
 
 [build-dependencies]
 build-util = {path = "../build-util"}

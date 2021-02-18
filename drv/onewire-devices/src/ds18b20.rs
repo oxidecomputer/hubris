@@ -1,4 +1,3 @@
-use crate::onewire::*;
 use userlib::*;
 
 #[allow(dead_code)]
@@ -26,7 +25,7 @@ fn convert(lsb: u8, msb: u8) -> f32 {
 
 impl Ds18b20 {
     pub fn new(id: u64) -> Option<Self> {
-        if family(id) == Some(Family::DS18B20) {
+        if drv_onewire::family(id) == Some(drv_onewire::Family::DS18B20) {
             Some(Self { id: id })
         } else {
             None
@@ -39,7 +38,7 @@ impl Ds18b20 {
         write_byte: impl Fn(u8) -> Result<(), T>,
     ) -> Result<(), T> {
         reset()?;
-        write_byte(crate::onewire::Command::MatchROM as u8)?;
+        write_byte(drv_onewire::Command::MatchROM as u8)?;
 
         for i in 0..8 {
             write_byte(((self.id >> (i * 8)) & 0xff) as u8)?;
@@ -58,7 +57,7 @@ impl Ds18b20 {
     ) -> Result<f32, T> {
         reset()?;
 
-        write_byte(crate::onewire::Command::MatchROM as u8)?;
+        write_byte(drv_onewire::Command::MatchROM as u8)?;
 
         for i in 0..8 {
             write_byte(((self.id >> (i * 8)) & 0xff) as u8)?;

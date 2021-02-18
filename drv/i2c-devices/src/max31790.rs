@@ -57,7 +57,7 @@ bitfield! {
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq, FromPrimitive)]
-enum Register {
+pub enum Register {
     GlobalConfiguration = 0x00,
     PWMFrequency = 0x01,
     Fan1Configuration = 0x02,

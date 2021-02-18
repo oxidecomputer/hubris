@@ -193,10 +193,10 @@ impl<'a> Ds2482<'a> {
             None => (0, 0),
         };
 
-        let (id, nbranches) = crate::onewire::search(
+        let (id, nbranches) = drv_onewire::search(
             || {
                 self.reset()?;
-                let search = crate::onewire::Command::SearchROM as u8;
+                let search = drv_onewire::Command::SearchROM as u8;
                 send_command(i2c, Command::OneWireWriteByte, Some(search))?;
                 self.poll_until_notbusy()?;
 

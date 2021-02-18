@@ -400,6 +400,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-i2c-devices"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "drv-i2c-api",
+ "drv-onewire",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -471,6 +484,25 @@ version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
  "lpc55-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-onewire"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-onewire-devices"
+version = "0.1.0"
+dependencies = [
+ "drv-onewire",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
@@ -1303,6 +1335,10 @@ checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 [[package]]
 name = "ringbuf"
 version = "0.1.0"
+dependencies = [
+ "quote 1.0.8",
+ "syn 1.0.60",
+]
 
 [[package]]
 name = "rustc_version"
@@ -1599,6 +1635,9 @@ dependencies = [
  "cortex-m 0.6.7",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-onewire",
+ "drv-onewire-devices",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -1646,6 +1685,7 @@ dependencies = [
  "cortex-m 0.6.7",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-i2c-devices",
  "num-traits",
  "ringbuf",
  "userlib",

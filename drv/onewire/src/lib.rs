@@ -1,3 +1,5 @@
+#![no_std]
+
 use userlib::*;
 
 #[allow(dead_code)]

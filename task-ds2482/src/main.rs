@@ -4,13 +4,8 @@
 use drv_i2c_api::*;
 use userlib::*;
 
-mod ds2482;
-use ds2482::*;
-
-mod ds18b20;
-use ds18b20::*;
-
-mod onewire;
+use drv_i2c_devices::ds2482::*;
+use drv_onewire_devices::ds18b20::*;
 
 #[cfg(feature = "standalone")]
 const I2C: Task = SELF;

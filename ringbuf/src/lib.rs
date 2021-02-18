@@ -84,97 +84,150 @@
 //!      )
 //!    },...
 //! ```
+ 
+#![feature(proc_macro_span)]
 
-#![no_std]
+extern crate proc_macro;
+use proc_macro::{TokenStream, Span};
+use syn::parse::{Parse, ParseStream, Result};
+use syn::parse_macro_input;
+use syn::{Expr, Type, Token};
+use quote::quote;
+use quote::format_ident;
 
-///
-/// The structure of a single [`Ringbuf`] entry, carrying a payload of
-/// arbitrary type.  When a ring buffer entry is generated with an identical
-/// payload to the most recent entry (in terms of both `line` and `payload`),
-/// `count` will be incremented rather than generating a new entry.
-///
-#[derive(Debug, Copy, Clone)]
-pub struct RingbufEntry<T: Copy + PartialEq> {
-    pub line: u16,
-    pub generation: u16,
-    pub count: u32,
-    pub payload: T,
+struct RingbufParams {
+    ptype: Type,
+    size: Expr,
+    pinit: Expr,
 }
 
-///
-/// A ring buffer of parametrized type and size.  This should be instantiated
-/// with the [`ringbuf!`] macro.
-///
-#[derive(Debug)]
-pub struct Ringbuf<T: Copy + PartialEq, const N: usize> {
-    pub last: Option<usize>,
-    pub buffer: [RingbufEntry<T>; N],
-}
+impl Parse for RingbufParams {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let ptype: Type = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let size: Expr = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let pinit: Expr = input.parse()?;
 
-impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
-    pub fn entry(&mut self, line: u16, payload: T) {
-        let ndx = match self.last {
-            None => 0,
-            Some(last) => {
-                let ent = &mut self.buffer[last];
-
-                if ent.line == line && ent.payload == payload {
-                    ent.count += 1;
-                    return;
-                }
-
-                if last + 1 >= self.buffer.len() {
-                    0
-                } else {
-                    last + 1
-                }
-            }
-        };
-
-        let ent = &mut self.buffer[ndx];
-        ent.line = line;
-        ent.payload = payload;
-        ent.count = 1;
-        ent.generation += 1;
-
-        self.last = Some(ndx);
+        Ok(RingbufParams {
+            ptype,
+            size,
+            pinit
+        })
     }
 }
 
 ///
-/// Defines a static ring buffer with a payload type of `$ptype` and `$size`
-/// entries.  Because the ring buffer is static, `$pinit` must be provided to
+/// Defines a static ring buffer with a payload type of `ptype` and `size`
+/// entries.  Because the ring buffer is static, `pinit` must be provided to
 /// statically initialize the payloads of the ring buffer.  An entry is recorded
 /// in the ring buffer with a call to [`ringbuf_entry!`].
 ///
-#[macro_export]
-macro_rules! ringbuf {
-    ($ptype:ty, $size:tt, $pinit:tt) => {
+#[proc_macro]
+pub fn ringbuf(input: TokenStream) -> TokenStream {
+    let params = parse_macro_input!(input as RingbufParams);
+
+    let ptype = params.ptype;
+    let size = params.size;
+    let pinit = params.pinit;
+
+    let prefix = Span::call_site()
+        .source_file()
+        .path()
+        .file_stem()
+        .unwrap()
+        .to_string_lossy()
+        .to_ascii_uppercase();
+
+    let name = if prefix != "MAIN" {
+        format_ident!("{}_RINGBUF", prefix)
+    } else {
+        format_ident!("RINGBUF")
+    };
+
+    let ringbuf = quote! {
+        ///
+        /// The structure of a single [`Ringbuf`] entry, carrying a payload of
+        /// arbitrary type.  When a ring buffer entry is generated with an
+        /// identical payload to the most recent entry (in terms of both
+        /// `line` and `payload`), `count` will be incremented rather than
+        /// generating a new entry.
+        ///
+        #[derive(Debug, Copy, Clone)]
+        struct RingbufEntry<T: Copy + PartialEq> {
+            line: u16,
+            generation: u16,
+            count: u32,
+            payload: T,
+        }
+
+        ///
+        /// A ring buffer of parametrized type and size.  This should be
+        /// instantiated with the [`ringbuf!`] macro.
+        ///
+        #[derive(Debug)]
+        struct Ringbuf<T: Copy + PartialEq, const N: usize> {
+            last: Option<usize>,
+            buffer: [RingbufEntry<T>; N],
+        }
+
+        impl<T: Copy + PartialEq, const N: usize> Ringbuf<T, { N }> {
+            fn entry(&mut self, line: u16, payload: T) {
+                let ndx = match self.last {
+                    None => 0,
+                    Some(last) => {
+                        let ent = &mut self.buffer[last];
+
+                        if ent.line == line && ent.payload == payload {
+                            ent.count += 1;
+                            return;
+                        }
+
+                        if last + 1 >= self.buffer.len() {
+                            0
+                        } else {
+                            last + 1
+                        }
+                    }
+                };
+
+                let ent = &mut self.buffer[ndx];
+                ent.line = line;
+                ent.payload = payload;
+                ent.count = 1;
+                ent.generation += 1;
+
+                self.last = Some(ndx);
+            }
+        }
+
         #[no_mangle]
-        static mut RINGBUF: Ringbuf<$ptype, $size> = Ringbuf::<$ptype, $size> {
+        static mut #name: Ringbuf<#ptype, #size> = Ringbuf::<#ptype, #size> {
             last: None,
             buffer: [RingbufEntry {
                 line: 0,
                 generation: 0,
                 count: 0,
-                payload: $pinit,
-            }; $size],
+                payload: #pinit,
+            }; #size],
         };
-    };
-}
 
-///
-/// Adds an entry to a ring buffer that has been declared with [`ringbuf!`].
-/// The line number of the call will be recorded, along with the payload.  If
-/// the ring buffer is full, the oldest entry in the ring buffer will be
-/// overwritten.  If the line number and the payload both match the most
-/// recent entry in the ring buffer, no new entry will be added, and the count
-/// of the last entry will be incremented.
-///
-#[macro_export]
-macro_rules! ringbuf_entry {
-    ($payload:expr) => {
-        let ringbuf = unsafe { &mut RINGBUF };
-        ringbuf.entry(line!() as u16, $payload);
+        ///
+        /// Adds an entry to a ring buffer that has been declared with
+        /// [`ringbuf!`].  The line number of the call will be recorded, along
+        /// with the payload.  If the ring buffer is full, the oldest entry in
+        /// the ring buffer will be overwritten.  If the line number and the
+        /// payload both match the most recent entry in the ring buffer, no
+        /// new entry will be added, and the count of the last entry will be
+        /// incremented.
+        ///
+        macro_rules! ringbuf_entry {
+            ($payload:expr) => {
+                let ringbuf = unsafe { &mut #name };
+                ringbuf.entry(line!() as u16, $payload);
+            };
+        }
     };
+
+    ringbuf.into()
 }

@@ -3,9 +3,7 @@
 
 use userlib::*;
 use drv_i2c_api::*;
-
-mod max31790;
-use max31790::*;
+use drv_i2c_devices::max31790::*;
 
 #[cfg(feature = "standalone")]
 const I2C: Task = SELF;
@@ -35,7 +33,7 @@ fn main() -> ! {
     }
 
     loop {
-        match max31790::initialize(&i2c) {
+        match initialize(&i2c) {
             Ok(_) => {
                 sys_log!("initialization successful!");
                 break;
