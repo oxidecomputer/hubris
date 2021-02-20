@@ -1,8 +1,9 @@
 //! Driver for the LTC4306 I2C mux
 
-use drv_i2c_api::{Port, Segment, ResponseCode};
+use drv_i2c_api::{Segment, ResponseCode};
 use drv_stm32h7_i2c::*;
 use ringbuf::*;
+use userlib::*;
 use bitfield::bitfield;
 
 bitfield! {
@@ -29,11 +30,24 @@ bitfield! {
     gpio2_logic_state, _: 0;
 }
 
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 enum Timeout {
     TimeoutDisabled = 0b00,
     Timeout30ms = 0b01,
     Timeout15ms = 0b10,
     Timeout7point5ms = 0b11,
+}
+
+impl From<u8> for Timeout {
+    fn from(value: u8) -> Self {
+        Timeout::from_u8(value).unwrap()
+    }
+}
+
+impl From<Timeout> for u8 {
+    fn from(value: Timeout) -> Self {
+        value as u8
+    }
 }
 
 bitfield! {
@@ -45,7 +59,7 @@ bitfield! {
     gpio1_push_pull, set_gpio1_push_pull: 4;
     gpio2_push_pull, set_gpio2_push_pull: 3;
     mass_write_enabled, set_mass_write_enabled: 2;
-    timeout, set_timeout: 1, 0;
+    from into Timeout, timeout, set_timeout: 1, 0;
 }
 
 bitfield! {
@@ -115,7 +129,7 @@ fn write_reg_u8(
     }
 }
 
-pub fn ltc4306_enable_segment(
+pub fn enable_segment(
     mux: &I2cMux,
     controller: &I2cController,
     segment: Segment,

@@ -5,6 +5,7 @@ use ringbuf::*;
 use userlib::*;
 use bitfield::bitfield;
 
+#[allow(dead_code)]
 enum I2cWatchdog {
     Disabled = 0b00,
     FiveSeconds = 0b01,
@@ -12,6 +13,7 @@ enum I2cWatchdog {
     ThirtySeconds = 0b11,
 }
 
+#[allow(dead_code)]
 enum Frequency {
     F25Hz = 0b0000,
     F30Hz = 0b0001,
@@ -27,6 +29,7 @@ enum Frequency {
     F25000Hz = 0b1011,
 }
 
+#[allow(dead_code)]
 enum SpinUp {
     NoSpinUp = 0b00,
     HalfSecond = 0b01,
@@ -242,7 +245,7 @@ fn write_reg(i2c: &I2c, register: Register, val: u8) -> Result<(), Error> {
 }
 
 pub fn initialize(i2c: &I2c) -> Result<(), Error> {
-    let config = GlobalConfiguration(
+    let _config = GlobalConfiguration(
         read_reg8(i2c, Register::GlobalConfiguration)?
     );
 

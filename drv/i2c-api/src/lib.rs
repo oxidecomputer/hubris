@@ -92,9 +92,13 @@ pub enum Segment {
     S2 = 2,
     S3 = 3,
     S4 = 4,
+    S5 = 5,
+    S6 = 6,
+    S7 = 7,
+    S8 = 8,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct I2c {
     pub task: TaskId,
     pub controller: Controller,
@@ -136,6 +140,22 @@ impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
                 ))
             }
         ))
+    }
+}
+
+impl core::fmt::Display for I2c {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self.segment {
+            Some((mux, segment)) => {
+                write!(
+                    f, "{:?}:{:?}, {:?}:{:?}",
+                    self.controller, self.port, mux, segment
+                )
+            }
+            _ => {
+                write!(f, "{:?}:{:?}", self.controller, self.port)
+            }
+        }
     }
 }
 
@@ -209,3 +229,4 @@ impl I2c {
         }
     }
 }
+

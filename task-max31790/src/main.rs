@@ -38,7 +38,7 @@ fn main() -> ! {
                 sys_log!("initialization successful!");
                 break;
             }
-            Err(err) => {
+            Err(_) => {
                 sys_log!("initialization failed!");
                 hl::sleep_for(1000);
             }
@@ -46,7 +46,7 @@ fn main() -> ! {
     }
 
     loop {
-        let mut rpm = unsafe { &mut MAX31790_FAN_RPM };
+        let rpm = unsafe { &mut MAX31790_FAN_RPM };
         let mut ndx = 0;
 
         for fan in FAN_MIN..=FAN_MAX {

@@ -17,7 +17,6 @@ use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use userlib::*;
 
 mod ltc4306;
-use ltc4306::*;
 
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
@@ -158,7 +157,7 @@ fn lookup_pin<'a>(
     controller: Controller,
     port: Port,
 ) -> Result<&'a I2cPin, ResponseCode> {
-    let pins = unsafe { &I2C_PINS };
+    let pins = &I2C_PINS;
     let mut default = None;
 
     for pin in pins {
@@ -191,7 +190,7 @@ fn configure_mux(
 ) -> Result<(), ResponseCode> {
     match mux {
         Some((id, segment)) => {
-            let mut muxes = unsafe { &mut I2C_MUXES };
+            let muxes = unsafe { &mut I2C_MUXES };
 
             for mux in muxes {
                 if mux.controller != controller.controller {
@@ -201,32 +200,26 @@ fn configure_mux(
                 if mux.port != port || mux.id != id {
                     continue;
                 }
-            
-                //
+
                 // We have our mux -- determine if the current segment matches
                 // our specified segment...
-                //
                 if let Some(current) = mux.segment {
                     if current == segment {
                         return Ok(());
                     }
 
-                    //
                     // Beyond this point, we want any failure to set our new
                     // segment to leave our segment unset rather than having
                     // it point to the old segment.
-                    //
                     mux.segment = None;
                 } 
 
-                //
                 // If we're here, our mux is valid, but the current segment is
                 // not the specfied segment; we will now call upon our
                 // driver to enable this segment.
-                //
                 let enable_segment = match mux.driver {
                     I2cMuxDriver::LTC4306 => {
-                        ltc4306_enable_segment
+                        ltc4306::enable_segment
                     }
                 };
 
@@ -344,7 +337,7 @@ fn turn_on_i2c() {
 }
 
 fn configure_controllers() {
-    let mut controllers = unsafe { &mut I2C_CONTROLLERS };
+    let controllers = unsafe { &mut I2C_CONTROLLERS };
 
     for controller in controllers {
         controller.configure();

@@ -49,7 +49,7 @@ fn scan_controller(
     mux: Option<(Mux, Segment)>,
 ) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
-    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+    let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     for addr in 0..128 {
         let i2c = I2c::new(task, controller, port, mux, addr);
@@ -68,7 +68,7 @@ fn scan_device(
     addr: u8,
 ) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
-    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+    let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let i2c = I2c::new(task, controller, port, mux, addr);
 
@@ -90,7 +90,7 @@ fn read_register(
     nbytes: BytesToRead,
 ) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
-    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+    let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let i2c = I2c::new(task, controller, port, mux, addr);
 
@@ -122,7 +122,7 @@ fn write_register(
     value: u8,
 ) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
-    let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+    let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let i2c = I2c::new(task, controller, port, mux, addr);
 
@@ -147,7 +147,7 @@ fn main() -> ! {
             continue;
         }
 
-        let mut results = unsafe { &mut I2C_DEBUG_RESULTS };
+        let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
         for i in 0..results.len() {
             results[i] = None;
@@ -157,7 +157,7 @@ fn main() -> ! {
 
         let controller = I2C_DEBUG_CONTROLLER.swap(-1, Ordering::SeqCst);
 
-        let mut p = unsafe { &mut I2C_DEBUG_PORT };
+        let p = unsafe { &mut I2C_DEBUG_PORT };
         let port = *p;
         *p = Port::Default;
 

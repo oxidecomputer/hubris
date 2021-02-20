@@ -1619,6 +1619,7 @@ dependencies = [
  "cortex-m 0.6.7",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-i2c-devices",
  "num-traits",
  "ringbuf",
  "userlib",

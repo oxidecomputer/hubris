@@ -1,5 +1,3 @@
-use userlib::*;
-
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 pub enum Command {

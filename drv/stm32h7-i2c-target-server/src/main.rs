@@ -79,20 +79,9 @@ fn configure_pin() {
 }
 
 const ADT7420_ADDRESS: u8 = 0x48;
-const ADT7420_ID: u8 = 0xcb;
 
 const ADT7420_REG_TEMPMSB: u8 = 0;
 const ADT7420_REG_ID: u8 = 0xb;
-
-fn i2c(controller: Controller, port: Port) -> (I2c, bool) {
-    (I2c::new(
-        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
-        controller,
-        port,
-        None,
-        ADT7420_ADDRESS
-    ), false)
-}
 
 #[export_name = "main"]
 fn main() -> ! {
