@@ -124,28 +124,12 @@ priority = 3
 requires = {flash = 32768, ram = 8192 }
 start = true
 
-[tasks.adt7420]
-path = "../task-adt7420"
-name = "task-adt7420"
-features = ["h743", "itm"]
-priority = 3
-requires = {flash = 16384, ram = 32768 }
-start = true
-
-[tasks.max31790]
-path = "../task-max31790"
-name = "task-max31790"
+[tasks.thermal]
+path = "../task-thermal"
+name = "task-thermal"
 features = ["itm"]
 priority = 3
-requires = {flash = 8192, ram = 2048 }
-start = true
-
-[tasks.ds2482]
-path = "../task-ds2482"
-name = "task-ds2482"
-features = ["itm"]
-priority = 3
-requires = {flash = 16384, ram = 8192 }
+requires = {flash = 32768, ram = 8192 }
 stacksize = 2048
 start = true
 

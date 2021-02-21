@@ -5,7 +5,7 @@ use drv_i2c_api::*;
 use ringbuf::*;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Command {
     OneWireTriplet = 0x78,
     OneWireSingleBit = 0x87,
@@ -47,14 +47,14 @@ bitfield! {
     direction, set_direction: 7;
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Register {
     Status = 0xf0,
     ReadData = 0xe1,
     Configuration = 0xc3,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     BadCommand { cmd: Command, code: ResponseCode },
     BadRegisterRead { reg: Register, code: ResponseCode },
@@ -69,9 +69,15 @@ ringbuf!(
     (None, Ok(0))
 );
 
-pub struct Ds2482<'a> {
-    i2c: &'a I2c,
+pub struct Ds2482 {
+    i2c: I2c,
     branches: Option<(u64, u64)>,
+}
+
+impl core::fmt::Display for Ds2482 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "ds2482: {}", &self.i2c)
+    }
 }
 
 fn read_register(i2c: &I2c, register: Register) -> Result<u8, Error> {
@@ -134,16 +140,16 @@ fn triplet(i2c: &I2c, take: bool) -> Result<(bool, bool), Error> {
     }
 }
 
-impl<'a> Ds2482<'a> {
-    pub fn new(i2c: &'a I2c) -> Self {
+impl Ds2482 {
+    pub fn new(i2c: &I2c) -> Self {
         Self {
-            i2c: i2c,
+            i2c: *i2c,
             branches: None,
         }
     }
 
     pub fn poll_until_notbusy(&self) -> Result<(), Error> {
-        let i2c = self.i2c;
+        let i2c = &self.i2c;
 
         loop {
             let status = Status(read_register(i2c, Register::Status)?);
@@ -155,7 +161,7 @@ impl<'a> Ds2482<'a> {
     }
 
     pub fn reset(&self) -> Result<(), Error> {
-        let i2c = self.i2c;
+        let i2c = &self.i2c;
 
         self.poll_until_notbusy()?;
 
@@ -166,7 +172,7 @@ impl<'a> Ds2482<'a> {
     }
 
     pub fn initialize(&self) -> Result<(), Error> {
-        let i2c = self.i2c;
+        let i2c = &self.i2c;
 
         send_command(i2c, Command::DeviceReset, None)?;
 
@@ -180,7 +186,7 @@ impl<'a> Ds2482<'a> {
     }
 
     pub fn search(&mut self) -> Result<Option<u64>, Error> {
-        let i2c = self.i2c;
+        let i2c = &self.i2c;
 
         let branches = match self.branches {
             Some(branches) => {
@@ -213,17 +219,17 @@ impl<'a> Ds2482<'a> {
 
     pub fn write_byte(&self, byte: u8) -> Result<(), Error> {
         self.poll_until_notbusy()?;
-        send_command(self.i2c, Command::OneWireWriteByte, Some(byte))?;
+        send_command(&self.i2c, Command::OneWireWriteByte, Some(byte))?;
 
         Ok(())
     }
 
     pub fn read_byte(&self) -> Result<u8, Error> {
         self.poll_until_notbusy()?;
-        send_command(self.i2c, Command::OneWireReadByte, None)?;
+        send_command(&self.i2c, Command::OneWireReadByte, None)?;
 
         self.poll_until_notbusy()?;
-        let rval = read_register(self.i2c, Register::ReadData)?;
+        let rval = read_register(&self.i2c, Register::ReadData)?;
 
         Ok(rval)
     }

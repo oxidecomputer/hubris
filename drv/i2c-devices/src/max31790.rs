@@ -3,6 +3,7 @@
 use drv_i2c_api::*;
 use ringbuf::*;
 use userlib::*;
+use userlib::units::*;
 use bitfield::bitfield;
 
 #[allow(dead_code)]
@@ -59,7 +60,7 @@ bitfield! {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Register {
     GlobalConfiguration = 0x00,
     PWMFrequency = 0x01,
@@ -163,12 +164,22 @@ pub enum Register {
     UserByte14 = 0x67,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     BadRead8 { reg: Register, code: ResponseCode },
     BadRead16 { reg: Register, code: ResponseCode },
     BadWrite { reg: Register, code: ResponseCode },
     IllegalFan
+}
+
+pub struct Max31790 {
+    pub i2c: I2c,
+}
+
+impl core::fmt::Display for Max31790 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "max31790: {}", &self.i2c)
+    }
 }
 
 pub const FAN_MIN: u8 = 1;
@@ -244,42 +255,52 @@ fn write_reg(i2c: &I2c, register: Register, val: u8) -> Result<(), Error> {
     }
 }
 
-pub fn initialize(i2c: &I2c) -> Result<(), Error> {
-    let _config = GlobalConfiguration(
-        read_reg8(i2c, Register::GlobalConfiguration)?
-    );
-
-    for fan in FAN_MIN..=FAN_MAX {
-        let fan = Fan(fan);
-        let reg = fan.configuration()?;
-
-        let mut config = FanConfiguration(read_reg8(i2c, reg)?);
-        config.set_tach_input_enable(true);
-
-        write_reg(i2c, reg, config.0)?;
-        write_reg(i2c, fan.pwm_target()?, 0)?;
+impl Max31790 {
+    pub fn new(i2c: &I2c) -> Self {
+        Self {
+            i2c: *i2c,
+        }
     }
 
-    Ok(())
-}
+    pub fn initialize(&self) -> Result<(), Error> {
+        let i2c = &self.i2c;
 
-pub fn fan_rpm(i2c: &I2c, fan: Fan) -> Result<u16, Error> {
-    let val = read_reg16(i2c, fan.tach_count()?)?;
+        let _config = GlobalConfiguration(
+            read_reg8(i2c, Register::GlobalConfiguration)?
+        );
 
-    let count = ((val[0] as u32) << 3) | (val[1] >> 5) as u32;
+        for fan in FAN_MIN..=FAN_MAX {
+            let fan = Fan(fan);
+            let reg = fan.configuration()?;
 
-    if count == 0b111_1111_1111 {
-        Ok(0)
-    } else {
-        //
-        // sr of 4 is the default. np is fan-specific, but seems to be two
-        // for the fans we care about.
-        //
-        let np = 2;
-        let sr = 4;
+            let mut config = FanConfiguration(read_reg8(i2c, reg)?);
+            config.set_tach_input_enable(true);
 
-        let rpm = (60 * sr * 8192) / (np * count);
+            write_reg(i2c, reg, config.0)?;
+            write_reg(i2c, fan.pwm_target()?, 0)?;
+        }
 
-        Ok(rpm as u16)
+        Ok(())
+    }
+
+    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, Error> {
+        let val = read_reg16(&self.i2c, fan.tach_count()?)?;
+
+        let count = ((val[0] as u32) << 3) | (val[1] >> 5) as u32;
+
+        if count == 0b111_1111_1111 {
+            Ok(Rpm(0))
+        } else {
+            //
+            // sr of 4 is the default. np is fan-specific, but seems to be two
+            // for the fans we care about.
+            //
+            let np = 2;
+            let sr = 4;
+
+            let rpm = (60 * sr * 8192) / (np * count);
+
+            Ok(Rpm(rpm as u16))
+        }
     }
 }

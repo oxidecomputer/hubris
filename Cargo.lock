@@ -1611,41 +1611,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36474e732d1affd3a6ed582781b3683df3d0563714c59c39591e8ff707cf078e"
 
 [[package]]
-name = "task-adt7420"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if 0.1.10",
- "cortex-m 0.6.7",
- "cortex-m-semihosting",
- "drv-i2c-api",
- "drv-i2c-devices",
- "num-traits",
- "ringbuf",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-ds2482"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "build-util",
- "cfg-if 0.1.10",
- "cortex-m 0.6.7",
- "cortex-m-semihosting",
- "drv-i2c-api",
- "drv-i2c-devices",
- "drv-onewire",
- "drv-onewire-devices",
- "num-traits",
- "ringbuf",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
 name = "task-i2c"
 version = "0.1.0"
 dependencies = [
@@ -1672,23 +1637,6 @@ dependencies = [
  "abi",
  "cortex-m 0.6.7",
  "cortex-m-semihosting",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-max31790"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "build-util",
- "cfg-if 0.1.10",
- "cortex-m 0.6.7",
- "cortex-m-semihosting",
- "drv-i2c-api",
- "drv-i2c-devices",
- "num-traits",
- "ringbuf",
  "userlib",
  "zerocopy",
 ]
@@ -1736,6 +1684,23 @@ name = "task-template"
 version = "0.1.0"
 dependencies = [
  "userlib",
+]
+
+[[package]]
+name = "task-thermal"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-onewire",
+ "drv-onewire-devices",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

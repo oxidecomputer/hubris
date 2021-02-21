@@ -145,15 +145,26 @@ impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
 
 impl core::fmt::Display for I2c {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self.segment {
-            Some((mux, segment)) => {
+        let addr = self.address;
+
+        match (self.port, self.segment) {
+            (Port::Default, None) => {
+                write!(f, "{:?} 0x{:x}", self.controller, addr)
+            }
+            (Port::Default, Some((mux, segment))) => {
                 write!(
-                    f, "{:?}:{:?}, {:?}:{:?}",
-                    self.controller, self.port, mux, segment
+                    f, "{:?}, {:?}:{:?} 0x{:x}",
+                    self.controller, mux, segment, addr
                 )
             }
-            _ => {
-                write!(f, "{:?}:{:?}", self.controller, self.port)
+            (_, None) => {
+                write!(f, "{:?}:{:?} 0x{:x}", self.controller, self.port, addr)
+            }
+            (_, Some((mux, segment))) => {
+                write!(
+                    f, "{:?}:{:?}, {:?}:{:?} 0x{:x}",
+                    self.controller, self.port, mux, segment, addr
+                )
             }
         }
     }
@@ -229,4 +240,3 @@ impl I2c {
         }
     }
 }
-
