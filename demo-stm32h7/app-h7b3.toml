@@ -116,14 +116,6 @@ priority = 3
 requires = {flash = 32768, ram = 8192 }
 start = true
 
-[tasks.adt7420]
-path = "../task-adt7420"
-name = "task-adt7420"
-features = ["h7b3", "itm"]
-priority = 3
-requires = {flash = 8192, ram = 32768 }
-start = true
-
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
