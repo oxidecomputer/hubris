@@ -1,10 +1,10 @@
 //! Driver for the MAX31790 fan controller
 
+use bitfield::bitfield;
 use drv_i2c_api::*;
 use ringbuf::*;
-use userlib::*;
 use userlib::units::*;
-use bitfield::bitfield;
+use userlib::*;
 
 #[allow(dead_code)]
 enum I2cWatchdog {
@@ -169,7 +169,7 @@ pub enum Error {
     BadRead8 { reg: Register, code: ResponseCode },
     BadRead16 { reg: Register, code: ResponseCode },
     BadWrite { reg: Register, code: ResponseCode },
-    IllegalFan
+    IllegalFan,
 }
 
 pub struct Max31790 {
@@ -211,7 +211,11 @@ impl Fan {
     }
 }
 
-ringbuf!((Option<Register>, Result<[u8; 2], ResponseCode>), 32, (None, Ok([0, 0])));
+ringbuf!(
+    (Option<Register>, Result<[u8; 2], ResponseCode>),
+    32,
+    (None, Ok([0, 0]))
+);
 
 fn read_reg8(i2c: &I2c, register: Register) -> Result<u8, Error> {
     let rval = i2c.read_reg::<u8, u8>(register as u8);
@@ -224,7 +228,10 @@ fn read_reg8(i2c: &I2c, register: Register) -> Result<u8, Error> {
 
         Err(code) => {
             ringbuf_entry!((Some(register), Err(code)));
-            Err(Error::BadRead8 { reg: register, code: code })
+            Err(Error::BadRead8 {
+                reg: register,
+                code: code,
+            })
         }
     }
 }
@@ -236,7 +243,10 @@ fn read_reg16(i2c: &I2c, register: Register) -> Result<[u8; 2], Error> {
 
     match rval {
         Ok(val) => Ok(val),
-        Err(code) => Err(Error::BadRead16 { reg: register, code: code })
+        Err(code) => Err(Error::BadRead16 {
+            reg: register,
+            code: code,
+        }),
     }
 }
 
@@ -250,24 +260,24 @@ fn write_reg(i2c: &I2c, register: Register, val: u8) -> Result<(), Error> {
         }
         Err(code) => {
             ringbuf_entry!((Some(register), Err(code)));
-            Err(Error::BadWrite { reg: register, code: code })
+            Err(Error::BadWrite {
+                reg: register,
+                code: code,
+            })
         }
     }
 }
 
 impl Max31790 {
     pub fn new(i2c: &I2c) -> Self {
-        Self {
-            i2c: *i2c,
-        }
+        Self { i2c: *i2c }
     }
 
     pub fn initialize(&self) -> Result<(), Error> {
         let i2c = &self.i2c;
 
-        let _config = GlobalConfiguration(
-            read_reg8(i2c, Register::GlobalConfiguration)?
-        );
+        let _config =
+            GlobalConfiguration(read_reg8(i2c, Register::GlobalConfiguration)?);
 
         for fan in FAN_MIN..=FAN_MAX {
             let fan = Fan(fan);

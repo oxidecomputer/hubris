@@ -84,16 +84,16 @@
 //!      )
 //!    },...
 //! ```
- 
+
 #![feature(proc_macro_span)]
 
 extern crate proc_macro;
-use proc_macro::{TokenStream, Span};
+use proc_macro::{Span, TokenStream};
+use quote::format_ident;
+use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::parse_macro_input;
-use syn::{Expr, Type, Token};
-use quote::quote;
-use quote::format_ident;
+use syn::{Expr, Token, Type};
 
 struct RingbufParams {
     ptype: Type,
@@ -109,11 +109,7 @@ impl Parse for RingbufParams {
         input.parse::<Token![,]>()?;
         let pinit: Expr = input.parse()?;
 
-        Ok(RingbufParams {
-            ptype,
-            size,
-            pinit
-        })
+        Ok(RingbufParams { ptype, size, pinit })
     }
 }
 

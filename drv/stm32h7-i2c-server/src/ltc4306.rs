@@ -1,10 +1,10 @@
 //! Driver for the LTC4306 I2C mux
 
-use drv_i2c_api::{Segment, ResponseCode};
+use bitfield::bitfield;
+use drv_i2c_api::{ResponseCode, Segment};
 use drv_stm32h7_i2c::*;
 use ringbuf::*;
 use userlib::*;
-use bitfield::bitfield;
 
 bitfield! {
     #[derive(Copy, Clone, PartialEq)]
@@ -78,54 +78,54 @@ bitfield! {
 ringbuf!(u8, 16, 0);
 
 fn read_reg_u8(
-    mux: &I2cMux, 
+    mux: &I2cMux,
     controller: &I2cController,
     reg: u8,
     enable: impl FnMut(u32),
-    wfi: impl FnMut(u32)
+    wfi: impl FnMut(u32),
 ) -> Result<u8, ResponseCode> {
     let mut rval = [0u8; 1];
     let wlen = 1;
 
     match controller.write_read(
         mux.address,
-        wlen, |_| reg,
-        rval.len(), |_, byte| { rval[0] = byte },
+        wlen,
+        |_| reg,
+        rval.len(),
+        |_, byte| rval[0] = byte,
         enable,
-        wfi
+        wfi,
     ) {
         Err(code) => Err(match code {
             I2cError::NoDevice => ResponseCode::BadMuxAddress,
             I2cError::NoRegister => ResponseCode::BadMuxRegister,
         }),
-        _ => {
-            Ok(rval[0])
-        }
+        _ => Ok(rval[0]),
     }
 }
 
 fn write_reg_u8(
-    mux: &I2cMux, 
+    mux: &I2cMux,
     controller: &I2cController,
     reg: u8,
     val: u8,
     enable: impl FnMut(u32),
-    wfi: impl FnMut(u32)
+    wfi: impl FnMut(u32),
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
-        2, |pos| if pos == 0 { reg } else { val },
-        0, |_, _| {},
+        2,
+        |pos| if pos == 0 { reg } else { val },
+        0,
+        |_, _| {},
         enable,
-        wfi
+        wfi,
     ) {
         Err(code) => Err(match code {
             I2cError::NoDevice => ResponseCode::BadMuxAddress,
             I2cError::NoRegister => ResponseCode::BadMuxRegister,
         }),
-        _ => {
-            Ok(())
-        }
+        _ => Ok(()),
     }
 }
 
@@ -139,11 +139,21 @@ pub fn enable_segment(
     let mut reg3 = Register3(0);
 
     match segment {
-        Segment::S1 => { reg3.set_bus1_connected(true); }
-        Segment::S2 => { reg3.set_bus2_connected(true); }
-        Segment::S3 => { reg3.set_bus3_connected(true); }
-        Segment::S4 => { reg3.set_bus4_connected(true); }
-        _ => { return Err(ResponseCode::SegmentNotFound); }
+        Segment::S1 => {
+            reg3.set_bus1_connected(true);
+        }
+        Segment::S2 => {
+            reg3.set_bus2_connected(true);
+        }
+        Segment::S3 => {
+            reg3.set_bus3_connected(true);
+        }
+        Segment::S4 => {
+            reg3.set_bus4_connected(true);
+        }
+        _ => {
+            return Err(ResponseCode::SegmentNotFound);
+        }
     }
 
     write_reg_u8(mux, controller, 3, reg3.0, enable, wfi)?;

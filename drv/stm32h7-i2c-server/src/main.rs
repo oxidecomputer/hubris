@@ -9,8 +9,8 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-use drv_i2c_api::*;
 use drv_i2c_api::Port;
+use drv_i2c_api::*;
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
@@ -212,15 +212,13 @@ fn configure_mux(
                     // segment to leave our segment unset rather than having
                     // it point to the old segment.
                     mux.segment = None;
-                } 
+                }
 
                 // If we're here, our mux is valid, but the current segment is
                 // not the specfied segment; we will now call upon our
                 // driver to enable this segment.
                 let enable_segment = match mux.driver {
-                    I2cMuxDriver::LTC4306 => {
-                        ltc4306::enable_segment
-                    }
+                    I2cMuxDriver::LTC4306 => ltc4306::enable_segment,
                 };
 
                 enable_segment(mux, controller, segment, enable, wfi)?;
@@ -231,9 +229,7 @@ fn configure_mux(
 
             Err(ResponseCode::MuxNotFound)
         }
-        None => {
-            Ok(())
-        },
+        None => Ok(()),
     }
 }
 

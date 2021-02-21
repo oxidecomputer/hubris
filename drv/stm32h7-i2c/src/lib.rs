@@ -37,7 +37,7 @@ pub enum I2cMuxDriver {
 
 pub enum I2cError {
     NoDevice,
-    NoRegister
+    NoRegister,
 }
 
 pub struct I2cMux {
@@ -47,8 +47,8 @@ pub struct I2cMux {
     pub driver: I2cMuxDriver,
     pub enable: (
         drv_stm32h7_gpio_api::Port,
-        drv_stm32h7_gpio_api::Alternate, 
-        u16
+        drv_stm32h7_gpio_api::Alternate,
+        u16,
     ),
     pub address: u8,
     pub segment: Option<drv_i2c_api::Segment>,
@@ -115,7 +115,7 @@ impl<'a> I2cController<'a> {
         let i2c = unsafe { &*(self.getblock)() };
 
         // Disable PE
-        i2c.cr1.write(|w| { w.pe().clear_bit() });
+        i2c.cr1.write(|w| w.pe().clear_bit());
 
         self.configure_timing(i2c);
 
@@ -131,7 +131,7 @@ impl<'a> I2cController<'a> {
             .txie().set_bit()           // enable TX interrupt
         });
 
-        i2c.cr1.modify(|_, w| { w.pe().set_bit() });
+        i2c.cr1.modify(|_, w| w.pe().set_bit());
         self.registers = Some(i2c);
     }
 
@@ -161,6 +161,7 @@ impl<'a> I2cController<'a> {
         }
 
         if wlen > 0 {
+            #[rustfmt::skip]
             i2c.cr2.modify(|_, w| { w
                 .nbytes().bits(wlen as u8)
                 .autoend().clear_bit()
@@ -177,7 +178,7 @@ impl<'a> I2cController<'a> {
                     let isr = i2c.isr.read();
 
                     if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        i2c.icr.write(|w| w.nackcf().set_bit());
                         return Err(I2cError::NoDevice);
                     }
 
@@ -189,7 +190,7 @@ impl<'a> I2cController<'a> {
                     enable(notification);
                 }
 
-                // Get a single byte. 
+                // Get a single byte.
                 let byte: u8 = getbyte(pos);
 
                 // And send it!
@@ -203,7 +204,7 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
 
                 if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| { w.nackcf().set_bit() });
+                    i2c.icr.write(|w| w.nackcf().set_bit());
                     return Err(I2cError::NoRegister);
                 }
 
@@ -223,6 +224,7 @@ impl<'a> I2cController<'a> {
             // permit a STOP between a register address write and a subsequent
             // read).
             //
+            #[rustfmt::skip]
             i2c.cr2.modify(|_, w| { w
                 .nbytes().bits(rlen as u8)
                 .autoend().clear_bit()
@@ -242,7 +244,7 @@ impl<'a> I2cController<'a> {
                     let isr = i2c.isr.read();
 
                     if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        i2c.icr.write(|w| w.nackcf().set_bit());
                         return Err(I2cError::NoDevice);
                     }
 
@@ -268,7 +270,7 @@ impl<'a> I2cController<'a> {
         // Whether we did a write alone, a read alone, or a write followed
         // by a read, we're done now -- manually send a STOP.
         //
-        i2c.cr2.modify(|_, w| { w.stop().set_bit() });
+        i2c.cr2.modify(|_, w| w.stop().set_bit());
 
         Ok(())
     }
@@ -280,10 +282,11 @@ impl<'a> I2cController<'a> {
         let i2c = unsafe { &*(self.getblock)() };
 
         // Disable PE
-        i2c.cr1.write(|w| { w.pe().clear_bit() });
+        i2c.cr1.write(|w| w.pe().clear_bit());
 
         self.configure_timing(i2c);
 
+        #[rustfmt::skip]
         i2c.oar1.modify(|_, w| { w
             .oa1en().set_bit()                      // own-address enable
             .oa1mode().clear_bit()                  // 7-bit address
@@ -291,12 +294,14 @@ impl<'a> I2cController<'a> {
         });
 
         if let Some(address) = secondary {
+            #[rustfmt::skip]
             i2c.oar2.modify(|_, w| { w
                 .oa2en().set_bit()                  // own-address-2 enable
                 .oa2().bits(address.into())         // address bits
                 .oa2msk().bits(0)                   // mask 0 == exact match
             });
         } else {
+            #[rustfmt::skip]
             i2c.oar2.modify(|_, w| { w
                 .oa2en().clear_bit()                // own-address 2 disable
             });
@@ -316,7 +321,7 @@ impl<'a> I2cController<'a> {
             .txie().set_bit()           // enable TX interrupt
         });
 
-        i2c.cr1.modify(|_, w| { w.pe().set_bit() });
+        i2c.cr1.modify(|_, w| w.pe().set_bit());
         self.registers = Some(i2c);
     }
 
@@ -326,7 +331,7 @@ impl<'a> I2cController<'a> {
         secondary: Option<u8>,
         mut enable: impl FnMut(u32),
         mut wfi: impl FnMut(u32),
-        mut readreg: impl FnMut(u8, Option<u8>, &mut [u8]) -> Option<usize>
+        mut readreg: impl FnMut(u8, Option<u8>, &mut [u8]) -> Option<usize>,
     ) -> ! {
         self.configure_as_target(address, secondary);
 
@@ -344,7 +349,7 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
 
                 if isr.stopf().is_stop() {
-                    i2c.icr.write(|w| { w.stopcf().set_bit() });
+                    i2c.icr.write(|w| w.stopcf().set_bit());
                     continue;
                 }
 
@@ -357,7 +362,7 @@ impl<'a> I2cController<'a> {
             };
 
             // Clear our Address interrupt
-            i2c.icr.write(|w| { w.addrcf().set_bit() });
+            i2c.icr.write(|w| w.addrcf().set_bit());
 
             if is_write {
                 'rxloop: loop {
@@ -370,21 +375,21 @@ impl<'a> I2cController<'a> {
                         // loop.
                         //
                         if !isr.dir().is_write() {
-                            i2c.icr.write(|w| { w.addrcf().set_bit() });
+                            i2c.icr.write(|w| w.addrcf().set_bit());
                             break 'rxloop;
                         }
 
-                        i2c.icr.write(|w| { w.addrcf().set_bit() });
+                        i2c.icr.write(|w| w.addrcf().set_bit());
                         continue 'rxloop;
                     }
 
                     if isr.stopf().is_stop() {
-                        i2c.icr.write(|w| { w.stopcf().set_bit() });
+                        i2c.icr.write(|w| w.stopcf().set_bit());
                         break 'rxloop;
                     }
 
                     if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| { w.nackcf().set_bit() });
+                        i2c.icr.write(|w| w.nackcf().set_bit());
                         break 'rxloop;
                     }
 
@@ -414,7 +419,7 @@ impl<'a> I2cController<'a> {
                     //
                     0
                 }
-                Some(len) => len
+                Some(len) => len,
             };
 
             let mut pos = 0;
@@ -431,13 +436,13 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| { w.nackcf().set_bit() });
+                    i2c.icr.write(|w| w.nackcf().set_bit());
                     continue 'addrloop;
                 }
 
                 if isr.txis().is_empty() {
                     if pos < wlen {
-                        i2c.txdr.write(|w| { w.txdata().bits(wbuf[pos]) });
+                        i2c.txdr.write(|w| w.txdata().bits(wbuf[pos]));
                         pos += 1;
                         continue 'txloop;
                     } else {
@@ -446,8 +451,8 @@ impl<'a> I2cController<'a> {
                         // byte will only be seen on the wire if we haven't
                         // sent anything at all.)
                         //
-                        i2c.txdr.write(|w| { w.txdata().bits(0x1d) });
-                        i2c.isr.modify(|_, w| { w.txe().set_bit() });
+                        i2c.txdr.write(|w| w.txdata().bits(0x1d));
+                        i2c.isr.modify(|_, w| w.txe().set_bit());
                         continue 'txloop;
                     }
                 }

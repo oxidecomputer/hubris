@@ -7,11 +7,11 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+use drv_i2c_api::*;
 use drv_i2c_api::{Controller, Port};
-use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
-use drv_i2c_api::*;
+use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -71,7 +71,7 @@ fn configure_pin() {
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,
-            pin.function
+            pin.function,
         )
         .unwrap();
 
@@ -102,32 +102,35 @@ fn main() -> ! {
         let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
     };
 
-    let i2c = [ I2c::new(
-        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
-        Controller::I2C4,
-        Port::F,
-        Some((Mux::M1, Segment::S1)),
-        ADT7420_ADDRESS
-    ), I2c::new(
-        TaskId::for_index_and_gen(I2C as usize, Generation::default()),
-        Controller::I2C4,
-        Port::F,
-        Some((Mux::M1, Segment::S4)),
-        ADT7420_ADDRESS
-    )];
+    let i2c = [
+        I2c::new(
+            TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+            Controller::I2C4,
+            Port::F,
+            Some((Mux::M1, Segment::S1)),
+            ADT7420_ADDRESS,
+        ),
+        I2c::new(
+            TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+            Controller::I2C4,
+            Port::F,
+            Some((Mux::M1, Segment::S4)),
+            ADT7420_ADDRESS,
+        ),
+    ];
 
     let mut response = |addr, register, buf: &mut [u8]| -> Option<usize> {
         let i2c: &I2c = if addr == ADT7420_ADDRESS - 1 {
             &i2c[0]
         } else if addr == ADT7420_ADDRESS + 1 {
-            &i2c[1] 
+            &i2c[1]
         } else {
             sys_log!("bogus addr {:x}", addr);
             return None;
         };
 
         match register {
-            Some(val) if val == ADT7420_REG_TEMPMSB => { 
+            Some(val) if val == ADT7420_REG_TEMPMSB => {
                 match i2c.read_reg::<u8, [u8; 2]>(0 as u8) {
                     Ok(rval) => {
                         buf[0] = rval[0];
@@ -149,7 +152,7 @@ fn main() -> ! {
                 match i2c.read_reg::<u8, u8>(val) {
                     Ok(rval) => {
                         buf[0] = rval;
-                        Some (1)
+                        Some(1)
                     }
 
                     Err(err) => {
@@ -176,6 +179,6 @@ fn main() -> ! {
         Some(ADT7420_ADDRESS + 1),
         enable,
         wfi,
-        &mut response
+        &mut response,
     );
 }

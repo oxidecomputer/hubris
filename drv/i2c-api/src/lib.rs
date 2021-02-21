@@ -109,7 +109,9 @@ pub struct I2c {
 
 pub trait Marshal<T> {
     fn marshal(&self) -> T;
-    fn unmarshal(val: &T) -> Result<Self, ResponseCode> where Self: Sized;
+    fn unmarshal(val: &T) -> Result<Self, ResponseCode>
+    where
+        Self: Sized;
 }
 
 impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
@@ -117,11 +119,13 @@ impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
         [
             self.0,
             self.1 as u8,
-            self.2 as u8, 
+            self.2 as u8,
             match self.3 {
-                Some((mux, seg)) => 0b1000_0000 | ((mux as u8) << 4) | (seg as u8),
+                Some((mux, seg)) => {
+                    0b1000_0000 | ((mux as u8) << 4) | (seg as u8)
+                }
                 None => 0,
-            }
+            },
         ]
     }
     fn unmarshal(val: &[u8; 4]) -> Result<Self, ResponseCode> {
@@ -136,9 +140,9 @@ impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
                     Mux::from_u8((val[3] & 0b0111_0000) >> 4)
                         .ok_or(ResponseCode::BadMux)?,
                     Segment::from_u8(val[3] & 0b0000_1111)
-                        .ok_or(ResponseCode::BadSegment)?
+                        .ok_or(ResponseCode::BadSegment)?,
                 ))
-            }
+            },
         ))
     }
 }
@@ -153,7 +157,8 @@ impl core::fmt::Display for I2c {
             }
             (Port::Default, Some((mux, segment))) => {
                 write!(
-                    f, "{:?}, {:?}:{:?} 0x{:x}",
+                    f,
+                    "{:?}, {:?}:{:?} 0x{:x}",
                     self.controller, mux, segment, addr
                 )
             }
@@ -162,7 +167,8 @@ impl core::fmt::Display for I2c {
             }
             (_, Some((mux, segment))) => {
                 write!(
-                    f, "{:?}:{:?}, {:?}:{:?} 0x{:x}",
+                    f,
+                    "{:?}:{:?}, {:?}:{:?} 0x{:x}",
                     self.controller, self.port, mux, segment, addr
                 )
             }
@@ -176,7 +182,7 @@ impl I2c {
         controller: Controller,
         port: Port,
         segment: Option<(Mux, Segment)>,
-        address: u8
+        address: u8,
     ) -> Self {
         Self {
             task: task,
@@ -206,14 +212,18 @@ impl I2c {
             self.task,
             Op::WriteRead as u16,
             &Marshal::marshal(&(
-                self.address, self.controller, self.port, self.segment
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
             )),
             &mut [],
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
 
         if code != 0 {
-            Err(ResponseCode::from_u32(code).ok_or(ResponseCode::BadResponse)?)
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
         }
@@ -227,14 +237,18 @@ impl I2c {
             self.task,
             Op::WriteRead as u16,
             &Marshal::marshal(&(
-                self.address, self.controller, self.port, self.segment
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
             )),
             &mut [],
             &[Lease::from(buffer), Lease::from(&empty[0..0])],
         );
 
         if code != 0 {
-            Err(ResponseCode::from_u32(code).ok_or(ResponseCode::BadResponse)?)
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(())
         }

@@ -44,13 +44,11 @@ fn convert_temp13(raw: (u8, u8)) -> Celsius {
     let lsb = raw.1;
     let val = ((msb & 0x7f) as u16) << 5 | ((lsb >> 3) as u16);
 
-    Celsius(
-        if msb & 0b1000_0000 != 0 {
-            (val as i16 - 4096) as f32 / 16.0
-        } else {
-            val as f32 / 16.0
-        }
-    )
+    Celsius(if msb & 0b1000_0000 != 0 {
+        (val as i16 - 4096) as f32 / 16.0
+    } else {
+        val as f32 / 16.0
+    })
 }
 
 impl core::fmt::Display for Adt7420 {
@@ -61,33 +59,21 @@ impl core::fmt::Display for Adt7420 {
 
 impl Adt7420 {
     pub fn new(i2c: &I2c) -> Self {
-        Self {
-            i2c: *i2c,
-        }
+        Self { i2c: *i2c }
     }
 
     pub fn validate(&self) -> Result<(), Error> {
         match self.i2c.read_reg::<u8, u8>(Register::ID as u8) {
-            Ok(id) if id == ADT7420_ID => {
-                Ok(())
-            }
-            Ok(id) => {
-                Err(Error::BadID { id: id })
-            }
-            Err(code) => {
-                Err(Error::BadValidate { code: code })
-            }
+            Ok(id) if id == ADT7420_ID => Ok(()),
+            Ok(id) => Err(Error::BadID { id: id }),
+            Err(code) => Err(Error::BadValidate { code: code }),
         }
     }
 
     pub fn read_temperature(&self) -> Result<Celsius, Error> {
         match self.i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
-            Ok(buf) => {
-                Ok(convert_temp13((buf[0], buf[1])))
-            }
-            Err(code) => {
-                Err(Error::BadTempRead { code: code })
-            }
+            Ok(buf) => Ok(convert_temp13((buf[0], buf[1]))),
+            Err(code) => Err(Error::BadTempRead { code: code }),
         }
     }
 }
