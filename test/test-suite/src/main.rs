@@ -13,6 +13,7 @@
 
 #![no_std]
 #![no_main]
+#![feature(asm)]
 
 use core::sync::atomic::{AtomicU8, Ordering};
 use test_api::*;
@@ -34,6 +35,9 @@ macro_rules! test_cases {
 test_cases! {
     test_send,
     test_recv_reply,
+    test_floating_point_lowregs,
+    test_floating_point_highregs,
+    test_floating_point_fault,
     test_fault_badmem,
     test_fault_stackoverflow,
     test_fault_execdata,
@@ -594,6 +598,70 @@ fn test_timer_notify_past() {
     assert_eq!(rm.message_len, 0);
     assert_eq!(rm.response_capacity, 0);
     assert_eq!(rm.lease_count, 0);
+}
+
+/// Tests that floating point registers are properly saved and restored
+fn test_floating_point(highregs: bool) {
+    unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
+        if !highregs {
+            asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+        } else {
+            asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+        }
+    }
+
+    let mut before = [0u32; 16];
+    let mut after = [0u32; 16];
+
+    unsafe {
+        read_regs(&mut before, highregs);
+    }
+
+    // This makes the assumption that floating point has not been used in the
+    // suite before the execution of this test.  Note that if floating point
+    // registers are not being saved and restored properly, it is conceivable
+    // that this test will fail on this assert on runs that aren't the first
+    // run after reset.
+    for i in 0..16 {
+        assert_eq!(before[i], 0);
+    }
+
+    // Now let's make a call to our assistant to splat its floating point regs
+    let assist = assist_task_id();
+
+    let mut response = 0_u32;
+    let which: u32 = if highregs { 1 } else { 0 };
+
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::EatSomePi as u16,
+        &which.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    unsafe {
+        read_regs(&mut after, highregs);
+    }
+
+    // And verify that our registers are what we think that they should be
+    for i in 0..16 {
+        assert_eq!(before[i], after[i]);
+    }
+}
+
+fn test_floating_point_lowregs() {
+    test_floating_point(false);
+}
+
+fn test_floating_point_highregs() {
+    test_floating_point(true);
+}
+
+fn test_floating_point_fault() {
+    test_fault(AssistOp::PiAndDie, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
