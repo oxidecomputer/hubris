@@ -8,7 +8,7 @@ use drv_i2c_api::*;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
-const I2C: Task = SELF;
+const I2C: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const I2C: Task = Task::i2c_driver;

@@ -9,11 +9,11 @@ use drv_onewire_devices::ds18b20::*;
 use userlib::units::*;
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const I2C: Task = SELF;
-
 #[cfg(not(feature = "standalone"))]
 const I2C: Task = Task::i2c_driver;
+
+#[cfg(feature = "standalone")]
+const I2C: Task = Task::anonymous;
 
 fn convert_fahrenheit(temp: Celsius) -> f32 {
     temp.0 * (9.0 / 5.0) + 32.0
@@ -29,7 +29,7 @@ fn read_fans(fctrl: &Max31790) {
             Ok(rval) if rval.0 != 0 => {
                 sys_log!("{}: fan {}: RPM={}", fctrl, fan.0, rval.0);
             }
-            Ok(rval) => {}
+            Ok(_) => {}
             Err(err) => {
                 sys_log!("{}: fan {}: failed: {:?}", fctrl, fan.0, err);
             }
@@ -147,12 +147,14 @@ fn adt7420_read(device: &Adt7420, validated: &mut bool) {
 
 #[export_name = "main"]
 fn main() -> ! {
+    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
             const MAX31790_ADDRESS: u8 = 0x20;
 
             let fctrl = Max31790::new(&I2c::new(
-                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                task,
                 Controller::I2C1,
                 Port::Default,
                 None,
@@ -162,13 +164,13 @@ fn main() -> ! {
             const ADT7420_ADDRESS: u8 = 0x48;
 
             let mut devices = [ (Adt7420::new(&I2c::new(
-                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                task,
                 Controller::I2C4,
                 Port::F,
                 Some((Mux::M1, Segment::S1)),
                 ADT7420_ADDRESS
             )), false), (Adt7420::new(&I2c::new(
-                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                task,
                 Controller::I2C4,
                 Port::F,
                 Some((Mux::M1, Segment::S4)),
@@ -178,14 +180,23 @@ fn main() -> ! {
             const DS2482_ADDRESS: u8 = 0x19;
 
             let mut ds2482 = Ds2482::new(&I2c::new(
-                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                task,
                 Controller::I2C4,
                 Port::F,
                 Some((Mux::M1, Segment::S3)),
                 DS2482_ADDRESS,
             ));
         } else {
-            compile_error!("unknown board");
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "standalone")] {
+                    let i2c = I2c::none(task);
+                    let fctrl = Max31790::new(&i2c);
+                    let mut devices = [ (Adt7420::new(&i2c), false) ];
+                    let mut ds2482 = Ds2482::new(&i2c);
+                } else {
+                    compile_error!("unknown board");
+                }
+            }
         }
     }
 

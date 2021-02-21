@@ -44,6 +44,7 @@ pub enum Controller {
     I2C5 = 5,
     I2C6 = 6,
     I2C7 = 7,
+    None = 0xff,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
@@ -190,6 +191,16 @@ impl I2c {
             port: port,
             segment: segment,
             address: address,
+        }
+    }
+
+    pub fn none(task: TaskId) -> Self {
+        Self {
+            task: task,
+            controller: Controller::None,
+            port: Port::Default,
+            segment: None,
+            address: 0,
         }
     }
 }

@@ -22,13 +22,13 @@ mod ltc4306;
 const RCC: Task = Task::rcc_driver;
 
 #[cfg(feature = "standalone")]
-const RCC: Task = SELF;
+const RCC: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const GPIO: Task = Task::gpio_driver;
 
 #[cfg(feature = "standalone")]
-const GPIO: Task = SELF;
+const GPIO: Task = Task::anonymous;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "stm32h7b3i-dk")] {

@@ -18,19 +18,19 @@ use userlib::*;
 const RCC: Task = Task::rcc_driver;
 
 #[cfg(feature = "standalone")]
-const RCC: Task = SELF;
+const RCC: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const GPIO: Task = Task::gpio_driver;
 
 #[cfg(feature = "standalone")]
-const GPIO: Task = SELF;
+const GPIO: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const I2C: Task = Task::i2c_driver;
 
 #[cfg(feature = "standalone")]
-const I2C: Task = SELF;
+const I2C: Task = Task::anonymous;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gemini-bu-1")] {
@@ -51,7 +51,28 @@ cfg_if::cfg_if! {
             mask: (1 << 0) | (1 << 1),
         };
     } else {
-        compile_error!("I2C target unsupported for this board");
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "standalone")] {
+                static mut I2C_CONTROLLER: I2cController = I2cController {
+                    controller: Controller::I2C2,
+                    peripheral: Peripheral::I2c2,
+                    getblock: device::I2C2::ptr,
+                    notification: (1 << (2 - 1)),
+                    registers: None,
+                    port: None,
+                };
+
+                const I2C_PIN: I2cPin = I2cPin {
+                    controller: Controller::I2C2,
+                    port: Port::F,
+                    gpio_port: drv_stm32h7_gpio_api::Port::F,
+                    function: Alternate::AF4,
+                    mask: (1 << 0) | (1 << 1),
+                };
+            } else {
+                compile_error!("I2C target unsupported for this board");
+            }
+        }
     }
 }
 

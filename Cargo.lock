@@ -586,23 +586,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32h7-i2c-target-server"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if 0.1.10",
- "cortex-m 0.6.7",
- "cortex-m-semihosting",
- "drv-i2c-api",
- "drv-stm32h7-gpio-api",
- "drv-stm32h7-i2c",
- "drv-stm32h7-rcc-api",
- "num-traits",
- "stm32h7",
- "userlib",
-]
-
-[[package]]
 name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
@@ -1667,6 +1650,23 @@ dependencies = [
  "lpc55-pac",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "task-spd"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-i2c",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "stm32h7",
+ "userlib",
 ]
 
 [[package]]

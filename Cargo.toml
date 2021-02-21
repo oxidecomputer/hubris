@@ -25,6 +25,7 @@ members = [
     "task-idle",
     "task-i2c",
     "task-spam2",
+    "task-spd",
     "task-spi",
     "task-thermal",
 
@@ -37,7 +38,6 @@ members = [
     "drv/stm32h7-rcc-api",
     "drv/stm32h7-usart",
     "drv/stm32h7-i2c-server",
-    "drv/stm32h7-i2c-target-server",
 
     "drv/lpc55-syscon",
     "drv/lpc55-syscon-api",
