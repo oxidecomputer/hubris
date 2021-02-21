@@ -1,0 +1,231 @@
+#![no_std]
+#![no_main]
+
+use drv_i2c_api::*;
+use drv_i2c_devices::adt7420::*;
+use drv_i2c_devices::ds2482::*;
+use drv_i2c_devices::max31790::*;
+use drv_onewire_devices::ds18b20::*;
+use userlib::units::*;
+use userlib::*;
+
+#[cfg(feature = "standalone")]
+const I2C: Task = SELF;
+
+#[cfg(not(feature = "standalone"))]
+const I2C: Task = Task::i2c_driver;
+
+fn convert_fahrenheit(temp: Celsius) -> f32 {
+    temp.0 * (9.0 / 5.0) + 32.0
+}
+
+fn read_fans(fctrl: &Max31790) {
+    let mut ndx = 0;
+
+    for fan in FAN_MIN..=FAN_MAX {
+        let fan = Fan(fan);
+
+        match fctrl.fan_rpm(fan) {
+            Ok(rval) if rval.0 != 0 => {
+                sys_log!("{}: fan {}: RPM={}", fctrl, fan.0, rval.0);
+            }
+            Ok(rval) => {}
+            Err(err) => {
+                sys_log!("{}: fan {}: failed: {:?}", fctrl, fan.0, err);
+            }
+        }
+
+        ndx = ndx + 1;
+    }
+}
+
+fn ds2482_search(ds2482: &mut Ds2482, devices: &mut [Option<Ds18b20>]) {
+    if let Err(err) = ds2482.initialize() {
+        sys_log!("{}: failed to initialize: {:?}", ds2482, err);
+        return;
+    }
+
+    let mut ndevices = 0;
+
+    loop {
+        match ds2482.search() {
+            Ok(Some(id)) => {
+                if ndevices == devices.len() {
+                    sys_log!("{}: too many 1-wire devices found");
+                    return;
+                }
+
+                if let Some(dev) = Ds18b20::new(id) {
+                    sys_log!("{}: found {}", ds2482, dev);
+                    devices[ndevices] = Some(dev);
+                    ndevices += 1;
+                } else {
+                    sys_log!("{}: non-DS18B20 found: 0x{:016x}", ds2482, id);
+                }
+            }
+
+            Ok(None) => {
+                break;
+            }
+            Err(err) => {
+                sys_log!("{}: failed search: {:?}", ds2482, err);
+                return;
+            }
+        }
+    }
+}
+
+fn ds18b20_read(device: &Ds18b20, ds2482: &Ds2482) {
+    let reset = || ds2482.reset();
+    let write = |byte| ds2482.write_byte(byte);
+    let read = || ds2482.read_byte();
+
+    match device.read_temperature(reset, write, read) {
+        Ok(temp) => {
+            let f = convert_fahrenheit(temp);
+
+            sys_log!(
+                "{}: temp is {}.{:03} degrees C, \
+                {}.{:03} degrees F",
+                device,
+                temp.0 as i32,
+                (((temp.0 + 0.0005) * 1000.0) as i32) % 1000,
+                f as i32,
+                (((f + 0.0005) * 1000.0) as i32) % 1000
+            );
+        }
+
+        Err(_) => {
+            sys_log!("failed to read temp!");
+        }
+    }
+}
+
+fn ds18b20_kick_off_conversion(device: &Ds18b20, ds2482: &Ds2482) {
+    let reset = || ds2482.reset();
+    let write = |byte| ds2482.write_byte(byte);
+
+    if let Err(err) = device.convert_temperature(reset, write) {
+        sys_log!("{}: conversion failed: {:?}", device, err);
+    }
+}
+
+fn adt7420_read(device: &Adt7420, validated: &mut bool) {
+    if *validated {
+        let temp = match device.read_temperature() {
+            Ok(temp) => temp,
+            Err(err) => {
+                sys_log!("{}: failed to read temp: {:?}", device, err);
+                return;
+            }
+        };
+
+        let f = convert_fahrenheit(temp);
+
+        // Avoid default formatting to save a bunch of text and stack
+        sys_log!(
+            "{}: temp is {}.{:03} degrees C, \
+            {}.{:03} degrees F",
+            device,
+            temp.0 as i32,
+            (((temp.0 + 0.0005) * 1000.0) as i32) % 1000,
+            f as i32,
+            (((f + 0.0005) * 1000.0) as i32) % 1000
+        );
+    } else {
+        match device.validate() {
+            Ok(_) => {
+                sys_log!("{}: found device!", device);
+                *validated = true;
+            }
+            Err(err) => {
+                sys_log!("{}: no bueno: {:?}", device, err);
+            }
+        }
+    }
+}
+
+#[export_name = "main"]
+fn main() -> ! {
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "gemini-bu-1")] {
+            const MAX31790_ADDRESS: u8 = 0x20;
+
+            let fctrl = Max31790::new(&I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C1,
+                Port::Default,
+                None,
+                MAX31790_ADDRESS,
+            ));
+
+            const ADT7420_ADDRESS: u8 = 0x48;
+
+            let mut devices = [ (Adt7420::new(&I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S1)),
+                ADT7420_ADDRESS
+            )), false), (Adt7420::new(&I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S4)),
+                ADT7420_ADDRESS
+            )), false)];
+
+            const DS2482_ADDRESS: u8 = 0x19;
+
+            let mut ds2482 = Ds2482::new(&I2c::new(
+                TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S3)),
+                DS2482_ADDRESS,
+            ));
+        } else {
+            compile_error!("unknown board");
+        }
+    }
+
+    loop {
+        match fctrl.initialize() {
+            Ok(_) => {
+                sys_log!("{}: initialization successful", fctrl);
+                break;
+            }
+            Err(err) => {
+                sys_log!("{}: initialization failed: {:?}", fctrl, err);
+                hl::sleep_for(1000);
+            }
+        }
+    }
+
+    let mut ds18b20: [Option<Ds18b20>; 8] = [None; 8];
+    ds2482_search(&mut ds2482, &mut ds18b20);
+
+    loop {
+        read_fans(&fctrl);
+
+        for (device, validated) in &mut devices {
+            adt7420_read(device, validated);
+        }
+
+        for device in &ds18b20 {
+            if let Some(device) = device {
+                ds18b20_read(device, &ds2482);
+            }
+        }
+
+        // Before we go to sleep, kick off (asynchronous) temp conversions
+        // for our DS18B20s -- these can take up to 750ms!
+        for device in &ds18b20 {
+            if let Some(device) = device {
+                ds18b20_kick_off_conversion(device, &ds2482);
+            }
+        }
+
+        hl::sleep_for(1000);
+    }
+}
