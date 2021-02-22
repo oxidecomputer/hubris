@@ -185,7 +185,7 @@ impl core::fmt::Display for Max31790 {
 pub const FAN_MIN: u8 = 1;
 pub const FAN_MAX: u8 = 6;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Fan(pub u8);
 
 impl Fan {

@@ -46,41 +46,66 @@
 //! ```console
 //! $ cargo xtask humility app.toml ringbuf
 //! humility: attached via ST-Link
+//! humility: ring buffer MAX31790_RINGBUF in thermal:
 //! ADDR        NDX LINE  GEN    COUNT PAYLOAD
-//! 0x200082f8   47   91   13        1 (22.0625, Some(TempMSB))
-//! 0x20008308   48   91   13       19 (22, Some(TempMSB))
-//! 0x20008318   49   91   13        1 (22.0625, Some(TempMSB))
-//! 0x20008328   50   91   13        1 (22, Some(TempMSB))
-//! 0x20008338   51   91   13        3 (22.0625, Some(TempMSB))
-//! 0x20008348   52   91   13       12 (22, Some(TempMSB))
-//! 0x20008358   53   91   13        2 (22.0625, Some(TempMSB))
-//! 0x20008368   54   91   13        2 (22, Some(TempMSB))
+//! 0x20007774    1  242   12        1 (Some(Tach5CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x20007788    2  242   12        1 (Some(Tach6CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x2000779c    3  242   12        1 (Some(Tach1CountMSB), Ok([ 0x7d, 0xc0 ]))
+//! 0x200077b0    4  242   12        1 (Some(Tach2CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x200077c4    5  242   12        1 (Some(Tach3CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x200077d8    6  242   12        1 (Some(Tach4CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x200077ec    7  242   12        1 (Some(Tach5CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x20007800    8  242   12        1 (Some(Tach6CountMSB), Ok([ 0xff, 0xe0 ]))
+//! 0x20007814    9  242   12        1 (Some(Tach1CountMSB), Ok([ 0x7d, 0xe0 ]))
 //! ...
 //! ```
 //!
 //! If for any reason a raw view is needed, one can also use `humility readvar`
-//! and specify the corresponding `RINGBUF` variable.
+//! and specify the corresponding `RINGBUF` variable.  (The name of the
+//! variable is `RINGBUF` prefixed with the stem of the file that declared
+//! it.)
 //!
 //! ## Inspecting a ring buffer via GDB
 //!
 //! Assuming symbols are loaded, one can use GDB's `print` command,
-//! specifying the task that contains the ring buffer and the `RINGBUF`
-//! variable, e.g. to inspect a ring buffer in the `task_adt7420` task:
+//! specifying the crate that contains the ring buffer and the appropraite
+//! `RINGBUF` variable.  If the `thermal` task defines a ring buffer in
+//! its main, it can be printed this way:
 //!
 //! ```console
 //! (gdb) set print pretty on
-//! (gdb) print task_adt7420::RINGBUF
+//! (gdb) print task_thermal::RINGBUF
 //!
-//! $3 = ringbuf::Ringbuf<(f32, core::option::Option<task_adt7420::Register>)> {
-//!  last: core::option::Option<usize>::Some(21),
+//! $2 = task_thermal::Ringbuf<core::option::Option<drv_i2c_devices::max31790::Fan>> {
+//!  last: core::option::Option<usize>::Some(3),
 //!  buffer: [
-//!    ringbuf::RingbufEntry<(f32, core::option::Option<task_adt7420::Register>)> {
-//!      line: 91,
-//!      generation: 15,
+//!    task_thermal::RingbufEntry<core::option::Option<drv_i2c_devices::max31790::Fan>> {
+//!      line: 31,
+//!      generation: 9,
+//!      count: 1,
+//!      payload: core::option::Option<drv_i2c_devices::max31790::Fan>::Some(drv_i2c_devices::max31790::Fan (
+//!          3
+//!        ))
+//!    },...
+//! ```
+//!
+//! To inspect a ring buffer that is in a dependency, the full crate will need
+//! to be specified, e.g. to inspect a ring buffer that is used in the `max31790`
+//! module of the `drv_i2c_devices` crate:
+//!
+//! ```console
+//! (gdb) set print pretty on
+//! (gdb) print drv_i2c_devices::max31790::MAX31790_RINGBUF
+//! $3 = drv_i2c_devices::max31790::Ringbuf<(core::option::Option<drv_i2c_devices::max31790::Register>, core::result::Result<[u8; 2], drv_i2c_api::ResponseCode>)> {
+//!  last: core::option::Option<usize>::Some(30),
+//!  buffer: [
+//!    drv_i2c_devices::max31790::RingbufEntry<(core::option::Option<drv_i2c_devices::max31790::Register>, core::result::Result<[u8; 2], drv_i2c_api::ResponseCode>)> {
+//!      line: 242,
+//!      generation: 79,
 //!      count: 1,
 //!      payload: (
-//!        22.0625,
-//!        core::option::Option<task_adt7420::Register>::Some(task_adt7420::Register::TempMSB)
+//!        core::option::Option<drv_i2c_devices::max31790::Register>::Some(drv_i2c_devices::max31790::Register::Tach6CountMSB),
+//!        core::result::Result<[u8; 2], drv_i2c_api::ResponseCode>::Err(0)
 //!      )
 //!    },...
 //! ```
@@ -208,15 +233,7 @@ pub fn ringbuf(input: TokenStream) -> TokenStream {
             }; #size],
         };
 
-        ///
-        /// Adds an entry to a ring buffer that has been declared with
-        /// [`ringbuf!`].  The line number of the call will be recorded, along
-        /// with the payload.  If the ring buffer is full, the oldest entry in
-        /// the ring buffer will be overwritten.  If the line number and the
-        /// payload both match the most recent entry in the ring buffer, no
-        /// new entry will be added, and the count of the last entry will be
-        /// incremented.
-        ///
+        // See rustdoc for this, below
         macro_rules! ringbuf_entry {
             ($payload:expr) => {
                 let ringbuf = unsafe { &mut #name };
@@ -226,4 +243,18 @@ pub fn ringbuf(input: TokenStream) -> TokenStream {
     };
 
     ringbuf.into()
+}
+
+///
+/// Adds an entry to a ring buffer that has been declared with [`ringbuf!`].
+/// The line number of the call will be recorded, along with the payload.  If
+/// the ring buffer is full, the oldest entry in the ring buffer will be
+/// overwritten.  If the line number and the payload both match the most
+/// recent entry in the ring buffer, no new entry will be added, and the count
+/// of the last entry will be incremented.
+///
+#[cfg(doc)]
+#[proc_macro]
+pub fn ringbuf_entry(input: TokenStream) -> TokenStream {
+    input.into()
 }

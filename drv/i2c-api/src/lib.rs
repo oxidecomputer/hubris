@@ -1,4 +1,20 @@
 //! Client API for the I2C server
+//!
+//! This API allows for access to I2C devices.  The actual I2C bus
+//! communication occurs in a disjoint I2C server task; this API handles
+//! marshalling (and unmarshalling) of messages to (and replies from) this
+//! task to perform I2C operations.
+//!
+//! # I2C devices
+//!
+//! An I2C device is uniquely identified by a 5-tuple:
+//!
+//! - The I2C controller in the MCU
+//! - The port for that controller, identifying a bus
+//! - The multiplexer on the specified I2C bus, if any
+//! - The segment on the multiplexer, if a multiplexer is specified
+//! - The address of the device itself
+//!
 
 #![no_std]
 
@@ -11,6 +27,8 @@ pub enum Op {
     WriteRead = 1,
 }
 
+/// The response code returned from the I2C controller (or from the
+/// kernel in the case of [`ResponseCode::Dead`]).
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum ResponseCode {
@@ -25,14 +43,19 @@ pub enum ResponseCode {
     NoRegister = 8,
     BadMux = 9,
     BadSegment = 10,
-    MuxNotFound,
-    SegmentNotFound,
-    SegmentDisconnected,
-    MuxDisconnected,
-    BadMuxAddress,
-    BadMuxRegister,
+    MuxNotFound = 11,
+    SegmentNotFound = 12,
+    SegmentDisconnected = 13,
+    MuxDisconnected = 14,
+    BadMuxAddress = 15,
+    BadMuxRegister = 16,
 }
 
+///
+/// The controller for a given I2C device. The numbering here should be
+/// assumed to follow the numbering for the peripheral as described by the
+/// microcontroller.
+///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Controller {
@@ -63,6 +86,13 @@ pub enum ReservedAddress {
     TenBit11 = 0b1111_111,
 }
 
+///
+/// The port for a given I2C device.  Some controllers can have multiple
+/// ports (which themselves are connected to different I2C busses), but only
+/// one port can be active at a time.  For these controllers, a port must
+/// be specified (generally lettered).  For controllers that have only one
+/// port, [`Port::Default`] should be specified.
+///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Port {
@@ -80,12 +110,19 @@ pub enum Port {
     K = 11,
 }
 
+///
+/// A multiplexer for a given I2C device.  Multiplexers are numbered starting
+/// from 1.
+///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Mux {
     M1 = 1,
 }
 
+///
+/// A segment on a given multiplexer.  Segments are nubered starting from 1.
+///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Segment {
@@ -99,6 +136,10 @@ pub enum Segment {
     S8 = 8,
 }
 
+///
+/// The 5-tuple that uniquely identifies an I2C device.  The multiplexer and
+/// the segment are optional, but if one is present, the other must be.
+///
 #[derive(Copy, Clone, Debug)]
 pub struct I2c {
     pub task: TaskId,
@@ -178,6 +219,11 @@ impl core::fmt::Display for I2c {
 }
 
 impl I2c {
+    ///
+    /// Return a new [`I2c`], given a 5-tuple identifying a device plus a task
+    /// identifier for the I2C driver.  This will not make any IPC requests to
+    /// the specified task.
+    ///
     pub fn new(
         task: TaskId,
         controller: Controller,
@@ -194,6 +240,12 @@ impl I2c {
         }
     }
 
+    ///
+    /// Returns an I2C device that does not correspond to an actual device.
+    /// This is for purposes of allowing standalone builds of tasks;
+    /// production code should not have such a device, and all operations
+    /// would be expected to fail with a `ResponseCode::BadController`.
+    ///
     pub fn none(task: TaskId) -> Self {
         Self {
             task: task,
@@ -212,7 +264,23 @@ impl From<ResponseCode> for u32 {
 }
 
 impl I2c {
-    /// Reads a register, with register address of type R and value of type V
+    ///
+    /// Reads a register, with register address of type R and value of type V.
+    ///
+    /// ## Register definition
+    ///
+    /// Most devices have a notion of a different kinds of values that can be
+    /// read; the numerical value of the desired kind is written to the
+    /// device, and then the device replies by writing back the desired value.
+    /// This notion is often called a "register", but "pointer" and "address"
+    /// are also common.  Register values are often 8-bit, but can also be
+    /// larger; the type of the register value is parameterized to afford this
+    /// flexibility.
+    ///
+    /// ## Error handling
+    ///
+    /// On failure, a [`ResponseCode`] will indicate more detail.
+    ///
     pub fn read_reg<R: AsBytes, V: Default + AsBytes + FromBytes>(
         &self,
         reg: R,
@@ -240,7 +308,10 @@ impl I2c {
         }
     }
 
-    /// Writes a buffer
+    ///
+    /// Writes a buffer to a device. Unlike a register read, this will not
+    /// perform any follow-up reads.
+    ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
         let empty = [0u8; 1];
 
