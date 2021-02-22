@@ -1597,8 +1597,9 @@ dependencies = [
 name = "task-spi"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
  "cortex-m-semihosting",
- "lpc55-pac",
  "userlib",
  "zerocopy",
 ]
