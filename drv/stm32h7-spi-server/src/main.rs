@@ -77,37 +77,55 @@ fn main() -> ! {
         Generation::default(),
     ));
 
-    // TODO this is hardcoded to SPI2 for now.
+    // SPI4 is the connection from SP -> RoT
+    rcc_driver.enable_clock(rcc_api::Peripheral::Spi4);
+    rcc_driver.leave_reset(rcc_api::Peripheral::Spi4);
 
-    rcc_driver.enable_clock(rcc_api::Peripheral::Spi2);
-    rcc_driver.leave_reset(rcc_api::Peripheral::Spi2);
-
-    // Manufacture a pointer to SPI2 because the stm32h7 crate won't help us
+    // Manufacture a pointer to SPI4 because the stm32h7 crate won't help us
     // Safety: we're dereferencing a pointer to a guaranteed-valid address of
     // registers.
-    let registers = unsafe { &*device::SPI2::ptr() };
+    let registers = unsafe { &*device::SPI4::ptr() };
 
     let mut spi = spi_core::Spi::from(registers);
 
+    // This should correspond to '0' in the standard SPI parlance
     spi.initialize(
         device::spi1::cfg1::MBR_A::DIV256,
         8,
         device::spi1::cfg2::COMM_A::FULLDUPLEX,
-        device::spi1::cfg2::LSBFRST_A::LSBFIRST,
+        device::spi1::cfg2::LSBFRST_A::MSBFIRST,
         device::spi1::cfg2::CPHA_A::FIRSTEDGE,
         device::spi1::cfg2::CPOL_A::IDLELOW,
-        device::spi1::cfg2::SSOM_A::NOTASSERTED,
+        device::spi1::cfg2::SSOM_A::ASSERTED,
     );
 
     let gpio_driver = gpio_api::Gpio::from(TaskId::for_index_and_gen(
         GPIO as usize,
         Generation::default(),
     ));
-    // Mux SPI2 onto the data pins but _not_ CS for now
+
+    // The main connection to RoT
+    // PE2 = SCK
+    // PE4 = CS
+    // PE5 = MISO
+    // PE6 = MOSI
+    //
+    // We can also route out some signals to headers for debugging
+    // PE12 = SCK
+    // PE11 = CS
+    // PE13 = MISO
+    // PE14 = MOSI
     gpio_driver
         .configure(
-            gpio_api::Port::I,
-            (1 << 1) | (1 << 2) | (1 << 3),
+            gpio_api::Port::E,
+            (1 << 2)
+                | (1 << 4)
+                | (1 << 5)
+                | (1 << 6)
+                | (1 << 13)
+                | (1 << 14)
+                | (1 << 11)
+                | (1 << 12),
             gpio_api::Mode::Alternate,
             gpio_api::OutputType::PushPull,
             gpio_api::Speed::High,
@@ -160,13 +178,13 @@ fn main() -> ! {
                                 return Err(ResponseCode::BadArg);
                             }
 
-                            let read_borrow = if op.is_read() {
+                            let read_borrow = if op.is_write() {
                                 Some(borrow.clone())
                             } else {
                                 None
                             };
                             let write_borrow =
-                                if op.is_write() { Some(borrow) } else { None };
+                                if op.is_read() { Some(borrow) } else { None };
 
                             (read_borrow, write_borrow, info.len)
                         }
@@ -258,6 +276,7 @@ fn main() -> ! {
                     // Enable interrupt on the conditions we're interested in.
                     spi.enable_transfer_interrupts();
 
+                    spi.clear_eot();
                     // While work remains, we'll attempt to move up to one byte
                     // in each direction, sleeping if we can do neither.
                     while tx.is_some() || rx.is_some() {
@@ -315,6 +334,19 @@ fn main() -> ! {
                             // Wait for our notification set to get, well, set.
                             sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
                                 .expect("kernel died?");
+                        }
+                    }
+
+                    // Wait for the final EOT interrupt to ensure we're really
+                    // done before returning to the client
+                    loop {
+                        sys_irq_control(IRQ_MASK, true);
+                        sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
+                            .expect("kernel died?");
+
+                        if spi.check_eot() {
+                            spi.clear_eot();
+                            break;
                         }
                     }
 
