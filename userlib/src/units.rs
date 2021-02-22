@@ -9,5 +9,3 @@ pub struct Celsius(pub f32);
 /// Rotations per minute
 #[derive(Copy, Clone, Debug)]
 pub struct Rpm(pub u16);
-
-
