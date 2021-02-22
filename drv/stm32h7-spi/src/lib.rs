@@ -75,12 +75,12 @@ impl Spi {
         self.reg.cfg2.write(|w| {
             w.master()
                 .set_bit()
-                // If you want to enable SS output, this bit needs to be set; if you
-                // don't, it appears harmless, so we set it unconditionally.
+                // This bit determines if software manages SS (SSM = 1) or
+                // hardware (SSM = 0). Let hardware set SS appropriately.
                 .ssm()
-                .set_bit()
-                // SS output enabled; but not necessarily routed to a pin (caller
-                // determines that)
+                .clear_bit()
+                // SS output enabled; but not necessarily routed to a pin
+                // (caller determines that)
                 .ssoe()
                 .enabled()
                 // Don't glitch pins when being reconfigured.
@@ -215,9 +215,7 @@ impl Spi {
 
     pub fn end(&mut self) {
         // Clear flags that tend to get set during transactions.
-        self.reg
-            .ifcr
-            .write(|w| w.txtfc().set_bit().eotc().set_bit());
+        self.reg.ifcr.write(|w| w.txtfc().set_bit());
         // Disable the transfer state machine.
         self.reg.cr1.modify(|_, w| w.spe().clear_bit());
         // Turn off interrupt enables.
@@ -240,10 +238,18 @@ impl Spi {
     pub fn enable_transfer_interrupts(&mut self) {
         self.reg
             .ier
-            .write(|w| w.txpie().set_bit().rxpie().set_bit());
+            .write(|w| w.txpie().set_bit().rxpie().set_bit().eotie().set_bit());
     }
 
     pub fn disable_can_tx_interrupt(&mut self) {
         self.reg.ier.modify(|_, w| w.txpie().clear_bit());
+    }
+
+    pub fn check_eot(&self) -> bool {
+        self.reg.sr.read().eot().is_completed()
+    }
+
+    pub fn clear_eot(&mut self) {
+        self.reg.ifcr.write(|w| w.eotc().set_bit());
     }
 }
