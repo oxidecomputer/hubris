@@ -10,7 +10,10 @@ edition = "2018"
 userlib = {path = "../userlib", default-features = false}
 cortex-m-semihosting = "0.3.5"
 zerocopy = "0.3.0"
-lpc55-pac = "0.1.0"
+cfg-if = "0.1.10"
+
+[build-dependencies]
+build-util = {path = "../build-util"}
 
 [features]
 default = ["standalone"]
