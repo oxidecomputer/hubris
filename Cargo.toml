@@ -42,6 +42,7 @@ members = [
     "drv/lpc55-usart",
     "drv/lpc55-i2c",
     "drv/lpc55-spi",
+    "drv/lpc55-spi-server",
     "drv/lpc55-rng",
 
     "drv/user-leds",

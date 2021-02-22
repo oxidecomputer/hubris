@@ -437,6 +437,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-spi-server"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "drv-lpc55-spi",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
@@ -913,6 +926,7 @@ dependencies = [
  "byteorder",
  "crc-any",
  "ecdsa",
+ "funty",
  "openssl",
  "p256",
  "packed_struct",
