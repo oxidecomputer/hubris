@@ -97,8 +97,8 @@ uses = ["rng", "pmc"]
 start = true
 
 [tasks.spi_driver]
-path = "../drv/lpc55-spi"
-name = "drv-lpc55-spi"
+path = "../drv/lpc55-spi-server"
+name = "drv-lpc55-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm8"]
