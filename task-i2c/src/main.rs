@@ -1,3 +1,34 @@
+//! I2C debugging cohort
+//!
+//! This task operates as a cohort for Humility to perform I2C operations.
+//! These operations allow busses to be scanned for devices, a device
+//! to be scanned for valid register values, and/or a particular register to
+//! be read from or written to.  We would not expect this
+//! task to be included in production systems.
+//!
+//! For example, to scan I2C1 via this cohort, one would execute `humility i2c`
+//! this way:
+//!
+//! ```console
+//! $ humility i2c -s -c 1
+//! humility: attached via ST-Link
+//!
+//! Device scan on controller I2C1:
+//!
+//!    R = Reserved   - = No device   \o/ = Device found   X = Timed out
+//!
+//! ADDR     0x0 0x1 0x2 0x3 0x4 0x5 0x6 0x7 0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf
+//! 0x00       R   R   R   R   R   R   R   R   -   -   -   -   -   -   -   -
+//! 0x10       -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x20     \o/ \o/   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x30       -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x40     \o/ \o/   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x50       -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x60       -   -   -   -   -   -   -   -   -   -   -   -   -   -   -   -
+//! 0x70       -   -   -   -   -   -   -   -   -   -   -   -   R   R   R   R
+//! ```
+//!
+
 #![no_std]
 #![no_main]
 

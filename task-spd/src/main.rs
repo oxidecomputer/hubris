@@ -1,3 +1,9 @@
+//! SPD proxy task
+//!
+//! This is (or will be) a I2C proxy for SPD data -- but at the moment it just
+//! proxies sensor data.
+//!
+
 #![no_std]
 #![no_main]
 
