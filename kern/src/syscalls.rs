@@ -680,9 +680,9 @@ fn irq_control(
         0 => crate::arch::disable_irq,
         1 => crate::arch::enable_irq,
         _ => {
-            return Err(UserError::Unrecoverable(
-                FaultInfo::SyscallUsage(UsageError::NoIrq)
-            ))
+            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+                UsageError::NoIrq,
+            )))
         }
     };
 
@@ -697,12 +697,12 @@ fn irq_control(
         }
 
         found
-    }) { 
+    }) {
         Ok(NextTask::Same)
     } else {
-        Err(UserError::Unrecoverable(
-            FaultInfo::SyscallUsage(UsageError::NoIrq)
-        ))
+        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))
     }
 }
 
