@@ -676,28 +676,34 @@ fn irq_control(
     let control = args.control();
     drop(args);
 
-    let irq = crate::arch::with_irq_table(|irqs| {
+    let operation = match control {
+        0 => crate::arch::disable_irq,
+        1 => crate::arch::enable_irq,
+        _ => {
+            return Err(UserError::Unrecoverable(
+                FaultInfo::SyscallUsage(UsageError::NoIrq)
+            ))
+        }
+    };
+
+    if crate::arch::with_irq_table(|irqs| {
+        let mut found = false;
+
         for irq in irqs {
             if irq.task == caller as u32 && irq.notification == bitmask {
-                return Ok(irq.irq);
+                operation(irq.irq);
+                found = true;
             }
         }
-        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-            UsageError::NoIrq,
-        )))
-    })?;
 
-    match control {
-        0 => crate::arch::disable_irq(irq),
-        1 => crate::arch::enable_irq(irq),
-        _ => {
-            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-                UsageError::NoIrq,
-            )))
-        }
+        found
+    }) { 
+        Ok(NextTask::Same)
+    } else {
+        Err(UserError::Unrecoverable(
+            FaultInfo::SyscallUsage(UsageError::NoIrq)
+        ))
     }
-
-    Ok(NextTask::Same)
 }
 
 fn explicit_panic(
