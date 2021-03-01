@@ -18,6 +18,7 @@ use drv_i2c_api::{Controller, Port};
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use ringbuf::*;
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -110,6 +111,8 @@ const ADT7420_ADDRESS: u8 = 0x48;
 const ADT7420_REG_TEMPMSB: u8 = 0;
 const ADT7420_REG_ID: u8 = 0xb;
 
+ringbuf!(u8, 16, 0);
+
 #[export_name = "main"]
 fn main() -> ! {
     let controller = unsafe { &mut I2C_CONTROLLER };
@@ -146,7 +149,10 @@ fn main() -> ! {
         ),
     ];
 
+    ringbuf_entry!(0);
+
     let mut response = |addr, register, buf: &mut [u8]| -> Option<usize> {
+        ringbuf_entry!(addr);
         let i2c: &I2c = if addr == ADT7420_ADDRESS - 1 {
             &i2c[0]
         } else if addr == ADT7420_ADDRESS + 1 {

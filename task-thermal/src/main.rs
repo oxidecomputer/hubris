@@ -180,6 +180,12 @@ fn main() -> ! {
                 task,
                 Controller::I2C4,
                 Port::F,
+                Some((Mux::M1, Segment::S2)),
+                ADT7420_ADDRESS
+            )), false), (Adt7420::new(&I2c::new(
+                task,
+                Controller::I2C4,
+                Port::F,
                 Some((Mux::M1, Segment::S4)),
                 ADT7420_ADDRESS
             )), false)];

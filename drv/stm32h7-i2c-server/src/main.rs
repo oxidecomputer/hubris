@@ -16,6 +16,8 @@ use drv_stm32h7_i2c::*;
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use userlib::*;
 
+use ringbuf::*;
+
 mod ltc4306;
 
 #[cfg(not(feature = "standalone"))]
@@ -233,6 +235,53 @@ fn configure_mux(
     }
 }
 
+ringbuf!(Option<ResponseCode>, 16, None);
+
+fn reset_if_needed(
+    code: ResponseCode,
+    controller: &I2cController,
+    port: Port,
+    mux: Option<(Mux, Segment)>,
+) {
+    ringbuf_entry!(Some(code));
+
+    match code {
+        ResponseCode::BusLocked
+        | ResponseCode::BusLockedMux
+        | ResponseCode::BusReset
+        | ResponseCode::BusResetMux => {}
+        _ => {
+            return;
+        }
+    }
+
+    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = Gpio::from(gpio);
+
+    // First, bounce our I2C controller
+    controller.reset();
+
+    if let Some((id, _)) = mux {
+        let muxes = unsafe { &mut I2C_MUXES };
+
+        for mux in muxes {
+            if mux.controller != controller.controller {
+                continue;
+            }
+
+            if mux.port != port || mux.id != id {
+                continue;
+            }
+
+            ringbuf_entry!(None);
+
+            // Bounce the mux
+            gpio.set_reset(mux.enable.0, 0, mux.enable.2).unwrap();
+            gpio.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
@@ -270,7 +319,14 @@ fn main() -> ! {
                 let pin = lookup_pin(controller.controller, port)?;
 
                 configure_port(controller, pin);
-                configure_mux(controller, port, mux, enable, wfi)?;
+
+                match configure_mux(controller, port, mux, enable, wfi) {
+                    Ok(_) => {}
+                    Err(code) => {
+                        reset_if_needed(code, controller, port, mux);
+                        return Err(code);
+                    }
+                }
 
                 let wbuf = caller.borrow(0);
                 let winfo = wbuf.info().ok_or(ResponseCode::BadArg)?;
@@ -305,10 +361,17 @@ fn main() -> ! {
                     enable,
                     wfi,
                 ) {
-                    Err(code) => Err(match code {
-                        I2cError::NoDevice => ResponseCode::NoDevice,
-                        I2cError::NoRegister => ResponseCode::NoRegister,
-                    }),
+                    Err(code) => {
+                        let code = match code {
+                            I2cError::NoDevice => ResponseCode::NoDevice,
+                            I2cError::NoRegister => ResponseCode::NoRegister,
+                            I2cError::BusReset => ResponseCode::BusReset,
+                            I2cError::BusLocked => ResponseCode::BusLocked,
+                        };
+
+                        reset_if_needed(code, controller, port, mux);
+                        Err(code)
+                    }
                     Ok(_) => {
                         caller.reply(());
                         Ok(())
@@ -348,60 +411,55 @@ fn configure_port(controller: &mut I2cController, pin: &I2cPin) {
         return;
     }
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    let gpio_driver = Gpio::from(gpio_driver);
+    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = Gpio::from(gpio);
 
     let src = lookup_pin(controller.controller, p).ok().unwrap();
 
-    gpio_driver
-        .configure(
-            src.gpio_port,
-            src.mask,
-            Mode::Alternate,
-            OutputType::OpenDrain,
-            Speed::High,
-            Pull::None,
-            Alternate::AF0,
-        )
-        .unwrap();
+    gpio.configure(
+        src.gpio_port,
+        src.mask,
+        Mode::Alternate,
+        OutputType::OpenDrain,
+        Speed::High,
+        Pull::None,
+        Alternate::AF0,
+    )
+    .unwrap();
 
-    gpio_driver
-        .configure(
-            pin.gpio_port,
-            pin.mask,
-            Mode::Alternate,
-            OutputType::OpenDrain,
-            Speed::High,
-            Pull::None,
-            pin.function,
-        )
-        .unwrap();
+    gpio.configure(
+        pin.gpio_port,
+        pin.mask,
+        Mode::Alternate,
+        OutputType::OpenDrain,
+        Speed::High,
+        Pull::None,
+        pin.function,
+    )
+    .unwrap();
 
     controller.port = Some(pin.port);
 }
 
 fn configure_pins() {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    let gpio_driver = Gpio::from(gpio_driver);
+    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = Gpio::from(gpio);
 
     for pin in &I2C_PINS {
         let controller = lookup_controller(pin.controller).ok().unwrap();
 
         match controller.port {
             None => {
-                gpio_driver
-                    .configure(
-                        pin.gpio_port,
-                        pin.mask,
-                        Mode::Alternate,
-                        OutputType::OpenDrain,
-                        Speed::High,
-                        Pull::None,
-                        pin.function,
-                    )
-                    .unwrap();
+                gpio.configure(
+                    pin.gpio_port,
+                    pin.mask,
+                    Mode::Alternate,
+                    OutputType::OpenDrain,
+                    Speed::High,
+                    Pull::None,
+                    pin.function,
+                )
+                .unwrap();
                 controller.port = Some(pin.port);
             }
             Some(_) => {}
@@ -410,26 +468,22 @@ fn configure_pins() {
 }
 
 fn configure_muxes() {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
-    let gpio_driver = Gpio::from(gpio_driver);
+    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = Gpio::from(gpio);
     let muxes = unsafe { &I2C_MUXES };
 
     for mux in muxes {
-        gpio_driver
-            .configure(
-                mux.enable.0,
-                mux.enable.2,
-                Mode::Output,
-                OutputType::PushPull,
-                Speed::High,
-                Pull::None,
-                mux.enable.1,
-            )
-            .unwrap();
+        gpio.configure(
+            mux.enable.0,
+            mux.enable.2,
+            Mode::Output,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+            mux.enable.1,
+        )
+        .unwrap();
 
-        gpio_driver
-            .set_reset(mux.enable.0, mux.enable.2, 0)
-            .unwrap();
+        gpio.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
     }
 }

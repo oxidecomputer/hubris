@@ -99,6 +99,8 @@ fn read_reg_u8(
         Err(code) => Err(match code {
             I2cError::NoDevice => ResponseCode::BadMuxAddress,
             I2cError::NoRegister => ResponseCode::BadMuxRegister,
+            I2cError::BusLocked => ResponseCode::BusLockedMux,
+            I2cError::BusReset => ResponseCode::BusResetMux,
         }),
         _ => Ok(rval[0]),
     }
@@ -124,6 +126,8 @@ fn write_reg_u8(
         Err(code) => Err(match code {
             I2cError::NoDevice => ResponseCode::BadMuxAddress,
             I2cError::NoRegister => ResponseCode::BadMuxRegister,
+            I2cError::BusLocked => ResponseCode::BusLockedMux,
+            I2cError::BusReset => ResponseCode::BusResetMux,
         }),
         _ => Ok(()),
     }

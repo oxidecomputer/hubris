@@ -49,6 +49,10 @@ pub enum ResponseCode {
     MuxDisconnected = 14,
     BadMuxAddress = 15,
     BadMuxRegister = 16,
+    BusReset = 17,
+    BusResetMux = 18,
+    BusLocked = 19,
+    BusLockedMux = 20,
 }
 
 ///

@@ -14,6 +14,10 @@ pub type RegisterBlock = device::i2c3::RegisterBlock;
 #[cfg(feature = "h743")]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
+use ringbuf::*;
+
+ringbuf!(u32, 8, 0);
+
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::Port,
@@ -38,6 +42,8 @@ pub enum I2cMuxDriver {
 pub enum I2cError {
     NoDevice,
     NoRegister,
+    BusReset,
+    BusLocked,
 }
 
 pub struct I2cMux {
@@ -109,30 +115,78 @@ impl<'a> I2cController<'a> {
         }
     }
 
+    fn configure_timeouts(&self, i2c: &RegisterBlock) {
+        cfg_if::cfg_if! {
+            //
+            // The timeout value is defined to be:
+            //
+            //   t_timeout = (TIMEOUTA + 1) x 2048 x t_i2cclk
+            //
+            // We want our t_timeout to be at least 25 ms: on h743 with a 10 ns
+            // t_i2cclk this yields 1219.7 (1220); on h7b3, this is 3416.9
+            // (3417).
+            //
+            if #[cfg(feature = "h743")] {
+                i2c.timeoutr.write(|w| { w
+                    .timouten().set_bit()           // Enable SCL timeout
+                    .timeouta().bits(1220)          // Timeout value
+                    .tidle().clear_bit()            // Want SCL, not IDLE
+                });
+            } else if #[cfg(feature = "h7b3")] {
+                i2c.timeoutr.write(|w| { w
+                    .timouten().set_bit()           // Enable SCL timeout
+                    .timeouta().bits(3417)          // Timeout value
+                    .tidle().clear_bit()            // Want SCL, not IDLE
+                });
+            }
+        }
+    }
+
     pub fn configure(&mut self) {
         assert!(self.registers.is_none());
 
         let i2c = unsafe { &*(self.getblock)() };
+        self.registers = Some(i2c);
 
         // Disable PE
         i2c.cr1.write(|w| w.pe().clear_bit());
 
         self.configure_timing(i2c);
+        self.configure_timeouts(i2c);
 
         #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
+            .smbhen().set_bit()         // enable SMBus host mode
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // must enable clock stretching
             .errie().set_bit()          // emable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
-            .stopie().set_bit()         // enable Stop Detection interrupt
+            .stopie().clear_bit()       // disable Stop Detection interrupt
             .nackie().set_bit()         // enable NACK interrupt
             .rxie().set_bit()           // enable RX interrupt
             .txie().set_bit()           // enable TX interrupt
         });
 
         i2c.cr1.modify(|_, w| w.pe().set_bit());
-        self.registers = Some(i2c);
+    }
+
+    /// Reset the controller, as per the datasheet: clear PE, wait for it
+    /// to become 0, and set it.
+    pub fn reset(&self) {
+        let i2c = self.registers.unwrap();
+
+        // Disable PE
+        i2c.cr1.modify(|_, w| w.pe().clear_bit());
+
+        loop {
+            let cr1 = i2c.cr1.read();
+            ringbuf_entry!(cr1.bits());
+            if cr1.pe().is_disabled() {
+                break;
+            }
+        }
+
+        i2c.cr1.modify(|_, w| w.pe().set_bit());
     }
 
     pub fn write_read(
@@ -154,9 +208,15 @@ impl<'a> I2cController<'a> {
         // Before we talk to the controller, spin until it isn't busy
         loop {
             let isr = i2c.isr.read();
+            ringbuf_entry!(isr.bits());
 
             if !isr.busy().is_busy() {
                 break;
+            }
+
+            if isr.timeout().is_timeout() {
+                i2c.icr.write(|w| w.timoutcf().set_bit());
+                return Err(I2cError::BusLocked);
             }
         }
 
@@ -176,6 +236,17 @@ impl<'a> I2cController<'a> {
             while pos < wlen {
                 loop {
                     let isr = i2c.isr.read();
+                    ringbuf_entry!(isr.bits());
+
+                    if isr.timeout().is_timeout() {
+                        i2c.icr.write(|w| w.timoutcf().set_bit());
+                        return Err(I2cError::BusLocked);
+                    }
+
+                    if isr.arlo().is_lost() {
+                        i2c.icr.write(|w| w.arlocf().set_bit());
+                        return Err(I2cError::BusReset);
+                    }
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
@@ -202,6 +273,12 @@ impl<'a> I2cController<'a> {
             // we've been NACK'd (denoting an illegal register value)
             loop {
                 let isr = i2c.isr.read();
+                ringbuf_entry!(isr.bits());
+
+                if isr.timeout().is_timeout() {
+                    i2c.icr.write(|w| w.timoutcf().set_bit());
+                    return Err(I2cError::BusLocked);
+                }
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
@@ -242,6 +319,12 @@ impl<'a> I2cController<'a> {
                     enable(notification);
 
                     let isr = i2c.isr.read();
+                    ringbuf_entry!(isr.bits());
+
+                    if isr.timeout().is_timeout() {
+                        i2c.icr.write(|w| w.timoutcf().set_bit());
+                        return Err(I2cError::BusLocked);
+                    }
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
@@ -261,6 +344,7 @@ impl<'a> I2cController<'a> {
 
             // All done; now block until our transfer is complete...
             while !i2c.isr.read().tc().is_complete() {
+                ringbuf_entry!(i2c.isr.read().bits());
                 wfi(notification);
                 enable(notification);
             }
@@ -347,6 +431,7 @@ impl<'a> I2cController<'a> {
         'addrloop: loop {
             let (is_write, addr) = loop {
                 let isr = i2c.isr.read();
+                ringbuf_entry!(isr.bits());
 
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| w.stopcf().set_bit());
@@ -354,6 +439,7 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.addr().is_match_() {
+                    ringbuf_entry!(1);
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
@@ -367,6 +453,7 @@ impl<'a> I2cController<'a> {
             if is_write {
                 'rxloop: loop {
                     let isr = i2c.isr.read();
+                    ringbuf_entry!(isr.bits());
 
                     if isr.addr().is_match_() {
                         //
@@ -426,6 +513,7 @@ impl<'a> I2cController<'a> {
 
             'txloop: loop {
                 let isr = i2c.isr.read();
+                ringbuf_entry!(isr.bits());
 
                 if isr.addr().is_match_() {
                     //
@@ -435,13 +523,9 @@ impl<'a> I2cController<'a> {
                     continue 'addrloop;
                 }
 
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| w.nackcf().set_bit());
-                    continue 'addrloop;
-                }
-
                 if isr.txis().is_empty() {
                     if pos < wlen {
+                        ringbuf_entry!(wbuf[pos] as u32);
                         i2c.txdr.write(|w| w.txdata().bits(wbuf[pos]));
                         pos += 1;
                         continue 'txloop;
@@ -455,6 +539,11 @@ impl<'a> I2cController<'a> {
                         i2c.isr.modify(|_, w| w.txe().set_bit());
                         continue 'txloop;
                     }
+                }
+
+                if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| w.nackcf().set_bit());
+                    continue 'addrloop;
                 }
 
                 wfi(notification);
