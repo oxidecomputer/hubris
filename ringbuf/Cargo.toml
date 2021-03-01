@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
+[features]
+# To disable a ring buffer (but leave it otherwise present), enable the
+# "disabled" feature
+disabled = []
+
 [dependencies]
 syn = { version = "1.0" }
 quote = "1.0"

@@ -118,11 +118,11 @@ use quote::format_ident;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::parse_macro_input;
-use syn::{Expr, Token, Type};
+use syn::{Error, Expr, LitInt, Token, Type};
 
 struct RingbufParams {
     ptype: Type,
-    size: Expr,
+    size: LitInt,
     pinit: Expr,
 }
 
@@ -130,11 +130,16 @@ impl Parse for RingbufParams {
     fn parse(input: ParseStream) -> Result<Self> {
         let ptype: Type = input.parse()?;
         input.parse::<Token![,]>()?;
-        let size: Expr = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let pinit: Expr = input.parse()?;
+        let size: LitInt = input.parse()?;
 
-        Ok(RingbufParams { ptype, size, pinit })
+        if size.base10_parse::<u32>()? == 0 {
+            Err(Error::new(size.span(), "ring buffer size cannot be 0"))
+        } else {
+            input.parse::<Token![,]>()?;
+            let pinit: Expr = input.parse()?;
+
+            Ok(RingbufParams { ptype, size, pinit })
+        }
     }
 }
 
@@ -148,23 +153,42 @@ impl Parse for RingbufParams {
 pub fn ringbuf(input: TokenStream) -> TokenStream {
     let params = parse_macro_input!(input as RingbufParams);
 
+    //
+    // If the ring buffer is disabled, we want to merely emit an implementation
+    // of ringbuf_entry! that does nothing.
+    //
+    if cfg!(feature = "disabled") {
+        let ringbuf = quote! {
+            macro_rules! ringbuf_entry {
+                ($payload:expr) => {}
+            }
+        };
+
+        return ringbuf.into();
+    }
+
     let ptype = params.ptype;
     let size = params.size;
     let pinit = params.pinit;
 
-    let prefix = Span::call_site()
-        .source_file()
-        .path()
-        .file_stem()
-        .unwrap()
-        .to_string_lossy()
-        .to_ascii_uppercase();
+    //
+    // A little sleazy: if the file is main.rs or lib.rs, we'll use the directory
+    // name of the crate to form our ringbuf identifier -- otherwise we'll use
+    // the stem of our filename.
+    //
+    let path = Span::call_site().source_file().path();
+    let file = path.file_name().unwrap().to_string_lossy();
 
-    let name = if prefix != "MAIN" {
-        format_ident!("{}_RINGBUF", prefix)
+    let prefix = if file == "main.rs" || file == "lib.rs" {
+        let parent = path.parent().unwrap();
+        let grandparent = parent.parent().unwrap();
+        grandparent.file_name().unwrap()
     } else {
-        format_ident!("RINGBUF")
+        path.file_stem().unwrap()
     };
+
+    let upper = prefix.to_string_lossy().to_ascii_uppercase();
+    let name = format_ident!("{}_RINGBUF", str::replace(&upper, "-", "_"));
 
     let ringbuf = quote! {
         ///
