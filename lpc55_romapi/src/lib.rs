@@ -6,7 +6,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[repr(u32)]
-#[derive(FromPrimitive)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq)]
 pub enum FlashStatus {
     Success = 0,
     InvalidArg = 4,
@@ -59,7 +59,7 @@ pub enum FFRKeyType {
 }
 
 #[repr(u32)]
-#[derive(Debug, FromPrimitive, PartialEq)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq)]
 pub enum BootloaderStatus {
     Success = 0,
     // This one is technically not in the ROM API space but testing has
@@ -438,6 +438,15 @@ fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
     }
 }
 
+// Checks that address and length are flash page aligned
+fn check_addr_len_alignment(addr: u32, len: u32) -> Result<(), FlashStatus> {
+    if addr % 512 == 0 && len % 512 == 0 {
+        Ok(())
+    } else {
+        Err(FlashStatus::AlignmentError)
+    }
+}
+
 pub unsafe fn authenticate_image(addr: u32) -> Result<(), ()> {
     let mut result: u32 = 0;
 
@@ -495,6 +504,8 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
     f.mode_config.sys_freq_in_mhz = 100;
 
+    check_addr_len_alignment(addr, len)?;
+
     handle_flash_status((bootloader_tree()
         .flash_driver
         .version1_flash_driver
@@ -520,6 +531,8 @@ pub unsafe fn flash_write(
     //   XXX docs say we need to drop the clocks?
     let mut f: FlashConfig = Default::default();
     f.mode_config.sys_freq_in_mhz = 100;
+
+    check_addr_len_alignment(addr, len)?;
 
     handle_flash_status((bootloader_tree()
         .flash_driver
