@@ -6,7 +6,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[repr(u32)]
-#[derive(FromPrimitive)]
+#[derive(Debug, FromPrimitive, PartialEq)]
 pub enum FlashStatus {
     Success = 0,
     InvalidArg = 4,
@@ -303,6 +303,14 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
     f.mode_config.sys_freq_in_mhz = 100;
 
+    if len % 512 != 0 {
+        return Err(FlashStatus::AlignmentError);
+    }
+
+    if addr % 512 != 0 {
+        return Err(FlashStatus::AlignmentError);
+    }
+
     handle_flash_status((bootloader_tree()
         .flash_driver
         .version1_flash_driver
@@ -328,6 +336,14 @@ pub unsafe fn flash_write(
     //   XXX docs say we need to drop the clocks?
     let mut f: FlashConfig = Default::default();
     f.mode_config.sys_freq_in_mhz = 100;
+
+    if len % 512 != 0 {
+        return Err(FlashStatus::AlignmentError);
+    }
+
+    if addr % 512 != 0 {
+        return Err(FlashStatus::AlignmentError);
+    }
 
     handle_flash_status((bootloader_tree()
         .flash_driver
