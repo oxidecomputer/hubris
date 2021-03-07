@@ -18,8 +18,6 @@ use userlib::*;
 
 use ringbuf::*;
 
-mod ltc4306;
-
 #[cfg(not(feature = "standalone"))]
 const RCC: Task = Task::rcc_driver;
 
@@ -131,7 +129,7 @@ cfg_if::cfg_if! {
             controller: Controller::I2C4,
             port: Port::F,
             id: Mux::M1,
-            driver: I2cMuxDriver::LTC4306,
+            driver: I2cMuxDevice::Ltc4306,
             enable: (drv_stm32h7_gpio_api::Port::G, Alternate::AF0, (1 << 0)),
             address: 0x44,
             segment: None,
@@ -219,11 +217,9 @@ fn configure_mux(
                 // If we're here, our mux is valid, but the current segment is
                 // not the specfied segment; we will now call upon our
                 // driver to enable this segment.
-                let enable_segment = match mux.driver {
-                    I2cMuxDriver::LTC4306 => ltc4306::enable_segment,
-                };
+                mux.driver
+                    .enable_segment(mux, controller, segment, enable, wfi)?;
 
-                enable_segment(mux, controller, segment, enable, wfi)?;
                 mux.segment = Some(segment);
 
                 return Ok(());

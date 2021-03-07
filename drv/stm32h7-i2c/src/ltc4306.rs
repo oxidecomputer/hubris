@@ -1,10 +1,12 @@
 //! Driver for the LTC4306 I2C mux
 
+use crate::*;
 use bitfield::bitfield;
 use drv_i2c_api::{ResponseCode, Segment};
-use drv_stm32h7_i2c::*;
 use ringbuf::*;
 use userlib::*;
+
+pub struct Ltc4306;
 
 bitfield! {
     #[derive(Copy, Clone, PartialEq)]
@@ -133,42 +135,45 @@ fn write_reg_u8(
     }
 }
 
-pub fn enable_segment(
-    mux: &I2cMux,
-    controller: &I2cController,
-    segment: Segment,
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
-) -> Result<(), ResponseCode> {
-    let mut reg3 = Register3(0);
+impl Ltc4306 {
+    pub fn enable_segment(
+        &self,
+        mux: &I2cMux,
+        controller: &I2cController,
+        segment: Segment,
+        enable: impl FnMut(u32) + Copy,
+        wfi: impl FnMut(u32) + Copy,
+    ) -> Result<(), ResponseCode> {
+        let mut reg3 = Register3(0);
 
-    match segment {
-        Segment::S1 => {
-            reg3.set_bus1_connected(true);
+        match segment {
+            Segment::S1 => {
+                reg3.set_bus1_connected(true);
+            }
+            Segment::S2 => {
+                reg3.set_bus2_connected(true);
+            }
+            Segment::S3 => {
+                reg3.set_bus3_connected(true);
+            }
+            Segment::S4 => {
+                reg3.set_bus4_connected(true);
+            }
+            _ => {
+                return Err(ResponseCode::SegmentNotFound);
+            }
         }
-        Segment::S2 => {
-            reg3.set_bus2_connected(true);
-        }
-        Segment::S3 => {
-            reg3.set_bus3_connected(true);
-        }
-        Segment::S4 => {
-            reg3.set_bus4_connected(true);
-        }
-        _ => {
-            return Err(ResponseCode::SegmentNotFound);
-        }
-    }
 
-    write_reg_u8(mux, controller, 3, reg3.0, enable, wfi)?;
+        write_reg_u8(mux, controller, 3, reg3.0, enable, wfi)?;
 
-    let reg0 = Register0(read_reg_u8(mux, controller, 0, enable, wfi)?);
+        let reg0 = Register0(read_reg_u8(mux, controller, 0, enable, wfi)?);
 
-    if !reg0.not_failed() {
-        Err(ResponseCode::SegmentDisconnected)
-    } else if !reg0.connected() {
-        Err(ResponseCode::MuxDisconnected)
-    } else {
-        Ok(())
+        if !reg0.not_failed() {
+            Err(ResponseCode::SegmentDisconnected)
+        } else if !reg0.connected() {
+            Err(ResponseCode::MuxDisconnected)
+        } else {
+            Ok(())
+        }
     }
 }

@@ -14,6 +14,9 @@ pub type RegisterBlock = device::i2c3::RegisterBlock;
 #[cfg(feature = "h743")]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
+mod ltc4306;
+use ltc4306::Ltc4306;
+
 use ringbuf::*;
 
 ringbuf!(u32, 8, 0);
@@ -35,10 +38,6 @@ pub struct I2cController<'a> {
     pub registers: Option<&'a RegisterBlock>,
 }
 
-pub enum I2cMuxDriver {
-    LTC4306,
-}
-
 pub enum I2cError {
     NoDevice,
     NoRegister,
@@ -46,11 +45,47 @@ pub enum I2cError {
     BusLocked,
 }
 
+pub enum I2cMuxDevice {
+    Ltc4306,
+    Max7358,
+}
+
+pub trait I2cMuxDriver {
+    fn enable_segment(
+        &self,
+        mux: &I2cMux,
+        controller: &I2cController,
+        segment: drv_i2c_api::Segment,
+        enable: impl FnMut(u32) + Copy,
+        wfi: impl FnMut(u32) + Copy,
+    ) -> Result<(), drv_i2c_api::ResponseCode>;
+}
+
+impl I2cMuxDriver for I2cMuxDevice {
+    fn enable_segment(
+        &self,
+        mux: &I2cMux,
+        controller: &I2cController,
+        segment: drv_i2c_api::Segment,
+        enable: impl FnMut(u32) + Copy,
+        wfi: impl FnMut(u32) + Copy,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        match self {
+            I2cMuxDevice::Ltc4306 => {
+                Ltc4306.enable_segment(mux, controller, segment, enable, wfi)
+            }
+            I2cMuxDevice::Max7358 => {
+                panic!("not yet");
+            }
+        }
+    }
+}
+
 pub struct I2cMux {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::Port,
     pub id: drv_i2c_api::Mux,
-    pub driver: I2cMuxDriver,
+    pub driver: I2cMuxDevice,
     pub enable: (
         drv_stm32h7_gpio_api::Port,
         drv_stm32h7_gpio_api::Alternate,
