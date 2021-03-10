@@ -84,7 +84,7 @@ fn scan_controller(
 
     for addr in 0..128 {
         let i2c = I2c::new(task, controller, port, mux, addr);
-        let result = i2c.read_reg::<u8, u8>(0);
+        let result = i2c.read::<u8>();
         results[addr as usize] = match result {
             Ok(result) => Some(Ok(result)),
             Err(err) => Some(Err(err)),
@@ -112,12 +112,12 @@ fn scan_device(
     }
 }
 
-fn read_register(
+fn read(
     controller: Controller,
     port: Port,
     mux: Option<(Mux, Segment)>,
     addr: u8,
-    register: u8,
+    register: Option<u8>,
     nbytes: BytesToRead,
 ) {
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
@@ -127,20 +127,32 @@ fn read_register(
 
     match nbytes {
         BytesToRead::OneByte => {
-            results[0] = match i2c.read_reg::<u8, u8>(register) {
+            let result = match register {
+                Some(register) => i2c.read_reg::<u8, u8>(register),
+                None => i2c.read::<u8>(),
+            };
+
+            results[0] = match result {
                 Ok(result) => Some(Ok(result)),
                 Err(err) => Some(Err(err)),
             };
         }
-        BytesToRead::TwoBytes => match i2c.read_reg::<u8, [u8; 2]>(register) {
-            Ok(result) => {
-                results[0] = Some(Ok(result[0]));
-                results[1] = Some(Ok(result[1]));
+        BytesToRead::TwoBytes => {
+            let result = match register {
+                Some(register) => i2c.read_reg::<u8, [u8; 2]>(register),
+                None => i2c.read::<[u8; 2]>(),
+            };
+
+            match result {
+                Ok(result) => {
+                    results[0] = Some(Ok(result[0]));
+                    results[1] = Some(Ok(result[1]));
+                }
+                Err(err) => {
+                    results[0] = Some(Err(err));
+                }
             }
-            Err(err) => {
-                results[0] = Some(Err(err));
-            }
-        },
+        }
     }
 }
 
@@ -253,12 +265,16 @@ fn main() -> ! {
         }
 
         if value == -1 {
-            read_register(
+            read(
                 controller,
                 port,
                 mux,
                 device as u8,
-                reg as u8,
+                if reg <= u8::MAX.into() {
+                    Some(reg as u8)
+                } else {
+                    None
+                },
                 match nbytes {
                     -1 | 1 => BytesToRead::OneByte,
                     2 => BytesToRead::TwoBytes,

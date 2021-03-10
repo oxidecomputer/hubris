@@ -99,10 +99,11 @@ fn read_reg_u8(
         wfi,
     ) {
         Err(code) => Err(match code {
-            I2cError::NoDevice => ResponseCode::BadMuxAddress,
-            I2cError::NoRegister => ResponseCode::BadMuxRegister,
-            I2cError::BusLocked => ResponseCode::BusLockedMux,
-            I2cError::BusReset => ResponseCode::BusResetMux,
+            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
+            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
+            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
+            ResponseCode::BusReset => ResponseCode::BusResetMux,
+            _ => code,
         }),
         _ => Ok(rval[0]),
     }
@@ -126,10 +127,11 @@ fn write_reg_u8(
         wfi,
     ) {
         Err(code) => Err(match code {
-            I2cError::NoDevice => ResponseCode::BadMuxAddress,
-            I2cError::NoRegister => ResponseCode::BadMuxRegister,
-            I2cError::BusLocked => ResponseCode::BusLockedMux,
-            I2cError::BusReset => ResponseCode::BusResetMux,
+            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
+            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
+            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
+            ResponseCode::BusReset => ResponseCode::BusResetMux,
+            _ => code,
         }),
         _ => Ok(()),
     }

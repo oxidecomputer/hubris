@@ -313,6 +313,41 @@ impl I2c {
     }
 
     ///
+    /// Reads from a device *without* first doing a write.  This is probably
+    /// not what you want, and only exists because there exist some nutty
+    /// devices whose registers are not addressable (*glares at MAX7358*).
+    /// (And indeed, on these devices, attempting to read a register will
+    /// in fact overwrite the contents of the first two registers.)
+    ///
+    pub fn read<V: Default + AsBytes + FromBytes>(
+        &self,
+    ) -> Result<V, ResponseCode> {
+        let empty = [0u8; 1];
+
+        let mut val = V::default();
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            &mut [],
+            &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(val)
+        }
+    }
+
+    ///
     /// Writes a buffer to a device. Unlike a register read, this will not
     /// perform any follow-up reads.
     ///

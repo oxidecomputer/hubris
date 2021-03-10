@@ -17,6 +17,10 @@ pub type RegisterBlock = device::i2c1::RegisterBlock;
 mod ltc4306;
 use ltc4306::Ltc4306;
 
+mod max7358;
+use max7358::Max7358;
+
+use num_traits::cast::FromPrimitive;
 use ringbuf::*;
 
 ringbuf!(u32, 8, 0);
@@ -38,19 +42,53 @@ pub struct I2cController<'a> {
     pub registers: Option<&'a RegisterBlock>,
 }
 
-pub enum I2cError {
-    NoDevice,
-    NoRegister,
-    BusReset,
-    BusLocked,
+pub enum I2cSpecial {
+    Read,
+    Write,
 }
 
+///
+/// I2C mux devices
+///
 pub enum I2cMuxDevice {
     Ltc4306,
     Max7358,
 }
 
+///
+/// A trait to express an I2C mux driver.  We can't use static dispatch here
+/// because we want to be able to declare an array of [`I2cMux`] where each
+/// mux has (potentially) a different driver.  But we also can't use dynamic
+/// dispatch because our various functions here take closures to both enable
+/// notifications and wait for interrupts (and are therefore not suitable for
+/// an object-safe trait because they are a generic type parameter).  So we
+/// choose arguably the worst of all worlds, and statically dispatch based on
+/// a single type ([`I2cMuxDevice`]) that manually effects dynamic dispatch by
+/// matching on its device.  The downside to this is that we can't expect the
+/// compiler to figure out when one of these [`I2cMuxDevice`] types can't, in
+/// fact, be used -- and therefore none of the implementations can be elided.
+/// More elegant solutions to this very much welcome!
+///
 pub trait I2cMuxDriver {
+    /// Configure the mux, specifying the mux and controller, but also an
+    /// instance to a [`Gpio`] task.
+    fn configure(
+        &self,
+        mux: &I2cMux,
+        controller: &I2cController,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+        enable: impl FnMut(u32) + Copy,
+        wfi: impl FnMut(u32) + Copy,
+    ) -> Result<(), drv_i2c_api::ResponseCode>;
+
+    /// Reset the mux
+    fn reset(
+        &self,
+        mux: &I2cMux,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode>;
+
+    /// Enable the specified segment on the specified mux
     fn enable_segment(
         &self,
         mux: &I2cMux,
@@ -62,6 +100,58 @@ pub trait I2cMuxDriver {
 }
 
 impl I2cMuxDriver for I2cMuxDevice {
+    fn configure(
+        &self,
+        mux: &I2cMux,
+        controller: &I2cController,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+        enable: impl FnMut(u32) + Copy,
+        wfi: impl FnMut(u32) + Copy,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        match self {
+            I2cMuxDevice::Max7358 => {
+                Max7358.configure(mux, controller, enable, wfi)
+            }
+            _ => {
+                if let Some(pin) = &mux.enable {
+                    gpio.configure(
+                        pin.gpio_port,
+                        pin.mask,
+                        drv_stm32h7_gpio_api::Mode::Output,
+                        drv_stm32h7_gpio_api::OutputType::PushPull,
+                        drv_stm32h7_gpio_api::Speed::High,
+                        drv_stm32h7_gpio_api::Pull::None,
+                        pin.function,
+                    )
+                    .unwrap();
+
+                    gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn reset(
+        &self,
+        mux: &I2cMux,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        match self {
+            I2cMuxDevice::Max7358 => {
+                panic!("not yet supported");
+            }
+            _ => {
+                if let Some(pin) = &mux.enable {
+                    gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
+                    gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn enable_segment(
         &self,
         mux: &I2cMux,
@@ -75,7 +165,7 @@ impl I2cMuxDriver for I2cMuxDevice {
                 Ltc4306.enable_segment(mux, controller, segment, enable, wfi)
             }
             I2cMuxDevice::Max7358 => {
-                panic!("not yet");
+                Max7358.enable_segment(mux, controller, segment, enable, wfi)
             }
         }
     }
@@ -86,11 +176,7 @@ pub struct I2cMux {
     pub port: drv_i2c_api::Port,
     pub id: drv_i2c_api::Mux,
     pub driver: I2cMuxDevice,
-    pub enable: (
-        drv_stm32h7_gpio_api::Port,
-        drv_stm32h7_gpio_api::Alternate,
-        u16,
-    ),
+    pub enable: Option<I2cPin>,
     pub address: u8,
     pub segment: Option<drv_i2c_api::Segment>,
 }
@@ -233,7 +319,7 @@ impl<'a> I2cController<'a> {
         mut putbyte: impl FnMut(usize, u8),
         mut enable: impl FnMut(u32),
         mut wfi: impl FnMut(u32),
-    ) -> Result<(), I2cError> {
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
         assert!(wlen > 0 || rlen > 0);
         assert!(wlen <= 255 && rlen <= 255);
 
@@ -251,7 +337,7 @@ impl<'a> I2cController<'a> {
 
             if isr.timeout().is_timeout() {
                 i2c.icr.write(|w| w.timoutcf().set_bit());
-                return Err(I2cError::BusLocked);
+                return Err(drv_i2c_api::ResponseCode::BusLocked);
             }
         }
 
@@ -275,17 +361,17 @@ impl<'a> I2cController<'a> {
 
                     if isr.timeout().is_timeout() {
                         i2c.icr.write(|w| w.timoutcf().set_bit());
-                        return Err(I2cError::BusLocked);
+                        return Err(drv_i2c_api::ResponseCode::BusLocked);
                     }
 
                     if isr.arlo().is_lost() {
                         i2c.icr.write(|w| w.arlocf().set_bit());
-                        return Err(I2cError::BusReset);
+                        return Err(drv_i2c_api::ResponseCode::BusReset);
                     }
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
-                        return Err(I2cError::NoDevice);
+                        return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
                     if isr.txis().is_empty() {
@@ -312,12 +398,12 @@ impl<'a> I2cController<'a> {
 
                 if isr.timeout().is_timeout() {
                     i2c.icr.write(|w| w.timoutcf().set_bit());
-                    return Err(I2cError::BusLocked);
+                    return Err(drv_i2c_api::ResponseCode::BusLocked);
                 }
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
-                    return Err(I2cError::NoRegister);
+                    return Err(drv_i2c_api::ResponseCode::NoRegister);
                 }
 
                 if isr.tc().is_complete() {
@@ -358,12 +444,12 @@ impl<'a> I2cController<'a> {
 
                     if isr.timeout().is_timeout() {
                         i2c.icr.write(|w| w.timoutcf().set_bit());
-                        return Err(I2cError::BusLocked);
+                        return Err(drv_i2c_api::ResponseCode::BusLocked);
                     }
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
-                        return Err(I2cError::NoDevice);
+                        return Err(drv_i2c_api::ResponseCode::NoDevice);
                     }
 
                     if !isr.rxne().is_empty() {
@@ -388,6 +474,96 @@ impl<'a> I2cController<'a> {
         //
         // Whether we did a write alone, a read alone, or a write followed
         // by a read, we're done now -- manually send a STOP.
+        //
+        i2c.cr2.modify(|_, w| w.stop().set_bit());
+
+        Ok(())
+    }
+
+    ///
+    /// Regrettably, some devices insist on special sequences to be sent to
+    /// unlock functionality.  Of course, there are only two real I2C
+    /// operations (namely, read and write), so we assume that special
+    /// sequences that don't involve *actual* reads and *actual* writes are
+    /// sequence of zero-byte read and zero-byte write operations, expressed
+    /// as a slice of [`I2cSpecial`].
+    ///
+    pub fn special(
+        &self,
+        addr: u8,
+        ops: &[I2cSpecial],
+        mut enable: impl FnMut(u32),
+        mut wfi: impl FnMut(u32),
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        let i2c = self.registers.unwrap();
+        let notification = self.notification;
+
+        // Before we talk to the controller, spin until it isn't busy
+        loop {
+            let isr = i2c.isr.read();
+            ringbuf_entry!(isr.bits());
+
+            if !isr.busy().is_busy() {
+                break;
+            }
+
+            if isr.timeout().is_timeout() {
+                i2c.icr.write(|w| w.timoutcf().set_bit());
+                return Err(drv_i2c_api::ResponseCode::BusLocked);
+            }
+        }
+
+        for op in ops {
+            let opval = match *op {
+                I2cSpecial::Write => false,
+                I2cSpecial::Read => true,
+            };
+
+            ringbuf_entry!(if opval { 1 } else { 0 });
+
+            #[rustfmt::skip]
+            i2c.cr2.modify(|_, w| { w
+                .nbytes().bits(0u8)
+                .autoend().clear_bit()
+                .add10().clear_bit()
+                .sadd().bits((addr << 1).into())
+                .rd_wrn().bit(opval)
+                .start().set_bit()
+            });
+
+            // All done; now block until our transfer is complete -- or until
+            // we've been NACK'd (presumably denoting a device throwing hands
+            // at our special sequence).
+            loop {
+                let isr = i2c.isr.read();
+                ringbuf_entry!(isr.bits());
+
+                if isr.timeout().is_timeout() {
+                    i2c.icr.write(|w| w.timoutcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusLocked);
+                }
+
+                if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| w.nackcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::NoRegister);
+                }
+
+                if isr.arlo().is_lost() {
+                    i2c.icr.write(|w| w.arlocf().set_bit());
+                    break;
+                }
+
+                if isr.tc().is_complete() {
+                    break;
+                }
+
+                wfi(notification);
+                enable(notification);
+            }
+        }
+
+        //
+        // We have sent the special sequence -- manually send a STOP.
         //
         i2c.cr2.modify(|_, w| w.stop().set_bit());
 

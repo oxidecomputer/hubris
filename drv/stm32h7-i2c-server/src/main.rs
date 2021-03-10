@@ -68,7 +68,15 @@ cfg_if::cfg_if! {
             mask: (1 << 0) | (1 << 1),
         } ];
 
-        static mut I2C_MUXES: [I2cMux; 0] = [];
+        static mut I2C_MUXES: [I2cMux; 1] = [ I2cMux {
+            controller: Controller::I2C2,
+            port: Port::F,
+            id: Mux::M1,
+            driver: I2cMuxDevice::Max7358,
+            enable: None,
+            address: 0x70,
+            segment: None,
+        } ];
     } else if #[cfg(target_board = "gemini-bu-1")] {
         static mut I2C_CONTROLLERS: [I2cController; 3] = [ I2cController {
             controller: Controller::I2C1,
@@ -130,7 +138,13 @@ cfg_if::cfg_if! {
             port: Port::F,
             id: Mux::M1,
             driver: I2cMuxDevice::Ltc4306,
-            enable: (drv_stm32h7_gpio_api::Port::G, Alternate::AF0, (1 << 0)),
+            enable: Some(I2cPin {
+                controller: Controller::I2C4,
+                port: Port::Default,
+                gpio_port: drv_stm32h7_gpio_api::Port::G,
+                function: Alternate::AF0,
+                mask: (1 << 0),
+            }),
             address: 0x44,
             segment: None,
         } ];
@@ -181,17 +195,16 @@ fn lookup_pin<'a>(
     default.ok_or(ResponseCode::BadPort)
 }
 
-fn configure_mux(
+fn find_mux(
     controller: &I2cController,
     port: Port,
     mux: Option<(Mux, Segment)>,
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
+    mut func: impl FnMut(&mut I2cMux, Mux, Segment) -> Result<(), ResponseCode>,
 ) -> Result<(), ResponseCode> {
+    let muxes = unsafe { &mut I2C_MUXES };
+
     match mux {
         Some((id, segment)) => {
-            let muxes = unsafe { &mut I2C_MUXES };
-
             for mux in muxes {
                 if mux.controller != controller.controller {
                     continue;
@@ -201,27 +214,7 @@ fn configure_mux(
                     continue;
                 }
 
-                // We have our mux -- determine if the current segment matches
-                // our specified segment...
-                if let Some(current) = mux.segment {
-                    if current == segment {
-                        return Ok(());
-                    }
-
-                    // Beyond this point, we want any failure to set our new
-                    // segment to leave our segment unset rather than having
-                    // it point to the old segment.
-                    mux.segment = None;
-                }
-
-                // If we're here, our mux is valid, but the current segment is
-                // not the specfied segment; we will now call upon our
-                // driver to enable this segment.
-                mux.driver
-                    .enable_segment(mux, controller, segment, enable, wfi)?;
-
-                mux.segment = Some(segment);
-
+                func(mux, id, segment)?;
                 return Ok(());
             }
 
@@ -229,6 +222,37 @@ fn configure_mux(
         }
         None => Ok(()),
     }
+}
+
+fn configure_mux(
+    controller: &I2cController,
+    port: Port,
+    mux: Option<(Mux, Segment)>,
+    enable: impl FnMut(u32) + Copy,
+    wfi: impl FnMut(u32) + Copy,
+) -> Result<(), ResponseCode> {
+    find_mux(controller, port, mux, |mux, id, segment| {
+        // Determine if the current segment matches our specified segment...
+        if let Some(current) = mux.segment {
+            if current == segment {
+                return Ok(());
+            }
+
+            // Beyond this point, we want any failure to set our new
+            // segment to leave our segment unset rather than having
+            // it point to the old segment.
+            mux.segment = None;
+        }
+
+        // If we're here, our mux is valid, but the current segment is
+        // not the specfied segment; we will now call upon our
+        // driver to enable this segment.
+        mux.driver
+            .enable_segment(mux, controller, segment, enable, wfi)?;
+        mux.segment = Some(segment);
+
+        Ok(())
+    })
 }
 
 ringbuf!(Option<ResponseCode>, 16, None);
@@ -257,25 +281,11 @@ fn reset_if_needed(
     // First, bounce our I2C controller
     controller.reset();
 
-    if let Some((id, _)) = mux {
-        let muxes = unsafe { &mut I2C_MUXES };
-
-        for mux in muxes {
-            if mux.controller != controller.controller {
-                continue;
-            }
-
-            if mux.port != port || mux.id != id {
-                continue;
-            }
-
-            ringbuf_entry!(None);
-
-            // Bounce the mux
-            gpio.set_reset(mux.enable.0, 0, mux.enable.2).unwrap();
-            gpio.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
-        }
-    }
+    find_mux(controller, port, mux, |mux, _, _| {
+        ringbuf_entry!(None);
+        mux.driver.reset(&mux, &gpio);
+        Ok(())
+    });
 }
 
 #[export_name = "main"]
@@ -284,7 +294,6 @@ fn main() -> ! {
     turn_on_i2c();
     configure_pins();
     configure_controllers();
-    configure_muxes();
 
     // Field messages.
     let mut buffer = [0; 4];
@@ -296,6 +305,8 @@ fn main() -> ! {
     let wfi = move |notification| {
         let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
     };
+
+    configure_muxes(enable, wfi);
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -316,10 +327,10 @@ fn main() -> ! {
 
                 configure_port(controller, pin);
 
-                match configure_mux(controller, port, mux, enable, wfi) {
+                match configure_mux(controller, pin.port, mux, enable, wfi) {
                     Ok(_) => {}
                     Err(code) => {
-                        reset_if_needed(code, controller, port, mux);
+                        reset_if_needed(code, controller, pin.port, mux);
                         return Err(code);
                     }
                 }
@@ -358,13 +369,6 @@ fn main() -> ! {
                     wfi,
                 ) {
                     Err(code) => {
-                        let code = match code {
-                            I2cError::NoDevice => ResponseCode::NoDevice,
-                            I2cError::NoRegister => ResponseCode::NoRegister,
-                            I2cError::BusReset => ResponseCode::BusReset,
-                            I2cError::BusLocked => ResponseCode::BusLocked,
-                        };
-
                         reset_if_needed(code, controller, port, mux);
                         Err(code)
                     }
@@ -463,23 +467,19 @@ fn configure_pins() {
     }
 }
 
-fn configure_muxes() {
+fn configure_muxes(
+    enable: impl FnMut(u32) + Copy,
+    wfi: impl FnMut(u32) + Copy,
+) {
     let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio = Gpio::from(gpio);
     let muxes = unsafe { &I2C_MUXES };
 
     for mux in muxes {
-        gpio.configure(
-            mux.enable.0,
-            mux.enable.2,
-            Mode::Output,
-            OutputType::PushPull,
-            Speed::High,
-            Pull::None,
-            mux.enable.1,
-        )
-        .unwrap();
+        let controller = lookup_controller(mux.controller).unwrap();
+        let pin = lookup_pin(mux.controller, mux.port).unwrap();
 
-        gpio.set_reset(mux.enable.0, mux.enable.2, 0).unwrap();
+        configure_port(controller, pin);
+        mux.driver.configure(&mux, controller, &gpio, enable, wfi);
     }
 }
