@@ -1,18 +1,3 @@
-//! A driver for the LPC55 HighSpeed SPI interface.
-//!
-//! Mostly for demonstration purposes, write is verified read is not
-//!
-//! # IPC protocol
-//!
-//! ## `write` (1)
-//!
-//! Sends the contents of lease #0. Returns when completed.
-//!
-//!
-//! ## `read` (2)
-//!
-//! Reads the buffer into lease #0. Returns when completed
-
 #![no_std]
 
 use lpc55_pac as device;
@@ -113,7 +98,6 @@ impl Spi {
                 .disabled()
         });
 
-        // Just trigger the FIFOs to hold 1 item for now
         self.reg.fifotrig.modify(|_, w| unsafe {
             w.txlvlena()
                 .enabled()
@@ -161,7 +145,13 @@ impl Spi {
     pub fn send_u8(&mut self, byte: u8) {
         self.reg.fifowr.write(|w| unsafe {
             w.len()
-                // Hard code number of bits sent
+                // Data length, per NXP docs:
+                //
+                // 0x0-2 = Reserved.
+                // 0x3 = Data transfer is 4 bits in length.
+                // 0x4 = Data transfer is 5 bits in length.
+                // ...
+                // 0xF = Data transfer is 16 bits in length.
                 .bits(7)
                 // Don't wait for RX while we're TX (may need to change)
                 .rxignore()
@@ -176,7 +166,9 @@ impl Spi {
     }
 
     pub fn read_u8(&mut self) -> u8 {
-        // TODO SOT flag?
+        // TODO Do something with the Start of Transfer Flag?
+        // "This flag will be 1 if this is the first data after the
+        // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u8
     }
 }
