@@ -128,10 +128,6 @@ fn main() -> ! {
     // Configure our pins
     configure_pin();
 
-    let wfi = |notification| {
-        let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-    };
-
     let i2c = [
         I2c::new(
             TaskId::for_index_and_gen(I2C as usize, Generation::default()),
@@ -203,15 +199,19 @@ fn main() -> ! {
         }
     };
 
-    let enable = |notification| {
-        sys_irq_control(notification, true);
+    let ctrl = I2cControl {
+        enable: |notification| {
+            sys_irq_control(notification, true);
+        },
+        wfi: |notification| {
+            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+        },
     };
 
     controller.operate_as_target(
         ADT7420_ADDRESS - 1,
         Some(ADT7420_ADDRESS + 1),
-        enable,
-        wfi,
+        &ctrl,
         &mut response,
     );
 }

@@ -72,7 +72,7 @@ cfg_if::cfg_if! {
             controller: Controller::I2C2,
             port: Port::F,
             id: Mux::M1,
-            driver: I2cMuxDevice::Max7358,
+            driver: &max7358::Max7358,
             enable: None,
             address: 0x70,
             segment: None,
@@ -137,7 +137,7 @@ cfg_if::cfg_if! {
             controller: Controller::I2C4,
             port: Port::F,
             id: Mux::M1,
-            driver: I2cMuxDevice::Ltc4306,
+            driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
             enable: Some(I2cPin {
                 controller: Controller::I2C4,
                 port: Port::Default,
@@ -228,10 +228,9 @@ fn configure_mux(
     controller: &I2cController,
     port: Port,
     mux: Option<(Mux, Segment)>,
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
+    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
-    find_mux(controller, port, mux, |mux, id, segment| {
+    find_mux(controller, port, mux, |mux, _id, segment| {
         // Determine if the current segment matches our specified segment...
         if let Some(current) = mux.segment {
             if current == segment {
@@ -247,8 +246,7 @@ fn configure_mux(
         // If we're here, our mux is valid, but the current segment is
         // not the specfied segment; we will now call upon our
         // driver to enable this segment.
-        mux.driver
-            .enable_segment(mux, controller, segment, enable, wfi)?;
+        mux.driver.enable_segment(mux, controller, segment, ctrl)?;
         mux.segment = Some(segment);
 
         Ok(())
@@ -281,9 +279,10 @@ fn reset_if_needed(
     // First, bounce our I2C controller
     controller.reset();
 
-    find_mux(controller, port, mux, |mux, _, _| {
+    // And now reset the mux, eating any errors.
+    let _ = find_mux(controller, port, mux, |mux, _, _| {
         ringbuf_entry!(None);
-        mux.driver.reset(&mux, &gpio);
+        mux.driver.reset(&mux, &gpio)?;
         Ok(())
     });
 }
@@ -298,15 +297,16 @@ fn main() -> ! {
     // Field messages.
     let mut buffer = [0; 4];
 
-    let enable = move |notification| {
-        sys_irq_control(notification, true);
+    let ctrl = I2cControl {
+        enable: |notification| {
+            sys_irq_control(notification, true);
+        },
+        wfi: |notification| {
+            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+        },
     };
 
-    let wfi = move |notification| {
-        let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-    };
-
-    configure_muxes(enable, wfi);
+    configure_muxes(&ctrl);
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -327,7 +327,7 @@ fn main() -> ! {
 
                 configure_port(controller, pin);
 
-                match configure_mux(controller, pin.port, mux, enable, wfi) {
+                match configure_mux(controller, pin.port, mux, &ctrl) {
                     Ok(_) => {}
                     Err(code) => {
                         reset_if_needed(code, controller, pin.port, mux);
@@ -365,8 +365,7 @@ fn main() -> ! {
                     |pos| wbuf.read_at(pos).unwrap(),
                     rinfo.len,
                     |pos, byte| rbuf.write_at(pos, byte).unwrap(),
-                    enable,
-                    wfi,
+                    &ctrl,
                 ) {
                     Err(code) => {
                         reset_if_needed(code, controller, port, mux);
@@ -467,10 +466,7 @@ fn configure_pins() {
     }
 }
 
-fn configure_muxes(
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
-) {
+fn configure_muxes(ctrl: &I2cControl) {
     let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio = Gpio::from(gpio);
     let muxes = unsafe { &I2C_MUXES };
@@ -480,6 +476,6 @@ fn configure_muxes(
         let pin = lookup_pin(mux.controller, mux.port).unwrap();
 
         configure_port(controller, pin);
-        mux.driver.configure(&mux, controller, &gpio, enable, wfi);
+        let _ = mux.driver.configure(&mux, controller, &gpio, ctrl);
     }
 }

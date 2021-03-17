@@ -83,8 +83,7 @@ fn read_reg_u8(
     mux: &I2cMux,
     controller: &I2cController,
     reg: u8,
-    enable: impl FnMut(u32),
-    wfi: impl FnMut(u32),
+    ctrl: &I2cControl,
 ) -> Result<u8, ResponseCode> {
     let mut rval = [0u8; 1];
     let wlen = 1;
@@ -95,8 +94,7 @@ fn read_reg_u8(
         |_| reg,
         rval.len(),
         |_, byte| rval[0] = byte,
-        enable,
-        wfi,
+        ctrl,
     ) {
         Err(code) => Err(match code {
             ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
@@ -114,8 +112,7 @@ fn write_reg_u8(
     controller: &I2cController,
     reg: u8,
     val: u8,
-    enable: impl FnMut(u32),
-    wfi: impl FnMut(u32),
+    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -123,8 +120,7 @@ fn write_reg_u8(
         |pos| if pos == 0 { reg } else { val },
         0,
         |_, _| {},
-        enable,
-        wfi,
+        ctrl,
     ) {
         Err(code) => Err(match code {
             ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
@@ -137,14 +133,38 @@ fn write_reg_u8(
     }
 }
 
-impl Ltc4306 {
-    pub fn enable_segment(
+impl I2cMuxDriver for Ltc4306 {
+    fn configure(
+        &self,
+        mux: &I2cMux,
+        _controller: &I2cController,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+        _ctrl: &I2cControl,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        if let Some(pin) = &mux.enable {
+            gpio.configure(
+                pin.gpio_port,
+                pin.mask,
+                drv_stm32h7_gpio_api::Mode::Output,
+                drv_stm32h7_gpio_api::OutputType::PushPull,
+                drv_stm32h7_gpio_api::Speed::High,
+                drv_stm32h7_gpio_api::Pull::None,
+                pin.function,
+            )
+            .unwrap();
+
+            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+        }
+
+        Ok(())
+    }
+
+    fn enable_segment(
         &self,
         mux: &I2cMux,
         controller: &I2cController,
         segment: Segment,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
+        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg3 = Register3(0);
 
@@ -166,9 +186,8 @@ impl Ltc4306 {
             }
         }
 
-        write_reg_u8(mux, controller, 3, reg3.0, enable, wfi)?;
-
-        let reg0 = Register0(read_reg_u8(mux, controller, 0, enable, wfi)?);
+        write_reg_u8(mux, controller, 3, reg3.0, ctrl)?;
+        let reg0 = Register0(read_reg_u8(mux, controller, 0, ctrl)?);
 
         if !reg0.not_failed() {
             Err(ResponseCode::SegmentDisconnected)
@@ -177,5 +196,18 @@ impl Ltc4306 {
         } else {
             Ok(())
         }
+    }
+
+    fn reset(
+        &self,
+        mux: &I2cMux,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        if let Some(pin) = &mux.enable {
+            gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
+            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+        }
+
+        Ok(())
     }
 }

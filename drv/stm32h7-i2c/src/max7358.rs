@@ -50,8 +50,7 @@ fn read_regs(
     mux: &I2cMux,
     controller: &I2cController,
     rbuf: &mut [u8],
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
+    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -59,8 +58,7 @@ fn read_regs(
         |_| 0,
         rbuf.len(),
         |pos, byte| rbuf[pos] = byte,
-        enable,
-        wfi,
+        ctrl,
     ) {
         Err(code) => Err(match code {
             ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
@@ -84,8 +82,7 @@ fn write_reg(
     controller: &I2cController,
     reg: Register,
     val: u8,
-    enable: impl FnMut(u32) + Copy,
-    wfi: impl FnMut(u32) + Copy,
+    ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
     let mut wbuf = [0u8; 3];
 
@@ -97,7 +94,7 @@ fn write_reg(
     let index = reg as usize;
 
     if index > 0 {
-        read_regs(mux, controller, &mut wbuf[0..index], enable, wfi)?;
+        read_regs(mux, controller, &mut wbuf[0..index], ctrl)?;
     }
 
     ringbuf_entry!((Some(reg), val));
@@ -110,8 +107,7 @@ fn write_reg(
         |pos| wbuf[pos],
         0,
         |_, _| {},
-        enable,
-        wfi,
+        ctrl,
     ) {
         Err(code) => Err(match code {
             ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
@@ -124,13 +120,13 @@ fn write_reg(
     }
 }
 
-impl Max7358 {
-    pub fn configure(
+impl I2cMuxDriver for Max7358 {
+    fn configure(
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
+        _gpio: &drv_stm32h7_gpio_api::Gpio,
+        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         controller.special(
             mux.address,
@@ -140,21 +136,19 @@ impl Max7358 {
                 I2cSpecial::Write,
                 I2cSpecial::Read,
             ],
-            enable,
-            wfi,
+            ctrl,
         )?;
 
         let reg = SwitchControl(0);
-        write_reg(mux, controller, Register::SwitchControl, reg.0, enable, wfi)
+        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
     }
 
-    pub fn enable_segment(
+    fn enable_segment(
         &self,
         mux: &I2cMux,
         controller: &I2cController,
         segment: Segment,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
+        ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = SwitchControl(0);
 
@@ -183,11 +177,16 @@ impl Max7358 {
             Segment::S8 => {
                 reg.set_channel7_selected(true);
             }
-            _ => {
-                return Err(ResponseCode::SegmentNotFound);
-            }
         }
 
-        write_reg(mux, controller, Register::SwitchControl, reg.0, enable, wfi)
+        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
+    }
+
+    fn reset(
+        &self,
+        _mux: &I2cMux,
+        _gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        panic!("not yet implemented");
     }
 }

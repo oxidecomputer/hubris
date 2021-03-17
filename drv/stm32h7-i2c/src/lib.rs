@@ -14,13 +14,9 @@ pub type RegisterBlock = device::i2c3::RegisterBlock;
 #[cfg(feature = "h743")]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
-mod ltc4306;
-use ltc4306::Ltc4306;
+pub mod ltc4306;
+pub mod max7358;
 
-mod max7358;
-use max7358::Max7358;
-
-use num_traits::cast::FromPrimitive;
 use ringbuf::*;
 
 ringbuf!(u32, 8, 0);
@@ -42,32 +38,24 @@ pub struct I2cController<'a> {
     pub registers: Option<&'a RegisterBlock>,
 }
 
+///
+/// A structure that defines interrupt control flow functions that will be
+/// used to pass control flow into the kernel to either enable or wait for
+/// interrupts.  Note that this is deliberately a struct and not a trait,
+/// allowing the [`I2cMuxDriver`] trait to itself be a trait object.
+///
+pub struct I2cControl {
+    pub enable: fn(u32),
+    pub wfi: fn(u32),
+}
+
 pub enum I2cSpecial {
     Read,
     Write,
 }
 
 ///
-/// I2C mux devices
-///
-pub enum I2cMuxDevice {
-    Ltc4306,
-    Max7358,
-}
-
-///
-/// A trait to express an I2C mux driver.  We can't use static dispatch here
-/// because we want to be able to declare an array of [`I2cMux`] where each
-/// mux has (potentially) a different driver.  But we also can't use dynamic
-/// dispatch because our various functions here take closures to both enable
-/// notifications and wait for interrupts (and are therefore not suitable for
-/// an object-safe trait because they are a generic type parameter).  So we
-/// choose arguably the worst of all worlds, and statically dispatch based on
-/// a single type ([`I2cMuxDevice`]) that manually effects dynamic dispatch by
-/// matching on its device.  The downside to this is that we can't expect the
-/// compiler to figure out when one of these [`I2cMuxDevice`] types can't, in
-/// fact, be used -- and therefore none of the implementations can be elided.
-/// More elegant solutions to this very much welcome!
+/// A trait to express an I2C mux driver.
 ///
 pub trait I2cMuxDriver {
     /// Configure the mux, specifying the mux and controller, but also an
@@ -77,8 +65,7 @@ pub trait I2cMuxDriver {
         mux: &I2cMux,
         controller: &I2cController,
         gpio: &drv_stm32h7_gpio_api::Gpio,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
+        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
     /// Reset the mux
@@ -94,88 +81,15 @@ pub trait I2cMuxDriver {
         mux: &I2cMux,
         controller: &I2cController,
         segment: drv_i2c_api::Segment,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
+        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 }
 
-impl I2cMuxDriver for I2cMuxDevice {
-    fn configure(
-        &self,
-        mux: &I2cMux,
-        controller: &I2cController,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
-    ) -> Result<(), drv_i2c_api::ResponseCode> {
-        match self {
-            I2cMuxDevice::Max7358 => {
-                Max7358.configure(mux, controller, enable, wfi)
-            }
-            _ => {
-                if let Some(pin) = &mux.enable {
-                    gpio.configure(
-                        pin.gpio_port,
-                        pin.mask,
-                        drv_stm32h7_gpio_api::Mode::Output,
-                        drv_stm32h7_gpio_api::OutputType::PushPull,
-                        drv_stm32h7_gpio_api::Speed::High,
-                        drv_stm32h7_gpio_api::Pull::None,
-                        pin.function,
-                    )
-                    .unwrap();
-
-                    gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
-                }
-                Ok(())
-            }
-        }
-    }
-
-    fn reset(
-        &self,
-        mux: &I2cMux,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
-    ) -> Result<(), drv_i2c_api::ResponseCode> {
-        match self {
-            I2cMuxDevice::Max7358 => {
-                panic!("not yet supported");
-            }
-            _ => {
-                if let Some(pin) = &mux.enable {
-                    gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
-                    gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn enable_segment(
-        &self,
-        mux: &I2cMux,
-        controller: &I2cController,
-        segment: drv_i2c_api::Segment,
-        enable: impl FnMut(u32) + Copy,
-        wfi: impl FnMut(u32) + Copy,
-    ) -> Result<(), drv_i2c_api::ResponseCode> {
-        match self {
-            I2cMuxDevice::Ltc4306 => {
-                Ltc4306.enable_segment(mux, controller, segment, enable, wfi)
-            }
-            I2cMuxDevice::Max7358 => {
-                Max7358.enable_segment(mux, controller, segment, enable, wfi)
-            }
-        }
-    }
-}
-
-pub struct I2cMux {
+pub struct I2cMux<'a> {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::Port,
     pub id: drv_i2c_api::Mux,
-    pub driver: I2cMuxDevice,
+    pub driver: &'a dyn I2cMuxDriver,
     pub enable: Option<I2cPin>,
     pub address: u8,
     pub segment: Option<drv_i2c_api::Segment>,
@@ -317,8 +231,7 @@ impl<'a> I2cController<'a> {
         getbyte: impl Fn(usize) -> u8,
         rlen: usize,
         mut putbyte: impl FnMut(usize, u8),
-        mut enable: impl FnMut(u32),
-        mut wfi: impl FnMut(u32),
+        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         assert!(wlen > 0 || rlen > 0);
         assert!(wlen <= 255 && rlen <= 255);
@@ -378,8 +291,8 @@ impl<'a> I2cController<'a> {
                         break;
                     }
 
-                    wfi(notification);
-                    enable(notification);
+                    (ctrl.wfi)(notification);
+                    (ctrl.enable)(notification);
                 }
 
                 // Get a single byte.
@@ -410,8 +323,8 @@ impl<'a> I2cController<'a> {
                     break;
                 }
 
-                wfi(notification);
-                enable(notification);
+                (ctrl.wfi)(notification);
+                (ctrl.enable)(notification);
             }
         }
 
@@ -436,8 +349,8 @@ impl<'a> I2cController<'a> {
 
             while pos < rlen {
                 loop {
-                    wfi(notification);
-                    enable(notification);
+                    (ctrl.wfi)(notification);
+                    (ctrl.enable)(notification);
 
                     let isr = i2c.isr.read();
                     ringbuf_entry!(isr.bits());
@@ -466,8 +379,8 @@ impl<'a> I2cController<'a> {
             // All done; now block until our transfer is complete...
             while !i2c.isr.read().tc().is_complete() {
                 ringbuf_entry!(i2c.isr.read().bits());
-                wfi(notification);
-                enable(notification);
+                (ctrl.wfi)(notification);
+                (ctrl.enable)(notification);
             }
         }
 
@@ -492,8 +405,7 @@ impl<'a> I2cController<'a> {
         &self,
         addr: u8,
         ops: &[I2cSpecial],
-        mut enable: impl FnMut(u32),
-        mut wfi: impl FnMut(u32),
+        ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers.unwrap();
         let notification = self.notification;
@@ -557,8 +469,8 @@ impl<'a> I2cController<'a> {
                     break;
                 }
 
-                wfi(notification);
-                enable(notification);
+                (ctrl.wfi)(notification);
+                (ctrl.enable)(notification);
             }
         }
 
@@ -624,8 +536,7 @@ impl<'a> I2cController<'a> {
         &mut self,
         address: u8,
         secondary: Option<u8>,
-        mut enable: impl FnMut(u32),
-        mut wfi: impl FnMut(u32),
+        ctrl: &I2cControl,
         mut readreg: impl FnMut(u8, Option<u8>, &mut [u8]) -> Option<usize>,
     ) -> ! {
         self.configure_as_target(address, secondary);
@@ -635,7 +546,7 @@ impl<'a> I2cController<'a> {
         let i2c = self.registers.unwrap();
         let notification = self.notification;
 
-        enable(notification);
+        (ctrl.enable)(notification);
 
         let mut register = None;
 
@@ -654,8 +565,8 @@ impl<'a> I2cController<'a> {
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
-                wfi(notification);
-                enable(notification);
+                (ctrl.wfi)(notification);
+                (ctrl.enable)(notification);
             };
 
             // Clear our Address interrupt
@@ -700,8 +611,8 @@ impl<'a> I2cController<'a> {
                         continue 'rxloop;
                     }
 
-                    wfi(notification);
-                    enable(notification);
+                    (ctrl.wfi)(notification);
+                    (ctrl.enable)(notification);
                 }
             }
 
@@ -757,8 +668,8 @@ impl<'a> I2cController<'a> {
                     continue 'addrloop;
                 }
 
-                wfi(notification);
-                enable(notification);
+                (ctrl.wfi)(notification);
+                (ctrl.enable)(notification);
             }
         }
     }

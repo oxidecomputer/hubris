@@ -24,6 +24,7 @@ pub enum Command {
 
 /// Family of 1-wire device. The most complete list seems to be found at:
 /// <http://owfs.sourceforge.net/family.html>.  We want to keep this list
+/// as short as possible.
 #[derive(Copy, Clone, PartialEq, FromPrimitive)]
 pub enum Family {
     DS18B20 = 0x28,
