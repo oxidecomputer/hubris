@@ -360,6 +360,11 @@ impl<'a> I2cController<'a> {
                         return Err(drv_i2c_api::ResponseCode::BusLocked);
                     }
 
+                    if isr.arlo().is_lost() {
+                        i2c.icr.write(|w| w.arlocf().set_bit());
+                        return Err(drv_i2c_api::ResponseCode::BusReset);
+                    }
+
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
                         return Err(drv_i2c_api::ResponseCode::NoDevice);

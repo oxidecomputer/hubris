@@ -44,7 +44,20 @@ bitfield! {
     channel0_selected, set_channel0_selected: 0;
 }
 
-ringbuf!((Option<Register>, u8), 8, (None, 0));
+bitfield! {
+    #[derive(Copy, Clone, PartialEq)]
+    pub struct Configuration(u8);
+    preconnect_test_enabled, set_preconnect_test_enabled: 7;
+    basic_mode_enabled, set_basic_mode_enabled: 6;
+    bus_lockup_disabled, set_bus_lockup_disabled: 5;
+    disconnect_locked_only, set_disconnect_locked_only: 4;
+    lockup_cleared_on_read, set_lockup_cleared_on_read: 3;
+    rst_delay_released, set_rst_delay_released: 2;
+    flushout_enabled, set_flushout_enabled: 1;
+    interrupt_enabled, set_interrupt_enabled: 0;
+}
+
+ringbuf!((Option<Register>, u8), 32, (None, 0));
 
 fn read_regs(
     mux: &I2cMux,
@@ -140,7 +153,20 @@ impl I2cMuxDriver for Max7358 {
         )?;
 
         let reg = SwitchControl(0);
-        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
+        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)?;
+
+        //
+        // The MAX7358 seems to trigger a bus lockup if it detects that
+        // its upstream side has locked -- which is not necessarily accurate
+        // if the upstream side is a TCA9802/TCA9517 pair.  We disable lockup
+        // detection for now to allow this config to function.
+        //
+        let mut reg = Configuration(0);
+        reg.set_bus_lockup_disabled(true);
+
+        write_reg(mux, controller, Register::Configuration, reg.0, ctrl)?;
+
+        Ok(())
     }
 
     fn enable_segment(

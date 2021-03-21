@@ -1,5 +1,6 @@
 //! Driver for the ADT7420 temperature sensor
 
+use crate::TempSensor;
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -69,8 +70,10 @@ impl Adt7420 {
             Err(code) => Err(Error::BadValidate { code: code }),
         }
     }
+}
 
-    pub fn read_temperature(&self) -> Result<Celsius, Error> {
+impl TempSensor<Error> for Adt7420 {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         match self.i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
             Ok(buf) => Ok(convert_temp13((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code: code }),

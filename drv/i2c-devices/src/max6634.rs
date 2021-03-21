@@ -1,0 +1,69 @@
+//! Driver for the MAX6634 temperature sensor
+
+use crate::TempSensor;
+use drv_i2c_api::*;
+use userlib::units::*;
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, PartialEq)]
+enum Register {
+    Temperature = 0x00,
+    Configuration = 0x01,
+    THyst = 0x02,
+    TMax = 0x03,
+    TLow = 0x04,
+    THigh = 0x05,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    BadTempRead { code: ResponseCode },
+}
+
+pub struct Max6634 {
+    pub i2c: I2c,
+}
+
+//
+// Converts a tuple of two u8s (an MSB and an LSB) comprising a 13-bit value
+// into a signed, floating point Celsius temperature value.  Note that the
+// sample data in Table 6 of the data sheet has two errors in it:
+//
+//   BINARY VALUE           HEX VALUE     DATASHEET     CORRECTED
+//   1111 0011 0111 0XXX       0xf370       -25.000       -25.125
+//   1110 0100 0111 0XXX       0xe470       -55.000       -55.125
+//
+// It should go without saying that this driver does the correct conversion,
+// not the one implied by the erroneous datasheet.  (It should also go without
+// saying that -25 degrees C is really damned cold, and unlikely to be a value
+// that we would ever pull off of a sensor.)
+//
+fn convert(raw: (u8, u8)) -> Celsius {
+    let msb = raw.0;
+    let lsb = raw.1 & 0b1111_1000;
+    Celsius(((((msb as u16) << 8) | (lsb as u16)) as i16) as f32 / 128.0)
+}
+
+impl core::fmt::Display for Max6634 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "max6634: {}", &self.i2c)
+    }
+}
+
+impl Max6634 {
+    pub fn new(i2c: &I2c) -> Self {
+        Self { i2c: *i2c }
+    }
+}
+
+impl TempSensor<Error> for Max6634 {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
+        match self
+            .i2c
+            .read_reg::<u8, [u8; 2]>(Register::Temperature as u8)
+        {
+            Ok(buf) => Ok(convert((buf[0], buf[1]))),
+            Err(code) => Err(Error::BadTempRead { code: code }),
+        }
+    }
+}

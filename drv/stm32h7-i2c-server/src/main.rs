@@ -133,7 +133,7 @@ cfg_if::cfg_if! {
             mask: (1 << 11) | (1 << 12),
         } ];
 
-        static mut I2C_MUXES: [I2cMux; 1] = [ I2cMux {
+        static mut I2C_MUXES: [I2cMux; 2] = [ I2cMux {
             controller: Controller::I2C4,
             port: Port::F,
             id: Mux::M1,
@@ -146,6 +146,14 @@ cfg_if::cfg_if! {
                 mask: (1 << 0),
             }),
             address: 0x44,
+            segment: None,
+        }, I2cMux {
+            controller: Controller::I2C4,
+            port: Port::D,
+            id: Mux::M1,
+            driver: &drv_stm32h7_i2c::max7358::Max7358,
+            enable: None,
+            address: 0x70,
             segment: None,
         } ];
     } else {

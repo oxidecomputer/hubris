@@ -129,7 +129,7 @@ path = "../task-thermal"
 name = "task-thermal"
 features = ["itm"]
 priority = 3
-requires = {flash = 32768, ram = 8192 }
+requires = {flash = 65536, ram = 8192 }
 stacksize = 2048
 start = true
 
