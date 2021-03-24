@@ -20,9 +20,3 @@ standalone = []
 [package.metadata.build]
 target = "thumbv8m.main-none-eabihf"
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-spi"
-test = false
-bench = false

@@ -459,6 +459,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-spi-server"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting",
+ "drv-lpc55-spi",
+ "drv-lpc55-syscon-api",
+ "lpc55-pac",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
@@ -601,6 +614,30 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "stm32h7",
+ "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi-server"
+version = "0.1.0"
+dependencies = [
+ "cortex-m 0.6.7",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "drv-stm32h7-spi",
+ "num-traits",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -966,6 +1003,7 @@ dependencies = [
  "byteorder",
  "crc-any",
  "ecdsa",
+ "funty",
  "openssl",
  "p256",
  "packed_struct",
@@ -1674,8 +1712,9 @@ dependencies = [
 name = "task-spi"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
  "cortex-m-semihosting",
- "lpc55-pac",
  "userlib",
  "zerocopy",
 ]

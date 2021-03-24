@@ -169,12 +169,8 @@ fn system_init() {
         // at its normal (wide) output range. We will also want its P-output,
         // which is the output that's tied to the system clock.
         //
-        // We don't currently use the Q and R outputs, and we could switch
-        // them off to save power -- but they can function as kernel clocks
-        // for many of our peripherals, and thus might be useful.
-        //
-        // (Note that the R clock winds up being the source for the trace
-        // unit, so saying we don't use it is a little facetious.)
+        // The Q tap goes to a bunch of peripheral kernel clocks. The R clock
+        // goes to the trace unit.
         p.RCC.pllcfgr.modify(|_, w| {
             w.pll1vcosel()
                 .wide_vco()
@@ -199,8 +195,8 @@ fn system_init() {
         // The P value is the divisor from VCO frequency to system
         // frequency, so it needs to be 2 to get a 400MHz P-output.
         //
-        // We set the Q and R outputs to the same frequency, because the
-        // right choice isn't obvious yet.
+        // We set the R output to the same frequency because it's what Humility
+        // currently expects, and drop the Q output for kernel clock use.
         p.RCC.pll1divr.modify(|_, w| unsafe {
             w.divn1()
                 .bits(100 - 1)
@@ -208,7 +204,7 @@ fn system_init() {
                 .div2()
                 // Q and R fields aren't modeled correctly in the API, so:
                 .divq1()
-                .bits(1)
+                .bits(4 - 1)
                 .divr1()
                 .bits(1)
         });

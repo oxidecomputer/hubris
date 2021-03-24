@@ -44,6 +44,7 @@ priority = 0
 requires = {flash = 16384, ram = 1024}
 start = true
 features = ["itm"]
+stacksize = 1000
 
 [tasks.rcc_driver]
 path = "../drv/stm32h7-rcc"
@@ -101,6 +102,23 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
+[tasks.spi_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["spi2", "spi4"]
+start = true
+interrupts = {84 = 1}
+stacksize = 1000
+
+[tasks.spi]
+path = "../task-spi"
+name = "task-spi"
+priority = 3
+requires = {flash = 8192, ram = 2048}
+start = true
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -156,6 +174,14 @@ size = 0x0800
 [peripherals.gpios3]
 address = 0x58022800
 size = 0x0400
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi4]
+address = 0x40013400
+size = 1024
 
 [peripherals.usart3]
 address = 0x40004800
