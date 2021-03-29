@@ -9,14 +9,14 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::adt7420::*;
 use drv_i2c_devices::ds2482::*;
-use drv_i2c_devices::max6634::*;
 use drv_i2c_devices::max31790::*;
-use drv_i2c_devices::tmp116::*;
+use drv_i2c_devices::max6634::*;
 use drv_i2c_devices::mcp9808::*;
 use drv_i2c_devices::pct2075::*;
+use drv_i2c_devices::tmp116::*;
+use drv_i2c_devices::TempSensor;
 use drv_onewire_devices::ds18b20::*;
 use userlib::units::*;
 use userlib::*;
@@ -126,7 +126,7 @@ fn ds18b20_kick_off_conversion(device: &Ds18b20, ds2482: &Ds2482) {
 }
 
 fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
-    device: &T
+    device: &T,
 ) {
     match device.read_temperature() {
         Ok(temp) => {
@@ -212,13 +212,13 @@ fn main() -> ! {
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S3)),
-                MAX6634_ADDRESS + 2 
+                MAX6634_ADDRESS + 2
             )), Max6634::new(&I2c::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S4)),
-                MAX6634_ADDRESS + 3 
+                MAX6634_ADDRESS + 3
             )), Max6634::new(&I2c::new(
                 task,
                 Controller::I2C4,
@@ -230,13 +230,13 @@ fn main() -> ! {
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S6)),
-                MAX6634_ADDRESS + 5 
+                MAX6634_ADDRESS + 5
             )), Max6634::new(&I2c::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S7)),
-                MAX6634_ADDRESS + 6 
+                MAX6634_ADDRESS + 6
             )), Max6634::new(&I2c::new(
                 task,
                 Controller::I2C4,
