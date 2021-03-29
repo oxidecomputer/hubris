@@ -1714,6 +1714,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
  "cortex-m-semihosting",
  "userlib",
  "zerocopy",

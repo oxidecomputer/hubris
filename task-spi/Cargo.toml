@@ -8,7 +8,8 @@ edition = "2018"
 # suppress default features to avoid including panic message collection, to
 # ensure the spi task remains tiny.
 userlib = {path = "../userlib", default-features = false}
-cortex-m-semihosting = "0.3.5"
+cortex-m = "0.6.2"
+cortex-m-semihosting = { version = "0.3.5", optional = true }
 zerocopy = "0.3.0"
 cfg-if = "0.1.10"
 
@@ -17,7 +18,9 @@ build-util = {path = "../build-util"}
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["itm"]
+itm = [ "userlib/log-itm" ]
+semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 
 # a target for `cargo xtask check`
 [package.metadata.build]
