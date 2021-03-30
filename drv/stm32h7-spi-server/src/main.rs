@@ -251,11 +251,11 @@ fn main() -> ! {
                     // reasonable-looking lease(s). This is our commit point.
 
                     // Make sure SPI is on.
-                    spi.enable();
+                    spi.enable(xfer_len as u16);
                     // Load transfer count and start the state machine. At this
                     // point we _have_ to move the specified number of bytes
                     // through (or explicitly cancel, but we don't).
-                    spi.start(xfer_len as u16);
+                    spi.start();
 
                     // As you might expect, we will work from byte 0 to the end
                     // of each buffer. There are two complications:

@@ -106,12 +106,12 @@ impl Spi {
         self.reg.i2scfgr.write(|w| w.i2smod().clear_bit());
     }
 
-    pub fn enable(&mut self) {
+    pub fn enable(&mut self, tsize: u16) {
+        self.reg.cr2.modify(|_, w| w.tsize().bits(tsize));
         self.reg.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    pub fn start(&mut self, tsize: u16) {
-        self.reg.cr2.modify(|_, w| w.tsize().bits(tsize));
+    pub fn start(&mut self) {
         self.reg.cr1.modify(|_, w| w.cstart().set_bit());
         // Clear EOT flag
         self.reg.ifcr.write(|w| w.eotc().set_bit());
