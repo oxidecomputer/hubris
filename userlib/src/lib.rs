@@ -33,6 +33,7 @@ use core::marker::PhantomData;
 
 pub mod hl;
 pub mod kipc;
+pub mod sync;
 
 #[derive(Debug)]
 #[repr(transparent)]
