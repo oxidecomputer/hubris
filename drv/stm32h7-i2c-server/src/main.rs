@@ -418,18 +418,16 @@ fn configure_port(
     pin: &I2cPin,
     pins: &[I2cPin],
 ) {
-    if let Some(port) = map.get(controller.controller) {
-        if port == pin.port {
-            return;
-        }
+    let p = map.get(controller.controller).unwrap();
+
+    if p == pin.port {
+        return;
     }
 
     let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio = Gpio::from(gpio);
 
-    let src = lookup_pin(pins, controller.controller, pin.port)
-        .ok()
-        .unwrap();
+    let src = lookup_pin(pins, controller.controller, p).ok().unwrap();
 
     gpio.configure(
         src.gpio_port,
