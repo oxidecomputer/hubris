@@ -32,10 +32,8 @@ pub struct I2cPin {
 pub struct I2cController<'a> {
     pub controller: drv_i2c_api::Controller,
     pub peripheral: drv_stm32h7_rcc_api::Peripheral,
-    pub getblock: fn() -> *const RegisterBlock,
     pub notification: u32,
-    pub port: Option<drv_i2c_api::Port>,
-    pub registers: Option<&'a RegisterBlock>,
+    pub registers: &'a RegisterBlock,
 }
 
 ///
@@ -92,7 +90,6 @@ pub struct I2cMux<'a> {
     pub driver: &'a dyn I2cMuxDriver,
     pub enable: Option<I2cPin>,
     pub address: u8,
-    pub segment: Option<drv_i2c_api::Segment>,
 }
 
 impl<'a> I2cController<'a> {
@@ -177,11 +174,8 @@ impl<'a> I2cController<'a> {
         }
     }
 
-    pub fn configure(&mut self) {
-        assert!(self.registers.is_none());
-
-        let i2c = unsafe { &*(self.getblock)() };
-        self.registers = Some(i2c);
+    pub fn configure(&self) {
+        let i2c = self.registers;
 
         // Disable PE
         i2c.cr1.write(|w| w.pe().clear_bit());
@@ -208,7 +202,7 @@ impl<'a> I2cController<'a> {
     /// Reset the controller, as per the datasheet: clear PE, wait for it
     /// to become 0, and set it.
     pub fn reset(&self) {
-        let i2c = self.registers.unwrap();
+        let i2c = self.registers;
 
         // Disable PE
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -236,7 +230,7 @@ impl<'a> I2cController<'a> {
         assert!(wlen > 0 || rlen > 0);
         assert!(wlen <= 255 && rlen <= 255);
 
-        let i2c = self.registers.unwrap();
+        let i2c = self.registers;
         let notification = self.notification;
 
         // Before we talk to the controller, spin until it isn't busy
@@ -412,7 +406,7 @@ impl<'a> I2cController<'a> {
         ops: &[I2cSpecial],
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        let i2c = self.registers.unwrap();
+        let i2c = self.registers;
         let notification = self.notification;
 
         // Before we talk to the controller, spin until it isn't busy
@@ -487,11 +481,10 @@ impl<'a> I2cController<'a> {
         Ok(())
     }
 
-    fn configure_as_target(&mut self, address: u8, secondary: Option<u8>) {
-        assert!(self.registers.is_none());
+    fn configure_as_target(&self, address: u8, secondary: Option<u8>) {
         assert!(address & 0b1000_0000 == 0);
 
-        let i2c = unsafe { &*(self.getblock)() };
+        let i2c = self.registers;
 
         // Disable PE
         i2c.cr1.write(|w| w.pe().clear_bit());
@@ -534,11 +527,10 @@ impl<'a> I2cController<'a> {
         });
 
         i2c.cr1.modify(|_, w| w.pe().set_bit());
-        self.registers = Some(i2c);
     }
 
     pub fn operate_as_target<'b>(
-        &mut self,
+        &self,
         address: u8,
         secondary: Option<u8>,
         ctrl: &I2cControl,
@@ -548,7 +540,7 @@ impl<'a> I2cController<'a> {
 
         let mut wbuf = [0; 4];
 
-        let i2c = self.registers.unwrap();
+        let i2c = self.registers;
         let notification = self.notification;
 
         (ctrl.enable)(notification);

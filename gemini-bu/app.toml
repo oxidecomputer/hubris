@@ -115,6 +115,7 @@ stacksize = 1000
 [tasks.spi]
 path = "../task-spi"
 name = "task-spi"
+features = ["itm"]
 priority = 3
 requires = {flash = 8192, ram = 2048}
 start = true

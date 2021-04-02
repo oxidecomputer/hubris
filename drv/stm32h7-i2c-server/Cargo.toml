@@ -5,6 +5,7 @@ authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
+fixedmap = {path = "../../fixedmap"}
 userlib = {path = "../../userlib"}
 ringbuf = {path = "../../ringbuf"}
 num-traits = { version = "0.2.12", default-features = false }

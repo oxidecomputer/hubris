@@ -592,6 +592,7 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",
+ "fixedmap",
  "num-traits",
  "ringbuf",
  "stm32h7",
@@ -740,6 +741,10 @@ dependencies = [
  "redox_syscall",
  "winapi",
 ]
+
+[[package]]
+name = "fixedmap"
+version = "0.1.0"
 
 [[package]]
 name = "flate2"
@@ -1003,7 +1008,6 @@ dependencies = [
  "byteorder",
  "crc-any",
  "ecdsa",
- "funty",
  "openssl",
  "p256",
  "packed_struct",

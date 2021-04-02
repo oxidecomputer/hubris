@@ -39,57 +39,10 @@ const I2C: Task = Task::i2c_driver;
 #[cfg(feature = "standalone")]
 const I2C: Task = Task::anonymous;
 
-cfg_if::cfg_if! {
-    if #[cfg(target_board = "gemini-bu-1")] {
-        static mut I2C_CONTROLLER: I2cController = I2cController {
-            controller: Controller::I2C2,
-            peripheral: Peripheral::I2c2,
-            getblock: device::I2C2::ptr,
-            notification: (1 << (2 - 1)),
-            registers: None,
-            port: None,
-        };
-
-        const I2C_PIN: I2cPin = I2cPin {
-            controller: Controller::I2C2,
-            port: Port::F,
-            gpio_port: drv_stm32h7_gpio_api::Port::F,
-            function: Alternate::AF4,
-            mask: (1 << 0) | (1 << 1),
-        };
-    } else {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "standalone")] {
-                static mut I2C_CONTROLLER: I2cController = I2cController {
-                    controller: Controller::I2C2,
-                    peripheral: Peripheral::I2c2,
-                    getblock: device::I2C2::ptr,
-                    notification: (1 << (2 - 1)),
-                    registers: None,
-                    port: None,
-                };
-
-                const I2C_PIN: I2cPin = I2cPin {
-                    controller: Controller::I2C2,
-                    port: Port::F,
-                    gpio_port: drv_stm32h7_gpio_api::Port::F,
-                    function: Alternate::AF4,
-                    mask: (1 << 0) | (1 << 1),
-                };
-            } else {
-                compile_error!("I2C target unsupported for this board");
-            }
-        }
-    }
-}
-
-fn configure_pin() {
+fn configure_pin(pin: &I2cPin) {
     let gpio_driver =
         TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio_driver = Gpio::from(gpio_driver);
-
-    let pin = &I2C_PIN;
-    let controller = unsafe { &mut I2C_CONTROLLER };
 
     gpio_driver
         .configure(
@@ -102,8 +55,6 @@ fn configure_pin() {
             pin.function,
         )
         .unwrap();
-
-    controller.port = Some(pin.port);
 }
 
 const ADT7420_ADDRESS: u8 = 0x48;
@@ -115,7 +66,45 @@ ringbuf!(u8, 16, 0);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let controller = unsafe { &mut I2C_CONTROLLER };
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "gemini-bu-1")] {
+            let controller = I2cController {
+                controller: Controller::I2C2,
+                peripheral: Peripheral::I2c2,
+                registers: unsafe { &*device::I2C2::ptr() },
+                notification: (1 << (2 - 1)),
+            };
+
+            let pin = I2cPin {
+                controller: Controller::I2C2,
+                port: Port::F,
+                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                function: Alternate::AF4,
+                mask: (1 << 0) | (1 << 1),
+            };
+        } else {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "standalone")] {
+                    let controller = I2cController {
+                        controller: Controller::I2C2,
+                        peripheral: Peripheral::I2c2,
+                        registers: unsafe { &*device::I2C2::ptr() },
+                        notification: (1 << (2 - 1)),
+                    };
+
+                    let pin = I2cPin {
+                        controller: Controller::I2C2,
+                        port: Port::F,
+                        gpio_port: drv_stm32h7_gpio_api::Port::F,
+                        function: Alternate::AF4,
+                        mask: (1 << 0) | (1 << 1),
+                    };
+                } else {
+                    compile_error!("I2C target unsupported for this board");
+                }
+            }
+        }
+    }
 
     // Enable the controller
     let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
@@ -126,7 +115,7 @@ fn main() -> ! {
     controller.enable(&rcc_driver);
 
     // Configure our pins
-    configure_pin();
+    configure_pin(&pin);
 
     let i2c = [
         I2c::new(
