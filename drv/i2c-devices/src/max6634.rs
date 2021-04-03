@@ -21,7 +21,7 @@ pub enum Error {
 }
 
 pub struct Max6634 {
-    pub i2c: I2c,
+    pub device: I2cDevice,
 }
 
 //
@@ -46,20 +46,20 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Max6634 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "max6634: {}", &self.i2c)
+        write!(f, "max6634: {}", &self.device)
     }
 }
 
 impl Max6634 {
-    pub fn new(i2c: &I2c) -> Self {
-        Self { i2c: *i2c }
+    pub fn new(device: &I2cDevice) -> Self {
+        Self { device: *device }
     }
 }
 
 impl TempSensor<Error> for Max6634 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
         match self
-            .i2c
+            .device
             .read_reg::<u8, [u8; 2]>(Register::Temperature as u8)
         {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),

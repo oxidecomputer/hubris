@@ -31,7 +31,7 @@ pub enum Error {
 }
 
 pub struct Adt7420 {
-    pub i2c: I2c,
+    pub device: I2cDevice,
 }
 
 //
@@ -54,17 +54,17 @@ fn convert_temp13(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Adt7420 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "adt7420: {}", &self.i2c)
+        write!(f, "adt7420: {}", &self.device)
     }
 }
 
 impl Adt7420 {
-    pub fn new(i2c: &I2c) -> Self {
-        Self { i2c: *i2c }
+    pub fn new(device: &I2cDevice) -> Self {
+        Self { device: *device }
     }
 
     pub fn validate(&self) -> Result<(), Error> {
-        match self.i2c.read_reg::<u8, u8>(Register::ID as u8) {
+        match self.device.read_reg::<u8, u8>(Register::ID as u8) {
             Ok(id) if id == ADT7420_ID => Ok(()),
             Ok(id) => Err(Error::BadID { id: id }),
             Err(code) => Err(Error::BadValidate { code: code }),
@@ -74,7 +74,7 @@ impl Adt7420 {
 
 impl TempSensor<Error> for Adt7420 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        match self.i2c.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
+        match self.device.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
             Ok(buf) => Ok(convert_temp13((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code: code }),
         }

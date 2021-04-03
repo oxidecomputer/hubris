@@ -71,7 +71,7 @@ pub enum Controller {
     I2C5 = 5,
     I2C6 = 6,
     I2C7 = 7,
-    None = 0xff,
+    Mock = 0xff,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
@@ -145,7 +145,7 @@ pub enum Segment {
 /// the segment are optional, but if one is present, the other must be.
 ///
 #[derive(Copy, Clone, Debug)]
-pub struct I2c {
+pub struct I2cDevice {
     pub task: TaskId,
     pub controller: Controller,
     pub port: Port,
@@ -193,7 +193,7 @@ impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
     }
 }
 
-impl core::fmt::Display for I2c {
+impl core::fmt::Display for I2cDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let addr = self.address;
 
@@ -222,11 +222,11 @@ impl core::fmt::Display for I2c {
     }
 }
 
-impl I2c {
+impl I2cDevice {
     ///
-    /// Return a new [`I2c`], given a 5-tuple identifying a device plus a task
-    /// identifier for the I2C driver.  This will not make any IPC requests to
-    /// the specified task.
+    /// Return a new [`I2cDevice`], given a 5-tuple identifying a device plus
+    /// a task identifier for the I2C driver.  This will not make any IPC
+    /// requests to the specified task.
     ///
     pub fn new(
         task: TaskId,
@@ -245,15 +245,16 @@ impl I2c {
     }
 
     ///
-    /// Returns an I2C device that does not correspond to an actual device.
-    /// This is for purposes of allowing standalone builds of tasks;
+    /// Returns a mocked I2C device that does not correspond to an actual
+    /// device.  This is for purposes of allowing standalone builds of tasks;
     /// production code should not have such a device, and all operations
     /// would be expected to fail with a `ResponseCode::BadController`.
     ///
-    pub fn none(task: TaskId) -> Self {
+    #[cfg(feature = "standalone")]
+    pub fn mock(task: TaskId) -> Self {
         Self {
             task: task,
-            controller: Controller::None,
+            controller: Controller::Mock,
             port: Port::Default,
             segment: None,
             address: 0,
@@ -267,7 +268,7 @@ impl From<ResponseCode> for u32 {
     }
 }
 
-impl I2c {
+impl I2cDevice {
     ///
     /// Reads a register, with register address of type R and value of type V.
     ///

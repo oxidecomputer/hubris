@@ -70,19 +70,19 @@ ringbuf!(
 );
 
 pub struct Ds2482 {
-    i2c: I2c,
+    device: I2cDevice,
     branches: Option<(u64, u64)>,
 }
 
 impl core::fmt::Display for Ds2482 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "ds2482: {}", &self.i2c)
+        write!(f, "ds2482: {}", &self.device)
     }
 }
 
-fn read_register(i2c: &I2c, register: Register) -> Result<u8, Error> {
+fn read_register(device: &I2cDevice, register: Register) -> Result<u8, Error> {
     let cmd = Command::SetReadPointer;
-    let rval = i2c.read_reg::<[u8; 2], u8>([cmd as u8, register as u8]);
+    let rval = device.read_reg::<[u8; 2], u8>([cmd as u8, register as u8]);
 
     ringbuf_entry!((Some((cmd, Some(register))), rval));
 
@@ -96,13 +96,13 @@ fn read_register(i2c: &I2c, register: Register) -> Result<u8, Error> {
 }
 
 fn send_command(
-    i2c: &I2c,
+    device: &I2cDevice,
     cmd: Command,
     payload: Option<u8>,
 ) -> Result<(), Error> {
     let rval = match payload {
-        Some(payload) => i2c.write(&[cmd as u8, payload]),
-        None => i2c.write(&[cmd as u8]),
+        Some(payload) => device.write(&[cmd as u8, payload]),
+        None => device.write(&[cmd as u8]),
     };
 
     match rval {
@@ -120,14 +120,14 @@ fn send_command(
     }
 }
 
-fn triplet(i2c: &I2c, take: bool) -> Result<(bool, bool), Error> {
+fn triplet(device: &I2cDevice, take: bool) -> Result<(bool, bool), Error> {
     let mut payload = TripletDirection(0);
     payload.set_direction(take);
 
-    send_command(i2c, Command::OneWireTriplet, Some(payload.0))?;
+    send_command(device, Command::OneWireTriplet, Some(payload.0))?;
 
     loop {
-        let status = Status(read_register(i2c, Register::Status)?);
+        let status = Status(read_register(device, Register::Status)?);
 
         if status.onewire_busy() {
             continue;
@@ -141,18 +141,18 @@ fn triplet(i2c: &I2c, take: bool) -> Result<(bool, bool), Error> {
 }
 
 impl Ds2482 {
-    pub fn new(i2c: &I2c) -> Self {
+    pub fn new(device: &I2cDevice) -> Self {
         Self {
-            i2c: *i2c,
+            device: *device,
             branches: None,
         }
     }
 
     pub fn poll_until_notbusy(&self) -> Result<(), Error> {
-        let i2c = &self.i2c;
+        let device = &self.device;
 
         loop {
-            let status = Status(read_register(i2c, Register::Status)?);
+            let status = Status(read_register(device, Register::Status)?);
 
             if !status.onewire_busy() {
                 return Ok(());
@@ -161,32 +161,37 @@ impl Ds2482 {
     }
 
     pub fn reset(&self) -> Result<(), Error> {
-        let i2c = &self.i2c;
+        let device = &self.device;
 
         self.poll_until_notbusy()?;
 
-        send_command(i2c, Command::OneWireReset, None)?;
+        send_command(device, Command::OneWireReset, None)?;
         self.poll_until_notbusy()?;
 
         Ok(())
     }
 
     pub fn initialize(&self) -> Result<(), Error> {
-        let i2c = &self.i2c;
+        let device = &self.device;
 
-        send_command(i2c, Command::DeviceReset, None)?;
+        send_command(device, Command::DeviceReset, None)?;
 
         let mut config = Configuration(0);
         config.set_active_pullup(true);
 
-        send_command(i2c, Command::WriteConfiguration, Some(config.transit()))?;
-        read_register(i2c, Register::Configuration)?;
+        send_command(
+            device,
+            Command::WriteConfiguration,
+            Some(config.transit()),
+        )?;
+
+        read_register(device, Register::Configuration)?;
 
         Ok(())
     }
 
     pub fn search(&mut self) -> Result<Option<u64>, Error> {
-        let i2c = &self.i2c;
+        let device = &self.device;
 
         let branches = match self.branches {
             Some(branches) => {
@@ -203,12 +208,12 @@ impl Ds2482 {
             || {
                 self.reset()?;
                 let search = drv_onewire::Command::SearchROM as u8;
-                send_command(i2c, Command::OneWireWriteByte, Some(search))?;
+                send_command(device, Command::OneWireWriteByte, Some(search))?;
                 self.poll_until_notbusy()?;
 
                 Ok(())
             },
-            |take| triplet(i2c, take),
+            |take| triplet(device, take),
             branches,
         )?;
 
@@ -219,17 +224,17 @@ impl Ds2482 {
 
     pub fn write_byte(&self, byte: u8) -> Result<(), Error> {
         self.poll_until_notbusy()?;
-        send_command(&self.i2c, Command::OneWireWriteByte, Some(byte))?;
+        send_command(&self.device, Command::OneWireWriteByte, Some(byte))?;
 
         Ok(())
     }
 
     pub fn read_byte(&self) -> Result<u8, Error> {
         self.poll_until_notbusy()?;
-        send_command(&self.i2c, Command::OneWireReadByte, None)?;
+        send_command(&self.device, Command::OneWireReadByte, None)?;
 
         self.poll_until_notbusy()?;
-        let rval = read_register(&self.i2c, Register::ReadData)?;
+        let rval = read_register(&self.device, Register::ReadData)?;
 
         Ok(rval)
     }

@@ -25,7 +25,7 @@ pub enum Error {
 }
 
 pub struct Tmp116 {
-    pub i2c: I2c,
+    pub device: I2cDevice,
 }
 
 fn convert(raw: (u8, u8)) -> Celsius {
@@ -34,17 +34,17 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Tmp116 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tmp116: {}", &self.i2c)
+        write!(f, "tmp116: {}", &self.device)
     }
 }
 
 impl Tmp116 {
-    pub fn new(i2c: &I2c) -> Self {
-        Self { i2c: *i2c }
+    pub fn new(device: &I2cDevice) -> Self {
+        Self { device: *device }
     }
 
     fn read_reg(&self, reg: Register) -> Result<(u8, u8), Error> {
-        match self.i2c.read_reg::<u8, [u8; 2]>(reg as u8) {
+        match self.device.read_reg::<u8, [u8; 2]>(reg as u8) {
             Ok(buf) => Ok((buf[0], buf[1])),
             Err(code) => Err(Error::BadRegisterRead {
                 reg: reg,

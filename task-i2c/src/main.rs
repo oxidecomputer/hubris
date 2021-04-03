@@ -83,8 +83,8 @@ fn scan_controller(
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     for addr in 0..128 {
-        let i2c = I2c::new(task, controller, port, mux, addr);
-        let result = i2c.read::<u8>();
+        let device = I2cDevice::new(task, controller, port, mux, addr);
+        let result = device.read::<u8>();
         results[addr as usize] = match result {
             Ok(result) => Some(Ok(result)),
             Err(err) => Some(Err(err)),
@@ -101,10 +101,10 @@ fn scan_device(
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    let i2c = I2c::new(task, controller, port, mux, addr);
+    let device = I2cDevice::new(task, controller, port, mux, addr);
 
     for reg in 0..=0xff {
-        let result = i2c.read_reg::<u8, u8>(reg);
+        let result = device.read_reg::<u8, u8>(reg);
         results[reg as usize] = match result {
             Ok(result) => Some(Ok(result)),
             Err(err) => Some(Err(err)),
@@ -123,13 +123,13 @@ fn read(
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    let i2c = I2c::new(task, controller, port, mux, addr);
+    let device = I2cDevice::new(task, controller, port, mux, addr);
 
     match nbytes {
         BytesToRead::OneByte => {
             let result = match register {
-                Some(register) => i2c.read_reg::<u8, u8>(register),
-                None => i2c.read::<u8>(),
+                Some(register) => device.read_reg::<u8, u8>(register),
+                None => device.read::<u8>(),
             };
 
             results[0] = match result {
@@ -139,8 +139,8 @@ fn read(
         }
         BytesToRead::TwoBytes => {
             let result = match register {
-                Some(register) => i2c.read_reg::<u8, [u8; 2]>(register),
-                None => i2c.read::<[u8; 2]>(),
+                Some(register) => device.read_reg::<u8, [u8; 2]>(register),
+                None => device.read::<[u8; 2]>(),
             };
 
             match result {
@@ -167,13 +167,13 @@ fn write_register(
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
-    let i2c = I2c::new(task, controller, port, mux, addr);
+    let device = I2cDevice::new(task, controller, port, mux, addr);
 
     let mut buf = [0u8; 2];
     buf[0] = register;
     buf[1] = value;
 
-    results[0] = match i2c.write(&buf) {
+    results[0] = match device.write(&buf) {
         Ok(_) => Some(Ok(value)),
         Err(err) => Some(Err(err)),
     };

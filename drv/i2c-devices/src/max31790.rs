@@ -173,12 +173,12 @@ pub enum Error {
 }
 
 pub struct Max31790 {
-    pub i2c: I2c,
+    pub device: I2cDevice,
 }
 
 impl core::fmt::Display for Max31790 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "max31790: {}", &self.i2c)
+        write!(f, "max31790: {}", &self.device)
     }
 }
 
@@ -217,8 +217,8 @@ ringbuf!(
     (None, Ok([0, 0]))
 );
 
-fn read_reg8(i2c: &I2c, register: Register) -> Result<u8, Error> {
-    let rval = i2c.read_reg::<u8, u8>(register as u8);
+fn read_reg8(device: &I2cDevice, register: Register) -> Result<u8, Error> {
+    let rval = device.read_reg::<u8, u8>(register as u8);
 
     match rval {
         Ok(val) => {
@@ -236,8 +236,11 @@ fn read_reg8(i2c: &I2c, register: Register) -> Result<u8, Error> {
     }
 }
 
-fn read_reg16(i2c: &I2c, register: Register) -> Result<[u8; 2], Error> {
-    let rval = i2c.read_reg::<u8, [u8; 2]>(register as u8);
+fn read_reg16(
+    device: &I2cDevice,
+    register: Register,
+) -> Result<[u8; 2], Error> {
+    let rval = device.read_reg::<u8, [u8; 2]>(register as u8);
 
     ringbuf_entry!((Some(register), rval));
 
@@ -250,8 +253,12 @@ fn read_reg16(i2c: &I2c, register: Register) -> Result<[u8; 2], Error> {
     }
 }
 
-fn write_reg(i2c: &I2c, register: Register, val: u8) -> Result<(), Error> {
-    let rval = i2c.write(&[register as u8, val]);
+fn write_reg(
+    device: &I2cDevice,
+    register: Register,
+    val: u8,
+) -> Result<(), Error> {
+    let rval = device.write(&[register as u8, val]);
 
     match rval {
         Ok(_) => {
@@ -269,32 +276,34 @@ fn write_reg(i2c: &I2c, register: Register, val: u8) -> Result<(), Error> {
 }
 
 impl Max31790 {
-    pub fn new(i2c: &I2c) -> Self {
-        Self { i2c: *i2c }
+    pub fn new(device: &I2cDevice) -> Self {
+        Self { device: *device }
     }
 
     pub fn initialize(&self) -> Result<(), Error> {
-        let i2c = &self.i2c;
+        let device = &self.device;
 
-        let _config =
-            GlobalConfiguration(read_reg8(i2c, Register::GlobalConfiguration)?);
+        let _config = GlobalConfiguration(read_reg8(
+            device,
+            Register::GlobalConfiguration,
+        )?);
 
         for fan in FAN_MIN..=FAN_MAX {
             let fan = Fan(fan);
             let reg = fan.configuration()?;
 
-            let mut config = FanConfiguration(read_reg8(i2c, reg)?);
+            let mut config = FanConfiguration(read_reg8(device, reg)?);
             config.set_tach_input_enable(true);
 
-            write_reg(i2c, reg, config.0)?;
-            write_reg(i2c, fan.pwm_target()?, 0)?;
+            write_reg(device, reg, config.0)?;
+            write_reg(device, fan.pwm_target()?, 0)?;
         }
 
         Ok(())
     }
 
     pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, Error> {
-        let val = read_reg16(&self.i2c, fan.tach_count()?)?;
+        let val = read_reg16(&self.device, fan.tach_count()?)?;
 
         let count = ((val[0] as u32) << 3) | (val[1] >> 5) as u32;
 

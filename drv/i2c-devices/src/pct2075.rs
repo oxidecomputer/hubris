@@ -20,7 +20,7 @@ pub enum Error {
 }
 
 pub struct Pct2075 {
-    pub i2c: I2c,
+    pub device: I2cDevice,
 }
 
 fn convert(raw: (u8, u8)) -> Celsius {
@@ -32,19 +32,19 @@ fn convert(raw: (u8, u8)) -> Celsius {
 
 impl core::fmt::Display for Pct2075 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "pct2075: {}", &self.i2c)
+        write!(f, "pct2075: {}", &self.device)
     }
 }
 
 impl Pct2075 {
-    pub fn new(i2c: &I2c) -> Self {
-        Self { i2c: *i2c }
+    pub fn new(device: &I2cDevice) -> Self {
+        Self { device: *device }
     }
 }
 
 impl TempSensor<Error> for Pct2075 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
-        match self.i2c.read_reg::<u8, [u8; 2]>(Register::Temp as u8) {
+        match self.device.read_reg::<u8, [u8; 2]>(Register::Temp as u8) {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code: code }),
         }

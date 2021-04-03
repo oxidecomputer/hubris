@@ -117,15 +117,15 @@ fn main() -> ! {
     // Configure our pins
     configure_pin(&pin);
 
-    let i2c = [
-        I2c::new(
+    let devices = [
+        I2cDevice::new(
             TaskId::for_index_and_gen(I2C as usize, Generation::default()),
             Controller::I2C4,
             Port::F,
             Some((Mux::M1, Segment::S1)),
             ADT7420_ADDRESS,
         ),
-        I2c::new(
+        I2cDevice::new(
             TaskId::for_index_and_gen(I2C as usize, Generation::default()),
             Controller::I2C4,
             Port::F,
@@ -138,10 +138,10 @@ fn main() -> ! {
 
     let mut response = |addr, register, buf: &mut [u8]| -> Option<usize> {
         ringbuf_entry!(addr);
-        let i2c: &I2c = if addr == ADT7420_ADDRESS - 1 {
-            &i2c[0]
+        let device: &I2cDevice = if addr == ADT7420_ADDRESS - 1 {
+            &devices[0]
         } else if addr == ADT7420_ADDRESS + 1 {
-            &i2c[1]
+            &devices[1]
         } else {
             sys_log!("bogus addr {:x}", addr);
             return None;
@@ -149,7 +149,7 @@ fn main() -> ! {
 
         match register {
             Some(val) if val == ADT7420_REG_TEMPMSB => {
-                match i2c.read_reg::<u8, [u8; 2]>(0 as u8) {
+                match device.read_reg::<u8, [u8; 2]>(0 as u8) {
                     Ok(rval) => {
                         buf[0] = rval[0];
                         buf[1] = rval[1];
@@ -167,7 +167,7 @@ fn main() -> ! {
             }
 
             Some(val) if val == ADT7420_REG_ID => {
-                match i2c.read_reg::<u8, u8>(val) {
+                match device.read_reg::<u8, u8>(val) {
                     Ok(rval) => {
                         buf[0] = rval;
                         Some(1)

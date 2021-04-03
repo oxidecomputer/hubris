@@ -163,7 +163,7 @@ fn main() -> ! {
         if #[cfg(target_board = "gemini-bu-1")] {
             const MAX31790_ADDRESS: u8 = 0x20;
 
-            let fctrl = Max31790::new(&I2c::new(
+            let fctrl = Max31790::new(&I2cDevice::new(
                 task,
                 Controller::I2C1,
                 Port::Default,
@@ -173,19 +173,19 @@ fn main() -> ! {
 
             const ADT7420_ADDRESS: u8 = 0x48;
 
-            let mut adt7420 = [ (Adt7420::new(&I2c::new(
+            let mut adt7420 = [ (Adt7420::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::F,
                 Some((Mux::M1, Segment::S1)),
                 ADT7420_ADDRESS
-            )), false), (Adt7420::new(&I2c::new(
+            )), false), (Adt7420::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::F,
                 Some((Mux::M1, Segment::S2)),
                 ADT7420_ADDRESS
-            )), false), (Adt7420::new(&I2c::new(
+            )), false), (Adt7420::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::F,
@@ -195,49 +195,49 @@ fn main() -> ! {
 
             const MAX6634_ADDRESS: u8 = 0x48;
 
-            let max6634 = [ Max6634::new(&I2c::new(
+            let max6634 = [ Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S1)),
                 MAX6634_ADDRESS
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S2)),
                 MAX6634_ADDRESS + 1
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S3)),
                 MAX6634_ADDRESS + 2
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S4)),
                 MAX6634_ADDRESS + 3
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S5)),
                 MAX6634_ADDRESS + 4
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S6)),
                 MAX6634_ADDRESS + 5
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
                 Some((Mux::M1, Segment::S7)),
                 MAX6634_ADDRESS + 6
-            )), Max6634::new(&I2c::new(
+            )), Max6634::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
@@ -247,13 +247,13 @@ fn main() -> ! {
 
             const TMP116_ADDRESS: u8 = 0x48;
 
-            let tmp116 = [ Tmp116::new(&I2c::new(
+            let tmp116 = [ Tmp116::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::H,
                 None,
                 TMP116_ADDRESS
-            )), Tmp116::new(&I2c::new(
+            )), Tmp116::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::H,
@@ -263,7 +263,7 @@ fn main() -> ! {
 
             const MCP9808_ADDRESS: u8 = 0x18;
 
-            let mcp9808 = [ Mcp9808::new(&I2c::new(
+            let mcp9808 = [ Mcp9808::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
@@ -273,7 +273,7 @@ fn main() -> ! {
 
             const PCT2075_ADDRESS: u8 = 0x37;
 
-            let pct2075 = [ Pct2075::new(&I2c::new(
+            let pct2075 = [ Pct2075::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::D,
@@ -283,7 +283,7 @@ fn main() -> ! {
 
             const DS2482_ADDRESS: u8 = 0x19;
 
-            let mut ds2482 = Ds2482::new(&I2c::new(
+            let mut ds2482 = Ds2482::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
                 Port::F,
@@ -293,10 +293,14 @@ fn main() -> ! {
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
-                    let i2c = I2c::none(task);
-                    let fctrl = Max31790::new(&i2c);
-                    let mut adt7420 = [ (Adt7420::new(&i2c), false) ];
-                    let mut ds2482 = Ds2482::new(&i2c);
+                    let device = I2cDevice::mock(task);
+                    let fctrl = Max31790::new(&device);
+                    let mut adt7420 = [ (Adt7420::new(&device), false) ];
+                    let max6634 = [ Max6634::new(&device) ];
+                    let tmp116 = [ Tmp116::new(&device) ];
+                    let mcp9808 = [ Mcp9808::new(&device) ];
+                    let pct2075 = [ Pct2075::new(&device) ];
+                    let mut ds2482 = Ds2482::new(&device);
                 } else {
                     compile_error!("unknown board");
                 }
