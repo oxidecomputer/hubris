@@ -55,6 +55,19 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
     }
 }
 
+impl<'a, T> From<&'a [T; 0]> for Lease<'a> {
+    fn from(x: &'a [T; 0]) -> Self {
+        Self {
+            kern_rep: abi::ULease {
+                attributes: abi::LeaseAttributes::READ,
+                base_address: x.as_ptr() as u32,
+                length: 0,
+            },
+            _marker: PhantomData,
+        }
+    }
+}
+
 impl<'a> From<&'a mut [u8]> for Lease<'a> {
     fn from(x: &'a mut [u8]) -> Self {
         Self {

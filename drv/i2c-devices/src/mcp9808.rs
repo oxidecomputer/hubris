@@ -21,13 +21,13 @@ pub enum Error {
 }
 
 pub struct Mcp9808 {
-    pub device: I2cDevice,
+    device: I2cDevice,
 }
 
 fn convert(raw: (u8, u8)) -> Celsius {
     let msb = raw.0;
     let lsb = raw.1;
-    Celsius(((((msb as u16) << 11) | (lsb as u16) << 3) as i16) as f32 / 128.0)
+    Celsius(f32::from(i16::from(msb) << 11 | (i16::from(lsb) << 3)) / 128.0)
 }
 
 impl core::fmt::Display for Mcp9808 {

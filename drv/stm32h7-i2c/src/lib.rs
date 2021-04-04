@@ -204,9 +204,12 @@ impl<'a> I2cController<'a> {
     pub fn reset(&self) {
         let i2c = self.registers;
 
-        // Disable PE
+        // We must keep PE low for 3 APB cycles (e.g., 30 ns on h743).  To
+        // assure that this is done properly, we follow the procedure outlined
+        // in the datasheet:  first, clear it...
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
 
+        // ...wait until we see it disabled.
         loop {
             let cr1 = i2c.cr1.read();
             ringbuf_entry!(cr1.bits());
@@ -215,6 +218,7 @@ impl<'a> I2cController<'a> {
             }
         }
 
+        // And then finally set it
         i2c.cr1.modify(|_, w| w.pe().set_bit());
     }
 

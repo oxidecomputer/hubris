@@ -364,7 +364,7 @@ fn system_init() {
             p.RCC.d1cfgr.write(|w| {
                 w.d1cpre().div1() // CPU at full rate
                     .hpre().div2()  // AHB at half that (200MHz)
-                    .d1ppre().div1()    // D1 APB3 at half that again (100MHz)
+                    .d1ppre().div2()    // D1 APB3 at half that again (100MHz)
             });
 
             // Clamp our APBs at 100MHz

@@ -20,14 +20,13 @@ pub enum Error {
 }
 
 pub struct Pct2075 {
-    pub device: I2cDevice,
+    device: I2cDevice,
 }
 
 fn convert(raw: (u8, u8)) -> Celsius {
     let msb = raw.0;
     let lsb = raw.1 & 0b1110_0000;
-
-    Celsius(((((msb as u16) << 8) | (lsb as u16)) as i16) as f32 / 256.0)
+    Celsius(f32::from(i16::from(msb) << 8 | i16::from(lsb)) / 256.0)
 }
 
 impl core::fmt::Display for Pct2075 {

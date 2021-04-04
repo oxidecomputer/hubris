@@ -2,6 +2,7 @@
 
 use bitfield::bitfield;
 use drv_i2c_api::*;
+use drv_onewire::Identifier;
 use ringbuf::*;
 
 #[allow(dead_code)]
@@ -71,7 +72,7 @@ ringbuf!(
 
 pub struct Ds2482 {
     device: I2cDevice,
-    branches: Option<(u64, u64)>,
+    branches: Option<(Identifier, Identifier)>,
 }
 
 impl core::fmt::Display for Ds2482 {
@@ -190,7 +191,7 @@ impl Ds2482 {
         Ok(())
     }
 
-    pub fn search(&mut self) -> Result<Option<u64>, Error> {
+    pub fn search(&mut self) -> Result<Option<Identifier>, Error> {
         let device = &self.device;
 
         let branches = match self.branches {

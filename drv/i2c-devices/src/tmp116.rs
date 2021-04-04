@@ -25,11 +25,11 @@ pub enum Error {
 }
 
 pub struct Tmp116 {
-    pub device: I2cDevice,
+    device: I2cDevice,
 }
 
 fn convert(raw: (u8, u8)) -> Celsius {
-    Celsius(((((raw.0 as u16) << 8) | (raw.1 as u16)) as i16) as f32 / 128.0)
+    Celsius(f32::from(i16::from(raw.0) << 8 | i16::from(raw.1)) / 128.0)
 }
 
 impl core::fmt::Display for Tmp116 {

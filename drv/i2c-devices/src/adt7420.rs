@@ -31,7 +31,7 @@ pub enum Error {
 }
 
 pub struct Adt7420 {
-    pub device: I2cDevice,
+    device: I2cDevice,
 }
 
 //
@@ -40,16 +40,10 @@ pub struct Adt7420 {
 // validated and verified against the sample data in Table 5 of the ADT7420
 // datasheet.)
 //
-fn convert_temp13(raw: (u8, u8)) -> Celsius {
+fn convert(raw: (u8, u8)) -> Celsius {
     let msb = raw.0;
-    let lsb = raw.1;
-    let val = ((msb & 0x7f) as u16) << 5 | ((lsb >> 3) as u16);
-
-    Celsius(if msb & 0b1000_0000 != 0 {
-        (val as i16 - 4096) as f32 / 16.0
-    } else {
-        val as f32 / 16.0
-    })
+    let lsb = raw.1 & 0b1111_1000;
+    Celsius(f32::from(i16::from(msb) << 8 | i16::from(lsb)) / 128.0)
 }
 
 impl core::fmt::Display for Adt7420 {
@@ -75,7 +69,7 @@ impl Adt7420 {
 impl TempSensor<Error> for Adt7420 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
         match self.device.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
-            Ok(buf) => Ok(convert_temp13((buf[0], buf[1]))),
+            Ok(buf) => Ok(convert((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code: code }),
         }
     }

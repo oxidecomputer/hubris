@@ -153,6 +153,8 @@ pub struct I2cDevice {
     pub address: u8,
 }
 
+type I2cMessage = (u8, Controller, Port, Option<(Mux, Segment)>);
+
 pub trait Marshal<T> {
     fn marshal(&self) -> T;
     fn unmarshal(val: &T) -> Result<Self, ResponseCode>
@@ -160,7 +162,7 @@ pub trait Marshal<T> {
         Self: Sized;
 }
 
-impl Marshal<[u8; 4]> for (u8, Controller, Port, Option<(Mux, Segment)>) {
+impl Marshal<[u8; 4]> for I2cMessage {
     fn marshal(&self) -> [u8; 4] {
         [
             self.0,
@@ -323,8 +325,6 @@ impl I2cDevice {
     pub fn read<V: Default + AsBytes + FromBytes>(
         &self,
     ) -> Result<V, ResponseCode> {
-        let empty = [0u8; 1];
-
         let mut val = V::default();
 
         let (code, _) = sys_send(
@@ -337,7 +337,10 @@ impl I2cDevice {
                 self.segment,
             )),
             &mut [],
-            &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
+            &[
+                Lease::from(&[] as &[u8; 0]),
+                Lease::from(val.as_bytes_mut()),
+            ],
         );
 
         if code != 0 {
@@ -353,8 +356,6 @@ impl I2cDevice {
     /// perform any follow-up reads.
     ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
-        let empty = [0u8; 1];
-
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
@@ -365,7 +366,7 @@ impl I2cDevice {
                 self.segment,
             )),
             &mut [],
-            &[Lease::from(buffer), Lease::from(&empty[0..0])],
+            &[Lease::from(buffer), Lease::from(&[] as &[u8; 0])],
         );
 
         if code != 0 {

@@ -90,8 +90,7 @@ fn find_mux(
                     continue;
                 }
 
-                func(mux, id, segment)?;
-                return Ok(());
+                return func(mux, id, segment);
             }
 
             Err(ResponseCode::MuxNotFound)

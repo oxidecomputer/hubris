@@ -46,7 +46,7 @@ pub enum Command {
 /// A structure representing a single DS18B20 device
 #[derive(Copy, Clone)]
 pub struct Ds18b20 {
-    pub id: u64,
+    pub id: drv_onewire::Identifier,
 }
 
 impl core::fmt::Display for Ds18b20 {
@@ -59,13 +59,13 @@ impl core::fmt::Display for Ds18b20 {
 // Convert as per Figure 4 in the datasheet.
 //
 fn convert(lsb: u8, msb: u8) -> Celsius {
-    Celsius(((((msb as u16) << 8) | (lsb as u16)) as i16) as f32 / 16.0)
+    Celsius(f32::from(i16::from(msb) << 8 | i16::from(lsb)) / 16.0)
 }
 
 impl Ds18b20 {
     /// Create a new DS18B20 instance given an ID. If the family code
     /// doesn't match the DS18B20 family code, `None` is returned.
-    pub fn new(id: u64) -> Option<Self> {
+    pub fn new(id: drv_onewire::Identifier) -> Option<Self> {
         if drv_onewire::family(id) == Some(drv_onewire::Family::DS18B20) {
             Some(Self { id: id })
         } else {

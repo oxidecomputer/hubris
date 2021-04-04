@@ -21,7 +21,7 @@ enum Frequency {
     F35Hz = 0b0010,
     F100Hz = 0b0011,
     F125Hz = 0b0100,
-    F149point7Hz = 0b0101,
+    F149_7Hz = 0b0101,
     F1250Hz = 0b0110,
     F1470Hz = 0b0111,
     F3570Hz = 0b1000,

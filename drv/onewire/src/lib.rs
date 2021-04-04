@@ -30,7 +30,12 @@ pub enum Family {
     DS18B20 = 0x28,
 }
 
-pub fn family(id: u64) -> Option<Family> {
+/// A type alias for a 1-wire identifer
+pub type Identifier = u64;
+
+/// Given a 1-wire 64-bit identifier, returns the family (or `None` if the
+/// family is unrecognized).
+pub fn family(id: Identifier) -> Option<Family> {
     Family::from_u8((id & 0xff) as u8)
 }
 
@@ -76,8 +81,8 @@ pub fn family(id: u64) -> Option<Family> {
 pub fn search<T>(
     reset_search: impl Fn() -> Result<(), T>,
     triplet: impl Fn(bool) -> Result<(bool, bool), T>,
-    branches: (u64, u64),
-) -> Result<(u64, (u64, u64)), T> {
+    branches: (Identifier, Identifier),
+) -> Result<(Identifier, (Identifier, Identifier)), T> {
     let mut rval = 0;
     let mut rbranches = (0u64, 0u64);
 
