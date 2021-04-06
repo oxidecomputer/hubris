@@ -27,31 +27,54 @@ pub enum Op {
     WriteRead = 1,
 }
 
-/// The response code returned from the I2C controller (or from the
-/// kernel in the case of [`ResponseCode::Dead`]).
+/// The response code returned from the I2C controller (or from the kernel in
+/// the case of [`ResponseCode::Dead`]).  These response codes pretty specific,
+/// not because the caller is expected to necessarily handle them differently,
+/// but to give upstack software some modicum of context surrounding the error.
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum ResponseCode {
+    /// Server has died
     Dead = core::u32::MAX,
+    /// Bad response from server
     BadResponse = 1,
+    /// Bad argument sent to server
     BadArg = 2,
+    /// Indicated I2C device is invalid
     NoDevice = 3,
+    /// Indicated I2C controller is invalid
     BadController = 4,
+    /// Device address is reserved
     ReservedAddress = 5,
+    /// Inidcated port is invalid
     BadPort = 6,
+    /// Default port indicated, but port must be specified
     BadDefaultPort = 7,
+    /// Device does not have indicated register
     NoRegister = 8,
+    /// Indicated mux is an invalid mux identifier
     BadMux = 9,
+    /// Indicated segment is an invalid segment identifier
     BadSegment = 10,
+    /// Indicated mux does not exist on this controller
     MuxNotFound = 11,
+    /// Indicated segment does not exist on this controller
     SegmentNotFound = 12,
+    /// Segment disconnected during operation
     SegmentDisconnected = 13,
+    /// Mux disconnected during operation
     MuxDisconnected = 14,
+    /// Address used for mux in-band management is invalid
     BadMuxAddress = 15,
+    /// Register used for mux in-band management is invalid
     BadMuxRegister = 16,
+    /// I2C bus was spontaneously reset during operation
     BusReset = 17,
+    /// I2C bus was reset during a mux in-band management operation
     BusResetMux = 18,
+    /// I2C bus locked up and was reset
     BusLocked = 19,
+    /// I2C bus locked up during in-band management operation and was reset
     BusLockedMux = 20,
 }
 
@@ -325,6 +348,7 @@ impl I2cDevice {
     pub fn read<V: Default + AsBytes + FromBytes>(
         &self,
     ) -> Result<V, ResponseCode> {
+        let empty = [0u8; 1];
         let mut val = V::default();
 
         let (code, _) = sys_send(
@@ -337,10 +361,7 @@ impl I2cDevice {
                 self.segment,
             )),
             &mut [],
-            &[
-                Lease::from(&[] as &[u8; 0]),
-                Lease::from(val.as_bytes_mut()),
-            ],
+            &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
         );
 
         if code != 0 {
@@ -356,6 +377,8 @@ impl I2cDevice {
     /// perform any follow-up reads.
     ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
+        let empty = [0u8; 1];
+
         let (code, _) = sys_send(
             self.task,
             Op::WriteRead as u16,
@@ -366,7 +389,7 @@ impl I2cDevice {
                 self.segment,
             )),
             &mut [],
-            &[Lease::from(buffer), Lease::from(&[] as &[u8; 0])],
+            &[Lease::from(buffer), Lease::from(&empty[0..0])],
         );
 
         if code != 0 {

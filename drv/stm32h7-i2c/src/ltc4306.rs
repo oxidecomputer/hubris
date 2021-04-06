@@ -85,25 +85,22 @@ fn read_reg_u8(
     reg: u8,
     ctrl: &I2cControl,
 ) -> Result<u8, ResponseCode> {
-    let mut rval = [0u8; 1];
+    let mut rval = 0u8;
     let wlen = 1;
 
     match controller.write_read(
         mux.address,
         wlen,
-        |_| reg,
-        rval.len(),
-        |_, byte| rval[0] = byte,
+        |_| Some(reg),
+        1,
+        |_, byte| {
+            rval = byte;
+            Some(())
+        },
         ctrl,
     ) {
-        Err(code) => Err(match code {
-            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
-            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
-            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
-            ResponseCode::BusReset => ResponseCode::BusResetMux,
-            _ => code,
-        }),
-        _ => Ok(rval[0]),
+        Err(code) => Err(mux.error_code(code)),
+        _ => Ok(rval),
     }
 }
 
@@ -117,18 +114,12 @@ fn write_reg_u8(
     match controller.write_read(
         mux.address,
         2,
-        |pos| if pos == 0 { reg } else { val },
+        |pos| Some(if pos == 0 { reg } else { val }),
         0,
-        |_, _| {},
+        |_, _| Some(()),
         ctrl,
     ) {
-        Err(code) => Err(match code {
-            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
-            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
-            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
-            ResponseCode::BusReset => ResponseCode::BusResetMux,
-            _ => code,
-        }),
+        Err(code) => Err(mux.error_code(code)),
         _ => Ok(()),
     }
 }
@@ -141,22 +132,7 @@ impl I2cMuxDriver for Ltc4306 {
         gpio: &drv_stm32h7_gpio_api::Gpio,
         _ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        if let Some(pin) = &mux.enable {
-            gpio.configure(
-                pin.gpio_port,
-                pin.mask,
-                drv_stm32h7_gpio_api::Mode::Output,
-                drv_stm32h7_gpio_api::OutputType::PushPull,
-                drv_stm32h7_gpio_api::Speed::High,
-                drv_stm32h7_gpio_api::Pull::None,
-                pin.function,
-            )
-            .unwrap();
-
-            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
-        }
-
-        Ok(())
+        mux.configure(gpio)
     }
 
     fn enable_segment(
@@ -203,11 +179,6 @@ impl I2cMuxDriver for Ltc4306 {
         mux: &I2cMux,
         gpio: &drv_stm32h7_gpio_api::Gpio,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        if let Some(pin) = &mux.enable {
-            gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
-            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
-        }
-
-        Ok(())
+        mux.reset(gpio)
     }
 }

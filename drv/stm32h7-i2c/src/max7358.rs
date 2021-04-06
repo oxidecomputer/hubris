@@ -68,18 +68,15 @@ fn read_regs(
     match controller.write_read(
         mux.address,
         0,
-        |_| 0,
+        |_| Some(0),
         rbuf.len(),
-        |pos, byte| rbuf[pos] = byte,
+        |pos, byte| {
+            rbuf[pos] = byte;
+            Some(())
+        },
         ctrl,
     ) {
-        Err(code) => Err(match code {
-            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
-            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
-            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
-            ResponseCode::BusReset => ResponseCode::BusResetMux,
-            _ => code,
-        }),
+        Err(code) => Err(mux.error_code(code)),
         _ => {
             for i in 0..rbuf.len() {
                 ringbuf_entry!((Some(Register::from(i as u8)), rbuf[i]));
@@ -102,7 +99,8 @@ fn write_reg(
     //
     // When doing a write to this bonkers part, unless it's SwitchControl
     // (which is in position 0), we must always write the other two --
-    // which necessitates us reading them first.
+    // which necessitates us reading them first.  (Fortunately, we expect
+    // writes to SwitchControl to be by far the most frequent!)
     //
     let index = reg as usize;
 
@@ -117,18 +115,12 @@ fn write_reg(
     match controller.write_read(
         mux.address,
         index + 1,
-        |pos| wbuf[pos],
+        |pos| Some(wbuf[pos]),
         0,
-        |_, _| {},
+        |_, _| Some(()),
         ctrl,
     ) {
-        Err(code) => Err(match code {
-            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
-            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
-            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
-            ResponseCode::BusReset => ResponseCode::BusResetMux,
-            _ => code,
-        }),
+        Err(code) => Err(mux.error_code(code)),
         _ => Ok(()),
     }
 }
@@ -138,7 +130,7 @@ impl I2cMuxDriver for Max7358 {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        _gpio: &drv_stm32h7_gpio_api::Gpio,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         controller.special(
@@ -166,7 +158,7 @@ impl I2cMuxDriver for Max7358 {
 
         write_reg(mux, controller, Register::Configuration, reg.0, ctrl)?;
 
-        Ok(())
+        mux.configure(gpio)
     }
 
     fn enable_segment(
@@ -210,9 +202,9 @@ impl I2cMuxDriver for Max7358 {
 
     fn reset(
         &self,
-        _mux: &I2cMux,
-        _gpio: &drv_stm32h7_gpio_api::Gpio,
+        mux: &I2cMux,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        panic!("not yet implemented");
+        mux.reset(gpio)
     }
 }

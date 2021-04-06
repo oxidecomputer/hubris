@@ -374,9 +374,9 @@ fn main() -> ! {
                 match controller.write_read(
                     addr,
                     winfo.len,
-                    |pos| wbuf.read_at(pos).unwrap(),
+                    |pos| wbuf.read_at(pos),
                     rinfo.len,
-                    |pos, byte| rbuf.write_at(pos, byte).unwrap(),
+                    |pos, byte| rbuf.write_at(pos, byte),
                     &ctrl,
                 ) {
                     Err(code) => {

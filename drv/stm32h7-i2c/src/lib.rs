@@ -92,6 +92,59 @@ pub struct I2cMux<'a> {
     pub address: u8,
 }
 
+impl<'a> I2cMux<'_> {
+    /// A convenience routine to translate an error induced by in-band
+    /// management into one that can be returned to a caller
+    fn error_code(
+        &self,
+        code: drv_i2c_api::ResponseCode,
+    ) -> drv_i2c_api::ResponseCode {
+        use drv_i2c_api::ResponseCode;
+
+        match code {
+            ResponseCode::NoDevice => ResponseCode::BadMuxAddress,
+            ResponseCode::NoRegister => ResponseCode::BadMuxRegister,
+            ResponseCode::BusLocked => ResponseCode::BusLockedMux,
+            ResponseCode::BusReset => ResponseCode::BusResetMux,
+            _ => code,
+        }
+    }
+
+    fn configure(
+        &self,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        if let Some(pin) = &self.enable {
+            gpio.configure(
+                pin.gpio_port,
+                pin.mask,
+                drv_stm32h7_gpio_api::Mode::Output,
+                drv_stm32h7_gpio_api::OutputType::PushPull,
+                drv_stm32h7_gpio_api::Speed::High,
+                drv_stm32h7_gpio_api::Pull::None,
+                pin.function,
+            )
+            .unwrap();
+
+            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+        }
+
+        Ok(())
+    }
+
+    fn reset(
+        &self,
+        gpio: &drv_stm32h7_gpio_api::Gpio,
+    ) -> Result<(), drv_i2c_api::ResponseCode> {
+        if let Some(pin) = &self.enable {
+            gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
+            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+        }
+
+        Ok(())
+    }
+}
+
 impl<'a> I2cController<'a> {
     pub fn enable(&self, rcc_driver: &drv_stm32h7_rcc_api::Rcc) {
         rcc_driver.enable_clock(self.peripheral);
@@ -226,9 +279,9 @@ impl<'a> I2cController<'a> {
         &self,
         addr: u8,
         wlen: usize,
-        getbyte: impl Fn(usize) -> u8,
+        getbyte: impl Fn(usize) -> Option<u8>,
         rlen: usize,
-        mut putbyte: impl FnMut(usize, u8),
+        mut putbyte: impl FnMut(usize, u8) -> Option<()>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         assert!(wlen > 0 || rlen > 0);
@@ -294,7 +347,8 @@ impl<'a> I2cController<'a> {
                 }
 
                 // Get a single byte.
-                let byte: u8 = getbyte(pos);
+                let byte =
+                    getbyte(pos).ok_or(drv_i2c_api::ResponseCode::BadArg)?;
 
                 // And send it!
                 i2c.txdr.write(|w| w.txdata().bits(byte));
@@ -375,7 +429,7 @@ impl<'a> I2cController<'a> {
 
                 // Read it!
                 let byte: u8 = i2c.rxdr.read().rxdata().bits();
-                putbyte(pos, byte);
+                putbyte(pos, byte).ok_or(drv_i2c_api::ResponseCode::BadArg)?;
                 pos += 1;
             }
 
