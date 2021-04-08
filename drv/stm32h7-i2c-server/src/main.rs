@@ -262,7 +262,8 @@ fn main() -> ! {
                 mask: (1 << 11) | (1 << 12),
             } ];
 
-            let muxes = [ I2cMux {
+            let muxes = [
+                I2cMux {
                 controller: Controller::I2C4,
                 port: Port::F,
                 id: Mux::M1,
@@ -275,14 +276,18 @@ fn main() -> ! {
                     mask: (1 << 0),
                 }),
                 address: 0x44,
-            }, I2cMux {
+            },
+            #[cfg(feature = "external-max7358")]
+            I2cMux {
                 controller: Controller::I2C4,
                 port: Port::D,
                 id: Mux::M1,
                 driver: &drv_stm32h7_i2c::max7358::Max7358,
                 enable: None,
                 address: 0x70,
-            } ];
+            },
+
+            ];
         } else {
             compile_error!("no I2C controllers/pins for unknown board");
         }
@@ -428,10 +433,13 @@ fn configure_port(
 
     let src = lookup_pin(pins, controller.controller, p).ok().unwrap();
 
+    // First, de-configure our current port by setting the pins to
+    // `Mode::input`, which will assure that we don't leave SCL and SDA pulled
+    // high. (The output type and function will be effectively ignored.)
     gpio.configure(
         src.gpio_port,
         src.mask,
-        Mode::Alternate,
+        Mode::Input,
         OutputType::OpenDrain,
         Speed::High,
         Pull::None,
@@ -439,6 +447,7 @@ fn configure_port(
     )
     .unwrap();
 
+    // And now configure our new port!
     gpio.configure(
         pin.gpio_port,
         pin.mask,
@@ -500,6 +509,17 @@ fn configure_muxes(
         let pin = lookup_pin(&pins, mux.controller, mux.port).unwrap();
 
         configure_port(map, controller, pin, pins);
-        let _ = mux.driver.configure(&mux, controller, &gpio, ctrl);
+
+        loop {
+            match mux.driver.configure(&mux, controller, &gpio, ctrl) {
+                Ok(_) => {
+                    break;
+                }
+                Err(code) => {
+                    ringbuf_entry!(Some(code));
+                    reset_if_needed(code, controller, mux.port, muxes, None);
+                }
+            }
+        }
     }
 }

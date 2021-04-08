@@ -19,7 +19,7 @@ pub mod max7358;
 
 use ringbuf::*;
 
-ringbuf!(u32, 8, 0);
+ringbuf!(u32, 32, 0);
 
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
@@ -47,7 +47,7 @@ pub struct I2cControl {
     pub wfi: fn(u32),
 }
 
-pub enum I2cSpecial {
+pub enum I2cKonamiCode {
     Read,
     Write,
 }
@@ -299,6 +299,11 @@ impl<'a> I2cController<'a> {
                 break;
             }
 
+            if isr.arlo().is_lost() {
+                i2c.icr.write(|w| w.arlocf().set_bit());
+                return Err(drv_i2c_api::ResponseCode::BusReset);
+            }
+
             if isr.timeout().is_timeout() {
                 i2c.icr.write(|w| w.timoutcf().set_bit());
                 return Err(drv_i2c_api::ResponseCode::BusLocked);
@@ -452,16 +457,21 @@ impl<'a> I2cController<'a> {
 
     ///
     /// Regrettably, some devices insist on special sequences to be sent to
-    /// unlock functionality.  Of course, there are only two real I2C
-    /// operations (namely, read and write), so we assume that special
-    /// sequences that don't involve *actual* reads and *actual* writes are
-    /// sequence of zero-byte read and zero-byte write operations, expressed
-    /// as a slice of [`I2cSpecial`].
+    /// unlock functionality -- effectively Konami Codes for an I2C device.
+    /// Of course, there are only two real I2C operations (namely, read and
+    /// write), so we assume that Konami Codes that don't involve *actual*
+    /// reads and *actual* writes are sequence of zero-byte read and zero-byte
+    /// write operations, expressed as a slice of [`I2cKonamiCode`].  Yes,
+    /// this is terrible -- and if you are left wondering how anyone could
+    /// possibly conceive of such a thing, please see the MAX7358 mux driver.
+    /// (If there is a solace, it is that this is a mux driver -- absent an
+    /// actual device that has this same requirement, we need not open up
+    /// this odd API to other I2C consumers!)
     ///
-    pub fn special(
+    pub fn send_konami_codes(
         &self,
         addr: u8,
-        ops: &[I2cSpecial],
+        ops: &[I2cKonamiCode],
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
@@ -484,8 +494,8 @@ impl<'a> I2cController<'a> {
 
         for op in ops {
             let opval = match *op {
-                I2cSpecial::Write => false,
-                I2cSpecial::Read => true,
+                I2cKonamiCode::Write => false,
+                I2cKonamiCode::Read => true,
             };
 
             ringbuf_entry!(if opval { 1 } else { 0 });
@@ -502,7 +512,7 @@ impl<'a> I2cController<'a> {
 
             // All done; now block until our transfer is complete -- or until
             // we've been NACK'd (presumably denoting a device throwing hands
-            // at our special sequence).
+            // at our Konami Code sequence).
             loop {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(isr.bits());
@@ -519,7 +529,7 @@ impl<'a> I2cController<'a> {
 
                 if isr.arlo().is_lost() {
                     i2c.icr.write(|w| w.arlocf().set_bit());
-                    break;
+                    return Err(drv_i2c_api::ResponseCode::BusReset);
                 }
 
                 if isr.tc().is_complete() {
@@ -532,7 +542,7 @@ impl<'a> I2cController<'a> {
         }
 
         //
-        // We have sent the special sequence -- manually send a STOP.
+        // We have sent the cheat keys -- manually send a STOP.
         //
         i2c.cr2.modify(|_, w| w.stop().set_bit());
 

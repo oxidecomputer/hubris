@@ -133,32 +133,51 @@ impl I2cMuxDriver for Max7358 {
         gpio: &drv_stm32h7_gpio_api::Gpio,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
-        controller.special(
+        mux.configure(gpio)?;
+
+        //
+        // The MAX7358 has a really, really regrettable idea:  it has a
+        // "special" (their words) sequence sent to expose enhanced
+        // functionality.  The sequence consists of I2C operations that one
+        // would never see from a functional initiator:  a zero-byte write
+        // followed by a zero-byte read, followed by a zero-byte write,
+        // followed by a zero-byte read.  (Because this evokes storied cheat
+        // sequences in video games, We choose to call this a Konami Code.)
+        // This is bad enough, but it actually gets worse: this doesn't seem
+        // to always work correctly.  In particular, there seem to be modes in
+        // which the device confuses the zero-byte read that is the second
+        // operation for an *actual* read -- and tries to return the contents
+        // of register 0 (which is its defined behavior on a read).  This is
+        // not (at all) what the initiator-side is expecting, and, because
+        // register 0 is the SwitchControl register which is itself zeroed on
+        // reset, this condition results in SDA appearing to be being held low
+        // -- and the controller (rightfully) indicates that arbitration is
+        // lost.  When this condition has been seen (namely, on hard power
+        // on), it is resolved as soon as the initiator emits enough SCL
+        // iterations (i.e., controller restarts) for SDA to be let go: a
+        // subsequent issuing of the sequence is handled properly in the cases
+        // that we've seen.  However, we have also found that issuing a
+        // (proper) read ahead of issuing the Konami Codes appears to put the
+        // part in a better frame of mind -- so we choose to do this, with the
+        // hope that it will prevent the caller from needing to reset the
+        // controller entirely several times over.
+        //
+        let mut scratch = [0u8; 1];
+        read_regs(mux, controller, &mut scratch[0..1], ctrl)?;
+
+        controller.send_konami_codes(
             mux.address,
             &[
-                I2cSpecial::Write,
-                I2cSpecial::Read,
-                I2cSpecial::Write,
-                I2cSpecial::Read,
+                I2cKonamiCode::Write,
+                I2cKonamiCode::Read,
+                I2cKonamiCode::Write,
+                I2cKonamiCode::Read,
             ],
             ctrl,
         )?;
 
         let reg = SwitchControl(0);
-        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)?;
-
-        //
-        // The MAX7358 seems to trigger a bus lockup if it detects that
-        // its upstream side has locked -- which is not necessarily accurate
-        // if the upstream side is a TCA9802/TCA9517 pair.  We disable lockup
-        // detection for now to allow this config to function.
-        //
-        let mut reg = Configuration(0);
-        reg.set_bus_lockup_disabled(true);
-
-        write_reg(mux, controller, Register::Configuration, reg.0, ctrl)?;
-
-        mux.configure(gpio)
+        write_reg(mux, controller, Register::SwitchControl, reg.0, ctrl)
     }
 
     fn enable_segment(

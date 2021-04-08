@@ -30,6 +30,11 @@ h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3"]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743"]
 itm = [ "userlib/log-itm" ]
 
+# This option can be set to allow for an external MAX7358 mux on the Gemini
+# bringup board on I2C4 port D. (This should NOT be set unless a MAX7358 is
+# present.)
+external-max7358 = []
+
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
