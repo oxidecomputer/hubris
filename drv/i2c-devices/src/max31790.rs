@@ -182,31 +182,46 @@ impl core::fmt::Display for Max31790 {
     }
 }
 
-pub const FAN_MIN: u8 = 1;
-pub const FAN_MAX: u8 = 6;
+pub const MAX_FANS: u8 = 6;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Fan(pub u8);
+pub struct Fan(u8);
+
+// The MAX31790 numbers its fans from 1 rather than 0; to make our display
+// consistent with the datasheet, we follow this convention when displaying
+// the fan number, prefixing it with an octothorp to hopefully minimize any
+// confusion.
+impl core::fmt::Display for Fan {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "fan #{}", self.0 + 1)
+    }
+}
 
 impl Fan {
-    fn register(&self, base: Register, shift: u8) -> Result<Register, Error> {
-        if self.0 < FAN_MIN || self.0 > FAN_MAX {
+    /// Creates a new fan based on a 0-based index. This should *not*
+    /// be the number of the fan (the fan numbers have a 1-based index)
+    pub fn new(index: u8) -> Result<Self, Error> {
+        if index >= MAX_FANS {
             Err(Error::IllegalFan)
         } else {
-            let addend = (self.0 - FAN_MIN) << shift;
-            Ok(Register::from_u8((base as u8) + addend).unwrap())
+            Ok(Self(index))
         }
     }
 
-    fn configuration(&self) -> Result<Register, Error> {
+    fn register(&self, base: Register, shift: u8) -> Register {
+        let addend = self.0 << shift;
+        Register::from_u8((base as u8) + addend).unwrap()
+    }
+
+    fn configuration(&self) -> Register {
         self.register(Register::Fan1Configuration, 0)
     }
 
-    fn tach_count(&self) -> Result<Register, Error> {
+    fn tach_count(&self) -> Register {
         self.register(Register::Tach1CountMSB, 1)
     }
 
-    fn pwm_target(&self) -> Result<Register, Error> {
+    fn pwm_target(&self) -> Register {
         self.register(Register::PWMOut1TargetDutyCycleMSB, 1)
     }
 }
@@ -288,37 +303,56 @@ impl Max31790 {
             Register::GlobalConfiguration,
         )?);
 
-        for fan in FAN_MIN..=FAN_MAX {
-            let fan = Fan(fan);
-            let reg = fan.configuration()?;
+        for fan in 0..MAX_FANS {
+            let fan = Fan::new(fan).unwrap();
+            let reg = fan.configuration();
 
             let mut config = FanConfiguration(read_reg8(device, reg)?);
             config.set_tach_input_enable(true);
 
             write_reg(device, reg, config.0)?;
-            write_reg(device, fan.pwm_target()?, 0)?;
+            write_reg(device, fan.pwm_target(), 0)?;
         }
 
         Ok(())
     }
 
+    /// Determines the rotations per minute based on the tach count
     pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, Error> {
-        let val = read_reg16(&self.device, fan.tach_count()?)?;
+        let val = read_reg16(&self.device, fan.tach_count())?;
 
+        //
+        // The tach count is somewhat misnamed: it is in fact the number of
+        // 8192 Hz clock cycles counted in a configurable number of pulses of
+        // the tach.  (It would be more aptly named a pulse count.) The number
+        // of pulses (NP) per revolution of the fan is specific to the fan,
+        // but is generally two for the DC brushless fans we care about.  The
+        // number of pulses of the tach measured is called the Speed Range
+        // (SR) and defaults to 4.
+        //
+        // So to get from the tach count to the time per revolution:
+        //
+        //                    count * NP
+        //                t = ----------
+        //                    8192 * SR
+        //
+        // And to get from there to RPM, we want to divide 60 by t:
+        //
+        //                   60 * 8192 * SR
+        //   RPM = 60 / t =  --------------
+        //                     count * NP
+        //
         let count = ((val[0] as u32) << 3) | (val[1] >> 5) as u32;
 
-        if count == 0b111_1111_1111 {
+        const TACH_POR_VALUE: u32 = 0b111_1111_1111;
+        const SR: u32 = 4;
+        const NP: u32 = 2;
+        const FREQ: u32 = 8192;
+
+        if count == TACH_POR_VALUE {
             Ok(Rpm(0))
         } else {
-            //
-            // sr of 4 is the default. np is fan-specific, but seems to be two
-            // for the fans we care about.
-            //
-            let np = 2;
-            let sr = 4;
-
-            let rpm = (60 * sr * 8192) / (np * count);
-
+            let rpm = (60 * FREQ * SR) / (count * NP);
             Ok(Rpm(rpm as u16))
         }
     }

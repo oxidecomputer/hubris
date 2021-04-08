@@ -47,16 +47,16 @@ fn print_temp<T: core::fmt::Display>(temp: Celsius, device: &T) {
 fn read_fans(fctrl: &Max31790) {
     let mut ndx = 0;
 
-    for fan in FAN_MIN..=FAN_MAX {
-        let fan = Fan(fan);
+    for fan in 0..MAX_FANS {
+        let fan = Fan::new(fan).unwrap();
 
         match fctrl.fan_rpm(fan) {
             Ok(rval) if rval.0 != 0 => {
-                sys_log!("{}: fan {}: RPM={}", fctrl, fan.0, rval.0);
+                sys_log!("{}: {}: RPM={}", fctrl, fan, rval.0);
             }
             Ok(_) => {}
             Err(err) => {
-                sys_log!("{}: fan {}: failed: {:?}", fctrl, fan.0, err);
+                sys_log!("{}: {}: failed: {:?}", fctrl, fan, err);
             }
         }
 
