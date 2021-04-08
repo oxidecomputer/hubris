@@ -2,12 +2,23 @@
 #![no_main]
 
 use userlib::*;
+use ringbuf::*;
 
 #[cfg(feature = "standalone")]
 const SPI: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const SPI: Task = Task::spi_driver;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Payload {
+    None,
+    Calling,
+    Returned([u8; 4]),
+    Error(u32),
+}
+
+ringbuf!(Payload, 16, Payload::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -27,13 +38,13 @@ fn main() -> ! {
 
         let op = 3;
         let a: &[u8] = &buf;
-        sys_log!("Starting a new call...");
+        ringbuf_entry!(Payload::Calling);
         let (code, _) =
             sys_send(spi, op, &[], &mut [], &[Lease::from(a), Lease::from(b)]);
         if code != 0 {
-            sys_log!("Got error code {}", code);
+            ringbuf_entry!(Payload::Error(code));
         } else {
-            sys_log!("Got buffer {:x?}", recv);
+            ringbuf_entry!(Payload::Returned(recv));
         }
     }
 }
