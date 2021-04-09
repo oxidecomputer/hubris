@@ -7,6 +7,14 @@
 //! themselves can be processed either with Humility (which has built-in
 //! support via the `humility ringbuf` command) or via GDB.
 //!
+//! ## Constraints
+//!
+//! There are several important constraints for a ring buffer:
+//!
+//! 1. Only one ring buffer is permitted per file
+//! 2. The type in the ring buffer must implement both `Copy` and `PartialEq`
+//! 3. The generated code relies on `min_const_generics`
+//!
 //! ## Creating a ring buffer
 //!
 //! Ring buffers are instantiated with the [`ringbuf!`] macro, to which one
@@ -280,5 +288,9 @@ pub fn ringbuf(input: TokenStream) -> TokenStream {
 #[cfg(doc)]
 #[proc_macro]
 pub fn ringbuf_entry(input: TokenStream) -> TokenStream {
+    // In order to generate a doc comment for the code that we generate (that
+    // is, for [`ringbuf_entry!`]), we have this bogus definition of our macro
+    // that just passes its input in the `#[cfg(doc)]` case; we are using it
+    // only to generate the documentation above.
     input.into()
 }
