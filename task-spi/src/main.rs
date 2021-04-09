@@ -1,8 +1,8 @@
 #![no_std]
 #![no_main]
 
-use userlib::*;
 use ringbuf::*;
+use userlib::*;
 
 #[cfg(feature = "standalone")]
 const SPI: Task = Task::anonymous;
