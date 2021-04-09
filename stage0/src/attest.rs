@@ -1,5 +1,5 @@
+use crate::image_header::ImageHeader;
 use crate::puf::*;
-use crate::ImageHeader;
 use hmac::{Hmac, Mac, NewMac};
 use lpc55_pac as device;
 use p256::ecdsa::{signature::Verifier, Signature, VerifyingKey};
@@ -11,21 +11,16 @@ fn get_key_from_puf(key: &mut [u32]) -> Result<(), ()> {
     let syscon = unsafe { &*device::SYSCON::ptr() };
 
     let mut activation_code = [0u32; 298];
-
     let mut key_code = [0u32; 13];
 
     puf_init(puf, syscon)?;
-
     puf_enroll(puf, &mut activation_code)?;
 
     turn_off_puf(puf, syscon);
 
     puf_init(puf, syscon)?;
-
     puf_start(puf, &activation_code)?;
-
     puf_set_intrinsic_key(puf, 1, 256, &mut key_code)?;
-
     puf_get_key(puf, 1, &key_code, key)?;
 
     Ok(())
@@ -60,7 +55,7 @@ static mut ATTESTATION: AttestInfo = AttestInfo {
 /// Calculate an attestation for someone to check our work later
 pub fn attest(
     image_size: u32,
-    image_hash: &[u8],
+    image_hash: &[u8; 32],
     entry_pt: u32,
 ) -> Result<(), ()> {
     let mut key = [0u32; 8];
@@ -90,90 +85,19 @@ pub fn attest(
 
     // We're writing to our global attestation variable. We only write it
     // here and expect it to be read later from hubris
+
     unsafe {
-        ATTESTATION.nb = boot_nonce;
-        ATTESTATION.entry_pt = entry_pt;
-        ATTESTATION.image_size = image_size;
-        ATTESTATION.img_hash.clone_from_slice(image_hash);
-        ATTESTATION.ak1.clone_from_slice(&m1);
+        ATTESTATION = AttestInfo {
+            nb: boot_nonce,
+            entry_pt: entry_pt,
+            image_size,
+            _reserved: 0,
+            img_hash: *image_hash,
+            ak1: *m1.as_ref(),
+        };
     }
 
     Ok(())
-}
-
-// TODO grab this from lpc55_support or another crate eventually
-#[derive(Debug)]
-#[repr(C)]
-pub struct CertHeader {
-    pub signature: [u8; 4],
-    pub header_version: u32,
-    pub header_length: u32,
-    pub flags: u32,
-    pub build_number: u32,
-    pub total_image_len: u32,
-    pub certificate_count: u32,
-    pub certificate_table_len: u32,
-    pub key_size: u32,
-    // The u32 here represents the start of the key which comes after this
-    // structure.
-    pub key: u32,
-}
-
-impl ImageHeader {
-    fn get_cert_table(&self) -> *const CertHeader {
-        let img_start = self.get_img_start();
-
-        let table_start = img_start + self.header_offset;
-
-        table_start as *const CertHeader
-    }
-
-    fn get_key_bytes(&self) -> &[u8] {
-        let table = unsafe { &*self.get_cert_table() };
-
-        unsafe {
-            // This is ugly since it is technially outside the bounds of the
-            // structure but it only ever gets read and we have verified that
-            // the region was programmed so it should not hard fault
-            core::slice::from_raw_parts(
-                &table.key as *const u32 as *const u8,
-                table.key_size as usize,
-            )
-        }
-    }
-
-    fn get_signature_bytes(&self) -> &[u8] {
-        let img_start = self.get_img_start();
-        let table = unsafe { &*self.get_cert_table() };
-
-        let sig_addr = img_start + table.total_image_len;
-        let sig_size =
-            unsafe { core::ptr::read_volatile(sig_addr as *const u32) };
-        unsafe {
-            // The signature exists right after the image bytes
-            core::slice::from_raw_parts(
-                (sig_addr + 4) as *const u8,
-                sig_size as usize,
-            )
-        }
-    }
-
-    fn get_image_bytes(&self) -> &[u8] {
-        let img_start = self.get_img_start();
-        let table = unsafe { &*self.get_cert_table() };
-
-        unsafe {
-            core::slice::from_raw_parts(
-                img_start as *const u8,
-                table.total_image_len as usize,
-            )
-        }
-    }
-
-    fn get_total_len(&self) -> u32 {
-        let table = unsafe { &*self.get_cert_table() };
-        table.total_image_len
-    }
 }
 
 /// Validate the signature of the image at the specified address.
@@ -201,8 +125,8 @@ pub fn validate_image(
     }
 
     *image_size = image.get_total_len();
-    *entry_pt = image.pc;
-    *stack = image.sp;
+    *entry_pt = image.get_pc();
+    *stack = image.get_sp();
 
     let hash = sha2::Sha256::digest(&image_bytes);
 

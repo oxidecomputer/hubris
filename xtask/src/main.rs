@@ -1,5 +1,3 @@
-#![feature(allocator_api)]
-
 use std::path::PathBuf;
 
 use anyhow::Result;

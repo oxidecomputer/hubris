@@ -12,6 +12,7 @@ use cortex_m_rt::entry;
 
 mod attest;
 mod hypo;
+mod image_header;
 mod puf;
 
 /// Initial entry point for handling a memory management fault.
@@ -87,66 +88,14 @@ fn write_sau() {
     }
 }
 
-// The careful observer will note that yes this is just the
-// start of an ARMv8m image with extra data shoved in the
-// vector table
-#[repr(C)]
-pub struct ImageHeader {
-    sp: u32,
-    pc: u32,
-    _vector_table: [u8; 24],
-    image_length: u32,
-    _image_type: u32,
-    header_offset: u32,
-}
-
-impl ImageHeader {
-    pub extern "C" fn get_img_start(&self) -> u32 {
-        self as *const Self as u32
-    }
-
-    /// Make sure all of the image flash is programmed
-    pub extern "C" fn validate(&self) -> bool {
-        let img_start = self.get_img_start();
-
-        // Start by making sure the region is actually programmed
-        let valid = lpc55_romapi::validate_programmed(img_start, 0x200);
-
-        if !valid {
-            return false;
-        }
-
-        // Next make sure the marked image length is programmed
-        let valid = lpc55_romapi::validate_programmed(
-            img_start,
-            (self.image_length + 0x1ff) & !(0x1ff),
-        );
-
-        if !valid {
-            return false;
-        }
-
-        return true;
-    }
-}
-
 extern "C" {
     static address_of_imagea_flash: u32;
     static address_of_imagea_ram: u32;
-    static IMAGEA: ImageHeader;
 }
 
 #[entry]
 fn main() -> ! {
-    let imagea = unsafe { &IMAGEA };
-
-    let valid = imagea.validate();
-
-    if !valid {
-        panic!("Image space not programmed");
-    }
-
-    let mut peripherals = Peripherals::take().unwrap();
+    let imagea = image_header::get_image_a().unwrap();
 
     let mut image_size: u32 = 0;
     let mut entry_pt: u32 = 0;
@@ -154,7 +103,7 @@ fn main() -> ! {
     let mut image_hash = [0u8; 32];
 
     if let Err(_) = validate_image(
-        imagea,
+        &imagea,
         &mut image_size,
         &mut image_hash,
         &mut entry_pt,
@@ -166,6 +115,8 @@ fn main() -> ! {
     if let Err(_) = attest(image_size, &image_hash, entry_pt) {
         panic!("Attestation failed");
     }
+
+    let mut peripherals = Peripherals::take().unwrap();
 
     unsafe {
         write_sau();
@@ -193,7 +144,7 @@ fn main() -> ! {
         // Write the NS VTOR
         core::ptr::write_volatile(
             0xE002ED08 as *mut u32,
-            IMAGEA.get_img_start(),
+            imagea.get_img_start(),
         );
 
         // and branch

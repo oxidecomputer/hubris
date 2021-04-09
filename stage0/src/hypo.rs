@@ -1,4 +1,4 @@
-// Hypovisor calls
+//! Hypovisor calls
 
 use lpc55_romapi::FlashStatus;
 
