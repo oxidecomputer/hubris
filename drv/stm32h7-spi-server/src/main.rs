@@ -110,22 +110,18 @@ fn main() -> ! {
     // PE5 = MISO
     // PE6 = MOSI
     //
-    // We can also route out some signals to headers for debugging
+    // If you need debugging, the following pins can be configured
     // PE12 = SCK
     // PE11 = CS
     // PE13 = MISO
     // PE14 = MOSI
+    //
+    // Make sure MISO and MOSI are connected to something when debugging,
+    // otherwise you may get unexpected output.
     gpio_driver
         .configure(
             gpio_api::Port::E,
-            (1 << 2)
-                | (1 << 4)
-                | (1 << 5)
-                | (1 << 6)
-                | (1 << 13)
-                | (1 << 14)
-                | (1 << 11)
-                | (1 << 12),
+            (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
             gpio_api::Mode::Alternate,
             gpio_api::OutputType::PushPull,
             gpio_api::Speed::High,
