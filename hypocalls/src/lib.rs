@@ -3,14 +3,13 @@
 #![feature(naked_functions)]
 
 pub use lpc55_romapi::FlashStatus;
-use num_traits::cast::FromPrimitive;
 
 /// Write the buffer to the specified region number.
 #[cfg(not(feature = "standalone"))]
 #[inline(never)]
 pub fn hypo_write_to_flash(region: u32, buf: &[u8]) -> FlashStatus {
-    // Do we need a bounds check here as well as the secure world or is that
-    // redundant?
+    use num_traits::cast::FromPrimitive;
+
     let result = unsafe {
         core::mem::transmute::<
             _,
