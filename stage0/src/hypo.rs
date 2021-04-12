@@ -33,7 +33,6 @@ pub unsafe extern "C" fn __write_to_flash(
     buffer: *mut u32,
     len: u32,
 ) -> FlashStatus {
-
     if len == 0 {
         return FlashStatus::InvalidArg;
     }
