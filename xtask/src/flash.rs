@@ -1,4 +1,5 @@
 use path_slash::PathBufExt;
+use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -35,6 +36,13 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 reset.arg("-v");
             }
 
+            if let Ok(id) = env::var("PYOCD_PROBE_ID") {
+                flash.arg("-u");
+                flash.arg(&id);
+                reset.arg("-u");
+                reset.arg(&id);
+            }
+
             (flash, Some(reset))
         }
         "gemini-bu-rot-1" => {
@@ -53,6 +61,13 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
             if verbose {
                 flash.arg("-v");
                 reset.arg("-v");
+            }
+
+            if let Ok(id) = env::var("PYOCD_PROBE_ID") {
+                flash.arg("-u");
+                flash.arg(&id);
+                reset.arg("-u");
+                reset.arg(&id);
             }
 
             (flash, Some(reset))
