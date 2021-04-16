@@ -432,7 +432,7 @@ fn initialize_sdram(
 
     // Turn on the memory controller's clock. We're going to tap the AHB3 clock,
     // which is 280MHz, which will work nicely.
-    p.RCC.d1ccipr.modify(|_, w| w.fmcsel().rcc_hclk3());
+    p.RCC.cdccipr.modify(|_, w| w.fmcsel().rcc_hclk3());
     p.RCC.ahb3enr.modify(|_, w| w.fmcen().enabled());
     cortex_m::asm::dmb();
 

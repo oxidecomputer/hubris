@@ -8,10 +8,7 @@ edition = "2018"
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 vcell = "0.1.2"
-
-[dependencies.stm32h7]
-git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-features = ["stm32h743"]
+stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
 
 # TODO can probably remove standalone feature for lib crates
 [features]

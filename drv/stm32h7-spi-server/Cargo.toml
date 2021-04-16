@@ -12,10 +12,7 @@ drv-stm32h7-spi = {path = "../stm32h7-spi"}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 cortex-m = "0.6.3"
-
-[dependencies.stm32h7]
-git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-features = ["stm32h743"]
+stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
 
 [features]
 default = ["standalone"]
