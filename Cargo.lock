@@ -714,6 +714,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "gemini-bu-bare"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32h7",
+]
+
+[[package]]
 name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
