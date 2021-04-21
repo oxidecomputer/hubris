@@ -40,28 +40,40 @@ fn main() -> ! {
     cortex_m::asm::dsb();
 
     // Set those pins to outputs.
-    p.GPIOI.moder.write(|w| w
-        .moder8().output()
-        .moder9().output()
-        .moder10().output()
-        .moder11().output()
-    );
+    p.GPIOI.moder.write(|w| {
+        w.moder8()
+            .output()
+            .moder9()
+            .output()
+            .moder10()
+            .output()
+            .moder11()
+            .output()
+    });
 
     // Blink!
     loop {
-        p.GPIOI.bsrr.write(|w| w
-            .bs8().set_bit()
-            .br9().set_bit()
-            .bs10().set_bit()
-            .br11().set_bit()
-        );
+        p.GPIOI.bsrr.write(|w| {
+            w.bs8()
+                .set_bit()
+                .br9()
+                .set_bit()
+                .bs10()
+                .set_bit()
+                .br11()
+                .set_bit()
+        });
         cortex_m::asm::delay(100_000_000);
-        p.GPIOI.bsrr.write(|w| w
-            .br8().set_bit()
-            .bs9().set_bit()
-            .br10().set_bit()
-            .bs11().set_bit()
-        );
+        p.GPIOI.bsrr.write(|w| {
+            w.br8()
+                .set_bit()
+                .bs9()
+                .set_bit()
+                .br10()
+                .set_bit()
+                .bs11()
+                .set_bit()
+        });
         cortex_m::asm::delay(100_000_000);
     }
 }
