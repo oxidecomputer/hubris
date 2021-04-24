@@ -30,10 +30,15 @@ h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3"]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743"]
 itm = [ "userlib/log-itm" ]
 
-# This option can be set to allow for an external MAX7358 mux on the Gemini
-# bringup board on I2C4 port D. (This should NOT be set unless a MAX7358 is
-# present.)
+# These options allow for external muxes on the Gemini bringup board:
+#
+# - external-max7358 assumes an external MAX7358 on I2C4 port D
+# - external-pca9548 assumes an external PCA9548 on I2C4 port H
+#
+# Both options may be set, but neither option should be set when the part that
+# it denotes isn't present.
 external-max7358 = []
+external-pca9548 = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

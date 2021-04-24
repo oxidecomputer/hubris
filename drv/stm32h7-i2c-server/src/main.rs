@@ -145,7 +145,8 @@ fn reset_if_needed(
         ResponseCode::BusLocked
         | ResponseCode::BusLockedMux
         | ResponseCode::BusReset
-        | ResponseCode::BusResetMux => {}
+        | ResponseCode::BusResetMux
+        | ResponseCode::ControllerLocked => {}
         _ => {
             return;
         }
@@ -204,14 +205,19 @@ fn main() -> ! {
                 mask: (1 << 0) | (1 << 1),
             } ];
 
-            let muxes = [ I2cMux {
+            let muxes = [
+
+            #[cfg(feature = "external-max7358")]
+            I2cMux {
                 controller: Controller::I2C2,
                 port: Port::F,
                 id: Mux::M1,
-                driver: &max7358::Max7358,
+                driver: &drv_stm32h7_i2c::max7358::Max7358,
                 enable: None,
                 address: 0x70,
-            } ];
+            },
+
+            ];
         } else if #[cfg(target_board = "gemini-bu-1")] {
             let controllers = [ I2cController {
                 controller: Controller::I2C1,
@@ -283,6 +289,16 @@ fn main() -> ! {
                 port: Port::D,
                 id: Mux::M1,
                 driver: &drv_stm32h7_i2c::max7358::Max7358,
+                enable: None,
+                address: 0x70,
+            },
+
+            #[cfg(feature = "external-pca9548")]
+            I2cMux {
+                controller: Controller::I2C4,
+                port: Port::H,
+                id: Mux::M1,
+                driver: &drv_stm32h7_i2c::pca9548::Pca9548,
                 enable: None,
                 address: 0x70,
             },

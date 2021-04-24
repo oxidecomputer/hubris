@@ -226,23 +226,29 @@ impl Fan {
     }
 }
 
-ringbuf!(
-    (Option<Register>, Result<[u8; 2], ResponseCode>),
-    32,
-    (None, Ok([0, 0]))
-);
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Read(Register, u8),
+    Read16(Register, [u8; 2]),
+    ReadError(Register, ResponseCode),
+    Write(Register, u8),
+    WriteError(Register, u8, ResponseCode),
+    None,
+}
+
+ringbuf!(Trace, 32, Trace::None);
 
 fn read_reg8(device: &I2cDevice, register: Register) -> Result<u8, Error> {
     let rval = device.read_reg::<u8, u8>(register as u8);
 
     match rval {
         Ok(val) => {
-            ringbuf_entry!((Some(register), Ok([val, 0])));
+            ringbuf_entry!(Trace::Read(register, val));
             Ok(val)
         }
 
         Err(code) => {
-            ringbuf_entry!((Some(register), Err(code)));
+            ringbuf_entry!(Trace::ReadError(register, code));
             Err(Error::BadRead8 {
                 reg: register,
                 code: code,
@@ -257,14 +263,19 @@ fn read_reg16(
 ) -> Result<[u8; 2], Error> {
     let rval = device.read_reg::<u8, [u8; 2]>(register as u8);
 
-    ringbuf_entry!((Some(register), rval));
-
     match rval {
-        Ok(val) => Ok(val),
-        Err(code) => Err(Error::BadRead16 {
-            reg: register,
-            code: code,
-        }),
+        Ok(val) => {
+            ringbuf_entry!(Trace::Read16(register, val));
+            Ok(val)
+        }
+
+        Err(code) => {
+            ringbuf_entry!(Trace::ReadError(register, code));
+            Err(Error::BadRead16 {
+                reg: register,
+                code: code,
+            })
+        }
     }
 }
 
@@ -277,11 +288,11 @@ fn write_reg(
 
     match rval {
         Ok(_) => {
-            ringbuf_entry!((Some(register), Ok([val.into(), 0])));
+            ringbuf_entry!(Trace::Write(register, val));
             Ok(())
         }
         Err(code) => {
-            ringbuf_entry!((Some(register), Err(code)));
+            ringbuf_entry!(Trace::WriteError(register, val, code));
             Err(Error::BadWrite {
                 reg: register,
                 code: code,

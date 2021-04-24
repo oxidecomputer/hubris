@@ -16,10 +16,10 @@ pub type RegisterBlock = device::i2c1::RegisterBlock;
 
 pub mod ltc4306;
 pub mod max7358;
+pub mod pca9548;
 
 use ringbuf::*;
-
-ringbuf!(u32, 32, 0);
+use userlib::*;
 
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
@@ -47,6 +47,7 @@ pub struct I2cControl {
     pub wfi: fn(u32),
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum I2cKonamiCode {
     Read,
     Write,
@@ -91,6 +92,27 @@ pub struct I2cMux<'a> {
     pub enable: Option<I2cPin>,
     pub address: u8,
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    WaitISR(u32),
+    WriteISR(u32),
+    WriteWaitISR(u32),
+    ReadISR(u32),
+    ReadWaitISR(u32),
+    RxISR(u32),
+    KonamiISR(u32),
+    Konami(I2cKonamiCode),
+    ResetISR(u32),
+    AddrISR(u32),
+    AddrMatch,
+    Tx(u8),
+    TxISR(u32),
+    BusySleep,
+    None,
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 impl<'a> I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
@@ -265,7 +287,7 @@ impl<'a> I2cController<'a> {
         // ...wait until we see it disabled.
         loop {
             let cr1 = i2c.cr1.read();
-            ringbuf_entry!(cr1.bits());
+            ringbuf_entry!(Trace::ResetISR(cr1.bits()));
             if cr1.pe().is_disabled() {
                 break;
             }
@@ -273,6 +295,57 @@ impl<'a> I2cController<'a> {
 
         // And then finally set it
         i2c.cr1.modify(|_, w| w.pe().set_bit());
+    }
+
+    fn wait_until_notbusy(&self) -> Result<(), drv_i2c_api::ResponseCode> {
+        let i2c = self.registers;
+
+        let mut laps = 0;
+        const BUSY_SLEEP_THRESHOLD: u32 = 3;
+
+        loop {
+            let isr = i2c.isr.read();
+            ringbuf_entry!(Trace::WaitISR(isr.bits()));
+
+            if !isr.busy().is_busy() {
+                break;
+            }
+
+            if isr.arlo().is_lost() {
+                i2c.icr.write(|w| w.arlocf().set_bit());
+                return Err(drv_i2c_api::ResponseCode::BusReset);
+            }
+
+            if isr.timeout().is_timeout() {
+                i2c.icr.write(|w| w.timoutcf().set_bit());
+                return Err(drv_i2c_api::ResponseCode::BusLocked);
+            }
+
+            laps += 1;
+
+            if laps == BUSY_SLEEP_THRESHOLD {
+                //
+                // If we have taken BUSY_SLEEP_THRESHOLD laps, we are going to
+                // sleep for two ticks -- which should be far greater than the
+                // amount of time we would expect the controller to be busy...
+                //
+                ringbuf_entry!(Trace::BusySleep);
+                hl::sleep_for(2);
+            } else if laps > BUSY_SLEEP_THRESHOLD {
+                //
+                // We have already taken BUSY_SLEEP_THRESHOLD laps AND a two
+                // tick sleep -- and the busy bit is still set.  At this point,
+                // we need to return an error indicating that we need to reset
+                // the controller.  We return a disjoint error code here to
+                // be able to know that we hit this condition rather than our
+                // more expected conditions on bus lockup (namely, a timeout
+                // or arbitration lost).
+                //
+                return Err(drv_i2c_api::ResponseCode::ControllerLocked);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn write_read(
@@ -290,25 +363,7 @@ impl<'a> I2cController<'a> {
         let i2c = self.registers;
         let notification = self.notification;
 
-        // Before we talk to the controller, spin until it isn't busy
-        loop {
-            let isr = i2c.isr.read();
-            ringbuf_entry!(isr.bits());
-
-            if !isr.busy().is_busy() {
-                break;
-            }
-
-            if isr.arlo().is_lost() {
-                i2c.icr.write(|w| w.arlocf().set_bit());
-                return Err(drv_i2c_api::ResponseCode::BusReset);
-            }
-
-            if isr.timeout().is_timeout() {
-                i2c.icr.write(|w| w.timoutcf().set_bit());
-                return Err(drv_i2c_api::ResponseCode::BusLocked);
-            }
-        }
+        self.wait_until_notbusy()?;
 
         if wlen > 0 {
             #[rustfmt::skip]
@@ -326,7 +381,7 @@ impl<'a> I2cController<'a> {
             while pos < wlen {
                 loop {
                     let isr = i2c.isr.read();
-                    ringbuf_entry!(isr.bits());
+                    ringbuf_entry!(Trace::WriteISR(isr.bits()));
 
                     if isr.timeout().is_timeout() {
                         i2c.icr.write(|w| w.timoutcf().set_bit());
@@ -364,7 +419,7 @@ impl<'a> I2cController<'a> {
             // we've been NACK'd (denoting an illegal register value)
             loop {
                 let isr = i2c.isr.read();
-                ringbuf_entry!(isr.bits());
+                ringbuf_entry!(Trace::WriteWaitISR(isr.bits()));
 
                 if isr.timeout().is_timeout() {
                     i2c.icr.write(|w| w.timoutcf().set_bit());
@@ -410,7 +465,7 @@ impl<'a> I2cController<'a> {
                     (ctrl.enable)(notification);
 
                     let isr = i2c.isr.read();
-                    ringbuf_entry!(isr.bits());
+                    ringbuf_entry!(Trace::ReadISR(isr.bits()));
 
                     if isr.timeout().is_timeout() {
                         i2c.icr.write(|w| w.timoutcf().set_bit());
@@ -440,7 +495,7 @@ impl<'a> I2cController<'a> {
 
             // All done; now block until our transfer is complete...
             while !i2c.isr.read().tc().is_complete() {
-                ringbuf_entry!(i2c.isr.read().bits());
+                ringbuf_entry!(Trace::ReadWaitISR(i2c.isr.read().bits()));
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
             }
@@ -457,18 +512,18 @@ impl<'a> I2cController<'a> {
 
     ///
     /// Regrettably, some devices insist on special sequences to be sent to
-    /// unlock functionality -- effectively Konami Codes for an I2C device.
+    /// unlock functionality -- effectively a Konami Code for an I2C device.
     /// Of course, there are only two real I2C operations (namely, read and
-    /// write), so we assume that Konami Codes that don't involve *actual*
-    /// reads and *actual* writes are sequence of zero-byte read and zero-byte
-    /// write operations, expressed as a slice of [`I2cKonamiCode`].  Yes,
-    /// this is terrible -- and if you are left wondering how anyone could
-    /// possibly conceive of such a thing, please see the MAX7358 mux driver.
-    /// (If there is a solace, it is that this is a mux driver -- absent an
-    /// actual device that has this same requirement, we need not open up
-    /// this odd API to other I2C consumers!)
+    /// write), so we assume that a Konami Code that doesn't involve *actual*
+    /// reads and *actual* writes is a sequence of zero-byte read and
+    /// zero-byte write operations, expressed as a slice of [`I2cKonamiCode`].
+    /// Yes, this is terrible -- and if you are left wondering how anyone
+    /// could possibly conceive of such a thing, please see the MAX7358 mux
+    /// driver.  (If there is a solace, it is that this is a mux driver and
+    /// not an I2C device; absent an actual device that has this same
+    /// requirement, we need not open up this odd API to other I2C consumers!)
     ///
-    pub fn send_konami_codes(
+    pub fn send_konami_code(
         &self,
         addr: u8,
         ops: &[I2cKonamiCode],
@@ -477,20 +532,7 @@ impl<'a> I2cController<'a> {
         let i2c = self.registers;
         let notification = self.notification;
 
-        // Before we talk to the controller, spin until it isn't busy
-        loop {
-            let isr = i2c.isr.read();
-            ringbuf_entry!(isr.bits());
-
-            if !isr.busy().is_busy() {
-                break;
-            }
-
-            if isr.timeout().is_timeout() {
-                i2c.icr.write(|w| w.timoutcf().set_bit());
-                return Err(drv_i2c_api::ResponseCode::BusLocked);
-            }
-        }
+        self.wait_until_notbusy()?;
 
         for op in ops {
             let opval = match *op {
@@ -498,7 +540,7 @@ impl<'a> I2cController<'a> {
                 I2cKonamiCode::Read => true,
             };
 
-            ringbuf_entry!(if opval { 1 } else { 0 });
+            ringbuf_entry!(Trace::Konami(*op));
 
             #[rustfmt::skip]
             i2c.cr2.modify(|_, w| { w
@@ -515,7 +557,7 @@ impl<'a> I2cController<'a> {
             // at our Konami Code sequence).
             loop {
                 let isr = i2c.isr.read();
-                ringbuf_entry!(isr.bits());
+                ringbuf_entry!(Trace::KonamiISR(isr.bits()));
 
                 if isr.timeout().is_timeout() {
                     i2c.icr.write(|w| w.timoutcf().set_bit());
@@ -618,7 +660,7 @@ impl<'a> I2cController<'a> {
         'addrloop: loop {
             let (is_write, addr) = loop {
                 let isr = i2c.isr.read();
-                ringbuf_entry!(isr.bits());
+                ringbuf_entry!(Trace::AddrISR(isr.bits()));
 
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| w.stopcf().set_bit());
@@ -626,7 +668,7 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.addr().is_match_() {
-                    ringbuf_entry!(1);
+                    ringbuf_entry!(Trace::AddrMatch);
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
@@ -640,7 +682,7 @@ impl<'a> I2cController<'a> {
             if is_write {
                 'rxloop: loop {
                     let isr = i2c.isr.read();
-                    ringbuf_entry!(isr.bits());
+                    ringbuf_entry!(Trace::RxISR(isr.bits()));
 
                     if isr.addr().is_match_() {
                         //
@@ -700,7 +742,7 @@ impl<'a> I2cController<'a> {
 
             'txloop: loop {
                 let isr = i2c.isr.read();
-                ringbuf_entry!(isr.bits());
+                ringbuf_entry!(Trace::TxISR(isr.bits()));
 
                 if isr.addr().is_match_() {
                     //
@@ -712,7 +754,7 @@ impl<'a> I2cController<'a> {
 
                 if isr.txis().is_empty() {
                     if pos < wlen {
-                        ringbuf_entry!(wbuf[pos] as u32);
+                        ringbuf_entry!(Trace::Tx(wbuf[pos]));
                         i2c.txdr.write(|w| w.txdata().bits(wbuf[pos]));
                         pos += 1;
                         continue 'txloop;

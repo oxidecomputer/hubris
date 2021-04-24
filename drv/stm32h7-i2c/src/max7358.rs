@@ -57,7 +57,14 @@ bitfield! {
     interrupt_enabled, set_interrupt_enabled: 0;
 }
 
-ringbuf!((Option<Register>, u8), 32, (None, 0));
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Read(Register, u8),
+    Write(Register, u8),
+    None,
+}
+
+ringbuf!(Trace, 32, Trace::None);
 
 fn read_regs(
     mux: &I2cMux,
@@ -79,7 +86,7 @@ fn read_regs(
         Err(code) => Err(mux.error_code(code)),
         _ => {
             for i in 0..rbuf.len() {
-                ringbuf_entry!((Some(Register::from(i as u8)), rbuf[i]));
+                ringbuf_entry!(Trace::Read(Register::from(i as u8), rbuf[i]));
             }
 
             Ok(())
@@ -108,7 +115,7 @@ fn write_reg(
         read_regs(mux, controller, &mut wbuf[0..index], ctrl)?;
     }
 
-    ringbuf_entry!((Some(reg), val));
+    ringbuf_entry!(Trace::Write(reg, val));
 
     wbuf[index] = val;
 
@@ -142,7 +149,7 @@ impl I2cMuxDriver for Max7358 {
         // would never see from a functional initiator:  a zero-byte write
         // followed by a zero-byte read, followed by a zero-byte write,
         // followed by a zero-byte read.  (Because this evokes storied cheat
-        // sequences in video games, We choose to call this a Konami Code.)
+        // sequences in video games, we choose to call this a "Konami Code.")
         // This is bad enough, but it actually gets worse: this doesn't seem
         // to always work correctly.  In particular, there seem to be modes in
         // which the device confuses the zero-byte read that is the second
@@ -157,7 +164,7 @@ impl I2cMuxDriver for Max7358 {
         // iterations (i.e., controller restarts) for SDA to be let go: a
         // subsequent issuing of the sequence is handled properly in the cases
         // that we've seen.  However, we have also found that issuing a
-        // (proper) read ahead of issuing the Konami Codes appears to put the
+        // (proper) read ahead of issuing the Konami Code appears to put the
         // part in a better frame of mind -- so we choose to do this, with the
         // hope that it will prevent the caller from needing to reset the
         // controller entirely several times over.
@@ -165,7 +172,7 @@ impl I2cMuxDriver for Max7358 {
         let mut scratch = [0u8; 1];
         read_regs(mux, controller, &mut scratch[0..1], ctrl)?;
 
-        controller.send_konami_codes(
+        controller.send_konami_code(
             mux.address,
             &[
                 I2cKonamiCode::Write,

@@ -76,6 +76,8 @@ pub enum ResponseCode {
     BusLocked = 19,
     /// I2C bus locked up during in-band management operation and was reset
     BusLockedMux = 20,
+    /// I2C controller appeared to be locked and was reset
+    ControllerLocked = 21,
 }
 
 ///

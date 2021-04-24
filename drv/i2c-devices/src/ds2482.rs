@@ -61,14 +61,16 @@ pub enum Error {
     BadRegisterRead { reg: Register, code: ResponseCode },
 }
 
-ringbuf!(
-    (
-        Option<(Command, Option<Register>)>,
-        Result<u8, ResponseCode>
-    ),
-    196,
-    (None, Ok(0))
-);
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Read(Register, u8),
+    ReadError(Register, ResponseCode),
+    Command(Command),
+    CommandError(Command, ResponseCode),
+    None,
+}
+
+ringbuf!(Trace, 196, Trace::None);
 
 pub struct Ds2482 {
     device: I2cDevice,
@@ -85,14 +87,18 @@ fn read_register(device: &I2cDevice, register: Register) -> Result<u8, Error> {
     let cmd = Command::SetReadPointer;
     let rval = device.read_reg::<[u8; 2], u8>([cmd as u8, register as u8]);
 
-    ringbuf_entry!((Some((cmd, Some(register))), rval));
-
     match rval {
-        Ok(rval) => Ok(rval),
-        Err(code) => Err(Error::BadRegisterRead {
-            reg: register,
-            code: code,
-        }),
+        Ok(rval) => {
+            ringbuf_entry!(Trace::Read(register, rval));
+            Ok(rval)
+        }
+        Err(code) => {
+            ringbuf_entry!(Trace::ReadError(register, code));
+            Err(Error::BadRegisterRead {
+                reg: register,
+                code: code,
+            })
+        }
     }
 }
 
@@ -108,11 +114,11 @@ fn send_command(
 
     match rval {
         Ok(_) => {
-            ringbuf_entry!((Some((cmd, None)), Ok(0)));
+            ringbuf_entry!(Trace::Command(cmd));
             Ok(())
         }
         Err(code) => {
-            ringbuf_entry!((Some((cmd, None)), Err(code)));
+            ringbuf_entry!(Trace::CommandError(cmd, code));
             Err(Error::BadCommand {
                 cmd: cmd,
                 code: code,
