@@ -1,9 +1,7 @@
 #![no_std]
 #![no_main]
 
-// Make sure we actually link in userlib, despite not using any of it explicitly
-// - we need it for our _start routine.
-use cortex_m_semihosting::hprintln;
+use ringbuf::*;
 use userlib::*;
 
 #[cfg(feature = "standalone")]
@@ -12,10 +10,20 @@ const SPI: Task = Task::anonymous;
 #[cfg(not(feature = "standalone"))]
 const SPI: Task = Task::spi_driver;
 
+#[derive(Copy, Clone, PartialEq)]
+enum Payload {
+    None,
+    Calling,
+    Returned([u8; 4]),
+    Error(u32),
+}
+
+ringbuf!(Payload, 16, Payload::None);
+
 #[export_name = "main"]
 fn main() -> ! {
     let spi = TaskId::for_index_and_gen(SPI as usize, Generation::default());
-    hprintln!("Waiting to receive SPI data").ok();
+    sys_log!("Waiting to receive SPI data");
     loop {
         let mut recv: [u8; 4] = [0; 4];
         let b: &mut [u8] = &mut recv;
@@ -30,13 +38,13 @@ fn main() -> ! {
 
         let op = 3;
         let a: &[u8] = &buf;
-        hprintln!("Starting a new call...").ok();
+        ringbuf_entry!(Payload::Calling);
         let (code, _) =
             sys_send(spi, op, &[], &mut [], &[Lease::from(a), Lease::from(b)]);
         if code != 0 {
-            hprintln!("Got error code {}", code).ok();
+            ringbuf_entry!(Payload::Error(code));
         } else {
-            hprintln!("Got buffer {:x?}", recv).ok();
+            ringbuf_entry!(Payload::Returned(recv));
         }
     }
 }

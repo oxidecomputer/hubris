@@ -14,7 +14,7 @@ enum Op {
     Toggle = 4,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Port {
     A = 0,
     B = 1,

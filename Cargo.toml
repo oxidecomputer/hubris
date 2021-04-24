@@ -13,6 +13,7 @@ members = [
     "gemini-bu-rot",
     "lpc55",
     "kern",
+    "ringbuf",
     "userlib",
     "lpc55_romapi",
 
@@ -22,8 +23,11 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-i2c",
     "task-spam2",
+    "task-spd",
     "task-spi",
+    "task-thermal",
 
     "drv/stm32f4-rcc",
     "drv/stm32f4-usart",
@@ -35,6 +39,7 @@ members = [
     "drv/stm32h7-spi",
     "drv/stm32h7-spi-server",
     "drv/stm32h7-usart",
+    "drv/stm32h7-i2c-server",
 
     "drv/lpc55-syscon",
     "drv/lpc55-syscon-api",

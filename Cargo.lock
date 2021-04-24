@@ -391,6 +391,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-i2c-api"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-i2c-devices"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "drv-i2c-api",
+ "drv-onewire",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -480,6 +502,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-onewire"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-onewire-devices"
+version = "0.1.0"
+dependencies = [
+ "drv-onewire",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32f4-rcc"
 version = "0.1.0"
 dependencies = [
@@ -519,6 +560,43 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-i2c"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-i2c-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-i2c",
+ "drv-stm32h7-rcc-api",
+ "fixedmap",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
 ]
 
 [[package]]
@@ -663,6 +741,10 @@ dependencies = [
  "redox_syscall",
  "winapi",
 ]
+
+[[package]]
+name = "fixedmap"
+version = "0.1.0"
 
 [[package]]
 name = "flate2"
@@ -1277,6 +1359,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
 
 [[package]]
+name = "ringbuf"
+version = "0.1.0"
+dependencies = [
+ "quote 1.0.8",
+ "syn 1.0.60",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1395,9 +1485,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.9.2"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e7aab86fe2149bad8c507606bdb3f4ef5e7b2380eb92350f56122cca72a42a8"
+checksum = "fa827a14b29ab7f44778d14a88d3cb76e949c45083f7dbfa507d0cb699dc12de"
 dependencies = [
  "block-buffer",
  "cfg-if 1.0.0",
@@ -1547,6 +1637,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36474e732d1affd3a6ed582781b3683df3d0563714c59c39591e8ff707cf078e"
 
 [[package]]
+name = "task-i2c"
+version = "0.1.0"
+dependencies = [
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
@@ -1594,12 +1696,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-spd"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-i2c",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "task-spi"
 version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
  "cortex-m-semihosting",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]
@@ -1609,6 +1731,23 @@ name = "task-template"
 version = "0.1.0"
 dependencies = [
  "userlib",
+]
+
+[[package]]
+name = "task-thermal"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-onewire",
+ "drv-onewire-devices",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
