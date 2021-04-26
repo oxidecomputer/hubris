@@ -14,7 +14,7 @@ h743 = ["stm32h7/stm32h743"]
 h7b3 = ["stm32h7/stm32h7b3"]
 
 [dependencies]
-cortex-m = { version = "0.6.3", features = ["inline-asm"] }
+cortex-m = { version = "0.7", features = ["inline-asm"] }
 cortex-m-rt = "0.6.12"
 cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
