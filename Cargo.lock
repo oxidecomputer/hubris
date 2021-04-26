@@ -348,7 +348,7 @@ checksum = "4460596867846f73bddca51f7403b6a29f5315125be10a1640259b4db5b9494c"
 name = "demo"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -364,14 +364,14 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -477,7 +477,7 @@ dependencies = [
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -549,7 +549,7 @@ dependencies = [
  "byteorder",
  "drv-stm32h7-rcc-api",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -570,14 +570,14 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.11.0",
  "userlib",
  "zerocopy",
 ]
@@ -588,7 +588,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
@@ -597,7 +597,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.11.0",
  "userlib",
 ]
 
@@ -606,7 +606,7 @@ name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -626,7 +626,7 @@ name = "drv-stm32h7-spi"
 version = "0.1.0"
 dependencies = [
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "vcell",
  "zerocopy",
 ]
@@ -635,12 +635,12 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -652,7 +652,7 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -787,21 +787,21 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
 name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -920,7 +920,7 @@ dependencies = [
  "build-util",
  "byteorder",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "serde",
  "ssmarshal",
@@ -972,7 +972,7 @@ dependencies = [
 name = "lpc55"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -1543,6 +1543,16 @@ dependencies = [
 
 [[package]]
 name = "stm32h7"
+version = "0.11.0"
+source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies#0258085314efe2dca393f51cbe4362b37337ffdd"
+dependencies = [
+ "bare-metal",
+ "cortex-m 0.6.7",
+ "vcell",
+]
+
+[[package]]
+name = "stm32h7"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b672c837e0ee8158ecc7fce0f9a948dd0693a9c588338e728d14b73307a0b7d"
@@ -1642,7 +1652,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "task-i2c"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "num-traits",
@@ -1654,7 +1664,7 @@ dependencies = [
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "userlib",
 ]
 
@@ -1663,7 +1673,7 @@ name = "task-jefe"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "userlib",
  "zerocopy",
@@ -1673,7 +1683,7 @@ dependencies = [
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "drv-user-leds-api",
  "userlib",
 ]
@@ -1682,7 +1692,7 @@ dependencies = [
 name = "task-pong"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "drv-user-leds-api",
  "userlib",
 ]
@@ -1703,7 +1713,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
@@ -1711,7 +1721,7 @@ dependencies = [
  "drv-stm32h7-rcc-api",
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.11.0",
  "userlib",
 ]
 
@@ -1721,7 +1731,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "ringbuf",
  "userlib",
@@ -1741,7 +1751,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1764,7 +1774,7 @@ dependencies = [
 name = "test-assist"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "num-traits",
  "test-api",
  "userlib",
@@ -1775,7 +1785,7 @@ dependencies = [
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "num-traits",
  "test-api",
  "userlib",
@@ -1786,7 +1796,7 @@ dependencies = [
 name = "test-suite"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "num-traits",
  "test-api",
  "userlib",
@@ -1799,21 +1809,21 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
 name = "tests-lpc55"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -1827,7 +1837,7 @@ dependencies = [
 name = "tests-stm32f4"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -1843,14 +1853,14 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
