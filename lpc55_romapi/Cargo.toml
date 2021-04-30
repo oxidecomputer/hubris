@@ -14,6 +14,7 @@ log-semihosting = []
 lpc55-pac = "0.1.0"
 num-derive = "0.3.3"
 num-traits = { version = "0.2", default-features = false }
+cortex-m-semihosting = "0.3.5"
 
 # a target for `cargo xtask check`
 [package.metadata.build]

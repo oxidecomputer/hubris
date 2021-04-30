@@ -38,6 +38,7 @@ pub enum FlashStatus {
     NMPAAccessNotAllowed = 139,
     CMPADirectEraseNotAllowed = 140,
     FFRBankIsLocked = 141,
+
     /// Used to encode an unknown return from the flash status, not defined
     /// by NXP
     Unknown = 255,
@@ -56,6 +57,17 @@ pub enum FFRKeyType {
     PrinceRegion0 = 0x3,
     PrinceRegion1 = 0x4,
     Princeregion2 = 0x5,
+}
+
+#[repr(u32)]
+#[derive(Debug, FromPrimitive, PartialEq)]
+pub enum BootloaderStatus {
+    Success = 0,
+    NeedMoreData = 10801,
+    BufferNotBigEnough = 10802,
+    InvalidBuffer = 10803,
+    YouAreOwned = 10804,
+    Unknown = 255,
 }
 
 #[repr(C)]
@@ -197,11 +209,59 @@ struct Version1DriverInterface {
     ) -> u32,
 }
 
+#[derive(Debug)]
+#[repr(C)]
+struct KBSessionRef {
+    context : KBOptions,
+    cau3initialized : bool,
+    memory_map : *const u32, // XXX What's this structure definition?
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KBOptions {
+    version : u32,
+    buffer : *const u8,
+    buffer_len : u32,
+    op : u32, // Might be u8? It's an enum?
+    load_sb : KBLoadSb,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KBLoadSb {
+    profile : u32,
+    min_build : u32,
+    override_sb_section : u32,
+    user_sb : u32, // XXX I think this could be NULL
+    region_cnt : u32,
+    regions : u32, // XXX What's this structure definition?
+}
+
+#[repr(C)]
+struct IAPInterface {
+    kb_init : unsafe extern "C" fn(
+        session : *mut *mut KBSessionRef, options : *const KBOptions) -> u32,
+
+    kb_deinit : unsafe extern "C" fn(
+
+        session : *mut KBSessionRef) -> u32,
+
+    kb_execute : unsafe extern "C" fn(
+        session : *mut KBSessionRef, data : *mut u32, len : u32) -> u32
+}
+
 #[repr(C)]
 struct FlashDriverInterface {
     /// This is technically a union for the v0 vs v1 ROM but we only care
     /// about the v1 on the Expresso board
     version1_flash_driver: &'static Version1DriverInterface,
+}
+
+#[repr(C)]
+struct SKBootFns {
+    skboot_authenticate: unsafe extern "C" fn(start_addr: *const u32, is_verified : *mut u32) -> u32,
+    skboot_hashcrypt_irq_handler: unsafe extern "C" fn() -> (),
 }
 
 #[repr(C)]
@@ -214,6 +274,18 @@ struct BootloaderTree {
     copyright: *const u8,
     reserved: u32,
     flash_driver: FlashDriverInterface,
+    iap_driver : &'static IAPInterface,
+    reserved1  : u32,
+    reserved2  : u32,
+    low_power : u32,
+    crypto : u32,
+    skboot : &'static SKBootFns,
+}
+
+#[no_mangle]
+#[cfg(not(any(armv6m, armv8m_base)))]
+pub unsafe extern "C" fn HASHCRYPT() {
+    (bootloader_tree().skboot.skboot_hashcrypt_irq_handler)();
 }
 
 #[repr(C)]
@@ -295,6 +367,72 @@ fn handle_flash_status(ret: u32) -> Result<(), FlashStatus> {
         FlashStatus::Success => return Ok(()),
         a => return Err(a),
     }
+}
+
+fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
+    let result = match BootloaderStatus::from_u32(ret) {
+        Some(a) => a,
+        None => return Err(BootloaderStatus::Unknown),
+    };
+
+    match result {
+        BootloaderStatus::Success => return Ok(()),
+        a => return Err(a),
+    }
+}
+
+pub unsafe fn authenticate_image(addr : u32) -> bool {
+    let mut result : u32 = 0;
+
+    let ret = (bootloader_tree().skboot.skboot_authenticate)(addr as *const u32, &mut result);
+
+    return ret == 0x5ac3c35a && result == 0x55aacc33;
+}
+
+// There seems to be some sort of requirement for 4k worth of
+// space?
+static mut WORKING_BUF : [u8; 4096*2] = [0; 4096*2];
+
+
+pub unsafe fn faf() -> Result <(), BootloaderStatus> {
+    let mut context : *mut KBSessionRef  = core::ptr::null_mut();
+
+    //let mut buf : [u8; 512] = [0; 512];
+
+    let mut options = KBOptions {
+        version : 1,
+        buffer : WORKING_BUF.as_mut_ptr(),
+        buffer_len : 4096*2,
+        op : 2,
+        load_sb : KBLoadSb {
+            profile : 0,
+            min_build : 1,
+            override_sb_section : 1,
+            user_sb : 0,
+            region_cnt : 0,
+            regions : 0,
+        }
+    };
+
+    let stat = (bootloader_tree()
+        .iap_driver
+        .kb_init)(&mut context, &mut options);
+
+    if stat != 0 {
+        loop { }
+    }
+
+
+    let stat = (bootloader_tree()
+        .iap_driver
+        .kb_execute)(context, 0x40000 as *mut u32, 1728);
+
+    if stat != 0 {
+        loop { }
+    }
+
+
+    Ok(()) 
 }
 
 pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
