@@ -406,6 +406,7 @@ dependencies = [
  "bitfield",
  "drv-i2c-api",
  "drv-onewire",
+ "drv-pmbus",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -515,6 +516,15 @@ name = "drv-onewire-devices"
 version = "0.1.0"
 dependencies = [
  "drv-onewire",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-pmbus"
+version = "0.1.0"
+dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1683,6 +1693,21 @@ dependencies = [
  "cortex-m 0.6.7",
  "drv-user-leds-api",
  "userlib",
+]
+
+[[package]]
+name = "task-power"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m 0.6.7",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]

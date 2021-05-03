@@ -72,6 +72,7 @@ static I2C_DEBUG_VALUE: AtomicI32 = AtomicI32::new(-1);
 enum BytesToRead {
     OneByte = 1,
     TwoBytes = 2,
+    Block = 256,
 }
 
 fn scan_controller(
@@ -150,6 +151,22 @@ fn read(
                 }
                 Err(err) => {
                     results[0] = Some(Err(err));
+                }
+            }
+        }
+        BytesToRead::Block => {
+            let mut buf = [0u8; 255];
+
+            if let Some(register) = register {
+                match device.read_block::<u8>(register, &mut buf) {
+                    Ok(_) => {
+                        for i in 0..buf.len() {
+                            results[i] = Some(Ok(buf[i]));
+                        }
+                    }
+                    Err(err) => {
+                        results[0] = Some(Err(err));
+                    }
                 }
             }
         }
@@ -278,6 +295,7 @@ fn main() -> ! {
                 match nbytes {
                     -1 | 1 => BytesToRead::OneByte,
                     2 => BytesToRead::TwoBytes,
+                    256 => BytesToRead::Block,
                     _ => {
                         sys_log!("i2c_debug: invalid nbytes value {}", nbytes);
                         I2C_DEBUG_ERRORS.fetch_add(1, Ordering::SeqCst);

@@ -16,6 +16,7 @@ pub trait TempSensor<T> {
     fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
 }
 
+pub mod adm1272;
 pub mod adt7420;
 pub mod ds2482;
 pub mod max31790;

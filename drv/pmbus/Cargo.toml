@@ -1,18 +1,13 @@
 [package]
-name = "drv-i2c-devices"
+name = "drv-pmbus"
 version = "0.1.0"
 authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
-ringbuf = {path = "../../ringbuf" }
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
-drv-onewire = {path = "../onewire"}
-drv-i2c-api = {path = "../i2c-api"}
-drv-pmbus = {path = "../pmbus"}
-bitfield = "0.13"
 
 # a target for `cargo xtask check`
 [package.metadata.build]

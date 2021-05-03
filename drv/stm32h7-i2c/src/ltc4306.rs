@@ -92,7 +92,7 @@ fn read_reg_u8(
         mux.address,
         wlen,
         |_| Some(reg),
-        1,
+        ReadLength::Fixed(1),
         |_, byte| {
             rval = byte;
             Some(())
@@ -115,7 +115,7 @@ fn write_reg_u8(
         mux.address,
         2,
         |pos| Some(if pos == 0 { reg } else { val }),
-        0,
+        ReadLength::Fixed(0),
         |_, _| Some(()),
         ctrl,
     ) {

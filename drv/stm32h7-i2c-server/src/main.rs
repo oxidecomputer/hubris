@@ -334,7 +334,7 @@ fn main() -> ! {
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::WriteRead => {
+            Op::WriteRead | Op::WriteReadBlock => {
                 let (payload, caller) = msg
                     .fixed_with_leases::<[u8; 4], ()>(2)
                     .ok_or(ResponseCode::BadArg)?;
@@ -396,7 +396,11 @@ fn main() -> ! {
                     addr,
                     winfo.len,
                     |pos| wbuf.read_at(pos),
-                    rinfo.len,
+                    if op == Op::WriteRead {
+                        ReadLength::Fixed(rinfo.len)
+                    } else {
+                        ReadLength::Variable
+                    },
                     |pos, byte| rbuf.write_at(pos, byte),
                     &ctrl,
                 ) {

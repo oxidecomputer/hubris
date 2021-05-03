@@ -22,9 +22,10 @@ use zerocopy::{AsBytes, FromBytes};
 
 use userlib::*;
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, PartialEq)]
 pub enum Op {
     WriteRead = 1,
+    WriteReadBlock = 2,
 }
 
 /// The response code returned from the I2C controller (or from the kernel in
@@ -337,6 +338,32 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
+        }
+    }
+
+    pub fn read_block<R: AsBytes>(
+        &self,
+        reg: R,
+        buf: &mut [u8],
+    ) -> Result<(), ResponseCode> {
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteReadBlock as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            &mut [],
+            &[Lease::from(reg.as_bytes()), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(())
         }
     }
 
