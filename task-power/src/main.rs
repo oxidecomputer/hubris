@@ -60,6 +60,8 @@ fn main() -> ! {
             }
         }
 
+        let _ = adm1272.read_vin();
+
         hl::sleep_for(1000);
     }
 }

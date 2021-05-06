@@ -1,6 +1,6 @@
 #![no_std]
 
-use userlib::*;
+use num_traits::float::FloatCore;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
@@ -172,3 +172,47 @@ pub enum Command {
     PMBusCommandExtended = 0xff,
 }
 
+///
+/// The coefficients spelled out by PMBus for use in th DIRECT data format
+/// (Part II, Sec. 7.4). The actual values used will depend on the device and
+/// the condition.
+///
+#[derive(Copy, Clone, Debug)]
+#[allow(non_snake_case)]
+pub struct Coefficients {
+    /// Slope coefficient. Two byte, signed.
+    m: i16,
+    /// Offset. Two-byte, signed.
+    b: i16,
+    /// Exponent. One-byte, signed.
+    R: i8,
+}
+
+///
+/// A datum in the DIRECT data format.
+///
+#[derive(Copy, Clone, Debug)]
+struct Direct(u16, Coefficients);
+
+impl Direct {
+    #[allow(dead_code)]
+    fn to_real(&self) -> f32 {
+        let coefficients = &self.1;
+        let m: f32 = coefficients.m.into();
+        let b: f32 = coefficients.b.into();
+        let exp: i32 = coefficients.R.into();
+        let y: f32 = self.0.into();
+
+        (y * f32::powi(10.0, -exp) - b) / m
+    }
+
+    #[allow(dead_code)]
+    fn from_real(x: f32, coefficients: Coefficients) -> Self {
+        let m: f32 = coefficients.m.into();
+        let b: f32 = coefficients.b.into();
+        let exp: i32 = coefficients.R.into();
+        let y: f32 = (m * x + b) * f32::powi(10.0, exp);
+
+        Self(y.round() as u16, coefficients)
+    }
+}
