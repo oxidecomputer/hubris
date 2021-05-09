@@ -3,7 +3,7 @@
 use num_traits::float::FloatCore;
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(u8)]
 pub enum Command {
     Page = 0x00,
@@ -177,28 +177,29 @@ pub enum Command {
 /// (Part II, Sec. 7.4). The actual values used will depend on the device and
 /// the condition.
 ///
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[allow(non_snake_case)]
 pub struct Coefficients {
-    /// Slope coefficient. Two byte, signed.
-    m: i16,
+    /// Slope coefficient. Two byte signed off the wire (but potentially
+    /// larger after adjustment).
+    pub m: i32,
     /// Offset. Two-byte, signed.
-    b: i16,
+    pub b: i16,
     /// Exponent. One-byte, signed.
-    R: i8,
+    pub R: i8,
 }
 
 ///
 /// A datum in the DIRECT data format.
 ///
 #[derive(Copy, Clone, Debug)]
-struct Direct(u16, Coefficients);
+pub struct Direct(pub u16, pub Coefficients);
 
 impl Direct {
     #[allow(dead_code)]
-    fn to_real(&self) -> f32 {
+    pub fn to_real(&self) -> f32 {
         let coefficients = &self.1;
-        let m: f32 = coefficients.m.into();
+        let m: f32 = coefficients.m as f32;
         let b: f32 = coefficients.b.into();
         let exp: i32 = coefficients.R.into();
         let y: f32 = self.0.into();
@@ -207,8 +208,8 @@ impl Direct {
     }
 
     #[allow(dead_code)]
-    fn from_real(x: f32, coefficients: Coefficients) -> Self {
-        let m: f32 = coefficients.m.into();
+    pub fn from_real(x: f32, coefficients: Coefficients) -> Self {
+        let m: f32 = coefficients.m as f32;
         let b: f32 = coefficients.b.into();
         let exp: i32 = coefficients.R.into();
         let y: f32 = (m * x + b) * f32::powi(10.0, exp);

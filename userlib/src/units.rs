@@ -3,18 +3,22 @@
 //!
 
 /// Degrees Celsius
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Celsius(pub f32);
 
 /// Rotations per minute
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rpm(pub u16);
 
-/// Volts
-#[derive(Copy, Clone, Debug)]
+/// Volts of potential
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Volts(pub f32);
 
-/// Amperes
-#[derive(Copy, Clone, Debug)]
+/// Amperes of current
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Amperes(pub f32);
+
+/// Ohms of resistence
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Ohms(pub f32);
 
