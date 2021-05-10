@@ -25,6 +25,7 @@ panic-semihosting = { version = "0.5.3", optional = true }
 [dependencies.stm32f4]
 features = ["stm32f407", "rt"]
 version = "0.13.0"
+optional = true
 
 [dependencies.kern]
 path = "../kern"

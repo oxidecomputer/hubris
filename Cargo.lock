@@ -489,7 +489,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32f4-rcc"
+name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
  "num-traits",
@@ -499,7 +499,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32f4-usart"
+name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
  "num-traits",
