@@ -76,7 +76,7 @@ fn main() -> ! {
         let val_m = (CYCLES_PER_BIT >> 4) as u16;
         let val_f = CYCLES_PER_BIT as u8 & 0xF;
         w.bits((r.bits() & !(0x0fff << 4)) | (((val_m as u32) & 0x0fff) << 4))
-         .bits((r.bits() & !0x0f) | ((val_f as u32) & 0x0f))
+            .bits((r.bits() & !0x0f) | ((val_f as u32) & 0x0f))
     });
     #[cfg(feature = "stm32f4")]
     usart.brr.write(|w| {
@@ -248,7 +248,9 @@ fn step_transmit(
         // Stuff byte into transmitter.
         #[cfg(feature = "stm32f3")]
         // SAFETY: Why is the f3 version unsafe?
-        usart.tdr.write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
+        usart
+            .tdr
+            .write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
         #[cfg(feature = "stm32f4")]
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 

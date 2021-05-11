@@ -120,11 +120,15 @@ cfg_if::cfg_if! {
 // here to avoid repeating the cfg block when used below
 #[cfg(feature = "stm32f3")]
 macro_rules! gpio {
-    () => { unsafe { &*stm32f3::stm32f303::GPIOE::ptr() } }
+    () => {
+        unsafe { &*stm32f3::stm32f303::GPIOE::ptr() }
+    };
 }
 #[cfg(feature = "stm32f4")]
 macro_rules! gpio {
-    () => { unsafe { &*stm32f4::stm32f407::GPIOD::ptr() } }
+    () => {
+        unsafe { &*stm32f4::stm32f407::GPIOD::ptr() }
+    };
 }
 
 #[cfg(any(feature = "stm32f3", feature = "stm32f4"))]

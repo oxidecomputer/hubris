@@ -141,7 +141,9 @@ fn main() -> ! {
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb1 => set_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
-                        Bus::Ahb2 | Bus::Ahb3 => return Err(ResponseCode::BadArg),
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
 
                         #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => set_bits!(rcc.ahb1enr, pmask),
@@ -157,7 +159,9 @@ fn main() -> ! {
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb1 => clear_bits!(rcc.ahbenr, pmask),
                         #[cfg(feature = "stm32f3")]
-                        Bus::Ahb2 | Bus::Ahb3 => return Err(ResponseCode::BadArg),
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
 
                         #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => clear_bits!(rcc.ahb1enr, pmask),
@@ -173,7 +177,9 @@ fn main() -> ! {
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb1 => set_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
-                        Bus::Ahb2 | Bus::Ahb3 => return Err(ResponseCode::BadArg),
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
 
                         #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => set_bits!(rcc.ahb1rstr, pmask),
@@ -189,7 +195,9 @@ fn main() -> ! {
                         #[cfg(feature = "stm32f3")]
                         Bus::Ahb1 => clear_bits!(rcc.ahbrstr, pmask),
                         #[cfg(feature = "stm32f3")]
-                        Bus::Ahb2 | Bus::Ahb3 => return Err(ResponseCode::BadArg),
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
 
                         #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => clear_bits!(rcc.ahb1rstr, pmask),
