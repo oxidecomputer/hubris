@@ -19,7 +19,7 @@ build-util = {path = "../../build-util"}
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["stm32f4"]
 stm32h7 = ["drv-stm32h7-gpio-api"]
 lpc55 = ["lpc55-pac"]
 
