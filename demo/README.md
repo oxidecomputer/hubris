@@ -1,1 +1,1 @@
-# STM32F4 demo application
+# STM32F3/4 demo application

@@ -321,6 +321,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
+ "stm32f3",
  "stm32f4",
 ]
 
@@ -493,6 +494,7 @@ name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "stm32f3",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -503,6 +505,7 @@ name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "stm32f3",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -632,6 +635,7 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "lpc55-pac",
  "num-traits",
+ "stm32f3",
  "stm32f4",
  "userlib",
  "zerocopy",
@@ -1486,6 +1490,18 @@ checksum = "f3e6ad23b128192ed337dfa4f1b8099ced0c2bf30d61e551b65fda5916dbb850"
 dependencies = [
  "encode_unicode",
  "serde",
+]
+
+[[package]]
+name = "stm32f3"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e212ebc31a11c94edb709de8bb6cb93b96eeb687283855ba814d4a2596bd70d"
+dependencies = [
+ "bare-metal",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
 ]
 
 [[package]]

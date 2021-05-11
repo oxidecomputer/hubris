@@ -9,7 +9,12 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "stm32f4")]
 use stm32f4::stm32f407 as device;
+
+#[cfg(feature = "stm32f3")]
+use stm32f3::stm32f303 as device;
+
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -64,6 +69,16 @@ fn main() -> ! {
     const CLOCK_HZ: u32 = 16_000_000;
     const BAUDRATE: u32 = 115_200;
     const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
+
+    // Safety: TODO, why is the f3 version of `bits` unsafe?
+    #[cfg(feature = "stm32f3")]
+    usart.brr.modify(|r, w| unsafe {
+        let val_m = (CYCLES_PER_BIT >> 4) as u16;
+        let val_f = CYCLES_PER_BIT as u8 & 0xF;
+        w.bits((r.bits() & !(0x0fff << 4)) | (((val_m as u32) & 0x0fff) << 4))
+         .bits((r.bits() & !0x0f) | ((val_f as u32) & 0x0f))
+    });
+    #[cfg(feature = "stm32f4")]
     usart.brr.write(|w| {
         w.div_mantissa()
             .bits((CYCLES_PER_BIT >> 4) as u16)
@@ -110,7 +125,11 @@ fn main() -> ! {
                     // check the individual conditions we care about, and
                     // unconditionally re-enable the IRQ at the end of the handler.
 
-                    if usart.sr.read().txe().bit() {
+                    #[cfg(feature = "stm32f3")]
+                    let txe = usart.isr.read().txe().bit();
+                    #[cfg(feature = "stm32f4")]
+                    let txe = usart.sr.read().txe().bit();
+                    if txe {
                         // TX register empty. Do we need to send something?
                         step_transmit(&usart, txref);
                     }
@@ -227,6 +246,10 @@ fn step_transmit(
 
     if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
+        #[cfg(feature = "stm32f3")]
+        // SAFETY: Why is the f3 version unsafe?
+        usart.tdr.write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
+        #[cfg(feature = "stm32f4")]
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
         txs.pos += 1;

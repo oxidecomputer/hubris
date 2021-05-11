@@ -22,6 +22,11 @@ panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
 
+[dependencies.stm32f3]
+features = ["stm32f303", "rt"]
+version = "0.13.0"
+optional = true
+
 [dependencies.stm32f4]
 features = ["stm32f407", "rt"]
 version = "0.13.0"
