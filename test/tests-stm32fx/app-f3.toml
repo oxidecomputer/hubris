@@ -1,13 +1,13 @@
-name = "tests-stm32f4"
+name = "tests-stm32fx"
 target = "thumbv7em-none-eabihf"
-board = "stm32f4-discovery"
-stacksize = 1400
+board = "stm32f3-discovery"
+stacksize = 1024
 
 [kernel]
 path = "../../demo"
 name = "demo"
 requires = {flash = 65536, ram = 4096}
-features = ["itm"]
+features = ["itm", "stm32f3"]
 
 [supervisor]
 notification = 1
@@ -20,7 +20,7 @@ execute = true
 
 [outputs.ram]
 address = 0x20000000
-size = 114688
+size = 40960
 read = true
 write = true
 execute = false

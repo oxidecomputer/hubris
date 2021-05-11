@@ -55,7 +55,7 @@ members = [
     "drv/user-leds-api",
 
     "test/tests-gemini-bu",
-    "test/tests-stm32f4",
+    "test/tests-stm32fx",
     "test/tests-stm32h7",
     "test/tests-lpc55",
     "test/test-runner",
