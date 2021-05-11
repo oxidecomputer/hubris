@@ -709,8 +709,16 @@ fn make_descriptors(
         // For peripherals referenced by the task, we don't need to allocate
         // _new_ regions, since we did them all in advance. Just record the
         // entries for the TaskDesc.
-        for (j, name) in task.uses.iter().enumerate() {
-            task_regions[allocs.len() + j] = peripheral_index[name] as u8;
+        for (j, peripheral_name) in task.uses.iter().enumerate() {
+            if let Some(&peripheral) = peripheral_index.get(&peripheral_name) {
+                task_regions[allocs.len() + j] = peripheral as u8;
+            } else {
+                bail!(
+                    "Could not find peripheral `{}` referenced by task `{}`.",
+                    peripheral_name,
+                    name
+                );
+            }
         }
 
         let mut flags = abi::TaskFlags::empty();
