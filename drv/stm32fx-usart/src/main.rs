@@ -68,23 +68,21 @@ fn main() -> ! {
     // Work out our baud rate divisor.
     const CLOCK_HZ: u32 = 16_000_000;
     const BAUDRATE: u32 = 115_200;
-    const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
 
-    // Safety: TODO, why is the f3 version of `bits` unsafe?
     #[cfg(feature = "stm32f3")]
-    usart.brr.modify(|r, w| unsafe {
-        let val_m = (CYCLES_PER_BIT >> 4) as u16;
-        let val_f = CYCLES_PER_BIT as u8 & 0xF;
-        w.bits((r.bits() & !(0x0fff << 4)) | (((val_m as u32) & 0x0fff) << 4))
-            .bits((r.bits() & !0x0f) | ((val_f as u32) & 0x0f))
-    });
+    // Safety: TODO, why is the f3 version of `bits` unsafe?
+    usart.brr.write(|w| unsafe { w.bits(CLOCK_HZ / BAUDRATE) });
+
     #[cfg(feature = "stm32f4")]
-    usart.brr.write(|w| {
-        w.div_mantissa()
-            .bits((CYCLES_PER_BIT >> 4) as u16)
-            .div_fraction()
-            .bits(CYCLES_PER_BIT as u8 & 0xF)
-    });
+    {
+        const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
+        usart.brr.write(|w| {
+            w.div_mantissa()
+                .bits((CYCLES_PER_BIT >> 4) as u16)
+                .div_fraction()
+                .bits(CYCLES_PER_BIT as u8 & 0xF)
+        });
+    }
 
     // Enable the transmitter.
     usart.cr1.modify(|_, w| w.te().enabled());
@@ -208,7 +206,12 @@ fn turn_on_gpioa() {
         TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
+
+    #[cfg(feature = "stm32f3")]
+    let pnum = 17; // see bits in AHBENR
+    #[cfg(feature = "stm32f4")]
     let pnum = 0; // see bits in AHB1ENR
+
     let (code, _) = userlib::sys_send(
         rcc_driver,
         ENABLE_CLOCK,
