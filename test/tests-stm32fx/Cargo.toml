@@ -6,9 +6,10 @@ name = "tests-stm32f4"
 version = "0.1.0"
 
 [features]
-default = ["itm"]
+default = ["standalone"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+standalone = ["itm", "stm32f4"]
 
 [dependencies]
 cortex-m = "0.7"
