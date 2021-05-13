@@ -58,6 +58,19 @@ pub enum FFRKeyType {
     Princeregion2 = 0x5,
 }
 
+#[repr(u32)]
+#[derive(Debug, FromPrimitive, PartialEq)]
+pub enum BootloaderStatus {
+    Success = 0,
+    // This one is technically not in the ROM API space but testing has
+    // shown this gets returned when the scratch buffer is not big enough
+    Fail = 1,
+    NeedMoreData = 10801,
+    BufferNotBigEnough = 10802,
+    InvalidBuffer = 10803,
+    Unknown = 255,
+}
+
 #[repr(C)]
 #[derive(Default, Debug)]
 struct StandardVersion {
@@ -197,11 +210,84 @@ struct Version1DriverInterface {
     ) -> u32,
 }
 
+#[derive(Debug)]
+#[repr(C)]
+struct KBSessionRef {
+    context: KBOptions,
+    cau3initialized: bool,
+    memory_map: u32, // XXX What's this structure definition?
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KBOptions {
+    version: u32,
+    buffer: *const u8,
+    buffer_len: u32,
+    op: u32, // XXX NXP does not define this enum
+    load_sb: KBLoadSb,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+struct KBLoadSb {
+    profile: u32,
+    min_build: u32,
+    override_sb_section: u32,
+    user_sb: u32, // XXX I think this could be NULL
+    region_cnt: u32,
+    regions: u32, // XXX What's this structure definition?
+}
+
+// Both SkbootStatus and SecureBool are defined in the NXP manual
+
+#[repr(u32)]
+#[derive(Debug, FromPrimitive, PartialEq)]
+enum SkbootStatus {
+    Success = 0x5ac3c35a,
+    Fail = 0xc35ac35a,
+    InvalidArgument = 0xc35a5ac3,
+    KeyStoreMarkerInvalid = 0xc3c35a5a,
+}
+
+#[repr(u32)]
+#[derive(Debug, FromPrimitive, PartialEq)]
+enum SecureBool {
+    SecureFalse = 0x5aa55aa5,
+    SecureTrue = 0xc33cc33c,
+    TrackerVerified = 0x55aacc33,
+}
+
+#[repr(C)]
+struct IAPInterface {
+    kb_init: unsafe extern "C" fn(
+        session: *mut *mut KBSessionRef,
+        options: *const KBOptions,
+    ) -> u32,
+
+    kb_deinit: unsafe extern "C" fn(session: *mut KBSessionRef) -> u32,
+
+    kb_execute: unsafe extern "C" fn(
+        session: *mut KBSessionRef,
+        data: *mut u8,
+        len: u32,
+    ) -> u32,
+}
+
 #[repr(C)]
 struct FlashDriverInterface {
     /// This is technically a union for the v0 vs v1 ROM but we only care
     /// about the v1 on the Expresso board
     version1_flash_driver: &'static Version1DriverInterface,
+}
+
+#[repr(C)]
+struct SKBootFns {
+    skboot_authenticate: unsafe extern "C" fn(
+        start_addr: *const u32,
+        is_verified: *mut u32,
+    ) -> u32,
+    skboot_hashcrypt_irq_handler: unsafe extern "C" fn() -> (),
 }
 
 #[repr(C)]
@@ -213,7 +299,25 @@ struct BootloaderTree {
     /// Actually a C string but we don't have that in no-std
     copyright: *const u8,
     reserved: u32,
+    /// Functions for reading/writing to flash
     flash_driver: FlashDriverInterface,
+    /// Functions for working with signed capsule updates
+    iap_driver: &'static IAPInterface,
+    reserved1: u32,
+    reserved2: u32,
+    /// Functions for low power settings, used in conjunction with a
+    /// binary shared lib, (might add function prototypes later)
+    low_power: u32,
+    /// Functions for PRINCE encryption, currently not implemented
+    crypto: u32,
+    /// Functions for checking signatures on images
+    skboot: &'static SKBootFns,
+}
+
+// We need to call this function when using either skboot_authenticate or
+// the sb2 exec function
+pub unsafe extern "C" fn skboot_hashcrypt_handler() {
+    (bootloader_tree().skboot.skboot_hashcrypt_irq_handler)();
 }
 
 #[repr(C)]
@@ -295,6 +399,94 @@ fn handle_flash_status(ret: u32) -> Result<(), FlashStatus> {
         FlashStatus::Success => return Ok(()),
         a => return Err(a),
     }
+}
+
+fn handle_skboot_status(ret: u32) -> Result<(), ()> {
+    let result = match SkbootStatus::from_u32(ret) {
+        Some(a) => a,
+        None => return Err(()),
+    };
+
+    match result {
+        SkbootStatus::Success => return Ok(()),
+        _ => return Err(()),
+    }
+}
+
+fn handle_secure_bool(ret: u32) -> Result<(), ()> {
+    let result = match SecureBool::from_u32(ret) {
+        Some(a) => a,
+        None => return Err(()),
+    };
+
+    // This looks odd in that true is also a failure
+    match result {
+        SecureBool::TrackerVerified => return Ok(()),
+        _ => return Err(()),
+    }
+}
+
+fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
+    let result = match BootloaderStatus::from_u32(ret) {
+        Some(a) => a,
+        None => return Err(BootloaderStatus::Unknown),
+    };
+
+    match result {
+        BootloaderStatus::Success => return Ok(()),
+        a => return Err(a),
+    }
+}
+
+pub unsafe fn authenticate_image(addr: u32) -> Result<(), ()> {
+    let mut result: u32 = 0;
+
+    let ret = (bootloader_tree().skboot.skboot_authenticate)(
+        addr as *const u32,
+        &mut result,
+    );
+
+    handle_skboot_status(ret)?;
+
+    handle_secure_bool(result)
+}
+
+pub unsafe fn load_sb2_image(
+    image: &mut [u8],
+    scratch_buffer: &mut [u8],
+) -> Result<(), BootloaderStatus> {
+    // The minimum scratch buffer size seems to be 4096 based on disassembly?
+    if scratch_buffer.len() < 0x1000 {
+        return Err(BootloaderStatus::Fail);
+    }
+
+    let mut context: *mut KBSessionRef = core::ptr::null_mut();
+
+    let mut options = KBOptions {
+        version: 1, // Supposed to be kBootApiVersion which isn't defined
+        buffer: scratch_buffer.as_mut_ptr(),
+        buffer_len: scratch_buffer.len() as u32,
+        op: 2, // Corresponds to kRomLoadImage based on disassembly
+        load_sb: KBLoadSb {
+            profile: 0,
+            min_build: 1,
+            override_sb_section: 1,
+            user_sb: 0, // Currently doesn't support using another key
+            region_cnt: 0,
+            regions: 0,
+        },
+    };
+
+    handle_bootloader_status((bootloader_tree().iap_driver.kb_init)(
+        &mut context,
+        &mut options,
+    ))?;
+
+    handle_bootloader_status((bootloader_tree().iap_driver.kb_execute)(
+        context,
+        image.as_mut_ptr(),
+        image.len() as u32,
+    ))
 }
 
 pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
