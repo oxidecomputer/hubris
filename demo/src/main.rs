@@ -31,6 +31,9 @@ extern "C" {
 #[entry]
 fn main() -> ! {
     // Default boot speed, until we bother raising it:
+    #[cfg(feature = "stm32f3")]
+    const CYCLES_PER_MS: u32 = 8_000;
+    #[cfg(feature = "stm32f4")]
     const CYCLES_PER_MS: u32 = 16_000;
 
     unsafe {
