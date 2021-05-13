@@ -66,15 +66,18 @@ fn main() -> ! {
     // The UART has clock and is out of reset, but isn't actually on until we:
     usart.cr1.write(|w| w.ue().enabled());
     // Work out our baud rate divisor.
-    const CLOCK_HZ: u32 = 16_000_000;
     const BAUDRATE: u32 = 115_200;
 
     #[cfg(feature = "stm32f3")]
-    // Safety: TODO, why is the f3 version of `bits` unsafe?
-    usart.brr.write(|w| unsafe { w.bits(CLOCK_HZ / BAUDRATE) });
+    {
+        const CLOCK_HZ: u32 = 8_000_000;
+        // Safety: TODO, why is the f3 version of `bits` unsafe?
+        usart.brr.write(|w| unsafe { w.bits(CLOCK_HZ / BAUDRATE) });
+    }
 
     #[cfg(feature = "stm32f4")]
     {
+        const CLOCK_HZ: u32 = 16_000_000;
         const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
         usart.brr.write(|w| {
             w.div_mantissa()
