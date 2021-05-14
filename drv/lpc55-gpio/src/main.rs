@@ -38,6 +38,7 @@
 
 use lpc55_pac as device;
 
+use hl;
 use userlib::{FromPrimitive, *};
 use zerocopy::AsBytes;
 
@@ -75,33 +76,19 @@ fn main() -> ! {
     //let iocon = unsafe  { &*device::IOCON::ptr() };
     let gpio = unsafe { &*device::GPIO::ptr() };
 
-    // Field messages.
-    let mut buffer: [u8; 2] = [0; 2];
-    loop {
-        hl::recv_without_notification(&mut buffer, |op, msg| match op {
+    // Handler for received messages.
+    let recv_handler = |op: Op, msg: hl::Message| -> Result<(), ResponseCode> {
+        match op {
             Op::SetDir => {
                 let (&[gpionum, dir], caller) =
                     msg.fixed::<[u8; 2], ()>().ok_or(ResponseCode::BadArg)?;
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    if dir == 0 {
-                        gpio.dirclr[0]
-                            .write(|w| unsafe { w.dirclrp().bits(mask) });
-                    } else {
-                        gpio.dirset[0]
-                            .write(|w| unsafe { w.dirsetp().bits(mask) });
-                    }
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    if dir == 0 {
-                        gpio.dirclr[1]
-                            .write(|w| unsafe { w.dirclrp().bits(mask) });
-                    } else {
-                        gpio.dirset[1]
-                            .write(|w| unsafe { w.dirsetp().bits(mask) });
-                    }
+                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
+                if dir == 0 {
+                    gpio.dirclr[idx]
+                        .write(|w| unsafe { w.dirclrp().bits(mask) });
                 } else {
-                    return Err(ResponseCode::BadArg);
+                    gpio.dirset[idx]
+                        .write(|w| unsafe { w.dirsetp().bits(mask) });
                 }
                 caller.reply(());
                 Ok(())
@@ -109,22 +96,11 @@ fn main() -> ! {
             Op::SetVal => {
                 let (&[gpionum, val], caller) =
                     msg.fixed::<[u8; 2], ()>().ok_or(ResponseCode::BadArg)?;
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    if val == 0 {
-                        gpio.clr[0].write(|w| unsafe { w.clrp().bits(mask) });
-                    } else {
-                        gpio.set[0].write(|w| unsafe { w.setp().bits(mask) });
-                    }
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    if val == 0 {
-                        gpio.clr[1].write(|w| unsafe { w.clrp().bits(mask) });
-                    } else {
-                        gpio.set[1].write(|w| unsafe { w.setp().bits(mask) });
-                    }
+                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
+                if val == 0 {
+                    gpio.clr[idx].write(|w| unsafe { w.clrp().bits(mask) });
                 } else {
-                    return Err(ResponseCode::BadArg);
+                    gpio.set[idx].write(|w| unsafe { w.setp().bits(mask) });
                 }
                 caller.reply(());
                 Ok(())
@@ -134,21 +110,27 @@ fn main() -> ! {
                 // use this function otherwise it will not work!
                 let (&gpionum, caller) =
                     msg.fixed::<u8, u8>().ok_or(ResponseCode::BadArg)?;
-                let val;
-                if gpionum < 32 {
-                    let mask = 1 << gpionum;
-                    val = (gpio.pin[0].read().port().bits() & mask) == mask;
-                } else if gpionum < 64 {
-                    let mask = 1 << (gpionum - 32);
-                    val = (gpio.pin[1].read().port().bits() & mask) == mask;
-                } else {
-                    return Err(ResponseCode::BadArg);
-                }
+                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
+                let val = (gpio.pin[idx].read().port().bits() & mask) == mask;
                 caller.reply(val as u8);
                 Ok(())
             }
-        });
+        }
+    };
+
+    // Field messages.
+    let mut buffer: [u8; 2] = [0; 2];
+    loop {
+        hl::recv_without_notification(&mut buffer, recv_handler);
     }
+}
+
+fn gpio_num_pin_mask(gpionum: u8) -> Result<(usize, u32), ResponseCode> {
+    if gpionum >= 64 {
+        return Err(ResponseCode::BadArg);
+    }
+    let (idx, offset) = if gpionum < 32 { (0, 0) } else { (1, 32) };
+    Ok((idx, 1 << (gpionum - offset)))
 }
 
 fn turn_on_gpio_clocks() {
