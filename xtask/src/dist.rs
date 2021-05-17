@@ -493,6 +493,7 @@ fn build(
         "RUSTFLAGS",
         &format!(
             "-C link-arg=-Tlink.x \
+             -C llvm-args=--enable-machine-outliner=never \
         -L {} \
         -C link-arg=-z -C link-arg=common-page-size=0x20 \
         -C link-arg=-z -C link-arg=max-page-size=0x20",
