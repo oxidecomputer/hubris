@@ -77,6 +77,17 @@ unsafe fn system_pre_init() {
         // spin
     }
 
+    // Turn on the internal RAMs.
+    let rcc = &*device::RCC::ptr();
+    rcc.ahb2enr.modify(|_, w| {
+        w.sram1en()
+            .set_bit()
+            .sram2en()
+            .set_bit()
+            .sram3en()
+            .set_bit()
+    });
+
     // Okay, yay, we can use some RAMs now.
 
     // We'll do the rest in system_init.
@@ -126,6 +137,13 @@ fn system_init() {
             .dbgsleep_d1()
             .set_bit()
     });
+
+    // Set up SYSCFG selections so drivers don't have to.
+    p.RCC.apb4enr.modify(|_, w| w.syscfgen().enabled());
+    cortex_m::asm::dmb();
+
+    // Ethernet is on RMII, not MII.
+    p.SYSCFG.pmcr.modify(|_, w| unsafe { w.epis().bits(0b100) });
 
     // Turn on CPU I/D caches to improve performance at the higher clock speeds
     // we're about to enable.
