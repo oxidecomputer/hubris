@@ -767,6 +767,7 @@ dependencies = [
 name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -920,6 +921,7 @@ dependencies = [
 name = "lpc55"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -1754,6 +1756,7 @@ dependencies = [
 name = "tests-lpc55"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
