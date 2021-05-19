@@ -7,13 +7,10 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.6.0"
 userlib = {path = "../userlib"}
-drv-stm32h7-eth = {path = "../drv/stm32h7-eth", features = ["with-smoltcp"]}
+drv-stm32h7-eth = {path = "../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6", "ipv4"]}
 drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api"}
 drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api"}
-
-[dependencies.stm32h7]
-git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-features = ["stm32h743"]
+stm32h7 = {version = "0.13", features = ["stm32h743"]}
 
 [dependencies.smoltcp]
 version = "0.7.1"

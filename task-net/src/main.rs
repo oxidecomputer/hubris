@@ -158,16 +158,24 @@ fn main() -> ! {
 
     use smoltcp::iface::Neighbor;
     use smoltcp::socket::SocketSet;
-    use smoltcp::wire::IpAddress;
+    use smoltcp::wire::{IpAddress, Ipv6Address};
 
     static FAKE_MAC: &[u8] = &[0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C];
-    static FAKE_IP: &[u8] = &[169, 254, 31, 12];
+
+    let ipv6_addr =
+        Ipv6Address::new(0xfe80, 0, 0, 0, 0x0004, 0x06ff, 0xfe08, 0x0a0c);
 
     let mac = smoltcp::wire::EthernetAddress::from_bytes(FAKE_MAC);
-    let ip_addr = smoltcp::wire::Ipv4Address::from_bytes(FAKE_IP);
-    let ip_cidr = smoltcp::wire::Ipv4Cidr::new(ip_addr, 16);
-    let ip_cidr = smoltcp::wire::IpCidr::from(ip_cidr);
-    let mut ip_addrs = [ip_cidr];
+    let ipv6_net = smoltcp::wire::IpCidr::from(smoltcp::wire::Ipv6Cidr::new(
+        ipv6_addr, 64,
+    ));
+
+    let ipv4_addr = smoltcp::wire::Ipv4Address::from_bytes(&[169, 254, 31, 12]);
+    let ipv4_net = smoltcp::wire::IpCidr::from(smoltcp::wire::Ipv4Cidr::new(
+        ipv4_addr, 16,
+    ));
+
+    let mut ip_addrs = [ipv6_net, ipv4_net];
     let mut neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; 16] =
         [None; 16];
     let neighbor_cache =
@@ -268,7 +276,7 @@ fn configure_ethernet_pins() {
     .unwrap();
     gpio.configure(
         Port::B,
-        (1 << 13),
+        1 << 13,
         Mode::Alternate,
         OutputType::PushPull,
         Speed::VeryHigh,

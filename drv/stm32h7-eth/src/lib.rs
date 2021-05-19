@@ -423,7 +423,14 @@ impl<'a> smoltcp::phy::Device<'a> for Ethernet {
         use smoltcp::phy::Checksum;
         caps.checksum.ipv4 = Checksum::None;
         caps.checksum.udp = Checksum::None;
-        caps.checksum.icmpv4 = Checksum::None;
+        #[cfg(feature = "ipv4")]
+        {
+            caps.checksum.icmpv4 = Checksum::None;
+        }
+        #[cfg(feature = "ipv6")]
+        {
+            caps.checksum.icmpv6 = Checksum::None;
+        }
         caps
     }
 }

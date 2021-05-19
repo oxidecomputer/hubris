@@ -7,6 +7,8 @@ edition = "2018"
 [features]
 default = []
 with-smoltcp = ["smoltcp"]
+ipv4 = []
+ipv6 = []
 
 [dependencies]
 cortex-m = "0.7"

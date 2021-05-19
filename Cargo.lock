@@ -1740,7 +1740,7 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "smoltcp",
- "stm32h7 0.11.0",
+ "stm32h7",
  "userlib",
 ]
 
