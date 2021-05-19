@@ -1732,6 +1732,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-net"
+version = "0.1.0"
+dependencies = [
+ "cortex-m 0.6.7",
+ "drv-stm32h7-eth",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "smoltcp",
+ "stm32h7 0.11.0",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [

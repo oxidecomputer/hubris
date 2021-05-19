@@ -29,6 +29,7 @@ members = [
     "task-spd",
     "task-spi",
     "task-thermal",
+    "task-net",
 
     "drv/stm32fx-rcc",
     "drv/stm32fx-usart",

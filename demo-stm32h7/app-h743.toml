@@ -37,6 +37,15 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
+
 [tasks.jefe]
 path = "../task-jefe"
 name = "task-jefe"
@@ -84,6 +93,17 @@ start = true
 [tasks.i2c_driver.interrupts]
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
+
+[tasks.net]
+path = "../task-net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+requires = {flash = 65536, ram = 4096, sram1 = 32768}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma"]
+start = true
+interrupts = {61 = 0b1}
 
 [tasks.user_leds]
 path = "../drv/user-leds"
@@ -161,3 +181,10 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[peripherals.eth]
+address = 0x40028000
+size = 0x1000
+
+[peripherals.eth_dma]
+address = 0x40029000
+size = 0x400
