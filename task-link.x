@@ -63,9 +63,7 @@ SECTIONS
     . = ALIGN(4);
   } > RAM
 
-  /* Place the heap right after `.uninit` */
-  . = ALIGN(4);
-  __sheap = .;
+  __sheap = LOADADDR(.uninit) + SIZEOF(.uninit);
 
   /* ## .got */
   /* Dynamic relocations are unsupported. This section is only used to detect relocatable code in
