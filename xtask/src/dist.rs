@@ -178,6 +178,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         toml.stacksize,
         &toml.outputs,
         &entry_points,
+        &toml.extratext,
     )? {
         descriptor_text.push(format!("LONG(0x{:08x});", word));
     }
@@ -604,6 +605,7 @@ fn make_descriptors(
     stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
+    extra_text: &IndexMap<String, Peripheral>,
 ) -> Result<Vec<u32>> {
     // Generate the three record sections concurrently, using three separate
     // vecs that we'll later concatenate.
@@ -644,6 +646,25 @@ fn make_descriptors(
         let attributes = abi::RegionAttributes::DEVICE
             | abi::RegionAttributes::READ
             | abi::RegionAttributes::WRITE;
+
+        regions.push(abi::RegionDesc {
+            base: p.address,
+            size: p.size,
+            attributes,
+            reserved_zero: 0,
+        });
+    }
+
+    for (name, p) in extra_text.iter() {
+        if power_of_two_required && !p.size.is_power_of_two() {
+            panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+        }
+
+        peripheral_index.insert(name, regions.len());
+
+        // Extra text is marked as read/execute
+        let attributes =
+            abi::RegionAttributes::READ | abi::RegionAttributes::EXECUTE;
 
         regions.push(abi::RegionDesc {
             base: p.address,
