@@ -118,6 +118,8 @@ struct Config {
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     peripherals: IndexMap<String, Peripheral>,
+    #[serde(default)]
+    extratext: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
 }
 
