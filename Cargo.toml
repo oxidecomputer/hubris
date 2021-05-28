@@ -11,6 +11,7 @@ members = [
     "demo-stm32h7",
     "gemini-bu",
     "gemini-bu-rot",
+    "gimletlet",
     "lpc55",
     "kern",
     "ringbuf",
