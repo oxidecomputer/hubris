@@ -37,7 +37,7 @@ enum Op {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(not(target_board = "gemini-bu-1"))] {
+    if #[cfg(not(any(target_board = "gemini-bu-1", target_board = "gimletlet-2")))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -220,6 +220,14 @@ cfg_if::cfg_if! {
                 const LED_MASK_1: u16 = 1 << 9;
                 const LED_MASK_2: u16 = 1 << 10;
                 const LED_MASK_3: u16 = 1 << 11;
+            } else if #[cfg(target_board = "gimletlet-2")] {
+                // Glorified gimletlet SP: LEDs are on PG2-5
+                const LED_PORT: drv_stm32h7_gpio_api::Port =
+                    drv_stm32h7_gpio_api::Port::G;
+                const LED_MASK_0: u16 = 1 << 2;
+                const LED_MASK_1: u16 = 1 << 3;
+                const LED_MASK_2: u16 = 1 << 4;
+                const LED_MASK_3: u16 = 1 << 5;
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -236,7 +244,7 @@ fn enable_led_pins() {
     let gpio_driver = Gpio::from(gpio_driver);
 
     cfg_if::cfg_if! {
-        if #[cfg(not(target_board = "gemini-bu-1"))] {
+        if #[cfg(not(any(target_board = "gemini-bu-1", target_board = "gimletlet-2")))] {
             let mask = LED_MASK_0 | LED_MASK_1;
         } else {
             let mask = LED_MASK_0 | LED_MASK_1 | LED_MASK_2 | LED_MASK_3;
@@ -270,9 +278,9 @@ fn led_mask(led: Led) -> u16 {
     match led {
         Led::Zero => LED_MASK_0,
         Led::One => LED_MASK_1,
-        #[cfg(target_board = "gemini-bu-1")]
+        #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))]
         Led::Two => LED_MASK_2,
-        #[cfg(target_board = "gemini-bu-1")]
+        #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))]
         Led::Three => LED_MASK_3,
     }
 }
