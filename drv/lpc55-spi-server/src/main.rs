@@ -34,9 +34,11 @@ const SYSCON: Task = Task::syscon_driver;
 const SYSCON: Task = Task::anonymous;
 
 #[repr(u32)]
+#[derive(Debug)]
 enum ResponseCode {
     BadArg = 2,
     Busy = 3,
+    Underrun = 4,
 }
 
 // Read/Write is defined from the perspective of the SPI device
@@ -47,19 +49,13 @@ enum Op {
     Exchange = 3,
 }
 
-struct Transmit {
+struct SpiState {
     task: hl::Caller<()>,
     len: usize,
-    rpos: usize,
-    rlease_num: usize,
-    wpos: usize,
-    wlease_num: usize,
-    op: Op,
-}
-
-struct SpiDat<'a> {
-    spi: &'a mut spi_core::Spi,
-    dat: Option<Transmit>,
+    tx_pos: usize,
+    tx_lease_num: usize,
+    rx_pos: usize,
+    rx_lease_num: usize,
 }
 
 // TODO: it is super unfortunate to have to write this by hand, but deriving
@@ -111,153 +107,126 @@ fn main() -> ! {
     // Field messages.
     let mask = 1;
 
-    let mut dat = SpiDat {
-        spi: &mut spi,
-        dat: None,
-    };
-
     sys_irq_control(1, true);
 
     loop {
-        hl::recv(
-            &mut [],
-            mask,
-            &mut dat,
-            |datref, bits| {
-                if bits & 1 != 0 {
-                    if datref.spi.can_tx() {
-                        write_byte(datref.spi, &mut datref.dat);
+
+        let m = sys_recv_open(&mut [], mask);
+
+
+        if m.sender == TaskId::KERNEL {
+            // We recevied an interrupt without a caller. We need to send
+            // something back
+
+            if spi.cs_asserted() && !spi.cs_deasserted() {
+                while !spi.cs_deasserted() {
+
+                    spi.send_u8(0xff);
+                    let _ = spi.read_u8();
+                }
+            }
+
+            spi.clear_cs_state();
+
+        } else {
+            let caller = userlib::hl::Caller::from(m.sender);
+
+            if m.lease_count != 2 {
+                caller.reply_fail(ResponseCode::BadArg);
+                continue;
+            }
+
+            let borrow_send = caller.borrow(0);
+            let send_info = match borrow_send.info() {
+                Some(s) => s,
+                None => {
+                    caller.reply_fail(ResponseCode::BadArg);
+                    continue;
+                }
+            };
+
+            
+            if !send_info.attributes.contains(LeaseAttributes::READ) {
+                caller.reply_fail(ResponseCode::BadArg);
+                continue
+            }
+
+            let borrow_recv = caller.borrow(1);
+            let recv_info = match borrow_recv.info() {
+                Some(s) => s,
+                None => { 
+                     caller.reply_fail(ResponseCode::BadArg);
+                     continue;
+                }
+            };
+
+            if !recv_info.attributes.contains(LeaseAttributes::WRITE) {
+                caller.reply_fail(ResponseCode::BadArg);
+                continue
+            }
+
+            if recv_info.len != send_info.len {
+                caller.reply_fail(ResponseCode::BadArg);
+                continue
+            }
+
+            let mut s = SpiState {
+                task : caller,
+                tx_pos : 0,
+                tx_lease_num: 0,
+                rx_pos: 0,
+                rx_lease_num: 1,
+                len: recv_info.len,
+            };
+
+
+            let mut ret : Result<(), ResponseCode> = Ok(());
+           
+
+            cortex_m_semihosting::hprintln!("uh {} {}", spi.cs_asserted(), spi.cs_deasserted());
+
+            if spi.cs_asserted() {
+                spi.enable_tx();
+                spi.enable_rx();
+
+                while !spi.cs_deasserted() {
+                    cortex_m_semihosting::hprintln!("c");
+                    if spi.txerr() || spi.rxerr() {
+                        ret = Err(ResponseCode::Underrun);
+                        spi.clear_fifo_err();
+                        break;
                     }
 
-                    if datref.spi.has_byte() {
-                        read_byte(datref.spi, &mut datref.dat);
-                    }
-
-                    if let Some(txs) = &datref.dat {
-                        if txs.rpos == txs.len && txs.wpos == txs.len {
-                            if txs.op == Op::Read {
-                                datref.spi.disable_tx();
-                            }
-                            core::mem::replace(&mut datref.dat, None)
-                                .unwrap()
-                                .task
-                                .reply(());
+                    if spi.can_tx() {
+                        ret = tx_byte(&mut spi, &mut s);
+                        if ret.is_err() {
+                            break;
                         }
                     }
+
+                    if spi.has_byte() {
+                        ret = rx_byte(&mut spi, &mut s);
+                        if ret.is_err() {
+                            break;
+                        }
+                    }
+                
+
+                    sys_recv_closed(&mut [], mask, TaskId::KERNEL)
+                        .expect("notification died");
                 }
-                sys_irq_control(1, true);
-            },
-            |datref, op, msg| match op {
-                Op::Write => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
-
-                    // Deny incoming transfers if we're already running one.
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
-
-                    let borrow = caller.borrow(0);
-
-                    let borrow_info =
-                        borrow.info().ok_or(ResponseCode::BadArg)?;
-
-                    if !borrow_info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: borrow_info.len,
-                        wpos: 0,
-                        len: borrow_info.len,
-                        op: Op::Write,
-                        rlease_num: 0,
-                        wlease_num: 0,
-                    });
-
-                    datref.spi.enable_tx();
-
-                    Ok(())
-                }
-                Op::Read => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
-
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
-
-                    let borrow = caller.borrow(0);
-                    let borrow_info =
-                        borrow.info().ok_or(ResponseCode::BadArg)?;
-                    if !borrow_info.attributes.contains(LeaseAttributes::WRITE)
-                    {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: borrow_info.len,
-                        wpos: 0,
-                        len: borrow_info.len,
-                        op: Op::Read,
-                        rlease_num: 0,
-                        wlease_num: 0,
-                    });
-
-                    // Turning off receive without send is difficult (requires a
-                    // 16 bit write to a particular register) so just send some
-                    // bogus data for now
-                    datref.spi.enable_tx();
-                    datref.spi.enable_rx();
-
-                    Ok(())
-                }
-                Op::Exchange => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(2).ok_or(ResponseCode::BadArg)?;
-
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
-
-                    let borrow_send = caller.borrow(0);
-                    let send_info =
-                        borrow_send.info().ok_or(ResponseCode::BadArg)?;
-                    if !send_info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    let borrow_recv = caller.borrow(1);
-                    let recv_info =
-                        borrow_recv.info().ok_or(ResponseCode::BadArg)?;
-                    if !recv_info.attributes.contains(LeaseAttributes::WRITE) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    if recv_info.len != send_info.len {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: 0,
-                        rlease_num: 0,
-                        wpos: 0,
-                        wlease_num: 1,
-                        len: recv_info.len,
-                        op: Op::Exchange,
-                    });
-
-                    datref.spi.enable_tx();
-                    datref.spi.enable_rx();
-
-                    Ok(())
-                }
-            },
-        );
+    
+                spi.disable_tx();
+                spi.disable_rx();
+                spi.clear_cs_state();
+                cortex_m_semihosting::hprintln!("wat {} {}", spi.cs_asserted(), spi.cs_deasserted());
+            }
+            // XXX Need to get number of bytes
+            cortex_m_semihosting::hprintln!("c {:x?}", ret);
+            s.task.reply_result(ret);
+        }
     }
+
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {
@@ -310,63 +279,29 @@ fn muck_with_gpios(syscon: &Syscon) {
         .write(|w| w.func().alt5().digimode().digital().mode().pull_up());
 }
 
-fn write_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
-    let txs = if let Some(txs) = tx { txs } else { return };
 
-    if txs.op == Op::Read {
-        // This hardware block expects us to send at the same time we're
-        // receiving. There is a bit to turn it off but accessing it is
-        // not easy. For now just send 0 if we're trying to receive but
-        // not actually write
-        spi.send_u8(0x0);
-        return;
+fn tx_byte(spi: &mut spi_core::Spi, s: &mut SpiState) -> Result<(), ResponseCode> {
+
+    if s.tx_pos == s.len {
+        spi.send_u8(0xff);
+        // Is transmitting more an error?
+        return Ok(());
     }
 
-    if txs.rpos == txs.len {
-        return;
-    }
-
-    if let Some(byte) = txs.task.borrow(txs.rlease_num).read_at::<u8>(txs.rpos)
-    {
-        txs.rpos += 1;
-        spi.send_u8(byte);
-        if txs.rpos == txs.len {
-            spi.disable_tx();
-        }
-    } else {
-        spi.disable_tx();
-        spi.disable_rx();
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
-    }
+    let byte : u8 = s.task.borrow(s.tx_lease_num).read_at::<u8>(s.tx_pos).ok_or(ResponseCode::BadArg)?;
+    spi.send_u8(byte);
+    s.tx_pos += 1;
+    Ok(())
 }
 
-fn read_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
-    let txs = if let Some(txs) = tx { txs } else { return };
-
-    if txs.wpos == txs.len {
-        // This might actually be an error because we've received another
-        // byte when we have no room?
-        return;
+fn rx_byte(spi: &mut spi_core::Spi, s: &mut SpiState) -> Result<(), ResponseCode> {
+    // We received something but no room, just drop it?
+    if s.rx_pos == s.len {
+        return Ok(())
     }
 
     let byte = spi.read_u8();
-
-    let borrow = txs.task.borrow(txs.wlease_num);
-
-    if let Some(_) = borrow.write_at(txs.wpos, byte) {
-        txs.wpos += 1;
-        if txs.wpos == txs.len {
-            spi.disable_rx();
-        }
-    } else {
-        spi.disable_rx();
-        spi.disable_tx();
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
-    }
+    s.task.borrow(s.rx_lease_num).write_at(s.rx_pos, byte).ok_or(ResponseCode::BadArg)?;
+    s.rx_pos += 1;
+    Ok(())
 }
