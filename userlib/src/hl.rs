@@ -217,6 +217,16 @@ impl<R> From<TaskId> for Caller<R> {
 }
 
 impl<R> Caller<R> {
+    pub fn reply_result(self, v: Result<R, impl Into<u32>>)
+    where
+        R: AsBytes,
+    {
+        match v {
+            Ok(m) => self.reply(m),
+            Err(e) => self.reply_fail(e),
+        }
+    }
+
     /// Sends a successful reply message of type `R`, consuming the handle.
     pub fn reply(self, message: R)
     where

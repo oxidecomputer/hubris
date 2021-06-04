@@ -23,6 +23,7 @@
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
+use ringbuf::*;
 use userlib::*;
 
 #[cfg(not(feature = "standalone"))]
@@ -37,8 +38,6 @@ const SYSCON: Task = Task::anonymous;
 #[derive(Debug)]
 enum ResponseCode {
     BadArg = 2,
-    Busy = 3,
-    Underrun = 4,
 }
 
 // Read/Write is defined from the perspective of the SPI device
@@ -57,6 +56,21 @@ struct SpiState {
     rx_pos: usize,
     rx_lease_num: usize,
 }
+
+#[derive(Copy, Clone, PartialEq)]
+enum Payload {
+    None,
+    NoWaiter,
+    Start,
+    Ding,
+    TxUnderrun,
+    RxUnderrun,
+    Tx(u8),
+    Rx(u8),
+    Done,
+}
+
+ringbuf!(Payload, 128, Payload::None);
 
 // TODO: it is super unfortunate to have to write this by hand, but deriving
 // ToPrimitive makes us check at runtime whether the value fits
@@ -104,30 +118,34 @@ fn main() -> ! {
 
     spi.enable();
 
+    // Need to explicitly make sure we're looking for changes on CS
+    spi.enable_ssa_int();
+    spi.enable_ssd_int();
     // Field messages.
     let mask = 1;
 
     sys_irq_control(1, true);
 
     loop {
-
         let m = sys_recv_open(&mut [], mask);
 
-
         if m.sender == TaskId::KERNEL {
-            // We recevied an interrupt without a caller. We need to send
-            // something back
-
-            if spi.cs_asserted() && !spi.cs_deasserted() {
-                while !spi.cs_deasserted() {
-
+            ringbuf_entry!(Payload::NoWaiter);
+            // We recevied an interrupt without a caller. We need to
+            // rx/tx if we have space
+            loop {
+                if spi.can_tx() {
                     spi.send_u8(0xff);
+                }
+                if spi.has_byte() {
                     let _ = spi.read_u8();
                 }
+                if spi.cs_deasserted() {
+                    spi.clear_cs_state();
+                    break;
+                }
             }
-
-            spi.clear_cs_state();
-
+            sys_irq_control(1, true);
         } else {
             let caller = userlib::hl::Caller::from(m.sender);
 
@@ -145,88 +163,97 @@ fn main() -> ! {
                 }
             };
 
-            
             if !send_info.attributes.contains(LeaseAttributes::READ) {
                 caller.reply_fail(ResponseCode::BadArg);
-                continue
+                continue;
             }
 
             let borrow_recv = caller.borrow(1);
             let recv_info = match borrow_recv.info() {
                 Some(s) => s,
-                None => { 
-                     caller.reply_fail(ResponseCode::BadArg);
-                     continue;
+                None => {
+                    caller.reply_fail(ResponseCode::BadArg);
+                    continue;
                 }
             };
 
             if !recv_info.attributes.contains(LeaseAttributes::WRITE) {
                 caller.reply_fail(ResponseCode::BadArg);
-                continue
+                continue;
             }
 
             if recv_info.len != send_info.len {
                 caller.reply_fail(ResponseCode::BadArg);
-                continue
+                continue;
             }
 
             let mut s = SpiState {
-                task : caller,
-                tx_pos : 0,
+                task: caller,
+                tx_pos: 0,
                 tx_lease_num: 0,
                 rx_pos: 0,
                 rx_lease_num: 1,
                 len: recv_info.len,
             };
 
+            let mut ret: Result<(), ResponseCode> = Ok(());
 
-            let mut ret : Result<(), ResponseCode> = Ok(());
-           
+            // Wait for CS to be asserted
+            sys_irq_control(1, true);
+            sys_recv_closed(&mut [], mask, TaskId::KERNEL)
+                .expect("notification died");
 
-            cortex_m_semihosting::hprintln!("uh {} {}", spi.cs_asserted(), spi.cs_deasserted());
+            spi.enable_tx();
+            spi.enable_rx();
+            ringbuf_entry!(Payload::Start);
 
-            if spi.cs_asserted() {
-                spi.enable_tx();
-                spi.enable_rx();
+            loop {
+                if spi.txerr() || spi.rxerr() {
+                    if spi.txerr() {
+                        ringbuf_entry!(Payload::TxUnderrun);
+                    }
+                    if spi.rxerr() {
+                        ringbuf_entry!(Payload::RxUnderrun);
+                    }
+                    spi.clear_fifo_err();
+                }
 
-                while !spi.cs_deasserted() {
-                    cortex_m_semihosting::hprintln!("c");
-                    if spi.txerr() || spi.rxerr() {
-                        ret = Err(ResponseCode::Underrun);
-                        spi.clear_fifo_err();
+                if spi.can_tx() {
+                    ret = tx_byte(&mut spi, &mut s);
+                    if ret.is_err() {
                         break;
                     }
-
-                    if spi.can_tx() {
-                        ret = tx_byte(&mut spi, &mut s);
-                        if ret.is_err() {
-                            break;
-                        }
-                    }
-
-                    if spi.has_byte() {
-                        ret = rx_byte(&mut spi, &mut s);
-                        if ret.is_err() {
-                            break;
-                        }
-                    }
-                
-
-                    sys_recv_closed(&mut [], mask, TaskId::KERNEL)
-                        .expect("notification died");
                 }
-    
-                spi.disable_tx();
-                spi.disable_rx();
-                spi.clear_cs_state();
-                cortex_m_semihosting::hprintln!("wat {} {}", spi.cs_asserted(), spi.cs_deasserted());
+
+                if spi.has_byte() {
+                    ret = rx_byte(&mut spi, &mut s);
+                    if ret.is_err() {
+                        break;
+                    }
+                }
+
+                if s.tx_pos == s.len && s.rx_pos == s.len && spi.cs_deasserted()
+                {
+                    while spi.has_byte() {
+                        let _ = spi.read_u8();
+                    }
+                    break;
+                }
+
+                sys_irq_control(1, true);
+                sys_recv_closed(&mut [], mask, TaskId::KERNEL)
+                    .expect("notification died");
             }
+
+            spi.disable_tx();
+            spi.disable_rx();
+            spi.clear_cs_state();
+
             // XXX Need to get number of bytes
-            cortex_m_semihosting::hprintln!("c {:x?}", ret);
+            ringbuf_entry!(Payload::Done);
             s.task.reply_result(ret);
         }
     }
-
 }
 
 fn turn_on_flexcomm(syscon: &Syscon) {
@@ -279,29 +306,43 @@ fn muck_with_gpios(syscon: &Syscon) {
         .write(|w| w.func().alt5().digimode().digital().mode().pull_up());
 }
 
-
-fn tx_byte(spi: &mut spi_core::Spi, s: &mut SpiState) -> Result<(), ResponseCode> {
-
+fn tx_byte(
+    spi: &mut spi_core::Spi,
+    s: &mut SpiState,
+) -> Result<(), ResponseCode> {
     if s.tx_pos == s.len {
         spi.send_u8(0xff);
         // Is transmitting more an error?
         return Ok(());
     }
 
-    let byte : u8 = s.task.borrow(s.tx_lease_num).read_at::<u8>(s.tx_pos).ok_or(ResponseCode::BadArg)?;
+    let byte: u8 = s
+        .task
+        .borrow(s.tx_lease_num)
+        .read_at::<u8>(s.tx_pos)
+        .ok_or(ResponseCode::BadArg)?;
+    ringbuf_entry!(Payload::Tx(byte));
     spi.send_u8(byte);
     s.tx_pos += 1;
     Ok(())
 }
 
-fn rx_byte(spi: &mut spi_core::Spi, s: &mut SpiState) -> Result<(), ResponseCode> {
+fn rx_byte(
+    spi: &mut spi_core::Spi,
+    s: &mut SpiState,
+) -> Result<(), ResponseCode> {
     // We received something but no room, just drop it?
     if s.rx_pos == s.len {
-        return Ok(())
+        return Ok(());
     }
 
     let byte = spi.read_u8();
-    s.task.borrow(s.rx_lease_num).write_at(s.rx_pos, byte).ok_or(ResponseCode::BadArg)?;
+    ringbuf_entry!(Payload::Rx(byte));
+    //cortex_m_semihosting::hprintln!("got {:x}", byte);
+    s.task
+        .borrow(s.rx_lease_num)
+        .write_at(s.rx_pos, byte)
+        .ok_or(ResponseCode::BadArg)?;
     s.rx_pos += 1;
     Ok(())
 }

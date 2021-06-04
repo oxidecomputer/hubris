@@ -435,6 +435,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]

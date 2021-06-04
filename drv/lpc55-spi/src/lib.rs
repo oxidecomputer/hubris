@@ -110,6 +110,22 @@ impl Spi {
         });
     }
 
+    pub fn enable_ssa_int(&mut self) {
+        self.reg.intenset.modify(|_, w| w.ssaen().enabled());
+    }
+
+    pub fn disable_ssa_int(&mut self) {
+        self.reg.intenclr.write(|w| w.ssaen().set_bit());
+    }
+
+    pub fn enable_ssd_int(&mut self) {
+        self.reg.intenset.modify(|_, w| w.ssden().enabled());
+    }
+
+    pub fn disable_ssd_int(&mut self) {
+        self.reg.intenclr.write(|w| w.ssden().set_bit());
+    }
+
     pub fn enable(&mut self) {
         self.reg
             .fifocfg
@@ -170,5 +186,33 @@ impl Spi {
         // "This flag will be 1 if this is the first data after the
         // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u8
+    }
+
+    pub fn cs_asserted(&mut self) -> bool {
+        self.reg.intstat.read().ssa().bit_is_set()
+    }
+
+    pub fn cs_deasserted(&mut self) -> bool {
+        self.reg.intstat.read().ssd().bit_is_set()
+    }
+
+    pub fn clear_cs_state(&mut self) {
+        self.reg
+            .stat
+            .modify(|_, w| w.ssa().set_bit().ssd().set_bit());
+    }
+
+    pub fn txerr(&self) -> bool {
+        self.reg.fifostat.read().txerr().bit_is_set()
+    }
+
+    pub fn rxerr(&self) -> bool {
+        self.reg.fifostat.read().rxerr().bit_is_set()
+    }
+
+    pub fn clear_fifo_err(&mut self) {
+        self.reg
+            .fifostat
+            .write(|w| w.txerr().set_bit().rxerr().set_bit());
     }
 }
