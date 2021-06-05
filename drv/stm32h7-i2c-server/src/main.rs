@@ -45,40 +45,46 @@ fn lookup_controller<'a>(
 }
 
 ///
-/// Looks up (and validates) a port, translating `Port::Default` to the
-/// matching port (or returning an error if there is more than one port
+/// Validates a port for the specified controller, translating `Port::Default`
+/// to the matching port (or returning an error if there is more than one port
 /// and `Port::Default` has been specified).
 ///
-fn lookup_port<'a>(
+fn validate_port<'a>(
     pins: &'a [I2cPin],
     controller: Controller,
     port: Port,
 ) -> Result<Port, ResponseCode> {
-    let mut default = None;
+    if port != Port::Default {
+        //
+        // The more straightforward case is when our port has been explicitly
+        // provided -- we just need to verify that it's valid.
+        //
+        pins.iter()
+            .find(|pin| pin.controller == controller && pin.port == port)
+            .map(|pin| pin.port)
+            .ok_or(ResponseCode::BadPort)
+    } else {
+        let mut found = pins
+            .iter()
+            .filter(|pin| pin.controller == controller)
+            .map(|pin| pin.port);
 
-    for pin in pins {
-        if pin.controller != controller {
-            continue;
-        }
-
-        if pin.port == port {
-            return Ok(port);
-        }
-
-        if port == Port::Default {
-            match default {
-                None => {
-                    default = Some(pin.port);
+        //
+        // A default port has been requested; we need to verify that there is
+        // but one port for this controller -- if there is more than one, we
+        // require the port to be explicitly provided.
+        //
+        match found.next() {
+            None => Err(ResponseCode::BadController),
+            Some(port) => {
+                if found.any(|p| p != port) {
+                    Err(ResponseCode::BadDefaultPort)
+                } else {
+                    Ok(port)
                 }
-                Some(port) if port != pin.port => {
-                    return Err(ResponseCode::BadDefaultPort);
-                }
-                _ => {}
             }
         }
     }
-
-    default.ok_or(ResponseCode::BadPort)
 }
 
 fn find_mux(
@@ -408,7 +414,7 @@ fn main() -> ! {
                 }
 
                 let controller = lookup_controller(&controllers, controller)?;
-                let port = lookup_port(&pins, controller.controller, port)?;
+                let port = validate_port(&pins, controller.controller, port)?;
 
                 configure_port(&mut portmap, controller, port, &pins);
 
@@ -510,11 +516,10 @@ fn configure_port(
     // We will now iterate over all pins, de-configuring any that match our
     // old port, and configuring any that match our new port.
     //
-    for pin in pins {
-        if pin.controller != controller.controller {
-            continue;
-        }
-
+    for pin in pins
+        .iter()
+        .filter(|p| p.controller == controller.controller)
+    {
         if pin.port == current {
             //
             // We de-configure our current port by setting the pins to
@@ -532,9 +537,7 @@ fn configure_port(
                 Alternate::AF0,
             )
             .unwrap();
-        }
-
-        if pin.port == port {
+        } else if pin.port == port {
             // Configure our new port!
             gpio.configure(
                 pin.gpio_port,
