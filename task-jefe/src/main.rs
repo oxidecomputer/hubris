@@ -22,6 +22,8 @@
 #![no_std]
 #![no_main]
 
+mod external;
+
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -76,28 +78,75 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Disposition {
+    Restart,
+    Start,
+    Hold,
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("viva el jefe");
 
+    let mut disposition: [Disposition; NUM_TASKS] =
+        [Disposition::Restart; NUM_TASKS];
+    let mut logged: [bool; NUM_TASKS] = [false; NUM_TASKS];
+
     // We'll have notification 0 wired up to receive information about task
     // faults.
-    let mask = 1;
+    let fault_mask = 1;
+
+    // Our timer mask can't conflict with our fault notification, but can
+    // otherwise be arbitrary.  We pick a timer interval of ~100ms to remain
+    // reasonably responsive to any external requests.
+    const TIMER_MASK: u32 = 1 << 1;
+    const TIMER_INTERVAL: u64 = 100;
+    let mut deadline = TIMER_INTERVAL;
+
+    sys_set_timer(Some(deadline), TIMER_MASK);
+
+    external::ready();
+
     loop {
-        let msginfo = sys_recv_open(&mut [], mask);
+        let msginfo = sys_recv_open(&mut [], fault_mask | TIMER_MASK);
 
         if msginfo.sender == TaskId::KERNEL {
-            // Handle notification
-            // We'll assume this notification represents a fault, since we only
-            // had the one bit enabled in the mask... which task has fallen
-            // over?
-            for i in 0..NUM_TASKS {
-                let s = kipc::read_task_status(i);
-                if let abi::TaskState::Faulted { fault, .. } = s {
-                    log_fault(i, &fault);
+            // Check to see if we have any external requests
+            let changed = external::check(&mut disposition);
 
-                    // Stand it back up.
-                    kipc::restart_task(i, true);
+            // If our timer went off, we need to reestablish it
+            if msginfo.operation & TIMER_MASK != 0 {
+                deadline += TIMER_INTERVAL;
+                sys_set_timer(Some(deadline), TIMER_MASK);
+            }
+
+            // If our disposition has changed or if we have been notified of
+            // a faulting task, we need to iterate over all of our tasks.
+            if changed || (msginfo.operation & fault_mask) != 0 {
+                for i in 0..NUM_TASKS {
+                    match kipc::read_task_status(i) {
+                        abi::TaskState::Faulted { fault, .. } => {
+                            if !logged[i] {
+                                log_fault(i, &fault);
+                                logged[i] = true;
+                            }
+
+                            if disposition[i] == Disposition::Restart {
+                                // Stand it back up
+                                kipc::restart_task(i, true);
+                                logged[i] = false;
+                            }
+                        }
+
+                        abi::TaskState::Healthy(abi::SchedState::Stopped) => {
+                            if disposition[i] == Disposition::Start {
+                                kipc::restart_task(i, true);
+                            }
+                        }
+
+                        _ => {}
+                    }
                 }
             }
         } else {

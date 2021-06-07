@@ -39,7 +39,7 @@ execute = true
 path = "../task-jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 32768, ram = 1024}
+requires = {flash = 32768, ram = 2048}
 start = true
 features = ["itm"]
 

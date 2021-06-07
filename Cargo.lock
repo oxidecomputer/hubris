@@ -1624,6 +1624,8 @@ dependencies = [
  "abi",
  "cortex-m",
  "cortex-m-semihosting",
+ "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]
