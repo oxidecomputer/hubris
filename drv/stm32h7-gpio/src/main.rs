@@ -76,7 +76,7 @@
 #![no_main]
 
 use byteorder::LittleEndian;
-use drv_stm32h7_rcc_api::Rcc;
+use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 use stm32h7::stm32h7b3 as device;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
@@ -297,7 +297,7 @@ fn turn_on_all_gpios() {
     ));
 
     for port in 0..11 {
-        let pnum = 96 + port; // see bits in AHB4ENR
+        let pnum = Peripheral::GpioA as u32 + port; // see bits in AHB4ENR
         rcc_driver.enable_clock_raw(pnum).unwrap();
         rcc_driver.leave_reset_raw(pnum).unwrap();
     }

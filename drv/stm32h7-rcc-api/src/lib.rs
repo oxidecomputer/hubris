@@ -2,6 +2,8 @@
 
 #![no_std]
 
+use core::cell::Cell;
+
 use byteorder::LittleEndian;
 use zerocopy::{AsBytes, U32};
 
@@ -15,23 +17,24 @@ enum Op {
 }
 
 #[derive(Clone, Debug)]
-pub struct Rcc(TaskId);
+pub struct Rcc(Cell<TaskId>);
 
 impl From<TaskId> for Rcc {
     fn from(t: TaskId) -> Self {
-        Self(t)
+        Self(Cell::new(t))
     }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum RccError {
-    Dead = !0,
+    BadArg = 2,
 }
 
 impl From<u32> for RccError {
     fn from(x: u32) -> Self {
         match x {
-            core::u32::MAX => RccError::Dead,
+            2 => RccError::BadArg,
+            // Panicking here might be rude. TODO.
             _ => panic!(),
         }
     }
@@ -40,24 +43,19 @@ impl From<u32> for RccError {
 impl Rcc {
     /// Requests that the clock to a peripheral be turned on.
     ///
+    /// This operation is idempotent and will be retried automatically should
+    /// the RCC server crash while processing it.
+    ///
     /// # Panics
     ///
     /// If the RCC server has died.
     pub fn enable_clock(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct EnableClock(Peripheral);
-
-        impl hl::Call for EnableClock {
-            const OP: u16 = Op::EnableClock as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &EnableClock(peripheral)).unwrap()
+        // We are unwrapping here because the RCC server should not return
+        // BadArg for a valid member of the Peripheral enum.
+        self.enable_clock_raw(peripheral as u32).unwrap()
     }
 
-    pub fn enable_clock_raw(&self, index: usize) -> Result<(), RccError> {
+    pub fn enable_clock_raw(&self, index: u32) -> Result<(), RccError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct Request(U32<LittleEndian>);
@@ -68,29 +66,24 @@ impl Rcc {
             type Err = RccError;
         }
 
-        hl::send(self.0, &Request(U32::new(index as u32)))
+        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the clock to a peripheral be turned off.
+    ///
+    /// This operation is idempotent and will be retried automatically should
+    /// the RCC server crash while processing it.
     ///
     /// # Panics
     ///
     /// If the RCC server has died.
     pub fn disable_clock(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct DisableClock(Peripheral);
-
-        impl hl::Call for DisableClock {
-            const OP: u16 = Op::DisableClock as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &DisableClock(peripheral)).unwrap()
+        // We are unwrapping here because the RCC server should not return
+        // BadArg for a valid member of the Peripheral enum.
+        self.disable_clock_raw(peripheral as u32).unwrap()
     }
 
-    pub fn disable_clock_raw(&self, index: usize) -> Result<(), RccError> {
+    pub fn disable_clock_raw(&self, index: u32) -> Result<(), RccError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct Request(U32<LittleEndian>);
@@ -101,29 +94,24 @@ impl Rcc {
             type Err = RccError;
         }
 
-        hl::send(self.0, &Request(U32::new(index as u32)))
+        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the reset line to a peripheral be asserted.
+    ///
+    /// This operation is idempotent and will be retried automatically should
+    /// the RCC server crash while processing it.
     ///
     /// # Panics
     ///
     /// If the RCC server has died.
     pub fn enter_reset(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct EnterReset(Peripheral);
-
-        impl hl::Call for EnterReset {
-            const OP: u16 = Op::EnterReset as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &EnterReset(peripheral)).unwrap()
+        // We are unwrapping here because the RCC server should not return
+        // BadArg for a valid member of the Peripheral enum.
+        self.enter_reset_raw(peripheral as u32).unwrap()
     }
 
-    pub fn enter_reset_raw(&self, index: usize) -> Result<(), RccError> {
+    pub fn enter_reset_raw(&self, index: u32) -> Result<(), RccError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct Request(U32<LittleEndian>);
@@ -134,29 +122,24 @@ impl Rcc {
             type Err = RccError;
         }
 
-        hl::send(self.0, &Request(U32::new(index as u32)))
+        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the reset line to a peripheral be deasserted.
+    ///
+    /// This operation is idempotent and will be retried automatically should
+    /// the RCC server crash while processing it.
     ///
     /// # Panics
     ///
     /// If the RCC server has died.
     pub fn leave_reset(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct LeaveReset(Peripheral);
-
-        impl hl::Call for LeaveReset {
-            const OP: u16 = Op::LeaveReset as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &LeaveReset(peripheral)).unwrap()
+        // We are unwrapping here because the RCC server should not return
+        // BadArg for a valid member of the Peripheral enum.
+        self.leave_reset_raw(peripheral as u32).unwrap()
     }
 
-    pub fn leave_reset_raw(&self, index: usize) -> Result<(), RccError> {
+    pub fn leave_reset_raw(&self, index: u32) -> Result<(), RccError> {
         #[derive(AsBytes)]
         #[repr(C)]
         struct Request(U32<LittleEndian>);
@@ -167,7 +150,7 @@ impl Rcc {
             type Err = RccError;
         }
 
-        hl::send(self.0, &Request(U32::new(index as u32)))
+        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 }
 
