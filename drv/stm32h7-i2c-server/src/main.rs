@@ -505,6 +505,8 @@ fn configure_port(
 ) {
     let current = map.get(controller.controller).unwrap();
 
+    assert!(port != Port::Default);
+
     if current == port {
         return;
     }
