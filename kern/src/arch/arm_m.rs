@@ -589,8 +589,9 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         // (presumably due to an oversight) not present in the cortex_m API, so
         // let's fake it.
         let ictr = (0xe000_e004 as *const u32).read_volatile();
-        // This gives interrupt count in blocks of 32.
-        let irq_block_count = ictr as usize & 0xF;
+        // This gives interrupt count in blocks of 32, minus 1, so there are
+        // always at least 32 interrupts.
+        let irq_block_count = (ictr as usize & 0xF) + 1;
         let irq_count = irq_block_count * 32;
         // Blindly poke all the interrupts to 0xFF.
         for i in 0..irq_count {
