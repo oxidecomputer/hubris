@@ -20,6 +20,7 @@ enum Request {
     Start = 1,
     Hold = 2,
     Release = 3,
+    Fault = 4,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -82,6 +83,7 @@ pub fn check(disposition: &mut [Disposition]) -> bool {
                 Request::Hold => Disposition::Hold,
                 Request::Release => Disposition::Restart,
                 Request::Start => Disposition::Start,
+                Request::Fault => Disposition::Fault,
             };
 
             rval = true;

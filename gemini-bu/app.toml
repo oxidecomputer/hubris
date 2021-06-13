@@ -44,6 +44,7 @@ priority = 0
 requires = {flash = 16384, ram = 2048}
 start = true
 features = ["itm"]
+stacksize = 1536
 
 [tasks.rcc_driver]
 path = "../drv/stm32h7-rcc"

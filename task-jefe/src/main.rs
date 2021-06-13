@@ -75,6 +75,10 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
         abi::FaultInfo::Panic => {
             sys_log!("Task #{} Panic!", t);
         }
+
+        abi::FaultInfo::Injected(who) => {
+            sys_log!("Task #{} Fault injected by task #{}", t, who);
+        }
     }
 }
 
@@ -83,6 +87,7 @@ pub enum Disposition {
     Restart,
     Start,
     Hold,
+    Fault,
 }
 
 #[export_name = "main"]
@@ -145,7 +150,11 @@ fn main() -> ! {
                             }
                         }
 
-                        _ => {}
+                        abi::TaskState::Healthy(..) => {
+                            if disposition[i] == Disposition::Fault {
+                                kipc::fault_task(i);
+                            }
+                        }
                     }
                 }
             }
