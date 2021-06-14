@@ -1,6 +1,6 @@
 name = "demo"
 target = "thumbv7em-none-eabihf"
-board = "stm32f4-discovery"
+board = "stm32f3-discovery"
 stacksize = 1024
 
 [kernel]
@@ -17,7 +17,7 @@ requires = {flash = 65536, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["itm", "stm32f4"]
+features = ["itm", "stm32f3"]
 
 [supervisor]
 notification = 1
@@ -30,7 +30,7 @@ execute = true
 
 [outputs.ram]
 address = 0x20000000
-size = 114688
+size = 40960
 read = true
 write = true
 execute = true
@@ -46,7 +46,7 @@ features = ["itm"]
 [tasks.rcc_driver]
 path = "../drv/stm32fx-rcc"
 name = "drv-stm32fx-rcc"
-features = ["stm32f4"]
+features = ["stm32f3"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
@@ -55,7 +55,7 @@ start = true
 [tasks.usart_driver]
 path = "../drv/stm32fx-usart"
 name = "drv-stm32fx-usart"
-features = ["stm32f4"]
+features = ["stm32f3"]
 priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["usart2", "gpioa"]
@@ -65,10 +65,10 @@ interrupts = {38 = 1}
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
-features = ["stm32f4"]
+features = ["stm32f3"]
 priority = 2
 requires = {flash = 16384, ram = 1024}
-uses = ["gpiod"]
+uses = ["gpioe"]
 start = true
 
 [tasks.ping]
@@ -100,13 +100,13 @@ address = 0x40004400
 size = 1024
 
 [peripherals.rcc]
-address = 0x40023800
+address = 0x40021000
 size = 1024
 
 [peripherals.gpioa]
-address = 0x40020000
+address = 0x48000000
 size = 1024
 
-[peripherals.gpiod]
-address = 0x40020c00
+[peripherals.gpioe]
+address = 0x48001000
 size = 1024

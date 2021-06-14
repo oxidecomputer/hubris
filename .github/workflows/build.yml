@@ -21,8 +21,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f4, lpc55, stm32h7b3, stm32h743, gemini, gemini-rot]
+        build: [stm32f3, stm32f4, lpc55, stm32h7b3, stm32h743, gemini, gemini-rot]
         include:
+          - build: stm32f3
+            app_name: demo
+            app_toml: demo/app-f3.toml
+            target: thumbv7em-none-eabihf
           - build: stm32f4
             app_name: demo
             app_toml: demo/app.toml

@@ -14,6 +14,9 @@ extern crate panic_semihosting; // requires a debugger
 
 // We have to do this if we don't otherwise use it to ensure its vector table
 // gets linked in.
+#[cfg(feature = "stm32f3")]
+extern crate stm32f3;
+#[cfg(feature = "stm32f4")]
 extern crate stm32f4;
 
 use cortex_m_rt::entry;
@@ -28,6 +31,9 @@ extern "C" {
 #[entry]
 fn main() -> ! {
     // Default boot speed, until we bother raising it:
+    #[cfg(feature = "stm32f3")]
+    const CYCLES_PER_MS: u32 = 8_000;
+    #[cfg(feature = "stm32f4")]
     const CYCLES_PER_MS: u32 = 16_000;
 
     unsafe {
