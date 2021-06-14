@@ -1,4 +1,4 @@
-//! A driver for the STM32F4 Reset and Clock Controller (RCC).
+//! A driver for the STM32F3/4 Reset and Clock Controller (RCC).
 //!
 //! This driver puts the system into a reasonable initial state, and then fields
 //! requests to alter settings on behalf of other drivers. This prevents us from
@@ -46,7 +46,12 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "stm32f3")]
+use stm32f3::stm32f303 as device;
+
+#[cfg(feature = "stm32f4")]
 use stm32f4::stm32f407 as device;
+
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -128,32 +133,79 @@ fn main() -> ! {
                 // duplication here." Well, good luck. svd2rust has ensured that
                 // every *ENR and *RSTR register is a *totally distinct type*,
                 // meaning we can't operate on them generically.
+                //
+                // STMF3 boards only have the single AHB bus, so error out
+                // if any other bus is requested
                 match op {
                     Op::EnableClock => match bus {
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb1 => set_bits!(rcc.ahbenr, pmask),
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
+
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => set_bits!(rcc.ahb1enr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb2 => set_bits!(rcc.ahb2enr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb3 => set_bits!(rcc.ahb3enr, pmask),
+
                         Bus::Apb1 => set_bits!(rcc.apb1enr, pmask),
                         Bus::Apb2 => set_bits!(rcc.apb2enr, pmask),
                     },
                     Op::DisableClock => match bus {
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb1 => clear_bits!(rcc.ahbenr, pmask),
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
+
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => clear_bits!(rcc.ahb1enr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb2 => clear_bits!(rcc.ahb2enr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb3 => clear_bits!(rcc.ahb3enr, pmask),
+
                         Bus::Apb1 => clear_bits!(rcc.apb1enr, pmask),
                         Bus::Apb2 => clear_bits!(rcc.apb2enr, pmask),
                     },
                     Op::EnterReset => match bus {
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb1 => set_bits!(rcc.ahbrstr, pmask),
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
+
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => set_bits!(rcc.ahb1rstr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb2 => set_bits!(rcc.ahb2rstr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb3 => set_bits!(rcc.ahb3rstr, pmask),
+
                         Bus::Apb1 => set_bits!(rcc.apb1rstr, pmask),
                         Bus::Apb2 => set_bits!(rcc.apb2rstr, pmask),
                     },
                     Op::LeaveReset => match bus {
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb1 => clear_bits!(rcc.ahbrstr, pmask),
+                        #[cfg(feature = "stm32f3")]
+                        Bus::Ahb2 | Bus::Ahb3 => {
+                            return Err(ResponseCode::BadArg)
+                        }
+
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb1 => clear_bits!(rcc.ahb1rstr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb2 => clear_bits!(rcc.ahb2rstr, pmask),
+                        #[cfg(feature = "stm32f4")]
                         Bus::Ahb3 => clear_bits!(rcc.ahb3rstr, pmask),
+
                         Bus::Apb1 => clear_bits!(rcc.apb1rstr, pmask),
                         Bus::Apb2 => clear_bits!(rcc.apb2rstr, pmask),
                     },

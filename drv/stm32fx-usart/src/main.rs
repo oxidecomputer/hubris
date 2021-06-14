@@ -9,7 +9,12 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "stm32f4")]
 use stm32f4::stm32f407 as device;
+
+#[cfg(feature = "stm32f3")]
+use stm32f3::stm32f303 as device;
+
 use userlib::*;
 use zerocopy::AsBytes;
 
@@ -61,15 +66,27 @@ fn main() -> ! {
     // The UART has clock and is out of reset, but isn't actually on until we:
     usart.cr1.write(|w| w.ue().enabled());
     // Work out our baud rate divisor.
-    const CLOCK_HZ: u32 = 16_000_000;
     const BAUDRATE: u32 = 115_200;
-    const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
-    usart.brr.write(|w| {
-        w.div_mantissa()
-            .bits((CYCLES_PER_BIT >> 4) as u16)
-            .div_fraction()
-            .bits(CYCLES_PER_BIT as u8 & 0xF)
-    });
+
+    #[cfg(feature = "stm32f3")]
+    {
+        const CLOCK_HZ: u32 = 8_000_000;
+        usart
+            .brr
+            .write(|w| w.brr().bits((CLOCK_HZ / BAUDRATE) as u16));
+    }
+
+    #[cfg(feature = "stm32f4")]
+    {
+        const CLOCK_HZ: u32 = 16_000_000;
+        const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;
+        usart.brr.write(|w| {
+            w.div_mantissa()
+                .bits((CYCLES_PER_BIT >> 4) as u16)
+                .div_fraction()
+                .bits(CYCLES_PER_BIT as u8 & 0xF)
+        });
+    }
 
     // Enable the transmitter.
     usart.cr1.modify(|_, w| w.te().enabled());
@@ -110,7 +127,11 @@ fn main() -> ! {
                     // check the individual conditions we care about, and
                     // unconditionally re-enable the IRQ at the end of the handler.
 
-                    if usart.sr.read().txe().bit() {
+                    #[cfg(feature = "stm32f3")]
+                    let txe = usart.isr.read().txe().bit();
+                    #[cfg(feature = "stm32f4")]
+                    let txe = usart.sr.read().txe().bit();
+                    if txe {
                         // TX register empty. Do we need to send something?
                         step_transmit(&usart, txref);
                     }
@@ -189,7 +210,12 @@ fn turn_on_gpioa() {
         TaskId::for_index_and_gen(RCC as usize, Generation::default());
 
     const ENABLE_CLOCK: u16 = 1;
+
+    #[cfg(feature = "stm32f3")]
+    let pnum = 17; // see bits in AHBENR
+    #[cfg(feature = "stm32f4")]
     let pnum = 0; // see bits in AHB1ENR
+
     let (code, _) = userlib::sys_send(
         rcc_driver,
         ENABLE_CLOCK,
@@ -227,6 +253,9 @@ fn step_transmit(
 
     if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
+        #[cfg(feature = "stm32f3")]
+        usart.tdr.write(|w| w.tdr().bits(u16::from(byte)));
+        #[cfg(feature = "stm32f4")]
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
         txs.pos += 1;
