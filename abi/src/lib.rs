@@ -385,6 +385,8 @@ pub enum FaultInfo {
     SyscallUsage(UsageError),
     /// A task has explicitly aborted itself with a panic.
     Panic,
+    /// A fault has been injected into this task by another task
+    Injected(TaskId),
 }
 
 impl From<UsageError> for FaultInfo {
@@ -407,6 +409,9 @@ pub enum UsageError {
     /// A program named a task ID that will never be valid, as it's out of
     /// range.
     TaskOutOfRange,
+    /// A program named a valid task ID, but attempted to perform an operation
+    /// on it that is illegal or otherwise forbidden.
+    IllegalTask,
     LeaseOutOfRange,
     OffsetOutOfRange,
     NoIrq,

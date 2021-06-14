@@ -350,6 +350,10 @@ fn log_fault(t: usize, fault: &FaultInfo) {
         FaultInfo::Panic => {
             sys_log!("Task #{} Panic!", t);
         }
+
+        FaultInfo::Injected(who) => {
+            sys_log!("Task #{} Fault injected by task #{}", t, who.index());
+        }
     }
 }
 

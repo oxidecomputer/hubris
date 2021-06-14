@@ -224,6 +224,22 @@ fn main() -> ! {
                         illinst(0);
                         panic!("unexpectedly survived {:?}", op);
                     }
+
+                    AssistOp::ReadTaskStatus => {
+                        caller.reply(0);
+                        let _ = kipc::read_task_status(*msg as usize);
+                    }
+
+                    AssistOp::FaultTask => {
+                        caller.reply(0);
+                        let _ = kipc::fault_task(*msg as usize);
+                    }
+
+                    AssistOp::RestartTask => {
+                        caller.reply(0);
+                        let _ = kipc::restart_task(*msg as usize, true);
+                    }
+
                     _ => {
                         // Anything else should be fatal
                         for (which, func) in &fatalops {

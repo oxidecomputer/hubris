@@ -23,6 +23,9 @@ pub enum AssistOp {
     IllegalInstruction = 15,
     EatSomePi = 16,
     PiAndDie = 17,
+    ReadTaskStatus = 18,
+    FaultTask = 19,
+    RestartTask = 20,
 }
 
 /// Operations that are performed by the test-suite

@@ -14,6 +14,7 @@ test-api = {path = "../test-api"}
 [features]
 default = ["standalone"]
 standalone = []
+itm = [ "userlib/log-itm" ]
 
 # a target for `cargo xtask check`
 [package.metadata.build]
