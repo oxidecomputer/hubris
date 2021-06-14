@@ -71,8 +71,9 @@ fn main() -> ! {
     #[cfg(feature = "stm32f3")]
     {
         const CLOCK_HZ: u32 = 8_000_000;
-        // Safety: TODO, why is the f3 version of `bits` unsafe?
-        usart.brr.write(|w| unsafe { w.bits(CLOCK_HZ / BAUDRATE) });
+        usart
+            .brr
+            .write(|w| w.brr().bits((CLOCK_HZ / BAUDRATE) as u16));
     }
 
     #[cfg(feature = "stm32f4")]
