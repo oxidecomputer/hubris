@@ -1,18 +1,19 @@
 [package]
-name = "drv-stm32f4-rcc"
+name = "drv-stm32fx-usart"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
-stm32f4 = { version = "0.13.0", features = ["stm32f407"] }
+stm32f3 = { version = "0.13.2", features = ["stm32f303"], optional = true }
+stm32f4 = { version = "0.13.0", features = ["stm32f407"], optional = true }
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["stm32f4"]
 
 # a target for `cargo xtask check`
 [package.metadata.build]
@@ -21,6 +22,6 @@ target = "thumbv7em-none-eabihf"
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-stm32f4-rcc"
+name = "drv-stm32fx-usart"
 test = false
 bench = false

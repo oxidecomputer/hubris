@@ -116,17 +116,22 @@ support.
 See the Gemini Bringup [Getting
 Started](https://github.com/oxidecomputer/gemini-bringup#getting-started) docs.
 
-### STM32F4 Discovery board
+### STM32F3 & STM32F4 Discovery boards
 
 Connect board via USB.
 
-From one terminal, `cd` into the root of this repository and run `openocd`.
-(This causes `openocd` to pick up the `openocd.cfg` at the root.)
+From one terminal, launch `openocd` with the corresponding config file:
+
+```console
+$ openocd -f demo/openocd.cfg       # STM32F4 Discovery boards OR
+$ openocd -f demo/openocd-f3.cfg    # STM32F3 Discovery boards
+```
 
 From another terminal:
 
 ```console
-$ cargo xtask gdb demo/app.toml openocd.gdb
+$ cargo xtask gdb demo/app.toml openocd.gdb         # STM32F4 Discovery boards OR
+$ cargo xtask gdb demo/app-f3.toml openocd-f3.gdb   # STM32F3 Discovery boards
 ```
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
