@@ -1494,9 +1494,9 @@ dependencies = [
 
 [[package]]
 name = "stm32f3"
-version = "0.13.0"
+version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e212ebc31a11c94edb709de8bb6cb93b96eeb687283855ba814d4a2596bd70d"
+checksum = "081e808e6b2114ced6a83437081ed9816c92017eda7722a7c22f80984fb5476a"
 dependencies = [
  "bare-metal",
  "cortex-m",

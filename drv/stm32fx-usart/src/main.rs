@@ -254,10 +254,7 @@ fn step_transmit(
     if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
         #[cfg(feature = "stm32f3")]
-        // SAFETY: Why is the f3 version unsafe?
-        usart
-            .tdr
-            .write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
+        usart.tdr.write(|w| w.tdr().bits(u16::from(byte)));
         #[cfg(feature = "stm32f4")]
         usart.dr.write(|w| w.dr().bits(u16::from(byte)));
 
