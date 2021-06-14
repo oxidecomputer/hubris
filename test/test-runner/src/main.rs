@@ -352,7 +352,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
         }
 
         FaultInfo::Injected(who) => {
-            sys_log!("Task #{} Fault injected by task #{}", t, who);
+            sys_log!("Task #{} Fault injected by task #{}", t, who.index());
         }
     }
 }

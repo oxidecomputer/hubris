@@ -43,7 +43,6 @@ enum Trace {
 
 ringbuf!(Trace, 4, Trace::None);
 
-#[no_mangle]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
 static JEFE_EXTERNAL_REQUEST: AtomicU32 = AtomicU32::new(0);
 static JEFE_EXTERNAL_TASKINDEX: AtomicU32 = AtomicU32::new(0);
@@ -57,10 +56,8 @@ static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 /// a valid external request was received.
 ///
 pub fn check(disposition: &mut [Disposition]) -> bool {
-    let mut rval = false;
-
-    if JEFE_EXTERNAL_KICK.load(Ordering::SeqCst) == 0 {
-        return rval;
+    if JEFE_EXTERNAL_KICK.swap(0, Ordering::SeqCst) == 0 {
+        return false;
     }
 
     let val = JEFE_EXTERNAL_REQUEST.load(Ordering::SeqCst);
@@ -70,10 +67,8 @@ pub fn check(disposition: &mut [Disposition]) -> bool {
 
         if ndx == 0 {
             ringbuf_entry!(Trace::Error(Error::IllegalTask));
-            JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
         } else if ndx >= disposition.len() {
             ringbuf_entry!(Trace::Error(Error::BadTask));
-            JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
         } else {
             let task = TaskIndex(ndx as u16);
             ringbuf_entry!(Trace::Request(request, task));
@@ -86,24 +81,22 @@ pub fn check(disposition: &mut [Disposition]) -> bool {
                 Request::Fault => Disposition::Fault,
             };
 
-            rval = true;
-
             ringbuf_entry!(Trace::Disposition(task, disposition[ndx]));
-
             JEFE_EXTERNAL_REQUESTS.fetch_add(1, Ordering::SeqCst);
+
+            return true;
         }
     } else {
         ringbuf_entry!(Trace::Error(Error::BadRequest));
-        JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
     }
 
-    JEFE_EXTERNAL_KICK.fetch_sub(1, Ordering::SeqCst);
-    rval
+    JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
+    return false;
 }
 
 ///
 /// Indicates that we are ready for external control.
 ///
-pub fn ready() {
+pub fn set_ready() {
     JEFE_EXTERNAL_READY.fetch_add(1, Ordering::SeqCst);
 }

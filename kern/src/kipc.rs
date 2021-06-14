@@ -193,7 +193,8 @@ fn fault_task(
         )));
     }
 
-    let _ = crate::task::force_fault(tasks, index, FaultInfo::Injected(caller));
+    let id = current_id(tasks, caller);
+    let _ = crate::task::force_fault(tasks, index, FaultInfo::Injected(id));
     tasks[caller].save_mut().set_send_response_and_length(0, 0);
 
     Ok(NextTask::Same)

@@ -386,7 +386,7 @@ pub enum FaultInfo {
     /// A task has explicitly aborted itself with a panic.
     Panic,
     /// A fault has been injected into this task by another task
-    Injected(usize),
+    Injected(TaskId),
 }
 
 impl From<UsageError> for FaultInfo {

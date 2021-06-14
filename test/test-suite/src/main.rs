@@ -775,13 +775,16 @@ fn test_task_fault_injection() {
 
     // Assistant should now be faulted, indicating us as the injector
     let status = kipc::read_task_status(ASSIST as usize);
-    assert_eq!(
-        status,
-        TaskState::Faulted {
-            fault: FaultInfo::Injected(SUITE as usize),
-            original_state: SchedState::InRecv(None),
-        },
-    );
+
+    if let TaskState::Faulted { fault, .. } = status {
+        if let FaultInfo::Injected(injector) = fault {
+            assert_eq!(injector.index(), SUITE as usize);
+        } else {
+            panic!("unexpected fault: {:?}", fault);
+        }
+    } else {
+        panic!("unexpected status: {:?}", status);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

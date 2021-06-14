@@ -77,7 +77,7 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
         }
 
         abi::FaultInfo::Injected(who) => {
-            sys_log!("Task #{} Fault injected by task #{}", t, who);
+            sys_log!("Task #{} Fault injected by task #{}", t, who.index());
         }
     }
 }
@@ -102,16 +102,18 @@ fn main() -> ! {
     // faults.
     let fault_mask = 1;
 
-    // Our timer mask can't conflict with our fault notification, but can
-    // otherwise be arbitrary.  We pick a timer interval of ~100ms to remain
-    // reasonably responsive to any external requests.
+    // We install a timeout to periodcally check for an external direction
+    // of our task disposition (e.g., via Humility).  This timeout should
+    // generally be fast for a human but slow for a computer; we pick a
+    // value of ~100 ms.  Our timer mask can't conflict with our fault
+    // notification, but can otherwise be arbitrary.
     const TIMER_MASK: u32 = 1 << 1;
     const TIMER_INTERVAL: u64 = 100;
     let mut deadline = TIMER_INTERVAL;
 
     sys_set_timer(Some(deadline), TIMER_MASK);
 
-    external::ready();
+    external::set_ready();
 
     loop {
         let msginfo = sys_recv_open(&mut [], fault_mask | TIMER_MASK);
