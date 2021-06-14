@@ -48,6 +48,14 @@ test_cases! {
     test_fault_buserror,
     test_fault_illinst,
     test_fault_divzero,
+    test_fault_maxstatus,
+    test_fault_badstatus,
+    test_fault_maxrestart,
+    test_fault_badrestart,
+    test_fault_maxinjection,
+    test_fault_badinjection,
+    test_fault_superinjection,
+    test_fault_selfinjection,
     test_panic,
     test_restart,
     test_restart_taskgen,
@@ -57,7 +65,9 @@ test_cases! {
     test_supervisor_fault_notification,
     test_timer_advance,
     test_timer_notify,
-    test_timer_notify_past
+    test_timer_notify_past,
+    test_task_status,
+    test_task_fault_injection
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -249,6 +259,60 @@ fn test_fault_illinst() {
 /// Tests that division-by-zero results in a DivideByZero fault
 fn test_fault_divzero() {
     assert_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
+}
+
+fn test_fault_badtaskop(op: AssistOp, id: usize) {
+    match op {
+        AssistOp::ReadTaskStatus
+        | AssistOp::FaultTask
+        | AssistOp::RestartTask => {}
+        _ => {
+            panic!("illegal task operation");
+        }
+    }
+
+    assert_eq!(
+        test_fault(op, id as u32),
+        FaultInfo::SyscallUsage(UsageError::TaskOutOfRange)
+    );
+}
+
+fn test_fault_maxstatus() {
+    test_fault_badtaskop(AssistOp::ReadTaskStatus, usize::MAX);
+}
+
+fn test_fault_badstatus() {
+    test_fault_badtaskop(AssistOp::ReadTaskStatus, NUM_TASKS);
+}
+
+fn test_fault_maxrestart() {
+    test_fault_badtaskop(AssistOp::RestartTask, usize::MAX);
+}
+
+fn test_fault_badrestart() {
+    test_fault_badtaskop(AssistOp::RestartTask, NUM_TASKS);
+}
+
+fn test_fault_maxinjection() {
+    test_fault_badtaskop(AssistOp::FaultTask, usize::MAX);
+}
+
+fn test_fault_badinjection() {
+    test_fault_badtaskop(AssistOp::FaultTask, NUM_TASKS);
+}
+
+fn test_fault_superinjection() {
+    assert_eq!(
+        test_fault(AssistOp::FaultTask, 0),
+        FaultInfo::SyscallUsage(UsageError::IllegalTask)
+    );
+}
+
+fn test_fault_selfinjection() {
+    assert_eq!(
+        test_fault(AssistOp::FaultTask, ASSIST as u32),
+        FaultInfo::SyscallUsage(UsageError::IllegalTask)
+    );
 }
 
 /// Tests that a `panic!` in a task is recorded as a fault.
@@ -664,6 +728,65 @@ fn test_floating_point_fault() {
     test_fault(AssistOp::PiAndDie, 0);
 }
 
+fn test_task_status() {
+    let mut id: usize = 0;
+    let assist = assist_task_id();
+
+    loop {
+        let mut response = 0_u32;
+        let (rc, len) = sys_send(
+            assist,
+            AssistOp::ReadTaskStatus as u16,
+            &id.to_le_bytes(),
+            response.as_bytes_mut(),
+            &[],
+        );
+        assert_eq!(rc, 0);
+        assert_eq!(len, 4);
+
+        let status = kipc::read_task_status(ASSIST as usize);
+
+        if let TaskState::Faulted { fault, .. } = status {
+            assert_eq!(id, NUM_TASKS);
+            assert_eq!(
+                fault,
+                FaultInfo::SyscallUsage(UsageError::TaskOutOfRange)
+            );
+            return;
+        }
+
+        assert_ne!(id, NUM_TASKS);
+        id += 1;
+    }
+}
+
+fn test_task_fault_injection() {
+    // Assistant should be fine
+    let status = kipc::read_task_status(ASSIST as usize);
+    match status {
+        TaskState::Healthy(..) => {}
+        _ => {
+            panic!("assistant is not healthy");
+        }
+    }
+
+    // Inject a fault into it
+    kipc::fault_task(ASSIST as usize);
+
+    // Assistant should now be faulted, indicating us as the injector
+    let status = kipc::read_task_status(ASSIST as usize);
+
+    if let TaskState::Faulted { fault, .. } = status {
+        if let FaultInfo::Injected(injector) = fault {
+            assert_eq!(injector.index(), SUITE as usize);
+        } else {
+            panic!("unexpected fault: {:?}", fault);
+        }
+    } else {
+        panic!("unexpected status: {:?}", status);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Frameworky bits follow
 
@@ -671,10 +794,17 @@ fn test_floating_point_fault() {
 #[cfg(not(feature = "standalone"))]
 const ASSIST: Task = Task::assist;
 
+/// Our own identity
+#[cfg(not(feature = "standalone"))]
+const SUITE: Task = Task::suite;
+
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
 const ASSIST: Task = Task::anonymous;
+
+#[cfg(feature = "standalone")]
+const SUITE: Task = Task::anonymous;
 
 /// Tracks the current generation of the assistant task as we restart it.
 static ASSIST_GEN: AtomicU8 = AtomicU8::new(0);

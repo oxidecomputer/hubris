@@ -22,6 +22,7 @@ pub fn handle_kernel_message(
     match operation {
         1 => read_task_status(tasks, caller, maybe_message?, maybe_response?),
         2 => restart_task(tasks, caller, maybe_message?),
+        3 => fault_task(tasks, caller, maybe_message?),
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
@@ -82,7 +83,7 @@ fn read_task_status(
     response: USlice<u8>,
 ) -> Result<NextTask, UserError> {
     let index: u32 = deserialize_message(&tasks[caller], message)?;
-    if index as usize > tasks.len() {
+    if index as usize >= tasks.len() {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::TaskOutOfRange,
         )));
@@ -106,7 +107,7 @@ fn restart_task(
     let (index, start): (u32, bool) =
         deserialize_message(&tasks[caller], message)?;
     let index = index as usize;
-    if index > tasks.len() {
+    if index >= tasks.len() {
         return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::TaskOutOfRange,
         )));
@@ -160,5 +161,41 @@ fn restart_task(
     } else {
         tasks[caller].save_mut().set_send_response_and_length(0, 0);
     }
+    Ok(NextTask::Same)
+}
+
+///
+/// Inject a fault into a specified task.  The injected fault will be of a
+/// distinct type (`FaultInfo::Injected`) and will contain as a payload the
+/// task that injected the fault.  As with restarting, we allow any task to
+/// inject a fault into any other task but -- unlike restarting -- we
+/// (1) explicitly forbid any fault injection into the supervisor and
+/// (2) explicitly forbid any fault injection into the current task (for
+/// which the caller should be instead explicitly panicking).
+///
+fn fault_task(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let index: u32 = deserialize_message(&tasks[caller], message)?;
+    let index = index as usize;
+
+    if index == 0 || index == caller {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::IllegalTask,
+        )));
+    }
+
+    if index >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    let id = current_id(tasks, caller);
+    let _ = crate::task::force_fault(tasks, index, FaultInfo::Injected(id));
+    tasks[caller].save_mut().set_send_response_and_length(0, 0);
+
     Ok(NextTask::Same)
 }
