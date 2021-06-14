@@ -44,32 +44,47 @@ fn lookup_controller<'a>(
     Err(ResponseCode::BadController)
 }
 
-fn lookup_pin<'a>(
+///
+/// Validates a port for the specified controller, translating `Port::Default`
+/// to the matching port (or returning an error if there is more than one port
+/// and `Port::Default` has been specified).
+///
+fn validate_port<'a>(
     pins: &'a [I2cPin],
     controller: Controller,
     port: Port,
-) -> Result<&'a I2cPin, ResponseCode> {
-    let mut default = None;
+) -> Result<Port, ResponseCode> {
+    if port != Port::Default {
+        //
+        // The more straightforward case is when our port has been explicitly
+        // provided -- we just need to verify that it's valid.
+        //
+        pins.iter()
+            .find(|pin| pin.controller == controller && pin.port == port)
+            .map(|pin| pin.port)
+            .ok_or(ResponseCode::BadPort)
+    } else {
+        let mut found = pins
+            .iter()
+            .filter(|pin| pin.controller == controller)
+            .map(|pin| pin.port);
 
-    for pin in pins {
-        if pin.controller != controller {
-            continue;
-        }
-
-        if pin.port == port {
-            return Ok(pin);
-        }
-
-        if port == Port::Default {
-            if default.is_none() {
-                default = Some(pin);
-            } else {
-                return Err(ResponseCode::BadDefaultPort);
+        //
+        // A default port has been requested; we need to verify that there is
+        // but one port for this controller -- if there is more than one, we
+        // require the port to be explicitly provided.
+        //
+        match found.next() {
+            None => Err(ResponseCode::BadController),
+            Some(port) => {
+                if found.any(|p| p != port) {
+                    Err(ResponseCode::BadDefaultPort)
+                } else {
+                    Ok(port)
+                }
             }
         }
     }
-
-    default.ok_or(ResponseCode::BadPort)
 }
 
 fn find_mux(
@@ -304,6 +319,58 @@ fn main() -> ! {
             },
 
             ];
+        } else if #[cfg(target_board = "gimletlet-2")] {
+            let controllers = [ I2cController {
+                controller: Controller::I2C2,
+                peripheral: Peripheral::I2c2,
+                notification: (1 << (2 - 1)),
+                registers: unsafe { &*device::I2C2::ptr() },
+            }, I2cController {
+                controller: Controller::I2C3,
+                peripheral: Peripheral::I2c3,
+                notification: (1 << (3 - 1)),
+                registers: unsafe { &*device::I2C3::ptr() },
+            }, I2cController {
+                controller: Controller::I2C4,
+                peripheral: Peripheral::I2c4,
+                notification: (1 << (4 - 1)),
+                registers: unsafe { &*device::I2C4::ptr() },
+            } ];
+
+            //
+            // Note that I2C3 is a bit unusual in that its SCL and SDA are on
+            // two different ports (port A and port C, respectively); we
+            // therefore have two `I2cPin` structures for I2C3, but for
+            // purposes of the abstraction that we export to consumers, we
+            // call the pair logical port A.
+            //
+            let pins = [ I2cPin {
+                controller: Controller::I2C2,
+                port: Port::F,
+                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                function: Alternate::AF4,
+                mask: (1 << 0) | (1 << 1),
+            }, I2cPin {
+                controller: Controller::I2C3,
+                port: Port::A,
+                gpio_port: drv_stm32h7_gpio_api::Port::A,
+                function: Alternate::AF4,
+                mask: (1 << 8),
+            }, I2cPin {
+                controller: Controller::I2C3,
+                port: Port::A,
+                gpio_port: drv_stm32h7_gpio_api::Port::C,
+                function: Alternate::AF4,
+                mask: (1 << 9),
+            }, I2cPin {
+                controller: Controller::I2C4,
+                port: Port::F,
+                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                function: Alternate::AF4,
+                mask: (1 << 14) | (1 << 15),
+            } ];
+
+            let muxes = [];
         } else {
             compile_error!("no I2C controllers/pins for unknown board");
         }
@@ -347,23 +414,21 @@ fn main() -> ! {
                 }
 
                 let controller = lookup_controller(&controllers, controller)?;
-                let pin = lookup_pin(&pins, controller.controller, port)?;
+                let port = validate_port(&pins, controller.controller, port)?;
 
-                configure_port(&mut portmap, controller, pin, &pins);
+                configure_port(&mut portmap, controller, port, &pins);
 
                 match configure_mux(
                     &mut muxmap,
                     controller,
-                    pin.port,
+                    port,
                     mux,
                     &muxes,
                     &ctrl,
                 ) {
                     Ok(_) => {}
                     Err(code) => {
-                        reset_if_needed(
-                            code, controller, pin.port, &muxes, mux,
-                        );
+                        reset_if_needed(code, controller, port, &muxes, mux);
                         return Err(code);
                     }
                 }
@@ -435,47 +500,61 @@ fn configure_controllers(controllers: &[I2cController]) {
 fn configure_port(
     map: &mut PortMap,
     controller: &I2cController,
-    pin: &I2cPin,
+    port: Port,
     pins: &[I2cPin],
 ) {
-    let p = map.get(controller.controller).unwrap();
+    let current = map.get(controller.controller).unwrap();
 
-    if p == pin.port {
+    assert!(port != Port::Default);
+
+    if current == port {
         return;
     }
 
     let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
     let gpio = Gpio::from(gpio);
 
-    let src = lookup_pin(pins, controller.controller, p).ok().unwrap();
+    //
+    // We will now iterate over all pins, de-configuring any that match our
+    // old port, and configuring any that match our new port.
+    //
+    for pin in pins
+        .iter()
+        .filter(|p| p.controller == controller.controller)
+    {
+        if pin.port == current {
+            //
+            // We de-configure our current port by setting the pins to
+            // `Mode::input`, which will assure that we don't leave SCL and
+            // SDA pulled high. (The output type and function will be
+            // effectively ignored.)
+            //
+            gpio.configure(
+                pin.gpio_port,
+                pin.mask,
+                Mode::Input,
+                OutputType::OpenDrain,
+                Speed::High,
+                Pull::None,
+                Alternate::AF0,
+            )
+            .unwrap();
+        } else if pin.port == port {
+            // Configure our new port!
+            gpio.configure(
+                pin.gpio_port,
+                pin.mask,
+                Mode::Alternate,
+                OutputType::OpenDrain,
+                Speed::High,
+                Pull::None,
+                pin.function,
+            )
+            .unwrap();
+        }
+    }
 
-    // First, de-configure our current port by setting the pins to
-    // `Mode::input`, which will assure that we don't leave SCL and SDA pulled
-    // high. (The output type and function will be effectively ignored.)
-    gpio.configure(
-        src.gpio_port,
-        src.mask,
-        Mode::Input,
-        OutputType::OpenDrain,
-        Speed::High,
-        Pull::None,
-        Alternate::AF0,
-    )
-    .unwrap();
-
-    // And now configure our new port!
-    gpio.configure(
-        pin.gpio_port,
-        pin.mask,
-        Mode::Alternate,
-        OutputType::OpenDrain,
-        Speed::High,
-        Pull::None,
-        pin.function,
-    )
-    .unwrap();
-
-    map.insert(controller.controller, pin.port);
+    map.insert(controller.controller, port);
 }
 
 fn configure_pins(
@@ -491,21 +570,28 @@ fn configure_pins(
             lookup_controller(controllers, pin.controller).ok().unwrap();
 
         match map.get(controller.controller) {
-            None => {
-                gpio.configure(
-                    pin.gpio_port,
-                    pin.mask,
-                    Mode::Alternate,
-                    OutputType::OpenDrain,
-                    Speed::High,
-                    Pull::None,
-                    pin.function,
-                )
-                .unwrap();
-                map.insert(controller.controller, pin.port);
+            Some(port) if port != pin.port => {
+                //
+                // If we have already enabled this controller with a different
+                // port, we don't want to enable this pin.
+                //
+                continue;
             }
-            Some(_) => {}
+            _ => {}
         }
+
+        gpio.configure(
+            pin.gpio_port,
+            pin.mask,
+            Mode::Alternate,
+            OutputType::OpenDrain,
+            Speed::High,
+            Pull::None,
+            pin.function,
+        )
+        .unwrap();
+
+        map.insert(controller.controller, pin.port);
     }
 }
 
@@ -522,9 +608,7 @@ fn configure_muxes(
     for mux in muxes {
         let controller =
             lookup_controller(controllers, mux.controller).unwrap();
-        let pin = lookup_pin(&pins, mux.controller, mux.port).unwrap();
-
-        configure_port(map, controller, pin, pins);
+        configure_port(map, controller, mux.port, pins);
 
         loop {
             match mux.driver.configure(&mux, controller, &gpio, ctrl) {
