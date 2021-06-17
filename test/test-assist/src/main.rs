@@ -240,6 +240,24 @@ fn main() -> ! {
                         let _ = kipc::restart_task(*msg as usize, true);
                     }
 
+                    AssistOp::RefreshTaskIdOffByOne => {
+                        caller.reply(0);
+                        let _ = sys_refresh_task_id(TaskId::for_index_and_gen(
+                            NUM_TASKS,
+                            Generation::default(),
+                        ));
+                        panic!("unexpectedly survived {:?}", op);
+                    }
+
+                    AssistOp::RefreshTaskIdOffByMany => {
+                        caller.reply(0);
+                        let _ = sys_refresh_task_id(TaskId::for_index_and_gen(
+                            usize::MAX,
+                            Generation::default(),
+                        ));
+                        panic!("unexpectedly survived {:?}", op);
+                    }
+
                     _ => {
                         // Anything else should be fatal
                         for (which, func) in &fatalops {

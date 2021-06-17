@@ -364,6 +364,12 @@ pub trait ArchState: Default {
         AsPanicArgs(self)
     }
 
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for REFRESH_TASK_ID
+    fn as_refresh_task_id_args(&self) -> AsRefreshTaskIdArgs<&Self> {
+        AsRefreshTaskIdArgs(self)
+    }
+
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
         self.ret0(resp);
@@ -422,6 +428,11 @@ pub trait ArchState: Default {
         self.ret3(dl_u64 as u32);
         self.ret4((dl_u64 >> 32) as u32);
         self.ret5(not.0);
+    }
+
+    /// Sets the results of REFRESH_TASK_ID
+    fn set_refresh_task_id_result(&mut self, id: TaskId) {
+        self.ret0(id.0 as u32);
     }
 }
 
@@ -583,6 +594,15 @@ impl<'a, T: ArchState> AsPanicArgs<&'a T> {
     /// Extracts the task's reported message slice.
     pub fn message(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
+    }
+}
+
+/// Reference proxy for Get Task Generation argument registers.
+pub struct AsRefreshTaskIdArgs<T>(T);
+
+impl<'a, T: ArchState> AsRefreshTaskIdArgs<&'a T> {
+    pub fn task_id(&self) -> TaskId {
+        TaskId(self.0.arg0() as u16)
     }
 }
 

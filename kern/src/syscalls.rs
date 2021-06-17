@@ -85,6 +85,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
         Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -731,4 +732,23 @@ fn explicit_panic(
     }
 
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
+}
+
+fn refresh_task_id(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_refresh_task_id_args();
+    let peer = args.task_id().index(); // discard original generation
+    drop(args);
+
+    if peer < tasks.len() {
+        let tid = task::current_id(tasks, peer);
+        tasks[caller].save_mut().set_refresh_task_id_result(tid);
+        Ok(NextTask::Same)
+    } else {
+        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )))
+    }
 }
