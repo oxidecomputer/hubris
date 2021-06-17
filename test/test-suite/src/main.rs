@@ -67,7 +67,10 @@ test_cases! {
     test_timer_notify,
     test_timer_notify_past,
     test_task_status,
-    test_task_fault_injection
+    test_task_fault_injection,
+    test_refresh_task_id_basic,
+    test_refresh_task_id_off_by_one,
+    test_refresh_task_id_off_by_many
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -785,6 +788,39 @@ fn test_task_fault_injection() {
     } else {
         panic!("unexpected status: {:?}", status);
     }
+}
+
+/// Tests that we can get current task IDs for the assistant. In practice, this
+/// is already tested because the test runner relies on it -- but this may
+/// provide a more specific failure if we break it, and is meant to complement
+/// the bogus cases below.
+fn test_refresh_task_id_basic() {
+    let initial_id = assist_task_id();
+    restart_assistant();
+    let new_id = sys_refresh_task_id(initial_id);
+
+    assert_eq!(
+        new_id.index(),
+        initial_id.index(),
+        "should not change the task index"
+    );
+    assert_eq!(
+        new_id.generation(),
+        initial_id.generation().next(),
+        "generation should be advanced by one here"
+    );
+}
+
+fn test_refresh_task_id_off_by_one() {
+    let fault = test_fault(AssistOp::RefreshTaskIdOffByOne, 0);
+
+    assert_eq!(fault, FaultInfo::SyscallUsage(UsageError::TaskOutOfRange));
+}
+
+fn test_refresh_task_id_off_by_many() {
+    let fault = test_fault(AssistOp::RefreshTaskIdOffByMany, 0);
+
+    assert_eq!(fault, FaultInfo::SyscallUsage(UsageError::TaskOutOfRange));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
