@@ -2,6 +2,7 @@
 
 #![no_std]
 
+use core::cell::Cell;
 use zerocopy::AsBytes;
 
 use userlib::*;
@@ -14,11 +15,11 @@ enum Op {
 }
 
 #[derive(Clone, Debug)]
-pub struct UserLeds(TaskId);
+pub struct UserLeds(Cell<TaskId>);
 
 impl From<TaskId> for UserLeds {
     fn from(t: TaskId) -> Self {
-        Self(t)
+        Self(Cell::new(t))
     }
 }
 
@@ -26,7 +27,6 @@ impl From<TaskId> for UserLeds {
 pub enum LedError {
     Unsupported = 1,
     NoSuchLed = 2,
-    Dead = !0,
 }
 
 impl From<u32> for LedError {
@@ -34,7 +34,6 @@ impl From<u32> for LedError {
         match x {
             1 => LedError::Unsupported,
             2 => LedError::NoSuchLed,
-            core::u32::MAX => LedError::Dead,
             _ => panic!(),
         }
     }
@@ -53,7 +52,7 @@ impl UserLeds {
             type Err = LedError;
         }
 
-        hl::send(self.0, &On(index))
+        hl::send_with_retry(&self.0, &On(index))
     }
 
     /// Turns an LED off by index.
@@ -68,7 +67,7 @@ impl UserLeds {
             type Err = LedError;
         }
 
-        hl::send(self.0, &Off(index))
+        hl::send_with_retry(&self.0, &Off(index))
     }
 
     /// Toggles an LED by index.
@@ -83,6 +82,6 @@ impl UserLeds {
             type Err = LedError;
         }
 
-        hl::send(self.0, &Tog(index))
+        hl::send_with_retry(&self.0, &Tog(index))
     }
 }
