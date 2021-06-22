@@ -167,7 +167,7 @@ fn reset_if_needed(
         }
     }
 
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     // First, bounce our I2C controller
@@ -480,10 +480,7 @@ fn main() -> ! {
 }
 
 fn turn_on_i2c(controllers: &[I2cController]) {
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = Rcc::from(get_task_id(RCC));
 
     for controller in controllers {
         controller.enable(&rcc_driver);
@@ -511,7 +508,7 @@ fn configure_port(
         return;
     }
 
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     //
@@ -562,7 +559,7 @@ fn configure_pins(
     pins: &[I2cPin],
     map: &mut PortMap,
 ) {
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     for pin in pins {
@@ -602,7 +599,7 @@ fn configure_muxes(
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     for mux in muxes {

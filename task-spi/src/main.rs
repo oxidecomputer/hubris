@@ -22,7 +22,7 @@ ringbuf!(Payload, 16, Payload::None);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = TaskId::for_index_and_gen(SPI as usize, Generation::default());
+    let spi = get_task_id(SPI);
     sys_log!("Waiting to receive SPI data");
     loop {
         let mut recv: [u8; 4] = [0; 4];

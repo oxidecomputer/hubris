@@ -51,8 +51,7 @@ impl From<ResponseCode> for u32 {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let syscon =
-        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let syscon = get_task_id(SYSCON);
     let syscon = Syscon::from(syscon);
 
     syscon.enable_clock(Peripheral::Rng);

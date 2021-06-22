@@ -72,10 +72,7 @@ const IRQ_MASK: u32 = 1;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let rcc_driver = rcc_api::Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
 
     // SPI4 is the connection from SP -> RoT
     rcc_driver.enable_clock(rcc_api::Peripheral::Spi4);
@@ -99,10 +96,7 @@ fn main() -> ! {
         device::spi1::cfg2::SSOM_A::ASSERTED,
     );
 
-    let gpio_driver = gpio_api::Gpio::from(TaskId::for_index_and_gen(
-        GPIO as usize,
-        Generation::default(),
-    ));
+    let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
     // The main connection to RoT
     // PE2 = SCK

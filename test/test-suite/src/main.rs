@@ -15,7 +15,6 @@
 #![no_main]
 #![feature(asm)]
 
-use core::sync::atomic::{AtomicU8, Ordering};
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -834,6 +833,9 @@ const ASSIST: Task = Task::assist;
 #[cfg(not(feature = "standalone"))]
 const SUITE: Task = Task::suite;
 
+#[cfg(not(feature = "standalone"))]
+const RUNNER: Task = Task::runner;
+
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
@@ -842,27 +844,23 @@ const ASSIST: Task = Task::anonymous;
 #[cfg(feature = "standalone")]
 const SUITE: Task = Task::anonymous;
 
-/// Tracks the current generation of the assistant task as we restart it.
-static ASSIST_GEN: AtomicU8 = AtomicU8::new(0);
+#[cfg(feature = "standalone")]
+const RUNNER: Task = Task::anonymous;
 
 /// Gets the current expected `TaskId` for the assistant.
 fn assist_task_id() -> TaskId {
-    TaskId::for_index_and_gen(
-        ASSIST as usize,
-        Generation::from(ASSIST_GEN.load(Ordering::SeqCst)),
-    )
+    get_task_id(ASSIST)
 }
 
 /// Restarts the assistant task.
 fn restart_assistant() {
     kipc::restart_task(ASSIST as usize, true);
-    ASSIST_GEN.fetch_add(1, Ordering::SeqCst);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
 /// notifications.
 fn read_runner_notifications() -> u32 {
-    let runner = TaskId::for_index_and_gen(0, Generation::default());
+    let runner = get_task_id(RUNNER);
     let mut response = 0u32;
     let op = RunnerOp::ReadAndClearNotes as u16;
     let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
@@ -892,7 +890,6 @@ fn main() -> ! {
         if rc == 0 {
             break;
         }
-        ASSIST_GEN.fetch_add(1, Ordering::SeqCst);
     }
 
     let mut buffer = [0; 4];

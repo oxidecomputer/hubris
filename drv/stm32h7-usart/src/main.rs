@@ -163,10 +163,7 @@ fn main() -> ! {
 
 fn turn_on_usart() {
     use drv_stm32h7_rcc_api::{Peripheral, Rcc};
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = Rcc::from(get_task_id(RCC));
 
     #[cfg(feature = "h7b3")]
     const PORT: Peripheral = Peripheral::Usart1;
@@ -181,8 +178,7 @@ fn turn_on_usart() {
 fn configure_pins() {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     #[cfg(feature = "h7b3")]

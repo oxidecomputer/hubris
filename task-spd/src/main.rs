@@ -40,8 +40,7 @@ const I2C: Task = Task::i2c_driver;
 const I2C: Task = Task::anonymous;
 
 fn configure_pin(pin: &I2cPin) {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     gpio_driver
@@ -107,26 +106,24 @@ fn main() -> ! {
     }
 
     // Enable the controller
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = Rcc::from(get_task_id(RCC));
 
     controller.enable(&rcc_driver);
 
     // Configure our pins
     configure_pin(&pin);
 
+    let i2c_task = get_task_id(I2C);
     let devices = [
         I2cDevice::new(
-            TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+            i2c_task,
             Controller::I2C4,
             Port::F,
             Some((Mux::M1, Segment::S1)),
             ADT7420_ADDRESS,
         ),
         I2cDevice::new(
-            TaskId::for_index_and_gen(I2C as usize, Generation::default()),
+            i2c_task,
             Controller::I2C4,
             Port::F,
             Some((Mux::M1, Segment::S4)),

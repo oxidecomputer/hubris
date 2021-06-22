@@ -37,7 +37,7 @@ fn divzero() {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let peer = TaskId::for_index_and_gen(PEER as usize, Generation::default());
+    let peer = get_task_id(PEER);
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
 
@@ -62,7 +62,7 @@ fn main() -> ! {
 
 #[cfg(feature = "uart")]
 fn uart_send(text: &[u8]) {
-    let peer = TaskId::for_index_and_gen(UART as usize, Generation::default());
+    let peer = get_task_id(UART);
 
     const OP_WRITE: u16 = 1;
     let (code, _) =

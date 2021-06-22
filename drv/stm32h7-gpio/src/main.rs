@@ -291,10 +291,7 @@ fn main() -> ! {
 }
 
 fn turn_on_all_gpios() {
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = Rcc::from(get_task_id(RCC));
 
     for port in 0..11 {
         let pnum = Peripheral::GpioA as u32 + port; // see bits in AHB4ENR
