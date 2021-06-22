@@ -134,8 +134,7 @@ fn gpio_num_pin_mask(gpionum: u8) -> Result<(usize, u32), ResponseCode> {
 }
 
 fn turn_on_gpio_clocks() {
-    let syscon_driver =
-        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let syscon_driver = get_task_id(SYSCON);
     const ENABLE_CLOCK: u16 = 1;
 
     let iocon_num = 13;

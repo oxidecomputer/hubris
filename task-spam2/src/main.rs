@@ -15,7 +15,7 @@ const I2C: Task = Task::i2c_driver;
 #[export_name = "main"]
 fn main() -> ! {
     let addr: &[u8] = &[0x0];
-    let i2c = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let i2c = get_task_id(I2C);
     hprintln!("Starting to spam!").ok();
     loop {
         let mut recv: [u8; 4] = [0; 4];

@@ -169,8 +169,7 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm() {
-    let rcc_driver =
-        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let rcc_driver = get_task_id(SYSCON);
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 43; // see bits in APB1ENR
@@ -195,8 +194,7 @@ fn turn_on_flexcomm() {
 }
 
 fn muck_with_gpios() {
-    let rcc_driver =
-        TaskId::for_index_and_gen(SYSCON as usize, Generation::default());
+    let rcc_driver = get_task_id(SYSCON);
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 13; // see bits in APB1ENR

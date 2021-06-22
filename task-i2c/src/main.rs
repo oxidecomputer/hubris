@@ -79,7 +79,7 @@ fn scan_controller(
     port: Port,
     mux: Option<(Mux, Segment)>,
 ) {
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     for addr in 0..128 {
@@ -98,7 +98,7 @@ fn scan_device(
     mux: Option<(Mux, Segment)>,
     addr: u8,
 ) {
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let device = I2cDevice::new(task, controller, port, mux, addr);
@@ -120,7 +120,7 @@ fn read(
     register: Option<u8>,
     nbytes: BytesToRead,
 ) {
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let device = I2cDevice::new(task, controller, port, mux, addr);
@@ -164,7 +164,7 @@ fn write_register(
     register: u8,
     value: u8,
 ) {
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let results = unsafe { &mut I2C_DEBUG_RESULTS };
 
     let device = I2cDevice::new(task, controller, port, mux, addr);
