@@ -175,16 +175,26 @@ The reply buffer slice must be an `&mut`, but the others can be `&`.
 The lease table slice must be 4-byte aligned. The others can be arbitrarily
 aligned.
 
-Response codes are application defined except for one subtlety, which is that a
-message sent to a dead task (one where the generation doesn't match) will always
-reply with the response code `!0` (i.e. all bits set). All other values are
-available for the application. It is possible to fake a dead task by
-deliberately replying with a response code of `!0`, because it didn't seem
-useful to filter it out.
+Response codes are application defined except for one subtlety: *dead codes.*
+The kernel will deliver a dead code in two situations:
+
+1. SEND to a task with the wrong generation, suggesting that the recipient has
+   restarted without the sender noticing.
+
+2. If the recipient crashes while the sender is waiting -- either waiting to
+   transfer the initial message, or waiting for the reply.
+
+Dead codes have their top 24 bits set (that is, `0xFFFF_FF00`). In the bottom 8
+bits, the kernel returns the _current_ generation number of the peer, so that
+the caller can correct their records.
+
+It is possible to fake a dead task by deliberately sending a response code in
+the dead code range -- because it didn't seem useful to spend cycles filtering
+this out.
 
 === `RECV` (1)
 
-Receives a pending message.
+Receives a pending message or notification.
 
 The error-free path:
 
@@ -195,9 +205,11 @@ The error-free path:
 - Returns information describing the message to your task.
 
 If the provided notification mask is not zero, the receive operation may be
-interrupted by a _notification message_ from the kernel instead (if any of the
-given notifications have been posted). Notification messages can be
-distinguished by having the illegal sender `0xFFFF`.
+interrupted by a _notification message_ from the kernel instead. This happens
+if any of the notification bits specified in the mask (by 1 bits) have been set
+on the calling task. When RECV returns, you can distinguish these notification
+messages because they have the kernel's virtual task ID `0xFFFF` as the message
+sender.
 
 ==== Closed vs Open RECV
 
@@ -210,7 +222,8 @@ any notifications enabled by the notification mask.
 
 During a closed receive, a task will receive messages only from the chosen task.
 The task will *not* receive notifications unless the chosen sender ID is the
-kernel's task ID, `0xFFFF`.
+kernel's task ID, `0xFFFF`. (This behavior is a little odd because it predates
+notification masks, and may change.)
 
 ==== Arguments
 
@@ -224,12 +237,15 @@ kernel's task ID, `0xFFFF`.
 
 ==== Return values
 
-- 0: always 0 for open receive; closed receive may also return `!0` to indicate
-  that the chosen peer has died.
+- 0: always 0 for open receive; closed receive may also return a dead code if
+  the chosen peer has died. (See SEND for the structure of dead codes.)
 - 1: Task ID of the sender (generation in 15:12, ID in 11:0).
-- 2: Operation code used by sender.
-- 3: Length of message sent.
-- 4: Number of leases provided with message.
+- 2: Operation code used by sender. (Or notification bits, if the sender is the
+  kernel.)
+- 3: Length of message sent, in bytes. This may be longer than the buffer
+  provided by the caller, which indicates that the message was truncated.
+- 4: Number of bytes of room the caller has provided for the reply message.
+- 5: Number of leases provided with message.
 
 ==== Faults
 
@@ -249,9 +265,9 @@ your task to be immediately faulted instead of returning a code.
 
 ==== Notes
 
-It's legal to specify a zero-length receive buffer. In this case, the base
-address is ignored. This can be useful if you only need to distinguish between
-messages by their operation codes.
+It's legal to specify a zero-length receive buffer, if the messages you're
+expecting consist only of the operation code or notification bits. In this
+case, the base address is ignored and may be invalid or null.
 
 If the sender sent a message _longer_ than your receive buffer, you will get the
 _prefix_ of the message, and the returned response length will give the _actual_
@@ -261,7 +277,8 @@ length to detect truncation.
 Leases received with the message are referenced with the combination (TaskID,
 lease number). Lease numbers range between 0 and one less than the received
 lease count, as you'd expect. Leases are only valid until the sending task
-unblocks.
+unblocks, which normally happens only when you `REPLY`, but could also occur as
+a result of an asynchronous restart from the supervisor.
 
 The notification mask is provided anew with each receive because the `RECV`
 callsite has a clear idea of which notifications it can handle. Plus, it saves a
@@ -274,7 +291,7 @@ syscall during the common pattern of updating the mask and then receiving.
 Replies to a received message.
 
 If all goes well, this copies a slice of data from your task's memory into the
-caller's memory and resumes it.
+caller's memory and resumes the caller.
 
 ==== Arguments
 
@@ -349,7 +366,152 @@ you `RECV`).
 The time unit for deadlines is not currently specified -- it's currently an
 abstract "kernel ticks" unit. This will be fixed.
 
-=== `GET_TIMER` (9)
+=== `BORROW_READ` (4)
+
+Copies data from memory borrowed from a caller (a "borrow").
+
+==== Arguments
+
+- 0: TaskId of lender.
+- 1: Lease index for that lender.
+- 2: Offset within the borrowed memory to start reading.
+- 3: Base address of slice in your memory space to deposit data.
+- 4: Length of slice in bytes.
+
+==== Return values
+
+- 0: response code: zero on success, non-zero if something went wrong on the
+  sender side.
+- 1: on success, number of bytes copied.
+
+==== Faults
+
+TBD
+
+==== Notes
+
+This provides "file-like" access to memory borrowed from other tasks, rather
+than direct memory-mapped access, and that's for a good reason: the other task
+may potentially be restarted at any time. In the event that the peer restarts
+while you're working with one of its borrows, you'll get an error return code
+and can clean up -- whereas if you were directly accessing its memory, we'd
+have no choice but to deliver a fault to stop you. That would give clients the
+opportunity to induce faults in shared servers, which would be bad.
+
+=== `BORROW_WRITE` (5)
+
+Copies data into memory borrowed from a caller (a "borrow").
+
+==== Arguments
+
+- 0: TaskId of lender.
+- 1: Lease index for that lender.
+- 2: Offset within the borrowed memory to start writing.
+- 3: Base address of data (in your memory space) to transfer.
+- 4: Length of data in bytes.
+
+==== Return values
+
+- 0: response code: zero on success, non-zero if something went wrong on the
+  sender side.
+- 1: on success, number of bytes copied.
+
+==== Faults
+
+TBD
+
+==== Notes
+
+This provides "file-like" access to memory borrowed from other tasks, rather
+than direct memory-mapped access, and that's for a good reason: the other task
+may potentially be restarted at any time. In the event that the peer restarts
+while you're working with one of its borrows, you'll get an error return code
+and can clean up -- whereas if you were directly accessing its memory, we'd
+have no choice but to deliver a fault to stop you. That would give clients the
+opportunity to induce faults in shared servers, which would be bad.
+
+=== `BORROW_INFO` (6)
+
+Collects information about one entry in a sender's lease table.
+
+==== Arguments
+
+- 0: TaskId of lender.
+- 1: Lease index for that lender.
+
+==== Return values
+
+- 0: response code (always zero)
+- 1: attributes field (see `SEND` for definition of lease table attributes).
+- 2: length in bytes
+
+=== `IRQ_CONTROL` (7)
+
+==== Arguments
+
+- 0: notification bitmask corresponding to the interrupt
+- 1: desired state (0 = disabled, 1 = enabled)
+
+==== Return values
+
+None.
+
+==== Faults
+
+|===
+| Condition | Fault taken
+
+| The given notification bitmask is not mapped to an interrupt in this task.
+| `NoIrq`
+
+|===
+
+==== Notes
+
+It might seem strange that this syscall has tasks refer to interrupts using
+their notification bits. However, this is quite deliberate, for two reasons:
+
+1. It gives tasks a consistent semantic model. When an interrupt goes off, they
+   see a notification in bit X; when they want to re-enable that interrupt,
+   they request enabling on bit X. There is no separate "IRQ number" to
+   configure; that's left to the application-level config file.
+
+2. It makes it impossible for a task to mess with other tasks' interrupts,
+   since it can only refer to its _own_ mapped interrupts, by construction.
+
+=== `PANIC` (8)
+
+Delivers a `Panic` fault to the calling task, recording an optional message.
+
+This is roughly equivalent to the Rust `panic!` operation and is used in its
+implementation.
+
+==== Arguments
+
+- 0: base address of 7-bit ASCII panic message
+- 1: length of panic message in bytes
+
+==== Return values
+
+Does not return.
+
+==== Faults
+
+This produces a `Panic` fault every time -- that's its purpose.
+
+==== Notes
+
+The kernel does not interpret the panic message in any way, but it may _log_
+the message to `klog`.
+
+Messages are restricted to 7-bit ASCII to keep Unicode validation logic out of
+the kernel log path.
+
+If the panic address is invalid, or the referenced range is not readable by the
+task that's panicking, it is ignored.
+
+
+=== `READ_TIMER` (9)
 
 Reads the contents of the task's timer: both the current time, and any
 configured deadline.
@@ -379,3 +541,35 @@ result of this syscall can be meaningfully sent to other tasks on the same CPU.
 
 The time unit is not currently specified -- it's currently an abstract "kernel
 ticks" unit. This will be fixed.
+
+=== `REFRESH_TASK_ID` (10)
+
+Given a task ID that may have the wrong generation, produces a corrected task
+ID with the target task's current generation.
+
+This is intended for two use cases:
+
+1. Initially contacting a task. In this case, the generation can be arbitrary
+   and is usually given as zero.
+
+2. Recovering from a peer task crashing. In this case, hand in your previously
+   valid TaskId to redeem it for a new one.
+
+==== Arguments
+
+- 0: task ID (in low 16 bits)
+
+==== Return values
+
+- 0: task ID (in low 16 bits), top 16 bits zeroed
+
+==== Faults
+
+|===
+| Condition | Fault taken
+
+| Recipient task index greater than the (static) number of tasks in the entire
+  system.
+| `TaskOutOfRange`
+
+|===
