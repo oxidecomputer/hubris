@@ -1,0 +1,46 @@
+[package]
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+readme = "README.md"
+name = "tests-stm32f4"
+version = "0.1.0"
+
+[features]
+default = ["standalone"]
+itm = ["panic-itm", "kern/klog-itm"]
+semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+standalone = ["itm", "stm32f4"]
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.6.12"
+cortex-m-semihosting = "0.3.5"
+panic-itm = { version = "0.4.1", optional = true }
+panic-halt = { version = "0.2.0", optional = true }
+panic-semihosting = { version = "0.5.3", optional = true }
+
+[dependencies.stm32f3]
+features = ["stm32f303", "rt"]
+version = "0.13.0"
+optional = true
+
+[dependencies.stm32f4]
+features = ["stm32f407", "rt"]
+version = "0.13.0"
+optional = true
+
+[dependencies.kern]
+path = "../../kern"
+default-features = false
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "tests-stm32fx"
+path = "../../demo/src/main.rs"
+test = false
+bench = false

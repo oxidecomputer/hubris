@@ -326,11 +326,8 @@ pub fn reinitialize(task: &mut task::Task) {
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
-    let mut uslice: USlice<ExtendedExceptionFrame> = USlice::from_raw(
-        initial_stack as usize - frame_size,
-        1,
-    )
-    .unwrap();
+    let mut uslice: USlice<ExtendedExceptionFrame> =
+        USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap();
     uassert!(task.can_write(&uslice));
 
     // Before we set our frame, find the region that contains our initial stack
@@ -592,8 +589,9 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         // (presumably due to an oversight) not present in the cortex_m API, so
         // let's fake it.
         let ictr = (0xe000_e004 as *const u32).read_volatile();
-        // This gives interrupt count in blocks of 32.
-        let irq_block_count = ictr as usize & 0xF;
+        // This gives interrupt count in blocks of 32, minus 1, so there are
+        // always at least 32 interrupts.
+        let irq_block_count = (ictr as usize & 0xF) + 1;
         let irq_count = irq_block_count * 32;
         // Blindly poke all the interrupts to 0xFF.
         for i in 0..irq_count {
@@ -1090,7 +1088,7 @@ bitflags::bitflags! {
 unsafe extern "C" fn handle_fault(
     task: *mut task::Task,
     fault_type: FaultType,
-    fpsave: *mut u32
+    fpsave: *mut u32,
 ) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
@@ -1125,41 +1123,51 @@ unsafe extern "C" fn handle_fault(
                 // fact that the user's stack pointer is so trashed that we
                 // can't store through it.  (In particular, we seem to have no
                 // way at getting at our faulted PC.)
-                (FaultInfo::StackOverflow {
-                    address: (*task).save().psp,
-                }, true)
+                (
+                    FaultInfo::StackOverflow {
+                        address: (*task).save().psp,
+                    },
+                    true,
+                )
             } else if cfsr.contains(Cfsr::IACCVIOL) {
                 (FaultInfo::IllegalText, false)
             } else {
-                (FaultInfo::MemoryAccess {
-                    address: if cfsr.contains(Cfsr::MMARVALID) {
-                        Some(scb.mmfar.read())
-                    } else {
-                        None
+                (
+                    FaultInfo::MemoryAccess {
+                        address: if cfsr.contains(Cfsr::MMARVALID) {
+                            Some(scb.mmfar.read())
+                        } else {
+                            None
+                        },
+                        source: FaultSource::User,
                     },
-                    source: FaultSource::User,
-                }, false)
+                    false,
+                )
             }
         }
 
-        FaultType::BusFault => (FaultInfo::BusError {
-            address: if cfsr.contains(Cfsr::BFARVALID) {
-                Some(scb.bfar.read())
-            } else {
-                None
+        FaultType::BusFault => (
+            FaultInfo::BusError {
+                address: if cfsr.contains(Cfsr::BFARVALID) {
+                    Some(scb.bfar.read())
+                } else {
+                    None
+                },
+                source: FaultSource::User,
             },
-            source: FaultSource::User,
-        }, false),
+            false,
+        ),
 
-        FaultType::UsageFault => {
-            (if cfsr.contains(Cfsr::DIVBYZERO) {
+        FaultType::UsageFault => (
+            if cfsr.contains(Cfsr::DIVBYZERO) {
                 FaultInfo::DivideByZero
             } else if cfsr.contains(Cfsr::UNDEFINSTR) {
                 FaultInfo::IllegalInstruction
             } else {
                 FaultInfo::InvalidOperation(cfsr.bits())
-            }, false)
-        }
+            },
+            false,
+        ),
     };
 
     // Because we are responsible for clearing all conditions, we write back

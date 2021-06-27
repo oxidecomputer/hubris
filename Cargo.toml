@@ -11,6 +11,7 @@ members = [
     "demo-stm32h7",
     "gemini-bu",
     "gemini-bu-rot",
+    "gimletlet",
     "lpc55",
     "kern",
     "ringbuf",
@@ -30,8 +31,8 @@ members = [
     "task-spi",
     "task-thermal",
 
-    "drv/stm32f4-rcc",
-    "drv/stm32f4-usart",
+    "drv/stm32fx-rcc",
+    "drv/stm32fx-usart",
 
     "drv/stm32h7-gpio",
     "drv/stm32h7-gpio-api",
@@ -55,7 +56,7 @@ members = [
     "drv/user-leds-api",
 
     "test/tests-gemini-bu",
-    "test/tests-stm32f4",
+    "test/tests-stm32fx",
     "test/tests-stm32h7",
     "test/tests-lpc55",
     "test/test-runner",

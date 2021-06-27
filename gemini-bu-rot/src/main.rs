@@ -22,6 +22,7 @@ extern "C" {
     static __eheap: u8;
 }
 
+#[cfg(feature = "plls")]
 fn setup_clocks() {
     // From the manual:
     //
@@ -188,9 +189,15 @@ fn setup_clocks() {
 
 #[entry]
 fn main() -> ! {
-    setup_clocks();
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "plls")] {
+            setup_clocks();
 
-    const CYCLES_PER_MS: u32 = 150_000;
+            const CYCLES_PER_MS: u32 = 150_000;
+        } else {
+            const CYCLES_PER_MS: u32 = 96_000;
+        }
+    }
 
     unsafe {
         //

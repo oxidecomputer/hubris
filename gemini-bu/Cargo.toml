@@ -12,17 +12,14 @@ itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 
 [dependencies]
-cortex-m = { version = "0.6.3", features = ["inline-asm"] }
+cortex-m = { version = "0.7", features = ["inline-asm"] }
 cortex-m-rt = "0.6.12"
 cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
 cfg-if = "0.1.10"
-
-[dependencies.stm32h7]
-git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-features = ["rt", "stm32h743"]
+stm32h7 = { version = "0.13.0", features = ["rt", "stm32h743"] }
 
 [dependencies.kern]
 path = "../kern"

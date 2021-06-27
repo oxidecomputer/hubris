@@ -93,6 +93,7 @@ custom build commands.
 - `cargo xtask dist TOMLFILE` builds a distribution image for the
   application described by the TOML file.
   - `cargo xtask dist demo/app.toml` - stm32f4-discovery
+  - `cargo xtask dist demo/app-f3.toml` - stm32f3-discovery
   - `cargo xtask dist lpc55/app.toml` - lpcxpresso55s69
   - `cargo xtask dist demo-stm32h7/app-h743.toml` - nucleo-ih743zi2
   - `cargo xtask dist demo-stm32h7/app-h7b3.toml` - stm32h7b3i-dk
@@ -116,23 +117,33 @@ support.
 See the Gemini Bringup [Getting
 Started](https://github.com/oxidecomputer/gemini-bringup#getting-started) docs.
 
-### STM32F4 Discovery board
+### STM32F3 & STM32F4 Discovery boards
 
 Connect board via USB.
 
-From one terminal, `cd` into the root of this repository and run `openocd`.
-(This causes `openocd` to pick up the `openocd.cfg` at the root.)
+From one terminal, launch `openocd` with the corresponding config file:
+
+```console
+$ openocd -f demo/openocd.cfg       # STM32F4 Discovery boards OR
+$ openocd -f demo/openocd-f3.cfg    # STM32F3 Discovery boards
+```
 
 From another terminal:
 
 ```console
-$ cargo xtask gdb demo/app.toml openocd.gdb
+$ cargo xtask gdb demo/app.toml openocd.gdb         # STM32F4 Discovery boards OR
+$ cargo xtask gdb demo/app-f3.toml openocd-f3.gdb   # STM32F3 Discovery boards
 ```
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
 will scroll by some updates, and you will eventually be unceremoniously
 deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
 `continue` to run.
+
+**Note that for the STM32F3 Discovery, SB10 must be soldered closed for ITM
+to work!** This solder bridge defaults to being open, which leaves SWO
+disconnected.  See the STM32F3 Discovery User Manual (UM1570) for schematic
+and details.
 
 ### LPCXpresso55S69 board
 
@@ -380,7 +391,9 @@ runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
 and `cargo xtask humility test`.  The exact invocation depends on the board:
 
 - LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
-- STM32F4 Discovery board: `cargo xtask test test/tests-stm32f4/app.toml`
+- STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`  
+  **Note: for this board, SB10 must be soldered closed for ITM to work**
+- STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
 - ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
 
@@ -396,7 +409,7 @@ a dump from tests that are otherwise passing, use `cargo xtask humility`
 directly and pass the `-d` flag, e.g.:
 
 ```console
-$ cargo xtask humility test/tests-stm32f4/app.toml -- test -d
+$ cargo xtask humility test/tests-stm32fx/app.toml -- test -d
 ...
 humility: attached via ST-Link
 humility: TPIU sync packet found at offset 1

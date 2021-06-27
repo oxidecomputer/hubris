@@ -10,9 +10,7 @@ zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
-
-[dependencies.stm32h7]
-git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
+stm32h7 = { version = "0.13.0" }
 
 [features]
 default = ["standalone", "h7b3"]

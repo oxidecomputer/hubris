@@ -37,6 +37,7 @@ priority = 0
 requires = {flash = 32768, ram = 4096}
 start = true
 features = ["itm"]
+stacksize = 1536
 
 [tasks.idle]
 path = "../task-idle"

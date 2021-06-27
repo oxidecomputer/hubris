@@ -8,7 +8,7 @@ edition = "2018"
 # suppress default features to avoid including panic message collection, to
 # ensure the spi task remains tiny.
 userlib = {path = "../userlib", default-features = false}
-cortex-m = "0.6.2"
+cortex-m = "0.7"
 cortex-m-semihosting = { version = "0.3.5", optional = true }
 zerocopy = "0.3.0"
 cfg-if = "0.1.10"

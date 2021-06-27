@@ -1,7 +1,7 @@
 name = "tests-gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
-stacksize = 1400
+stacksize = 2048
 
 [kernel]
 path = "../../gemini-bu"
@@ -51,12 +51,13 @@ name = "test-suite"
 priority = 2
 requires = {flash = 32768, ram = 4096}
 start = true
+features = ["itm"]
 
 [tasks.assist]
 path = "../test-assist"
 name = "test-assist"
 priority = 1
-requires = {flash = 8192, ram = 4096}
+requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
 
