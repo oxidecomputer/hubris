@@ -8,6 +8,7 @@
 
 use drv_i2c_api::*;
 use drv_i2c_devices::adm1272::*;
+use drv_i2c_devices::tps546b24a::*;
 use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
@@ -19,14 +20,30 @@ const I2C: Task = Task::i2c_driver;
 const I2C: Task = Task::anonymous;
 
 #[derive(Copy, Clone, PartialEq)]
-enum Trace {
+enum Device {
+    Adm1272,
+    Tps546b24a,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Command {
     VIn(Volts),
     VOut(Volts),
     IOut(Amperes),
+    PeakIOut(Amperes),
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Datum(Device, Command),
     None,
 }
 
 ringbuf!(Trace, 16, Trace::None);
+
+fn trace(dev: Device, cmd: Command) {
+    ringbuf_entry!(Trace::Datum(dev, cmd));
+}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -39,15 +56,26 @@ fn main() -> ! {
             let mut adm1272 = Adm1272::new(&I2cDevice::new(
                 task,
                 Controller::I2C4,
-                Port::H,
-                None,
+                Port::F,
+                Some((Mux::M1, Segment::S3)),
                 ADM1272_ADDRESS
             ), Ohms(0.001));
+
+            const TPS546B24A_ADDRESS: u8 = 0x24;
+
+            let mut tps546 = Tps546b24a::new(&I2cDevice::new(
+                task,
+                Controller::I2C4,
+                Port::F,
+                Some((Mux::M1, Segment::S4)),
+                TPS546B24A_ADDRESS
+            ));
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
                     let device = I2cDevice::mock(task);
                     let adm1272 = Adm1272::new(&device);
+                    let tps546 = Tps546b24a::new(&device);
                 } else {
                     compile_error!("unknown board");
                 }
@@ -73,7 +101,7 @@ fn main() -> ! {
 
         match adm1272.read_vin() {
             Ok(volts) => {
-                ringbuf_entry!(Trace::VIn(volts));
+                trace(Device::Adm1272, Command::VIn(volts));
             }
             Err(err) => {
                 sys_log!("{}: VIn failed: {:?}", adm1272, err);
@@ -82,7 +110,7 @@ fn main() -> ! {
 
         match adm1272.read_vout() {
             Ok(volts) => {
-                ringbuf_entry!(Trace::VOut(volts));
+                trace(Device::Adm1272, Command::VOut(volts));
             }
             Err(err) => {
                 sys_log!("{}: VOut failed: {:?}", adm1272, err);
@@ -91,8 +119,37 @@ fn main() -> ! {
 
         match adm1272.read_iout() {
             Ok(amps) => {
-                ringbuf_entry!(Trace::IOut(amps));
+                trace(Device::Adm1272, Command::IOut(amps));
             }
+            Err(err) => {
+                sys_log!("{}: IOut failed: {:?}", adm1272, err);
+            }
+        }
+
+        match adm1272.peak_iout() {
+            Ok(amps) => {
+                trace(Device::Adm1272, Command::PeakIOut(amps));
+            }
+            Err(err) => {
+                sys_log!("{}: PeakIOut failed: {:?}", adm1272, err);
+            }
+        }
+
+        match tps546.read_vout() {
+            Ok(volts) => {
+                trace(Device::Tps546b24a, Command::VOut(volts));
+            }
+
+            Err(err) => {
+                sys_log!("{}: VOut failed: {:?}", adm1272, err);
+            }
+        }
+
+        match tps546.read_iout() {
+            Ok(amps) => {
+                trace(Device::Tps546b24a, Command::IOut(amps));
+            }
+
             Err(err) => {
                 sys_log!("{}: IOut failed: {:?}", adm1272, err);
             }

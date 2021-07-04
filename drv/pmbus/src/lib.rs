@@ -173,7 +173,7 @@ pub enum Command {
 }
 
 ///
-/// The coefficients spelled out by PMBus for use in th DIRECT data format
+/// The coefficients spelled out by PMBus for use in the DIRECT data format
 /// (Part II, Sec. 7.4). The actual values used will depend on the device and
 /// the condition.
 ///
@@ -215,5 +215,119 @@ impl Direct {
         let y: f32 = (m * x + b) * f32::powi(10.0, exp);
 
         Self(y.round() as u16, coefficients)
+    }
+}
+
+///
+/// A datum in the LINEAR11 data format.
+///
+#[derive(Copy, Clone, Debug)]
+pub struct Linear11(pub u16);
+
+//
+// The LINEAR11 format is outlined in Section 7.3 of the PMBus specification.
+// It consists of 5 bits of signed exponent (N), and 11 bits of signed mantissa
+// (Y):
+//
+// |<------------ high byte ------------>|<--------- low byte ---------->|
+// +---+---+---+---+---+     +---+---+---+---+---+---+---+---+---+---+---+
+// | 7 | 6 | 5 | 4 | 3 |     | 2 | 1 | 0 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+// +---+---+---+---+---+     +---+---+---+---+---+---+---+---+---+---+---+
+//
+// |<------- N ------->|     |<------------------- Y ------------------->|
+//
+// The relation between these values and the real world value is:
+//
+//   X = Y * 2^N
+//
+const LINEAR11_Y_WIDTH: u16 = 11;
+const LINEAR11_Y_MAX: i16 = (1 << (LINEAR11_Y_WIDTH - 1)) - 1;
+const LINEAR11_Y_MIN: i16 = -(1 << (LINEAR11_Y_WIDTH - 1));
+const LINEAR11_Y_MASK: i16 = (1 << LINEAR11_Y_WIDTH) - 1;
+
+const LINEAR11_N_WIDTH: u16 = 5;
+const LINEAR11_N_MAX: i16 = (1 << (LINEAR11_N_WIDTH - 1)) - 1;
+const LINEAR11_N_MIN: i16 = -(1 << (LINEAR11_N_WIDTH - 1));
+const LINEAR11_N_MASK: i16 = (1 << LINEAR11_N_WIDTH) - 1;
+
+impl Linear11 {
+    pub fn to_real(&self) -> f32 {
+        let n = (self.0 as i16) >> LINEAR11_Y_WIDTH;
+        let y = ((self.0 << LINEAR11_N_WIDTH) as i16) >> LINEAR11_N_WIDTH;
+
+        y as f32 * f32::powi(2.0, n.into())
+    }
+
+    #[allow(dead_code)]
+    pub fn from_real(x: f32) -> Option<Self> {
+        //
+        // We get our closest approximation when we have as many digits as
+        // possible in Y; to determine the value of N that will satisfy this,
+        // we pick a value of Y that is further away from 0 (more positive or
+        // more negative) than our true Y and determine what N would be, taking
+        // the ceiling of this value.  If this value exceeds our resolution for
+        // N, we cannot represent the value.
+        //
+        let n = if x >= 0.0 {
+            x / LINEAR11_Y_MAX as f32
+        } else {
+            x / LINEAR11_Y_MIN as f32
+        };
+
+        let n = f32::ceil(libm::log2f(n)) as i16;
+
+        if n < LINEAR11_N_MIN || n > LINEAR11_N_MAX {
+            None
+        } else {
+            let exp = f32::powi(2.0, n.into());
+            let y = x / exp;
+
+            let high = ((n & LINEAR11_N_MASK) as u16) << LINEAR11_Y_WIDTH;
+            let low = ((y as i16) & LINEAR11_Y_MASK) as u16;
+
+            Some(Linear11(high | low))
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ULinear16Exponent(pub i8);
+
+#[derive(Copy, Clone, Debug)]
+pub enum VOutMode {
+    ULinear16(ULinear16Exponent),
+    VID(u8),
+    Direct,
+    HalfPrecision,
+}
+
+impl From<u8> for VOutMode {
+    fn from(mode: u8) -> Self {
+        match (mode >> 5) & 0b11 {
+            0b00 => {
+                let exp = ((mode << 3) as i8) >> 3;
+                VOutMode::ULinear16(ULinear16Exponent(exp))
+            }
+            0b01 => {
+                let code = mode & 0x1f;
+                VOutMode::VID(code)
+            }
+            0b10 => VOutMode::Direct,
+            0b11 => VOutMode::HalfPrecision,
+            _ => unreachable!(),
+        }
+    }
+}
+
+///
+/// A datum in the ULINEAR16 format.  ULINEAR16 is used only for voltage;
+/// the exponent comes from VOUT_MODE.
+///
+pub struct ULinear16(pub u16, pub ULinear16Exponent);
+
+impl ULinear16 {
+    pub fn to_real(&self) -> f32 {
+        let exp = self.1 .0;
+        self.0 as f32 * f32::powi(2.0, exp.into())
     }
 }

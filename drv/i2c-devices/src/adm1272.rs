@@ -102,6 +102,7 @@ impl From<Register> for u8 {
 #[derive(Debug)]
 pub enum Error {
     BadRead16 { reg: Register, code: ResponseCode },
+    BadWrite16 { reg: Register, code: ResponseCode },
 }
 
 pub struct Adm1272 {
@@ -110,6 +111,7 @@ pub struct Adm1272 {
     voltage_coefficients: Option<Coefficients>,
     current_coefficients: Option<Coefficients>,
     power_coefficients: Option<Coefficients>,
+    config: Option<PowerMonitorConfiguration>,
 }
 
 impl core::fmt::Display for Adm1272 {
@@ -121,8 +123,11 @@ impl core::fmt::Display for Adm1272 {
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Read16(Register, u16),
+    Write16(Register, u8, u8),
     Config(PowerMonitorConfiguration),
+    WriteConfig(PowerMonitorConfiguration),
     ReadError(Register, ResponseCode),
+    WriteError(Register, ResponseCode),
     Coefficients(Coefficients),
     None,
 }
@@ -137,6 +142,7 @@ impl Adm1272 {
             voltage_coefficients: None,
             current_coefficients: None,
             power_coefficients: None,
+            config: None,
         }
     }
 
@@ -160,10 +166,52 @@ impl Adm1272 {
         }
     }
 
-    fn load_coefficients(&mut self) -> Result<(), Error> {
+    fn write_reg16(&self, register: Register, value: u16) -> Result<(), Error> {
+        let v = value.to_be_bytes();
+        ringbuf_entry!(Trace::Write16(register, v[0], v[1]));
+
+        match self.device.write(&[u8::from(register), v[0], v[1]]) {
+            Err(code) => {
+                ringbuf_entry!(Trace::WriteError(register, code));
+                Err(Error::BadWrite16 {
+                    reg: register,
+                    code: code,
+                })
+            }
+
+            Ok(_) => Ok(()),
+        }
+    }
+
+    fn read_config(&mut self) -> Result<PowerMonitorConfiguration, Error> {
+        if let Some(ref config) = self.config {
+            return Ok(*config);
+        }
+
         let config = PowerMonitorConfiguration(
             self.read_reg16(Register::PowerMonitorConfiguration)?,
         );
+
+        ringbuf_entry!(Trace::Config(config));
+        self.config = Some(config);
+
+        Ok(config)
+    }
+
+    fn write_config(
+        &mut self,
+        config: PowerMonitorConfiguration,
+    ) -> Result<(), Error> {
+        ringbuf_entry!(Trace::WriteConfig(config));
+
+        self.write_reg16(Register::PowerMonitorConfiguration, config.0)?;
+        self.config = Some(config);
+
+        Ok(())
+    }
+
+    fn load_coefficients(&mut self) -> Result<(), Error> {
+        let config = self.read_config()?;
 
         self.voltage_coefficients = Some(if config.vrange_100v() {
             Coefficients {
@@ -244,6 +292,28 @@ impl Adm1272 {
         Ok(self.current_coefficients.unwrap())
     }
 
+    fn enable_vin(&mut self) -> Result<(), Error> {
+        let mut config = self.read_config()?;
+
+        if !config.vin_enable() {
+            config.set_vin_enable(true);
+            self.write_config(config)?;
+        }
+
+        Ok(())
+    }
+
+    fn enable_vout(&mut self) -> Result<(), Error> {
+        let mut config = self.read_config()?;
+
+        if !config.vout_enable() {
+            config.set_vout_enable(true);
+            self.write_config(config)?;
+        }
+
+        Ok(())
+    }
+
     pub fn read_manufacturer(
         &self,
         buf: &mut [u8],
@@ -257,17 +327,26 @@ impl Adm1272 {
     }
 
     pub fn read_vin(&mut self) -> Result<Volts, Error> {
+        self.enable_vin()?;
         let vin = self.read_reg16(Register::PMBus(Command::ReadVIn))?;
         Ok(Volts(Direct(vin, self.voltage_coefficients()?).to_real()))
     }
 
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
+        self.enable_vout()?;
         let vout = self.read_reg16(Register::PMBus(Command::ReadVOut))?;
         Ok(Volts(Direct(vout, self.voltage_coefficients()?).to_real()))
     }
 
     pub fn read_iout(&mut self) -> Result<Amperes, Error> {
         let iout = self.read_reg16(Register::PMBus(Command::ReadIOut))?;
+        Ok(Amperes(
+            Direct(iout, self.current_coefficients()?).to_real(),
+        ))
+    }
+
+    pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
+        let iout = self.read_reg16(Register::PeakOutputCurrent)?;
         Ok(Amperes(
             Direct(iout, self.current_coefficients()?).to_real(),
         ))
