@@ -54,6 +54,20 @@ impl TxDesc {
     }
 }
 
+/// Index of OWN bit indicating that a descriptor is in use by the hardware.
+const TDES3_OWN_BIT: u32 = 31;
+/// Index of First Descriptor bit, indicating that a descriptor is the start of
+/// a new packet. We always set this and Last Descriptor, below.
+const TDES3_FD_BIT: u32 = 29;
+/// Index of Last Descriptor bit, indicating that a descriptor is the end of a
+/// packet. We always set this and First Descriptor, above.
+const TDES3_LD_BIT: u32 = 28;
+
+/// Index of Checksum Insertion Control field.
+const TDES3_CIC_BIT: u32 = 16;
+/// CIC value for enabling all checksum offloading.
+const TDES3_CIC_CHECKSUMS_ENABLED: u32 = 0b11;
+
 /// Control block for a ring of `TxDesc` records and associated `Buffer`s.
 pub struct TxRing {
     /// The descriptor ring storage.
@@ -122,7 +136,7 @@ impl TxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let tdes3 = d.tdes[3].load(Ordering::Acquire);
-        let own = tdes3 & (1 << 31) != 0;
+        let own = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         !own
     }
 
@@ -151,7 +165,7 @@ impl TxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let tdes3 = d.tdes[3].load(Ordering::Acquire);
-        let own = tdes3 & (1 << 31) != 0;
+        let own = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         if own {
             Err(body)
         } else {
@@ -178,10 +192,10 @@ impl TxRing {
             d.tdes[0].store(buffer.as_ptr() as u32, Ordering::Relaxed);
             d.tdes[1].store(0, Ordering::Relaxed);
             d.tdes[2].store(len as u32, Ordering::Relaxed);
-            let tdes3 = 1 << 31 // OWN
-                | 1 << 29 // FD
-                | 1 << 28 // LD
-                | 0b11 << 16 // IP checksum
+            let tdes3 = 1 << TDES3_OWN_BIT
+                | 1 << TDES3_FD_BIT
+                | 1 << TDES3_LD_BIT
+                | TDES3_CIC_CHECKSUMS_ENABLED << TDES3_CIC_BIT
                 | len as u32;
             d.tdes[3].store(tdes3, Ordering::Release); // <-- release
 
@@ -217,6 +231,26 @@ impl RxDesc {
         }
     }
 }
+
+/// Index of OWN bit indicating that a descriptor is in use by the hardware.
+const RDES3_OWN_BIT: u32 = 31;
+/// Index of Error Summary bit, which rolls up all the other error bits.
+const RDES3_ES_BIT: u32 = 15;
+/// Index of Interrupt On Completion bit, indicating that a we want to be
+/// notified when a packet arrives in this descriptor slot (we always request
+/// this).
+const RDES3_IOC_BIT: u32 = 30;
+/// Index of First Descriptor bit, indicating that a descriptor is the start of
+/// a new packet. We always expect this and Last Descriptor, below.
+const RDES3_FD_BIT: u32 = 29;
+/// Index of Last Descriptor bit, indicating that a descriptor is the end of a
+/// packet. We always expect this and First Descriptor, above.
+const RDES3_LD_BIT: u32 = 28;
+/// Index of Buffer 1 Valid bit, indicating that we have furnished a valid
+/// pointer for buffer 1 in this descriptor.
+const RDES3_BUF1_VALID_BIT: u32 = 24;
+/// Mask for the Packet Length portion of RDES3.
+const RDES3_PL_MASK: u32 = (1 << 15) - 1;
 
 /// Control block for a ring of `RxDesc` records and associated `Buffer`s.
 pub struct RxRing {
@@ -288,7 +322,7 @@ impl RxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let rdes3 = d.rdes[3].load(Ordering::Acquire);
-        let own = rdes3 & (1 << 31) != 0;
+        let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
         !own
     }
 
@@ -321,7 +355,7 @@ impl RxRing {
             let d = &self.storage[self.next.get()];
             // Check whether the hardware has released this.
             let rdes3 = d.rdes[3].load(Ordering::Acquire);
-            let own = rdes3 & (1 << 31) != 0;
+            let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
             if own {
                 break Err(body.take().unwrap());
             } else {
@@ -331,9 +365,10 @@ impl RxRing {
                 // also free.
 
                 // What sort of descriptor is this?
-                let errors = rdes3 & (1 << 15) != 0;
-                let first_and_last =
-                    rdes3 & ((1 << 28) | (1 << 29)) == ((1 << 28) | (1 << 29));
+                let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+                let first_and_last = rdes3
+                    & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+                    == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
 
                 let buffer = self.buffers[self.next.get()].0.get();
 
@@ -349,7 +384,7 @@ impl RxRing {
                     let buffer = unsafe { &mut *buffer };
 
                     // Work out the valid slice of the packet.
-                    let packet_len = (rdes3 & ((1 << 15) - 1)) as usize;
+                    let packet_len = (rdes3 & RDES3_PL_MASK) as usize;
 
                     // Pass in the initialized prefix of the packet.
                     Some((body.take().unwrap())(&mut buffer[..packet_len]))
@@ -383,10 +418,8 @@ impl RxRing {
         d.rdes[0].store(buffer as u32, Ordering::Relaxed);
         d.rdes[1].store(0, Ordering::Relaxed);
         d.rdes[2].store(0, Ordering::Relaxed);
-        let rdes3 = 1 << 31 // OWN
-            | 1 << 30 // IOC
-            | 1 << 24 // BUF 1 valid
-            ;
+        let rdes3 =
+            1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
         d.rdes[3].store(rdes3, Ordering::Release); // <-- release
     }
 }

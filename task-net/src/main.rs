@@ -22,6 +22,10 @@ const GPIO: Task = Task::anonymous;
 
 const TX_RING_SZ: usize = 4;
 
+/// Address used on the MDIO link by our Ethernet PHY. Different vendors have
+/// different defaults for this, it will likely need to become configurable.
+const PHYADDR: u8 = 0x01;
+
 fn claim_tx_statics() -> (
     &'static mut [eth::ring::TxDesc; TX_RING_SZ],
     &'static mut [eth::ring::Buffer; TX_RING_SZ],
@@ -189,15 +193,26 @@ fn main() -> ! {
     let mut socket_set = [None, None];
     let mut socket_set = SocketSet::new(&mut socket_set[..]);
 
-    let mii_basic_control = eth.device_mut().smi_read(0x01, 0x00);
+    let mii_basic_control = eth
+        .device_mut()
+        .smi_read(PHYADDR, eth::SmiClause22Register::Control);
     let mii_basic_control = mii_basic_control
         | 1 << 12 // AN enable
         | 1 << 9 // restart autoneg
         ;
-    eth.device_mut().smi_write(0x01, 0x00, mii_basic_control);
+    eth.device_mut().smi_write(
+        PHYADDR,
+        eth::SmiClause22Register::Control,
+        mii_basic_control,
+    );
 
     // Wait for link-up
-    while eth.device_mut().smi_read(0x01, 0x01) & (1 << 2) == 0 {
+    while eth
+        .device_mut()
+        .smi_read(PHYADDR, eth::SmiClause22Register::Status)
+        & (1 << 2)
+        == 0
+    {
         userlib::hl::sleep_for(1);
     }
 

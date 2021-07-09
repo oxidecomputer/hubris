@@ -75,7 +75,9 @@ impl Ethernet {
 
         // Configure the MDIO clock divider. TODO: this divider is currently
         // hardcoded assuming a ~200MHz AHB frequency.
-        mac.macmdioar.write(|w| unsafe { w.cr().bits(0b0100) });
+        const MDIOAR_CR_DIVIDE_BY_102: u8 = 0b0100;
+        mac.macmdioar
+            .write(|w| unsafe { w.cr().bits(MDIOAR_CR_DIVIDE_BY_102) });
         // Program the DMA bus interface parameters. Early versions of the
         // reference manual contained burst length control bits here, but they
         // appear to have been defeatured in later editions, so we'll just do
@@ -88,6 +90,10 @@ impl Ethernet {
 
         // Configure RX burst length to 1, and also set the size of the receive
         // buffers, which is set centrally rather than on a per-buffer basis.
+        //
+        // At this point if you set `BUFSZ` to a value that won't fit in a u16,
+        // you'll get a runtime panic. TODO: this would make a great static
+        // assert....
         dma.dmacrx_cr.write(|w| unsafe {
             w.rxpbl().bits(1).rbsz().bits(u16::try_from(BUFSZ).unwrap())
         });
@@ -124,6 +130,9 @@ impl Ethernet {
         // Poke both tail pointers so the hardware looks at the descriptors. We
         // completely initialize the descriptor array, so the tail pointer is
         // always the end.
+        //
+        // Doing the same drop-bottom-two-bits stuff that we had to do for DLARs
+        // above.
         dma.dmactx_dtpr
             .write(|w| unsafe { w.tdt().bits(tx_ring.tail_ptr() as u32 >> 2) });
         dma.dmacrx_dtpr
@@ -143,10 +152,13 @@ impl Ethernet {
 
         // MTL block config:
         // Configure TX queue mode:
-        // - Use all 2048 bytes of queue RAM
+        // - Use all 2048 bytes of queue RAM; this is communicated in units of
+        //   256 bytes minus 1.
         // - Transmit Store n' Forward so we can do checksum generation
-        mtl.mtltx_qomr
-            .write(|w| unsafe { w.tqs().bits(0b111).tsf().set_bit() });
+        const QOMR_TQS_8_BLOCKS_OF_256: u8 = 0b111;
+        mtl.mtltx_qomr.write(|w| unsafe {
+            w.tqs().bits(QOMR_TQS_8_BLOCKS_OF_256).tsf().set_bit()
+        });
         // Configure RX queue mode:
         // - Receive Store n' Forward so we can do checksum verification
         mtl.mtlrx_qomr.write(|w| w.rsf().set_bit());
@@ -208,6 +220,8 @@ impl Ethernet {
         // We have enqueued a packet! The hardware may be suspended after
         // discovering no packets to process. Wake it.
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
         self.dma.dmactx_dtpr.write(|w| unsafe {
             w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
         });
@@ -235,6 +249,8 @@ impl Ethernet {
         // We have dequeued a packet! The hardware might not realize there is
         // room in the RX queue now. Poke it.
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
         self.dma.dmacrx_dtpr.write(|w| unsafe {
             w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
         });
@@ -290,7 +306,7 @@ impl Ethernet {
     /// complete asynchronously, so feel free to do other things. Any attempt to
     /// do other SMI operations will synchronize and block until the SMI unit is
     /// free.
-    pub fn smi_write(&mut self, phy: u8, register: u8, value: u16) {
+    pub fn smi_write(&mut self, phy: u8, register: impl Into<u8>, value: u16) {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 
@@ -304,7 +320,7 @@ impl Ethernet {
             w.pa()
                 .bits(phy)
                 .rda()
-                .bits(register)
+                .bits(register.into())
                 .goc()
                 .bits(WRITE)
                 .mb()
@@ -318,7 +334,7 @@ impl Ethernet {
     /// This function blocks until the read is complete, so that it can return
     /// the result. It will also block until any previously issued write has
     /// finished.
-    pub fn smi_read(&mut self, phy: u8, register: u8) -> u16 {
+    pub fn smi_read(&mut self, phy: u8, register: impl Into<u8>) -> u16 {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 
@@ -328,7 +344,7 @@ impl Ethernet {
             w.pa()
                 .bits(phy)
                 .rda()
-                .bits(register)
+                .bits(register.into())
                 .goc()
                 .bits(READ)
                 .mb()
@@ -343,6 +359,33 @@ impl Ethernet {
 
     fn is_smi_busy(&self) -> bool {
         self.mac.macmdioar.read().mb().bit()
+    }
+}
+
+/// Standard MDIO registers laid out in IEEE 802.3 standard clause 22. Vendors
+/// often add to this set in the 16+ range.
+pub enum SmiClause22Register {
+    Control = 0,
+    Status = 1,
+    PhyIdent2 = 2,
+    PhyIdent3 = 3,
+    AutoNegAdvertisement = 4,
+    AutoNegPartnerAbility = 5,
+    AutoNegExpansion = 6,
+    AutoNegNextPageTransmit = 7,
+    AutoNegPartnerReceivedNextPage = 8,
+    MasterSlaveControl = 9,
+    MasterSlaveStatus = 10,
+    PseControl = 11,
+    PseStatus = 12,
+    MmdAccessControl = 13,
+    MmdAccessAddressData = 14,
+    ExtendedStatus = 15,
+}
+
+impl From<SmiClause22Register> for u8 {
+    fn from(x: SmiClause22Register) -> Self {
+        x as u8
     }
 }
 
