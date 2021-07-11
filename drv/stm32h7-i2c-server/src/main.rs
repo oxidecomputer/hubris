@@ -403,7 +403,7 @@ fn main() -> ! {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
             Op::WriteRead | Op::WriteReadBlock => {
                 let (payload, caller) = msg
-                    .fixed_with_leases::<[u8; 4], ()>(2)
+                    .fixed_with_leases::<[u8; 4], usize>(2)
                     .ok_or(ResponseCode::BadArg)?;
 
                 let (addr, controller, port, mux) =
@@ -457,6 +457,8 @@ fn main() -> ! {
                     return Err(ResponseCode::BadArg);
                 }
 
+                let mut nread = 0;
+
                 match controller.write_read(
                     addr,
                     winfo.len,
@@ -466,7 +468,13 @@ fn main() -> ! {
                     } else {
                         ReadLength::Variable
                     },
-                    |pos, byte| rbuf.write_at(pos, byte),
+                    |pos, byte| {
+                        if pos + 1 > nread {
+                            nread = pos + 1;
+                        }
+
+                        rbuf.write_at(pos, byte)
+                    },
                     &ctrl,
                 ) {
                     Err(code) => {
@@ -474,7 +482,7 @@ fn main() -> ! {
                         Err(code)
                     }
                     Ok(_) => {
-                        caller.reply(());
+                        caller.reply(nread);
                         Ok(())
                     }
                 }

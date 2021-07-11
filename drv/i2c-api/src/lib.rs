@@ -319,6 +319,7 @@ impl I2cDevice {
         reg: R,
     ) -> Result<V, ResponseCode> {
         let mut val = V::default();
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -329,7 +330,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
 
@@ -345,7 +346,9 @@ impl I2cDevice {
         &self,
         reg: R,
         buf: &mut [u8],
-    ) -> Result<(), ResponseCode> {
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
         let (code, _) = sys_send(
             self.task,
             Op::WriteReadBlock as u16,
@@ -355,7 +358,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(reg.as_bytes()), Lease::from(buf)],
         );
 
@@ -363,7 +366,7 @@ impl I2cDevice {
             Err(ResponseCode::from_u32(code)
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
-            Ok(())
+            Ok(response)
         }
     }
 
@@ -379,6 +382,7 @@ impl I2cDevice {
     ) -> Result<V, ResponseCode> {
         let empty = [0u8; 1];
         let mut val = V::default();
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -389,7 +393,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
         );
 
@@ -407,6 +411,7 @@ impl I2cDevice {
     ///
     pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
         let empty = [0u8; 1];
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -417,7 +422,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(buffer), Lease::from(&empty[0..0])],
         );
 

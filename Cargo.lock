@@ -398,6 +398,7 @@ name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]
@@ -409,8 +410,8 @@ dependencies = [
  "bitfield",
  "drv-i2c-api",
  "drv-onewire",
- "drv-pmbus",
  "num-traits",
+ "pmbus",
  "ringbuf",
  "userlib",
  "zerocopy",
@@ -519,16 +520,6 @@ name = "drv-onewire-devices"
 version = "0.1.0"
 dependencies = [
  "drv-onewire",
- "num-traits",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "drv-pmbus"
-version = "0.1.0"
-dependencies = [
- "libm",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1298,6 +1289,16 @@ name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+
+[[package]]
+name = "pmbus"
+version = "0.1.0"
+source = "git+ssh://github.com/oxidecomputer/pmbus.git#ce8a002decb21548237a8e922bd88d1d781f1549"
+dependencies = [
+ "libm",
+ "num-derive",
+ "num-traits",
+]
 
 [[package]]
 name = "podio"

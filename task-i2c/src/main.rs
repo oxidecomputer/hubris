@@ -159,9 +159,13 @@ fn read(
 
             if let Some(register) = register {
                 match device.read_block::<u8>(register, &mut buf) {
-                    Ok(_) => {
-                        for i in 0..buf.len() {
+                    Ok(rlen) => {
+                        for i in 0..rlen {
                             results[i] = Some(Ok(buf[i]));
+                        }
+
+                        for i in rlen..results.len() {
+                            results[i] = None;
                         }
                     }
                     Err(err) => {
@@ -198,14 +202,32 @@ fn write_register(
 
 #[export_name = "main"]
 fn main() -> ! {
+    let mut sleep_ms = 1000;
+    let mut sleeps = 0;
+
     loop {
         I2C_DEBUG_READY.fetch_add(1, Ordering::SeqCst);
-        hl::sleep_for(1000);
+        hl::sleep_for(sleep_ms);
         I2C_DEBUG_READY.fetch_sub(1, Ordering::SeqCst);
 
         if I2C_DEBUG_KICK.load(Ordering::SeqCst) == 0 {
+            sleeps += 1;
+
+            // Exponentially backoff our sleep value, but no more than 1s
+            if sleeps == 10 {
+                sleep_ms = core::cmp::min(sleep_ms * 10, 1000);
+                sleeps = 0;
+            }
+
             continue;
         }
+
+        //
+        // Whenever we have been kicked, we adjust our timeout down to 1ms,
+        // from which we will exponentially backoff
+        //
+        sleep_ms = 1;
+        sleeps = 0;
 
         let results = unsafe { &mut I2C_DEBUG_RESULTS };
 

@@ -2,11 +2,10 @@
 
 use bitfield::bitfield;
 use drv_i2c_api::*;
-use drv_pmbus::*;
+use pmbus::*;
 use num_traits::float::FloatCore;
 use ringbuf::*;
 use userlib::units::*;
-use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 enum SampleAveraging {
@@ -317,29 +316,28 @@ impl Adm1272 {
     pub fn read_manufacturer(
         &self,
         buf: &mut [u8],
-    ) -> Result<(), ResponseCode> {
-        self.device.read_block(Command::ManufacturerID as u8, buf)
+    ) -> Result<usize, ResponseCode> {
+        self.device.read_block(Command::MFR_ID as u8, buf)
     }
 
-    pub fn read_model(&self, buf: &mut [u8]) -> Result<(), ResponseCode> {
-        self.device
-            .read_block(Command::ManufacturerModel as u8, buf)
+    pub fn read_model(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
+        self.device.read_block(Command::MFR_MODEL as u8, buf)
     }
 
     pub fn read_vin(&mut self) -> Result<Volts, Error> {
         self.enable_vin()?;
-        let vin = self.read_reg16(Register::PMBus(Command::ReadVIn))?;
+        let vin = self.read_reg16(Register::PMBus(Command::READ_VIN))?;
         Ok(Volts(Direct(vin, self.voltage_coefficients()?).to_real()))
     }
 
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
         self.enable_vout()?;
-        let vout = self.read_reg16(Register::PMBus(Command::ReadVOut))?;
+        let vout = self.read_reg16(Register::PMBus(Command::READ_VOUT))?;
         Ok(Volts(Direct(vout, self.voltage_coefficients()?).to_real()))
     }
 
     pub fn read_iout(&mut self) -> Result<Amperes, Error> {
-        let iout = self.read_reg16(Register::PMBus(Command::ReadIOut))?;
+        let iout = self.read_reg16(Register::PMBus(Command::READ_IOUT))?;
         Ok(Amperes(
             Direct(iout, self.current_coefficients()?).to_real(),
         ))

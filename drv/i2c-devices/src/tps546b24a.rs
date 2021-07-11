@@ -1,7 +1,7 @@
 //! Driver for the TPS546B24A buck converter
 
 use drv_i2c_api::*;
-use drv_pmbus::*;
+use pmbus::*;
 use ringbuf::*;
 use userlib::units::*;
 
@@ -117,7 +117,7 @@ impl Tps546b24a {
         Ok(match self.exponent {
             None => {
                 let mode =
-                    self.read_reg8(Register::PMBus(Command::VOutMode))?;
+                    self.read_reg8(Register::PMBus(Command::VOUT_MODE))?;
 
                 if let VOutMode::ULinear16(exp) = mode.into() {
                     self.exponent = Some(exp);
@@ -131,12 +131,12 @@ impl Tps546b24a {
     }
 
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
-        let vout = self.read_reg16(Register::PMBus(Command::ReadVOut))?;
+        let vout = self.read_reg16(Register::PMBus(Command::READ_VOUT))?;
         Ok(Volts(ULinear16(vout, self.read_exponent()?).to_real()))
     }
 
     pub fn read_iout(&mut self) -> Result<Amperes, Error> {
-        let iout = self.read_reg16(Register::PMBus(Command::ReadIOut))?;
+        let iout = self.read_reg16(Register::PMBus(Command::READ_IOUT))?;
         Ok(Amperes(Linear11(iout).to_real()))
     }
 }
