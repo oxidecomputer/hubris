@@ -202,7 +202,7 @@ fn write_register(
 
 #[export_name = "main"]
 fn main() -> ! {
-    let mut sleep_ms = 1000;
+    let mut sleep_ms = 250;
     let mut sleeps = 0;
 
     loop {
@@ -213,9 +213,9 @@ fn main() -> ! {
         if I2C_DEBUG_KICK.load(Ordering::SeqCst) == 0 {
             sleeps += 1;
 
-            // Exponentially backoff our sleep value, but no more than 1s
+            // Exponentially backoff our sleep value, but no more than 250ms
             if sleeps == 10 {
-                sleep_ms = core::cmp::min(sleep_ms * 10, 1000);
+                sleep_ms = core::cmp::min(sleep_ms * 10, 250);
                 sleeps = 0;
             }
 

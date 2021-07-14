@@ -24,6 +24,7 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
+    "task-hiffy",
     "task-i2c",
     "task-power",
     "task-spam2",

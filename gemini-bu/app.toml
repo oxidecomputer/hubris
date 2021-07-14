@@ -161,6 +161,15 @@ requires = {flash = 65536, ram = 8192 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy]
+path = "../task-hiffy"
+name = "task-hiffy"
+features = ["itm"]
+priority = 3
+requires = {flash = 65536, ram = 8192 }
+stacksize = 2048
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
