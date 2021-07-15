@@ -940,6 +940,7 @@ dependencies = [
 [[package]]
 name = "hif"
 version = "0.1.0"
+source = "git+ssh://github.com/oxidecomputer/hif.git#0ce1f424c21d663629b8a88a0843d4dc282c955b"
 dependencies = [
  "postcard",
  "serde",
@@ -1755,6 +1756,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1786,6 +1788,18 @@ dependencies = [
  "abi",
  "cortex-m 0.7.2",
  "cortex-m-semihosting",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-jefe-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
  "num-traits",
  "ringbuf",
  "userlib",

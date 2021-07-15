@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 abi = {path = "../abi"}
+task-jefe-api = {path = "../task-jefe-api"}
 userlib = {path = "../userlib" }
 ringbuf = {path = "../ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }

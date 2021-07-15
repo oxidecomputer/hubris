@@ -4,16 +4,18 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
-use drv_i2c_api::*;
 use hif::*;
 use ringbuf::*;
 use userlib::*;
+use drv_i2c_api::{Controller, Port, Mux, Segment, ResponseCode, I2cDevice};
+use task_jefe_api::{Disposition, JefeError, Jefe};
 
 #[cfg(feature = "standalone")]
 const I2C: Task = Task::anonymous;
 
 #[cfg(not(feature = "standalone"))]
 const I2C: Task = Task::i2c_driver;
+const JEFE: Task = Task::jefe;
 
 #[no_mangle]
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
@@ -25,7 +27,7 @@ static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Execute((usize, hif::Op)),
+    Execute((usize, Op)),
     Function(u32),
     Failure(Failure),
     Success,
@@ -39,13 +41,12 @@ ringbuf!(Trace, 64, Trace::None);
 // is passed to execute.
 //
 pub enum Functions {
-    Loopy(u32, u32),
     I2cRead(
         (Controller, Port, Mux, Segment, u8, u8, usize),
         ResponseCode,
     ),
-    I2cWrite8((Controller, Port, Mux, Segment, u8, u8), ResponseCode),
-    I2cWrite16((Controller, Port, Mux, Segment, u8, u16), ResponseCode),
+    I2cWrite((Controller, Port, Mux, Segment, u8, u8), ResponseCode),
+    JefeSetDisposition((u16, Disposition), JefeError),
 }
 
 //
@@ -163,30 +164,42 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
     }
 }
 
-//
-// A test function that returns twice its parameter if the parameter
-// is even, otherwise it returns a failure with the parameter as the
-// error code.
-//
-fn loopy(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
-    if stack.len() == 0 {
-        Err(Failure::Fault(Fault::MissingParameters))
-    } else if rval.len() < 1 {
-        Err(Failure::Fault(Fault::ReturnValueOverflow))
-    } else {
-        match stack[stack.len() - 1] {
-            Some(val) => {
-                ringbuf_entry!(Trace::Function(val));
+fn i2c_write(_stack: &[Option<u32>], _rval: &mut [u8]) -> Result<usize, Failure> {
+    Err(Failure::Fault(Fault::MissingParameters))
+}
 
-                if val % 2 == 0 {
-                    rval[0] = (val * 2) as u8;
-                    Ok(1)
-                } else {
-                    Err(Failure::FunctionError(val))
-                }
+fn jefe_set_disposition(
+    stack: &[Option<u32>],
+    _rval: &mut [u8]
+) -> Result<usize, Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 2;
+
+    let task = match stack[fp + 0] {
+        Some(task) => task as u16,
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    let disposition = match stack[fp + 1] {
+        Some(disposition) => match Disposition::from_u32(disposition) {
+            Some(disposition) => disposition,
+            None => {
+                return Err(Failure::Fault(Fault::BadParameter(1)));
             }
-            None => Err(Failure::Fault(Fault::BadParameter(0))),
-        }
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
+    };
+
+    let jefe = Jefe(
+        TaskId::for_index_and_gen(JEFE as usize, Generation::default())
+    );
+
+    match jefe.set_disposition(TaskId(task), disposition) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
     }
 }
 
@@ -194,7 +207,7 @@ fn loopy(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
 fn main() -> ! {
     let mut sleep_ms = 250;
     let mut sleeps = 0;
-    let functions: &[Function] = &[loopy, i2c_read];
+    let functions: &[Function] = &[i2c_read, i2c_write, jefe_set_disposition];
     let mut stack = [None; 8];
     let mut scratch = [0u8; 256];
 
@@ -226,7 +239,7 @@ fn main() -> ! {
         let text = unsafe { &HIFFY_TEXT };
         let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
 
-        let check = |offset: usize, op: &hif::Op| -> Result<(), Failure> {
+        let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             ringbuf_entry!(Trace::Execute((offset, *op)));
             Ok(())
         };
