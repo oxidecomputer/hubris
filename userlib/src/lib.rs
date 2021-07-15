@@ -880,11 +880,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     impl Write for PrefixWrite {
         fn write_str(&mut self, s: &str) -> core::fmt::Result {
-            let space_left = self.0.len() - self.1;
-            let n = space_left.min(s.len());
-            if n != 0 {
-                self.0[self.1..self.1 + n].copy_from_slice(&s.as_bytes()[..n]);
-                self.1 += n;
+            if self.1 < self.0.len() {
+                let (_, remaining) = self.0.split_at_mut(self.1);
+                let strbytes = s.as_bytes();
+                let to_write = remaining.len().min(strbytes.len());
+                remaining[..to_write].copy_from_slice(&strbytes[..to_write]);
+                self.1 = self.1.wrapping_add(to_write);
             }
             Ok(())
         }
@@ -892,7 +893,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     let mut pw = PrefixWrite([0; 128], 0);
     write!(pw, "{}", info).ok();
-    sys_panic(&pw.0[..pw.1])
+    sys_panic(if pw.1 < pw.0.len() {
+        pw.0.split_at(pw.1).0
+    } else {
+        &[]
+    });
 }
 
 #[cfg(not(feature = "panic-messages"))]
