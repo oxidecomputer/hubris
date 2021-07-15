@@ -63,11 +63,12 @@ You will need:
 
 If you're on Windows, you can get set up by doing this:
 
-You can easily install `openocd` with [scoop](https://scoop.sh/):
+See [here](http://openocd.org/getting-openocd/) for getting the source of `openocd`
+or get unofficial binaries. Alternatively, you can easily install via
+with [chocolatey](https://chocolatey.org/install):
 
 ```console
-> scoop bucket add extras
-> scoop install openocd
+> choco install openocd
 ```
 
 You'll probably need to install [this
