@@ -317,15 +317,19 @@ pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
     let initial_stack = task.descriptor().initial_stack;
 
-    // Modern ARMv7-M machines require 8-byte stack alignment.
-    // TODO: it is a little rude to assert this in an operation that can be used
-    // after boot... but we do want to ensure that this condition holds...
+    // Modern ARMv7-M machines require 8-byte stack alignment. Make sure that's
+    // still true. Note that this carries the risk of panic on task re-init if
+    // the task table is corrupted -- this is deliberate.
     uassert!(initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
     // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
+    // The subtract below can overflow if the task table is corrupt -- let's
+    // make that failure a little easier to read:
+    uassert!(initial_stack as usize >= frame_size);
+    // Ok. Generate a uslice for the task's starting stack frame.
     let mut uslice: USlice<ExtendedExceptionFrame> =
         USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap();
     uassert!(task.can_write(&uslice));
@@ -421,10 +425,34 @@ pub fn apply_memory_protection(task: &task::Task) {
             // - Not shared.
             (0b001, 0b011)
         };
-        // This is a bit of a hack; it works if the size is a power of two, but
-        // will undersize the region if it isn't. We really need to validate the
-        // regions at boot time with architecture-specific logic....
+        // On v7-M the MPU expresses size of a region in log2 form _minus one._
+        // So, the minimum allowed size of 32 bytes is represented as 4, because
+        // `2**(4 + 1) == 32`.
+        //
+        // We store sizes in the region table in an architecture-independent
+        // form (number of bytes) because it simplifies basically everything
+        // else but this routine. Here we must convert between the two -- and
+        // quickly, because this is called on every context switch.
+        //
+        // The image-generation tools check at build time that region sizes are
+        // powers of two. So, we can assume that the size has a single 1 bit. We
+        // can cheaply compute log2 of this by counting trailing zeroes, but
+        // ARMv7-M doesn't have a native instruction for that -- only leading
+        // zeroes. The equivalent using leading zeroes is
+        //
+        //   log2(N) = bits_in_word - 1 - clz(N)
+        //
+        // Because we want log2 _minus one_ we compute it as...
+        //
+        //   log2_m1(N) = bits_in_word - 2 - clz(N)
+        //
+        // If the size is zero or one, this subtraction will underflow. This
+        // should not occur in a valid image, but could occur due to runtime
+        // flash corruption. Any region size under 32 bytes is illegal on
+        // ARMv7-M anyway, so panicking is better than triggering possibly
+        // undefined hardware behavior.
         let l2size = 30 - region.size.leading_zeros();
+
         let rasr = (xn as u32) << 28
             | ap << 24
             | tex << 19
@@ -787,9 +815,16 @@ pub unsafe extern "C" fn SysTick() {
 
 /// The meat of the systick handler, after we do the unsafe things.
 fn safe_sys_tick_handler(ticks: &mut u64, tasks: &mut [task::Task]) {
-    // Advance the kernel's notion of time, then give up the ability to
-    // accidentally do it again.
+    // Advance the kernel's notion of time.
+    // This increment is not expected to overflow in a working system, since it
+    // would indicate that 2^64 ticks have passed, and ticks are expected to be
+    // in the range of nanoseconds to milliseconds -- meaning over 500 years.
+    // However, we do not use wrapping add here because, if we _do_ overflow due
+    // to e.g. memory corruption, we'd rather panic and reboot than attempt to
+    // limp forward.
     *ticks += 1;
+    // Now, give up mutable access to *ticks so there's no chance of a
+    // double-increment due to bugs below.
     let now = Timestamp::from(*ticks);
     drop(ticks);
 
