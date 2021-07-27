@@ -723,11 +723,16 @@ pub fn select(previous: usize, tasks: &[Task]) -> usize {
 ///
 /// This is generally the right way to search a task table, and is used to
 /// implement (among other bits) the scheduler.
+///
+/// # Panics
+///
+/// If `previous` is not a valid index in `tasks`.
 pub fn priority_scan(
     previous: usize,
     tasks: &[Task],
     pred: impl Fn(&Task) -> bool,
 ) -> Option<usize> {
+    uassert!(previous < tasks.len());
     let search_order = (previous + 1..tasks.len()).chain(0..previous + 1);
     let mut choice = None;
     for i in search_order {
