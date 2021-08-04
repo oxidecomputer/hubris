@@ -45,6 +45,10 @@ impl<T> USlice<T> {
         base_address: usize,
         length: usize,
     ) -> Result<Self, UsageError> {
+        // NOTE: the properties checked here are critical for the correctness of
+        // this type. Think carefully before loosening any of them, or adding a
+        // second way to construct a USlice.
+
         // ZST check, should resolve at compile time:
         uassert!(core::mem::size_of::<T>() != 0);
 
@@ -103,13 +107,21 @@ impl<T> USlice<T> {
     ///
     /// This produces `None` if the slice is empty.
     pub fn last_byte_addr(&self) -> Option<usize> {
-        // This implementation would be wrong for ZSTs, but we blocked them at
-        // construction.
-        let size_in_bytes = self.length * core::mem::size_of::<T>();
+        // This implementation would be wrong for ZSTs (it would indicate any
+        // slice of ZSTs as empty), but we blocked them at construction.
+
+        // Compute the size using an unchecked multiplication. Why can we do
+        // this? Because we checked that this multiplication does not overflow
+        // at construction above. Using an unchecked multiply here removes some
+        // instructions.
+        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
         if size_in_bytes == 0 {
             None
         } else {
             Some(
+                // Note: wrapping operations are safe here because we checked
+                // that the slice doesn't overlap the end of the address space
+                // at construction.
                 self.base_address
                     .wrapping_add(size_in_bytes)
                     .wrapping_sub(1),
