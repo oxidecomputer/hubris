@@ -77,7 +77,7 @@ pub unsafe fn start_kernel(
             .attributes
             .intersects(app::RegionAttributes::RESERVED));
         // Check for base+size overflow
-        uassert!(region.base.wrapping_add(region.size) >= region.base);
+        uassert!(region.base.checked_add(region.size).is_some());
         // Check for suspicious use of reserved word
         uassert_eq!(region.reserved_zero, 0);
 
