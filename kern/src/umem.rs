@@ -37,8 +37,9 @@ impl<T> USlice<T> {
     /// Constructs a `USlice` given a base address and length passed from
     /// untrusted code.
     ///
-    /// This will only succeed if such a slice would not overlap the top of the
-    /// address space, and if `base_address` is correctly aligned for `T`.
+    /// This will only succeed if such a slice would not overlap or touch the
+    /// top of the address space, and if `base_address` is correctly aligned for
+    /// `T`.
     ///
     /// This method will categorically reject zero-sized T.
     pub fn from_raw(
@@ -57,12 +58,12 @@ impl<T> USlice<T> {
             return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at
-        // `base_address`, without wrapping around. This check is slightly
-        // complicated by a desire to _allow_ slices that end at the top of the
-        // address space.
+        // `base_address`, without wrapping around.
         let size_in_bytes = length
             .checked_mul(core::mem::size_of::<T>())
             .ok_or(UsageError::InvalidSlice)?;
+        // Note: this subtraction cannot underflow. You can subtract any usize
+        // from usize::MAX.
         let highest_possible_base = core::usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
             Ok(Self {
@@ -101,6 +102,17 @@ impl<T> USlice<T> {
     /// Returns the bottom address of this slice as a `usize`.
     pub fn base_addr(&self) -> usize {
         self.base_address
+    }
+
+    /// Returns the end address of the slice, which is the address one past its
+    /// final byte -- or its base address if it's empty.
+    pub fn end_addr(&self) -> usize {
+        // Compute the size using an unchecked multiplication. Why can we do
+        // this? Because we checked that this multiplication does not overflow
+        // at construction above. Using an unchecked multiply here removes some
+        // instructions.
+        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
+        self.base_address.wrapping_add(size_in_bytes)
     }
 
     /// Returns the *highest* address in this slice, inclusive.

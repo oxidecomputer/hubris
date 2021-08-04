@@ -19,14 +19,11 @@ pub trait RegionDescExt {
 impl RegionDescExt for abi::RegionDesc {
     /// Tests whether `slice` is fully enclosed by this region.
     fn covers<T>(&self, slice: &crate::umem::USlice<T>) -> bool {
-        let self_end =
-            self.base.wrapping_add(self.size).wrapping_sub(1) as usize;
-        if let Some(slice_end) = slice.last_byte_addr() {
-            // Slice is not empty
-            self_end >= slice.base_addr() && slice_end >= self.base as usize
-        } else {
-            self_end >= slice.base_addr()
-                && slice.base_addr() >= self.base as usize
-        }
+        // We don't allow regions to butt up against the end of the address
+        // space, so we can compute our off-by-one end address as follows:
+        let self_end = self.base.wrapping_add(self.size) as usize;
+
+        (self.base as usize) <= slice.base_addr()
+            && slice.end_addr() <= self_end
     }
 }
