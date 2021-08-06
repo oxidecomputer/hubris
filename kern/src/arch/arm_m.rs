@@ -356,12 +356,13 @@ pub fn reinitialize(task: &mut task::Task) {
         }
     }
 
+    let descriptor = task.descriptor();
     let frame = &mut task.try_write(&mut frame_uslice).unwrap()[0];
 
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();
     // Now fill in the bits we actually care about.
-    frame.base.pc = task.descriptor().entry_point | 1; // for thumb
+    frame.base.pc = descriptor.entry_point | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
     frame.fpscr = INITIAL_FPSCR;
