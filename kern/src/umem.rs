@@ -157,29 +157,6 @@ impl<T> USlice<T> {
             _ => false,
         }
     }
-
-    /// Copies out element `index` from the slice, if `index` is in range.
-    /// Otherwise returns `None`.
-    ///
-    /// # Safety
-    ///
-    /// To read data from the slice safely, you must be certain that it reflects
-    /// readable non-kernel memory. The easiest way to ensure this is to check
-    /// `Task::can_read` (assuming the application's memory regions don't
-    /// overlap the kernel).
-    ///
-    /// The read is *not* performed using `volatile`, so this is not appropriate
-    /// for accessing device registers.
-    pub unsafe fn get(&self, index: usize) -> Option<T>
-    where
-        T: Copy,
-    {
-        if index < self.length {
-            Some((self.base_address as *const T).add(index).read())
-        } else {
-            None
-        }
-    }
 }
 
 impl<T> USlice<T>
