@@ -3,12 +3,12 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
+use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
 use hif::*;
 use ringbuf::*;
+use task_jefe_api::{Disposition, Jefe, JefeError};
 use userlib::*;
-use drv_i2c_api::{Controller, Port, Mux, Segment, ResponseCode, I2cDevice};
-use task_jefe_api::{Disposition, JefeError, Jefe};
 
 #[cfg(feature = "standalone")]
 const I2C: Task = Task::anonymous;
@@ -25,16 +25,21 @@ static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
+static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
+static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
+static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Execute((usize, Op)),
-    Function(u32),
     Failure(Failure),
     Success,
     None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
+
+pub struct Buffer(u8);
 
 //
 // The order in this enum must match the order in the functions array that
@@ -45,7 +50,10 @@ pub enum Functions {
         (Controller, Port, Mux, Segment, u8, u8, usize),
         ResponseCode,
     ),
-    I2cWrite((Controller, Port, Mux, Segment, u8, u8), ResponseCode),
+    I2cWrite(
+        (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
+        ResponseCode,
+    ),
     JefeSetDisposition((u16, Disposition), JefeError),
 }
 
@@ -56,14 +64,11 @@ pub enum Functions {
 #[no_mangle]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
-fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
-    if stack.len() < 7 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 7;
-
-    let controller = match stack[fp + 0] {
+fn i2c_args(
+    stack: &[Option<u32>],
+) -> Result<(Controller, Port, Option<(Mux, Segment)>, u8, Option<u8>), Failure>
+{
+    let controller = match stack[0] {
         Some(controller) => match Controller::from_u32(controller) {
             Some(controller) => controller,
             None => return Err(Failure::Fault(Fault::BadParameter(0))),
@@ -71,7 +76,7 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
         None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
     };
 
-    let port = match stack[fp + 1] {
+    let port = match stack[1] {
         Some(port) => match Port::from_u32(port) {
             Some(port) => port,
             None => {
@@ -81,7 +86,7 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
         None => Port::Default,
     };
 
-    let mux = match (stack[fp + 2], stack[fp + 3]) {
+    let mux = match (stack[2], stack[3]) {
         (Some(mux), Some(segment)) => Some((
             match Mux::from_u32(mux) {
                 Some(mux) => mux,
@@ -99,53 +104,49 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
         _ => None,
     };
 
-    let addr = match stack[fp + 4] {
+    let addr = match stack[4] {
         Some(addr) => addr as u8,
         None => return Err(Failure::Fault(Fault::EmptyParameter(4))),
     };
 
+    let register = match stack[5] {
+        Some(register) => Some(register as u8),
+        None => None,
+    };
+
+    Ok((controller, port, mux, addr, register))
+}
+
+fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
+    if stack.len() < 7 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 7;
+    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
+
     let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
     let device = I2cDevice::new(task, controller, port, mux, addr);
 
-    if rval.len() < 1 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    let register = stack[fp + 5];
-
     match stack[fp + 6] {
-        Some(1) => {
-            let result = match register {
-                Some(reg) => device.read_reg::<u8, u8>(reg as u8),
-                None => device.read::<u8>(),
+        Some(nbytes) => {
+            let n = nbytes as usize;
+
+            if rval.len() < n {
+                return Err(Failure::Fault(Fault::ReturnValueOverflow));
+            }
+
+            let res = if let Some(reg) = register {
+                device.read_reg_into::<u8>(reg as u8, &mut rval[0..n])
+            } else {
+                device.read_into(&mut rval[0..n])
             };
 
-            match result {
-                Ok(result) => {
-                    rval[0] = result;
-                    Ok(1)
-                }
+            match res {
+                Ok(rlen) => Ok(rlen),
                 Err(err) => Err(Failure::FunctionError(err.into())),
             }
         }
-
-        Some(2) => {
-            let result = match register {
-                Some(reg) => device.read_reg::<u8, [u8; 2]>(reg as u8),
-                None => device.read::<[u8; 2]>(),
-            };
-
-            match result {
-                Ok(result) => {
-                    rval[0] = result[0];
-                    rval[1] = result[1];
-                    Ok(2)
-                }
-                Err(err) => Err(Failure::FunctionError(err.into())),
-            }
-        }
-
-        Some(_) => Err(Failure::Fault(Fault::BadParameter(5))),
 
         None => {
             if let Some(reg) = register {
@@ -164,13 +165,64 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
     }
 }
 
-fn i2c_write(_stack: &[Option<u32>], _rval: &mut [u8]) -> Result<usize, Failure> {
-    Err(Failure::Fault(Fault::MissingParameters))
+fn i2c_write(
+    stack: &[Option<u32>],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let mut buf = [0u8; 5];
+
+    //
+    // We need at least 8 (!) parameters, the last of which is the number of
+    // bytes to write.
+    //
+    if stack.len() < 8 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let len = match stack[stack.len() - 1] {
+        Some(len) if len > 0 && len as usize <= buf.len() - 1 => {
+            Ok(len as usize)
+        }
+        _ => Err(Failure::Fault(Fault::BadParameter(7))),
+    }?;
+
+    if stack.len() < 7 + len {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - (7 + len);
+    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
+
+    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let device = I2cDevice::new(task, controller, port, mux, addr);
+
+    let mut offs = 0;
+
+    if let Some(register) = register {
+        buf[offs] = register;
+        offs += 1;
+    }
+
+    let bp = stack.len() - (1 + len);
+
+    for i in 0..len {
+        buf[i + offs] = match stack[bp] {
+            None => {
+                return Err(Failure::Fault(Fault::BadParameter(7)));
+            }
+            Some(val) => val as u8,
+        }
+    }
+
+    match device.write(&buf[0..len + offs]) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
 }
 
 fn jefe_set_disposition(
     stack: &[Option<u32>],
-    _rval: &mut [u8]
+    _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -193,9 +245,10 @@ fn jefe_set_disposition(
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
 
-    let jefe = Jefe(
-        TaskId::for_index_and_gen(JEFE as usize, Generation::default())
-    );
+    let jefe = Jefe(TaskId::for_index_and_gen(
+        JEFE as usize,
+        Generation::default(),
+    ));
 
     match jefe.set_disposition(TaskId(task), disposition) {
         Ok(_) => Ok(0),
@@ -210,6 +263,14 @@ fn main() -> ! {
     let functions: &[Function] = &[i2c_read, i2c_write, jefe_set_disposition];
     let mut stack = [None; 8];
     let mut scratch = [0u8; 256];
+
+    //
+    // Sadly, there seems to be no other way to force these variables to
+    // not be eliminated...
+    //
+    HIFFY_VERSION_MAJOR.fetch_add(0, Ordering::SeqCst);
+    HIFFY_VERSION_MINOR.fetch_add(0, Ordering::SeqCst);
+    HIFFY_VERSION_PATCH.fetch_add(0, Ordering::SeqCst);
 
     loop {
         HIFFY_READY.fetch_add(1, Ordering::SeqCst);

@@ -342,6 +342,42 @@ impl I2cDevice {
         }
     }
 
+    ///
+    /// Like [`read_reg`], but instead of returning a value, reads as many
+    /// bytes as the device will send into a specified slice, returning the
+    /// number of bytes read.
+    ///
+    pub fn read_reg_into<R: AsBytes>(
+        &self,
+        reg: R,
+        buf: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[Lease::from(reg.as_bytes()), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
+        }
+    }
+
+    ///
+    /// Reads an SMBus block.
+    ///
     pub fn read_block<R: AsBytes>(
         &self,
         reg: R,
@@ -402,6 +438,36 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
+        }
+    }
+
+    ///
+    /// Reads from a device *without* first doing a write.  This is like
+    /// [`read`], but will read as many bytes as the device will offer into
+    /// the specified mutable slice, returning the number of bytes read.
+    ///
+    pub fn read_into(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
+        let empty = [0u8; 1];
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[Lease::from(&empty[0..0]), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
         }
     }
 
