@@ -81,16 +81,35 @@ fn main() -> ! {
                 function: Alternate::AF4,
                 mask: (1 << 0) | (1 << 1),
             };
-        } else {
+        }
+        else if #[cfg(target_board = "gimlet-1")] {
+            // SP3 Proxy controller
+            let controller = I2cController {
+                controller: Controller::I2C1,
+                peripheral: Peripheral::I2c1,
+                registers: unsafe { &*device::I2C2::ptr() },
+                notification: (1 << (1 - 1)),
+            };
+
+            // SMBUS_SPD_PROXY_SP3_TO_SP_SMCLK
+            // SMBUS_SPD_PROXY_SP3_TO_SP_SMDAT
+            let pin = I2cPin {
+                controller: Controller::I2C1,
+                port: Port::B,
+                gpio_port: drv_stm32h7_gpio_api::Port::B,
+                function: Alternate::AF4,
+                mask: (1 << 6) | (1 << 7),
+            };
+        }
+        else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
                     let controller = I2cController {
-                        controller: Controller::I2C2,
-                        peripheral: Peripheral::I2c2,
-                        registers: unsafe { &*device::I2C2::ptr() },
-                        notification: (1 << (2 - 1)),
+                        controller: Controller::I2C1,
+                        peripheral: Peripheral::I2c1,
+                        registers: unsafe { &*device::I2C1::ptr() },
+                        notification: (1 << (1 - 1)),
                     };
-
                     let pin = I2cPin {
                         controller: Controller::I2C2,
                         port: Port::F,
