@@ -793,6 +793,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimlet"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32h7",
+]
+
+[[package]]
+name = "gimlet-rot"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
+
+[[package]]
 name = "gimletlet"
 version = "0.1.0"
 dependencies = [

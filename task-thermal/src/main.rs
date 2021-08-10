@@ -290,6 +290,77 @@ fn main() -> ! {
                 Some((Mux::M1, Segment::S3)),
                 DS2482_ADDRESS,
             ));
+        } else if #[cfg(target_board = "gimlet-1")] {
+            // Two sets of TMP117 sensors, Front and Rear
+            // These all have the same address but are on different
+            // controllers/ports
+
+            const TMP116_ADDRESS: u8 = 0x48;
+
+            // Front sensors (U.2)
+            let tmp116 = [ Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C2,
+                Port::F,
+                None,
+                TMP116_ADDRESS
+            )), Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C2,
+                Port::F,
+                None,
+                TMP116_ADDRESS + 1
+            )),
+                Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C2,
+                Port::F,
+                None,
+                TMP116_ADDRESS + 2
+            )),
+
+            // Rear sensors (fans)
+                Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C4,
+                Port::F,
+                None,
+                TMP116_ADDRESS
+            )), Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C4,
+                Port::F,
+                None,
+                TMP116_ADDRESS + 1
+            )),
+                Tmp116::new(&I2cDevice::new(
+                task,
+                Controller::I2C4,
+                Port::F,
+                None,
+                TMP116_ADDRESS + 2
+            )),
+            ];
+
+
+            const MAX31790_ADDRESS: u8 = 0x20;
+
+            let fctrl = Max31790::new(&I2cDevice::new(
+                task,
+                Controller::I2C4,
+                Port::F,
+                None,
+                MAX31790_ADDRESS,
+            ));
+
+            // XXX Something better?
+            let device = I2cDevice::new(task, Controller::I2C4, Port::F, None, 0xff);
+
+            let mut ds2482 = Ds2482::new(&device);
+            let mut adt7420 = [ (Adt7420::new(&device), false) ];
+            let max6634 = [ Max6634::new(&device) ];
+            let mcp9808 = [ Mcp9808::new(&device) ];
+            let pct2075 = [ Pct2075::new(&device) ];
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
