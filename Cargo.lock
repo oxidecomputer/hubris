@@ -120,6 +120,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+
+[[package]]
 name = "bitfield"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -247,6 +253,12 @@ name = "const-oid"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f6b64db6932c7e49332728e3a6bd82c6b7e16016607d20923b537c3bc4c0d5f"
+
+[[package]]
+name = "convert_case"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e1f025f441cdfb75831bec89b9d6a6ed02e5e763f78fc5e1ff30d4870fefaec"
 
 [[package]]
 name = "cortex-m"
@@ -1352,11 +1364,15 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+ssh://github.com/oxidecomputer/pmbus.git#ce8a002decb21548237a8e922bd88d1d781f1549"
+source = "git+ssh://github.com/oxidecomputer/pmbus.git#5f53cd467f746a2e7019e3d4478deb11f1c443b3"
 dependencies = [
+ "anyhow",
+ "convert_case",
  "libm",
  "num-derive",
  "num-traits",
+ "ron",
+ "serde",
 ]
 
 [[package]]
@@ -1486,6 +1502,17 @@ version = "0.1.0"
 dependencies = [
  "quote 1.0.9",
  "syn 1.0.70",
+]
+
+[[package]]
+name = "ron"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "064ea8613fb712a19faf920022ec8ddf134984f100090764a4e1d768f3827f1f"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
 ]
 
 [[package]]

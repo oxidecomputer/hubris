@@ -84,21 +84,6 @@ fn main() -> ! {
     }
 
     loop {
-        let mut buf = [0u8; 128];
-
-        match adm1272.read_model(&mut buf) {
-            Ok(_) => {
-                if let Ok(idstr) = core::str::from_utf8(&buf) {
-                    sys_log!("{}: {}", adm1272, idstr);
-                } else {
-                    sys_log!("{}: {:x}", adm1272, buf[0]);
-                }
-            }
-            Err(err) => {
-                sys_log!("{}: initialization failed: {:?}", adm1272, err);
-            }
-        }
-
         match adm1272.read_vin() {
             Ok(volts) => {
                 trace(Device::Adm1272, Command::VIn(volts));
@@ -141,7 +126,7 @@ fn main() -> ! {
             }
 
             Err(err) => {
-                sys_log!("{}: VOut failed: {:?}", adm1272, err);
+                sys_log!("{}: VOut failed: {:?}", tps546, err);
             }
         }
 
@@ -151,7 +136,7 @@ fn main() -> ! {
             }
 
             Err(err) => {
-                sys_log!("{}: IOut failed: {:?}", adm1272, err);
+                sys_log!("{}: IOut failed: {:?}", tps546, err);
             }
         }
 

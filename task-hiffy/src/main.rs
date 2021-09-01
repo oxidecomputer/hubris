@@ -206,7 +206,7 @@ fn i2c_write(
     let bp = stack.len() - (1 + len);
 
     for i in 0..len {
-        buf[i + offs] = match stack[bp] {
+        buf[i + offs] = match stack[bp + i] {
             None => {
                 return Err(Failure::Fault(Fault::BadParameter(7)));
             }
@@ -261,7 +261,7 @@ fn main() -> ! {
     let mut sleep_ms = 250;
     let mut sleeps = 0;
     let functions: &[Function] = &[i2c_read, i2c_write, jefe_set_disposition];
-    let mut stack = [None; 8];
+    let mut stack = [None; 32];
     let mut scratch = [0u8; 256];
 
     //

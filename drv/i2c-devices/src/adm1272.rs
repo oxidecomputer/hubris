@@ -1,107 +1,25 @@
 //! Driver for the ADM1272 hot-swap controller
 
-use bitfield::bitfield;
 use drv_i2c_api::*;
-use pmbus::*;
 use num_traits::float::FloatCore;
+use pmbus::commands::*;
+use pmbus::*;
 use ringbuf::*;
 use userlib::units::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
-enum SampleAveraging {
-    Disabled = 0b000,
-    Average2 = 0b001,
-    Average4 = 0b010,
-    Average8 = 0b011,
-    Average16 = 0b100,
-    Average32 = 0b101,
-    Average64 = 0b110,
-    Average128 = 0b111,
-}
-
-impl From<u16> for SampleAveraging {
-    fn from(value: u16) -> Self {
-        SampleAveraging::from_u16(value).unwrap()
-    }
-}
-
-impl From<SampleAveraging> for u16 {
-    fn from(value: SampleAveraging) -> Self {
-        value as u16
-    }
-}
-
-bitfield! {
-    #[derive(Copy, Clone, PartialEq)]
-    pub struct PowerMonitorConfiguration(u16);
-    tsfilt, set_tsfilt: 15;
-    simultaneous, set_simultaneous: 14;
-    from into SampleAveraging, pwr_avg, set_pwr_avg: 13, 11;
-    from into SampleAveraging, vi_avg, set_vi_avg: 10, 8;
-    vrange_100v, set_vrange_100v: 5;
-    pmon_mode_continuous, set_pmon_mode_continuous: 4;
-    temp1_enable, set_temp1_enable: 3;
-    vin_enable, set_vin_enable: 2;
-    vout_enable, set_vout_enable: 1;
-    irange_30mv, set_irange_30mv: 0;
-}
-
-#[allow(dead_code)]
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Register {
-    ProgrammableRestart,
-    PeakOutputCurrent,
-    PeakInputVoltage,
-    PeakOutputVoltage,
-    PowerMonitorControl,
-    PowerMonitorConfiguration,
-    Alert1Configuration,
-    Alert2Configuration,
-    PeakTemperature,
-    DeviceConfiguration,
-    PowerCycle,
-    PeakPower,
-    ReadPower,
-    ReadEnergy,
-    HysteresisLowLevel,
-    HysteresisHighLevel,
-    HysteresisStatus,
-    GPIOPinStatus,
-    StartupCurrentLimit,
-    PMBus(Command),
-}
-
-impl From<Register> for u8 {
-    fn from(value: Register) -> Self {
-        match value {
-            Register::ProgrammableRestart => 0xcc,
-            Register::PeakOutputCurrent => 0xd0,
-            Register::PeakInputVoltage => 0xd1,
-            Register::PeakOutputVoltage => 0xd2,
-            Register::PowerMonitorControl => 0xd3,
-            Register::PowerMonitorConfiguration => 0xd4,
-            Register::Alert1Configuration => 0xd5,
-            Register::Alert2Configuration => 0xd6,
-            Register::PeakTemperature => 0xd7,
-            Register::DeviceConfiguration => 0xd8,
-            Register::PowerCycle => 0xd9,
-            Register::PeakPower => 0xda,
-            Register::ReadPower => 0xdb,
-            Register::ReadEnergy => 0xdc,
-            Register::HysteresisLowLevel => 0xf2,
-            Register::HysteresisHighLevel => 0xf3,
-            Register::HysteresisStatus => 0xf4,
-            Register::GPIOPinStatus => 0xf5,
-            Register::StartupCurrentLimit => 0xf6,
-            Register::PMBus(cmd) => cmd as u8,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum Error {
-    BadRead16 { reg: Register, code: ResponseCode },
-    BadWrite16 { reg: Register, code: ResponseCode },
+    BadRead { cmd: u8, code: ResponseCode },
+    BadWrite { cmd: u8, code: ResponseCode },
+    BadData { cmd: u8 },
+    InvalidData { err: pmbus::Error },
+    InvalidConfig,
+}
+
+impl From<pmbus::Error> for Error {
+    fn from(err: pmbus::Error) -> Self {
+        Error::InvalidData { err: err }
+    }
 }
 
 pub struct Adm1272 {
@@ -110,7 +28,7 @@ pub struct Adm1272 {
     voltage_coefficients: Option<Coefficients>,
     current_coefficients: Option<Coefficients>,
     power_coefficients: Option<Coefficients>,
-    config: Option<PowerMonitorConfiguration>,
+    config: Option<adm1272::PMON_CONFIG::CommandData>,
 }
 
 impl core::fmt::Display for Adm1272 {
@@ -121,13 +39,9 @@ impl core::fmt::Display for Adm1272 {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Read16(Register, u16),
-    Write16(Register, u8, u8),
-    Config(PowerMonitorConfiguration),
-    WriteConfig(PowerMonitorConfiguration),
-    ReadError(Register, ResponseCode),
-    WriteError(Register, ResponseCode),
     Coefficients(Coefficients),
+    Config(adm1272::PMON_CONFIG::CommandData),
+    WriteConfig(adm1272::PMON_CONFIG::CommandData),
     None,
 }
 
@@ -145,52 +59,14 @@ impl Adm1272 {
         }
     }
 
-    fn read_reg16(&self, register: Register) -> Result<u16, Error> {
-        let rval = self.device.read_reg::<u8, [u8; 2]>(u8::from(register));
-
-        match rval {
-            Ok(val) => {
-                let v = ((val[1] as u16) << 8) | val[0] as u16;
-                ringbuf_entry!(Trace::Read16(register, v));
-                Ok(v)
-            }
-
-            Err(code) => {
-                ringbuf_entry!(Trace::ReadError(register, code));
-                Err(Error::BadRead16 {
-                    reg: register,
-                    code: code,
-                })
-            }
-        }
-    }
-
-    fn write_reg16(&self, register: Register, value: u16) -> Result<(), Error> {
-        let v = value.to_be_bytes();
-        ringbuf_entry!(Trace::Write16(register, v[0], v[1]));
-
-        match self.device.write(&[u8::from(register), v[0], v[1]]) {
-            Err(code) => {
-                ringbuf_entry!(Trace::WriteError(register, code));
-                Err(Error::BadWrite16 {
-                    reg: register,
-                    code: code,
-                })
-            }
-
-            Ok(_) => Ok(()),
-        }
-    }
-
-    fn read_config(&mut self) -> Result<PowerMonitorConfiguration, Error> {
+    fn read_config(
+        &mut self,
+    ) -> Result<adm1272::PMON_CONFIG::CommandData, Error> {
         if let Some(ref config) = self.config {
             return Ok(*config);
         }
 
-        let config = PowerMonitorConfiguration(
-            self.read_reg16(Register::PowerMonitorConfiguration)?,
-        );
-
+        let config = pmbus_read!(self.device, adm1272::PMON_CONFIG)?;
         ringbuf_entry!(Trace::Config(config));
         self.config = Some(config);
 
@@ -199,68 +75,74 @@ impl Adm1272 {
 
     fn write_config(
         &mut self,
-        config: PowerMonitorConfiguration,
+        config: adm1272::PMON_CONFIG::CommandData,
     ) -> Result<(), Error> {
         ringbuf_entry!(Trace::WriteConfig(config));
-
-        self.write_reg16(Register::PowerMonitorConfiguration, config.0)?;
-        self.config = Some(config);
-
-        Ok(())
+        pmbus_write!(self.device, adm1272::PMON_CONFIG, config)
     }
 
     fn load_coefficients(&mut self) -> Result<(), Error> {
+        use adm1272::PMON_CONFIG::*;
+
         let config = self.read_config()?;
 
-        self.voltage_coefficients = Some(if config.vrange_100v() {
-            Coefficients {
+        let vrange = match config.get_v_range() {
+            Some(vrange) => vrange,
+            None => return Err(Error::InvalidConfig),
+        };
+
+        let irange = match config.get_i_range() {
+            Some(irange) => irange,
+            None => return Err(Error::InvalidConfig),
+        };
+
+        self.voltage_coefficients = Some(match vrange {
+            VRange::Range100V => Coefficients {
                 m: 4062,
                 b: 0,
                 R: -2,
-            }
-        } else {
-            Coefficients {
+            },
+            VRange::Range60V => Coefficients {
                 m: 6770,
                 b: 0,
                 R: -2,
-            }
+            },
         });
 
         ringbuf_entry!(Trace::Coefficients(self.voltage_coefficients.unwrap()));
 
-        self.current_coefficients = Some(if config.irange_30mv() {
-            Coefficients {
+        self.current_coefficients = Some(match irange {
+            IRange::Range30mV => Coefficients {
                 m: 663 * self.rsense,
                 b: 20480,
                 R: -1,
-            }
-        } else {
-            Coefficients {
+            },
+            IRange::Range15mV => Coefficients {
                 m: 1326 * self.rsense,
                 b: 20480,
                 R: -1,
-            }
+            },
         });
 
         ringbuf_entry!(Trace::Coefficients(self.current_coefficients.unwrap()));
 
-        let power = match (config.irange_30mv(), config.vrange_100v()) {
-            (false, false) => Coefficients {
+        let power = match (irange, vrange) {
+            (IRange::Range15mV, VRange::Range60V) => Coefficients {
                 m: 3512 * self.rsense,
                 b: 0,
                 R: -2,
             },
-            (false, true) => Coefficients {
+            (IRange::Range15mV, VRange::Range100V) => Coefficients {
                 m: 21071 * self.rsense,
                 b: 0,
                 R: -3,
             },
-            (true, false) => Coefficients {
+            (IRange::Range30mV, VRange::Range60V) => Coefficients {
                 m: 17561 * self.rsense,
                 b: 0,
                 R: -3,
             },
-            (true, true) => Coefficients {
+            (IRange::Range30mV, VRange::Range100V) => Coefficients {
                 m: 10535 * self.rsense,
                 b: 0,
                 R: -3,
@@ -292,61 +174,52 @@ impl Adm1272 {
     }
 
     fn enable_vin(&mut self) -> Result<(), Error> {
+        use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
-        if !config.vin_enable() {
-            config.set_vin_enable(true);
-            self.write_config(config)?;
+        match config.get_v_in_enable() {
+            None => Err(Error::InvalidConfig),
+            Some(VInEnable::Disabled) => {
+                config.set_v_in_enable(VInEnable::Enabled);
+                self.write_config(config)
+            }
+            _ => Ok(()),
         }
-
-        Ok(())
     }
 
     fn enable_vout(&mut self) -> Result<(), Error> {
+        use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
-        if !config.vout_enable() {
-            config.set_vout_enable(true);
-            self.write_config(config)?;
+        match config.get_v_out_enable() {
+            None => Err(Error::InvalidConfig),
+            Some(VOutEnable::Disabled) => {
+                config.set_v_out_enable(VOutEnable::Enabled);
+                self.write_config(config)
+            }
+            _ => Ok(()),
         }
-
-        Ok(())
-    }
-
-    pub fn read_manufacturer(
-        &self,
-        buf: &mut [u8],
-    ) -> Result<usize, ResponseCode> {
-        self.device.read_block(Command::MFR_ID as u8, buf)
-    }
-
-    pub fn read_model(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
-        self.device.read_block(Command::MFR_MODEL as u8, buf)
     }
 
     pub fn read_vin(&mut self) -> Result<Volts, Error> {
         self.enable_vin()?;
-        let vin = self.read_reg16(Register::PMBus(Command::READ_VIN))?;
-        Ok(Volts(Direct(vin, self.voltage_coefficients()?).to_real()))
+        let vin = pmbus_read!(self.device, adm1272::READ_VIN)?;
+        Ok(Volts(vin.get(&self.voltage_coefficients()?)?.0))
     }
 
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
         self.enable_vout()?;
-        let vout = self.read_reg16(Register::PMBus(Command::READ_VOUT))?;
-        Ok(Volts(Direct(vout, self.voltage_coefficients()?).to_real()))
+        let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
+        Ok(Volts(vout.get(&self.voltage_coefficients()?)?.0))
     }
 
     pub fn read_iout(&mut self) -> Result<Amperes, Error> {
-        let iout = self.read_reg16(Register::PMBus(Command::READ_IOUT))?;
-        Ok(Amperes(
-            Direct(iout, self.current_coefficients()?).to_real(),
-        ))
+        let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
+        Ok(Amperes(iout.get(&self.current_coefficients()?)?.0))
     }
 
     pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
-        let iout = self.read_reg16(Register::PeakOutputCurrent)?;
-        Ok(Amperes(
-            Direct(iout, self.current_coefficients()?).to_real(),
-        ))
+        let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
+        Ok(Amperes(iout.get(&self.current_coefficients()?)?.0))
     }
 }
