@@ -952,7 +952,6 @@ dependencies = [
 [[package]]
 name = "hif"
 version = "0.2.1"
-source = "git+ssh://github.com/oxidecomputer/hif.git#6c48aec7dfd200acfae22fafc3e80b9d97d751c9"
 dependencies = [
  "pkg-version",
  "postcard",
@@ -1091,7 +1090,6 @@ dependencies = [
  "byteorder",
  "crc-any",
  "ecdsa",
- "funty",
  "openssl",
  "p256",
  "packed_struct",
@@ -1364,7 +1362,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+ssh://github.com/oxidecomputer/pmbus.git#5f53cd467f746a2e7019e3d4478deb11f1c443b3"
 dependencies = [
  "anyhow",
  "convert_case",

@@ -1,3 +1,9 @@
 [submodule "lpc55_support"]
 	path = lpc55_support
 	url = git@github.com:oxidecomputer/lpc55_support.git
+[submodule "pmbus"]
+	path = pmbus
+	url = git@github.com:oxidecomputer/pmbus.git
+[submodule "hif"]
+	path = hif
+	url = git@github.com:oxidecomputer/hif.git

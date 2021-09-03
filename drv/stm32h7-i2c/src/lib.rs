@@ -436,6 +436,11 @@ impl<'a> I2cController<'a> {
                     return Err(drv_i2c_api::ResponseCode::BusLocked);
                 }
 
+                if isr.arlo().is_lost() {
+                    i2c.icr.write(|w| w.arlocf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
@@ -535,8 +540,24 @@ impl<'a> I2cController<'a> {
             }
 
             // All done; now block until our transfer is complete...
-            while !i2c.isr.read().tc().is_complete() {
-                ringbuf_entry!(Trace::ReadWaitISR(i2c.isr.read().bits()));
+            loop {
+                let isr = i2c.isr.read();
+                ringbuf_entry!(Trace::ReadWaitISR(isr.bits()));
+
+                if isr.tc().is_complete() {
+                    break;
+                }
+
+                if isr.timeout().is_timeout() {
+                    i2c.icr.write(|w| w.timoutcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusLocked);
+                }
+
+                if isr.arlo().is_lost() {
+                    i2c.icr.write(|w| w.arlocf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
             }
