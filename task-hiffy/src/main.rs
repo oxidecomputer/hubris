@@ -1,4 +1,12 @@
 //! HIF interpreter
+//!
+//! HIF is the Hubris/Humility Interchange Format, a simple stack-based
+//! machine that allows for some dynamic programmability of Hubris.  In
+//! particular, this task provides a HIF interpreter to allow for Humility
+//! commands like `humility i2c`, `humility pmbus` and `humility jefe`.  The
+//! debugger places HIF in [`HIFFY_TEXT`], and then indicates that text is
+//! present by incrementing [`HIFFY_KICK`].  This task executes the specified
+//! HIF, with the return stack located in [`HIFFY_RSTACK`].
 
 #![no_std]
 #![no_main]
@@ -263,6 +271,7 @@ fn main() -> ! {
     let functions: &[Function] = &[i2c_read, i2c_write, jefe_set_disposition];
     let mut stack = [None; 32];
     let mut scratch = [0u8; 256];
+    const NLABELS: usize = 4;
 
     //
     // Sadly, there seems to be no other way to force these variables to
@@ -305,7 +314,7 @@ fn main() -> ! {
             Ok(())
         };
 
-        let rv = execute(
+        let rv = execute::<_, NLABELS>(
             text,
             functions,
             &mut stack,

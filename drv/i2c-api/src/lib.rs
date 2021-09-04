@@ -376,7 +376,11 @@ impl I2cDevice {
     }
 
     ///
-    /// Reads an SMBus block.
+    /// Performs an SMBus block read (in which the first byte returned from
+    /// the device contains the total number of bytes to read) into the
+    /// specified buffer, returning the total number of bytes read.  Note
+    /// that the byte count is only returned from the function; it is *not*
+    /// present as the payload's first byte.
     ///
     pub fn read_block<R: AsBytes>(
         &self,

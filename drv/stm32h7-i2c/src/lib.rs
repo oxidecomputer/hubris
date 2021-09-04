@@ -93,9 +93,14 @@ pub struct I2cMux<'a> {
     pub address: u8,
 }
 
+///
+/// An enum describing the amount to read
+///
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ReadLength {
+    /// Fixed length to read
     Fixed(usize),
+    /// Read size is variable: first byte contains length
     Variable,
 }
 

@@ -951,7 +951,7 @@ dependencies = [
 
 [[package]]
 name = "hif"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "pkg-version",
  "postcard",
@@ -1090,6 +1090,7 @@ dependencies = [
  "byteorder",
  "crc-any",
  "ecdsa",
+ "funty",
  "openssl",
  "p256",
  "packed_struct",
