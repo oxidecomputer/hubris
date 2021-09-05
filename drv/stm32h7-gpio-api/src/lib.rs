@@ -15,7 +15,7 @@ enum Op {
     Toggle = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Port {
     A = 0,
     B = 1,
@@ -89,8 +89,15 @@ impl From<TaskId> for Gpio {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[repr(u32)]
 pub enum GpioError {
     BadArg = 2,
+}
+
+impl From<GpioError> for u32 {
+    fn from(rc: GpioError) -> Self {
+        rc as u32
+    }
 }
 
 impl From<u32> for GpioError {

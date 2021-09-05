@@ -1909,6 +1909,7 @@ dependencies = [
  "cortex-m 0.7.3",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-stm32h7-gpio-api",
  "hif",
  "num-traits",
  "ringbuf",

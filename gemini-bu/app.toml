@@ -156,7 +156,7 @@ start = true
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["itm", "i2c"]
+features = ["itm", "i2c", "gpio"]
 priority = 3
 requires = {flash = 32768, ram = 8192 }
 stacksize = 2048

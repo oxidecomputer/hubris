@@ -29,6 +29,16 @@ cfg_if::cfg_if! {
     }
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "gpio")] {
+        #[cfg(feature = "standalone")]
+        const GPIO: Task = Task::anonymous;
+
+        #[cfg(not(feature = "standalone"))]
+        const GPIO: Task = Task::gpio_driver;
+    }
+}
+
 const JEFE: Task = Task::jefe;
 
 #[no_mangle]
@@ -60,6 +70,7 @@ pub struct Buffer(u8);
 // is passed to execute.
 //
 pub enum Functions {
+    JefeSetDisposition((u16, Disposition), JefeError),
     #[cfg(feature = "i2c")]
     I2cRead(
         (Controller, Port, Mux, Segment, u8, u8, usize),
@@ -70,7 +81,11 @@ pub enum Functions {
         (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
         ResponseCode,
     ),
-    JefeSetDisposition((u16, Disposition), JefeError),
+    #[cfg(feature = "gpio")]
+    GpioToggle(
+        (drv_stm32h7_gpio_api::Port, u8),
+        drv_stm32h7_gpio_api::GpioError
+    ),
 }
 
 //
@@ -236,6 +251,44 @@ fn i2c_write(
     match device.write(&buf[0..len + offs]) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "gpio")]
+fn gpio_toggle(
+    stack: &[Option<u32>],
+    _rval: &mut [u8]
+) -> Result<usize, Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 2;
+
+    let port = match stack[fp + 0] {
+        Some(port) => match drv_stm32h7_gpio_api::Port::from_u32(port) {
+            Some(port) => port,
+            None => return Err(Failure::Fault(Fault::BadParameter(0))),
+        }
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    let mask = match stack[fp + 1] {
+        Some(pin) if pin < 16 => (1u16 << pin),
+        Some(pin) => {
+            return Err(Failure::Fault(Fault::BadParameter(1)));
+        }
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+        }
+    };
+
+    let task = get_task_id(GPIO);
+    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+
+    match gpio.toggle(port, mask) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into()))
     }
 }
 
