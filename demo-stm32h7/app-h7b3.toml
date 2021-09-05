@@ -109,9 +109,9 @@ requires = {flash = 8192, ram = 512}
 stacksize = 512
 start = true
 
-[tasks.i2c_debug]
-path = "../task-i2c"
-name = "task-i2c"
+[tasks.hiffy]
+path = "../task-hiffy"
+name = "task-hiffy"
 features = ["itm"]
 priority = 3
 requires = {flash = 32768, ram = 8192 }
