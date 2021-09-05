@@ -12,17 +12,23 @@
 #![no_main]
 
 use core::sync::atomic::{AtomicU32, Ordering};
-use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
 use hif::*;
 use ringbuf::*;
 use task_jefe_api::{Disposition, Jefe, JefeError};
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const I2C: Task = Task::anonymous;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "i2c")] {
+        use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
 
-#[cfg(not(feature = "standalone"))]
-const I2C: Task = Task::i2c_driver;
+        #[cfg(feature = "standalone")]
+        const I2C: Task = Task::anonymous;
+
+        #[cfg(not(feature = "standalone"))]
+        const I2C: Task = Task::i2c_driver;
+    }
+}
+
 const JEFE: Task = Task::jefe;
 
 #[no_mangle]
@@ -54,10 +60,12 @@ pub struct Buffer(u8);
 // is passed to execute.
 //
 pub enum Functions {
+    #[cfg(feature = "i2c")]
     I2cRead(
         (Controller, Port, Mux, Segment, u8, u8, usize),
         ResponseCode,
     ),
+    #[cfg(feature = "i2c")]
     I2cWrite(
         (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
         ResponseCode,
@@ -72,6 +80,7 @@ pub enum Functions {
 #[no_mangle]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
+#[cfg(feature = "i2c")]
 fn i2c_args(
     stack: &[Option<u32>],
 ) -> Result<(Controller, Port, Option<(Mux, Segment)>, u8, Option<u8>), Failure>
@@ -125,6 +134,7 @@ fn i2c_args(
     Ok((controller, port, mux, addr, register))
 }
 
+#[cfg(feature = "i2c")]
 fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
     if stack.len() < 7 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -173,6 +183,7 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
     }
 }
 
+#[cfg(feature = "i2c")]
 fn i2c_write(
     stack: &[Option<u32>],
     _rval: &mut [u8],
@@ -268,10 +279,17 @@ fn jefe_set_disposition(
 fn main() -> ! {
     let mut sleep_ms = 250;
     let mut sleeps = 0;
-    let functions: &[Function] = &[i2c_read, i2c_write, jefe_set_disposition];
     let mut stack = [None; 32];
     let mut scratch = [0u8; 256];
     const NLABELS: usize = 4;
+
+    let functions: &[Function] = &[
+        #[cfg(feature = "i2c")]
+        i2c_read,
+        #[cfg(feature = "i2c")]
+        i2c_write,
+        jefe_set_disposition,
+    ];
 
     //
     // Sadly, there seems to be no other way to force these variables to

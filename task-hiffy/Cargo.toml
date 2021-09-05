@@ -14,6 +14,7 @@ drv-i2c-api = {path = "../drv/i2c-api"}
 task-jefe-api = {path = "../task-jefe-api"}
 cortex-m = "0.7"
 cortex-m-semihosting = { version = "0.3.5", optional = true }
+cfg-if = "0.1.10"
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 hif = { path = "../hif" }
@@ -24,6 +25,7 @@ default = ["standalone"]
 standalone = ["itm"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
+i2c = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
