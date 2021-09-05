@@ -167,7 +167,7 @@ fn reset_if_needed(
         }
     }
 
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     // First, bounce our I2C controller
@@ -371,6 +371,120 @@ fn main() -> ! {
             } ];
 
             let muxes = [];
+        } else if #[cfg(target_board = "gimlet-1")] {
+            // SP3 proxy is handled in task-spd
+
+            let controllers = [
+                // Front M.2
+                I2cController {
+                    controller: Controller::I2C2,
+                    peripheral: Peripheral::I2c2,
+                    notification: (1 << (2 - 1)),
+                    registers: unsafe { &*device::I2C2::ptr() },
+                },
+                // Mid
+                I2cController {
+                    controller: Controller::I2C3,
+                    peripheral: Peripheral::I2c3,
+                    notification: (1 << (3 - 1)),
+                    registers: unsafe { &*device::I2C3::ptr() },
+                },
+                // Rear
+                I2cController {
+                    controller: Controller::I2C4,
+                    peripheral: Peripheral::I2c4,
+                    notification: (1 << (4 - 1)),
+                    registers: unsafe { &*device::I2C4::ptr() },
+            } ];
+
+
+            let pins = [
+                // Note we have two different sets of pins on two different
+                // ports for I2C2!
+
+                // SMBUS_SP_TO_LVL_FRONT_SMDAT
+                // SMBUS_SP_TO_LVL_FRONT_SMCLK
+                I2cPin {
+                    controller: Controller::I2C2,
+                    port: Port::F,
+                    gpio_port: drv_stm32h7_gpio_api::Port::F,
+                    function: Alternate::AF4,
+                    mask: (1 << 0) | (1 << 1),
+                },
+
+                // SMBUS_SP_TO_M2_SMCLK_A2_V3P3
+                // SMBUS_SP_TO_M2_SMDAT_A2_V3P3
+                I2cPin {
+                    controller: Controller::I2C2,
+                    port: Port::B,
+                    gpio_port: drv_stm32h7_gpio_api::Port::B,
+                    function: Alternate::AF4,
+                    mask: (1 << 10) | (1 << 11),
+                },
+
+                // SMBUS_SP_TO_LVL_MID_SMCLK
+                // SMBUS_SP_TO_LVL_MID_SMDAT
+                I2cPin {
+                    controller: Controller::I2C3,
+                    port: Port::H,
+                    gpio_port: drv_stm32h7_gpio_api::Port::H,
+                    function: Alternate::AF4,
+                    mask: (1 << 7) | (1 << 8),
+                },
+                // SMBUS_SP_TO_LVL_REAR_SMCLK
+                // SMBUS_SP_TO_LVL_REAR_SMDAT
+                I2cPin {
+                    controller: Controller::I2C4,
+                    port: Port::F,
+                    gpio_port: drv_stm32h7_gpio_api::Port::F,
+                    function: Alternate::AF4,
+                    mask: (1 << 14) | (1 << 15),
+                },
+            ];
+
+            let muxes = [
+                // Front muxes for
+                // SMBUS_SP_TO_FRONT_SMCLK_A2_V3P3
+                // SMBUS_SP_TO_FRONT_SMDAT_A2_V3P3
+                I2cMux {
+                    controller: Controller::I2C2,
+                    port: Port::F,
+                    id: Mux::M1,
+                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
+                    enable: None,
+                    address: 0x70,
+                },
+
+                I2cMux {
+                    controller: Controller::I2C2,
+                    port: Port::F,
+                    id: Mux::M1,
+                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
+                    enable: None,
+                    address: 0x71,
+                },
+
+                I2cMux {
+                    controller: Controller::I2C2,
+                    port: Port::F,
+                    id: Mux::M1,
+                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
+                    enable: None,
+                    address: 0x72,
+                },
+
+                // M.2 mux on
+                // SMBUS_SP_TO_M2_SMCLK_A2_V3P3
+                // SMBUS_SP_TO_M2_SMDAT_A2_V3P3
+                I2cMux {
+                    controller: Controller::I2C2,
+                    port: Port::B,
+                    id: Mux::M1,
+                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
+                    enable: None,
+                    address: 0x73,
+                },
+            ];
         } else {
             compile_error!("no I2C controllers/pins for unknown board");
         }
@@ -492,10 +606,7 @@ fn main() -> ! {
 }
 
 fn turn_on_i2c(controllers: &[I2cController]) {
-    let rcc_driver = Rcc::from(TaskId::for_index_and_gen(
-        RCC as usize,
-        Generation::default(),
-    ));
+    let rcc_driver = Rcc::from(get_task_id(RCC));
 
     for controller in controllers {
         controller.enable(&rcc_driver);
@@ -523,7 +634,7 @@ fn configure_port(
         return;
     }
 
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     //
@@ -574,7 +685,7 @@ fn configure_pins(
     pins: &[I2cPin],
     map: &mut PortMap,
 ) {
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     for pin in pins {
@@ -614,7 +725,7 @@ fn configure_muxes(
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {
-    let gpio = TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio = get_task_id(GPIO);
     let gpio = Gpio::from(gpio);
 
     for mux in muxes {

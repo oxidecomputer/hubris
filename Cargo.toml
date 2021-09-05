@@ -11,11 +11,15 @@ members = [
     "demo-stm32h7",
     "gemini-bu",
     "gemini-bu-rot",
+    "gimlet",
+    "gimlet-rot",
     "gimletlet",
     "lpc55",
     "kern",
     "ringbuf",
     "userlib",
+    "stage0",
+    "hypocalls",
     "lpc55_romapi",
 
     "task-template",
@@ -56,6 +60,7 @@ members = [
     "drv/user-leds-api",
 
     "test/tests-gemini-bu",
+    "test/tests-gemini-bu-rot",
     "test/tests-stm32fx",
     "test/tests-stm32h7",
     "test/tests-lpc55",

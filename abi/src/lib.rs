@@ -267,9 +267,24 @@ bitflags::bitflags! {
     }
 }
 
+pub const FIRST_DEAD_CODE: u32 = 0xffff_ff00;
+
 /// Response code returned by the kernel if the peer died or was restarted.
+///
+/// This always has the top 24 bits set to 1, with the `generation` in the
+/// bottom 8 bits.
 pub const fn dead_response_code(new_generation: Generation) -> u32 {
-    0xffff_ff00 + new_generation.0 as u32
+    FIRST_DEAD_CODE | new_generation.0 as u32
+}
+
+/// Utility for checking whether a code indicates that the peer was restarted
+/// and extracting the generation if it is.
+pub const fn extract_new_generation(code: u32) -> Option<Generation> {
+    if (code & FIRST_DEAD_CODE) == FIRST_DEAD_CODE {
+        Some(Generation(code as u8))
+    } else {
+        None
+    }
 }
 
 /// Response code returned by the kernel if a lender has defected.
@@ -440,6 +455,7 @@ pub enum Sysnum {
     IrqControl = 7,
     Panic = 8,
     GetTimer = 9,
+    RefreshTaskId = 10,
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
@@ -460,6 +476,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
             7 => Ok(Self::IrqControl),
             8 => Ok(Self::Panic),
             9 => Ok(Self::GetTimer),
+            10 => Ok(Self::RefreshTaskId),
             _ => Err(()),
         }
     }

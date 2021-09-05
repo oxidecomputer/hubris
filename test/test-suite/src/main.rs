@@ -15,7 +15,6 @@
 #![no_main]
 #![feature(asm)]
 
-use core::sync::atomic::{AtomicU8, Ordering};
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -67,8 +66,35 @@ test_cases! {
     test_timer_notify,
     test_timer_notify_past,
     test_task_status,
-    test_task_fault_injection
+    test_task_fault_injection,
+    test_refresh_task_id_basic,
+    test_refresh_task_id_off_by_one,
+    test_refresh_task_id_off_by_many,
+    test_lpc55_flash_write
 }
+
+#[cfg(feature = "lpc55")]
+fn test_lpc55_flash_write() {
+    // Minimum write size is 512 bytes
+    let buf: [u8; 512] = [0xdd; 512];
+
+    let result = hypocalls::hypo_write_to_flash(0, &buf);
+
+    assert_eq!(result, hypocalls::FlashStatus::Success);
+
+    // Verify that we reject non-zero ids
+    let result = hypocalls::hypo_write_to_flash(1, &buf);
+    assert_eq!(result, hypocalls::FlashStatus::InvalidArg);
+
+    // Verify that we fail to write smaller buffers
+    let small: [u8; 32] = [0xcc; 32];
+
+    let result = hypocalls::hypo_write_to_flash(0, &small);
+    assert_eq!(result, hypocalls::FlashStatus::AlignmentError);
+}
+
+#[cfg(not(feature = "lpc55"))]
+fn test_lpc55_flash_write() {}
 
 /// Tests that we can send a message to our assistant, and that the assistant
 /// can reply. Technically this is also a test of RECV/REPLY on the assistant
@@ -787,6 +813,39 @@ fn test_task_fault_injection() {
     }
 }
 
+/// Tests that we can get current task IDs for the assistant. In practice, this
+/// is already tested because the test runner relies on it -- but this may
+/// provide a more specific failure if we break it, and is meant to complement
+/// the bogus cases below.
+fn test_refresh_task_id_basic() {
+    let initial_id = assist_task_id();
+    restart_assistant();
+    let new_id = sys_refresh_task_id(initial_id);
+
+    assert_eq!(
+        new_id.index(),
+        initial_id.index(),
+        "should not change the task index"
+    );
+    assert_eq!(
+        new_id.generation(),
+        initial_id.generation().next(),
+        "generation should be advanced by one here"
+    );
+}
+
+fn test_refresh_task_id_off_by_one() {
+    let fault = test_fault(AssistOp::RefreshTaskIdOffByOne, 0);
+
+    assert_eq!(fault, FaultInfo::SyscallUsage(UsageError::TaskOutOfRange));
+}
+
+fn test_refresh_task_id_off_by_many() {
+    let fault = test_fault(AssistOp::RefreshTaskIdOffByMany, 0);
+
+    assert_eq!(fault, FaultInfo::SyscallUsage(UsageError::TaskOutOfRange));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Frameworky bits follow
 
@@ -798,6 +857,9 @@ const ASSIST: Task = Task::assist;
 #[cfg(not(feature = "standalone"))]
 const SUITE: Task = Task::suite;
 
+#[cfg(not(feature = "standalone"))]
+const RUNNER: Task = Task::runner;
+
 // For standalone mode -- this won't work, but then, neither will a task without
 // a kernel.
 #[cfg(feature = "standalone")]
@@ -806,27 +868,23 @@ const ASSIST: Task = Task::anonymous;
 #[cfg(feature = "standalone")]
 const SUITE: Task = Task::anonymous;
 
-/// Tracks the current generation of the assistant task as we restart it.
-static ASSIST_GEN: AtomicU8 = AtomicU8::new(0);
+#[cfg(feature = "standalone")]
+const RUNNER: Task = Task::anonymous;
 
 /// Gets the current expected `TaskId` for the assistant.
 fn assist_task_id() -> TaskId {
-    TaskId::for_index_and_gen(
-        ASSIST as usize,
-        Generation::from(ASSIST_GEN.load(Ordering::SeqCst)),
-    )
+    get_task_id(ASSIST)
 }
 
 /// Restarts the assistant task.
 fn restart_assistant() {
     kipc::restart_task(ASSIST as usize, true);
-    ASSIST_GEN.fetch_add(1, Ordering::SeqCst);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
 /// notifications.
 fn read_runner_notifications() -> u32 {
-    let runner = TaskId::for_index_and_gen(0, Generation::default());
+    let runner = get_task_id(RUNNER);
     let mut response = 0u32;
     let op = RunnerOp::ReadAndClearNotes as u16;
     let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
@@ -856,7 +914,6 @@ fn main() -> ! {
         if rc == 0 {
             break;
         }
-        ASSIST_GEN.fetch_add(1, Ordering::SeqCst);
     }
 
     let mut buffer = [0; 4];

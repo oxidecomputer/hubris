@@ -26,6 +26,8 @@ pub enum AssistOp {
     ReadTaskStatus = 18,
     FaultTask = 19,
     RestartTask = 20,
+    RefreshTaskIdOffByOne = 21,
+    RefreshTaskIdOffByMany = 22,
 }
 
 /// Operations that are performed by the test-suite

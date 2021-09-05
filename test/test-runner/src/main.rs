@@ -80,7 +80,7 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -104,11 +104,6 @@ macro_rules! test_output {
 /// This runner is written such that the task under test must be task index 1.
 /// (And the runner must be zero.)
 const TEST_TASK: usize = 1;
-
-/// Tracks the generation number for the test task as we restart it. We expect
-/// that the testsuite won't get restarted any other way, so our number should
-/// not become wrong.
-static TEST_GEN: AtomicU8 = AtomicU8::new(0);
 
 static TEST_KICK: AtomicU32 = AtomicU32::new(0);
 static TEST_RUNS: AtomicU32 = AtomicU32::new(0);
@@ -259,15 +254,14 @@ fn output_name(context: &str, index: usize) {
 /// generation.
 fn restart_tester() {
     kipc::restart_task(TEST_TASK, true);
-    TEST_GEN.fetch_add(1, Ordering::SeqCst);
 }
 
 /// Gets a `TaskId` to the testsuite in its current generation.
 fn tester_task_id() -> TaskId {
-    TaskId::for_index_and_gen(
+    sys_refresh_task_id(TaskId::for_index_and_gen(
         TEST_TASK,
-        Generation::from(TEST_GEN.load(Ordering::SeqCst)),
-    )
+        Generation::default(),
+    ))
 }
 
 /// Contacts the test suite to get the number of defined cases.

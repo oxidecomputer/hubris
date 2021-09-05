@@ -143,7 +143,7 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
     let fp = stack.len() - 7;
     let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
 
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let device = I2cDevice::new(task, controller, port, mux, addr);
 
     match stack[fp + 6] {
@@ -212,7 +212,7 @@ fn i2c_write(
     let fp = stack.len() - (7 + len);
     let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
 
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
     let device = I2cDevice::new(task, controller, port, mux, addr);
 
     let mut offs = 0;
@@ -264,10 +264,7 @@ fn jefe_set_disposition(
         None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
     };
 
-    let jefe = Jefe(TaskId::for_index_and_gen(
-        JEFE as usize,
-        Generation::default(),
-    ));
+    let jefe = Jefe(get_task_id(JEFE));
 
     match jefe.set_disposition(TaskId(task), disposition) {
         Ok(_) => Ok(0),

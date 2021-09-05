@@ -23,6 +23,8 @@
 //! proxy* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
+use core::convert::TryFrom;
+
 use abi::{
     FaultInfo, FaultSource, LeaseAttributes, SchedState, Sysnum, TaskId,
     TaskState, UsageError,
@@ -72,8 +74,6 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 /// Factored out of `syscall_entry` to encapsulate the bits that don't need
 /// unsafe.
 fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
-    use core::convert::TryFrom;
-
     let res = match Sysnum::try_from(nr) {
         Ok(Sysnum::Send) => send(tasks, current),
         Ok(Sysnum::Recv) => recv(tasks, current).map_err(UserError::from),
@@ -85,6 +85,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::IrqControl) => irq_control(tasks, current),
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
         Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
+        Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -560,16 +561,22 @@ fn borrow_lease(
     let lease = unsafe { leases.get(lease_number) };
     // Is the lease number provided by the borrower legitimate?
     if let Some(mut lease) = lease {
-        // Attempt to offset the lease.
-        if offset <= lease.length as usize {
-            lease.base_address += offset as u32;
-            lease.length -= offset as u32;
+        // Attempt to offset the lease. Handle cases where the offset is bogus.
+        // First, we must convert to u32, which _should be_ a no-op but we'll do
+        // it the careful way:
+        let offset = u32::try_from(offset).unwrap();
+        // Now, proceed only if both neither the length nor address computation
+        // wrap.
+        if let (Some(off_len), Some(off_addr)) = (
+            lease.length.checked_sub(offset),
+            lease.base_address.checked_add(offset),
+        ) {
+            lease.base_address = off_addr;
+            lease.length = off_len;
+            Ok(lease)
         } else {
-            return Err(
-                FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into()
-            );
+            Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
         }
-        Ok(lease)
     } else {
         // Borrower provided an invalid lease number. Borrower was told the
         // number of leases on successful RECV and should respect that. (Note:
@@ -731,4 +738,23 @@ fn explicit_panic(
     }
 
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
+}
+
+fn refresh_task_id(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_refresh_task_id_args();
+    let peer = args.task_id().index(); // discard original generation
+    drop(args);
+
+    if peer < tasks.len() {
+        let tid = task::current_id(tasks, peer);
+        tasks[caller].save_mut().set_refresh_task_id_result(tid);
+        Ok(NextTask::Same)
+    } else {
+        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )))
+    }
 }

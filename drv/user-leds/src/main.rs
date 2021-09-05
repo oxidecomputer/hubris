@@ -137,8 +137,7 @@ fn enable_led_pins() {
     // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.
 
     // Contact the RCC driver to get power turned on for GPIOD/E.
-    let rcc_driver =
-        TaskId::for_index_and_gen(RCC as usize, Generation::default());
+    let rcc_driver = get_task_id(RCC);
     const ENABLE_CLOCK: u16 = 1;
 
     #[cfg(feature = "stm32f3")]
@@ -294,8 +293,7 @@ cfg_if::cfg_if! {
 fn enable_led_pins() {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     cfg_if::cfg_if! {
@@ -344,8 +342,7 @@ fn led_mask(led: Led) -> u16 {
 fn led_on(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     let mask = led_mask(led);
@@ -365,8 +362,7 @@ fn led_on(led: Led) {
 fn led_off(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     let mask = led_mask(led);
@@ -386,8 +382,7 @@ fn led_off(led: Led) {
 fn led_toggle(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
     gpio_driver.toggle(LED_PORT, led_mask(led)).unwrap();
@@ -434,8 +429,7 @@ fn enable_led_pins() {
 
     // This assumes the LPCXpresso55S board, where the LEDs are on (abstract
     // pins) 36 and 38.
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     const SET_DIR: u16 = 1;
 
     // Ideally this would be done in another driver but given what svd2rust
@@ -481,8 +475,7 @@ fn enable_led_pins() {
 
 #[cfg(feature = "lpc55")]
 fn led_on(led: Led) {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     const SET_VAL: u16 = 2;
     let idx = led_gpio_num(led);
     let (code, _) =
@@ -492,8 +485,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "lpc55")]
 fn led_off(led: Led) {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     const SET_VAL: u16 = 2;
     let idx = led_gpio_num(led);
     let (code, _) =
@@ -503,8 +495,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
-    let gpio_driver =
-        TaskId::for_index_and_gen(GPIO as usize, Generation::default());
+    let gpio_driver = get_task_id(GPIO);
     const SET_VAL: u16 = 2;
     const READ_VAL: u16 = 3;
     let idx = led_gpio_num(led);

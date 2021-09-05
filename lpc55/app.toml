@@ -2,33 +2,64 @@ name = "lpc55"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 stacksize = 1024
+secure = true
 
 [kernel]
 path = "../lpc55"
 name = "lpc55"
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 32768, ram = 4096}
 features = ["itm"]
-
-[signing.combined]
-method = "rsa"
-priv-key = "../fake_certs/fake_private_key.pem"
-root-cert = "../fake_certs/fake_certificate.der.crt"
 
 [supervisor]
 notification = 1
 
-[outputs.flash]
+[outputs.bootloader_sram]
+address = 0x14000000
+size = 0x8000
+
+[outputs.bootloader_flash]
 address = 0x00000000
-size = 645120
+size = 0x8000
+
+[outputs.bootloader_ram]
+address = 0x20000000
+size = 0x4000
+
+# We reserve the last sector (0x8000) for flash testing
+[outputs.flash]
+address = 0x00008000
+size = 0x88000
 read = true
 execute = true
 
 [outputs.ram]
-address = 0x20000000
-size = 114688
+address = 0x20004000
+size = 0x18000
 read = true
 write = true
 execute = true
+
+[signing.combined]
+method = "ecc"
+priv-key = "../fake_certs/p256-private-key.der"
+
+[signing.bootloader]
+method = "rsa"
+priv-key = "../fake_certs/fake_private_key.pem"
+root-cert = "../fake_certs/fake_certificate.der.crt"
+
+[bootloader]
+path = "../stage0"
+name = "stage0"
+sections = {"flash_hypo" = "flash"}
+sharedsyms = ["write_to_flash"]
+# Currently we have the first 0x8000 of flash and first 0x4000 of RAM
+# dedicated for the stage0 bootloader and the rest for Hubris. Once we have
+# multiple images this will need to be adjusted
+imagea-flash-start = 0x8000
+imagea-flash-size = 0x88000
+imagea-ram-start = 0x20004000
+imagea-ram-size = 0x18000
 
 [tasks.jefe]
 path = "../task-jefe"
@@ -62,6 +93,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["syscon", "anactrl", "pmc"]
 start = true
+stacksize = 1000
 
 [tasks.gpio_driver]
 path = "../drv/lpc55-gpio"
@@ -70,6 +102,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
+stacksize = 1000
 
 [tasks.user_leds]
 path = "../drv/user-leds"
@@ -79,6 +112,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon"]
 start = true
+stacksize = 1000
 
 [tasks.usart_driver]
 path = "../drv/lpc55-usart"
@@ -88,6 +122,7 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm0"]
 start = true
 interrupts = {14 = 1}
+stacksize = 1000
 
 [tasks.i2c_driver]
 path = "../drv/lpc55-i2c"
@@ -96,6 +131,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm4"]
 start = true
+stacksize = 1000
 
 [tasks.rng_driver]
 path = "../drv/lpc55-rng"
@@ -104,6 +140,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["rng", "pmc"]
 start = true
+stacksize = 1000
 
 [tasks.spi_driver]
 path = "../drv/lpc55-spi-server"
@@ -113,6 +150,7 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm8"]
 start = true
 interrupts = {59 = 1}
+stacksize = 1000
 
 [tasks.ping]
 path = "../task-ping"
@@ -121,6 +159,7 @@ features = ["uart"]
 priority = 4
 requires = {flash = 8192, ram = 1024}
 start = true
+stacksize = 1000
 
 [tasks.pong]
 path = "../task-pong"
@@ -129,6 +168,7 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 uses = ["iocon"]
 start = true
+stacksize = 1000
 
 [tasks.spam]
 path = "../task-spam2"

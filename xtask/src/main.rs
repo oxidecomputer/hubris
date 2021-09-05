@@ -113,11 +113,14 @@ struct Config {
     signing: IndexMap<String, Signing>,
     secure: Option<bool>,
     stacksize: Option<u32>,
+    bootloader: Option<Bootloader>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     peripherals: IndexMap<String, Peripheral>,
+    #[serde(default)]
+    extratext: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
 }
 
@@ -127,6 +130,23 @@ struct Signing {
     method: String,
     priv_key: Option<PathBuf>,
     root_cert: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct Bootloader {
+    path: PathBuf,
+    name: String,
+    #[serde(default)]
+    features: Vec<String>,
+    #[serde(default)]
+    sections: IndexMap<String, String>,
+    #[serde(default)]
+    sharedsyms: Vec<String>,
+    imagea_flash_start: u32,
+    imagea_flash_size: u32,
+    imagea_ram_start: u32,
+    imagea_ram_size: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

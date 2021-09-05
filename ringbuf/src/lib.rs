@@ -232,8 +232,12 @@ pub fn ringbuf(input: TokenStream) -> TokenStream {
                         let ent = &mut self.buffer[last];
 
                         if ent.line == line && ent.payload == payload {
-                            ent.count += 1;
-                            return;
+                            // Only reuse this entry if we don't overflow the
+                            // count.
+                            if let Some(new_count) = ent.count.checked_add(1) {
+                                ent.count = new_count;
+                                return;
+                            }
                         }
 
                         if last + 1 >= self.buffer.len() {
@@ -248,7 +252,7 @@ pub fn ringbuf(input: TokenStream) -> TokenStream {
                 ent.line = line;
                 ent.payload = payload;
                 ent.count = 1;
-                ent.generation += 1;
+                ent.generation = ent.generation.wrapping_add(1);
 
                 self.last = Some(ndx);
             }

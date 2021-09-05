@@ -47,7 +47,7 @@ fn trace(dev: Device, cmd: Command) {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = TaskId::for_index_and_gen(I2C as usize, Generation::default());
+    let task = get_task_id(I2C);
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {

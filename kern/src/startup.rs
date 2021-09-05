@@ -169,6 +169,8 @@ fn safe_start_kernel(
         Task::from_descriptor(&task_descs[i], &region_tables[i])
     });
 
+    uassert!(tasks.len() != 0); // tasks must exist for this to work.
+
     // With that done, set up initial register state etc.
     for task in tasks.iter_mut() {
         crate::arch::reinitialize(task);

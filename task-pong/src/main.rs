@@ -55,8 +55,5 @@ fn get_user_leds() -> drv_user_leds_api::UserLeds {
     #[cfg(feature = "standalone")]
     const USER_LEDS: Task = Task::anonymous;
 
-    drv_user_leds_api::UserLeds::from(TaskId::for_index_and_gen(
-        USER_LEDS as usize,
-        Generation::default(),
-    ))
+    drv_user_leds_api::UserLeds::from(get_task_id(USER_LEDS))
 }

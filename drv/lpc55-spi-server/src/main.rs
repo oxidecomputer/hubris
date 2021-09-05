@@ -72,10 +72,7 @@ impl From<ResponseCode> for u32 {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let syscon = Syscon::from(TaskId::for_index_and_gen(
-        SYSCON as usize,
-        Generation::default(),
-    ));
+    let syscon = Syscon::from(get_task_id(SYSCON));
 
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_flexcomm(&syscon);

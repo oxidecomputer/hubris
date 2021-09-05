@@ -880,11 +880,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     impl Write for PrefixWrite {
         fn write_str(&mut self, s: &str) -> core::fmt::Result {
-            let space_left = self.0.len() - self.1;
-            let n = space_left.min(s.len());
-            if n != 0 {
-                self.0[self.1..self.1 + n].copy_from_slice(&s.as_bytes()[..n]);
-                self.1 += n;
+            if self.1 < self.0.len() {
+                let (_, remaining) = self.0.split_at_mut(self.1);
+                let strbytes = s.as_bytes();
+                let to_write = remaining.len().min(strbytes.len());
+                remaining[..to_write].copy_from_slice(&strbytes[..to_write]);
+                self.1 = self.1.wrapping_add(to_write);
             }
             Ok(())
         }
@@ -892,13 +893,71 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     let mut pw = PrefixWrite([0; 128], 0);
     write!(pw, "{}", info).ok();
-    sys_panic(&pw.0[..pw.1])
+    sys_panic(if pw.1 < pw.0.len() {
+        pw.0.split_at(pw.1).0
+    } else {
+        &[]
+    });
 }
 
 #[cfg(not(feature = "panic-messages"))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     sys_panic(b"PANIC")
+}
+
+#[inline(always)]
+pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
+    let tid = unsafe { sys_refresh_task_id_stub(task_id.0 as u32) };
+    TaskId(tid as u16)
+}
+
+/// Core implementation of the REFRESH_TASK_ID syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need (plus one to
+        @ maintain alignment); this means the pop sequence at the end needs to
+        @ match!
+        push {{r4, r5, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move result into place.
+        mov r0, r4
+
+        @ Restore the registers we used and return.
+        pop {{r4, r5, r11, pc}}
+        ",
+        sysnum = const Sysnum::RefreshTaskId as u32,
+        options(noreturn),
+    )
+}
+
+/// Returns the current `TaskId` for a `Task`.
+///
+/// A `Task` represents a static task index, while a `TaskId` adds the task's
+/// current generation number. This function queries the current generation
+/// number from the kernel.
+///
+/// Since this involves a kernel entry, if you're at all performance sensitive,
+/// you may want to do this once and then maintain the result across restarts of
+/// the task. The `hl::send_with_retry` function provides an example of how to
+/// do this.
+pub fn get_task_id(task: Task) -> TaskId {
+    let prototype =
+        TaskId::for_index_and_gen(task as usize, Generation::default());
+    sys_refresh_task_id(prototype)
 }
 
 // Enumeration of tasks in the application, for convenient reference, generated

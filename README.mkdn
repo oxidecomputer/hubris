@@ -63,12 +63,22 @@ You will need:
 
 If you're on Windows, you can get set up by doing this:
 
+See [here](http://openocd.org/getting-openocd/) for getting the source of `openocd`
+or get unofficial binaries. Alternatively, you can install via
+with [chocolatey](https://chocolatey.org/install):
+
+```console
+> choco install openocd
+```
+
 You can easily install `openocd` with [scoop](https://scoop.sh/):
 
 ```console
 > scoop bucket add extras
 > scoop install openocd
 ```
+NOTE: `openocd` installed via `scoop` has proven problematic for some users. If
+you experience problems, try installing via `choco` or from source (see above).
 
 You'll probably need to install [this
 driver](https://www.st.com/en/development-tools/stsw-link009.html).

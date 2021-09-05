@@ -3,6 +3,7 @@
 #![no_std]
 
 use byteorder::LittleEndian;
+use core::cell::Cell;
 use zerocopy::{AsBytes, U16};
 
 use userlib::*;
@@ -79,23 +80,23 @@ pub enum Alternate {
 }
 
 #[derive(Clone, Debug)]
-pub struct Gpio(TaskId);
+pub struct Gpio(Cell<TaskId>);
 
 impl From<TaskId> for Gpio {
     fn from(t: TaskId) -> Self {
-        Self(t)
+        Self(Cell::new(t))
     }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum GpioError {
-    Dead = !0,
+    BadArg = 2,
 }
 
 impl From<u32> for GpioError {
     fn from(x: u32) -> Self {
         match x {
-            core::u32::MAX => GpioError::Dead,
+            2 => GpioError::BadArg,
             _ => panic!(),
         }
     }
@@ -133,8 +134,8 @@ impl Gpio {
             | (pull as u16) << 5
             | (af as u16) << 7;
 
-        hl::send(
-            self.0,
+        hl::send_with_retry(
+            &self.0,
             &ConfigureRequest {
                 port: port as u8,
                 pins: U16::new(pins),
@@ -164,8 +165,8 @@ impl Gpio {
             type Err = GpioError;
         }
 
-        hl::send(
-            self.0,
+        hl::send_with_retry(
+            &self.0,
             &SetResetRequest {
                 port: port as u8,
                 set_pins: U16::new(set_pins),
@@ -186,7 +187,7 @@ impl Gpio {
             type Err = GpioError;
         }
 
-        hl::send(self.0, &ReadInputRequest(port as u8))
+        hl::send_with_retry(&self.0, &ReadInputRequest(port as u8))
     }
 
     /// Toggles some subset of pins in a GPIO port.
@@ -204,8 +205,8 @@ impl Gpio {
             type Err = GpioError;
         }
 
-        hl::send(
-            self.0,
+        hl::send_with_retry(
+            &self.0,
             &ToggleRequest {
                 port: port as u8,
                 pins: U16::new(pins),
