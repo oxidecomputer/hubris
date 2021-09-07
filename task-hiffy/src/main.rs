@@ -41,6 +41,20 @@ cfg_if::cfg_if! {
 
 const JEFE: Task = Task::jefe;
 
+///
+/// These HIFFY_* global variables constitute the interface with Humility;
+/// they should not be altered without modifying Humility as well.
+///
+/// - [`HIFFY_TEXT`]       => Program text for HIF operations
+/// - [`HIFFY_RSTACK`]     => HIF return stack
+/// - [`HIFFY_REQUESTS`]   => Count of succesful requests
+/// - [`HIFFY_ERRORS`]     => Count of HIF execution failures
+/// - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
+/// - [`HIFFY_KICK`]       => Variable that will be written to to indicate that
+///                           [`HIFFY_TEXT`] contains valid program text
+/// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
+///                           execution engine is waiting to be kicked
+///
 #[no_mangle]
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
 static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
@@ -49,6 +63,13 @@ static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
+#[no_mangle]
+static mut HIFFY_FAILURE: Option<Failure> = None;
+
+///
+/// We deliberately export the HIF version numbers to allow Humility to
+/// fail cleanly if its HIF version does not match our own.
+///
 static HIFFY_VERSION_MAJOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MAJOR);
 static HIFFY_VERSION_MINOR: AtomicU32 = AtomicU32::new(HIF_VERSION_MINOR);
 static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
@@ -57,6 +78,15 @@ static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 enum Trace {
     Execute((usize, Op)),
     Failure(Failure),
+    GpioConfigure(
+        drv_stm32h7_gpio_api::Port,
+        u16,
+        drv_stm32h7_gpio_api::Mode,
+        drv_stm32h7_gpio_api::OutputType,
+        drv_stm32h7_gpio_api::Speed,
+        drv_stm32h7_gpio_api::Pull,
+        drv_stm32h7_gpio_api::Alternate,
+    ),
     Success,
     None,
 }
@@ -84,7 +114,30 @@ pub enum Functions {
     #[cfg(feature = "gpio")]
     GpioToggle(
         (drv_stm32h7_gpio_api::Port, u8),
-        drv_stm32h7_gpio_api::GpioError
+        drv_stm32h7_gpio_api::GpioError,
+    ),
+    #[cfg(feature = "gpio")]
+    GpioSet(
+        (drv_stm32h7_gpio_api::Port, u8),
+        drv_stm32h7_gpio_api::GpioError,
+    ),
+    #[cfg(feature = "gpio")]
+    GpioReset(
+        (drv_stm32h7_gpio_api::Port, u8),
+        drv_stm32h7_gpio_api::GpioError,
+    ),
+    #[cfg(feature = "gpio")]
+    GpioConfigure(
+        (
+            drv_stm32h7_gpio_api::Port,
+            u8,
+            drv_stm32h7_gpio_api::Mode,
+            drv_stm32h7_gpio_api::OutputType,
+            drv_stm32h7_gpio_api::Speed,
+            drv_stm32h7_gpio_api::Pull,
+            drv_stm32h7_gpio_api::Alternate,
+        ),
+        drv_stm32h7_gpio_api::GpioError,
     ),
 }
 
@@ -255,10 +308,9 @@ fn i2c_write(
 }
 
 #[cfg(feature = "gpio")]
-fn gpio_toggle(
+fn gpio_args(
     stack: &[Option<u32>],
-    _rval: &mut [u8]
-) -> Result<usize, Failure> {
+) -> Result<(drv_stm32h7_gpio_api::Port, u16), Failure> {
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -269,13 +321,13 @@ fn gpio_toggle(
         Some(port) => match drv_stm32h7_gpio_api::Port::from_u32(port) {
             Some(port) => port,
             None => return Err(Failure::Fault(Fault::BadParameter(0))),
-        }
+        },
         None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
     };
 
     let mask = match stack[fp + 1] {
         Some(pin) if pin < 16 => (1u16 << pin),
-        Some(pin) => {
+        Some(_) => {
             return Err(Failure::Fault(Fault::BadParameter(1)));
         }
         None => {
@@ -283,12 +335,119 @@ fn gpio_toggle(
         }
     };
 
+    Ok((port, mask))
+}
+
+#[cfg(feature = "gpio")]
+fn gpio_toggle(
+    stack: &[Option<u32>],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
     let task = get_task_id(GPIO);
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
+    let (port, mask) = gpio_args(stack)?;
+
     match gpio.toggle(port, mask) {
         Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into()))
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "gpio")]
+fn gpio_set(stack: &[Option<u32>], _rval: &mut [u8]) -> Result<usize, Failure> {
+    let task = get_task_id(GPIO);
+    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+
+    let (port, mask) = gpio_args(stack)?;
+
+    match gpio.set_reset(port, mask, 0) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "gpio")]
+fn gpio_reset(
+    stack: &[Option<u32>],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let task = get_task_id(GPIO);
+    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+
+    let (port, mask) = gpio_args(stack)?;
+
+    match gpio.set_reset(port, 0, mask) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "gpio")]
+fn gpio_configure(
+    stack: &[Option<u32>],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_stm32h7_gpio_api::*;
+
+    if stack.len() < 7 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 7;
+    let (port, mask) = gpio_args(&stack[fp..fp + 2])?;
+
+    let mode = match stack[fp + 2] {
+        Some(mode) => match Mode::from_u32(mode) {
+            Some(mode) => mode,
+            None => return Err(Failure::Fault(Fault::BadParameter(2))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(2))),
+    };
+
+    let output_type = match stack[fp + 3] {
+        Some(output_type) => match OutputType::from_u32(output_type) {
+            Some(output_type) => output_type,
+            None => return Err(Failure::Fault(Fault::BadParameter(3))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(3))),
+    };
+
+    let speed = match stack[fp + 4] {
+        Some(speed) => match Speed::from_u32(speed) {
+            Some(speed) => speed,
+            None => return Err(Failure::Fault(Fault::BadParameter(4))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(4))),
+    };
+
+    let pull = match stack[fp + 5] {
+        Some(pull) => match Pull::from_u32(pull) {
+            Some(pull) => pull,
+            None => return Err(Failure::Fault(Fault::BadParameter(5))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(5))),
+    };
+
+    let af = match stack[fp + 6] {
+        Some(af) => match Alternate::from_u32(af) {
+            Some(af) => af,
+            None => return Err(Failure::Fault(Fault::BadParameter(6))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(6))),
+    };
+
+    let task = get_task_id(GPIO);
+    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+
+    #[rustfmt::skip]
+    ringbuf_entry!(
+        Trace::GpioConfigure(port, mask, mode, output_type, speed, pull, af)
+    );
+
+    match gpio.configure(port, mask, mode, output_type, speed, pull, af) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
     }
 }
 
@@ -334,11 +493,19 @@ fn main() -> ! {
     const NLABELS: usize = 4;
 
     let functions: &[Function] = &[
+        jefe_set_disposition,
         #[cfg(feature = "i2c")]
         i2c_read,
         #[cfg(feature = "i2c")]
         i2c_write,
-        jefe_set_disposition,
+        #[cfg(feature = "gpio")]
+        gpio_toggle,
+        #[cfg(feature = "gpio")]
+        gpio_set,
+        #[cfg(feature = "gpio")]
+        gpio_reset,
+        #[cfg(feature = "gpio")]
+        gpio_configure,
     ];
 
     //
@@ -398,6 +565,10 @@ fn main() -> ! {
             }
             Err(failure) => {
                 HIFFY_ERRORS.fetch_add(1, Ordering::SeqCst);
+                unsafe {
+                    HIFFY_FAILURE = Some(failure);
+                }
+
                 ringbuf_entry!(Trace::Failure(failure));
             }
         }

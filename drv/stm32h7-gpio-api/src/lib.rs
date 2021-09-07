@@ -30,7 +30,8 @@ pub enum Port {
     K = 10,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[repr(u32)]
 pub enum Mode {
     Input = 0b00,
     Output = 0b01,
@@ -38,13 +39,15 @@ pub enum Mode {
     Analog = 0b11,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[repr(u32)]
 pub enum OutputType {
     PushPull = 0,
     OpenDrain = 1,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[repr(u32)]
 pub enum Speed {
     Low = 0b00,
     Medium = 0b01,
@@ -52,14 +55,16 @@ pub enum Speed {
     VeryHigh = 0b11,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[repr(u32)]
 pub enum Pull {
     None = 0b00,
     Up = 0b01,
     Down = 0b10,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[repr(u32)]
 pub enum Alternate {
     AF0 = 0,
     AF1 = 1,
