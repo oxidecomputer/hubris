@@ -77,14 +77,8 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show
 
-      # cache the cargo registry & index
-      - name: Cache cargo outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache build output
+        uses: Swatinem/rust-cache@v1
 
       - name: Cache vcpkg 
         uses: actions/cache@v2
@@ -94,15 +88,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
             ${{ runner.os }}-vcpkg-download-
-
-      # cache our build outputs. note that we ignore our dist directory.
-      - name: Cache build outputs
-        uses: actions/cache@v2
-        with:
-          path: |
-            target
-            !target/${{ matrix.app_name }}/dist
-          key: ${{ runner.os }}-build-${{ matrix.build }}-${{ hashFiles('**/Cargo.lock') }}
 
       # install dependencies
       - name: Install dependencies
