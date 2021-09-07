@@ -30,12 +30,23 @@ SECTIONS
   } > FLASH
 
   /*
+   * Table of entry points for Hubris to get into the bootloader.
+   * table.ld containing the actual bytes is generated at runtime.
+   * Note the ALIGN requirement comes from TrustZone requirements.
+   */
+  .addr_table __erodata : ALIGN(32) {
+    __bootloader_fn_table = .;
+    INCLUDE table.ld
+    __end_flash = .;
+  } > FLASH
+
+  /*
    * Sections in RAM
    *
    * NOTE: the userlib runtime assumes that these sections
    * are 4-byte aligned and padded to 4-byte boundaries.
    */
-  .data : AT(__erodata) ALIGN(4)
+  .data : AT(__end_flash) ALIGN(4)
   {
     . = ALIGN(4);
     __sdata = .;
@@ -47,7 +58,7 @@ SECTIONS
   /* LMA of .data */
   __sidata = LOADADDR(.data);
 
-  .bss : ALIGN(4)
+  .bss (NOLOAD) : ALIGN(4)
   {
     . = ALIGN(4);
     __sbss = .;

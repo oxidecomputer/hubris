@@ -732,13 +732,6 @@ fn generate_task_linker_script(
         writeln!(linkscr, "}} INSERT BEFORE .got")?;
     }
 
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, " .addr_table : ALIGN(32) {{").unwrap();
-    writeln!(linkscr, "    __bootloader_fn_table = .;").unwrap();
-    writeln!(linkscr, " INCLUDE table.ld").unwrap();
-    writeln!(linkscr, " }} > FLASH").unwrap();
-    writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
-
     Ok(())
 }
 
