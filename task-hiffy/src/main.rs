@@ -11,6 +11,7 @@
 #![no_std]
 #![no_main]
 
+use byteorder::ByteOrder;
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use ringbuf::*;
@@ -78,6 +79,7 @@ static HIFFY_VERSION_PATCH: AtomicU32 = AtomicU32::new(HIF_VERSION_PATCH);
 enum Trace {
     Execute((usize, Op)),
     Failure(Failure),
+    #[cfg(feature = "gpio")]
     GpioConfigure(
         drv_stm32h7_gpio_api::Port,
         u16,
@@ -87,6 +89,8 @@ enum Trace {
         drv_stm32h7_gpio_api::Pull,
         drv_stm32h7_gpio_api::Alternate,
     ),
+    #[cfg(feature = "gpio")]
+    GpioInput(drv_stm32h7_gpio_api::Port),
     Success,
     None,
 }
@@ -110,6 +114,11 @@ pub enum Functions {
     I2cWrite(
         (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
         ResponseCode,
+    ),
+    #[cfg(feature = "gpio")]
+    GpioInput(
+        (drv_stm32h7_gpio_api::Port),
+        drv_stm32h7_gpio_api::GpioError,
     ),
     #[cfg(feature = "gpio")]
     GpioToggle(
@@ -339,6 +348,39 @@ fn gpio_args(
 }
 
 #[cfg(feature = "gpio")]
+fn gpio_input(
+    stack: &[Option<u32>],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let task = get_task_id(GPIO);
+    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 1;
+
+    let port = match stack[fp + 0] {
+        Some(port) => match drv_stm32h7_gpio_api::Port::from_u32(port) {
+            Some(port) => port,
+            None => return Err(Failure::Fault(Fault::BadParameter(0))),
+        },
+        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+    };
+
+    ringbuf_entry!(Trace::GpioInput(port));
+
+    match gpio.read_input(port) {
+        Ok(input) => {
+            byteorder::LittleEndian::write_u16(rval, input);
+            Ok(core::mem::size_of::<u16>())
+        }
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "gpio")]
 fn gpio_toggle(
     stack: &[Option<u32>],
     _rval: &mut [u8],
@@ -498,6 +540,8 @@ fn main() -> ! {
         i2c_read,
         #[cfg(feature = "i2c")]
         i2c_write,
+        #[cfg(feature = "gpio")]
+        gpio_input,
         #[cfg(feature = "gpio")]
         gpio_toggle,
         #[cfg(feature = "gpio")]
