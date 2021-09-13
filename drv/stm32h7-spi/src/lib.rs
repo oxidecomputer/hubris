@@ -27,7 +27,20 @@
 
 #![no_std]
 
+use ringbuf::*;
 use stm32h7::stm32h743 as device;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    CanRxSR(u32),
+    CanRxWordSR(u32),
+    CanTxSR(u32),
+    EoTSR(u32),
+    EndSR(u32),
+    None,
+}
+
+ringbuf!(Trace, 64, Trace::None);
 
 pub struct Spi {
     /// Pointer to our register block.
@@ -72,33 +85,24 @@ impl Spi {
         // TODO: C driver has some bits about twiddling SSI state to avoid MODF.
         // I've hardcoded what I believe is the equivalent result here.
 
+        #[rustfmt::skip]
         self.reg.cfg2.write(|w| {
-            w.master()
-                .set_bit()
+            w
                 // This bit determines if software manages SS (SSM = 1) or
                 // hardware (SSM = 0). Let hardware set SS appropriately.
-                .ssm()
-                .clear_bit()
+                .ssm().clear_bit()
                 // SS output enabled; but not necessarily routed to a pin
                 // (caller determines that)
-                .ssoe()
-                .enabled()
+                .ssoe().enabled()
                 // Don't glitch pins when being reconfigured.
-                .afcntr()
-                .controlled()
+                .afcntr().controlled()
                 // This is currently a host-only driver.
-                .master()
-                .set_bit()
-                .comm()
-                .variant(comm)
-                .lsbfrst()
-                .variant(lsbfrst)
-                .cpha()
-                .variant(cpha)
-                .cpol()
-                .variant(cpol)
-                .ssom()
-                .variant(ssom)
+                .master().set_bit()
+                .comm().variant(comm)
+                .lsbfrst().variant(lsbfrst)
+                .cpha().variant(cpha)
+                .cpol().variant(cpol)
+                .ssom().variant(ssom)
         });
 
         self.reg.cr1.write(|w| w.ssi().set_bit());
@@ -118,16 +122,20 @@ impl Spi {
     }
 
     pub fn can_rx_word(&self) -> bool {
-        self.reg.sr.read().rxwne().bit()
+        let sr = self.reg.sr.read();
+        ringbuf_entry!(Trace::CanRxWordSR(sr.bits()));
+        sr.rxwne().bit()
     }
 
     pub fn can_rx_byte(&self) -> bool {
         let sr = self.reg.sr.read();
+        ringbuf_entry!(Trace::CanRxSR(sr.bits()));
         sr.rxwne().bit() || sr.rxplvl().bits() != 0
     }
 
     pub fn can_tx_frame(&self) -> bool {
         let sr = self.reg.sr.read();
+        ringbuf_entry!(Trace::CanTxSR(sr.bits()));
         sr.txp().bit()
     }
 
@@ -136,7 +144,9 @@ impl Spi {
     }
 
     pub fn end_of_transmission(&self) -> bool {
-        self.reg.sr.read().eot().bit()
+        let sr = self.reg.sr.read();
+        ringbuf_entry!(Trace::EoTSR(sr.bits()));
+        sr.eot().bit()
     }
 
     /// Stuffs one byte of data into the SPI TX FIFO.
@@ -214,6 +224,9 @@ impl Spi {
     }
 
     pub fn end(&mut self) {
+        let sr = self.reg.sr.read();
+        ringbuf_entry!(Trace::EndSR(sr.bits()));
+
         // Clear flags that tend to get set during transactions.
         self.reg.ifcr.write(|w| w.txtfc().set_bit());
         // Disable the transfer state machine.

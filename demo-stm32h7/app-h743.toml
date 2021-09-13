@@ -85,6 +85,26 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
+[tasks.spi_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["spi3"]
+uses = ["spi3"]
+start = true
+interrupts = {51 = 1}
+stacksize = 1000
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -141,6 +161,30 @@ size = 0x0800
 [peripherals.gpios3]
 address = 0x58022800
 size = 0x0400
+
+[peripherals.spi1]
+address = 0x40013000
+size = 1024
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi3]
+address = 0x40003c00
+size = 1024
+
+[peripherals.spi4]
+address = 0x40013400
+size = 1024
+
+[peripherals.spi5]
+address = 0x40015000
+size = 1024
+
+[peripherals.spi6]
+address = 0x58001400
+size = 1024
 
 [peripherals.usart3]
 address = 0x40004800

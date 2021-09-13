@@ -32,7 +32,6 @@ members = [
     "task-power",
     "task-spam2",
     "task-spd",
-    "task-spi",
     "task-thermal",
 
     "drv/stm32fx-rcc",

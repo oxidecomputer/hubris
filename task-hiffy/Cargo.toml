@@ -11,6 +11,7 @@ target = "thumbv7em-none-eabihf"
 userlib = {path = "../userlib", default-features = false}
 ringbuf = {path = "../ringbuf" }
 drv-i2c-api = {path = "../drv/i2c-api"}
+drv-spi-api = {path = "../drv/spi-api"}
 drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api"}
 task-jefe-api = {path = "../task-jefe-api"}
 cortex-m = "0.7"
@@ -29,6 +30,7 @@ itm = [ "userlib/log-itm" ]
 semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 i2c = []
 gpio = []
+spi = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

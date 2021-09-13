@@ -6,17 +6,29 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
+ringbuf = {path = "../../ringbuf"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-spi = {path = "../stm32h7-spi"}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
+drv-spi-api = {path = "../spi-api"}
 cortex-m = "0.7"
 stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
+cfg-if = "0.1.10"
+
+[build-dependencies]
+build-util = {path = "../../build-util"}
 
 [features]
 default = ["standalone"]
 standalone = []
+spi1 = []
+spi2 = []
+spi3 = []
+spi4 = []
+spi5 = []
+spi6 = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

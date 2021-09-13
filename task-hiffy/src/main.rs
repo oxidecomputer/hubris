@@ -58,6 +58,7 @@ const JEFE: Task = Task::jefe;
 ///
 #[no_mangle]
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
+static mut HIFFY_DATA: [u8; 1024] = [0; 1024];
 static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
@@ -116,10 +117,7 @@ pub enum Functions {
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
-    GpioInput(
-        (drv_stm32h7_gpio_api::Port),
-        drv_stm32h7_gpio_api::GpioError,
-    ),
+    GpioInput(drv_stm32h7_gpio_api::Port, drv_stm32h7_gpio_api::GpioError),
     #[cfg(feature = "gpio")]
     GpioToggle(
         (drv_stm32h7_gpio_api::Port, u8),
@@ -148,6 +146,10 @@ pub enum Functions {
         ),
         drv_stm32h7_gpio_api::GpioError,
     ),
+    #[cfg(feature = "spi")]
+    SpiRead((Task, usize, usize), drv_spi_api::SpiError),
+    #[cfg(feature = "spi")]
+    SpiWrite((Task, usize), drv_spi_api::SpiError),
 }
 
 //
@@ -212,7 +214,11 @@ fn i2c_args(
 }
 
 #[cfg(feature = "i2c")]
-fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
+fn i2c_read(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
     if stack.len() < 7 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -263,6 +269,7 @@ fn i2c_read(stack: &[Option<u32>], rval: &mut [u8]) -> Result<usize, Failure> {
 #[cfg(feature = "i2c")]
 fn i2c_write(
     stack: &[Option<u32>],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let mut buf = [0u8; 5];
@@ -350,6 +357,7 @@ fn gpio_args(
 #[cfg(feature = "gpio")]
 fn gpio_input(
     stack: &[Option<u32>],
+    _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = get_task_id(GPIO);
@@ -383,6 +391,7 @@ fn gpio_input(
 #[cfg(feature = "gpio")]
 fn gpio_toggle(
     stack: &[Option<u32>],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = get_task_id(GPIO);
@@ -397,7 +406,11 @@ fn gpio_toggle(
 }
 
 #[cfg(feature = "gpio")]
-fn gpio_set(stack: &[Option<u32>], _rval: &mut [u8]) -> Result<usize, Failure> {
+fn gpio_set(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
     let task = get_task_id(GPIO);
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
@@ -412,6 +425,7 @@ fn gpio_set(stack: &[Option<u32>], _rval: &mut [u8]) -> Result<usize, Failure> {
 #[cfg(feature = "gpio")]
 fn gpio_reset(
     stack: &[Option<u32>],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = get_task_id(GPIO);
@@ -428,6 +442,7 @@ fn gpio_reset(
 #[cfg(feature = "gpio")]
 fn gpio_configure(
     stack: &[Option<u32>],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     use drv_stm32h7_gpio_api::*;
@@ -493,8 +508,102 @@ fn gpio_configure(
     }
 }
 
+#[cfg(feature = "spi")]
+fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 2;
+
+    let task = match stack[fp + 0] {
+        Some(task) => {
+            if task >= NUM_TASKS as u32 {
+                return Err(Failure::Fault(Fault::BadParameter(0)));
+            }
+
+            let prototype =
+                TaskId::for_index_and_gen(task as usize, Generation::default());
+
+            sys_refresh_task_id(prototype)
+        }
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(0)));
+        }
+    };
+
+    let len = match stack[fp + 1] {
+        Some(len) => len as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+        }
+    };
+
+    Ok((task, len))
+}
+
+#[cfg(feature = "spi")]
+fn spi_read(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    //
+    // We have our task ID, our write size, and our read size
+    //
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 3;
+    let (task, len) = spi_args(&stack[fp..fp + 2])?;
+
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let rlen = match stack[fp + 2] {
+        Some(rlen) => rlen as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(2)));
+        }
+    };
+
+    if rlen > rval.len() {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let spi = drv_spi_api::Spi(task);
+
+    match spi.exchange(&data[0..len], &mut rval[0..rlen]) {
+        Ok(_) => Ok(rlen),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "spi")]
+fn spi_write(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (task, len) = spi_args(stack)?;
+
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let spi = drv_spi_api::Spi(task);
+
+    match spi.write(&data[0..len]) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
 fn jefe_set_disposition(
     stack: &[Option<u32>],
+    _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     if stack.len() < 2 {
@@ -550,6 +659,10 @@ fn main() -> ! {
         gpio_reset,
         #[cfg(feature = "gpio")]
         gpio_configure,
+        #[cfg(feature = "spi")]
+        spi_read,
+        #[cfg(feature = "spi")]
+        spi_write,
     ];
 
     //
@@ -586,6 +699,7 @@ fn main() -> ! {
         sleeps = 0;
 
         let text = unsafe { &HIFFY_TEXT };
+        let data = unsafe { &HIFFY_DATA };
         let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
 
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
@@ -596,6 +710,7 @@ fn main() -> ! {
         let rv = execute::<_, NLABELS>(
             text,
             functions,
+            data,
             &mut stack,
             &mut rstack,
             &mut scratch,

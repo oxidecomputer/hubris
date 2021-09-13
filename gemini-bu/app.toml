@@ -102,23 +102,36 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
-[tasks.spi_driver]
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
+[tasks.spi2_driver]
 path = "../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 1024}
-uses = ["spi2", "spi4"]
+requires = {flash = 16384, ram = 4096}
+features = ["spi2"]
+uses = ["spi2"]
+start = true
+interrupts = {36 = 1}
+stacksize = 1000
+
+[tasks.spi4_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["spi4"]
+uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
 stacksize = 1000
-
-[tasks.spi]
-path = "../task-spi"
-name = "task-spi"
-features = ["itm"]
-priority = 3
-requires = {flash = 8192, ram = 2048}
-start = true
 
 [tasks.user_leds]
 path = "../drv/user-leds"
@@ -156,9 +169,9 @@ start = true
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["itm", "i2c", "gpio"]
+features = ["itm", "i2c", "gpio", "spi"]
 priority = 3
-requires = {flash = 32768, ram = 8192 }
+requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
@@ -186,12 +199,28 @@ size = 0x0800
 address = 0x58022800
 size = 0x0400
 
+[peripherals.spi1]
+address = 0x40013000
+size = 1024
+
 [peripherals.spi2]
 address = 0x40003800
 size = 1024
 
+[peripherals.spi3]
+address = 0x40003c00
+size = 1024
+
 [peripherals.spi4]
 address = 0x40013400
+size = 1024
+
+[peripherals.spi5]
+address = 0x40015000
+size = 1024
+
+[peripherals.spi6]
+address = 0x58001400
 size = 1024
 
 [peripherals.usart3]
