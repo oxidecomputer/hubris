@@ -272,7 +272,7 @@ fn i2c_write(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let mut buf = [0u8; 5];
+    let mut buf = [0u8; 17];
 
     //
     // We need at least 8 (!) parameters, the last of which is the number of
