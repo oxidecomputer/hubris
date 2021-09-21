@@ -407,6 +407,13 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             "ihex",
             &out.join("final.ihex"),
         )?;
+
+        objcopy_translate_format(
+            "srec",
+            &out.join("final.srec"),
+            "binary",
+            &out.join("final.bin"),
+        )?;
     } else {
         std::fs::copy(
             &mut out.join("combined.srec").to_str().unwrap(),
@@ -421,6 +428,11 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         std::fs::copy(
             &mut out.join("combined.ihex").to_str().unwrap(),
             &mut out.join("final.ihex").to_str().unwrap(),
+        )?;
+
+        std::fs::copy(
+            &mut out.join("combined.bin").to_str().unwrap(),
+            &mut out.join("final.bin").to_str().unwrap(),
         )?;
     }
 
