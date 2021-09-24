@@ -10,6 +10,8 @@ zerocopy = "0.3.0"
 lpc55-pac = "0.3.0"
 cortex-m-semihosting = "0.3.5"
 num-traits = { version = "0.2.12", default-features = false }
+drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
+lpc55-iocon-gen = {path = "../lpc55-iocon-gen"}
 
 [features]
 default = ["standalone"]

@@ -385,11 +385,19 @@ cfg_if::cfg_if! {
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "lpcxpresso55s69")] {
-                const LED_ZERO_GPIO: u8 = 38;
-                const LED_ONE_GPIO: u8 = 36;
+                const LED_ZERO_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO1_6;
+                const LED_ONE_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO1_4;
+
+                // xpressoboard is active low LEDS
+                const LED_OFF_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::One;
+                const LED_ON_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::Zero;
             } else if #[cfg(target_board = "gemini-bu-rot-1")] {
-                const LED_ZERO_GPIO: u8 = 15;
-                const LED_ONE_GPIO: u8 = 31;
+                const LED_ZERO_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_15;
+                const LED_ONE_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_31;
+
+                // gemini bu board is standard values
+                const LED_OFF_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::Zero;
+                const LED_ON_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::One;
             } else {
                 compile_error!("no LED mapping for unknown board");
             }
@@ -398,107 +406,78 @@ cfg_if::cfg_if! {
 }
 
 #[cfg(feature = "lpc55")]
-const fn led_gpio_num(led: Led) -> u8 {
+const fn led_gpio_num(led: Led) -> drv_lpc55_gpio_api::Pin {
     match led {
-        Led::Zero => LED_ZERO_GPIO,
-        Led::One => LED_ONE_GPIO,
+        Led::Zero => LED_ZERO_PIN,
+        Led::One => LED_ONE_PIN,
     }
 }
 
 #[cfg(feature = "lpc55")]
 fn enable_led_pins() {
-    use lpc55_pac as device;
+    use drv_lpc55_gpio_api::*;
 
-    // This assumes the LPCXpresso55S board, where the LEDs are on (abstract
-    // pins) 36 and 38.
     let gpio_driver = get_task_id(GPIO);
-    const SET_DIR: u16 = 1;
+    let gpio_driver = Gpio::from(gpio_driver);
 
-    // Ideally this would be done in another driver but given what svd2rust
-    // generates it's a nightmare to do this via pin indexing only and
-    // also have some degree of safety. If the pins aren't in digital mode
-    // the GPIO toggling will work but reading the value won't
-    let iocon = unsafe { &*device::IOCON::ptr() };
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "lpcxpresso55s69")] {
-            iocon.pio1_4.modify(|_, w| w.digimode().digital());
-            iocon.pio1_6.modify(|_, w| w.digimode().digital());
-        } else if #[cfg(target_board = "gemini-bu-rot-1")] {
-            iocon.pio0_15.modify(|_, w| w.digimode().digital());
-            iocon.pio0_31.modify(|_, w| w.digimode().digital());
-        } else {
-            compile_error!("no LED IOCON mapping for unknown board");
-        }
-    }
+    gpio_driver
+        .iocon_configure(
+            LED_ZERO_PIN,
+            AltFn::Alt0,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
+
+    gpio_driver
+        .iocon_configure(
+            LED_ONE_PIN,
+            AltFn::Alt0,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
 
     // Both LEDs are active low -- so they will light when we set the
     // direction of the pin if we don't explicitly turn them off first
     led_off(Led::Zero);
     led_off(Led::One);
 
-    // Start driving GPIOs as outputs.
-    let (code, _) = userlib::sys_send(
-        gpio_driver,
-        SET_DIR,
-        &[LED_ZERO_GPIO, 1],
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-    let (code, _) = userlib::sys_send(
-        gpio_driver,
-        SET_DIR,
-        &[LED_ONE_GPIO, 1],
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    gpio_driver
+        .set_dir(LED_ZERO_PIN, Direction::Output)
+        .unwrap();
+    gpio_driver.set_dir(LED_ONE_PIN, Direction::Output).unwrap();
 }
 
 #[cfg(feature = "lpc55")]
 fn led_on(led: Led) {
     let gpio_driver = get_task_id(GPIO);
-    const SET_VAL: u16 = 2;
-    let idx = led_gpio_num(led);
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
-    assert_eq!(code, 0);
+    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
+
+    let pin = led_gpio_num(led);
+    gpio_driver.set_val(pin, LED_ON_VAL).unwrap();
 }
 
 #[cfg(feature = "lpc55")]
 fn led_off(led: Led) {
     let gpio_driver = get_task_id(GPIO);
-    const SET_VAL: u16 = 2;
-    let idx = led_gpio_num(led);
-    let (code, _) =
-        userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
-    assert_eq!(code, 0);
+    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
+
+    let pin = led_gpio_num(led);
+    gpio_driver.set_val(pin, LED_OFF_VAL).unwrap();
 }
 
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
     let gpio_driver = get_task_id(GPIO);
-    const SET_VAL: u16 = 2;
-    const READ_VAL: u16 = 3;
-    let idx = led_gpio_num(led);
-    let mut val: u32 = 0;
+    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
 
-    let (code, _) = userlib::sys_send(
-        gpio_driver,
-        READ_VAL,
-        &[idx],
-        val.as_bytes_mut(),
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    if val == 1 {
-        let (code, _) =
-            userlib::sys_send(gpio_driver, SET_VAL, &[idx, 0], &mut [], &[]);
-        assert_eq!(code, 0);
-    } else {
-        let (code, _) =
-            userlib::sys_send(gpio_driver, SET_VAL, &[idx, 1], &mut [], &[]);
-        assert_eq!(code, 0);
-    }
+    let pin = led_gpio_num(led);
+    gpio_driver.toggle(pin).unwrap();
 }
