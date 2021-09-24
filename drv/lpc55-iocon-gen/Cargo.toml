@@ -1,0 +1,26 @@
+[package]
+name = "lpc55-iocon-gen"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zerocopy = "0.3.0"
+quote = "1.0.9"
+cfg-if = "0.1.10"
+proc-macro2 = "1.0.9"
+
+[build-dependencies]
+build-util = {path = "../../build-util"}
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv8m.main-none-eabihf"
+
+[lib]
+proc-macro = true

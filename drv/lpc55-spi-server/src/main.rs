@@ -20,12 +20,14 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_gpio_api::*;
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use userlib::*;
 
 declare_task!(SYSCON, syscon_driver);
+declare_task!(GPIO, gpio_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -265,40 +267,64 @@ fn muck_with_gpios(syscon: &Syscon) {
     syscon.enable_clock(Peripheral::Iocon);
     syscon.leave_reset(Peripheral::Iocon);
 
+    let gpio_driver = get_task_id(GPIO);
+    let iocon = Gpio::from(gpio_driver);
+
     // This is quite the array!
-    // HS_SPI_MOSI = P0_26 = FUN9
-    // HS_SPI_MISO = P1_3 = FUN6
-    // HS_SPI_SCK = P1_2 = FUN6
-    // HS_SPI_SSEL0 = P0_20 = FUN8
-    // HS_SPI_SSEL1 = P1_1 = FUN5
-    // HS_SPI_SSEL2 = P1_12 = FUN5
-    // HS_SPI_SSEL3 = P1_26 = FUN5
-    //
-    // Some of the alt functions aren't defined in the HAL crate
-    //
     // All of these need to be in digital mode. The NXP C driver
     // also sets the pull-up resistor
-    let iocon = unsafe { &*device::IOCON::ptr() };
 
-    iocon.pio0_26.write(|w| unsafe {
-        w.func().bits(0x9).digimode().digital().mode().pull_up()
-    });
-    iocon
-        .pio1_3
-        .write(|w| w.func().alt6().digimode().digital().mode().pull_up());
-    iocon.pio1_2.write(|w| w.func().alt6().digimode().digital());
-    iocon.pio0_20.write(|w| unsafe {
-        w.func().bits(0x8).digimode().digital().mode().pull_up()
-    });
-    iocon
-        .pio1_1
-        .write(|w| w.func().alt5().digimode().digital().mode().pull_up());
-    iocon
-        .pio1_12
-        .write(|w| w.func().alt5().digimode().digital().mode().pull_up());
-    iocon
-        .pio1_26
-        .write(|w| w.func().alt5().digimode().digital().mode().pull_up());
+    let pin_settings = [
+        // HS_SPI_MOSI = P0_26 = FUN9
+        (
+            Pin::PIO0_26,
+            AltFn::Alt9,
+            Mode::PullUp,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        ),
+        // HS_SPI_MISO = P1_3 = FUN6
+        (
+            Pin::PIO1_3,
+            AltFn::Alt6,
+            Mode::PullUp,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        ),
+        // HS_SPI_SCK = P1_2 = FUN6
+        (
+            Pin::PIO1_2,
+            AltFn::Alt6,
+            Mode::PullUp,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        ),
+        // HS_SPI_SSEL1 = P1_1 = FUN5
+        // Note that SSEL0, SSEL2 and SSEL3 are not used in the current design
+        (
+            Pin::PIO1_1,
+            AltFn::Alt5,
+            Mode::PullUp,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        ),
+    ];
+
+    for (pin, alt, mode, slew, invert, digi, od) in
+        core::array::IntoIter::new(pin_settings)
+    {
+        iocon
+            .iocon_configure(pin, alt, mode, slew, invert, digi, od)
+            .unwrap();
+    }
 }
 
 fn write_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {

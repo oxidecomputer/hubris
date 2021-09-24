@@ -12,6 +12,7 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_gpio_api::*;
 use lpc55_pac as device;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -19,6 +20,8 @@ use zerocopy::AsBytes;
 declare_task!(SYSCON, syscon_driver);
 
 const OP_WRITE: u32 = 1;
+
+declare_task!(GPIO, gpio_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -211,16 +214,34 @@ fn muck_with_gpios() {
     );
     assert_eq!(code, 0);
 
+    let gpio_driver = get_task_id(GPIO);
+    let iocon = Gpio::from(gpio_driver);
+
     // Our GPIOs are P0_29 and P0_30 and need to be set to AF1
-    // The existing peripheral API makes doing this via messages
-    // maddening so just muck with IOCON manually for now
-    let iocon = unsafe { &*device::IOCON::ptr() };
+
     iocon
-        .pio0_29
-        .write(|w| w.func().alt1().digimode().digital());
+        .iocon_configure(
+            Pin::PIO0_29,
+            AltFn::Alt1,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
+
     iocon
-        .pio0_30
-        .write(|w| w.func().alt1().digimode().digital());
+        .iocon_configure(
+            Pin::PIO0_30,
+            AltFn::Alt1,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
 }
 
 fn step_transmit(

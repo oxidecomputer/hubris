@@ -38,16 +38,10 @@
 
 use lpc55_pac as device;
 
+use drv_lpc55_gpio_api::*;
 use hl;
 use userlib::{FromPrimitive, *};
 use zerocopy::AsBytes;
-
-#[derive(FromPrimitive)]
-enum Op {
-    SetDir = 1,
-    SetVal = 2,
-    ReadVal = 3,
-}
 
 declare_task!(SYSCON, syscon_driver);
 
@@ -62,41 +56,51 @@ impl From<ResponseCode> for u32 {
     }
 }
 
+// Generates a gigantic match table for each pin
+lpc55_iocon_gen::gen_iocon_table!();
+
 #[export_name = "main"]
 fn main() -> ! {
     turn_on_gpio_clocks();
 
-    // Going from our GPIO number to the IOCON interface here
-    // is an absolute nightmare right now because each field is
-    // named.
-    //let iocon = unsafe  { &*device::IOCON::ptr() };
     let gpio = unsafe { &*device::GPIO::ptr() };
 
     // Handler for received messages.
     let recv_handler = |op: Op, msg: hl::Message| -> Result<(), ResponseCode> {
         match op {
             Op::SetDir => {
-                let (&[gpionum, dir], caller) =
-                    msg.fixed::<[u8; 2], ()>().ok_or(ResponseCode::BadArg)?;
-                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
-                if dir == 0 {
-                    gpio.dirclr[idx]
-                        .write(|w| unsafe { w.dirclrp().bits(mask) });
-                } else {
-                    gpio.dirset[idx]
-                        .write(|w| unsafe { w.dirsetp().bits(mask) });
+                let (msg, caller) = msg
+                    .fixed::<DirectionRequest, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+                let dir =
+                    Direction::from_u32(msg.dir).ok_or(ResponseCode::BadArg)?;
+
+                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
+
+                match dir {
+                    Direction::Input => gpio.dirclr[port]
+                        .write(|w| unsafe { w.dirclrp().bits(1 << pin) }),
+                    Direction::Output => gpio.dirset[port]
+                        .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
                 }
                 caller.reply(());
                 Ok(())
             }
             Op::SetVal => {
-                let (&[gpionum, val], caller) =
-                    msg.fixed::<[u8; 2], ()>().ok_or(ResponseCode::BadArg)?;
-                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
-                if val == 0 {
-                    gpio.clr[idx].write(|w| unsafe { w.clrp().bits(mask) });
-                } else {
-                    gpio.set[idx].write(|w| unsafe { w.setp().bits(mask) });
+                let (msg, caller) = msg
+                    .fixed::<SetRequest, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
+
+                let val =
+                    Value::from_u32(msg.val).ok_or(ResponseCode::BadArg)?;
+
+                match val {
+                    Value::One => gpio.set[port]
+                        .write(|w| unsafe { w.setp().bits(1 << pin) }),
+                    Value::Zero => gpio.clr[port]
+                        .write(|w| unsafe { w.clrp().bits(1 << pin) }),
                 }
                 caller.reply(());
                 Ok(())
@@ -104,29 +108,76 @@ fn main() -> ! {
             Op::ReadVal => {
                 // Make sure the pin is set in digital mode before trying to
                 // use this function otherwise it will not work!
-                let (&gpionum, caller) =
-                    msg.fixed::<u8, u8>().ok_or(ResponseCode::BadArg)?;
-                let (idx, mask) = gpio_num_pin_mask(gpionum)?;
-                let val = (gpio.pin[idx].read().port().bits() & mask) == mask;
+                let (msg, caller) = msg
+                    .fixed::<ReadRequest, u8>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
+
+                let mask = 1 << pin;
+
+                let val = (gpio.pin[port].read().port().bits() & mask) == mask;
                 caller.reply(val as u8);
+                Ok(())
+            }
+            Op::Toggle => {
+                let (msg, caller) = msg
+                    .fixed::<ToggleRequest, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
+
+                gpio.not[port].write(|w| unsafe { w.notp().bits(1 << pin) });
+
+                caller.reply(());
+                Ok(())
+            }
+            Op::Configure => {
+                let (msg, caller) = msg
+                    .fixed::<ConfigureRequest, ()>()
+                    .ok_or(ResponseCode::BadArg)?;
+
+                let conf = msg.conf;
+
+                let pin = Pin::from_u32(msg.pin).ok_or(ResponseCode::BadArg)?;
+
+                let func = AltFn::from_u32(conf & 0b1111)
+                    .ok_or(ResponseCode::BadArg)?;
+                let mode = Mode::from_u32((conf >> 4) & 0b11)
+                    .ok_or(ResponseCode::BadArg)?;
+                let slew = Slew::from_u32((conf >> 6) & 1)
+                    .ok_or(ResponseCode::BadArg)?;
+                let invert = Invert::from_u32((conf >> 7) & 1)
+                    .ok_or(ResponseCode::BadArg)?;
+                let digimode = Digimode::from_u32((conf >> 8) & 1)
+                    .ok_or(ResponseCode::BadArg)?;
+                let opendrain = Opendrain::from_u32((conf >> 9) & 1)
+                    .ok_or(ResponseCode::BadArg)?;
+
+                set_iocon(pin, func, mode, slew, invert, digimode, opendrain);
+
+                caller.reply(());
                 Ok(())
             }
         }
     };
 
     // Field messages.
-    let mut buffer: [u8; 2] = [0; 2];
+    let mut buffer: [u8; 12] = [0; 12];
     loop {
         hl::recv_without_notification(&mut buffer, recv_handler);
     }
 }
 
-fn gpio_num_pin_mask(gpionum: u8) -> Result<(usize, u32), ResponseCode> {
-    if gpionum >= 64 {
-        return Err(ResponseCode::BadArg);
-    }
-    let (idx, offset) = if gpionum < 32 { (0, 0) } else { (1, 32) };
-    Ok((idx, 1 << (gpionum - offset)))
+fn gpio_port_pin_validate(pin: u32) -> Result<(usize, usize), ResponseCode> {
+    let _ = Pin::from_u32(pin).ok_or(ResponseCode::BadArg)?;
+
+    // These are encoded such that port 0 goes to 31 and port 1 goes
+    // 32 to 63
+    let port = (pin >> 5) as usize;
+    let pnum = (pin & 0b1_1111) as usize;
+
+    Ok((port, pnum))
 }
 
 fn turn_on_gpio_clocks() {

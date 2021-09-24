@@ -17,11 +17,18 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use userlib::*;
 
 declare_task!(SYSCON, syscon_driver);
+
+#[cfg(not(feature = "standalone"))]
+const GPIO: Task = Task::gpio_driver;
+
+#[cfg(feature = "standalone")]
+const GPIO: Task = Task::anonymous;
 
 #[derive(FromPrimitive)]
 enum Op {
@@ -141,13 +148,33 @@ fn muck_with_gpios(syscon: &Syscon) {
     // (see table 320)
     // The existing peripheral API makes doing this via messages
     // maddening so just muck with IOCON manually for now
-    let iocon = unsafe { &*device::IOCON::ptr() };
+
+    let gpio_driver = get_task_id(GPIO);
+    let iocon = Gpio::from(gpio_driver);
+
     iocon
-        .pio1_21
-        .write(|w| w.func().alt5().digimode().digital());
+        .iocon_configure(
+            Pin::PIO1_21,
+            AltFn::Alt5,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
+
     iocon
-        .pio1_20
-        .write(|w| w.func().alt5().digimode().digital());
+        .iocon_configure(
+            Pin::PIO1_20,
+            AltFn::Alt5,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
 }
 
 fn write_a_buffer(
