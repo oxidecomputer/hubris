@@ -423,11 +423,11 @@ version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
+ "drv-lpc55-syscon-api",
  "lpc55-iocon-gen",
  "lpc55-pac",
  "num-traits",
  "userlib",
- "zerocopy",
 ]
 
 [[package]]
@@ -518,6 +518,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
+ "drv-lpc55-syscon-api",
  "lpc55-pac",
  "userlib",
  "zerocopy",
