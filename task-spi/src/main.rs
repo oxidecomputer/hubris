@@ -4,11 +4,7 @@
 use ringbuf::*;
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const SPI: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const SPI: Task = Task::spi_driver;
+declare_task!(SPI, spi_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Payload {

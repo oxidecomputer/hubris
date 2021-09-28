@@ -4,17 +4,9 @@
 
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const PEER: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const PEER: Task = Task::pong;
-
-#[cfg(all(feature = "standalone", feature = "uart"))]
-const UART: Task = Task::anonymous;
-
-#[cfg(all(not(feature = "standalone"), feature = "uart"))]
-const UART: Task = Task::usart_driver;
+declare_task!(PEER, pong);
+#[cfg(feature = "uart")]
+declare_task!(UART, usart_driver);
 
 #[inline(never)]
 fn nullread() {

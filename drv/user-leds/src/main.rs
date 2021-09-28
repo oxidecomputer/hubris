@@ -106,13 +106,7 @@ fn main() -> ! {
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "stm32f4", feature = "stm32f3"))] {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "standalone")] {
-                const RCC: Task = Task::anonymous;
-            } else {
-                const RCC: Task = Task::rcc_driver;
-            }
-        }
+        declare_task!(RCC, rcc_driver);
     }
 }
 
@@ -245,13 +239,7 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "standalone")] {
-                const GPIO: Task = Task::anonymous;
-            } else {
-                const GPIO: Task = Task::gpio_driver;
-            }
-        }
+        declare_task!(GPIO, gpio_driver);
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "stm32h7b3i-dk")] {
@@ -393,13 +381,7 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "lpc55")] {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "standalone")] {
-                const GPIO: Task = Task::anonymous;
-            } else {
-                const GPIO: Task = Task::gpio_driver;
-            }
-        }
+        declare_task!(GPIO, gpio_driver);
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "lpcxpresso55s69")] {

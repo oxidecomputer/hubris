@@ -16,21 +16,8 @@ use stm32h7::stm32h7b3 as device;
 
 use userlib::*;
 
-#[cfg(not(feature = "standalone"))]
-const RCC: Task = Task::rcc_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const RCC: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const GPIO: Task = Task::gpio_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const GPIO: Task = Task::anonymous;
+declare_task!(RCC, rcc_driver);
+declare_task!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
