@@ -13,6 +13,7 @@
 #![no_main]
 
 use drv_lpc55_gpio_api::*;
+use drv_lpc55_syscon_api::*;
 use lpc55_pac as device;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -166,54 +167,13 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm() {
-    let rcc_driver = get_task_id(SYSCON);
+    let syscon = Syscon::from(get_task_id(SYSCON));
 
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 43; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        LEAVE_RESET,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    syscon.enable_clock(Peripheral::Fc0);
+    syscon.leave_reset(Peripheral::Fc0);
 }
 
 fn muck_with_gpios() {
-    let rcc_driver = get_task_id(SYSCON);
-
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 13; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        LEAVE_RESET,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
     let gpio_driver = get_task_id(GPIO);
     let iocon = Gpio::from(gpio_driver);
 

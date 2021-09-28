@@ -39,9 +39,9 @@
 use lpc55_pac as device;
 
 use drv_lpc55_gpio_api::*;
+use drv_lpc55_syscon_api::*;
 use hl;
 use userlib::{FromPrimitive, *};
-use zerocopy::AsBytes;
 
 declare_task!(SYSCON, syscon_driver);
 
@@ -181,36 +181,14 @@ fn gpio_port_pin_validate(pin: u32) -> Result<(usize, usize), ResponseCode> {
 }
 
 fn turn_on_gpio_clocks() {
-    let syscon_driver = get_task_id(SYSCON);
-    const ENABLE_CLOCK: u16 = 1;
+    let syscon = Syscon::from(get_task_id(SYSCON));
 
-    let iocon_num = 13;
-    let (code, _) = userlib::sys_send(
-        syscon_driver,
-        ENABLE_CLOCK,
-        iocon_num.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    syscon.enable_clock(Peripheral::Iocon);
+    syscon.leave_reset(Peripheral::Iocon);
 
-    let gpio0_num = 14;
-    let (code, _) = userlib::sys_send(
-        syscon_driver,
-        ENABLE_CLOCK,
-        gpio0_num.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    syscon.enable_clock(Peripheral::Gpio0);
+    syscon.leave_reset(Peripheral::Gpio0);
 
-    let gpio1_num = 15;
-    let (code, _) = userlib::sys_send(
-        syscon_driver,
-        ENABLE_CLOCK,
-        gpio1_num.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    syscon.enable_clock(Peripheral::Gpio1);
+    syscon.leave_reset(Peripheral::Gpio1);
 }
