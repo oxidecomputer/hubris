@@ -49,11 +49,7 @@ enum Op {
     ReadVal = 3,
 }
 
-#[cfg(not(feature = "standalone"))]
-const SYSCON: Task = Task::syscon_driver;
-
-#[cfg(feature = "standalone")]
-const SYSCON: Task = Task::anonymous;
+declare_task!(SYSCON, syscon_driver);
 
 #[repr(u32)]
 enum ResponseCode {

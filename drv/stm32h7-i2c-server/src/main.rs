@@ -19,17 +19,8 @@ use fixedmap::*;
 use ringbuf::*;
 use userlib::*;
 
-#[cfg(not(feature = "standalone"))]
-const RCC: Task = Task::rcc_driver;
-
-#[cfg(feature = "standalone")]
-const RCC: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const GPIO: Task = Task::gpio_driver;
-
-#[cfg(feature = "standalone")]
-const GPIO: Task = Task::anonymous;
+declare_task!(RCC, rcc_driver);
+declare_task!(GPIO, gpio_driver);
 
 fn lookup_controller<'a>(
     controllers: &'a [I2cController],

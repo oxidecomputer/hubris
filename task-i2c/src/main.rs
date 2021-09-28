@@ -38,11 +38,7 @@ use core::sync::atomic::{AtomicI32, AtomicU32, Ordering};
 use drv_i2c_api::*;
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const I2C: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const I2C: Task = Task::i2c_driver;
+declare_task!(I2C, i2c_driver);
 
 //
 // Okay, don't judge, but these variables constitute an interface with

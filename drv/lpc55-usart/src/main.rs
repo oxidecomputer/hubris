@@ -16,13 +16,7 @@ use lpc55_pac as device;
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[cfg(not(feature = "standalone"))]
-const SYSCON: Task = Task::syscon_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const SYSCON: Task = Task::anonymous;
+declare_task!(SYSCON, syscon_driver);
 
 const OP_WRITE: u32 = 1;
 

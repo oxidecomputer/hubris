@@ -18,13 +18,7 @@ use stm32f3::stm32f303 as device;
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[cfg(not(feature = "standalone"))]
-const RCC: Task = Task::rcc_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const RCC: Task = Task::anonymous;
+declare_task!(RCC, rcc_driver);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {

@@ -49,11 +49,7 @@ pub fn main() -> ! {
 }
 
 fn get_user_leds() -> drv_user_leds_api::UserLeds {
-    #[cfg(not(feature = "standalone"))]
-    const USER_LEDS: Task = Task::user_leds;
-
-    #[cfg(feature = "standalone")]
-    const USER_LEDS: Task = Task::anonymous;
+    declare_task!(USER_LEDS, user_leds);
 
     drv_user_leds_api::UserLeds::from(get_task_id(USER_LEDS))
 }
