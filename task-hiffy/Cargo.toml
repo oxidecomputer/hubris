@@ -13,6 +13,7 @@ ringbuf = {path = "../ringbuf" }
 drv-i2c-api = {path = "../drv/i2c-api"}
 drv-spi-api = {path = "../drv/spi-api"}
 drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api", optional = true}
+drv-lpc55-gpio-api = {path = "../drv/lpc55-gpio-api", optional = true}
 cortex-m = "0.7"
 cortex-m-semihosting = { version = "0.3.5", optional = true }
 cfg-if = "0.1.10"
@@ -22,15 +23,19 @@ hif = { path = "../hif" }
 serde = { version = "1.0.114", default-features = false }
 byteorder = { version = "1.3.4", default-features = false }
 
+[build-dependencies]
+build-util = {path = "../build-util"}
+
 [features]
-default = ["standalone", "drv-stm32h7-gpio-api", "stm32h7"]
-standalone = ["itm"]
+default = ["standalone"]
+standalone = ["itm", "drv-stm32h7-gpio-api", "stm32h7"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
 stm32h7 = ["drv-stm32h7-gpio-api"]
+lpc55 = ["drv-lpc55-gpio-api"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
