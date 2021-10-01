@@ -21,11 +21,7 @@ use drv_onewire_devices::ds18b20::*;
 use userlib::units::*;
 use userlib::*;
 
-#[cfg(not(feature = "standalone"))]
-const I2C: Task = Task::i2c_driver;
-
-#[cfg(feature = "standalone")]
-const I2C: Task = Task::anonymous;
+declare_task!(I2C, i2c_driver);
 
 fn convert_fahrenheit(temp: Celsius) -> f32 {
     temp.0 * (9.0 / 5.0) + 32.0

@@ -25,13 +25,7 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use userlib::*;
 
-#[cfg(not(feature = "standalone"))]
-const SYSCON: Task = Task::syscon_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const SYSCON: Task = Task::anonymous;
+declare_task!(SYSCON, syscon_driver);
 
 #[repr(u32)]
 enum ResponseCode {

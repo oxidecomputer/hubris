@@ -28,17 +28,8 @@ use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_rcc_api as rcc_api;
 use drv_stm32h7_spi as spi_core;
 
-#[cfg(feature = "standalone")]
-const RCC: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const RCC: Task = Task::rcc_driver;
-
-#[cfg(feature = "standalone")]
-const GPIO: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const GPIO: Task = Task::gpio_driver;
+declare_task!(RCC, rcc_driver);
+declare_task!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {

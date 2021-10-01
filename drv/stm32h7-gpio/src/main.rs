@@ -137,13 +137,7 @@ impl From<ResponseCode> for u32 {
     }
 }
 
-#[cfg(not(feature = "standalone"))]
-const RCC: Task = Task::rcc_driver;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const RCC: Task = Task::anonymous;
+declare_task!(RCC, rcc_driver);
 
 #[export_name = "main"]
 fn main() -> ! {

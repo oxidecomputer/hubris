@@ -849,27 +849,11 @@ fn test_refresh_task_id_off_by_many() {
 ///////////////////////////////////////////////////////////////////////////////
 // Frameworky bits follow
 
-/// Identity of our "assistant task" that we require in the image.
-#[cfg(not(feature = "standalone"))]
-const ASSIST: Task = Task::assist;
-
-/// Our own identity
-#[cfg(not(feature = "standalone"))]
-const SUITE: Task = Task::suite;
-
-#[cfg(not(feature = "standalone"))]
-const RUNNER: Task = Task::runner;
-
-// For standalone mode -- this won't work, but then, neither will a task without
-// a kernel.
-#[cfg(feature = "standalone")]
-const ASSIST: Task = Task::anonymous;
-
-#[cfg(feature = "standalone")]
-const SUITE: Task = Task::anonymous;
-
-#[cfg(feature = "standalone")]
-const RUNNER: Task = Task::anonymous;
+// Identity of our "assistant task" that we require in the image.
+declare_task!(ASSIST, assist);
+// Our own identity
+declare_task!(SUITE, suite);
+declare_task!(RUNNER, runner);
 
 /// Gets the current expected `TaskId` for the assistant.
 fn assist_task_id() -> TaskId {

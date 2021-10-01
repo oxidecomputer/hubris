@@ -29,6 +29,11 @@ SECTIONS
     __erodata = .;
   } > FLASH
 
+  /*
+   * Table of entry points for Hubris to get into the bootloader.
+   * table.ld containing the actual bytes is generated at runtime.
+   * Note the ALIGN requirement comes from TrustZone requirements.
+   */
   .addr_table __erodata : ALIGN(32) {
     __bootloader_fn_table = .;
     INCLUDE table.ld
