@@ -11,7 +11,6 @@
 #![no_std]
 #![no_main]
 
-use byteorder::ByteOrder;
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use ringbuf::*;
@@ -360,6 +359,8 @@ fn gpio_input(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
+    use byteorder::ByteOrder;
+
     let task = get_task_id(GPIO);
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 

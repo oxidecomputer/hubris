@@ -102,12 +102,33 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
-[tasks.spi_driver]
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
+[tasks.spi2_driver]
 path = "../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 1024}
-uses = ["spi2", "spi4"]
+requires = {flash = 16384, ram = 4096}
+features = ["spi2"]
+uses = ["spi2"]
+start = true
+interrupts = {36 = 1}
+stacksize = 1000
+
+[tasks.spi4_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["spi4"]
+uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
 stacksize = 1000

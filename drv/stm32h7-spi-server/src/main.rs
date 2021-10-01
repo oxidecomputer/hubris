@@ -78,6 +78,26 @@ fn main() -> ! {
                         (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3),
                         gpio_api::Alternate::AF5,
                     )];
+                } else if #[cfg(target_board = "gimlet-1")] {
+                    //
+                    // On Gimlet, spi2 is used for three different devices:
+                    // the management network (KSZ8463 at refdes U401),
+                    // the local flash (U557), and the sequencer (U476).
+                    // This is across two different ports (port B and port I)
+                    // -- and because there is more than one device, we
+                    // explicitly do not include CS (PI0, PB12) in each;
+                    // these will need to be explicitly managed by the caller
+                    // to select the appropriate chip.
+                    //
+                    let pins = [(
+                        gpio_api::Port::I,
+                        (1 << 1) | (1 << 2) | (1 << 3),
+                        gpio_api::Alternate::AF5,
+                    ), (
+                        gpio_api::Port::B,
+                        (1 << 13) | (1 << 14) | (1 << 15),
+                        gpio_api::Alternate::AF5,
+                    )];
                 } else {
                     compile_error!("spi2 not supported on this board");
                 }
@@ -152,6 +172,16 @@ fn main() -> ! {
                     let pins = [(
                         gpio_api::Port::E,
                         (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else if #[cfg(target_board = "gimlet-1")] {
+                    //
+                    // On Gimlet -- as with Gemini -- the main connection to
+                    // the RoT is on the PE pins.
+                    //
+                    let pins = [(
+                        gpio_api::Port::E,
+                        (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
                         gpio_api::Alternate::AF5,
                     )];
                 } else {
