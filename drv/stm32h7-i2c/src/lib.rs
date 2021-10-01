@@ -359,6 +359,11 @@ impl<'a> I2cController<'a> {
         Ok(())
     }
 
+    /// Perform a write to and then a read from the specified device.  Either
+    /// the write length or the read length can be zero, but one of these must
+    /// be non-zero.  Additionally, both lengths must be less than 256 bytes:
+    /// the device can support longer buffers, and the implementation could
+    /// be extended in the future to allow them.
     pub fn write_read(
         &self,
         addr: u8,
@@ -368,6 +373,7 @@ impl<'a> I2cController<'a> {
         mut putbyte: impl FnMut(usize, u8) -> Option<()>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
+        // Assert our preconditions as described above
         assert!(wlen > 0 || rlen != ReadLength::Fixed(0));
         assert!(wlen <= 255);
 
