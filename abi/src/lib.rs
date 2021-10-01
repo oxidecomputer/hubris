@@ -40,6 +40,9 @@ impl TaskId {
     /// task."
     pub const KERNEL: Self = Self(!0);
 
+    /// Reserved TaskId for an unbound userlib::task_slot!()
+    pub const UNBOUND: Self = Self(Self::INDEX_MASK - 1);
+
     /// Number of bits in a `TaskId` used to represent task index, rather than
     /// generation number. This must currently be 15 or smaller.
     pub const INDEX_BITS: u32 = 10;
