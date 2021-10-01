@@ -74,6 +74,7 @@ stacksize = 1536
 path = "../task-hiffy"
 name = "task-hiffy"
 priority = 3
+features = ["lpc55", "gpio"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

@@ -15,8 +15,18 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use userlib::*;
 
-pub mod stm32h7;
-use crate::stm32h7::*;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stm32h7")] {
+        pub mod stm32h7;
+        use crate::stm32h7::*;
+    } else if #[cfg(feature = "lpc55")] {
+        pub mod lpc55;
+        use crate::lpc55::*;
+    } else {
+        pub mod generic;
+        use crate::generic::*;
+    }
+}
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;
