@@ -74,7 +74,7 @@ stacksize = 1536
 path = "../task-hiffy"
 name = "task-hiffy"
 priority = 3
-requires = {flash = 32768, ram = 8192 }
+requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 

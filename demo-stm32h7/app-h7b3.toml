@@ -114,7 +114,7 @@ path = "../task-hiffy"
 name = "task-hiffy"
 features = ["itm", "i2c"]
 priority = 3
-requires = {flash = 32768, ram = 8192 }
+requires = {flash = 32768, ram = 16384 }
 start = true
 
 [tasks.idle]
