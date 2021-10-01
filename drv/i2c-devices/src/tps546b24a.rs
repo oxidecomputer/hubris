@@ -1,8 +1,8 @@
 //! Driver for the TPS546B24A buck converter
 
 use drv_i2c_api::*;
-use pmbus::*;
 use pmbus::commands::*;
+use pmbus::*;
 use userlib::units::*;
 
 pub struct Tps546b24a {

@@ -92,18 +92,14 @@ impl Spi {
         );
 
         if code != 0 {
-            Err(SpiError::from_u32(code)
-                .ok_or(SpiError::BadResponse)?)
+            Err(SpiError::from_u32(code).ok_or(SpiError::BadResponse)?)
         } else {
             Ok(())
         }
     }
 
     /// Perform a SPI write
-    pub fn write(
-        &self,
-        source: &[u8],
-    ) -> Result<(), SpiError> {
+    pub fn write(&self, source: &[u8]) -> Result<(), SpiError> {
         let (code, _) = sys_send(
             self.0,
             Operation::Write as u16,
@@ -113,8 +109,7 @@ impl Spi {
         );
 
         if code != 0 {
-            Err(SpiError::from_u32(code)
-                .ok_or(SpiError::BadResponse)?)
+            Err(SpiError::from_u32(code).ok_or(SpiError::BadResponse)?)
         } else {
             Ok(())
         }

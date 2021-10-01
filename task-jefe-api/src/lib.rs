@@ -35,7 +35,7 @@ impl From<u32> for JefeError {
     fn from(code: u32) -> Self {
         match JefeError::from_u32(code) {
             Some(err) => err,
-            None => JefeError::BadResponse
+            None => JefeError::BadResponse,
         }
     }
 }
@@ -81,7 +81,7 @@ impl Jefe {
     pub fn set_disposition(
         &self,
         task: TaskId,
-        disposition: Disposition
+        disposition: Disposition,
     ) -> Result<(), JefeError> {
         hl::send(
             self.0,
@@ -89,7 +89,7 @@ impl Jefe {
                 task: task.index() as u16,
                 disposition: disposition as u8,
                 pad: 0u8,
-            }
+            },
         )
     }
 }
