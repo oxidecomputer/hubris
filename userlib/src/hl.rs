@@ -578,14 +578,3 @@ pub fn sleep_until(time: u64) {
 pub fn sleep_for(ticks: u64) {
     sleep_until(sys_get_timer().now + ticks)
 }
-
-#[macro_export]
-macro_rules! declare_task {
-    ($var:ident, $task_name:ident) => {
-        #[cfg(not(feature = "standalone"))]
-        const $var: Task = Task::$task_name;
-
-        #[cfg(feature = "standalone")]
-        const $var: Task = Task::anonymous;
-    };
-}
