@@ -49,15 +49,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aligned"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a785a543aea40f5e4e2e93bb2655d31bc21bb391fff65697150973e383f16bb"
-dependencies = [
- "as-slice",
-]
-
-[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -73,24 +64,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
 
 [[package]]
-name = "as-slice"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45403b49e3954a4b8428a0ac21a4b7afadccf92bfd96273f1a58cd4812496ae0"
-dependencies = [
- "generic-array 0.12.4",
- "generic-array 0.13.3",
- "generic-array 0.14.4",
- "stable_deref_trait",
-]
-
-[[package]]
 name = "atomic-polyfill"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a93ba5d6053837dbb76fd0ae26fd4f0c1859a008a783b0ce072b797c07f0f27"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
 ]
 
 [[package]]
@@ -143,7 +122,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
- "generic-array 0.14.4",
+ "generic-array",
 ]
 
 [[package]]
@@ -250,19 +229,6 @@ checksum = "6e1f025f441cdfb75831bec89b9d6a6ed02e5e763f78fc5e1ff30d4870fefaec"
 
 [[package]]
 name = "cortex-m"
-version = "0.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9075300b07c6a56263b9b582c214d0ff037b00d45ec9fde1cc711490c56f1bb9"
-dependencies = [
- "aligned",
- "bare-metal",
- "bitfield",
- "cortex-m 0.7.3",
- "volatile-register",
-]
-
-[[package]]
-name = "cortex-m"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ac919ef424449ec8c08d515590ce15d9262c0ca5f0da5b0c901e971a3b783b3"
@@ -300,7 +266,7 @@ version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bffa6c1454368a6aa4811ae60964c38e6996d397ff8095a8b9211b1c1f749bc"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
 ]
 
 [[package]]
@@ -336,7 +302,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc209804a22c34a98fe26a32d997ac64d4284816f65cf1a529c4e31a256218a0"
 dependencies = [
- "generic-array 0.14.4",
+ "generic-array",
  "rand_core",
  "subtle",
  "zeroize",
@@ -348,7 +314,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
 dependencies = [
- "generic-array 0.14.4",
+ "generic-array",
  "subtle",
 ]
 
@@ -358,7 +324,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
 dependencies = [
- "generic-array 0.14.4",
+ "generic-array",
  "subtle",
 ]
 
@@ -382,7 +348,7 @@ checksum = "76fbd10dce159c002b9c688ae8ab7cd531151e185e0ad360f4bfea3b0eede3a8"
 name = "demo"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -399,7 +365,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -424,7 +390,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
- "generic-array 0.14.4",
+ "generic-array",
 ]
 
 [[package]]
@@ -514,7 +480,7 @@ dependencies = [
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -618,7 +584,7 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
@@ -636,7 +602,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
@@ -686,7 +652,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "drv-spi-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
@@ -754,7 +720,7 @@ checksum = "beca177dcb8eb540133e7680baff45e7cc4d93bf22002676cec549f82343721b"
 dependencies = [
  "crypto-bigint",
  "ff",
- "generic-array 0.14.4",
+ "generic-array",
  "group",
  "pkcs8",
  "rand_core",
@@ -837,7 +803,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -852,7 +818,7 @@ name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -860,24 +826,6 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffdf9f34f1447443d37393cc6c2b8313aebddcd96906caf34e54c68d8e57d7bd"
-dependencies = [
- "typenum",
-]
-
-[[package]]
-name = "generic-array"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f797e67af32588215eaaab8327027ee8e71b9dd0b2b26996aedf20c030fce309"
-dependencies = [
- "typenum",
 ]
 
 [[package]]
@@ -907,7 +855,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -922,7 +870,7 @@ name = "gimlet-rot"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -938,7 +886,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -1083,7 +1031,7 @@ dependencies = [
  "build-util",
  "byteorder",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "serde",
  "ssmarshal",
@@ -1142,7 +1090,7 @@ name = "lpc55"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -1158,7 +1106,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eee47591d506a22d56bc591abb955176b1ad3c22122c2395a69e426ea76e25ab"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "vcell",
 ]
 
@@ -1383,7 +1331,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d577d97d1b31268087b6dddf2470e6794ef5eee87d9dca7fcd0481695391a4c"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
 ]
 
 [[package]]
@@ -1392,7 +1340,7 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d55dedd501dfd02514646e0af4d7016ce36bc12ae177ef52056989966a1eec"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
 ]
 
@@ -1786,7 +1734,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "ecdsa",
@@ -1807,7 +1755,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "081e808e6b2114ced6a83437081ed9816c92017eda7722a7c22f80984fb5476a"
 dependencies = [
  "bare-metal",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "vcell",
 ]
@@ -1819,7 +1767,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da3d56009c8f32e4f208dbea17df72484154d1040a8969b75d8c73eb7b18fe8f"
 dependencies = [
  "bare-metal",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "vcell",
 ]
@@ -1831,7 +1779,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b672c837e0ee8158ecc7fce0f9a948dd0693a9c588338e728d14b73307a0b7d"
 dependencies = [
  "bare-metal",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "vcell",
 ]
@@ -1921,7 +1869,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-spi-api",
@@ -1939,7 +1887,7 @@ dependencies = [
 name = "task-idle"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "userlib",
 ]
 
@@ -1948,7 +1896,7 @@ name = "task-jefe"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "num-traits",
  "ringbuf",
@@ -1972,7 +1920,7 @@ dependencies = [
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "drv-user-leds-api",
  "userlib",
 ]
@@ -1981,7 +1929,7 @@ dependencies = [
 name = "task-pong"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "drv-user-leds-api",
  "userlib",
 ]
@@ -1992,7 +1940,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.6.7",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -2017,7 +1965,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
@@ -2042,7 +1990,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -2065,7 +2013,7 @@ dependencies = [
 name = "test-assist"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "num-traits",
  "test-api",
  "userlib",
@@ -2076,7 +2024,7 @@ dependencies = [
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "num-traits",
  "test-api",
  "userlib",
@@ -2087,7 +2035,7 @@ dependencies = [
 name = "test-suite"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "hypocalls",
  "num-traits",
  "test-api",
@@ -2101,7 +2049,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -2116,7 +2064,7 @@ name = "tests-gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -2131,7 +2079,7 @@ name = "tests-lpc55"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -2145,7 +2093,7 @@ dependencies = [
 name = "tests-stm32f4"
 version = "0.1.0"
 dependencies = [
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",
@@ -2162,7 +2110,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m 0.7.3",
+ "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
  "kern",

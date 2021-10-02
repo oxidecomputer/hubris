@@ -221,16 +221,16 @@ fn main() -> ! {
 
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
-    for pin in &pins {
+    for (port, mask, af) in &pins {
         gpio_driver
             .configure(
-                pin.0,
-                pin.1,
+                *port,
+                *mask,
                 gpio_api::Mode::Alternate,
                 gpio_api::OutputType::PushPull,
                 gpio_api::Speed::High,
                 gpio_api::Pull::None,
-                pin.2,
+                *af,
             )
             .unwrap();
     }
@@ -292,7 +292,7 @@ fn main() -> ! {
                             // Caller has provided two leases, the first as a
                             // data source and the second as a data sink. This
                             // is only legal if we are both transmitting and
-                            // receiving. The transmist buffer cannot be larger
+                            // receiving. The transmit buffer cannot be larger
                             // than the receive buffer; for any bytes for which
                             // the receive buffer exceeds the transmit buffer,
                             // a zero byte will be put on the wire.

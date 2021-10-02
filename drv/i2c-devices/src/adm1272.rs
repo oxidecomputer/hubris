@@ -3,11 +3,10 @@
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
-use pmbus::*;
 use ringbuf::*;
 use userlib::units::*;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
@@ -22,12 +21,21 @@ impl From<pmbus::Error> for Error {
     }
 }
 
+#[allow(dead_code)]
+struct Coefficients {
+    voltage: pmbus::Coefficients,
+    current: pmbus::Coefficients,
+    power: pmbus::Coefficients,
+}
+
 pub struct Adm1272 {
+    /// Underlying I2C device
     device: I2cDevice,
+    /// Value of the rsense resistor, in milliohms
     rsense: i32,
-    voltage_coefficients: Option<Coefficients>,
-    current_coefficients: Option<Coefficients>,
-    power_coefficients: Option<Coefficients>,
+    /// Our (cached) coefficients
+    coefficients: Option<Coefficients>,
+    /// Our (cached) configuration
     config: Option<adm1272::PMON_CONFIG::CommandData>,
 }
 
@@ -39,7 +47,7 @@ impl core::fmt::Display for Adm1272 {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Coefficients(Coefficients),
+    Coefficients(pmbus::Coefficients),
     Config(adm1272::PMON_CONFIG::CommandData),
     WriteConfig(adm1272::PMON_CONFIG::CommandData),
     None,
@@ -52,9 +60,7 @@ impl Adm1272 {
         Self {
             device: *device,
             rsense: (rsense.0 * 1000.0).round() as i32,
-            voltage_coefficients: None,
-            current_coefficients: None,
-            power_coefficients: None,
+            coefficients: None,
             config: None,
         }
     }
@@ -81,99 +87,97 @@ impl Adm1272 {
         pmbus_write!(self.device, adm1272::PMON_CONFIG, config)
     }
 
-    fn load_coefficients(&mut self) -> Result<(), Error> {
+    //
+    // Unlike many/most PMBus devices that have one set of coefficients, the
+    // coefficients for the ADM1272 depends on the mode of the device.  We
+    // therefore determine these dynamically -- but cache the results.
+    //
+    fn load_coefficients(&mut self) -> Result<&Coefficients, Error> {
         use adm1272::PMON_CONFIG::*;
+
+        if let Some(ref coefficients) = self.coefficients {
+            return Ok(coefficients);
+        }
 
         let config = self.read_config()?;
 
-        let vrange = match config.get_v_range() {
-            Some(vrange) => vrange,
-            None => return Err(Error::InvalidConfig),
-        };
+        let vrange = config.get_v_range().ok_or(Error::InvalidConfig)?;
+        let irange = config.get_i_range().ok_or(Error::InvalidConfig)?;
 
-        let irange = match config.get_i_range() {
-            Some(irange) => irange,
-            None => return Err(Error::InvalidConfig),
-        };
-
-        self.voltage_coefficients = Some(match vrange {
-            VRange::Range100V => Coefficients {
+        //
+        // From Table 10 (columns 1 and 2) of the ADM1272 datasheet.
+        //
+        let voltage = match vrange {
+            VRange::Range100V => pmbus::Coefficients {
                 m: 4062,
                 b: 0,
                 R: -2,
             },
-            VRange::Range60V => Coefficients {
+            VRange::Range60V => pmbus::Coefficients {
                 m: 6770,
                 b: 0,
                 R: -2,
             },
-        });
+        };
 
-        ringbuf_entry!(Trace::Coefficients(self.voltage_coefficients.unwrap()));
+        ringbuf_entry!(Trace::Coefficients(voltage));
 
-        self.current_coefficients = Some(match irange {
-            IRange::Range30mV => Coefficients {
+        //
+        // From Table 10 (columns 3 and 4) of the ADM1272 datasheet.
+        //
+        let current = match irange {
+            IRange::Range30mV => pmbus::Coefficients {
                 m: 663 * self.rsense,
                 b: 20480,
                 R: -1,
             },
-            IRange::Range15mV => Coefficients {
+            IRange::Range15mV => pmbus::Coefficients {
                 m: 1326 * self.rsense,
                 b: 20480,
                 R: -1,
             },
-        });
+        };
 
-        ringbuf_entry!(Trace::Coefficients(self.current_coefficients.unwrap()));
+        ringbuf_entry!(Trace::Coefficients(current));
 
+        //
+        // From Table 10 (columns 5 through 8) of the ADM1272 datasheet.
+        //
         let power = match (irange, vrange) {
-            (IRange::Range15mV, VRange::Range60V) => Coefficients {
+            (IRange::Range15mV, VRange::Range60V) => pmbus::Coefficients {
                 m: 3512 * self.rsense,
                 b: 0,
                 R: -2,
             },
-            (IRange::Range15mV, VRange::Range100V) => Coefficients {
+            (IRange::Range15mV, VRange::Range100V) => pmbus::Coefficients {
                 m: 21071 * self.rsense,
                 b: 0,
                 R: -3,
             },
-            (IRange::Range30mV, VRange::Range60V) => Coefficients {
+            (IRange::Range30mV, VRange::Range60V) => pmbus::Coefficients {
                 m: 17561 * self.rsense,
                 b: 0,
                 R: -3,
             },
-            (IRange::Range30mV, VRange::Range100V) => Coefficients {
+            (IRange::Range30mV, VRange::Range100V) => pmbus::Coefficients {
                 m: 10535 * self.rsense,
                 b: 0,
                 R: -3,
             },
         };
 
-        self.power_coefficients = Some(power);
-        ringbuf_entry!(Trace::Coefficients(self.power_coefficients.unwrap()));
+        ringbuf_entry!(Trace::Coefficients(power));
 
-        Ok(())
+        self.coefficients = Some(Coefficients {
+            voltage: voltage,
+            current: current,
+            power: power,
+        });
+
+        Ok(&self.coefficients.as_ref().unwrap())
     }
 
-    fn voltage_coefficients(&mut self) -> Result<Coefficients, Error> {
-        if let Some(ref coefficients) = self.voltage_coefficients {
-            return Ok(*coefficients);
-        }
-
-        self.load_coefficients()?;
-        Ok(self.voltage_coefficients.unwrap())
-    }
-
-    fn current_coefficients(&mut self) -> Result<Coefficients, Error> {
-        if let Some(ref coefficients) = self.current_coefficients {
-            return Ok(*coefficients);
-        }
-
-        self.load_coefficients()?;
-        Ok(self.current_coefficients.unwrap())
-    }
-
-    fn enable_vin(&mut self) -> Result<(), Error> {
+    fn enable_vin_sampling(&mut self) -> Result<(), Error> {
         use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
@@ -187,7 +191,7 @@ impl Adm1272 {
         }
     }
 
-    fn enable_vout(&mut self) -> Result<(), Error> {
+    fn enable_vout_sampling(&mut self) -> Result<(), Error> {
         use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
@@ -202,24 +206,24 @@ impl Adm1272 {
     }
 
     pub fn read_vin(&mut self) -> Result<Volts, Error> {
-        self.enable_vin()?;
+        self.enable_vin_sampling()?;
         let vin = pmbus_read!(self.device, adm1272::READ_VIN)?;
-        Ok(Volts(vin.get(&self.voltage_coefficients()?)?.0))
+        Ok(Volts(vin.get(&self.load_coefficients()?.voltage)?.0))
     }
 
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
-        self.enable_vout()?;
+        self.enable_vout_sampling()?;
         let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
-        Ok(Volts(vout.get(&self.voltage_coefficients()?)?.0))
+        Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))
     }
 
     pub fn read_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
-        Ok(Amperes(iout.get(&self.current_coefficients()?)?.0))
+        Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 
     pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
-        Ok(Amperes(iout.get(&self.current_coefficients()?)?.0))
+        Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 }

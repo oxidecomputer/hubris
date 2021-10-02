@@ -147,9 +147,9 @@ fn main() -> ! {
             &mut buffer,
             fault_mask,
             &mut state,
-            |state, bits| {
+            |(ref disposition, ref mut logged), bits| {
                 if (bits & fault_mask) != 0 {
-                    check_tasks(&state.0, &mut state.1)
+                    check_tasks(disposition, logged)
                 }
             },
             |state, op: Op, msg| -> Result<(), JefeError> {

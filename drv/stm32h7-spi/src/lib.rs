@@ -27,20 +27,7 @@
 
 #![no_std]
 
-use ringbuf::*;
 use stm32h7::stm32h743 as device;
-
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    CanRxSR(u32),
-    CanRxWordSR(u32),
-    CanTxSR(u32),
-    EoTSR(u32),
-    EndSR(u32),
-    None,
-}
-
-ringbuf!(Trace, 64, Trace::None);
 
 pub struct Spi {
     /// Pointer to our register block.
@@ -123,19 +110,16 @@ impl Spi {
 
     pub fn can_rx_word(&self) -> bool {
         let sr = self.reg.sr.read();
-        ringbuf_entry!(Trace::CanRxWordSR(sr.bits()));
         sr.rxwne().bit()
     }
 
     pub fn can_rx_byte(&self) -> bool {
         let sr = self.reg.sr.read();
-        ringbuf_entry!(Trace::CanRxSR(sr.bits()));
         sr.rxwne().bit() || sr.rxplvl().bits() != 0
     }
 
     pub fn can_tx_frame(&self) -> bool {
         let sr = self.reg.sr.read();
-        ringbuf_entry!(Trace::CanTxSR(sr.bits()));
         sr.txp().bit()
     }
 
@@ -145,7 +129,6 @@ impl Spi {
 
     pub fn end_of_transmission(&self) -> bool {
         let sr = self.reg.sr.read();
-        ringbuf_entry!(Trace::EoTSR(sr.bits()));
         sr.eot().bit()
     }
 
@@ -224,9 +207,6 @@ impl Spi {
     }
 
     pub fn end(&mut self) {
-        let sr = self.reg.sr.read();
-        ringbuf_entry!(Trace::EndSR(sr.bits()));
-
         // Clear flags that tend to get set during transactions.
         self.reg.ifcr.write(|w| w.txtfc().set_bit());
         // Disable the transfer state machine.
