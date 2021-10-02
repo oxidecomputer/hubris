@@ -55,7 +55,6 @@ const JEFE: Task = Task::jefe;
 /// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
 ///                           execution engine is waiting to be kicked
 ///
-#[no_mangle]
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
 static mut HIFFY_DATA: [u8; 1024] = [0; 1024];
 static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
@@ -64,7 +63,7 @@ static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
-#[no_mangle]
+#[used]
 static mut HIFFY_FAILURE: Option<Failure> = None;
 
 ///
@@ -155,7 +154,7 @@ pub enum Functions {
 // This definition forces the compiler to emit the DWARF needed for debuggers
 // to be able to know function indices, arguments and return values.
 //
-#[no_mangle]
+#[used]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
 #[cfg(feature = "i2c")]
@@ -574,7 +573,7 @@ fn spi_read(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let spi = drv_spi_api::Spi(task);
+    let spi = drv_spi_api::Spi::from(task);
 
     match spi.exchange(&data[0..len], &mut rval[0..rlen]) {
         Ok(_) => Ok(rlen),
@@ -594,7 +593,7 @@ fn spi_write(
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
 
-    let spi = drv_spi_api::Spi(task);
+    let spi = drv_spi_api::Spi::from(task);
 
     match spi.write(&data[0..len]) {
         Ok(_) => Ok(0),

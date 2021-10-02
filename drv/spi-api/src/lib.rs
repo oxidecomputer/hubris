@@ -3,6 +3,7 @@
 #![no_std]
 
 use userlib::*;
+use core::cell::Cell;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 pub enum Operation {
@@ -24,9 +25,6 @@ impl Operation {
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum SpiError {
-    /// Server has died
-    Died = core::u32::MAX,
-
     /// Malformed response
     BadResponse = 1,
 
@@ -65,6 +63,9 @@ pub enum SpiError {
 
     /// Could not transfer byte into sink
     BadSinkByte = 13,
+
+    /// Server restarted
+    ServerRestarted = 14,
 }
 
 impl From<SpiError> for u32 {
@@ -74,29 +75,50 @@ impl From<SpiError> for u32 {
 }
 
 #[derive(Clone, Debug)]
-pub struct Spi(pub TaskId);
+pub struct Spi(Cell<TaskId>);
+
+impl From<TaskId> for Spi {
+    fn from(t: TaskId) -> Self {
+        Self(Cell::new(t))
+    }
+}
 
 impl Spi {
+    fn result(&self, task: TaskId, code: u32) -> Result<(), SpiError> {
+        if code != 0 {
+            //
+            // If we have an error code, check to see if it denotes a dearly
+            // departed task; if it does, in addition to returning a specific
+            // error code, we will set our task to be the new task as a courtesy.
+            //
+            if let Some(g) = abi::extract_new_generation(code) {
+                self.0.set(TaskId::for_index_and_gen(task.index(), g));
+                Err(SpiError::ServerRestarted)
+            } else {
+                Err(SpiError::from_u32(code).ok_or(SpiError::BadResponse)?)
+            }
+        } else {
+            Ok(())
+        }
+    }
+
     /// Perform both a SPI write and a SPI read
     pub fn exchange(
         &self,
         source: &[u8],
         sink: &mut [u8],
     ) -> Result<(), SpiError> {
+        let task = self.0.get();
+
         let (code, _) = sys_send(
-            self.0,
+            task,
             Operation::Exchange as u16,
             &[],
             &mut [],
             &[Lease::from(source), Lease::from(sink)],
         );
 
-        if code != 0 {
-            Err(SpiError::from_u32(code)
-                .ok_or(SpiError::BadResponse)?)
-        } else {
-            Ok(())
-        }
+        self.result(task, code)
     }
 
     /// Perform a SPI write
@@ -104,19 +126,16 @@ impl Spi {
         &self,
         source: &[u8],
     ) -> Result<(), SpiError> {
+        let task = self.0.get();
+
         let (code, _) = sys_send(
-            self.0,
+            self.0.get(),
             Operation::Write as u16,
             &[],
             &mut [],
             &[Lease::from(source)],
         );
 
-        if code != 0 {
-            Err(SpiError::from_u32(code)
-                .ok_or(SpiError::BadResponse)?)
-        } else {
-            Ok(())
-        }
+        self.result(task, code)
     }
 }

@@ -563,6 +563,7 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "num-traits",
  "userlib",
 ]
