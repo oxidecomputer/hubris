@@ -93,6 +93,17 @@ pub struct I2cMux<'a> {
     pub address: u8,
 }
 
+///
+/// An enum describing the amount to read
+///
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ReadLength {
+    /// Fixed length to read
+    Fixed(usize),
+    /// Read size is variable: first byte contains length
+    Variable,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     WaitISR(u32),
@@ -348,17 +359,27 @@ impl<'a> I2cController<'a> {
         Ok(())
     }
 
+    /// Perform a write to and then a read from the specified device.  Either
+    /// the write length or the read length can be zero, but one of these must
+    /// be non-zero.  Additionally, both lengths must be less than 256 bytes:
+    /// the device can support longer buffers, and the implementation could
+    /// be extended in the future to allow them.
     pub fn write_read(
         &self,
         addr: u8,
         wlen: usize,
         getbyte: impl Fn(usize) -> Option<u8>,
-        rlen: usize,
+        mut rlen: ReadLength,
         mut putbyte: impl FnMut(usize, u8) -> Option<()>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
-        assert!(wlen > 0 || rlen > 0);
-        assert!(wlen <= 255 && rlen <= 255);
+        // Assert our preconditions as described above
+        assert!(wlen > 0 || rlen != ReadLength::Fixed(0));
+        assert!(wlen <= 255);
+
+        if let ReadLength::Fixed(rlen) = rlen {
+            assert!(rlen <= 255);
+        }
 
         let i2c = self.registers;
         let notification = self.notification;
@@ -426,6 +447,11 @@ impl<'a> I2cController<'a> {
                     return Err(drv_i2c_api::ResponseCode::BusLocked);
                 }
 
+                if isr.arlo().is_lost() {
+                    i2c.icr.write(|w| w.arlocf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
@@ -440,26 +466,45 @@ impl<'a> I2cController<'a> {
             }
         }
 
-        if rlen > 0 {
+        if rlen != ReadLength::Fixed(0) {
             //
             // If we have both a write and a read, we deliberately do not send
             // a STOP between them to force the RESTART (many devices do not
             // permit a STOP between a register address write and a subsequent
             // read).
             //
-            #[rustfmt::skip]
-            i2c.cr2.modify(|_, w| { w
-                .nbytes().bits(rlen as u8)
-                .autoend().clear_bit()
-                .add10().clear_bit()
-                .sadd().bits((addr << 1).into())
-                .rd_wrn().set_bit()
-                .start().set_bit()
-            });
+            if let ReadLength::Fixed(rlen) = rlen {
+                #[rustfmt::skip]
+                i2c.cr2.modify(|_, w| { w
+                    .nbytes().bits(rlen as u8)
+                    .autoend().clear_bit()
+                    .add10().clear_bit()
+                    .sadd().bits((addr << 1).into())
+                    .rd_wrn().set_bit()
+                    .start().set_bit()
+                });
+            } else {
+                #[rustfmt::skip]
+                i2c.cr2.modify(|_, w| { w
+                    .nbytes().bits(1)
+                    .autoend().clear_bit()
+                    .reload().set_bit()
+                    .add10().clear_bit()
+                    .sadd().bits((addr << 1).into())
+                    .rd_wrn().set_bit()
+                    .start().set_bit()
+                });
+            }
 
             let mut pos = 0;
 
-            while pos < rlen {
+            loop {
+                if let ReadLength::Fixed(rlen) = rlen {
+                    if pos >= rlen {
+                        break;
+                    }
+                }
+
                 loop {
                     (ctrl.wfi)(notification);
                     (ctrl.enable)(notification);
@@ -489,13 +534,41 @@ impl<'a> I2cController<'a> {
 
                 // Read it!
                 let byte: u8 = i2c.rxdr.read().rxdata().bits();
+
+                if rlen == ReadLength::Variable {
+                    #[rustfmt::skip]
+                    i2c.cr2.modify(|_, w| { w
+                        .nbytes().bits(byte)
+                        .reload().clear_bit()
+                    });
+
+                    rlen = ReadLength::Fixed(byte.into());
+                    continue;
+                }
+
                 putbyte(pos, byte).ok_or(drv_i2c_api::ResponseCode::BadArg)?;
                 pos += 1;
             }
 
             // All done; now block until our transfer is complete...
-            while !i2c.isr.read().tc().is_complete() {
-                ringbuf_entry!(Trace::ReadWaitISR(i2c.isr.read().bits()));
+            loop {
+                let isr = i2c.isr.read();
+                ringbuf_entry!(Trace::ReadWaitISR(isr.bits()));
+
+                if isr.tc().is_complete() {
+                    break;
+                }
+
+                if isr.timeout().is_timeout() {
+                    i2c.icr.write(|w| w.timoutcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusLocked);
+                }
+
+                if isr.arlo().is_lost() {
+                    i2c.icr.write(|w| w.arlocf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
             }

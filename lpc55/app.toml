@@ -70,6 +70,14 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.hiffy]
+path = "../task-hiffy"
+name = "task-hiffy"
+priority = 3
+requires = {flash = 32768, ram = 16384 }
+stacksize = 2048
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"

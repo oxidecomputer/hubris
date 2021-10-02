@@ -28,10 +28,10 @@ members = [
     "task-ping",
     "task-pong",
     "task-idle",
-    "task-i2c",
+    "task-hiffy",
+    "task-power",
     "task-spam2",
     "task-spd",
-    "task-spi",
     "task-thermal",
 
     "drv/stm32fx-rcc",

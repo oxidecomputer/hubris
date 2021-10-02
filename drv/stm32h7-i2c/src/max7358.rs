@@ -76,7 +76,7 @@ fn read_regs(
         mux.address,
         0,
         |_| Some(0),
-        rbuf.len(),
+        ReadLength::Fixed(rbuf.len()),
         |pos, byte| {
             rbuf[pos] = byte;
             Some(())
@@ -123,7 +123,7 @@ fn write_reg(
         mux.address,
         index + 1,
         |pos| Some(wbuf[pos]),
-        0,
+        ReadLength::Fixed(0),
         |_, _| Some(()),
         ctrl,
     ) {

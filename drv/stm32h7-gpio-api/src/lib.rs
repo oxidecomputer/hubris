@@ -15,7 +15,7 @@ enum Op {
     Toggle = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Port {
     A = 0,
     B = 1,
@@ -30,7 +30,7 @@ pub enum Port {
     K = 10,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Mode {
     Input = 0b00,
     Output = 0b01,
@@ -38,13 +38,13 @@ pub enum Mode {
     Analog = 0b11,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum OutputType {
     PushPull = 0,
     OpenDrain = 1,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Speed {
     Low = 0b00,
     Medium = 0b01,
@@ -52,14 +52,14 @@ pub enum Speed {
     VeryHigh = 0b11,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Pull {
     None = 0b00,
     Up = 0b01,
     Down = 0b10,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 pub enum Alternate {
     AF0 = 0,
     AF1 = 1,
@@ -89,8 +89,15 @@ impl From<TaskId> for Gpio {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[repr(u32)]
 pub enum GpioError {
     BadArg = 2,
+}
+
+impl From<GpioError> for u32 {
+    fn from(rc: GpioError) -> Self {
+        rc as u32
+    }
 }
 
 impl From<u32> for GpioError {

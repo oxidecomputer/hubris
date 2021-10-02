@@ -248,13 +248,13 @@ fn main() -> ! {
                     }
                     Op::ReadInput => {
                         let (msg, caller) = msg
-                            .fixed::<u8, u32>()
+                            .fixed::<u8, u16>()
                             .ok_or(ResponseCode::BadArg)?;
                         let port =
                             Port::from_u8(*msg).ok_or(ResponseCode::BadArg)?;
                         let reg = gpio_reg(port);
 
-                        caller.reply(reg.idr.read().bits());
+                        caller.reply(reg.idr.read().bits() as u16);
                     }
                     Op::Toggle => {
                         let (msg, caller) = msg

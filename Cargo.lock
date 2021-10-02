@@ -64,6 +64,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
 
 [[package]]
+name = "atomic-polyfill"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a93ba5d6053837dbb76fd0ae26fd4f0c1859a008a783b0ce072b797c07f0f27"
+dependencies = [
+ "cortex-m",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -88,6 +97,12 @@ checksum = "5deb64efa5bd81e31fcd1938615a6d98c82eafcbcd787162b6f63b91d6bac5b3"
 dependencies = [
  "rustc_version",
 ]
+
+[[package]]
+name = "base64"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bitfield"
@@ -205,6 +220,12 @@ name = "const-oid"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44c32f031ea41b4291d695026c023b95d59db2d8a2c7640800ed56bc8f510f22"
+
+[[package]]
+name = "convert_case"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e1f025f441cdfb75831bec89b9d6a6ed02e5e763f78fc5e1ff30d4870fefaec"
 
 [[package]]
 name = "cortex-m"
@@ -377,6 +398,7 @@ name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]
@@ -389,6 +411,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-onewire",
  "num-traits",
+ "pmbus",
  "ringbuf",
  "userlib",
  "zerocopy",
@@ -503,6 +526,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-spi-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
@@ -608,6 +640,7 @@ name = "drv-stm32h7-spi"
 version = "0.1.0"
 dependencies = [
  "num-traits",
+ "ringbuf",
  "stm32h7",
  "vcell",
  "zerocopy",
@@ -617,11 +650,15 @@ dependencies = [
 name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
  "cortex-m",
+ "drv-spi-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
  "num-traits",
+ "ringbuf",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -882,10 +919,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+
+[[package]]
+name = "heapless"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50530280e9a947b192e3a30a9d7bcead527b22da30ff7cbd334233d820aaf82a"
+dependencies = [
+ "atomic-polyfill",
+ "hash32",
+ "serde",
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "heck"
@@ -903,6 +961,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "hif"
+version = "0.2.3"
+dependencies = [
+ "pkg-version",
+ "postcard",
+ "serde",
 ]
 
 [[package]]
@@ -982,6 +1049,12 @@ name = "libc"
 version = "0.2.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cb00336871be5ed2c8ed44b60ae9959dc5b9f08539422ed43f09e34ecaeba21"
+
+[[package]]
+name = "libm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
 name = "libudev"
@@ -1312,16 +1385,65 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
+name = "pkg-version"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e848f61ee4b2010345e65757e427a077213af1cee5d3e6a02e4a151dabca377"
+dependencies = [
+ "pkg-version-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "pkg-version-impl"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1564bf5d476bf4a5eac420b88c500454c000dca79cef0a2e4304a1fe34361a3b"
+dependencies = [
+ "proc-macro-hack",
+]
+
+[[package]]
 name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
+name = "pmbus"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "convert_case",
+ "libm",
+ "num-derive",
+ "num-traits",
+ "ron",
+ "serde",
+]
+
+[[package]]
 name = "podio"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b18befed8bc2b61abc79a457295e7e838417326da1586050b919414073977f19"
+
+[[package]]
+name = "postcard"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8863e251332eb18520388099b8b0acc4810ed6e602e3b6f674e8a46ba20e15c"
+dependencies = [
+ "heapless",
+ "postcard-cobs",
+ "serde",
+]
+
+[[package]]
+name = "postcard-cobs"
+version = "0.1.5-pre"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c68cb38ed13fd7bc9dd5db8f165b7c8d9c1a315104083a2b10f11354c2af97f"
 
 [[package]]
 name = "proc-macro-error"
@@ -1346,6 +1468,12 @@ dependencies = [
  "quote 1.0.9",
  "version_check",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
@@ -1418,6 +1546,17 @@ version = "0.1.0"
 dependencies = [
  "quote 1.0.9",
  "syn 1.0.75",
+]
+
+[[package]]
+name = "ron"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "064ea8613fb712a19faf920022ec8ddf134984f100090764a4e1d768f3827f1f"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
 ]
 
 [[package]]
@@ -1586,6 +1725,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "stable_deref_trait"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
 name = "stage0"
 version = "0.1.0"
 dependencies = [
@@ -1719,13 +1864,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-i2c"
+name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
+ "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-spi-api",
+ "drv-stm32h7-gpio-api",
+ "hif",
  "num-traits",
+ "ringbuf",
+ "serde",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1745,6 +1898,18 @@ dependencies = [
  "abi",
  "cortex-m",
  "cortex-m-semihosting",
+ "num-traits",
+ "ringbuf",
+ "task-jefe-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-jefe-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -1767,6 +1932,21 @@ dependencies = [
  "cortex-m",
  "drv-user-leds-api",
  "userlib",
+]
+
+[[package]]
+name = "task-power"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1795,19 +1975,6 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "userlib",
-]
-
-[[package]]
-name = "task-spi"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if 0.1.10",
- "cortex-m",
- "cortex-m-semihosting",
- "ringbuf",
- "userlib",
- "zerocopy",
 ]
 
 [[package]]

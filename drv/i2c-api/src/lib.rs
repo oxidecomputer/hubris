@@ -22,9 +22,10 @@ use zerocopy::{AsBytes, FromBytes};
 
 use userlib::*;
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, PartialEq)]
 pub enum Op {
     WriteRead = 1,
+    WriteReadBlock = 2,
 }
 
 /// The response code returned from the I2C controller (or from the kernel in
@@ -318,6 +319,7 @@ impl I2cDevice {
         reg: R,
     ) -> Result<V, ResponseCode> {
         let mut val = V::default();
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -328,7 +330,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(reg.as_bytes()), Lease::from(val.as_bytes_mut())],
         );
 
@@ -337,6 +339,74 @@ impl I2cDevice {
                 .ok_or(ResponseCode::BadResponse)?)
         } else {
             Ok(val)
+        }
+    }
+
+    ///
+    /// Like [`read_reg`], but instead of returning a value, reads as many
+    /// bytes as the device will send into a specified slice, returning the
+    /// number of bytes read.
+    ///
+    pub fn read_reg_into<R: AsBytes>(
+        &self,
+        reg: R,
+        buf: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[Lease::from(reg.as_bytes()), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
+        }
+    }
+
+    ///
+    /// Performs an SMBus block read (in which the first byte returned from
+    /// the device contains the total number of bytes to read) into the
+    /// specified buffer, returning the total number of bytes read.  Note
+    /// that the byte count is only returned from the function; it is *not*
+    /// present as the payload's first byte.
+    ///
+    pub fn read_block<R: AsBytes>(
+        &self,
+        reg: R,
+        buf: &mut [u8],
+    ) -> Result<usize, ResponseCode> {
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteReadBlock as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
+            &[Lease::from(reg.as_bytes()), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
         }
     }
 
@@ -352,6 +422,7 @@ impl I2cDevice {
     ) -> Result<V, ResponseCode> {
         let empty = [0u8; 1];
         let mut val = V::default();
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -362,7 +433,7 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
             &[Lease::from(&empty[0..0]), Lease::from(val.as_bytes_mut())],
         );
 
@@ -375,11 +446,13 @@ impl I2cDevice {
     }
 
     ///
-    /// Writes a buffer to a device. Unlike a register read, this will not
-    /// perform any follow-up reads.
+    /// Reads from a device *without* first doing a write.  This is like
+    /// [`read`], but will read as many bytes as the device will offer into
+    /// the specified mutable slice, returning the number of bytes read.
     ///
-    pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
+    pub fn read_into(&self, buf: &mut [u8]) -> Result<usize, ResponseCode> {
         let empty = [0u8; 1];
+        let mut response = 0_usize;
 
         let (code, _) = sys_send(
             self.task,
@@ -390,7 +463,36 @@ impl I2cDevice {
                 self.port,
                 self.segment,
             )),
-            &mut [],
+            response.as_bytes_mut(),
+            &[Lease::from(&empty[0..0]), Lease::from(buf)],
+        );
+
+        if code != 0 {
+            Err(ResponseCode::from_u32(code)
+                .ok_or(ResponseCode::BadResponse)?)
+        } else {
+            Ok(response)
+        }
+    }
+
+    ///
+    /// Writes a buffer to a device. Unlike a register read, this will not
+    /// perform any follow-up reads.
+    ///
+    pub fn write(&self, buffer: &[u8]) -> Result<(), ResponseCode> {
+        let empty = [0u8; 1];
+        let mut response = 0_usize;
+
+        let (code, _) = sys_send(
+            self.task,
+            Op::WriteRead as u16,
+            &Marshal::marshal(&(
+                self.address,
+                self.controller,
+                self.port,
+                self.segment,
+            )),
+            response.as_bytes_mut(),
             &[Lease::from(buffer), Lease::from(&empty[0..0])],
         );
 

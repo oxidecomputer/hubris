@@ -26,6 +26,7 @@ impl From<TaskId> for Rcc {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[repr(u32)]
 pub enum RccError {
     BadArg = 2,
 }

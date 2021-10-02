@@ -19,6 +19,8 @@
 #![no_std]
 #![no_main]
 
+use drv_spi_api::*;
+use ringbuf::*;
 use stm32h7::stm32h743 as device;
 use userlib::*;
 
@@ -29,35 +31,15 @@ use drv_stm32h7_spi as spi_core;
 declare_task!(RCC, rcc_driver);
 declare_task!(GPIO, gpio_driver);
 
-#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
-enum Operation {
-    Read = 0b01,
-    Write = 0b10,
-    Exchange = 0b11,
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Start(Operation, (usize, usize)),
+    Tx(usize, u8),
+    Rx(usize, u8),
+    None,
 }
 
-impl Operation {
-    pub fn is_read(self) -> bool {
-        self as u32 & 1 != 0
-    }
-
-    pub fn is_write(self) -> bool {
-        self as u32 & 0b10 != 0
-    }
-}
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
-}
-
-// TODO: it is super unfortunate to have to write this by hand, but deriving
-// ToPrimitive makes us check at runtime whether the value fits
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
-}
+ringbuf!(Trace, 64, Trace::None);
 
 const IRQ_MASK: u32 = 1;
 
@@ -65,15 +47,165 @@ const IRQ_MASK: u32 = 1;
 fn main() -> ! {
     let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
 
-    // SPI4 is the connection from SP -> RoT
-    rcc_driver.enable_clock(rcc_api::Peripheral::Spi4);
-    rcc_driver.leave_reset(rcc_api::Peripheral::Spi4);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "spi1")] {
+            compile_error!("spi1 not supported on this board");
+        } else if #[cfg(feature = "spi2")] {
+            #[cfg(any(
+                feature = "spi3",
+                feature = "spi4",
+                feature = "spi5",
+                feature = "spi6"
+            ))]
+            compile_error!("can only set one peripheral");
 
-    // Manufacture a pointer to SPI4 because the stm32h7 crate won't help us
-    // Safety: we're dereferencing a pointer to a guaranteed-valid address of
-    // registers.
-    let registers = unsafe { &*device::SPI4::ptr() };
+            let peripheral = rcc_api::Peripheral::Spi2;
+            let registers = unsafe { &*device::SPI2::ptr() };
 
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "gemini-bu-1")] {
+                    let pins = [(
+                        gpio_api::Port::I,
+                        (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else if #[cfg(target_board = "gimlet-1")] {
+                    //
+                    // On Gimlet, spi2 is used for three different devices:
+                    // the management network (KSZ8463 at refdes U401),
+                    // the local flash (U557), and the sequencer (U476).
+                    // This is across two different ports (port B and port I)
+                    // -- and because there is more than one device, we
+                    // explicitly do not include CS (PI0, PB12) in each;
+                    // these will need to be explicitly managed by the caller
+                    // to select the appropriate chip.
+                    //
+                    let pins = [(
+                        gpio_api::Port::I,
+                        (1 << 1) | (1 << 2) | (1 << 3),
+                        gpio_api::Alternate::AF5,
+                    ), (
+                        gpio_api::Port::B,
+                        (1 << 13) | (1 << 14) | (1 << 15),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else {
+                    compile_error!("spi2 not supported on this board");
+                }
+            }
+        } else if #[cfg(feature = "spi3")] {
+            #[cfg(any(feature = "spi4", feature = "spi5", feature = "spi6"))]
+            compile_error!("can only set one peripheral");
+
+            let peripheral = rcc_api::Peripheral::Spi3;
+            let registers = unsafe { &*device::SPI3::ptr() };
+
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "gimletlet-2")] {
+                    let pins = [(
+                        gpio_api::Port::C,
+                        (1 << 10) | (1 << 11) | (1 << 12),
+                        gpio_api::Alternate::AF6,
+                    ), (
+                        gpio_api::Port::A,
+                        1 << 15,
+                        gpio_api::Alternate::AF6,
+                    )];
+                } else if #[cfg(target_board = "nucleo-h743zi2")] {
+                    let pins = [(
+                        gpio_api::Port::A,
+                        1 << 4,
+                        gpio_api::Alternate::AF6,
+                    ), (
+                        gpio_api::Port::B,
+                        (1 << 3) | (1 << 4),
+                        gpio_api::Alternate::AF6,
+                    ), (
+                        gpio_api::Port::B,
+                        1 << 5,
+                        gpio_api::Alternate::AF7,
+                    )];
+                } else {
+                    compile_error!("spi3 not supported on this board");
+                }
+            }
+        } else if #[cfg(feature = "spi4")] {
+            #[cfg(any(feature = "spi5", feature = "spi6"))]
+            compile_error!("can only set one peripheral");
+
+            let peripheral = rcc_api::Peripheral::Spi4;
+            let registers = unsafe { &*device::SPI4::ptr() };
+
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "gemini-bu-1")] {
+                    //
+                    // On Gemini, the main connection to the RoT:
+                    //  PE2 = SCK
+                    //  PE4 = CS
+                    //  PE5 = MISO
+                    //  PE6 = MOSI
+                    //
+                    // If you need debugging, configure these pins:
+                    //  PE12 = SCK
+                    //  PE11 = CS
+                    //  PE13 = MISO
+                    //  PE14 = MOSI
+                    //
+                    // Make sure MISO and MOSI are connected to something when
+                    // debugging, otherwise you may get unexpected output.
+                    //
+                    let pins = [(
+                        gpio_api::Port::E,
+                        (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else if #[cfg(target_board = "gimletlet-2")] {
+                    let pins = [(
+                        gpio_api::Port::E,
+                        (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else if #[cfg(target_board = "gimlet-1")] {
+                    //
+                    // On Gimlet -- as with Gemini -- the main connection to
+                    // the RoT is on the PE pins.
+                    //
+                    let pins = [(
+                        gpio_api::Port::E,
+                        (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
+                        gpio_api::Alternate::AF5,
+                    )];
+                } else {
+                    compile_error!("spi4 not supported on this board");
+                }
+            }
+        } else if #[cfg(feature = "spi5")] {
+            compile_error!("spi5 not supported on this board");
+        } else if #[cfg(feature = "spi6")] {
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "gimletlet-2")] {
+                    let pins = [(
+                        gpio_api::Port::G,
+                        (1 << 8) | (1 << 12) | (1 << 13) | (1 << 14),
+                        gpio_api::Alternate::AF5,
+                    )]
+                } else {
+                    compile_error!("spi6 not supported on this board");
+                }
+            }
+        } else if #[cfg(feature = "standalone")] {
+            let peripheral = rcc_api::Peripheral::Spi2;
+            let registers = unsafe { &*device::SPI2::ptr() };
+            let pins = [( gpio_api::Port::A, 0, gpio_api::Alternate::AF0 )];
+        } else {
+            compile_error!(
+                "must enable one of: spi1, spi2, spi3, spi4, spi5, spi6"
+            );
+        }
+    }
+
+    rcc_driver.enable_clock(peripheral);
+    rcc_driver.leave_reset(peripheral);
     let mut spi = spi_core::Spi::from(registers);
 
     // This should correspond to '0' in the standard SPI parlance
@@ -89,31 +221,19 @@ fn main() -> ! {
 
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
-    // The main connection to RoT
-    // PE2 = SCK
-    // PE4 = CS
-    // PE5 = MISO
-    // PE6 = MOSI
-    //
-    // If you need debugging, the following pins can be configured
-    // PE12 = SCK
-    // PE11 = CS
-    // PE13 = MISO
-    // PE14 = MOSI
-    //
-    // Make sure MISO and MOSI are connected to something when debugging,
-    // otherwise you may get unexpected output.
-    gpio_driver
-        .configure(
-            gpio_api::Port::E,
-            (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
-            gpio_api::Mode::Alternate,
-            gpio_api::OutputType::PushPull,
-            gpio_api::Speed::High,
-            gpio_api::Pull::None,
-            gpio_api::Alternate::AF5,
-        )
-        .unwrap();
+    for (port, mask, af) in &pins {
+        gpio_driver
+            .configure(
+                *port,
+                *mask,
+                gpio_api::Mode::Alternate,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+                *af,
+            )
+            .unwrap();
+    }
 
     loop {
         hl::recv_without_notification(
@@ -127,8 +247,7 @@ fn main() -> ! {
                     // We can take varying numbers of leases, so we'll do lease
                     // verification ourselves just below.
                     let lease_count = msg.lease_count();
-                    let ((), caller) =
-                        msg.fixed().ok_or(ResponseCode::BadArg)?;
+                    let ((), caller) = msg.fixed().ok_or(SpiError::BadArg)?;
 
                     // Inspect the message and generate two `Option<Borrow>`s
                     // and a transfer length. Note: the two borrows may refer to
@@ -140,7 +259,7 @@ fn main() -> ! {
                             // operation they've requested.
                             let borrow = caller.borrow(0);
                             let info =
-                                borrow.info().ok_or(ResponseCode::BadArg)?;
+                                borrow.info().ok_or(SpiError::BadLeaseArg)?;
 
                             // Note that the attributes _we_ require are the
                             // inverse of the sense of the SPI operation, e.g.
@@ -156,7 +275,7 @@ fn main() -> ! {
                             };
 
                             if !info.attributes.contains(required_attributes) {
-                                return Err(ResponseCode::BadArg);
+                                return Err(SpiError::BadLeaseAttributes);
                             }
 
                             let read_borrow = if op.is_write() {
@@ -167,47 +286,49 @@ fn main() -> ! {
                             let write_borrow =
                                 if op.is_read() { Some(borrow) } else { None };
 
-                            (read_borrow, write_borrow, info.len)
+                            (read_borrow, write_borrow, (info.len, info.len))
                         }
                         2 if op == Operation::Exchange => {
                             // Caller has provided two leases, the first as a
                             // data source and the second as a data sink. This
                             // is only legal if we are both transmitting and
-                            // receiving. The buffers are currently required to
-                            // be the same length for simplicity, though this
-                            // restriction is not inherent and could be lifted
-                            // with some effort.
+                            // receiving. The transmit buffer cannot be larger
+                            // than the receive buffer; for any bytes for which
+                            // the receive buffer exceeds the transmit buffer,
+                            // a zero byte will be put on the wire.
                             let src_borrow = caller.borrow(0);
-                            let src_info = src_borrow
-                                .info()
-                                .ok_or(ResponseCode::BadArg)?;
+                            let src_info =
+                                src_borrow.info().ok_or(SpiError::BadSource)?;
 
                             if !src_info
                                 .attributes
                                 .contains(LeaseAttributes::READ)
                             {
-                                return Err(ResponseCode::BadArg);
+                                return Err(SpiError::BadSourceAttributes);
                             }
 
                             let dst_borrow = caller.borrow(1);
-                            let dst_info = dst_borrow
-                                .info()
-                                .ok_or(ResponseCode::BadArg)?;
+                            let dst_info =
+                                dst_borrow.info().ok_or(SpiError::BadSink)?;
 
                             if !dst_info
                                 .attributes
                                 .contains(LeaseAttributes::WRITE)
                             {
-                                return Err(ResponseCode::BadArg);
+                                return Err(SpiError::BadSinkAttributes);
                             }
 
-                            if dst_info.len != src_info.len {
-                                return Err(ResponseCode::BadArg);
+                            if dst_info.len < src_info.len {
+                                return Err(SpiError::ShortSinkLength);
                             }
 
-                            (Some(src_borrow), Some(dst_borrow), src_info.len)
+                            (
+                                Some(src_borrow),
+                                Some(dst_borrow),
+                                (dst_info.len, src_info.len),
+                            )
                         }
-                        _ => return Err(ResponseCode::BadArg),
+                        _ => return Err(SpiError::BadLeaseCount),
                     };
 
                     // That routine should have returned at least one borrow.
@@ -224,15 +345,16 @@ fn main() -> ! {
                     //
                     // Zero-byte SPI transactions don't make sense and we'll
                     // decline them.
-                    if xfer_len == 0 || xfer_len >= 0x1_0000 {
-                        return Err(ResponseCode::BadArg);
+                    if xfer_len.0 == 0 || xfer_len.0 >= 0x1_0000 {
+                        return Err(SpiError::BadTransferSize);
                     }
 
                     // We have a reasonable-looking request containing (a)
                     // reasonable-looking lease(s). This is our commit point.
+                    ringbuf_entry!(Trace::Start(op, xfer_len));
 
                     // Make sure SPI is on.
-                    spi.enable(xfer_len as u16);
+                    spi.enable(xfer_len.0 as u16);
                     // Load transfer count and start the state machine. At this
                     // point we _have_ to move the specified number of bytes
                     // through (or explicitly cancel, but we don't).
@@ -270,15 +392,23 @@ fn main() -> ! {
 
                         if let Some((tx_data, tx_pos)) = &mut tx {
                             if spi.can_tx_frame() {
-                                // Transfer byte from caller to TX FIFO.
-                                let byte: u8 = tx_data
-                                    .read_at(*tx_pos)
-                                    .ok_or(ResponseCode::BadArg)?;
+                                // If our position is less than our tx len,
+                                // transfer a byte from caller to TX FIFO --
+                                // otherwise put a dummy byte on the wire
+                                let byte: u8 = if *tx_pos < xfer_len.1 {
+                                    tx_data
+                                        .read_at(*tx_pos)
+                                        .ok_or(SpiError::BadSourceByte)?
+                                } else {
+                                    0u8
+                                };
+
+                                ringbuf_entry!(Trace::Tx(*tx_pos, byte));
                                 spi.send8(byte);
                                 *tx_pos += 1;
 
                                 // If we have _just_ finished...
-                                if *tx_pos == xfer_len {
+                                if *tx_pos == xfer_len.0 {
                                     // We will finish transmitting well before
                                     // we're done receiving, so stop getting
                                     // interrupt notifications for transmit
@@ -297,10 +427,11 @@ fn main() -> ! {
                                 let r = spi.recv8();
                                 rx_data
                                     .write_at(*rx_pos, r)
-                                    .ok_or(ResponseCode::BadArg)?;
+                                    .ok_or(SpiError::BadSinkByte)?;
+                                ringbuf_entry!(Trace::Rx(*rx_pos, r));
                                 *rx_pos += 1;
 
-                                if *rx_pos == xfer_len {
+                                if *rx_pos == xfer_len.0 {
                                     rx = None;
                                 }
 

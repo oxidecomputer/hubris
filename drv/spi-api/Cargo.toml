@@ -1,13 +1,12 @@
 [package]
-name = "drv-i2c-api"
+name = "drv-spi-api"
 version = "0.1.0"
 authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
-ringbuf = {path = "../../ringbuf"}
-zerocopy = "0.3.0"
+abi = {path = "../../abi"}
 num-traits = { version = "0.2.12", default-features = false }
 
 # a target for `cargo xtask check`

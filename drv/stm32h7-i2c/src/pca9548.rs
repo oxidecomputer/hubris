@@ -74,7 +74,7 @@ impl I2cMuxDriver for Pca9548 {
             mux.address,
             1,
             |_| Some(reg.0),
-            0,
+            ReadLength::Fixed(0),
             |_, _| Some(()),
             ctrl,
         ) {
