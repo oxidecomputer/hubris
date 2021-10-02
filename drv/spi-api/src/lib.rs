@@ -2,8 +2,8 @@
 
 #![no_std]
 
-use userlib::*;
 use core::cell::Cell;
+use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 pub enum Operation {
@@ -122,10 +122,7 @@ impl Spi {
     }
 
     /// Perform a SPI write
-    pub fn write(
-        &self,
-        source: &[u8],
-    ) -> Result<(), SpiError> {
+    pub fn write(&self, source: &[u8]) -> Result<(), SpiError> {
         let task = self.0.get();
 
         let (code, _) = sys_send(
