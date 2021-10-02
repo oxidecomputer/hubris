@@ -21,4 +21,3 @@ pub struct Amperes(pub f32);
 /// Ohms of resistence
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Ohms(pub f32);
-
