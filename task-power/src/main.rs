@@ -13,11 +13,7 @@ use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
 
-#[cfg(not(feature = "standalone"))]
-const I2C: Task = Task::i2c_driver;
-
-#[cfg(feature = "standalone")]
-const I2C: Task = Task::anonymous;
+declare_task!(I2C, i2c_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Device {

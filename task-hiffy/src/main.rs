@@ -17,33 +17,16 @@ use ringbuf::*;
 use task_jefe_api::{Disposition, Jefe, JefeError};
 use userlib::*;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "i2c")] {
-        use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
+#[cfg(feature = "i2c")]
+use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
 
-        #[cfg(feature = "standalone")]
-        const I2C: Task = Task::anonymous;
+#[cfg(feature = "i2c")]
+declare_task!(I2C, i2c_driver);
 
-        #[cfg(not(feature = "standalone"))]
-        const I2C: Task = Task::i2c_driver;
-    }
-}
+#[cfg(feature = "gpio")]
+declare_task!(GPIO, gpio_driver);
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "gpio")] {
-        #[cfg(feature = "standalone")]
-        const GPIO: Task = Task::anonymous;
-
-        #[cfg(not(feature = "standalone"))]
-        const GPIO: Task = Task::gpio_driver;
-    }
-}
-
-#[cfg(feature = "standalone")]
-const JEFE: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const JEFE: Task = Task::jefe;
+declare_task!(JEFE, jefe);
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;

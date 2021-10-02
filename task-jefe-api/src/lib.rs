@@ -9,8 +9,6 @@ use userlib::*;
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum JefeError {
-    /// Server has died
-    Dead = core::u32::MAX,
     /// Invalid operation
     BadOperation = 1,
     /// Bad response

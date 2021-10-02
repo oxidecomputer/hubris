@@ -193,6 +193,10 @@ fn main() -> ! {
                     compile_error!("spi6 not supported on this board");
                 }
             }
+        } else if #[cfg(feature = "standalone")] {
+            let peripheral = rcc_api::Peripheral::Spi2;
+            let registers = unsafe { &*device::SPI2::ptr() };
+            let pins = [( gpio_api::Port::A, 0, gpio_api::Alternate::AF0 )];
         } else {
             compile_error!(
                 "must enable one of: spi1, spi2, spi3, spi4, spi5, spi6"
