@@ -237,8 +237,8 @@ notification masks, and may change.)
 
 ==== Return values
 
-- 0: always 0 for open receive; closed receive may also return a dead code if
-  the chosen peer has died. (See SEND for the structure of dead codes.)
+- 0: always 0 for open receive; closed receive may also return a "dead code"
+  (see `SEND`) to indicate that the chosen peer has died.
 - 1: Task ID of the sender (generation in 15:12, ID in 11:0).
 - 2: Operation code used by sender. (Or notification bits, if the sender is the
   kernel.)
