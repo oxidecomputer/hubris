@@ -2,12 +2,11 @@
 
 use drv_i2c_api::*;
 use pmbus::commands::*;
-use pmbus::*;
 use userlib::units::*;
 
 pub struct Tps546b24a {
     device: I2cDevice,
-    mode: Option<VOutMode>,
+    mode: Option<pmbus::VOutModeCommandData>,
 }
 
 impl core::fmt::Display for Tps546b24a {
@@ -38,7 +37,7 @@ impl Tps546b24a {
         }
     }
 
-    fn read_mode(&mut self) -> Result<VOutMode, Error> {
+    fn read_mode(&mut self) -> Result<pmbus::VOutModeCommandData, Error> {
         Ok(match self.mode {
             None => {
                 let mode = pmbus_read!(self.device, VOUT_MODE)?;

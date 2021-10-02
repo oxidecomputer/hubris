@@ -39,6 +39,10 @@ cfg_if::cfg_if! {
     }
 }
 
+#[cfg(feature = "standalone")]
+const JEFE: Task = Task::anonymous;
+
+#[cfg(not(feature = "standalone"))]
 const JEFE: Task = Task::jefe;
 
 ///
