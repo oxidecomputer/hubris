@@ -74,8 +74,8 @@ fn main() -> ! {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
                     let device = I2cDevice::mock(task);
-                    let adm1272 = Adm1272::new(&device);
-                    let tps546 = Tps546b24a::new(&device);
+                    let mut adm1272 = Adm1272::new(&device, Ohms(0.0));
+                    let mut tps546 = Tps546b24a::new(&device);
                 } else {
                     compile_error!("unknown board");
                 }
