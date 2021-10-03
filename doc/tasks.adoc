@@ -1,0 +1,138 @@
+= Tasks
+
+Other than the kernel, all the code in a Hubris application lives in one or more
+_tasks._ Tasks are programs that run in the processor's _unprivileged mode,_
+subject to memory isolation. This means that tasks cannot directly stomp on
+memory owned by the kernel, or each other.
+
+== Separate compilation
+
+Tasks are _separately compiled_ and do not share code. This is both good and
+bad. Some advantages:
+
+- Libraries that, for whatever reason, use static global data can't accidentally
+  propagate failures from one task to another.
+- Each task can customize the libraries it uses with different feature flags,
+  without unexpected effects on other tasks.
+- Tasks can use totally different compiler optimization levels.
+- Tasks can, in theory, be written in entirely different programming languages,
+  from assembler to C to Rust.
+
+The main disadvantage is that it makes the application _bigger._ If three tasks
+all use the `useful_code` library, the application will contain three copies of
+that library's code in Flash.
+
+NOTE: We could improve this situation by introducing an equivalent to shared
+libraries -- something similar to another physically addressed system, such as
+Microware OS9. This would be a significant amount of work because all the off
+the shelf tooling we have access to assumes that shared libraries go hand in
+hand with virtual addressing. So, we have punted for now.
+
+== Tasks can't be created or destroyed
+
+An application declares all of its tasks in its `app.toml` config file, which
+the build system processes to make an application image. The set of tasks
+declared in that file is the set of tasks the application has, period. Unlike
+most operating systems, Hubris does not support creating new tasks at runtime or
+destroying existing tasks. This is on purpose. Task creation is a common source
+of hard-to-account-for dynamic resource usage, which can allow denial of service
+attacks.
+
+Put another way, you can't write a fork-bomb without fork.
+
+This has a bunch of advantages, including:
+
+- It simplifies very important kernel code and data structures used to keep
+  track of tasks.
+- It means we can check the peak memory consumption of the system under load _at
+  compile time,_ since there's no way to create tasks in response to load.
+- It makes the addresses of tasks in physical memory predictable, simplifying
+  the debugger.
+
+It _does_ put some requirements on your design of applications, however, if
+you're accustomed to being able to clone tasks in response to load. Hubris
+applications tend to be somewhat economical with tasks, such as by having a
+single task process multiple streams of data, so that the task's resources can
+be bounded no matter how many streams arrive.
+
+NOTE: While tasks can't be destroyed, they _can_ be halted due to faults or
+other events. More on that below.
+
+== Failure and supervision
+
+Hubris is built on the assumption that individual tasks may _fail._ A task fails
+by causing a _fault_ -- or, more precisely, by taking an action that causes the
+kernel to assign a fault to it. There are a wide variety of faults in Hubris,
+and they fall into three main categories:
+
+1. **Hardware faults.** Hardware faults are delivered by the CPU in response to
+program actions. Examples include dereferencing a null pointer, trying to access
+another task's memory, jumping into non-executable RAM, and executing
+instructions that are illegal in unprivileged mode.
+
+2. **Syscall faults.** Syscall faults occur when the task makes a syscall into
+the kernel, and _does it wrong._ Programmer errors that are indicated with error
+return codes in other operating systems are syscall faults in Hubris -- under
+the theory that misuse of a syscall indicates a failed, malfunctioning program. 
+
+3. **Explicit panics.** Tasks may volunteer that they have failed by using a
+syscall to panic. In Rust, this maps to the `panic!` macro.
+
+Regardless of the source, when a task faults, it
+
+- Immediately loses the CPU,
+- Has its state preserved to the extent possible, and
+- Has its fault recorded by the kernel.
+
+Hubris itself does not restart faulted tasks. Instead, a designated task called
+the _supervisor_ can be notified when a task faults and take action. Normally,
+the supervisor's response will be to read information about the fault from the
+kernel, log that somewhere, and ask the kernel to _reinitialize_ the failed
+task, as described in the next section.
+
+== Initialization and re-initialization
+
+At boot, the Hubris kernel sets some number of tasks to run. (The application
+can designate which tasks to start at boot in its `app.toml`.) Later, the kernel
+may need to restart failed tasks, on request from the supervisor. Hubris
+deliberately uses the same code path for both of these operations.
+
+The steps taken when (re)initializing a task are:
+
+1. Increment the task's _generation number._ This is a small counter kept on
+each task that tracks restarts.
+
+2. Identify any _other_ tasks that were blocked interacting with this task's
+previous generation. Unblock them, delivering a _dead code_ to tell them what
+happened. (This is explained in more detail in the chapter on IPC.)
+
+3. Reset the task's registers to their initial values, which were chosen at
+compile time based on information in the `app.toml`.
+
+4. "Scribble" the task's stack memory with a recognizable pattern. This helps
+catch accesses to uninitialized stack memory (in languages other than Rust) and
+can be used by the debugger to determine each task's actual peak stack usage, by
+looking for how much of it has been overwritten.
+
+5. Mark the task as runnable.
+
+When the task first runs, it will generally initialize its `data` section and
+zero its `bss` section. The Hubris kernel doesn't do this _for_ the task because
+we don't want to make too many assumptions about task internal memory layouts.
+For tasks written in Rust, this is handled by the `_start` routine provided by
+the `userlib` crate, and should "just work" -- by the time execution reaches
+`main`, memory is set up.
+
+It's worth noting a few things that the kernel does _not_ do during reinit:
+
+- It doesn't reset the task's memory protection configuration, since it's
+  constant and can't be changed.
+- It doesn't initialize the task's `data` or zero its `bss`. We leave this to
+  the task itself, so that we don't make too many assumptions about task
+  internal memory layout. (For programs written in Rust, this is handled by the
+  `_start` routine in `userlib` before execution reaches `main`.)
+- It doesn't do anything to the task's executable code, which is assumed to be
+  in execute-in-place Flash and immutable. (Hubris has no equivalent to a
+  "loader.")
+
+

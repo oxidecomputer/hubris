@@ -8,27 +8,30 @@ kernel and are hard to proxy, so they form an ongoing ABI commitment.
 
 In general, the following sorts of things are syscalls (exhaustive):
 
-- IPC primitives
-  - Send, Receive, Reply
-  - Planned extensions for asynchronous/nonblocking send
-  - Lease/Borrow support
-- Notification primitives
-  - Updating the current task's notification mask
+* IPC primitives
+** Send, Receive, Reply
+** Access to memory borrowed from senders
+** Looking up the correct generation number for a task
+* Access to the multiplexed per-task timer
+* Control of the current task's interrupt mask
+* Crashing the current task
 
 And the following sorts of things are not (not exhaustive):
 
-- Task management
-  - Starting or restarting tasks
-  - Getting task priorities
-- Timer management
-- Interrupt control
-- etc.
+* Checking the state or fault information of a task
+* Starting/restarting a task
+* Forcing faults on other tasks
+
+This is because the things in the _first_ category are universal, or nearly so,
+while the things in the _second_ category are normally used only in special
+cases, usually by the supervisor task.
 
 In general, syscalls should represent *operations that every task should have
 access to,* while anything privileged or sensitive should be done through IPC.
 
 This doesn't mean all these things need to be done outside the kernel, though.
 We have an escape hatch, in the form of messages to the virtual "kernel task."
+The kernel IPC interface is the topic of the next chapter.
 
 == Syscall ABI
 

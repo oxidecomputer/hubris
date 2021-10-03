@@ -1,27 +1,96 @@
 = IPC
 
-Hubris IPC provides a mechanism for communicating between tasks. It's designed
-to be easy to reason about, and to work well with Rust's ownership model.
+Hubris IPC (inter-process communication) provides a mechanism for communicating
+between tasks. It's designed to be easy to reason about, and to work well with
+Rust's ownership model.
 
-Hubris IPC is based around _synchronous messaging._ Communication between tasks
-consists of sending and receiving messages; sending a message blocks the sender
-and unblocks the recipient (if they weren't already doing something else). This
-means messages are never queued or stored in the kernel, reducing overhead and
-things that could go wrong.
-
-This document takes a high-level look at IPC in Hubris, which can be broken
-apart into three pieces:
+This chapter takes a high-level look at IPC in Hubris, which can be broken apart
+into four pieces:
 
 - How to send messages,
-- How to receive and handle messages, and
-- Occasionally useful odds and ends.
+- How to receive and handle messages,
+- How those two bits interact with task restarts, and
+- Notifications, an alternative lighter-weight IPC mechanism.
 
-For the purposes of this document, we'll deal in the raw IPC operations. In
-practice, we expect most APIs to expose wrapper functions _around_ the raw IPC,
-but you've gotta learn how to write those wrapper functions first.
+In practice, most code you write on Hubris will be using various abstractions or
+wrapper libraries that obscure the specifics of IPC. However, we think it's
+important to understand what's really going on, even if you choose to mostly use
+it through a library -- and besides, somebody has to write those libraries, and
+that could easily be you. So in this chapter, we'll peel back the abstractions
+and deal in the raw IPC operations provided by the kernel.
 
-NOTE: IPC is technically a misnomer, since we don't have processes (the P in
-IPC). But hey. Inter-Task Communication just isn't as catchy.
+NOTE: IPC is technically a misnomer, since we don't have what most folks think
+of as "processes" (the P in IPC). But hey. Inter-Task Communication just isn't
+as catchy.
+
+== Synchronous IPC basics
+
+Hubris IPC is based around _synchronous messaging._ Communication between tasks
+consists of sending and receiving messages. Sending a message always blocks the
+sender, waiting for a reply. A task that asks to receive a message will block
+if no messages are available. In the common case, the sequence is
+
+1. The recipient task, B, finishes doing something else and asks to receive.
+2. It is blocked by the kernel, allowing other tasks to run.
+3. The sending task, A, prepares a message to B and asks to send.
+4. Task A is marked as blocked and task B is resumed to process the message.
+
+When two tasks align in this way, a _message transfer_ occurs. This is an
+action performed by the kernel on behalf of the two tasks. During a message
+transfer, the kernel copies a small data payload (the _message_) from the
+sender to the recipient, and provides the recipient with some metadata it can
+use to process the message.
+
+This style of messaging is also called a _rendezvous_ or _handoff,_ because both
+tasks need to arrange to "meet" in the right state for the message transfer to
+happen.
+
+=== Why synchronous?
+
+This is not the only way to design an IPC system. The main alternatives involve
+some sort of asynchrony or queueing, where a task can issue several messages and
+then do other work while waiting for responses. This can be useful, so it's
+worth asking why Hubris is fully synchronous.
+
+It turns out that synchronous IPC has significant advantages for systems like
+Hubris.
+
+**It's fast.** Synchronous IPC can be implemented using a single message copy
+from sender to recipient. The message need only be read once. This reduces the
+number of clock cycles required for a message transfer. (The operating system
+that originally made this point was L4, and Hubris's IPC mechanism is directly
+inspired by L4's.)
+
+**There are no queues to size.** Asynchronous systems usually queue messages in
+kernel memory, which means there are now kernel-managed queues that must have
+their resources accounted for. In extreme cases, this can allow a single task to
+exhaust the kernel's memory with impunity by expanding queues to the breaking
+point -- which isn't great for reliability. Many systems that try to avoid that
+problem do so by allowing the user to impose size limits on queues, which then
+become another thing users need to tune carefully for best performance. With
+synchronous rendezvous messaging, we avoid having queues in the first place.
+
+**It limits the power of any single task.** A Hubris task can either be doing
+local work, or sending one message. It can't, for instance, spam every other
+task in the system with messages simultaneously, or set up hundreds of messages
+to a single task. This avoids "fault amplification" scenarios where a bug in one
+task cascades into a much larger problem, as in a denial-of-service attack.
+
+**It lets message recipients reason about what their callers are doing.** When
+your task is processing a message, it knows that the sending task is parked
+waiting for a reply.footnote:[Or, that the task has been restarted by a debug
+tool or supervision policy, but those don't make this point invalid for reasons
+we'll discuss later.] It also knows that, if it goes to receive a _second_
+message before replying, that message won't be from the same task. This allows
+message recipients to coordinate when senders run and don't run, which is useful
+for implementing mutual exclusion, as we'll discuss later.
+
+Finally, **synchronous IPC makes the system much easier to think about.** Each
+task operates as a synchronous state machine, with IPC operations appearing as
+atomic and predictably ordered. Larger systems composed out of tasks can be
+easily halted and inspected to see who's waiting on who. Lots of potential race
+conditions are eliminated. We've found this point to be hugely important during
+our early experience with the system.
 
 == Sending messages
 
@@ -30,7 +99,7 @@ you need to consider: `send`. `send` operates a lot like a function call:
 
 - It takes some arguments,
 - It returns some results,
-- It pauses the caller until it returns.
+- It pauses your code (the caller) until it returns.
 
 To use `send`, you specify the task you're sending to, and an *operation code*
 that tells that task what operation you're trying to invoke. (A given API will
@@ -40,29 +109,38 @@ The simplest case for `send` is when you're sending a small payload (say, a
 `struct`) and receiving a small response (say, another `struct`), and the
 recipient/callee is already blocked waiting for messages:
 
-1. Your task invokes `send`, naming the callee task and operation, and providing
-   the outgoing data as a `&[u8]`.
+1. Your task invokes `send`, naming the recipient task and operation code, and
+   providing the outgoing data as a `&[u8]`. It also provides a buffer where the
+   response should be deposited, as a `&mut [u8]`.
 
-2. The kernel notices that the callee is waiting for messages, and directly
-   copies your message from your task's address space into the callee's.
+2. The kernel notices that the recipient is waiting for messages, and directly
+   copies your message (operation code and payload data) from your task's
+   memory into the callee's.
 
-3. The kernel then blocks your task and unblocks the callee, informing it that a
-   message has arrived.
+3. The kernel then marks your task as blocked waiting for reply, and unblocks
+   the recipient, informing it that a message has arrived.
 
-4. The callee does some work on your behalf.
+4. The recipient does some work on your behalf.
 
-5. It then uses `reply` (discussed below) to send a response message back.
+5. It then uses the `reply` operation (discussed below) to send a response
+   message back.
 
-6. The kernel copies the response message and unblocks your task.
+6. The kernel copies the response message into the `&mut [u8]` buffer your task
+   provided, fills out some additional information to inform your task that the
+   message was successful, and marks your task as runnable.
 
-If the callee is not already waiting for messages, the process is similar,
-except that your task may be blocked waiting to send for an arbitrary period
-between steps 1 and 2.
+If the recipient is _not_ already waiting for messages when your task tries to
+send, the process is similar, except that your task may be blocked waiting to
+send for an arbitrary period between steps 1 and 2.
 
 Note that the kernel doesn't _interpret_ either the operation code or the
 message data flowing in either direction. All that is defined by the
-application. The kernel looks only at the task IDs and copies data blindly from
-place to place.
+application. The kernel looks only at the task IDs, and copies the rest blindly
+from place to place.
+
+TIP: The Hubris source code sometimes refers to operation codes as "selectors"
+or "discriminators," because Cliff can't make up his mind on which metaphor to
+use.
 
 === Response codes and `Result`
 
@@ -73,24 +151,34 @@ specified by a `&mut [u8]` argument to `send`. But it also returns two integers:
 - The *length* of data deposited in the return buffer.
 
 The response code, like the operation code, is largely application-defined, but
-it's *intended* to be used to distinguish success from error. Specifically, `0`
+it's _intended_ to be used to distinguish success from error. Specifically, `0`
 meaning success, and non-zero meaning error.
 
-The length is returned in either case, so that errors can include nontrivial
-amounts of data.
+The length gives the number of bytes in the return buffer that have been written
+by the kernel and are now valid. This happens no matter what the response code
+is, so an operation can return detailed data even in the case of an error.
 
 This scheme is specifically designed to allow IPC wrapper functions to translate
-the results of `send` into a Rust `Result<T, E>` type.
+the results of `send` into a Rust `Result<T, E>` type, where `T` is built from
+the data returned on success, and `E` is built from the combination of the
+non-zero response code and any additional data returned. Most wrappers do this.
 
-NOTE: There is a class of response codes called "dead codes" that may be
-generated by the kernel. Applications should choose their response codes to
-avoid colliding with them. See the section on "Death" below.
+NOTE: While response codes are _mostly_ up to the application, there is a class
+of non-zero response codes used by the kernel to indicate certain failure cases
+related to crashing tasks. These are called "dead codes," and are described
+later in this chapter. Applications should choose their response codes to avoid
+colliding with them. Fortunately, they're very large numbers, so if applications
+start their errors from 1 they should be safe.
 
 === Message size limits
 
-Messages are variable size, between 0 and 255 bytes. There's an upper limit
-because we want to control how long the kernel can spend `memcpy`-ing between
-tasks, since that operation is uninterruptible.
+When a message transfer happens, the kernel diligently copies the message data
+from one place to another. This operation is uninterruptible, so it may delay
+processing of interrupts or timers. To limit this, we impose a maximum length on
+messages, currently 255 bytes.
+
+TIP: If you need to move more data than this, you can use the "lease" mechanism,
+described below.
 
 === Lending out memory
 
@@ -102,10 +190,11 @@ The answer is the same as in Rust: when you call the operation, you loan it some
 of your memory.
 
 Any `send` operation can include *leases*, which are small descriptors that tell
-the kernel to allow the _callee_ to access parts of the _caller's_ memory space.
-Each lease can be read-only, write-only, or read-write. Any leases are reliably
-and atomically _revoked_ when the caller resumes (i.e. after `reply`), so it's
-safe to lend out information from the caller's stack.
+the kernel to allow the _recipient of the message_ to access parts of the
+_sender's_ memory space. Each lease can be read-only, write-only, or read-write.
+Any leases are reliably and atomically _revoked_ when the caller resumes (i.e.
+after `reply`), which means it's safe to lend out information from the caller's
+stack.
 
 This property also means that lending data can be expressed, in Rust, as simple
 `&` or `&mut` borrows, and checked for correctness at compile time.
@@ -113,9 +202,14 @@ This property also means that lending data can be expressed, in Rust, as simple
 Each `send` can include up to 255 leases (currently -- this number may be
 reduced because what on earth do you need that many leases for).
 
-Leases are referred to by index (0 through 255), and an IPC operation would
-typically declare that it needs certain arguments passed as leases in a certain
-order.
+On the recipient side, leases are referred to by index (0 through 255), and an
+IPC operation would typically declare that it needs certain arguments passed as
+leases in a certain order. For instance, a simple serial write operation might
+expect a single readable lease giving the data to send, while a more nuanced I2C
+operation might take a sequence of readable and writable leases.
+
+TIP: An operation can also take a _variable_ number of leases and use this to
+implement scatter-gather. It's up to the designer of the API.
 
 === Making this concrete
 
@@ -126,6 +220,11 @@ streaming data access protocol consisting of two functions (written as in Rust):
 ```rust
 fn read(fd: u32, buffer: &mut [u8]) -> Result<usize, IoError>;
 fn write(fd: u32, buffer: &[u8]) -> Result<usize, IoError>;
+
+enum IoError {
+    Eof = 1,
+    ContainedBobcat = 2,
+}
 ```
 
 These are basically POSIX read and write, only expressed in Rust style.
@@ -154,7 +253,7 @@ A concrete mapping of these operations to IPCs might go as follows.
 
 NOTE: Either of these operations could be altered to also return the number of
 bytes read or written in an error case, by making the response non-empty and
-changing the `IoError` type in Rust.
+changing the `IoError` type in Rust to have data fields.
 
 == Receiving and handling messages
 
@@ -168,15 +267,11 @@ and handle messages. There are two operations involved on this side:
 returns a descriptor struct giving context on the message:
 
 - Task ID of the sender.
-- Operation code.
+- The sender's operation code.
 - Length of message received (including information to tell if the sender tried
   to send something too long for your buffer).
-- Amount of space the sender has made available for a reply.
+- Amount of space the sender has made available for your reply.
 - Number of leases available with message.
-
-`receive` also comes in two flavors: a version that will accept messages from
-any caller (called "open receive") and a version that will _only_ accept
-messages from a designated task (called "closed receive").
 
 `reply` takes a Task ID, a response code, and a `&[u8]` pointing to the response
 message.
@@ -223,24 +318,25 @@ Hubris assumes that you mistrust tasks sending you messages, and provides enough
 information to detect the following error cases:
 
 - Unknown operation code.
-- Incoming message shorter than what you expected, given the operation code.
-- Incoming message too long to fit in your provided buffer.
+- Incoming message shorter or longer than what you expected, given the operation
+  code.
 - Wrong number of leases attached for the operation.
-- Response buffer too small to accommodate your reply.
+- Sender's response buffer too small to accommodate your reply.
 
 Any of these suggest that the sender is confused or malfunctioning. You have a
 few options for dealing with these cases:
 
 - Immediately `reply` to the sender with a non-zero response code and
-  zero-length message. This is likely to be interpreted as an error by the
-  sender.
+  zero-length message. Even if the sender is sending to the wrong task, the
+  convention around non-zero response codes means this is likely to be
+  interpreted as an error by the sender.
 
 - *Don't* reply. Leave the sender blocked, and instead notify some sort of
   supervising entity of a potential malfunction. Or, depending on your
   application architecture, just leave them blocked and expect a watchdog timer
   to handle the problem if it matters.
 
-== Death
+== Death and IPC
 
 Tasks sometimes restart. For instance, the program running in a task may
 `panic!` or dereference an invalid pointer, both of which produce a fault
@@ -281,15 +377,90 @@ the message.
 There's currently no way for the sender to distinguish these cases, so, be
 prepared for any of them.
 
-[bibliography]
-== References
+== Notifications: the _other_ IPC mechanism
 
-- [[[shap03vuln]]] Jonathan Shapiro.
-  http://srl.cs.jhu.edu/courses/600.439/shap03vulnerabilities.pdf[Vulnerabilities
-  in Synchronous IPC Designs]. 2003. _Short-ish and straightforward, Shap pokes
-  a bunch of holes in conventional IPC designs._
-- [[[herder08ipc]]] Jorrit N. Herder et al.
-  https://www.cs.vu.nl/~herbertb/papers/minix3ipc_prdc08.pdf[Countering IPC
-  Threats In Multiserver Operating Systems: A Fundamental Requirement for
-  Dependability]. 2008. _This paper marked MINIX 3's transition from a teaching
-  tool to a high-reliability research platform._
+In addition to synchronous messaging, Hubris also provides a very limited
+asynchronous communication mechanism called **notifications**. Notifications are
+designed to complement send-receive style IPC, and are intended for different
+purposes. Generally, notifications are useful for situations where one might use
+interrupts or signals in other systems.
+
+Each task has 32 notification bits, which together form a _notification set_.
+These bits can be _posted,_ which means they are written to `true` -- the number
+of posts is not tracked. Each posting operation can touch any subset of the
+notification bits, which means the post operation is effectively bitwise-OR-ing
+a 32-bit mask into the task's notification set (which is exactly how it's
+implemented).
+
+Importantly, posting a notification does _not_ interrupt the receiving task's
+code -- it is not like a signal handler or asynchronous exception. Instead, the
+receiving task finds out about the notifications only when it checks.
+
+Tasks check for notifications by calling `receive` -- the `receive` operation
+takes an additional parameter called the _notification mask,_ which is a 32-bit
+word. Any 1-bits in the notification mask express to the kernel that the task
+would like to find out if the corresponding bit in its notification set has been
+posted since it last checked.
+
+If any of the requested bits have been posted:
+
+1. The kernel atomically clears the bits that have been noticed (but leaves
+others intact),
+
+2. The task immediately returns from `receive` without blocking, and
+
+3. The result of `receive` is a _notification message_ instead of an IPC.
+
+The task can distinguish a notification message from its contents:
+
+- The sender's `TaskId` will be `TaskId::KERNEL`, indicating that the message
+  comes from the kernel. Since the kernel never sends messages in any other
+  context, any message "from" the kernel is a notification.
+
+- The `operation` field will contain the bits that were posted and matched the
+  provided mask. (These are also the bits that the kernel atomically cleared.)
+
+=== What are they good for?
+
+Notifications are used by the kernel to route hardware interrupts to tasks: a
+task can request that an interrupt appear as one of its notification bits. (More
+on that in the chapter on Interrupts, below.)
+
+Notifications are also used to signal tasks that the deadline they loaded into
+their timer has elapsed. (More on that in the chapter on Timers.)
+
+Finally, notifications can be valuable between tasks in an application, as a way
+for one task to notify another of an event without blocking. In particular,
+notifications are the only safe way for a high-priority server shared by many
+clients to signal a single client -- if it used `send` instead, that client
+could decide not to `reply`, starving all the other clients.
+
+In developing firmware on Hubris we've found a particular pattern to be useful,
+called "pingback." In this pattern, a high-priority shared server (such as a
+network stack) has obtained data that it needs to give to one of its clients --
+but it can't just `send` the data for the reason described above. One option is
+to have all clients forever blocked in `send` to the _server_ until data
+arrived, but that keeps the clients from ever doing anything else! Instead, the
+server and clients can agree on a protocol where
+
+1. The client ``send``s to the server, to do whatever setup is required (e.g. to
+express interest in data from a particular port). The client provides the server
+with a _notification set_ that it wants to receive when the event occurs.
+
+2. The server notes this and ``reply``s immediately.
+
+3. The client goes on about its business, periodically checking for the
+notifications it requested.
+
+4. When the server receives data, it posts a notification to the client.
+
+5. When the client notices this, it calls back to the server seeking more
+information, and providing a writable lease to some memory where the server can
+deposit the result.
+
+6. The server receives this message and copies the data over.
+
+This pattern is useful, in part, because it's very tolerant of a defective
+client task. If the server posts the notification and the client _never
+responds,_ it's no skin off the server's back -- it's still free to continue
+serving other clients.
