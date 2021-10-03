@@ -23,7 +23,7 @@ This means:
 On ARMv7-M this sequence is handled by the `cortex_m_rt` crate, which in turn
 uses the `r0` crate to set up Rust variables.
 
-=== `main`: bring your own
+== `main`: bring your own
 
 Currently, Hubris expects the application packager (i.e. you) to provide a
 `main` routine in the crate that builds the kernel. This gives you an
@@ -32,32 +32,35 @@ to happen before the kernel boots.
 
 `main` should do those things, and then call `start_kernel`.
 
-In the same file, you will typically need to declare interrupt service routines
-for any SoC-specific interrupts that you wish to handle. These ISRs should
-simply invoke Hubris's generic interrupt posting routine (TBD).
+This same file is where you will might declare interrupt service routines for
+any SoC-specific interrupts that you wish to handle outside Hubris's standard
+mechanism -- for cases where an interrupt is so latency-sensitive that you need
+to handle it with a privileged ISR, despite the safety implications. Hubris's
+internal ISR symbols are weak, so, declaring an ISR in this file overrides them.
 
-=== Starting the kernel
+== Starting the kernel
 
 The kernel expects to be packaged in Flash with a table describing the tasks.
 This table would normally immediately follow the kernel image, though it can be
-placed anywhere; the kernel finds it using the `hubris_app_descriptor` symbol.
+placed anywhere; `main` hands its address into `start_kernel`.
 
-The table consists of the following:
+The table consists of the following (all the types named here are defined in
+the `abi` crate):
 
 - An `App` header record describing the overall shape of things to come.
 - One or more region descriptor (`RegionDesc`) records, carving up address space
   into regions with attributes.
 - One or more task descriptor (`TaskDesc`) records describing tasks.
 
-The `App` header gives the size of both of the following tables. See
-`kern/src/app.rs` for details and layout.
-
-TIP: Region descriptors can be shared among tasks -- task descriptors specify
-the regions they can access by _index_. Task descriptors contain the initial
-program counter and stack pointer values for the task, which will be loaded into
-those registers when the task first runs (or is restarted). Hubris will check
-that those pointers fall within some memory region, but other than that, the
-layout of your task memory regions and their roles is totally up to you.
+TIP: Region descriptors can technically be shared among tasks -- task
+descriptors specify the regions they can access by _index_. Task descriptors
+contain the initial program counter and stack pointer values for the task,
+which will be loaded into those registers when the task first runs (or is
+restarted). Hubris will check that those pointers fall within some memory
+region, but other than that, the layout of your task memory regions and their
+roles is totally up to you. This means you _could_ create an application with
+tasks that share a Flash code region, for instance, though, think carefully
+before doing so.
 
 `start_kernel` reads the `App` header and the task and region descriptors,
 validates their integrity, and allocates RAM. This is the only time the kernel
@@ -75,7 +78,7 @@ the descriptor tables, it will panic.
 
 Any extra RAM allocated to the kernel, but not used, is lost.
 
-=== Starting the first task(s)
+== Starting the first task(s)
 
 One of the fields in the task descriptor contains a `START_AT_BOOT` flag. Any
 task with this flag set will be initialized in `Runnable` state; all others are

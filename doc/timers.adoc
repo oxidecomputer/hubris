@@ -1,24 +1,28 @@
 = Timers
 
-Hubris provides kernel-level support for multiplexing the system tick timer,
-allowing each task to pretend it has its own copy.
+The microcontrollers we target tend to have a single general-use timer -- the
+`SysTick` on ARM, the `mtimer` on RISC-V. Hubris provides a multiplexer for this
+timer, so that each task appears to have its own.
 
-On ARM, this uses the `SysTick` peripheral. On RISC-V, this uses the `mtimer`.
+The time unit of the clock is selectable by the application, but in practice, we
+always select milliseconds. This chapter will refer to the clock unit as
+milliseconds.
 
 == Timestamp format
 
-Time is kept since kernel startup, which presumably corresponds to the most
-recent CPU reset.
+Hubris timestamps are from a monotonic realtime clock. Time is kept since kernel
+startup, which presumably corresponds to the most recent CPU reset or bootloader
+exit. Without outside information (such as data from an external RTC) there's no
+way to map a Hubris timestamp to human wall time -- they're mostly used for
+relative delays.
 
-When interacting with the kernel, timestamps are expressed as nanoseconds in
-`u64` format. This means the timer will roll over after a bit more than 584
+When interacting with the kernel, timestamps are expressed as milliseconds in
+`u64` format. This means the timer will roll over after a bit more than 584,000
 years of continuous operation. The intent is that applications need not concern
 themselves with timer wraparound, because reasoning about timer wraparound is
 hard.
 
-Internally, the kernel will probably keep time in a different format, and is
-likely to have less than nanosecond precision. Each operation in the timer API
-will explain how it addresses unit conversion and possible loss of precision.
+The kernel reserves the right to keep time in a different format internally.
 
 == Programmer's model
 
@@ -29,11 +33,11 @@ Each task gets a timer. The timer has three properties:
 - A _notification set._
 
 At periodic intervals (ticks), if the enable bit is set, the kernel checks the
-deadline to see if it is in the future. If not (it is `>=` the current time),
+deadline to see if it is in the future. If not (it is `<=` the current time),
 the kernel will
 
 - Clear the enable bit.
-- Bitwise-OR the notification set into the task's notification bits.
+- Post the notificaiton set to the owning task.
 
 The task will find out about this next time it enters `receive` with the
 notification bits unmasked -- or, if the task is blocked in `receive` at the
@@ -42,8 +46,9 @@ time the timer fires, immediately.
 Because the enable bit is cleared when the timer fires, tasks can assume that
 setting their timer will result in exactly zero or one notification events.
 
-If a task sets the timer notification set to `0`, it will not receive a
-notification when the timer fires, but it could still poll the enable bit.
+NOTE: If a task sets the timer notification set to `0`, it will not receive a
+notification when the timer fires, but it could still poll the enable bit. We
+haven't had a use for this so far, but, now you know.
 
 By default, when a task is created, its timer is set up as:
 
@@ -53,89 +58,32 @@ By default, when a task is created, its timer is set up as:
 
 == Timer control operations
 
-These will either be syscalls, or messages to the kernel. The fact that every
-task has a timer and the timer requires no privilege to use suggests that
-syscalls are appropriate; the desire to possibly implement timers in userspace
-someday suggests messages.
+Tasks access their timers through a pair of syscalls, `set_timer` and
+`get_timer`. `get_timer` is overloaded to return both the current kernel time
+and the contents of the task's timer -- this is convenient because it ensures
+that both were observed at the same (kernel) time.
 
-Either way, the set of operations is expected to be:
+== Using the timer to implement `sleep`
 
-=== Read Current Time
+The most common use of the task timer is to implement a delay. If this is _all_
+you're doing -- i.e. you don't have several deadlines to juggle -- then it's
+fairly easy:
 
-Gets the current time, measured in nanoseconds from some point in the past. This
-is only useful for relative measurements during the same boot of the system.
+1. Choose a notification bit that isn't used for other purposes.
+2. Set the timer for the desired wake time.
+3. Enter a _closed receive_ from only the kernel's TaskId, giving a notification
+mask with only the chosen bit set.
 
-Note that the time that is observed is in the past, for two reasons:
+During this sleep, incoming messages will queue, and other notification bits
+will accumulate, but the task will only wake when the deadline is reached.
 
-1. By the time it is copied up to the task, time has elapsed.
+The `userlib` crate provides an implementation of this using notification bit 31
+in the `userlib::hl` module.
 
-2. The kernel is probably keeping time with less than nanosecond precision.
+== Multiplexing your multiplexed timer
 
-=== Set Timer
-
-Sets the timer's enable bit and loads a new 64-bit timestamp and notification
-set.
-
-=== Clear Timer
-
-Clears the timer's enable bit. Once this operation returns, the timer will not
-post new notifications to the task (though if the timer has already expired, the
-notification stays posted).
-
-=== Read Timer State
-
-Reads out the enable bit, timestamp, and notification set associated with the
-timer.
-
-== Implementation notes
-
-=== ARMv7-M / ARMv8-M
-
-The M-profiles specify a `SysTick` peripheral, which is a 24-bit down-counter
-running at the CPU clock frequency that can generate interrupts on overflow.
-
-This timer is nice because it's always present, but it's also quite limited. Its
-relatively narrow counter means that it can't be used to schedule interrupts at
-arbitrary future times (at 100MHz, it's limited to 16.7ms). Its fast update rate
-and use of a down-counter with reload value, rather than up-counter with compare
-register, means it's also hard to schedule variable _short_ intervals with it.
-
-The thing that `SysTick` was designed for, and the thing it's good at, is
-generating an interrupt with a fixed, regular period. On a *ticked* system, this
-interrupt handler is usually charged with
-
-- Updating a tick counter.
-- Checking for expired timers.
-
-That is, the time-keeping frequency is set by `SysTick`'s rollover period, *not*
-its count frequency, and time must be maintained by an ISR. This has some
-drawbacks.
-
-1. You need to take regular interrupts to keep time. An interrupt every 1-10ms
-is not unusual.
-
-2. You need to take those interrupts *promptly* or you risk missing ticks and
-losing time. A long critical section, or storm of higher-priority interrupts,
-can interfere with timekeeping.
-
-In practice, the cost of taking the interrupts is often acceptable, and careful
-application of interrupt priorities (and avoiding critical sections!) can keep
-timekeeping reliable.
-
-The other option is a *tickless* system. A tickless system can keep time without
-taking frequent interrupts. This is usually implemented by using a longer-period
-or slower-clocked timer with a compare register, so that interrupts can be
-scheduled farther in advance.
-
-Unfortunately, the ARM architecture mandates no such timer, so this makes
-timekeeping vendor-specific. Systems usually incur this complexity only in cases
-where the decrease in interrupts can significantly extend battery life, e.g.
-things running for years off watch batteries.
-
-The current thinking for Hubris is to use `SysTick` to generate a regular tick
-with roughly millisecond precision, but simulate nanosecond precision at the
-kernel API.
-
-=== RISC-V
-
-TBD
+If a task needs to track multiple delays, it will need to maintain some
+in-memory data structure (such as a table or heap) tracking their deadlines. At
+any given time, the kernel-provided timer should be set to the _lowest_
+deadline. When it fires, take action and then load the next lowest. And so
+forth.
