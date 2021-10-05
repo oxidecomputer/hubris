@@ -1,0 +1,387 @@
+= Servers
+
+A **server** in Hubris is any task that receives messages to implement some API.
+This section looks at how servers work, how to implement one using low and high
+level APIs, and provides some tips.
+
+== The role of a server
+
+Servers normally spend most of their time hanging out in RECV. This ensures that
+they're ready to handle incoming messages.
+
+In the simplest case, after doing any initialization required on startup, a
+server will:
+
+- RECV to collect a request.
+- Inspect the request and figure out what needs done.
+- Do it.
+- Reply.
+- Repeat.
+
+This simple version covers _most_ servers on Hubris, believe it or not. All the
+complexity, and application-specific logic, is hidden in the "do it" step.
+
+== Servers are clients too
+
+The vast majority of servers need to send messages to other servers to do their
+jobs. Most servers will turn a single incoming client message into a sequence of
+messages to other servers to perform useful work.
+
+When designing a collection of servers in an application, remember that it's
+only safe to send messages to _higher priority_ servers (called the "uphill send
+rule"). Sending messages to lower priority servers can cause starvation and
+deadlock.
+
+NOTE: The kernel will enforce this, eventually.
+
+== When _not_ to use a server
+
+Servers are tasks. Tasks are relatively expensive -- they require separate code
+and data storage and stack space. When designing an API consider whether it
+should be a server task -- or just a crate.
+
+You may want a server if any of these are true:
+
+- There will be several client tasks, particularly if it's important for only
+  one of them to be performing an operation at a time (mutual exclusion).
+- The implementation needs to do something clever or `unsafe`, such that you
+  want it isolated in memory away from other tasks.
+- You need the code to be able to crash and restart separately from other code.
+- You need to have multiple concurrent state machines responding to messages and
+  notifications. (This is hard to do inside another task.)
+
+Signs that you may just want a crate:
+
+- This task and another task (or a whole group of tasks!) will _never_ be
+  runnable at the same time. For instance, only one device driver on an I2C bus
+  can be using the bus at any given time. (See the section on drivers, below.)
+- There will be a single client, _or_ there will be multiple clients but the
+  code is fairly small and no mutual-exclusion is required.
+- You don't expect crashes and can return `Err` for failures.
+- You're not being weird with `unsafe`.
+
+== Low-level (syscall) implementation
+
+Here is a full implementation of a server for a very simple IPC protocol: it
+maintains a 32-bit integer, and can add or subtract values and return the
+result.
+
+This implementation uses syscalls directly and no abstractions, to show you
+exactly what's happening under the hood. In practice, we rarely write servers
+this way -- the next section shows a higher-level equivalent.
+
+This server supports two messages, `add` (0) and `sub` (1). Both messages expect
+a four-byte payload, which is a `u32` in little-endian byte order. On success,
+the messages update the server state `the_integer` and return the new value, as
+another four-byte little-endian integer.
+
+[source,rust]
+----
+#![no_std]
+#![no_main]
+
+use userlib::{sys_recv_open, sys_reply};
+
+enum Errs {
+    BadMsg = 1,
+}
+
+#[export_name = "main"]
+pub fn main() -> ! {
+    let mut the_integer: u32 = 0; // <1>
+
+    let mut msg = [0; 4]; // <2>
+    loop {
+        let msginfo = sys_recv_open(&mut msg, 0); // <3>
+
+        match msginfo.operation { // <4>
+            0 => {
+                // Add
+                if msginfo.message_len == 4 { // <5>
+                    // yay!
+                    the_integer = the_integer.wrapping_add(
+                        u32::from_le_bytes(msg)
+                    );
+                    sys_reply(msginfo.sender, 0, &the_integer.to_le_bytes());
+                } else {
+                    sys_reply(msginfo.sender, Errs::BadMsg as u32, &[]);
+                }
+            }
+            1 => {
+                // Subtract
+                if msginfo.message_len == 4 {
+                    // yay!
+                    the_integer = the_integer.wrapping_sub(
+                        u32::from_le_bytes(msg)
+                    );
+                    sys_reply(msginfo.sender, 0, &the_integer.to_le_bytes());
+                } else {
+                    sys_reply(msginfo.sender, Errs::BadMsg as u32, &[]);
+                }
+            }
+            _ => { // <6>
+                // Unknown operation
+                sys_reply(msginfo.sender, Errs::BadMsg as u32, &[]);
+            }
+        }
+    }
+}
+----
+
+<1> This is the server's local state. It's common for servers to keep their
+state on the stack, but larger state might be better placed in a `static`.
+<2> The server maintains a 4-byte buffer for incoming messages. This means that
+any longer message will be truncated.
+<3> The server uses `sys_recv_open` to accept messages from any caller. The
+notification mask is 0, ensuring that we won't get any notifications instead of
+messages.
+<4> The `operation` code distinguishes the operations we implement, so we
+`match` on it.
+<5> It's important to check `message_len`, since clients can send a message that
+is too short or too long. Too-long messages get truncated, but `message_len`
+will be honest, so if the `message_len` here were 6, we'd know the client sent a
+truncated message.
+<6> Clients can choose any operation code they want, so we need to make sure to
+have a default case to signal errors.
+
+== High-level (wrapper) implementation
+
+The `userlib::hl` module provides wrappers for common patterns in server
+implementation. Here's the same server from the last section, rewritten using
+the `hl` conveniences.
+
+[source,rust]
+----
+#![no_std]
+#![no_main]
+
+use userlib::{hl, FromPrimitive}; // <1>
+use zerocopy::AsBytes;
+
+#[derive(FromPrimitive)]
+enum Op { // <2>
+    Add = 0,
+    Sub = 1,
+}
+
+enum ResponseCode { // <3>
+    // Note: code 1 is produced by hl
+    BadArg = 2,
+}
+
+impl From<ResponseCode> for u32 { // <4>
+    fn from(rc: ResponseCode) -> Self {
+        rc as u32
+    }
+}
+
+#[export_name = "main"]
+pub fn main() -> ! {
+    let mut the_integer: u32 = 0; // <5>
+
+    let mut argument = 0u32; // <6>
+
+    loop {
+        hl::recv_without_notification( // <7>
+            argument.as_bytes_mut(), // <8>
+            |op, msg| -> Result<(), ResponseCode> { // <9>
+                let (msg, caller) = msg.fixed::<u32, u32>() // <10>
+                    .ok_or(ResponseCode::BadArg)?; // <11>
+
+                match op { // <12>
+                    Op::Add => the_integer.wrapping_add(argument),
+                    Op::Sub => the_integer.wrapping_sub(argument),
+                }
+
+                caller.reply(the_integer); // <13>
+                Ok(()) // <14>
+            },
+        );
+    }
+}
+----
+
+<1> The `userlib::hl` module provides these utilities for implementing clients
+and servers, and is intended to be imported as `hl` like this, so references to
+it in the file are prefixed with `hl::`. We also import the `FromPrimitive`
+derive macro for our `Op` enum below.
+<2> We now describe the possible operation codes using an enum. Any operation
+outside this set will automatically generate an error reply to the client.
+<3> Errors are still described in an enum, but `hl` directly supports this as
+long as we provide a `From` impl for `u32`. We skip code 1 as it's used by `hl`
+to indicate an illegal operation code.
+<4> Here's our impl. It's unfortunate that Rust can't derive this, but, it
+can't.
+<5> Server state is still kept on the stack as a `u32`.
+<6> This is our incoming argument buffer. Since all incoming messages use the
+same argument type, `u32`, `hl` lets us use it directly instead of dealing in
+byte arrays.
+<7> `recv_without_notification` wraps up the open receive pattern used by most
+servers.
+<8> We pass the argument buffer in using `zerocopy::AsBytes`.
+<9> This closure handles messages. The `op` parameter is automatically converted
+to the `Op` enum by `hl`.
+<10> The `fixed` operation requires that the argument exactly match the size of
+its first type (here, `u32`), wrapping up the common case where arguments are
+fixed-size.
+<11> If we can't parse the message as a `u32` we bail with `BadArg`. `hl` is
+designed so we can use `?` to signal errors here.
+<12> And now, we `match` on the operation code. We no longer need a default
+case, as `hl` has already filtered out unknown codes.
+<13> The `caller` type returned from `fixed` has a convenient `reply` operation
+that also checks that the types match.
+<14> And, we're done.
+
+== API wrapper crates
+
+It's polite to provide a _wrapper crate_ that turns your server's IPC API into a
+Rust API. We write these by hand at the moment, since we don't have any sort of
+IDL. The general pattern is:
+
+- Create a crate ending in `-api`, e.g. for the `fnord` service it would be
+  `fnord-api` by convention.
+
+- Implement a "server handle" type that wraps your server's `TaskId` and
+  represents the server.
+
+- Provide operations on that type that correspond to IPCs, or combinations of
+  IPCs.
+
+The wrapper crate should not depend on the server implementation crate. This may
+require moving types around.
+
+One of the decisions wrapper crates must make is how to handle server death --
+that is, what if the server crashes while the client is talking to it, or
+between messages? There are three common ways to respond.
+
+1. Crash. If the client and server are engaged in some sort of stateful
+protocol, the client may not be _able_ to recover from a server restart, and
+want to restart itself in response. This effectively propagates the crash out
+through a tree of dependent tasks, putting them all back in a known-good state.
+
+2. Retry. If the request to the server is idempotent, the client may just want
+to update their TaskId to the server's new generation and re-send. (That's what
+the demo below does.)
+
+3. Return an error. This lets the caller decide whether to retry. In practice, a
+lot of callers will `unwrap` this error, which is a sign that the wrapper crate
+should have chosen approach #1.
+
+Here is a wrapper crate for the server presented earlier in this chapter,
+expressed entirely using low-level Hubris API, under the assumption that we just
+want to retry on server restart:
+
+[source,rust]
+----
+#![no_std]
+
+use abi::TaskId;
+use core::cell::Cell;
+use userlib::sys_send;
+use zerocopy::AsBytes;
+
+enum Op { // <1>
+    Add = 0,
+    Sub = 1,
+}
+
+pub struct IntServer(Cell<TaskId>); // <2>
+
+impl IntServer {
+    pub fn new(tid: TaskId) -> Self {
+        Self(Cell::new(tid))
+    }
+
+    /// Adds `value` to the server's integer, returning the new
+    /// integer.
+    pub fn add(&self, value: u32) -> u32 {
+        self.send(Op::Add, value)
+    }
+
+    /// Subtracts `value` to the server's integer, returning the
+    /// new integer.
+    pub fn sub(&self, value: u32) -> u32 {
+        self.send(Op::Sub, value)
+    }
+
+    // Common implementation bit of add and sub, which
+    // differ only in Op
+    fn send(&self, op: Op, value: u32) -> u32 {
+        let mut response = 0u32;
+        loop { // <3>
+            let target = self.0.get();
+            let (code, response_len) = // <4>
+                sys_send(target, op, value.as_bytes(), response.as_bytes_mut());
+
+            if code == 0 && response_len == 4 {
+                return response; // <5>
+            } else if Some(g) = abi::extract_new_generation(code) {
+                // The int server has crashed, let's just retry. // <6>
+                self.0.set( // <7>
+                    TaskId::for_index_and_gen(target.index(), g)
+                );
+            } else {
+                panic!(); // <8>
+            }
+        }
+    }
+}
+----
+<1> This duplicates the `Op` enum from the server, and could be shared with some
+rearranging.
+<2> Clients will manipulate an `IntServer` as a sort of "handle" to the server,
+hiding a `TaskId` that they need not concern themselves with.
+<3> The send implementation is in a loop so that it can retry until it succeeds.
+<4> Here we send a message to what we _believe_ is the right `TaskId`, though we
+may find out otherwise shortly...
+<5> A 0 return code means success -- the easy path.
+<6> `abi::extract_new_generation` is a function for analyzing "dead codes"
+received over IPC. If a result value indicates peer death, it will return
+`Some(gen)` where `gen` is the peer's new generation number after restart.
+<7> Here, we update our internal state to keep track of the correct server
+generation.
+<8> It may surprise you to see `panic!` here. More on this below.
+
+Now, notice that the server can generate error codes, such as `BadArg` if the
+buffers are the wrong size, but the client doesn't have any representation for
+them. This is deliberate. In the case of the integer server protocol, _all_
+potential errors returned from IPCs represent _programming errors_ in the
+client:
+
+- Use of an undefined operation code like 3 or 119,
+- Sending a too-small or too-big message, or
+- Providing the wrong size of response buffer.
+
+In the first two cases the server will return a non-zero response code; in the
+last case, it will succeed, but the `response_len` will show that our response
+was truncated. Either case represents a mismatch between the wrapper crate and
+the server, and the normal thing to do in such situations on Hubris is to
+`panic!`.
+
+== Pipelining
+
+The server loop described above handles a single request at a time. Things
+become more complex if the server wants to be able to handle multiple requests
+concurrently. In that case, the _reply_ step is delayed until the work actually
+completes, so the server may RECV another message before replying to the first.
+
+For each incoming request, the server needs to record _at least_ the caller's
+Task ID, so that it can respond. In practice, the server will also need to
+record some details about each request, and some information about the state of
+processing. While it's nice to pretend that we can resize buffers forever,
+that's simply not the environment we work in. Eventually, the server's internal
+storage for this sort of thing will fill up. At this point, the server should
+finish at least one outstanding request before doing another RECV.
+
+Typically, a pipelined server will keep information about outstanding requests
+in a table. The maximum size of that table is dictated by the number of
+potential clients. If the server has specific knowledge of this number in the
+application, it can use that to size the table -- or it be conservative and set
+the size of the table to `userlib::NUM_TASKS`, the number of tasks in the
+system. Such a table should never overflow.
+
+NOTE: Remember that tasks can restart -- any table tracking per-task state
+should be indexed by task _index_ and record the generation. If a new request
+arrives from the same task index but a different generation, the request should
+be halted and replaced.
+

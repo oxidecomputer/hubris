@@ -1,0 +1,254 @@
+= Drivers
+
+One of the purposes of an operating system is to provide a driver abstraction
+for talking to hardware. Most traditional monolithic kernels (e.g. Linux)
+have applications making system calls (`read`, `write`, `ioctl`) directly
+into the kernel where drivers live:
+
+```
+        +-----------+   +-----------+   +-----------+
+        |application|   |application|   |application|
+        +-----------+   +-----------+   +-----------+
+             |            |        |         |
+             |            |        |         |
+       +-------------------------------------------------+
+             |            |        |         |
+          +--v---+   +----v-+   +--v---+   +-v----+
+          |driver|   |driver|   |driver|   |driver|
+          +------+   +------+   +------+   +------+
+```
+
+In Hubris, drivers are unprivileged and don't live in the kernel. The primary
+communication method is `send` and `recv` between tasks. Hardware drivers
+usually exist as a 'server' which listens for messages and changes the hardware
+block accordingly. Multiple application tasks may call into a single server.
+(This is discussed in more detail in the chapter on servers, above.)
+
+```
+             +-----------+  +-----------+  +-----------+
++------------+ app task  |  | app task  |  | app task  +----------+
+|            +--+----+---+  +--+-+---+--+  +-+---------+          |
+|               |    |         | |   |       |                    |
+|               |    |  +------+ |   +-+  +--+                    |
+|               |    |  |        |     |  |                       |
+|               v    v  v        v     v  v                       |
+|         +------+ +------+ +------+ +------+ +----------+        |
+|         |server| |server| |server| |server| |supervisor|        |
+|         +---+--+ +--+---+ +---+--+ +--+---+ +----+-----+        |
+|      .......|.......|.........|.......|..........|........      |
+|         +---v-------v---------v-------v----------v-----+        |
+|         |                                              |        |
++-------->+                  kernel                      +<-------+
+          |                                              |
+          +----------------------------------------------+
+```
+
+However, there's some nuance to designing a good driver. This chapter aims to
+provide advice on this.
+
+== Driver crate vs server
+
+Since tasks are relatively expensive in terms of resources (primarily RAM and
+Flash), it's important to have the right number of tasks, rather than a separate
+task for everything (or just one task).
+
+Drivers should not _always_ be servers. Hubris is not religious about this, and
+it's useful to have some flexibility here.
+
+We've found the following distinction to be useful:
+
+- A **driver crate** provides a Rust interface for dealing with some device. It
+  may directly access the hardware, or it may make IPCs to other required
+  servers, or some combination.
+
+- A **driver server** wraps a driver crate and provides an IPC interface.
+
+By convention, a driver crate for the `encoder` peripheral on the `xyz` SoC is
+called `drv-xyz-encoder`, while the crate wrapping it in a server is called
+`drv-xyz-encoder-server`.
+
+If, in a given application, there's only one user for a given driver -- say, the
+board has a SPI controller with only one device wired to it -- then it doesn't
+necessarily make sense to have a task for the SPI controller. Instead, the task
+responsible for managing the device could link the SPI driver crate in
+_directly._
+
+There's also the question of _mutual exclusion._ On an I2C bus, for instance,
+we can only talk to one device at any given time -- and we may need to issue
+several transactions to a single device without risk of interruption. This means
+that a single device driver needs exclusive access to the I2C bus, for a
+combination of inherent hardware reasons (I2C is not pipelined) and software
+requirements.
+
+If we allocated a separate server _per I2C device,_ only one of those servers
+would be doing useful work at any given time -- the rest would be waiting their
+turn.
+
+In this case it might make more sense to assign the task to _the bus_ and have
+it call into driver crates for each device as needed. This ensures that we're
+only spending enough stack space for one device at a time, and helps the device
+drivers share common code. It also puts the drivers for the devices and the bus
+controller in the same _fault domain,_ so that a crash in one affects the other
+-- in I2C, a heavily stateful protocol with poor error recovery, this is almost
+certainly what you want, since a crash in a device during a transaction will
+likely require global recovery actions on the bus controller.
+
+== High Level Server
+
+A typical driver server has to multiplex hardware events and client requests,
+which requires both configuration in the `app.toml` and code in the server
+itself. Here is an example server written against the `userlib::hl` library.
+(For more details on `userlib::hl` and server implementations in general, see
+the chapter on servers.)
+
+Some details are omitted -- this is pseudocode.
+
+[source,rust]
+----
+
+// Notification mask for interrupts from app.toml
+const INTERRUPT: u32 = 1;
+
+fn main() {
+    turn_on_hardware_clocks();
+    let B = get_hardware_block();
+
+    B.clk.write(|w| w.clock.very_fast());
+
+    B.cfg.modify(|_, w| w.foo.disable().
+                enabled.set());
+
+    // Type used to record the state of an ongoing operation.
+    // This is handwavey but is similar to most block transfer
+    // implementations, which track a position and length.
+    struct MyData {
+        caller: hl::Caller<()>,
+        pos: usize,
+        len: usize,
+    }
+    // State of an ongoing operation; None indicates no
+    // operation
+    let mut data: Option<MyData> = None;
+
+    loop {
+        // This receives with notification, the alternate
+        // version is hl::recv_without_notification
+        hl::recv(
+            // all our messages are zero length.
+            &mut [],
+            // notification mask
+            INTERRUPT,
+            // state shared by notification and message handlers
+            &mut data,
+            // Notification handler
+            |dataref, bits| {
+                if bits & INTERRUPT != 0 {
+                    // Matches our notification for an
+                    // interrupt, do something
+                    B.fifowr.write(|w| w.out.bits(buffer));
+
+                    if let Some(state) = dataref {
+                        if B.sr.read().is_done() {
+                            // Resume the caller we were servicing.
+                            state.caller.reply(());
+                            // Clear the state machine to accept
+                            // more messages.
+                            *dataref = None;
+                        }
+                    }
+                }
+            },
+            // Message handler
+            |dataref, op, msg| match op {
+                Op::Write => {
+                    // We expect a caller with one lease
+                    let ((), caller) = msg
+                        .fixed_with_leases(1)
+                        .ok_or(ResponseCode::BadArg)?
+
+                    // Deny incoming writes if we're
+                    // already running one.
+                    if dataref.is_some() {
+                        return Err(ResponseCode::Busy);
+                    }
+
+                    // Our lease #0 is what is being sent to
+                    // the hardware
+                    let borrow = caller.borrow(0);
+                    let info = borrow.info()
+                        .ok_or(ResponseCode::BadArg)?;
+                    // Provide feedback to callers if they
+                    // fail to provide a readable lease
+                    // (otherwise we'd fail accessing the
+                    // borrow later, which is a defection
+                    // case and we won't reply at all).
+                    if !info.attributes.contains(LeaseAttributes::READ) {
+                        return Err(ResponseCode::BadArg);
+                    }
+
+                    // Set our state machine, including saving the
+                    // caller.
+                    *dataref = Some(MyData {
+                        task: caller,
+                        pos: 0,
+                        len: info.len
+                    });
+
+                    B.intstat.write(|w| w.interrupt_en.set());
+                    Ok(())
+                }
+                Op::Read => {
+                    // Looks almost identical to Write except
+                    // We check the borrow against
+                    // LeaseAttributes::WRITE
+                }   
+            },
+        );
+    }
+}
+----
+
+== Driver API crates
+
+A server called `drv-xyz-encoder-server` should, by convention, provide clients
+with a corresponding API wrapper crate called `drv-xyz-encoder-api`. This will
+normally use the `userlib::hl` module under the hood to generate IPC.
+
+An example API might look like:
+
+[source,rust]
+----
+enum Op {
+    Write,
+    Read,
+    Reset,
+}
+
+enum Peripheral {
+    Alpha,
+    Bravo,
+    Charlie,
+    Delta,
+    Echo,
+    Foxtrot 
+}
+
+// This serves as a handle for the server.
+pub struct Data(TaskId);
+
+impl Data {
+    pub fn write(&self, peripheral: Peripheral, entry: u32) {
+        struct WriteData(Peripheral, u32);
+
+        impl hl::Call for WriteData {
+            const OP: u16 = Op::Write as u16;
+            // We don't expect a meaningful response.
+            type Response = ();
+            // Error is just an int
+            type Err = u32;
+        }
+
+        hl::send(self.0, &WriteData(peripheral, entry));
+    }
+}
+----
