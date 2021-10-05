@@ -1,0 +1,149 @@
+= Supervision
+
+Rather than doing things like crash recovery in the kernel, Hubris assigns the
+responsibility to a designated task, called the _supervisor._ This section
+discusses the role of the supervisor and provides suggestions for writing your
+own.
+
+The Hubris repo contains our reference supervisor implementation, _El Jefe_, in
+the `task-jefe` directory.
+
+== What is the supervisor?
+
+The supervisor is a task like any other. It is compiled with the application,
+runs in the processor's unprivileged mode, and is subject to memory protection.
+
+Two things make the supervisor different from other tasks:
+
+1. It runs at the highest task priority, 0. Normally, it is the only task at
+this priority.
+
+2. The kernel recognizes it and interacts with it in unique ways.
+
+The kernel can spot the supervisor because **the supervisor always has task
+index 0,** and is listed first in the `app.toml`. The kernel treats task index 0
+differently:
+
+- When any _other_ task crashes, the kernel posts a notification to the
+  supervisor task. (The specific set of notification bits can be chosen in the
+  `app.toml` key `supervisor.notification`.)
+
+- The supervisor task is allowed to send any kernel IPC message.
+
+- If the supervisor task crashes, **the system reboots.**
+
+== What does the supervisor do?
+
+The design of Hubris assumes that the supervisor is responsible for taking
+action on task crashes. It may also do other things, but, that's the basics.
+
+When any task crashes, the kernel will post a notification to the supervisor
+task (as chosen by the `supervisor.notification` key in the `app.toml`). Since
+notifications don't carry data payloads, this tells the supervisor that
+_something_ has crashed, but not _what_ or _why_. The supervisor can use kernel
+IPC messages to figure out the rest.
+
+Currently, the supervisor needs to scan the set of tasks using the
+`read_task_state` kernel IPC until it finds faults. (If the supervisor sometimes
+lets tasks stay in faulted states, then it will need to keep track of that and
+look for _new_ faults here.) It can then record that fault information somewhere
+(maybe a log) and use the `reinit_task` call to fix the problem.
+
+NOTE: Having to scan across the set of tasks is a little lame; if it proves to
+be an issue in practice we'll introduce a more efficient way of pulling the last
+crash(es) from the kernel via IPC.
+
+The basic supervisor main loop reads, then, reads as follows:
+
+[source,rust]
+----
+// Value chosen in app.toml.
+const CRASH_NOTIFICATION: u32 = 1;
+
+loop {
+    // Closed receive will only accept notifications.
+    let msg = sys_recv_closed(
+        &mut [],
+        CRASH_NOTIFICATION,
+        TaskId::KERNEL,
+    );
+
+    // This case is so simple that we don't need to inspect
+    // the message to distinguish different sources. See
+    // below for a more complex example.
+
+    // Scan tasks. Skip ourselves at index 0.
+    for i in 1..userlib::NUM_TASKS {
+        match userlib::kipc::read_task_status(i) {
+            abi::TaskState::Faulted { fault, .. } => {
+                // Record any observed faults and restart.
+                log(fault);
+                kipc::restart_task(i, true);
+            }
+        }
+    }
+}
+----
+
+(This is almost verbatim from the reference implementation.)
+
+== Talking to the supervisor
+
+A supervisor may expose an IPC interface that can be used by other tasks to
+report information. (Because the supervisor is the highest priority task, any
+task can SEND to it, but it is not allowed to SEND anywhere but the kernel.)
+
+Why would you want to do this? Some examples might include:
+
+- In a simple system, the supervisor might maintain the system's event log in a
+  circular RAM buffer, and provide an IPC for other tasks to append information
+  to it.
+
+- You could implement interactive health monitoring (see next section).
+
+- You could proxy kernel IPCs that are normally only available to the
+  supervisor, optionally implementing restrictions or filters.
+
+If the supervisor wishes to expose an IPC interface, its main loop changes as
+follows:
+
+[source,rust]
+----
+// Value chosen in app.toml.
+const CRASH_NOTIFICATION: u32 = 1;
+
+// However large our biggest incoming message will be.
+const MAX_MSG: usize = 16;
+
+loop {
+    let mut msgbuf = [0u8; MAX_MSG]; // <1>
+    let msg = sys_recv_open( // <2>
+        &mut msgbuf,
+        CRASH_NOTIFICATION,
+    );
+
+    if msg.sender == TaskId::KERNEL { // <3>
+        // Scan tasks. Skip ourselves at index 0.
+        for i in 1..userlib::NUM_TASKS {
+            match userlib::kipc::read_task_status(i) {
+                abi::TaskState::Faulted { fault, .. } => {
+                    // Record any observed faults and restart.
+                    log(fault);
+                    kipc::restart_task(i, true);
+                }
+            }
+        }
+    } else {
+        // This is a message from a task
+        match msg.operation { // <4>
+            ...
+        }
+    }
+}
+----
+<1> The loop now needs a buffer for depositing incoming messages.
+<2> Instead of a closed receive, we use an open receive to accept both
+notifications and messages from any source.
+<3> We need to distinguish notifications from messages by checking the origin.
+<4> In the case of a message, we choose different actions based on the operation
+code.
