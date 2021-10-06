@@ -73,7 +73,7 @@ fn main() -> ! {
             let controller = I2cController {
                 controller: Controller::I2C1,
                 peripheral: Peripheral::I2c1,
-                registers: unsafe { &*device::I2C2::ptr() },
+                registers: unsafe { &*device::I2C1::ptr() },
                 notification: (1 << (1 - 1)),
             };
 

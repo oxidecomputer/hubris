@@ -78,12 +78,12 @@ name = "drv-stm32h7-i2c-server"
 features = ["h743", "itm"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
-uses = ["i2c1", "i2c3", "i2c4"]
+uses = ["i2c2", "i2c3", "i2c4"]
 start = true
 
 [tasks.i2c_driver.interrupts]
-31 = 0b0000_0001        # I2C1 event
-32 = 0b0000_0001        # I2C1 error
+33 = 0b0000_0010        # I2C2 event
+34 = 0b0000_0010        # I2C2 error
 72 = 0b0000_0100        # I2C3 event
 73 = 0b0000_0100        # I2C3 error
 95 = 0b0000_1000        # I2C4 event
@@ -95,12 +95,12 @@ name = "task-spd"
 features = ["h743", "itm"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
-uses = ["i2c2"]
+uses = ["i2c1"]
 start = true
 
 [tasks.spd.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
+31 = 0b0000_0001        # I2C1 event
+32 = 0b0000_0001        # I2C1 error
 
 #
 # SPI interrupts:
