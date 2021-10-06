@@ -418,6 +418,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ice40-spi-program"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "drv-stm32h7-gpio-api",
+ "userlib",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
