@@ -1,20 +1,8 @@
 //! Server task for the STM32H7 SPI peripheral.
 //!
-//! Currently this hardcodes the clock rate and doesn't manage chip select.
+//! Currently this hardcodes the clock rate.
 //!
-//! # IPC Protocol
-//!
-//! ## Exchange (1)
-//!
-//! Transmits data on MOSI and simultaneously receives data on MISO.
-//!
-//! Transmitted data is read from a byte buffer passed as borrow 0. This borrow
-//! must be readable.
-//!
-//! Received data is either written into borrow 0 (overwriting transmitted
-//! data), or can be written into a separate buffer by passing it as borrow 1.
-//! Whichever borrow is used for received data must be writable, and if it's
-//! separate from the transmit buffer, the two buffers must be the same length.
+//! See the `spi-api` crate for the protocol being implemented here.
 
 #![no_std]
 #![no_main]
@@ -45,167 +33,14 @@ const IRQ_MASK: u32 = 1;
 
 #[export_name = "main"]
 fn main() -> ! {
+    check_server_config();
+
     let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "spi1")] {
-            compile_error!("spi1 not supported on this board");
-        } else if #[cfg(feature = "spi2")] {
-            #[cfg(any(
-                feature = "spi3",
-                feature = "spi4",
-                feature = "spi5",
-                feature = "spi6"
-            ))]
-            compile_error!("can only set one peripheral");
+    let registers = unsafe { &*CONFIG.registers };
 
-            let peripheral = rcc_api::Peripheral::Spi2;
-            let registers = unsafe { &*device::SPI2::ptr() };
-
-            cfg_if::cfg_if! {
-                if #[cfg(target_board = "gemini-bu-1")] {
-                    let pins = [(
-                        gpio_api::Port::I,
-                        (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3),
-                        gpio_api::Alternate::AF5,
-                    )];
-                } else if #[cfg(target_board = "gimlet-1")] {
-                    //
-                    // On Gimlet, spi2 is used for three different devices:
-                    // the management network (KSZ8463 at refdes U401),
-                    // the local flash (U557), and the sequencer (U476).
-                    // This is across two different ports (port B and port I)
-                    // -- and because there is more than one device, we
-                    // explicitly do not include CS (PI0, PB12) in each;
-                    // these will need to be explicitly managed by the caller
-                    // to select the appropriate chip.
-                    //
-                    let pins = [(
-                        gpio_api::Port::I,
-                        (1 << 1) | (1 << 2) | (1 << 3),
-                        gpio_api::Alternate::AF5,
-                    ), (
-                        gpio_api::Port::B,
-                        (1 << 13) | (1 << 14) | (1 << 15),
-                        gpio_api::Alternate::AF5,
-                    )];
-                } else {
-                    compile_error!("spi2 not supported on this board");
-                }
-            }
-        } else if #[cfg(feature = "spi3")] {
-            #[cfg(any(feature = "spi4", feature = "spi5", feature = "spi6"))]
-            compile_error!("can only set one peripheral");
-
-            let peripheral = rcc_api::Peripheral::Spi3;
-            let registers = unsafe { &*device::SPI3::ptr() };
-
-            cfg_if::cfg_if! {
-                if #[cfg(target_board = "gimletlet-2")] {
-                    let pins = [(
-                        gpio_api::Port::C,
-                        (1 << 10) | (1 << 11) | (1 << 12),
-                        gpio_api::Alternate::AF6,
-                    ), (
-                        gpio_api::Port::A,
-                        1 << 15,
-                        gpio_api::Alternate::AF6,
-                    )];
-                } else if #[cfg(target_board = "nucleo-h743zi2")] {
-                    let pins = [(
-                        gpio_api::Port::A,
-                        1 << 4,
-                        gpio_api::Alternate::AF6,
-                    ), (
-                        gpio_api::Port::B,
-                        (1 << 3) | (1 << 4),
-                        gpio_api::Alternate::AF6,
-                    ), (
-                        gpio_api::Port::B,
-                        1 << 5,
-                        gpio_api::Alternate::AF7,
-                    )];
-                } else {
-                    compile_error!("spi3 not supported on this board");
-                }
-            }
-        } else if #[cfg(feature = "spi4")] {
-            #[cfg(any(feature = "spi5", feature = "spi6"))]
-            compile_error!("can only set one peripheral");
-
-            let peripheral = rcc_api::Peripheral::Spi4;
-            let registers = unsafe { &*device::SPI4::ptr() };
-
-            cfg_if::cfg_if! {
-                if #[cfg(target_board = "gemini-bu-1")] {
-                    //
-                    // On Gemini, the main connection to the RoT:
-                    //  PE2 = SCK
-                    //  PE4 = CS
-                    //  PE5 = MISO
-                    //  PE6 = MOSI
-                    //
-                    // If you need debugging, configure these pins:
-                    //  PE12 = SCK
-                    //  PE11 = CS
-                    //  PE13 = MISO
-                    //  PE14 = MOSI
-                    //
-                    // Make sure MISO and MOSI are connected to something when
-                    // debugging, otherwise you may get unexpected output.
-                    //
-                    let pins = [(
-                        gpio_api::Port::E,
-                        (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
-                        gpio_api::Alternate::AF5,
-                    )];
-                } else if #[cfg(target_board = "gimletlet-2")] {
-                    let pins = [(
-                        gpio_api::Port::E,
-                        (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14),
-                        gpio_api::Alternate::AF5,
-                    )];
-                } else if #[cfg(target_board = "gimlet-1")] {
-                    //
-                    // On Gimlet -- as with Gemini -- the main connection to
-                    // the RoT is on the PE pins.
-                    //
-                    let pins = [(
-                        gpio_api::Port::E,
-                        (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6),
-                        gpio_api::Alternate::AF5,
-                    )];
-                } else {
-                    compile_error!("spi4 not supported on this board");
-                }
-            }
-        } else if #[cfg(feature = "spi5")] {
-            compile_error!("spi5 not supported on this board");
-        } else if #[cfg(feature = "spi6")] {
-            cfg_if::cfg_if! {
-                if #[cfg(target_board = "gimletlet-2")] {
-                    let pins = [(
-                        gpio_api::Port::G,
-                        (1 << 8) | (1 << 12) | (1 << 13) | (1 << 14),
-                        gpio_api::Alternate::AF5,
-                    )]
-                } else {
-                    compile_error!("spi6 not supported on this board");
-                }
-            }
-        } else if #[cfg(feature = "standalone")] {
-            let peripheral = rcc_api::Peripheral::Spi2;
-            let registers = unsafe { &*device::SPI2::ptr() };
-            let pins = [( gpio_api::Port::A, 0, gpio_api::Alternate::AF0 )];
-        } else {
-            compile_error!(
-                "must enable one of: spi1, spi2, spi3, spi4, spi5, spi6"
-            );
-        }
-    }
-
-    rcc_driver.enable_clock(peripheral);
-    rcc_driver.leave_reset(peripheral);
+    rcc_driver.enable_clock(CONFIG.peripheral);
+    rcc_driver.leave_reset(CONFIG.peripheral);
     let mut spi = spi_core::Spi::from(registers);
 
     // This should correspond to '0' in the standard SPI parlance
@@ -221,19 +56,44 @@ fn main() -> ! {
 
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
-    for (port, mask, af) in &pins {
+    // TODO we are forcing device 0 for now until I revise the IPC interface to
+    // take a device index.
+    let device = 0;
+    let mux_index = CONFIG.devices[device].mux_index;
+    for &(pinset, af) in CONFIG.mux_options[mux_index].configs {
         gpio_driver
             .configure(
-                *port,
-                *mask,
+                pinset.port,
+                pinset.pin_mask,
                 gpio_api::Mode::Alternate,
                 gpio_api::OutputType::PushPull,
                 gpio_api::Speed::High,
                 gpio_api::Pull::None,
-                *af,
+                af,
             )
             .unwrap();
     }
+    // Start the CS off in high state.
+    gpio_driver
+        .set_reset(
+            CONFIG.devices[device].cs.port,
+            CONFIG.devices[device].cs.pin_mask,
+            0,
+        )
+        .unwrap();
+    // Go ahead and expose it as a GPIO. (TODO this should be at device
+    // selection.)
+    gpio_driver
+        .configure(
+            CONFIG.devices[device].cs.port,
+            CONFIG.devices[device].cs.pin_mask,
+            gpio_api::Mode::Output,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::High,
+            gpio_api::Pull::None,
+            gpio_api::Alternate::AF1, // doesn't matter in GPIO mode
+        )
+        .unwrap();
 
     loop {
         hl::recv_without_notification(
@@ -380,6 +240,16 @@ fn main() -> ! {
                     spi.enable_transfer_interrupts();
 
                     spi.clear_eot();
+
+                    // We're doing this! Assert (reset) CS.
+                    gpio_driver
+                        .set_reset(
+                            CONFIG.devices[device].cs.port,
+                            0,
+                            CONFIG.devices[device].cs.pin_mask,
+                        )
+                        .unwrap();
+
                     // While work remains, we'll attempt to move up to one byte
                     // in each direction, sleeping if we can do neither.
                     while tx.is_some() || rx.is_some() {
@@ -466,6 +336,15 @@ fn main() -> ! {
                     // state.
                     spi.end();
 
+                    // Deassert (set) CS.
+                    gpio_driver
+                        .set_reset(
+                            CONFIG.devices[device].cs.port,
+                            CONFIG.devices[device].cs.pin_mask,
+                            0,
+                        )
+                        .unwrap();
+
                     // As we're done with the borrows, we can now resume the
                     // caller.
                     caller.reply(());
@@ -474,5 +353,360 @@ fn main() -> ! {
                 }
             },
         );
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Board-peripheral-server configuration matrix
+//
+// The configurable bits for a given board and controller combination are in the
+// ServerConfig struct. We use conditional compilation below to select _one_
+// instance of this struct in a const called `CONFIG`.
+
+/// Rolls up all the configuration options for this server on a given board and
+/// controller.
+#[derive(Copy, Clone)]
+struct ServerConfig {
+    /// Pointer to this controller's register block. Don't let the `spi1` fool
+    /// you, they all have that type. This needs to match a peripheral in your
+    /// task's `uses` list for this to work.
+    registers: *const device::spi1::RegisterBlock,
+    /// Name for the peripheral as far as the RCC is concerned.
+    peripheral: rcc_api::Peripheral,
+    /// We allow for an individual SPI controller to be switched between several
+    /// physical sets of pads. The mux options for a given server configuration
+    /// are numbered from 0 and correspond to this slice.
+    mux_options: &'static [SpiMuxOption],
+    /// We keep track of a fixed set of devices per SPI controller, which each
+    /// have an associated routing (from `mux_options`) and CS pin.
+    devices: &'static [DeviceDescriptor],
+}
+
+/// A routing of the SPI controller onto pins.
+#[derive(Copy, Clone, Debug)]
+struct SpiMuxOption {
+    /// A list of config changes to apply to activate this mux option. This is a
+    /// list because some mux options are spread across multiple ports, or (in
+    /// at least one case) the pins in the same port require different AF
+    /// numbers to work.
+    configs: &'static [(PinSet, gpio_api::Alternate)],
+}
+
+#[derive(Copy, Clone, Debug)]
+struct PinSet {
+    port: gpio_api::Port,
+    pin_mask: u16,
+}
+
+/// Information about one device attached to the SPI controller.
+#[derive(Copy, Clone, Debug)]
+struct DeviceDescriptor {
+    /// To reach this device, the SPI controller has to be muxed onto the
+    /// correct physical circuit. This gives the index of the right choice in
+    /// the server's configured `SpiMuxOption` array.
+    mux_index: usize,
+    /// Where the CS pin is. While this is a `PinSet`, it should only have one
+    /// pin in it, and we check this at startup.
+    cs: PinSet,
+}
+
+/// Any impl of ServerConfig for Server has to pass these tests at startup.
+fn check_server_config() {
+    // TODO some of this could potentially be moved into const fns for building
+    // the tree, and thus to compile time ... if we could assert in const fns.
+    //
+    // That said, because this is analyzing constants, if the checks _pass_ this
+    // should disappear at compilation.
+
+    assert!(!CONFIG.registers.is_null()); // let's start off easy.
+
+    // Mux options must be provided.
+    assert!(!CONFIG.mux_options.is_empty());
+    for muxopt in CONFIG.mux_options {
+        // Each mux option must contain at least one pin setting record.
+        assert!(!muxopt.configs.is_empty());
+        let mut total_pins = 0;
+        for (pinset, _af) in muxopt.configs {
+            // Each config must apply to at least one pin.
+            assert!(pinset.pin_mask != 0);
+            // We're counting how many total pins are controlled here.
+            total_pins += pinset.pin_mask.count_ones();
+        }
+        // There should be three affected pins (MISO, MOSI, SCK). This check
+        // prevents people from being clever and trying to mux SPI to two
+        // locations simultaneously, which Does Not Work.
+        assert!(total_pins == 3);
+    }
+    // At least one device must be defined.
+    assert!(!CONFIG.devices.is_empty());
+    for dev in CONFIG.devices {
+        // Mux index must be valid.
+        assert!(dev.mux_index < CONFIG.mux_options.len());
+        // CS pin must designate _exactly one_ pin in its mask.
+        assert!(dev.cs.pin_mask.is_power_of_two());
+    }
+}
+
+cfg_if::cfg_if! {
+    //
+    // Gemini Bringup Board controllers
+    //
+    if #[cfg(all(target_board = "gemini-bu-1", feature = "spi2"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI2::ptr(),
+            peripheral: rcc_api::Peripheral::Spi2,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::I,
+                                pin_mask: (1 << 1) | (1 << 2) | (1 << 3),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                // This is a dummy device, Gemini BU SPI just goes to a header.
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::I, pin_mask: 1 << 0 },
+                },
+            ],
+        };
+    } else if #[cfg(all(target_board = "gemini-bu-1", feature = "spi4"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI4::ptr(),
+            peripheral: rcc_api::Peripheral::Spi4,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        // SPI4 is only muxed to one position.
+                        (
+                            PinSet {
+                                port: gpio_api::Port::E,
+                                pin_mask: (1 << 2) | (1 << 5) | (1 << 6),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                // The only device is the RoT.
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::E, pin_mask: 1 << 4 },
+                },
+            ],
+        };
+    //
+    // Glorified Gimletlet controllers
+    //
+    } else if #[cfg(all(target_board = "gimletlet-2", feature = "spi3"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI3::ptr(),
+            peripheral: rcc_api::Peripheral::Spi3,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::C,
+                                pin_mask: (1 << 10) | (1 << 11) | (1 << 12),
+                            },
+                            gpio_api::Alternate::AF6,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 15 },
+                },
+            ],
+        };
+    } else if #[cfg(all(target_board = "gimletlet-2", feature = "spi4"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI4::ptr(),
+            peripheral: rcc_api::Peripheral::Spi4,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::E,
+                                pin_mask: (1 << 12) | (1 << 13) | (1 << 14),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::E, pin_mask: 1 << 11 },
+                },
+            ],
+        };
+    } else if #[cfg(all(target_board = "gimletlet-2", feature = "spi6"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI6::ptr(),
+            peripheral: rcc_api::Peripheral::Spi6,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::G,
+                                pin_mask: (1 << 12) | (1 << 13) | (1 << 14),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::G, pin_mask: 1 << 8 },
+                },
+            ],
+        };
+    //
+    // Gimlet controllers
+    //
+    } else if #[cfg(all(target_board = "gimlet-1", feature = "spi2"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI2::ptr(),
+            peripheral: rcc_api::Peripheral::Spi2,
+            mux_options: &[
+                // Mux option 0 is on port I3:0.
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::I,
+                                pin_mask: (1 << 1) | (1 << 2) | (1 << 3),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+                // Mux option 1 is on port B15:13.
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::B,
+                                pin_mask: (1 << 13) | (1 << 14) | (1 << 15),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                // Device 0 is the sequencer (U476).
+                // Shares port B with the flash.
+                // CS is SP_TO_SEQ_SPI_CS2.
+                DeviceDescriptor {
+                    mux_index: 1,
+                    cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 0 },
+                },
+                // Device 1 is the KSZ8463 switch (U401).
+                // Connected on port I.
+                // CS is SPI_SP_TO_MGMT_MUX_CSN.
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::I, pin_mask: 1 << 0 },
+                },
+                // Device 2 is the local flash (U557).
+                // Shares port B with the sequencer.
+                // CS is SP_TO_FLASH_SPI_CS.
+                DeviceDescriptor {
+                    mux_index: 1,
+                    cs: PinSet { port: gpio_api::Port::B, pin_mask: 1 << 12 },
+                },
+            ],
+        };
+    } else if #[cfg(all(target_board = "gimlet-1", feature = "spi4"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI4::ptr(),
+            peripheral: rcc_api::Peripheral::Spi4,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        // SPI4 is only muxed to one position.
+                        (
+                            PinSet {
+                                port: gpio_api::Port::E,
+                                pin_mask: (1 << 2) | (1 << 5) | (1 << 6),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                // The only device is the RoT.
+                // CS is SPI_SP_TO_ROT_CS_L.
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::E, pin_mask: 1 << 4 },
+                },
+            ],
+        };
+    //
+    // NUCLEO 743 board
+    //
+    } else if #[cfg(all(target_board = "nucleo-h743zi2", feature = "spi3"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI3::ptr(),
+            peripheral: rcc_api::Peripheral::Spi3,
+            mux_options: &[
+                SpiMuxOption {
+                    configs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::B,
+                                pin_mask: (1 << 3) | (1 << 4),
+                            },
+                            gpio_api::Alternate::AF6,
+                        ),
+                        (
+                            PinSet {
+                                port: gpio_api::Port::B,
+                                pin_mask: 1 << 5,
+                            },
+                            gpio_api::Alternate::AF7,
+                        ),
+                    ],
+                },
+            ],
+            devices: &[
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 4 },
+                },
+            ],
+        };
+    //
+    // Standalone build
+    //
+    } else if #[cfg(feature = "standalone")] {
+        // whatever - nobody gonna run it
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI1::ptr(),
+            peripheral: rcc_api::Peripheral::Spi1,
+            mux_options: &[],
+            devices: &[],
+        };
+    } else {
+        compile_error!("unsupported board-controller combination");
     }
 }
