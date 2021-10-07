@@ -95,14 +95,70 @@ fn main() -> ! {
         )
         .unwrap();
 
+    // If we get a lock request, we'll update this with the task ID. We'll then
+    // use it to decide between open and closed receive.
+    let mut lock_holder = None;
     loop {
-        hl::recv_without_notification(
-            // Our only operations use zero-length messages, so we can use a
-            // zero-length buffer here.
-            &mut [],
+        // Note: we process the result of recv at the bottom of the loop.
+        let rr = hl::recv_from_without_notification(
+            // Task we're paying attention to, or None
+            lock_holder.map(|(tid, _)| tid),
+            // Our longest operation is one byte.
+            &mut [0],
             |op, msg| match op {
-                // Yes, this case matches all the enum values right now. This is
-                // insurance if we were to add a fourth!
+                Operation::Lock => {
+                    let (&cs_state, caller) =
+                        msg.fixed::<u8, ()>().ok_or(SpiError::BadArg)?;
+                    let cs_asserted = cs_state != 0;
+
+                    // The fact that we have received this message at all means
+                    // that the lock is either free, or the sender holds the
+                    // lock. Juuuuust in case,
+                    let locking_ok = lock_holder
+                        .map(|(tid, _)| tid == caller.task_id())
+                        .unwrap_or(true);
+                    assert!(locking_ok);
+                    // If we're asserting CS, we want to *reset* the pin. If
+                    // we're not, we want to *set* it. Because CS is active low.
+                    let pin_mask = CONFIG.devices[device].cs.pin_mask;
+                    gpio_driver
+                        .set_reset(
+                            CONFIG.devices[device].cs.port,
+                            if cs_asserted { 0 } else { pin_mask },
+                            if cs_asserted { pin_mask } else { 0 },
+                        )
+                        .unwrap();
+                    lock_holder = Some((caller.task_id(), cs_asserted));
+                    caller.reply(());
+                    Ok(())
+                }
+                Operation::Release => {
+                    let ((), caller) = msg.fixed().ok_or(SpiError::BadArg)?;
+                    if lock_holder.is_some() {
+                        // The fact that we were able to receive this means we
+                        // should be locked by the sender...but double check.
+                        let release_ok = lock_holder
+                            .map(|(tid, _)| tid == caller.task_id())
+                            .expect("not locked");
+                        assert!(release_ok); // right sender
+
+                        // Deassert CS. If it wasn't asserted, this is a no-op.
+                        // If it was, this fixes that.
+                        gpio_driver
+                            .set_reset(
+                                CONFIG.devices[device].cs.port,
+                                CONFIG.devices[device].cs.pin_mask,
+                                0,
+                            )
+                            .unwrap();
+                        lock_holder = None;
+                        caller.reply(());
+                        Ok(())
+                    } else {
+                        Err(SpiError::NothingToRelease)
+                    }
+                }
+                // And now, the readey-writey options
                 Operation::Exchange | Operation::Read | Operation::Write => {
                     // We can take varying numbers of leases, so we'll do lease
                     // verification ourselves just below.
@@ -128,7 +184,7 @@ fn main() -> ! {
                             let required_attributes = match op {
                                 Operation::Read => LeaseAttributes::WRITE,
                                 Operation::Write => LeaseAttributes::READ,
-                                Operation::Exchange => {
+                                _ => {
                                     LeaseAttributes::WRITE
                                         | LeaseAttributes::READ
                                 }
@@ -241,14 +297,18 @@ fn main() -> ! {
 
                     spi.clear_eot();
 
-                    // We're doing this! Assert (reset) CS.
-                    gpio_driver
-                        .set_reset(
-                            CONFIG.devices[device].cs.port,
-                            0,
-                            CONFIG.devices[device].cs.pin_mask,
-                        )
-                        .unwrap();
+                    // We're doing this! Check if we need to control CS.
+                    let cs_override =
+                        lock_holder.map(|(_, over)| over).unwrap_or(false);
+                    if !cs_override {
+                        gpio_driver
+                            .set_reset(
+                                CONFIG.devices[device].cs.port,
+                                0,
+                                CONFIG.devices[device].cs.pin_mask,
+                            )
+                            .unwrap();
+                    }
 
                     // While work remains, we'll attempt to move up to one byte
                     // in each direction, sleeping if we can do neither.
@@ -337,13 +397,15 @@ fn main() -> ! {
                     spi.end();
 
                     // Deassert (set) CS.
-                    gpio_driver
-                        .set_reset(
-                            CONFIG.devices[device].cs.port,
-                            CONFIG.devices[device].cs.pin_mask,
-                            0,
-                        )
-                        .unwrap();
+                    if !cs_override {
+                        gpio_driver
+                            .set_reset(
+                                CONFIG.devices[device].cs.port,
+                                CONFIG.devices[device].cs.pin_mask,
+                                0,
+                            )
+                            .unwrap();
+                    }
 
                     // As we're done with the borrows, we can now resume the
                     // caller.
@@ -353,6 +415,12 @@ fn main() -> ! {
                 }
             },
         );
+
+        if rr.is_err() {
+            // Welp, someone had asked us to lock and then died. Release the
+            // lock.
+            lock_holder = None;
+        }
     }
 }
 
