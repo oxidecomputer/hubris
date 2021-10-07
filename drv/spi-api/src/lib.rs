@@ -10,15 +10,17 @@ pub enum Operation {
     Read = 0b01,
     Write = 0b10,
     Exchange = 0b11,
+    Lock = 0b100,
+    Release = 0b101,
 }
 
 impl Operation {
     pub fn is_read(self) -> bool {
-        self as u32 & 1 != 0
+        self == Self::Read || self == Self::Exchange
     }
 
     pub fn is_write(self) -> bool {
-        self as u32 & 0b10 != 0
+        self == Self::Write || self == Self::Exchange
     }
 }
 
@@ -66,6 +68,9 @@ pub enum SpiError {
 
     /// Server restarted
     ServerRestarted = 14,
+
+    /// Release without successful Lock
+    NothingToRelease = 15,
 }
 
 impl From<SpiError> for u32 {
@@ -126,7 +131,7 @@ impl Spi {
         let task = self.0.get();
 
         let (code, _) = sys_send(
-            self.0.get(),
+            task,
             Operation::Write as u16,
             &[],
             &mut [],
@@ -135,4 +140,52 @@ impl Spi {
 
         self.result(task, code)
     }
+
+    /// Locks the SPI controller in communication between your task and the
+    /// device.
+    ///
+    /// If the server receives this message, it means no other task had locked
+    /// it. It will respond by only listening to messages from your task until
+    /// you send `release` or crash.
+    ///
+    /// `assert_cs` can be used to force CS into the asserted (low) state, or
+    /// keep it deasserted. If you choose to assert it, then SPI transactions
+    /// via `read`/`write`/`exchange` will leave it asserted rather than
+    /// toggling it. You can call `lock` while the SPI controller is locked (by
+    /// you) to alter CS state, either to toggle it on its own, or to enable
+    /// per-transaction CS control again.
+    pub fn lock(&self, assert_cs: CsState) -> Result<(), SpiError> {
+        let task = self.0.get();
+
+        let (code, _) = sys_send(
+            task,
+            Operation::Lock as u16,
+            &[assert_cs as u8],
+            &mut [],
+            &[],
+        );
+
+        self.result(task, code)
+    }
+
+    /// Releases a previous lock on the SPI controller (by your task).
+    ///
+    /// This will also deassert CS, if you had overridden it.
+    ///
+    /// If you call this without `lock` having succeeded, you will get
+    /// `SpiError::NothingToRelease`.
+    pub fn release(&self) -> Result<(), SpiError> {
+        let task = self.0.get();
+
+        let (code, _) =
+            sys_send(task, Operation::Release as u16, &[], &mut [], &[]);
+
+        self.result(task, code)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum CsState {
+    NotAsserted = 0,
+    Asserted = 1,
 }
