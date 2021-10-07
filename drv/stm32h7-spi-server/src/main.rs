@@ -58,7 +58,9 @@ fn main() -> ! {
 
     // Configure all devices' CS pins to be deasserted (set).
     for device in CONFIG.devices {
-        gpio_driver.set_reset(device.cs.port, device.cs.pin_mask, 0).unwrap();
+        gpio_driver
+            .set_reset(device.cs.port, device.cs.pin_mask, 0)
+            .unwrap();
         gpio_driver
             .configure(
                 device.cs.port,

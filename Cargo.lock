@@ -394,6 +394,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimlet-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-ice40-spi-program",
+ "drv-spi-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "drv-stm32h7-spi",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
