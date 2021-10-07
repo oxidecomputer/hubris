@@ -338,7 +338,6 @@ fn main() -> ! {
             )),
             ];
 
-
             const MAX31790_ADDRESS: u8 = 0x20;
 
             let fctrl = Max31790::new(&I2cDevice::new(
@@ -394,6 +393,7 @@ fn main() -> ! {
     loop {
         read_fans(&fctrl);
 
+        /*
         for (device, validated) in &mut adt7420 {
             adt7420_read(device, validated);
         }
@@ -427,6 +427,7 @@ fn main() -> ! {
                 ds18b20_kick_off_conversion(device, &ds2482);
             }
         }
+*/
 
         hl::sleep_for(1000);
     }
