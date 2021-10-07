@@ -10,8 +10,8 @@ use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 
 use crate::{
     sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
-    sys_recv_closed, sys_recv_open, sys_reply, sys_send, sys_set_timer,
-    FromPrimitive,
+    sys_recv, sys_recv_closed, sys_recv_open, sys_reply, sys_send,
+    sys_set_timer, ClosedRecvError, FromPrimitive,
 };
 
 const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;
@@ -122,6 +122,64 @@ pub fn recv_without_notification<'a, O, E>(
     E: Into<u32>,
 {
     recv(buffer, 0, (), |_, _| (), |_, op, m| msg(op, m))
+}
+
+/// Variant of `recv` that can be configured at runtime to receive from a
+/// specific task only (closed receive) by setting `source` to `Some(task_id)`,
+/// or to receive from all callers (`source` of `None`).
+///
+/// See `recv` for more description.
+pub fn recv_from<'a, O, E, S>(
+    source: Option<TaskId>,
+    buffer: &'a mut [u8],
+    mask: u32,
+    state: S,
+    notify: impl FnOnce(S, u32),
+    msg: impl FnOnce(S, O, Message<'a>) -> Result<(), E>,
+) -> Result<(), ClosedRecvError>
+where
+    O: FromPrimitive,
+    E: Into<u32>,
+{
+    let rm =
+        sys_recv(buffer, mask, source).map_err(|_| ClosedRecvError::Dead)?;
+    let sender = rm.sender;
+    if rm.sender == TaskId::KERNEL {
+        notify(state, rm.operation);
+        Ok(())
+    } else {
+        if let Some(op) = O::from_u32(rm.operation) {
+            let m = Message {
+                buffer: &buffer[..rm.message_len],
+                sender: rm.sender,
+                response_capacity: rm.response_capacity,
+                lease_count: rm.lease_count,
+            };
+            if let Err(e) = msg(state, op, m) {
+                sys_reply(sender, e.into(), &[]);
+            }
+        } else {
+            sys_reply(sender, 1, &[]);
+        }
+        Ok(())
+    }
+}
+
+/// Variant of `recv_without_notification` that can be configured at runtime to
+/// receive from a specific task only (closed receive) by setting `source` to
+/// `Some(task_id)`, or to receive from all callers (`source` of `None`).
+///
+/// See `recv_without_notification` for more description.
+pub fn recv_from_without_notification<'a, O, E>(
+    source: Option<TaskId>,
+    buffer: &'a mut [u8],
+    msg: impl FnOnce(O, Message<'a>) -> Result<(), E>,
+) -> Result<(), ClosedRecvError>
+where
+    O: FromPrimitive,
+    E: Into<u32>,
+{
+    recv_from(source, buffer, 0, (), |_, _| (), |_, op, m| msg(op, m))
 }
 
 /// Represents a received message (not a notification).
