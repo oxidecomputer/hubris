@@ -117,11 +117,12 @@ requires = {flash = 16384, ram = 1024}
 uses = ["rng", "pmc"]
 start = true
 
-[tasks.spi_driver]
+[tasks.spi0_driver]
 path = "../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 1024}
+features = ["spi0"]
 uses = ["flexcomm3", "flexcomm8"]
 start = true
 interrupts = {59 = 1}
@@ -146,7 +147,7 @@ start = true
 path = "../task-hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["lpc55", "gpio"]
+features = ["lpc55", "gpio", "spi"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

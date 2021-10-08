@@ -15,6 +15,8 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use userlib::*;
 
+mod common;
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
         pub mod stm32h7;
