@@ -1,4 +1,6 @@
-//! Server for managing the Gimlet sequencer FPGA.
+//! Server for managing the Gimlet sequencing process.
+//!
+//!
 
 #![no_std]
 #![no_main]
@@ -11,20 +13,119 @@ use drv_stm32h7_gpio_api as gpio_api;
 
 #[export_name = "main"]
 fn main() -> ! {
-    // At any restart of this driver, we want to set the communication interface
-    // back to the expected state, and then reach out to the sequencer to see if
-    // it's (1) alive and (2) the right version.
     let spi = spi_api::Spi::from(get_task_id(SPI));
     let gpio = gpio_api::Gpio::from(get_task_id(GPIO));
 
-    // Ensure our pins all start out in a reasonable state.
-    // Note that the SPI server manages CS for us. We want RESET to be
-    // not-asserted but ready to assert.
+    // To allow for the possibility that we are restarting, rather than
+    // starting, we take care during early sequencing to _not turn anything
+    // off,_ only on. This means if it was _already_ on, the outputs should not
+    // glitch.
+
+    // Unconditionally set our power-good detects as inputs.
+    //
+    // This is the expected reset state, but, good to be sure.
+    gpio.configure(
+        PGS_PORT,
+        PG_V1P2_MASK | PG_V3P3_MASK,
+        gpio_api::Mode::Input,
+        gpio_api::OutputType::PushPull, // doesn't matter
+        gpio_api::Speed::High,
+        PGS_PULL,
+        gpio_api::Alternate::AF0, // doesn't matter
+    )
+    .unwrap();
+
+    // Unconditionally set our sequencing-related GPIOs to outputs.
+    //
+    // If the processor has reset, these will start out low. Since neither rail
+    // has external pullups, this puts the regulators into a well-defined "off"
+    // state instead of leaving them floating, which is the state when A2 power
+    // starts coming up.
+    //
+    // If it's just our driver that has reset, this will have no effect, and
+    // will continue driving the lines at whatever level we left them in.
+    gpio.configure(
+        ENABLES_PORT,
+        ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
+        gpio_api::Mode::Output,
+        gpio_api::OutputType::PushPull,
+        gpio_api::Speed::High,
+        gpio_api::Pull::None,
+        gpio_api::Alternate::AF0, // doesn't matter
+    )
+    .unwrap();
+
+    // Begin, or resume, the power supply sequencing process for the FPGA. We're
+    // going to be reading back our enable line states to get the real state
+    // being seen by the regulators, etc.
+
+    // The V1P2 regulator comes up first. It may already be on from a past life
+    // of ours. Ensuring that it's on by writing the pin is just as cheap as
+    // sensing its current state, and less code than _conditionally_ writing the
+    // pin, so:
+    gpio.set_reset(ENABLES_PORT, ENABLE_V1P2_MASK, 0).unwrap();
+
+    // We don't actually know how long ago the regulator turned on. Could have
+    // been _just now_ (above) or may have already been on. We'll use the PG pin
+    // to detect when it's stable. But -- the PG pin on the LT3072 is initially
+    // high when you turn the regulator on, and then takes time to drop if
+    // there's a problem. So, to ensure that there has been at least 1ms since
+    // regulator-on, we will delay for 2.
+    hl::sleep_for(2);
+
+    // Now, monitor the PG pin.
+    loop {
+        // active high
+        let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V1P2_MASK != 0;
+        if pg {
+            break;
+        }
+
+        // Do _not_ burn CPU constantly polling, it's rude. We could also set up
+        // pin-change interrupts but we only do this once per power on, so it
+        // seems like a lot of work.
+        hl::sleep_for(2);
+    }
+
+    // We believe V1P2 is good. Now, for V3P3! Set it active (high).
+    gpio.set_reset(ENABLES_PORT, ENABLE_V3P3_MASK, 0).unwrap();
+
+    // Delay to be sure.
+    hl::sleep_for(2);
+
+    // Now, monitor the PG pin.
+    loop {
+        // active high
+        let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V3P3_MASK != 0;
+        if pg {
+            break;
+        }
+
+        // Do _not_ burn CPU constantly polling, it's rude.
+        hl::sleep_for(2);
+    }
+
+    // Now, V2P5 is chained off V3P3 and comes up on its own with no
+    // synchronization. It takes about 500us in practice. We'll delay for
+    hl::sleep_for(1);
+
+    // Sequencer FPGA power supply sequencing (meta-sequencing?) is complete.
+
+    // Now, let's find out if we need to program the sequencer.
+
+    // To talk to the sequencer we need to configure its pins, obvs. Note that
+    // the SPI and CS lines are separately managed by the SPI server; the ice40
+    // crate handles the CRESETB and CDONE signals, and takes care not to
+    // generate surprise resets.
     ice40::configure_pins(&gpio, &ICE40_CONFIG);
 
     if let Some((port, pin_mask)) = GLOBAL_RESET {
-        // Also configure our reset net. We're assuming push-pull because all
-        // our boards with reset nets are lacking pullups right now.
+        // Also configure our design reset net -- the signal that resets the
+        // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
+        // push-pull because all our boards with reset nets are lacking pullups
+        // right now. It's active low, so, set up the pin before exposing the
+        // output to ensure we don't glitch.
+        gpio.set_reset(port, pin_mask, 0).unwrap();
         gpio.configure(
             port,
             pin_mask,
@@ -37,19 +138,22 @@ fn main() -> ! {
         .unwrap();
     }
 
+    // If the sequencer is already loaded and operational, the design loaded
+    // into it should be willing to talk to us over SPI, and should be able to
+    // serve up a recognizable ident code.
+    //
     // TODO except for now we're going to skip the version check and
-    // unconditionally reprogram it because yolo.
+    // unconditionally reprogram it because the SPI communication code ain't
+    // written, and also yolo. Replace this with a check.
     let reprogram = true;
 
     // We only want to reset and reprogram the FPGA when absolutely required.
     if reprogram {
         if let Some((port, pin_mask)) = GLOBAL_RESET {
             // Assert the design reset signal (not the same as the FPGA
-            // programming logic reset signal).
-            gpio.set_reset(
-                port, 0, pin_mask, // active low
-            )
-            .unwrap();
+            // programming logic reset signal). We do this during reprogramming
+            // to avoid weird races that make our brains hurt.
+            gpio.set_reset(port, 0, pin_mask).unwrap();
         }
 
         // Reprogramming will continue until morale improves.
@@ -57,11 +161,6 @@ fn main() -> ! {
             match reprogram_fpga(&spi, &gpio, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
-                    if let Some((port, pin_mask)) = GLOBAL_RESET {
-                        // Deassert design reset signal. We set the pin, as it's
-                        // active low.
-                        gpio.set_reset(port, pin_mask, 0).unwrap();
-                    }
                     break;
                 }
                 Err(_) => {
@@ -73,9 +172,15 @@ fn main() -> ! {
                 }
             }
         }
+
+        if let Some((port, pin_mask)) = GLOBAL_RESET {
+            // Deassert design reset signal. We set the pin, as it's
+            // active low.
+            gpio.set_reset(port, pin_mask, 0).unwrap();
+        }
     }
 
-    // FPGA should now be programmed.
+    // FPGA should now be programmed with the right bitstream.
     loop {
         // TODO this is where, like, sequencer stuff goes
         hl::sleep_for(10);
@@ -115,6 +220,20 @@ cfg_if::cfg_if! {
         };
 
         const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = None;
+
+        // On Gimletlet we bring the extra GPIOs out to the uncommitted GPIO
+        // headers.
+        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::E;
+        const ENABLE_V1P2_MASK: u16 = 1 << 2; // J17 pin 2
+        const ENABLE_V3P3_MASK: u16 = 1 << 3; // J17 pin 3
+
+        const PGS_PORT: gpio_api::Port = gpio_api::Port::B;
+        const PG_V1P2_MASK: u16 = 1 << 14; // J16 pin 2
+        const PG_V3P3_MASK: u16 = 1 << 15; // J16 pin 3
+        // Gimletlet has no actual regulators onboard, so we pull down to
+        // simulate "power not good" until the person hacking on the board
+        // installs a jumper or whatever.
+        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
     } else if #[cfg(target_board = "gimlet-1")] {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
@@ -132,6 +251,16 @@ cfg_if::cfg_if! {
             gpio_api::Port::A,
             1 << 6,
         ));
+
+        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::A;
+        const ENABLE_V1P2_MASK: u16 = 1 << 15;
+        const ENABLE_V3P3_MASK: u16 = 1 << 4;
+
+        const PGS_PORT: gpio_api::Port = gpio_api::Port::C;
+        const PG_V1P2_MASK: u16 = 1 << 7;
+        const PG_V3P3_MASK: u16 = 1 << 6;
+        // Gimlet provides external pullups.
+        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
     } else {
         compiler_error!("unsupported target board");
     }
