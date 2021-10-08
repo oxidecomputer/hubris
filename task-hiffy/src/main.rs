@@ -14,7 +14,6 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use ringbuf::*;
-use task_jefe_api::{Disposition, Jefe, JefeError};
 use userlib::*;
 
 #[cfg(feature = "i2c")]
@@ -25,8 +24,6 @@ declare_task!(I2C, i2c_driver);
 
 #[cfg(feature = "gpio")]
 declare_task!(GPIO, gpio_driver);
-
-declare_task!(JEFE, jefe);
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;
@@ -90,7 +87,6 @@ pub struct Buffer(u8);
 // is passed to execute.
 //
 pub enum Functions {
-    JefeSetDisposition((u16, Disposition), JefeError),
     #[cfg(feature = "i2c")]
     I2cRead(
         (Controller, Port, Mux, Segment, u8, u8, usize),
@@ -588,40 +584,6 @@ fn spi_write(
     }
 }
 
-fn jefe_set_disposition(
-    stack: &[Option<u32>],
-    _data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 2;
-
-    let task = match stack[fp + 0] {
-        Some(task) => task as u16,
-        None => return Err(Failure::Fault(Fault::EmptyParameter(0))),
-    };
-
-    let disposition = match stack[fp + 1] {
-        Some(disposition) => match Disposition::from_u32(disposition) {
-            Some(disposition) => disposition,
-            None => {
-                return Err(Failure::Fault(Fault::BadParameter(1)));
-            }
-        },
-        None => return Err(Failure::Fault(Fault::EmptyParameter(1))),
-    };
-
-    let jefe = Jefe(get_task_id(JEFE));
-
-    match jefe.set_disposition(TaskId(task), disposition) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
-}
-
 #[export_name = "main"]
 fn main() -> ! {
     let mut sleep_ms = 250;
@@ -631,7 +593,6 @@ fn main() -> ! {
     const NLABELS: usize = 4;
 
     let functions: &[Function] = &[
-        jefe_set_disposition,
         #[cfg(feature = "i2c")]
         i2c_read,
         #[cfg(feature = "i2c")]
