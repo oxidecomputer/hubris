@@ -97,4 +97,3 @@ pub(crate) fn spi_write(
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
 }
-

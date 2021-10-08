@@ -1,10 +1,10 @@
+#[cfg(feature = "spi")]
+use crate::common::{spi_read, spi_write};
 use byteorder::ByteOrder;
 use drv_lpc55_gpio_api::*;
 use hif::*;
 use ringbuf::*;
 use userlib::*;
-#[cfg(feature = "spi")]
-use crate::common::{spi_write, spi_read};
 
 #[cfg(feature = "gpio")]
 declare_task!(GPIO, gpio_driver);
