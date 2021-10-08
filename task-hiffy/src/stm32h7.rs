@@ -1,9 +1,9 @@
+#[cfg(feature = "spi")]
+use crate::common::{spi_read, spi_write};
 use hif::*;
 use ringbuf::*;
 #[cfg(any(feature = "spi", feature = "gpio", feature = "i2c"))]
 use userlib::*;
-#[cfg(feature = "spi")]
-use crate::common::{spi_write, spi_read};
 
 #[cfg(feature = "i2c")]
 use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
