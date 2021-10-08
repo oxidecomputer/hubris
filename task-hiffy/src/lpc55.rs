@@ -3,6 +3,8 @@ use drv_lpc55_gpio_api::*;
 use hif::*;
 use ringbuf::*;
 use userlib::*;
+#[cfg(feature = "spi")]
+use crate::common::{spi_write, spi_read};
 
 #[cfg(feature = "gpio")]
 declare_task!(GPIO, gpio_driver);
@@ -47,6 +49,10 @@ pub enum Functions {
         (drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::Direction),
         drv_lpc55_gpio_api::GpioError,
     ),
+    #[cfg(feature = "spi")]
+    SpiRead((Task, usize, usize), drv_spi_api::SpiError),
+    #[cfg(feature = "spi")]
+    SpiWrite((Task, usize), drv_spi_api::SpiError),
 }
 
 #[cfg(feature = "gpio")]
@@ -256,6 +262,10 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     gpio_configure,
     #[cfg(feature = "gpio")]
     gpio_direction,
+    #[cfg(feature = "spi")]
+    spi_read,
+    #[cfg(feature = "spi")]
+    spi_write,
 ];
 
 //

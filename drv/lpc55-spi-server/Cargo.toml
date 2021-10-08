@@ -17,6 +17,7 @@ drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 [features]
 default = ["standalone"]
 standalone = []
+spi0 = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

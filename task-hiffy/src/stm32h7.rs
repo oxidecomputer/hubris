@@ -1,7 +1,9 @@
-use byteorder::ByteOrder;
 use hif::*;
 use ringbuf::*;
+#[cfg(any(feature = "spi", feature = "gpio", feature = "i2c"))]
 use userlib::*;
+#[cfg(feature = "spi")]
+use crate::common::{spi_write, spi_read};
 
 #[cfg(feature = "i2c")]
 use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
@@ -287,6 +289,8 @@ fn gpio_input(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
+    use byteorder::ByteOrder;
+
     let task = get_task_id(GPIO);
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
@@ -430,99 +434,6 @@ fn gpio_configure(
     );
 
     match gpio.configure(port, mask, mode, output_type, speed, pull, af) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
-}
-
-#[cfg(feature = "spi")]
-fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
-    if stack.len() < 2 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 2;
-
-    let task = match stack[fp + 0] {
-        Some(task) => {
-            if task >= NUM_TASKS as u32 {
-                return Err(Failure::Fault(Fault::BadParameter(0)));
-            }
-
-            let prototype =
-                TaskId::for_index_and_gen(task as usize, Generation::default());
-
-            sys_refresh_task_id(prototype)
-        }
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(0)));
-        }
-    };
-
-    let len = match stack[fp + 1] {
-        Some(len) => len as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(1)));
-        }
-    };
-
-    Ok((task, len))
-}
-
-#[cfg(feature = "spi")]
-fn spi_read(
-    stack: &[Option<u32>],
-    data: &[u8],
-    rval: &mut [u8],
-) -> Result<usize, Failure> {
-    //
-    // We have our task ID, our write size, and our read size
-    //
-    if stack.len() < 3 {
-        return Err(Failure::Fault(Fault::MissingParameters));
-    }
-
-    let fp = stack.len() - 3;
-    let (task, len) = spi_args(&stack[fp..fp + 2])?;
-
-    if len > data.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let rlen = match stack[fp + 2] {
-        Some(rlen) => rlen as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(2)));
-        }
-    };
-
-    if rlen > rval.len() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    let spi = drv_spi_api::Spi::from(task);
-
-    match spi.exchange(&data[0..len], &mut rval[0..rlen]) {
-        Ok(_) => Ok(rlen),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
-}
-
-#[cfg(feature = "spi")]
-fn spi_write(
-    stack: &[Option<u32>],
-    data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (task, len) = spi_args(stack)?;
-
-    if len > data.len() {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-
-    let spi = drv_spi_api::Spi::from(task);
-
-    match spi.write(&data[0..len]) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
