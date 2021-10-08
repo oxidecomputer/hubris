@@ -62,6 +62,17 @@ requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 
+[tasks.spi4_driver]
+path = "../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["spi4"]
+uses = ["spi4"]
+start = true
+interrupts = {84 = 1}
+stacksize = 1000
+
 [tasks.i2c_driver]
 path = "../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
@@ -85,6 +96,15 @@ name = "task-hiffy"
 features = ["stm32h7", "itm", "i2c", "gpio"]
 priority = 3
 requires = {flash = 32768, ram = 16384 }
+start = true
+
+[tasks.gimlet_seq]
+path = "../drv/gimlet-seq-server"
+name = "drv-gimlet-seq-server"
+features = []
+priority = 3
+requires = {flash = 262144, ram = 1024 }
+stacksize = 1024
 start = true
 
 [tasks.idle]
