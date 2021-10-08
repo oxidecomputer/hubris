@@ -206,6 +206,8 @@ struct Task {
     interrupts: IndexMap<String, u32>,
     #[serde(default)]
     sections: IndexMap<String, String>,
+    #[serde(default)]
+    task_slots: IndexMap<String, String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
