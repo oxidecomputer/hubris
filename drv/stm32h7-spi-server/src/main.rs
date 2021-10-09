@@ -56,8 +56,25 @@ fn main() -> ! {
 
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
+    // Configure all devices' CS pins to be deasserted (set).
+    for device in CONFIG.devices {
+        gpio_driver.set_reset(device.cs.port, device.cs.pin_mask, 0).unwrap();
+        gpio_driver
+            .configure(
+                device.cs.port,
+                device.cs.pin_mask,
+                gpio_api::Mode::Output,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF1, // doesn't matter in GPIO mode
+            )
+            .unwrap();
+    }
+
     // TODO we are forcing device 0 for now until I revise the IPC interface to
-    // take a device index.
+    // take a device index. From this point forward in the driver there is
+    // basically no real multi-device support.
     let device = 0;
     let mux_index = CONFIG.devices[device].mux_index;
     for &(pinset, af) in CONFIG.mux_options[mux_index].configs {
@@ -73,27 +90,6 @@ fn main() -> ! {
             )
             .unwrap();
     }
-    // Start the CS off in high state.
-    gpio_driver
-        .set_reset(
-            CONFIG.devices[device].cs.port,
-            CONFIG.devices[device].cs.pin_mask,
-            0,
-        )
-        .unwrap();
-    // Go ahead and expose it as a GPIO. (TODO this should be at device
-    // selection.)
-    gpio_driver
-        .configure(
-            CONFIG.devices[device].cs.port,
-            CONFIG.devices[device].cs.pin_mask,
-            gpio_api::Mode::Output,
-            gpio_api::OutputType::PushPull,
-            gpio_api::Speed::High,
-            gpio_api::Pull::None,
-            gpio_api::Alternate::AF1, // doesn't matter in GPIO mode
-        )
-        .unwrap();
 
     // If we get a lock request, we'll update this with the task ID. We'll then
     // use it to decide between open and closed receive.
