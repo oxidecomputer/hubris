@@ -113,6 +113,28 @@ fn main() -> ! {
 
     // Now, let's find out if we need to program the sequencer.
 
+    if let Some(hacks) = FPGA_HACK_PINS {
+        for &(port, pin_mask, is_high) in hacks {
+            gpio.set_reset(
+                port,
+                if is_high { pin_mask } else { 0 },
+                if is_high { 0 } else { pin_mask },
+            )
+            .unwrap();
+
+            gpio.configure(
+                port,
+                pin_mask,
+                gpio_api::Mode::Output,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF0, // doesn't matter
+            )
+            .unwrap();
+        }
+    }
+
     // To talk to the sequencer we need to configure its pins, obvs. Note that
     // the SPI and CS lines are separately managed by the SPI server; the ice40
     // crate handles the CRESETB and CDONE signals, and takes care not to
@@ -224,6 +246,8 @@ cfg_if::cfg_if! {
 
         const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = None;
 
+        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = None;
+
         // On Gimletlet we bring the extra GPIOs out to the uncommitted GPIO
         // headers.
         const ENABLES_PORT: gpio_api::Port = gpio_api::Port::E;
@@ -257,6 +281,16 @@ cfg_if::cfg_if! {
             1 << 6,
         ));
 
+        // gimlet-1 needs to have a pin flipped to mux the iCE40 SPI flash out
+        // of circuit to be able to program the FPGA, because we accidentally
+        // share a CS net between Flash and the iCE40.
+        //
+        // (port, mask, high_flag)
+        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = Some(&[
+            // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
+            (gpio_api::Port::I, 1 << 8, false),
+        ]);
+
         const ENABLES_PORT: gpio_api::Port = gpio_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;
         const ENABLE_V3P3_MASK: u16 = 1 << 4;
@@ -285,6 +319,8 @@ cfg_if::cfg_if! {
             gpio_api::Port::A,
             1 << 6,
         ));
+
+        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = None;
 
         const ENABLES_PORT: gpio_api::Port = gpio_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;

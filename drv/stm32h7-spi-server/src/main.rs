@@ -136,7 +136,9 @@ fn main() -> ! {
                     // a legal state change from the same sender.
 
                     // Reject out-of-range devices.
-                    let device = CONFIG.devices.get(devidx)
+                    let device = CONFIG
+                        .devices
+                        .get(devidx)
                         .ok_or(SpiError::BadDevice)?;
 
                     // If we're asserting CS, we want to *reset* the pin. If
@@ -169,11 +171,7 @@ fn main() -> ! {
                         // Deassert CS. If it wasn't asserted, this is a no-op.
                         // If it was, this fixes that.
                         gpio_driver
-                            .set_reset(
-                                device.cs.port,
-                                device.cs.pin_mask,
-                                0,
-                            )
+                            .set_reset(device.cs.port, device.cs.pin_mask, 0)
                             .unwrap();
                         lock_holder = None;
                         caller.reply(());
@@ -187,8 +185,8 @@ fn main() -> ! {
                     // We can take varying numbers of leases, so we'll do lease
                     // verification ourselves just below.
                     let lease_count = msg.lease_count();
-                    let (&device_index, caller) = msg.fixed::<u8, ()>()
-                        .ok_or(SpiError::BadArg)?;
+                    let (&device_index, caller) =
+                        msg.fixed::<u8, ()>().ok_or(SpiError::BadArg)?;
                     let device_index = usize::from(device_index);
 
                     // If we are locked, check that the caller isn't mistakenly
@@ -200,7 +198,9 @@ fn main() -> ! {
                     }
 
                     // Reject out-of-range devices.
-                    let device = CONFIG.devices.get(device_index)
+                    let device = CONFIG
+                        .devices
+                        .get(device_index)
                         .ok_or(SpiError::BadDevice)?;
 
                     // Inspect the message and generate two `Option<Borrow>`s
@@ -309,8 +309,14 @@ fn main() -> ! {
 
                     // Switch the mux to the requested port.
                     if device.mux_index != current_mux_index {
-                        deactivate_mux_option(&CONFIG.mux_options[current_mux_index], &gpio_driver);
-                        activate_mux_option(&CONFIG.mux_options[device.mux_index], &gpio_driver);
+                        deactivate_mux_option(
+                            &CONFIG.mux_options[current_mux_index],
+                            &gpio_driver,
+                        );
+                        activate_mux_option(
+                            &CONFIG.mux_options[device.mux_index],
+                            &gpio_driver,
+                        );
                         // Remember this for later to avoid unnecessary
                         // switching.
                         current_mux_index = device.mux_index;
@@ -349,11 +355,7 @@ fn main() -> ! {
                     let cs_override = lock_holder.is_some();
                     if !cs_override {
                         gpio_driver
-                            .set_reset(
-                                device.cs.port,
-                                0,
-                                device.cs.pin_mask,
-                            )
+                            .set_reset(device.cs.port, 0, device.cs.pin_mask)
                             .unwrap();
                     }
 
@@ -446,11 +448,7 @@ fn main() -> ! {
                     // Deassert (set) CS.
                     if !cs_override {
                         gpio_driver
-                            .set_reset(
-                                device.cs.port,
-                                device.cs.pin_mask,
-                                0,
-                            )
+                            .set_reset(device.cs.port, device.cs.pin_mask, 0)
                             .unwrap();
                     }
 
@@ -483,7 +481,8 @@ fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
             gpio_api::Speed::High,
             gpio_api::Pull::None,
             gpio_api::Alternate::AF0, // doesn't matter in GPIO mode
-        ).unwrap();
+        )
+        .unwrap();
     }
     // Switch input pin away from SPI peripheral to a GPIO input, which makes it
     // Hi-Z.
@@ -492,10 +491,11 @@ fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
         opt.input.0.pin_mask,
         gpio_api::Mode::Input,
         gpio_api::OutputType::PushPull, // doesn't matter
-        gpio_api::Speed::High, // doesn't matter
+        gpio_api::Speed::High,          // doesn't matter
         gpio_api::Pull::None,
         gpio_api::Alternate::AF0, // doesn't matter
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 fn activate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
@@ -509,7 +509,8 @@ fn activate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
             gpio_api::Speed::High,
             gpio_api::Pull::None,
             af,
-        ).unwrap();
+        )
+        .unwrap();
     }
     // And the input too.
     gpio.configure(
@@ -517,10 +518,11 @@ fn activate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
         opt.input.0.pin_mask,
         gpio_api::Mode::Alternate,
         gpio_api::OutputType::PushPull, // doesn't matter
-        gpio_api::Speed::High, // doesn't matter
+        gpio_api::Speed::High,          // doesn't matter
         gpio_api::Pull::None,
         opt.input.1,
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 //////////////////////////////////////////////////////////////////////////////
