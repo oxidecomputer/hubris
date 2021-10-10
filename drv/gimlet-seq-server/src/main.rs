@@ -241,7 +241,7 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
 
-        const ICE40_SPI_DEVICE: u8 = 2;
+        const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
@@ -272,7 +272,7 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
 
-        const ICE40_SPI_DEVICE: u8 = 2;
+        const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             creset_port: gpio_api::Port::D,
