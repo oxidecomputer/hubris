@@ -31,6 +31,13 @@ ringbuf!(Trace, 64, Trace::None);
 
 const IRQ_MASK: u32 = 1;
 
+#[derive(Copy, Clone, Debug)]
+struct LockState {
+    task: TaskId,
+    device_index: usize,
+    cs_state: CsState,
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     check_server_config();
@@ -57,6 +64,7 @@ fn main() -> ! {
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
     // Configure all devices' CS pins to be deasserted (set).
+    // We leave them in GPIO output mode from this point forward.
     for device in CONFIG.devices {
         gpio_driver
             .set_reset(device.cs.port, device.cs.pin_mask, 0)
@@ -74,78 +82,96 @@ fn main() -> ! {
             .unwrap();
     }
 
-    // TODO we are forcing device 0 for now until I revise the IPC interface to
-    // take a device index. From this point forward in the driver there is
-    // basically no real multi-device support.
-    let device = 0;
-    let mux_index = CONFIG.devices[device].mux_index;
-    for &(pinset, af) in CONFIG.mux_options[mux_index].configs {
-        gpio_driver
-            .configure(
-                pinset.port,
-                pinset.pin_mask,
-                gpio_api::Mode::Alternate,
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
-                af,
-            )
-            .unwrap();
+    // Initially, configure mux 0. This keeps us from having to deal with a "no
+    // mux selected" state.
+    //
+    // Note that the config check routine above ensured that there _is_ a mux
+    // option 0.
+    //
+    // We deactivate before activate to avoid pin clash if we previously crashed
+    // with one of these activated.
+    let mut current_mux_index = 0;
+    for opt in &CONFIG.mux_options[1..] {
+        deactivate_mux_option(&opt, &gpio_driver);
     }
+    activate_mux_option(&CONFIG.mux_options[0], &gpio_driver);
 
     // If we get a lock request, we'll update this with the task ID. We'll then
     // use it to decide between open and closed receive.
-    let mut lock_holder = None;
+    let mut lock_holder: Option<LockState> = None;
     loop {
         // Note: we process the result of recv at the bottom of the loop.
         let rr = hl::recv_from_without_notification(
-            // Task we're paying attention to, or None
-            lock_holder.map(|(tid, _)| tid),
-            // Our longest operation is one byte.
-            &mut [0],
+            // If we are locked, pass Some(taskid) to do a closed receive.
+            // Otherwise pass None to do an open receive.
+            lock_holder.map(|state| state.task),
+            // Our longest operation is two bytes (lock).
+            &mut [0; 2],
             |op, msg| match op {
                 Operation::Lock => {
-                    let (&cs_state, caller) =
-                        msg.fixed::<u8, ()>().ok_or(SpiError::BadArg)?;
-                    let cs_asserted = cs_state != 0;
+                    let (&[devidx, cs_state], caller) =
+                        msg.fixed::<[u8; 2], ()>().ok_or(SpiError::BadArg)?;
+                    let cs_state = if cs_state == 0 {
+                        CsState::NotAsserted
+                    } else {
+                        CsState::Asserted
+                    };
+                    let cs_asserted = cs_state == CsState::Asserted;
+                    let devidx = usize::from(devidx);
 
-                    // The fact that we have received this message at all means
-                    // that the lock is either free, or the sender holds the
-                    // lock. Juuuuust in case,
-                    let locking_ok = lock_holder
-                        .map(|(tid, _)| tid == caller.task_id())
-                        .unwrap_or(true);
-                    assert!(locking_ok);
+                    // If we are locked there are more rules:
+                    if let Some(lockstate) = &lock_holder {
+                        // The fact that we received this message _at all_ means
+                        // that the sender matched our closed receive, but just
+                        // in case we have a server logic bug, let's check.
+                        assert!(lockstate.task == caller.task_id());
+                        // The caller is not allowed to change the device index
+                        // once locked.
+                        if lockstate.device_index != devidx {
+                            return Err(SpiError::BadDevice);
+                        }
+                    }
+
+                    // OK! We are either (1) just locking now or (2) processing
+                    // a legal state change from the same sender.
+
+                    // Reject out-of-range devices.
+                    let device = CONFIG.devices.get(devidx)
+                        .ok_or(SpiError::BadDevice)?;
+
                     // If we're asserting CS, we want to *reset* the pin. If
                     // we're not, we want to *set* it. Because CS is active low.
-                    let pin_mask = CONFIG.devices[device].cs.pin_mask;
+                    let pin_mask = device.cs.pin_mask;
                     gpio_driver
                         .set_reset(
-                            CONFIG.devices[device].cs.port,
+                            device.cs.port,
                             if cs_asserted { 0 } else { pin_mask },
                             if cs_asserted { pin_mask } else { 0 },
                         )
                         .unwrap();
-                    lock_holder = Some((caller.task_id(), cs_asserted));
+                    lock_holder = Some(LockState {
+                        task: caller.task_id(),
+                        device_index: devidx,
+                        cs_state,
+                    });
                     caller.reply(());
                     Ok(())
                 }
                 Operation::Release => {
                     let ((), caller) = msg.fixed().ok_or(SpiError::BadArg)?;
-                    if lock_holder.is_some() {
+                    if let Some(lockstate) = &lock_holder {
                         // The fact that we were able to receive this means we
                         // should be locked by the sender...but double check.
-                        let release_ok = lock_holder
-                            .map(|(tid, _)| tid == caller.task_id())
-                            .expect("not locked");
-                        assert!(release_ok); // right sender
+                        assert!(lockstate.task == caller.task_id());
+
+                        let device = &CONFIG.devices[lockstate.device_index];
 
                         // Deassert CS. If it wasn't asserted, this is a no-op.
                         // If it was, this fixes that.
                         gpio_driver
                             .set_reset(
-                                CONFIG.devices[device].cs.port,
-                                CONFIG.devices[device].cs.pin_mask,
+                                device.cs.port,
+                                device.cs.pin_mask,
                                 0,
                             )
                             .unwrap();
@@ -161,7 +187,21 @@ fn main() -> ! {
                     // We can take varying numbers of leases, so we'll do lease
                     // verification ourselves just below.
                     let lease_count = msg.lease_count();
-                    let ((), caller) = msg.fixed().ok_or(SpiError::BadArg)?;
+                    let (&device_index, caller) = msg.fixed::<u8, ()>()
+                        .ok_or(SpiError::BadArg)?;
+                    let device_index = usize::from(device_index);
+
+                    // If we are locked, check that the caller isn't mistakenly
+                    // addressing the wrong device.
+                    if let Some(lockstate) = &lock_holder {
+                        if lockstate.device_index != device_index {
+                            return Err(SpiError::BadDevice);
+                        }
+                    }
+
+                    // Reject out-of-range devices.
+                    let device = CONFIG.devices.get(device_index)
+                        .ok_or(SpiError::BadDevice)?;
 
                     // Inspect the message and generate two `Option<Borrow>`s
                     // and a transfer length. Note: the two borrows may refer to
@@ -267,8 +307,18 @@ fn main() -> ! {
                     // reasonable-looking lease(s). This is our commit point.
                     ringbuf_entry!(Trace::Start(op, xfer_len));
 
+                    // Switch the mux to the requested port.
+                    if device.mux_index != current_mux_index {
+                        deactivate_mux_option(&CONFIG.mux_options[current_mux_index], &gpio_driver);
+                        activate_mux_option(&CONFIG.mux_options[device.mux_index], &gpio_driver);
+                        // Remember this for later to avoid unnecessary
+                        // switching.
+                        current_mux_index = device.mux_index;
+                    }
+
                     // Make sure SPI is on.
                     spi.enable(xfer_len.0 as u16);
+
                     // Load transfer count and start the state machine. At this
                     // point we _have_ to move the specified number of bytes
                     // through (or explicitly cancel, but we don't).
@@ -296,14 +346,13 @@ fn main() -> ! {
                     spi.clear_eot();
 
                     // We're doing this! Check if we need to control CS.
-                    let cs_override =
-                        lock_holder.map(|(_, over)| over).unwrap_or(false);
+                    let cs_override = lock_holder.is_some();
                     if !cs_override {
                         gpio_driver
                             .set_reset(
-                                CONFIG.devices[device].cs.port,
+                                device.cs.port,
                                 0,
-                                CONFIG.devices[device].cs.pin_mask,
+                                device.cs.pin_mask,
                             )
                             .unwrap();
                     }
@@ -398,8 +447,8 @@ fn main() -> ! {
                     if !cs_override {
                         gpio_driver
                             .set_reset(
-                                CONFIG.devices[device].cs.port,
-                                CONFIG.devices[device].cs.pin_mask,
+                                device.cs.port,
+                                device.cs.pin_mask,
                                 0,
                             )
                             .unwrap();
@@ -420,6 +469,58 @@ fn main() -> ! {
             lock_holder = None;
         }
     }
+}
+
+fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
+    // Drive all output pins low.
+    for &(pins, _af) in opt.outputs {
+        gpio.set_reset(pins.port, 0, pins.pin_mask).unwrap();
+        gpio.configure(
+            pins.port,
+            pins.pin_mask,
+            gpio_api::Mode::Output,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::High,
+            gpio_api::Pull::None,
+            gpio_api::Alternate::AF0, // doesn't matter in GPIO mode
+        ).unwrap();
+    }
+    // Switch input pin away from SPI peripheral to a GPIO input, which makes it
+    // Hi-Z.
+    gpio.configure(
+        opt.input.0.port,
+        opt.input.0.pin_mask,
+        gpio_api::Mode::Input,
+        gpio_api::OutputType::PushPull, // doesn't matter
+        gpio_api::Speed::High, // doesn't matter
+        gpio_api::Pull::None,
+        gpio_api::Alternate::AF0, // doesn't matter
+    ).unwrap();
+}
+
+fn activate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
+    // Switch all outputs to the SPI peripheral.
+    for &(pins, af) in opt.outputs {
+        gpio.configure(
+            pins.port,
+            pins.pin_mask,
+            gpio_api::Mode::Alternate,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::High,
+            gpio_api::Pull::None,
+            af,
+        ).unwrap();
+    }
+    // And the input too.
+    gpio.configure(
+        opt.input.0.port,
+        opt.input.0.pin_mask,
+        gpio_api::Mode::Alternate,
+        gpio_api::OutputType::PushPull, // doesn't matter
+        gpio_api::Speed::High, // doesn't matter
+        gpio_api::Pull::None,
+        opt.input.1,
+    ).unwrap();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -451,11 +552,20 @@ struct ServerConfig {
 /// A routing of the SPI controller onto pins.
 #[derive(Copy, Clone, Debug)]
 struct SpiMuxOption {
-    /// A list of config changes to apply to activate this mux option. This is a
-    /// list because some mux options are spread across multiple ports, or (in
-    /// at least one case) the pins in the same port require different AF
-    /// numbers to work.
-    configs: &'static [(PinSet, gpio_api::Alternate)],
+    /// A list of config changes to apply to activate the output pins of this
+    /// mux option. This is a list because some mux options are spread across
+    /// multiple ports, or (in at least one case) the pins in the same port
+    /// require different AF numbers to work.
+    ///
+    /// To disable the mux, we'll force these pins low. This is correct for SPI
+    /// mode 0/1 but not mode 2/3; fortunately we currently don't support mode
+    /// 2/3, so we can simplify.
+    outputs: &'static [(PinSet, gpio_api::Alternate)],
+    /// A list of config changes to apply to activate the input pins of this mux
+    /// option. This is _not_ a list because there's only one such pin, CIPO.
+    ///
+    /// To disable the mux, we'll switch this pin to HiZ.
+    input: (PinSet, gpio_api::Alternate),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -489,19 +599,27 @@ fn check_server_config() {
     // Mux options must be provided.
     assert!(!CONFIG.mux_options.is_empty());
     for muxopt in CONFIG.mux_options {
-        // Each mux option must contain at least one pin setting record.
-        assert!(!muxopt.configs.is_empty());
+        // Each mux option must contain at least one output config record.
+        assert!(!muxopt.outputs.is_empty());
         let mut total_pins = 0;
-        for (pinset, _af) in muxopt.configs {
+        for (pinset, _af) in muxopt.outputs {
             // Each config must apply to at least one pin.
             assert!(pinset.pin_mask != 0);
+            // If this is the same port as the input pin, it must not _include_
+            // the input pin.
+            if pinset.port == muxopt.input.0.port {
+                assert!(pinset.pin_mask & muxopt.input.0.pin_mask == 0);
+            }
             // We're counting how many total pins are controlled here.
             total_pins += pinset.pin_mask.count_ones();
         }
-        // There should be three affected pins (MISO, MOSI, SCK). This check
+        // There should be two affected output pins (COPI, SCK). This check
         // prevents people from being clever and trying to mux SPI to two
-        // locations simultaneously, which Does Not Work.
-        assert!(total_pins == 3);
+        // locations simultaneously, which Does Not Work. It also catches
+        // mistakenly including CIPO in the outputs set.
+        assert!(total_pins == 2);
+        // There should be exactly one pin in the input set.
+        assert!(muxopt.input.0.pin_mask.count_ones() == 1);
     }
     // At least one device must be defined.
     assert!(!CONFIG.devices.is_empty());
@@ -523,15 +641,22 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi2,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::I,
-                                pin_mask: (1 << 1) | (1 << 2) | (1 << 3),
+                                pin_mask: (1 << 1) | (1 << 3),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::I,
+                            pin_mask: 1 << 2,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
@@ -548,17 +673,24 @@ cfg_if::cfg_if! {
             registers: device::SPI4::ptr(),
             peripheral: rcc_api::Peripheral::Spi4,
             mux_options: &[
+                // SPI4 is only muxed to one position.
                 SpiMuxOption {
-                    configs: &[
-                        // SPI4 is only muxed to one position.
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::E,
-                                pin_mask: (1 << 2) | (1 << 5) | (1 << 6),
+                                pin_mask: (1 << 2) | (1 << 6),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::E,
+                            pin_mask: 1 << 5,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
@@ -578,15 +710,22 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi3,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::C,
-                                pin_mask: (1 << 10) | (1 << 11) | (1 << 12),
+                                pin_mask: (1 << 10) | (1 << 12),
                             },
                             gpio_api::Alternate::AF6,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::C,
+                            pin_mask: 1 << 11,
+                        },
+                        gpio_api::Alternate::AF6,
+                    ),
                 },
             ],
             devices: &[
@@ -602,15 +741,22 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi4,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::E,
-                                pin_mask: (1 << 12) | (1 << 13) | (1 << 14),
+                                pin_mask: (1 << 12) | (1 << 13),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::E,
+                            pin_mask: 1 << 14,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
@@ -626,15 +772,22 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi6,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::G,
-                                pin_mask: (1 << 12) | (1 << 13) | (1 << 14),
+                                pin_mask: (1 << 13) | (1 << 14),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::G,
+                            pin_mask: 1 << 12,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
@@ -654,45 +807,68 @@ cfg_if::cfg_if! {
             mux_options: &[
                 // Mux option 0 is on port I3:0.
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::I,
-                                pin_mask: (1 << 1) | (1 << 2) | (1 << 3),
+                                pin_mask: (1 << 1) | (1 << 3),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::I,
+                            pin_mask: 1 << 2,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
                 // Mux option 1 is on port B15:13.
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::B,
-                                pin_mask: (1 << 13) | (1 << 14) | (1 << 15),
+                                pin_mask: (1 << 13) | (1 << 14),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::B,
+                            pin_mask: 1 << 15,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
-                // Device 0 is the sequencer (U476).
-                // Shares port B with the flash.
+                // Device 0 is the sequencer logic (design inside U476).
+                // Shares port B with the flash and its own programming
+                // interface.
+                // CS is SP_TO_SEQ_MISC_B.
+                DeviceDescriptor {
+                    mux_index: 1,
+                    cs: PinSet { port: gpio_api::Port::H, pin_mask: 1 << 4 },
+                },
+                // Device 1 is the U476's iCE40 programming interface.
+                // Shares port B with the the other version of U476 and the
+                // flash.
                 // CS is SP_TO_SEQ_SPI_CS2.
                 DeviceDescriptor {
                     mux_index: 1,
                     cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 0 },
                 },
-                // Device 1 is the KSZ8463 switch (U401).
+                // Device 2 is the KSZ8463 switch (U401).
                 // Connected on port I.
                 // CS is SPI_SP_TO_MGMT_MUX_CSN.
                 DeviceDescriptor {
                     mux_index: 0,
                     cs: PinSet { port: gpio_api::Port::I, pin_mask: 1 << 0 },
                 },
-                // Device 2 is the local flash (U557).
+                // Device 3 is the local flash (U557).
                 // Shares port B with the sequencer.
                 // CS is SP_TO_FLASH_SPI_CS.
                 DeviceDescriptor {
@@ -707,16 +883,23 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi4,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         // SPI4 is only muxed to one position.
                         (
                             PinSet {
                                 port: gpio_api::Port::E,
-                                pin_mask: (1 << 2) | (1 << 5) | (1 << 6),
+                                pin_mask: (1 << 2) | (1 << 6),
                             },
                             gpio_api::Alternate::AF5,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::E,
+                            pin_mask: 1 << 5,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
                 },
             ],
             devices: &[
@@ -737,11 +920,11 @@ cfg_if::cfg_if! {
             peripheral: rcc_api::Peripheral::Spi3,
             mux_options: &[
                 SpiMuxOption {
-                    configs: &[
+                    outputs: &[
                         (
                             PinSet {
                                 port: gpio_api::Port::B,
-                                pin_mask: (1 << 3) | (1 << 4),
+                                pin_mask: 1 << 3,
                             },
                             gpio_api::Alternate::AF6,
                         ),
@@ -753,6 +936,13 @@ cfg_if::cfg_if! {
                             gpio_api::Alternate::AF7,
                         ),
                     ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::B,
+                            pin_mask: 1 << 4,
+                        },
+                        gpio_api::Alternate::AF6,
+                    ),
                 },
             ],
             devices: &[

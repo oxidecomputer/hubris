@@ -158,7 +158,8 @@ fn main() -> ! {
 
         // Reprogramming will continue until morale improves.
         loop {
-            match reprogram_fpga(&spi, &gpio, &ICE40_CONFIG) {
+            let prog = spi.device(ICE40_SPI_DEVICE);
+            match reprogram_fpga(&prog, &gpio, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
                     break;
@@ -167,7 +168,7 @@ fn main() -> ! {
                     // Try and put state back to something reasonable.
                     // We don't know if we're still locked, so ignore the complaint
                     // if we're not.
-                    let _ = spi.release();
+                    let _ = prog.release();
                     // We're gonna try again.
                 }
             }
@@ -188,7 +189,7 @@ fn main() -> ! {
 }
 
 fn reprogram_fpga(
-    spi: &spi_api::Spi,
+    spi: &spi_api::SpiDevice,
     gpio: &gpio_api::Gpio,
     config: &ice40::Config,
 ) -> Result<(), ice40::Ice40Error> {
@@ -211,6 +212,8 @@ cfg_if::cfg_if! {
     if #[cfg(target_board = "gimletlet-2")] {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi_driver);
+
+        const ICE40_SPI_DEVICE: u8 = 0;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             creset_port: gpio_api::Port::B,
@@ -238,6 +241,8 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
 
+        const ICE40_SPI_DEVICE: u8 = 2;
+
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
             creset_port: gpio_api::Port::D,
@@ -260,6 +265,34 @@ cfg_if::cfg_if! {
         const PG_V1P2_MASK: u16 = 1 << 7;
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
+        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
+    } else if #[cfg(feature = "standalone")] {
+        // This is all nonsense to get xtask check to work.
+
+        declare_task!(GPIO, gpio_driver);
+        declare_task!(SPI, spi4_driver);
+
+        const ICE40_SPI_DEVICE: u8 = 2;
+
+        const ICE40_CONFIG: ice40::Config = ice40::Config {
+            creset_port: gpio_api::Port::D,
+            creset_pin_mask: 1 << 5,
+            cdone_port: gpio_api::Port::B,
+            cdone_pin_mask: 1 << 4,
+        };
+
+        const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = Some((
+            gpio_api::Port::A,
+            1 << 6,
+        ));
+
+        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::A;
+        const ENABLE_V1P2_MASK: u16 = 1 << 15;
+        const ENABLE_V3P3_MASK: u16 = 1 << 4;
+
+        const PGS_PORT: gpio_api::Port = gpio_api::Port::C;
+        const PG_V1P2_MASK: u16 = 1 << 7;
+        const PG_V3P3_MASK: u16 = 1 << 6;
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
     } else {
         compiler_error!("unsupported target board");
