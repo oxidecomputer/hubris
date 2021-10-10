@@ -199,7 +199,7 @@ fn main() -> ! {
                             // operation they've requested.
                             let borrow = caller.borrow(0);
                             let info =
-                                borrow.info().ok_or(SpiError::BadLeaseArg)?;
+                                borrow.info().ok_or(SpiError::BadLeaseCount)?;
 
                             // Note that the attributes _we_ require are the
                             // inverse of the sense of the SPI operation, e.g.
@@ -237,8 +237,9 @@ fn main() -> ! {
                             // the receive buffer exceeds the transmit buffer,
                             // a zero byte will be put on the wire.
                             let src_borrow = caller.borrow(0);
-                            let src_info =
-                                src_borrow.info().ok_or(SpiError::BadSource)?;
+                            let src_info = src_borrow
+                                .info()
+                                .ok_or(SpiError::BadLeaseCount)?;
 
                             if !src_info
                                 .attributes
@@ -248,8 +249,9 @@ fn main() -> ! {
                             }
 
                             let dst_borrow = caller.borrow(1);
-                            let dst_info =
-                                dst_borrow.info().ok_or(SpiError::BadSink)?;
+                            let dst_info = dst_borrow
+                                .info()
+                                .ok_or(SpiError::BadLeaseCount)?;
 
                             if !dst_info
                                 .attributes
