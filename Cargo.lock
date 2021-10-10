@@ -553,6 +553,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-spiflash-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "byteorder",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
@@ -631,6 +642,24 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "userlib",
+]
+
+[[package]]
+name = "drv-stm32h7-qspi"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-spiflash-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+ "vcell",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1903,6 +1932,7 @@ dependencies = [
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-spi-api",
+ "drv-spiflash-api",
  "drv-stm32h7-gpio-api",
  "hif",
  "num-traits",
