@@ -123,7 +123,7 @@ start = true
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["itm", "i2c"]
+features = ["itm", "i2c", "spiflash"]
 priority = 3
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
@@ -145,6 +145,17 @@ priority = 5
 requires = {flash = 256, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.spiflash_driver]
+path = "../drv/stm32h7-qspi"
+name = "drv-stm32h7-qspi"
+features = ["h743"]
+priority = 2
+requires = {flash = 16384, ram = 2048}
+uses = ["quadspi"]
+start = true
+interrupts = {92 = 1}
+stacksize = 1000
 
 [peripherals.rcc]
 address = 0x58024400
@@ -206,3 +217,6 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[peripherals.quadspi]
+address = 0x52005000
+size = 1024

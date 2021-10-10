@@ -1,0 +1,38 @@
+[package]
+name = "drv-stm32h7-qspi"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>", "Ben Stoltz <ben.stoltz@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../userlib"}
+ringbuf = {path = "../../ringbuf"}
+zerocopy = "0.3.0"
+num-traits = { version = "0.2.12", default-features = false }
+drv-spiflash-api = {path = "../spiflash-api"}
+drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
+drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", features = ["h743"]}
+vcell = "0.1.2"
+cortex-m = "0.7"
+cfg-if = "0.1.10"
+
+stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
+
+[build-dependencies]
+build-util = {path = "../../build-util"}
+
+[features]
+default = ["standalone"]
+standalone = [ "h743" ]
+h743 = ["stm32h7/stm32h743"]
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32h7-qspi"
+test = false
+bench = false

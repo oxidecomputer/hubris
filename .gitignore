@@ -1,2 +1,4 @@
 target/
 itm.txt
+**/rusty-tags.*
+**/.*.swp

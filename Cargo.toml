@@ -39,6 +39,7 @@ members = [
 
     "drv/stm32h7-gpio",
     "drv/stm32h7-gpio-api",
+    "drv/stm32h7-qspi",
     "drv/stm32h7-rcc",
     "drv/stm32h7-rcc-api",
     "drv/stm32h7-spi",
