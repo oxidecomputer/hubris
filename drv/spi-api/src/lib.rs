@@ -154,7 +154,11 @@ impl Spi {
     ///
     /// If the controller is not locked, this will assert CS before driving the
     /// clock and release it after.
-    pub fn write(&self, device_index: u8, source: &[u8]) -> Result<(), SpiError> {
+    pub fn write(
+        &self,
+        device_index: u8,
+        source: &[u8],
+    ) -> Result<(), SpiError> {
         let task = self.0.get();
 
         let (code, _) = sys_send(
@@ -174,7 +178,11 @@ impl Spi {
     ///
     /// If the controller is not locked, this will assert CS before driving the
     /// clock and release it after.
-    pub fn read(&self, device_index: u8, dest: &mut [u8]) -> Result<(), SpiError> {
+    pub fn read(
+        &self,
+        device_index: u8,
+        dest: &mut [u8],
+    ) -> Result<(), SpiError> {
         let task = self.0.get();
 
         let (code, _) = sys_send(
@@ -206,7 +214,11 @@ impl Spi {
     /// per-transaction CS control again. However, if you call `lock` more than
     /// once, you must keep the same `device_index`. To change devices, use
     /// `release` first.
-    pub fn lock(&self, device_index: u8, assert_cs: CsState) -> Result<(), SpiError> {
+    pub fn lock(
+        &self,
+        device_index: u8,
+        assert_cs: CsState,
+    ) -> Result<(), SpiError> {
         let task = self.0.get();
 
         let (code, _) = sys_send(
@@ -225,7 +237,11 @@ impl Spi {
     /// operations while locked.
     ///
     /// Otherwise, the rules are the same as for `lock`.
-    pub fn lock_auto(&self, device_index: u8, assert_cs: CsState) -> Result<ControllerLock, SpiError> {
+    pub fn lock_auto(
+        &self,
+        device_index: u8,
+        assert_cs: CsState,
+    ) -> Result<ControllerLock, SpiError> {
         self.lock(device_index, assert_cs)?;
         Ok(ControllerLock(self))
     }
@@ -338,7 +354,10 @@ impl SpiDevice {
     /// operations while locked.
     ///
     /// Otherwise, the rules are the same as for `lock`.
-    pub fn lock_auto(&self, assert_cs: CsState) -> Result<ControllerLock, SpiError> {
+    pub fn lock_auto(
+        &self,
+        assert_cs: CsState,
+    ) -> Result<ControllerLock, SpiError> {
         self.server.lock_auto(self.device_index, assert_cs)
     }
 
@@ -352,5 +371,3 @@ impl SpiDevice {
         self.server.release()
     }
 }
-
-
