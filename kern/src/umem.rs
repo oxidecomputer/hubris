@@ -37,14 +37,19 @@ impl<T> USlice<T> {
     /// Constructs a `USlice` given a base address and length passed from
     /// untrusted code.
     ///
-    /// This will only succeed if such a slice would not overlap the top of the
-    /// address space, and if `base_address` is correctly aligned for `T`.
+    /// This will only succeed if such a slice would not overlap or touch the
+    /// top of the address space, and if `base_address` is correctly aligned for
+    /// `T`.
     ///
     /// This method will categorically reject zero-sized T.
     pub fn from_raw(
         base_address: usize,
         length: usize,
     ) -> Result<Self, UsageError> {
+        // NOTE: the properties checked here are critical for the correctness of
+        // this type. Think carefully before loosening any of them, or adding a
+        // second way to construct a USlice.
+
         // ZST check, should resolve at compile time:
         uassert!(core::mem::size_of::<T>() != 0);
 
@@ -53,12 +58,12 @@ impl<T> USlice<T> {
             return Err(UsageError::InvalidSlice);
         }
         // Check that a slice of `length` `T`s can even exist starting at
-        // `base_address`, without wrapping around. This check is slightly
-        // complicated by a desire to _allow_ slices that end at the top of the
-        // address space.
+        // `base_address`, without wrapping around.
         let size_in_bytes = length
             .checked_mul(core::mem::size_of::<T>())
             .ok_or(UsageError::InvalidSlice)?;
+        // Note: this subtraction cannot underflow. You can subtract any usize
+        // from usize::MAX.
         let highest_possible_base = core::usize::MAX - size_in_bytes;
         if base_address <= highest_possible_base {
             Ok(Self {
@@ -99,17 +104,36 @@ impl<T> USlice<T> {
         self.base_address
     }
 
+    /// Returns the end address of the slice, which is the address one past its
+    /// final byte -- or its base address if it's empty.
+    pub fn end_addr(&self) -> usize {
+        // Compute the size using an unchecked multiplication. Why can we do
+        // this? Because we checked that this multiplication does not overflow
+        // at construction above. Using an unchecked multiply here removes some
+        // instructions.
+        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
+        self.base_address.wrapping_add(size_in_bytes)
+    }
+
     /// Returns the *highest* address in this slice, inclusive.
     ///
     /// This produces `None` if the slice is empty.
     pub fn last_byte_addr(&self) -> Option<usize> {
-        // This implementation would be wrong for ZSTs, but we blocked them at
-        // construction.
-        let size_in_bytes = self.length * core::mem::size_of::<T>();
+        // This implementation would be wrong for ZSTs (it would indicate any
+        // slice of ZSTs as empty), but we blocked them at construction.
+
+        // Compute the size using an unchecked multiplication. Why can we do
+        // this? Because we checked that this multiplication does not overflow
+        // at construction above. Using an unchecked multiply here removes some
+        // instructions.
+        let size_in_bytes = self.length.wrapping_mul(core::mem::size_of::<T>());
         if size_in_bytes == 0 {
             None
         } else {
             Some(
+                // Note: wrapping operations are safe here because we checked
+                // that the slice doesn't overlap the end of the address space
+                // at construction.
                 self.base_address
                     .wrapping_add(size_in_bytes)
                     .wrapping_sub(1),
@@ -255,40 +279,31 @@ pub fn safe_copy(
     to: &Task,
     mut to_slice: USlice<u8>,
 ) -> Result<usize, InteractFault> {
-    let src_fault = if from.can_read(&from_slice) {
-        None
-    } else {
-        Some(FaultInfo::MemoryAccess {
-            address: Some(from_slice.base_address as u32),
-            source: FaultSource::Kernel,
-        })
-    };
+    let copy_len = from_slice.len().min(to_slice.len());
+
+    let src = from.try_read(&from_slice);
     // We're going to blame any aliasing on the recipient, who shouldn't have
     // designated a receive buffer in shared memory. This decision is somewhat
     // arbitrary.
-    let dst_fault = if to.can_write(&to_slice) && !from_slice.aliases(&to_slice)
-    {
-        None
-    } else {
-        Some(FaultInfo::MemoryAccess {
+    let dst = if from_slice.aliases(&to_slice) {
+        Err(FaultInfo::MemoryAccess {
             address: Some(to_slice.base_address as u32),
             source: FaultSource::Kernel,
         })
+    } else {
+        to.try_write(&mut to_slice)
     };
-    if src_fault.is_some() || dst_fault.is_some() {
-        return Err(InteractFault {
-            src: src_fault,
-            dst: dst_fault,
-        });
-    }
 
-    // We are now convinced, after querying the tasks, that these RAM areas are
-    // legit.
-    // TODO: this next bit assumes that task memory is directly addressable --
-    // an assumption that is likely to be invalid in a simulator.
-    let copy_len = from_slice.len().min(to_slice.len());
-    let from = unsafe { from_slice.assume_readable() };
-    let to = unsafe { to_slice.assume_writable() };
-    to[..copy_len].copy_from_slice(&from[..copy_len]);
-    Ok(copy_len)
+    match (src, dst) {
+        (Ok(from), Ok(to)) => {
+            // We are now convinced, after querying the tasks, that these RAM
+            // areas are legit.
+            to[..copy_len].copy_from_slice(&from[..copy_len]);
+            Ok(copy_len)
+        }
+        (src, dst) => Err(InteractFault {
+            src: src.err(),
+            dst: dst.err(),
+        }),
+    }
 }

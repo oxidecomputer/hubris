@@ -3,8 +3,10 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use abi::{
-    FaultInfo, Generation, Priority, SchedState, TaskId, TaskState, UsageError,
+    FaultInfo, FaultSource, Generation, Priority, SchedState, TaskId,
+    TaskState, UsageError,
 };
+use zerocopy::FromBytes;
 
 use crate::app::{
     RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags,
@@ -90,16 +92,70 @@ impl Task {
     /// This is used to validate kernel accessses to the memory.
     ///
     /// This is shorthand for `can_access(slice, RegionAttributes::READ)`.
-    pub fn can_read<T>(&self, slice: &USlice<T>) -> bool {
+    ///
+    /// This function is `must_use` because calling it without checking its
+    /// return value is incredibly suspicious.
+    #[must_use]
+    fn can_read<T>(&self, slice: &USlice<T>) -> bool {
         self.can_access(slice, RegionAttributes::READ)
+    }
+
+    /// Obtains access to the memory backing `slice` as a Rust slice, assuming
+    /// that the task `self` can access it for read. This is used to access task
+    /// memory from the kernel in validated form.
+    pub fn try_read<'a, T>(
+        &self,
+        slice: &'a USlice<T>,
+    ) -> Result<&'a [T], FaultInfo>
+    where
+        T: FromBytes,
+    {
+        if self.can_read(slice) {
+            // Safety: assume_readable requires us to have validated that the
+            // slice refers to normal task memory, which we did on the previous
+            // line.
+            unsafe { Ok(slice.assume_readable()) }
+        } else {
+            Err(FaultInfo::MemoryAccess {
+                address: Some(slice.base_addr() as u32),
+                source: FaultSource::Kernel,
+            })
+        }
     }
 
     /// Tests whether this task has write access to `slice` as normal memory.
     /// This is used to validate kernel accessses to the memory.
     ///
     /// This is shorthand for `can_access(slice, RegionAttributes::WRITE)`.
-    pub fn can_write<T>(&self, slice: &USlice<T>) -> bool {
+    ///
+    /// This function is `must_use` because calling it without checking its
+    /// return value is incredibly suspicious.
+    #[must_use]
+    fn can_write<T>(&self, slice: &USlice<T>) -> bool {
         self.can_access(slice, RegionAttributes::WRITE)
+    }
+
+    /// Obtains access to the memory backing `slice` as a Rust slice, assuming
+    /// that the task `self` can access it for write. This is used to access task
+    /// memory from the kernel in validated form.
+    pub fn try_write<'a, T>(
+        &self,
+        slice: &'a mut USlice<T>,
+    ) -> Result<&'a mut [T], FaultInfo>
+    where
+        T: FromBytes,
+    {
+        if self.can_write(slice) {
+            // Safety: assume_writable requires us to have validated that the
+            // slice refers to normal task memory, which we did on the previous
+            // line.
+            unsafe { Ok(slice.assume_writable()) }
+        } else {
+            Err(FaultInfo::MemoryAccess {
+                address: Some(slice.base_addr() as u32),
+                source: FaultSource::Kernel,
+            })
+        }
     }
 
     /// Tests whether this task has access to `slice` as normal memory with
@@ -111,11 +167,11 @@ impl Task {
     /// A normal call would pass something like `RegionAttributes::READ`.
     ///
     /// Note that all tasks can "access" any empty slice.
-    pub fn can_access<T>(
-        &self,
-        slice: &USlice<T>,
-        atts: RegionAttributes,
-    ) -> bool {
+    ///
+    /// This function is `must_use` because calling it without checking its
+    /// return value is incredibly suspicious.
+    #[must_use]
+    fn can_access<T>(&self, slice: &USlice<T>, atts: RegionAttributes) -> bool {
         if slice.is_empty() {
             // We deliberately omit tests for empty slices, as they confer no
             // authority as far as the kernel is concerned. This is pretty
