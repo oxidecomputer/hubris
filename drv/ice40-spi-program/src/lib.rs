@@ -22,7 +22,7 @@
 
 #![no_std]
 
-use drv_spi_api::{self as spi_api, Spi};
+use drv_spi_api::{self as spi_api, SpiDevice};
 use drv_stm32h7_gpio_api::{self as gpio_api, Gpio};
 use userlib::hl;
 
@@ -104,7 +104,7 @@ pub fn configure_pins(gpio: &Gpio, config: &Config) {
 /// If programming fails, you can call this again to restart. If you want to
 /// abort programming after a failure, use `spi.release()`.
 pub fn begin_bitstream_load(
-    spi: &Spi,
+    spi: &SpiDevice,
     gpio: &Gpio,
     config: &Config,
 ) -> Result<(), Ice40Error> {
@@ -161,7 +161,7 @@ pub fn begin_bitstream_load(
 /// Note that there is a 64kiB limitation in the current SPI controller, so,
 /// if you hit that you will get a `SpiError` back.
 pub fn continue_bitstream_load(
-    spi: &Spi,
+    spi: &SpiDevice,
     data: &[u8],
 ) -> Result<(), spi_api::SpiError> {
     // Loading the remainder of the bitstream is a simple matter of...
@@ -173,7 +173,7 @@ pub fn continue_bitstream_load(
 ///
 /// This also unlocks the SPI controller.
 pub fn finish_bitstream_load(
-    spi: &Spi,
+    spi: &SpiDevice,
     gpio: &Gpio,
     config: &Config,
 ) -> Result<(), Ice40Error> {

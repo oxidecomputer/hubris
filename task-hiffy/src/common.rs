@@ -72,7 +72,9 @@ pub(crate) fn spi_read(
 
     let spi = drv_spi_api::Spi::from(task);
 
-    match spi.exchange(&data[0..len], &mut rval[0..rlen]) {
+    // TODO: hiffy currently always issues SPI commands to device 0. It is worth
+    // changing this at some point.
+    match spi.exchange(0, &data[0..len], &mut rval[0..rlen]) {
         Ok(_) => Ok(rlen),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -92,7 +94,9 @@ pub(crate) fn spi_write(
 
     let spi = drv_spi_api::Spi::from(task);
 
-    match spi.write(&data[0..len]) {
+    // TODO: hiffy currently always issues SPI commands to device 0. It is worth
+    // changing this at some point.
+    match spi.write(0, &data[0..len]) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
