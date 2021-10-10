@@ -168,16 +168,15 @@ fn configure_pins() {
     let gpio_driver = get_task_id(GPIO);
     let gpio_driver = Gpio::from(gpio_driver);
 
+    // TODO these are really board configs, not SoC configs!
     #[cfg(feature = "h7b3")]
-    const TX_RX_MASK: (Port, u16) = (Port::A, (1 << 9) | (1 << 10));
+    const TX_RX_MASK: PinSet = Port::A.pin(9).and_pin(10);
     #[cfg(feature = "h743")]
-    const TX_RX_MASK: (Port, u16) = (Port::D, (1 << 8) | (1 << 9));
+    const TX_RX_MASK: PinSet = Port::D.pin(8).and_pin(9);
 
     gpio_driver
-        .configure(
-            TX_RX_MASK.0,
-            TX_RX_MASK.1,
-            Mode::Alternate,
+        .configure_alternate(
+            TX_RX_MASK,
             OutputType::PushPull,
             Speed::High,
             Pull::None,
