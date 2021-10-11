@@ -132,6 +132,10 @@ impl Spi {
         sr.eot().bit()
     }
 
+    pub fn set_data_line_swap(&self, flag: bool) {
+        self.reg.cfg2.modify(|_, w| w.ioswp().bit(flag));
+    }
+
     /// Stuffs one byte of data into the SPI TX FIFO.
     ///
     /// Preconditions:

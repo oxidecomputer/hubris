@@ -55,6 +55,18 @@ fn main() -> ! {
     )
     .unwrap();
 
+    // To talk to the sequencer we need to configure its pins, obvs. Note that
+    // the SPI and CS lines are separately managed by the SPI server; the ice40
+    // crate handles the CRESETB and CDONE signals, and takes care not to
+    // generate surprise resets.
+    ice40::configure_pins(&gpio, &ICE40_CONFIG);
+
+    // Force iCE40 CRESETB low before turning power on. This is nice because it
+    // prevents the iCE40 from racing us and deciding it should try to load from
+    // Flash. TODO: this may cause trouble with hot restarts, test.
+    gpio.set_reset(ICE40_CONFIG.creset_port, 0, ICE40_CONFIG.creset_pin_mask)
+        .unwrap();
+
     // Begin, or resume, the power supply sequencing process for the FPGA. We're
     // going to be reading back our enable line states to get the real state
     // being seen by the regulators, etc.
@@ -106,14 +118,18 @@ fn main() -> ! {
     }
 
     // Now, V2P5 is chained off V3P3 and comes up on its own with no
-    // synchronization. It takes about 500us in practice. We'll delay for
-    hl::sleep_for(1);
+    // synchronization. It takes about 500us in practice. We'll delay for 1ms,
+    // plus give the iCE40 a good 10ms to come out of power-down.
+    hl::sleep_for(1 + 10);
 
     // Sequencer FPGA power supply sequencing (meta-sequencing?) is complete.
 
     // Now, let's find out if we need to program the sequencer.
 
     if let Some(hacks) = FPGA_HACK_PINS {
+        // Some boards require certain pins to be put in certain states before
+        // we can perform SPI communication with the design (rather than the
+        // programming port). If this is such a board, apply those changes:
         for &(port, pin_mask, is_high) in hacks {
             gpio.set_reset(
                 port,
@@ -134,12 +150,6 @@ fn main() -> ! {
             .unwrap();
         }
     }
-
-    // To talk to the sequencer we need to configure its pins, obvs. Note that
-    // the SPI and CS lines are separately managed by the SPI server; the ice40
-    // crate handles the CRESETB and CDONE signals, and takes care not to
-    // generate surprise resets.
-    ice40::configure_pins(&gpio, &ICE40_CONFIG);
 
     if let Some((port, pin_mask)) = GLOBAL_RESET {
         // Also configure our design reset net -- the signal that resets the
@@ -263,7 +273,7 @@ cfg_if::cfg_if! {
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
     } else if #[cfg(target_board = "gimlet-1")] {
         declare_task!(GPIO, gpio_driver);
-        declare_task!(SPI, spi4_driver);
+        declare_task!(SPI, spi2_driver);
 
         const ICE40_SPI_DEVICE: u8 = 1;
 
