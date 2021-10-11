@@ -30,10 +30,8 @@ fn configure_pin(pin: &I2cPin) {
     let gpio_driver = Gpio::from(gpio_driver);
 
     gpio_driver
-        .configure(
-            pin.gpio_port,
-            pin.mask,
-            Mode::Alternate,
+        .configure_alternate(
+            pin.gpio_pins,
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,
@@ -63,9 +61,8 @@ fn main() -> ! {
             let pin = I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 0) | (1 << 1),
             };
         }
         else if #[cfg(target_board = "gimlet-1")] {
@@ -82,9 +79,8 @@ fn main() -> ! {
             let pin = I2cPin {
                 controller: Controller::I2C1,
                 port: Port::B,
-                gpio_port: drv_stm32h7_gpio_api::Port::B,
+                gpio_pins: drv_stm32h7_gpio_api::Port::B.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 6) | (1 << 7),
             };
         }
         else {
@@ -99,9 +95,8 @@ fn main() -> ! {
                     let pin = I2cPin {
                         controller: Controller::I2C2,
                         port: Port::F,
-                        gpio_port: drv_stm32h7_gpio_api::Port::F,
+                        gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                         function: Alternate::AF4,
-                        mask: (1 << 0) | (1 << 1),
                     };
                 } else {
                     compile_error!("I2C target unsupported for this board");

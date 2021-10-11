@@ -24,9 +24,8 @@ use userlib::*;
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::Port,
-    pub gpio_port: drv_stm32h7_gpio_api::Port,
+    pub gpio_pins: drv_stm32h7_gpio_api::PinSet,
     pub function: drv_stm32h7_gpio_api::Alternate,
-    pub mask: u16,
 }
 
 pub struct I2cController<'a> {
@@ -148,18 +147,17 @@ impl<'a> I2cMux<'_> {
         gpio: &drv_stm32h7_gpio_api::Gpio,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         if let Some(pin) = &self.enable {
-            gpio.configure(
-                pin.gpio_port,
-                pin.mask,
-                drv_stm32h7_gpio_api::Mode::Output,
+            // Set the pins to high _before_ switching to output to avoid
+            // glitching.
+            gpio.set(pin.gpio_pins).unwrap();
+            // Now, expose them as outputs.
+            gpio.configure_output(
+                pin.gpio_pins,
                 drv_stm32h7_gpio_api::OutputType::PushPull,
                 drv_stm32h7_gpio_api::Speed::High,
                 drv_stm32h7_gpio_api::Pull::None,
-                pin.function,
             )
             .unwrap();
-
-            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
         }
 
         Ok(())
@@ -170,8 +168,8 @@ impl<'a> I2cMux<'_> {
         gpio: &drv_stm32h7_gpio_api::Gpio,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         if let Some(pin) = &self.enable {
-            gpio.set_reset(pin.gpio_port, 0, pin.mask).unwrap();
-            gpio.set_reset(pin.gpio_port, pin.mask, 0).unwrap();
+            gpio.reset(pin.gpio_pins).unwrap();
+            gpio.set(pin.gpio_pins).unwrap();
         }
 
         Ok(())
