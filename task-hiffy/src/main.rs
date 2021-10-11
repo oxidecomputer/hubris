@@ -80,6 +80,9 @@ enum Trace {
     ),
     #[cfg(feature = "gpio")]
     GpioInput(drv_stm32h7_gpio_api::Port),
+    SpiFlashArgs(Instruction, Option<u32>, Option<u32>),
+    SpiFlashGetCount(usize),
+    SpiFlashGetError(drv_spiflash_api::ResponseCode),
     Success,
     None,
 }
@@ -615,6 +618,13 @@ fn spiflash_args(
     stack: &[Option<u32>],
 ) -> Result<(Instruction, Option<u32>, Option<u32>), Failure>
 {
+    match stack.len() {
+        3 => (),
+        2 => return Err(Failure::Fault(Fault::EmptyParameter(2))),
+        1 => return Err(Failure::Fault(Fault::EmptyParameter(1))),
+        0 => return Err(Failure::Fault(Fault::EmptyParameter(0))),
+        _ => return Err(Failure::Fault(Fault::BadParameter(stack.len() as u8))),
+    }
     let instruction = match stack[0] {
         Some(instruction) => match Instruction::from_u8(instruction as u8) {
             Some(instruction) => instruction,
@@ -628,11 +638,12 @@ fn spiflash_args(
         None => None,
     };
 
-    let dlen = match stack[3] {
+    let dlen = match stack[2] {
         Some(dlen) => Some(dlen as u32),
         None => None,
     };
 
+    ringbuf_entry!(Trace::SpiFlashArgs(instruction, addr, dlen));
     Ok((instruction, addr, dlen))
 }
 
@@ -647,7 +658,7 @@ fn spiflash_read(
     }
 
     let fp = stack.len() - 3;
-    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 2])?;
+    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 3])?;
 
     if dlen.is_some() && dlen.unwrap() as usize > data.len() {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
@@ -681,7 +692,7 @@ fn spiflash_write(
     }
 
     let fp = stack.len() - 3;
-    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 2])?;
+    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 3])?;
 
     if dlen.is_some() && dlen.unwrap() > data.len() as u32 {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
@@ -722,29 +733,33 @@ fn spiflash_get(
     }
 
     let fp = stack.len() - 3;
-    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 2])?;
+    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 3])?;
 
-    if dlen.is_some() && dlen.unwrap() > data.len() as u32 {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-    // TODO: If dlen is None, use size of buffer
-
-    let rlen = match stack[fp + 2] {
-        Some(rlen) => rlen as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(2)));
+    // If there is a supplied length, replace it with min(dlen, rval.len())
+    // If there is no supplied length, use the length if rval if > 0
+    let dlen = if dlen.is_some() {
+        if dlen.unwrap() > rval.len() as u32 {
+            Some(rval.len() as u32)
+        } else {
+            dlen
         }
+    } else if rval.len() > 0 {
+        Some(rval.len() as u32)
+    } else {
+        None
     };
-
-    if rlen > rval.len() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
 
     let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
 
     match spiflash.command_read(inst, addr, dlen, &mut rval[0..dlen.unwrap() as usize]) {
-        Ok(_) => Ok(rlen),
-        Err(err) => Err(Failure::FunctionError(err.into())),
+        Ok(nbytes) => {
+            ringbuf_entry!(Trace::SpiFlashGetCount(nbytes));
+            Ok(nbytes)
+        },
+        Err(err) => {
+            ringbuf_entry!(Trace::SpiFlashGetError(err));
+            Err(Failure::FunctionError(err.into()))
+        },
     }
 }
 
