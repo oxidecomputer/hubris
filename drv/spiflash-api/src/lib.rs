@@ -12,6 +12,7 @@
 
 use zerocopy::{AsBytes}; // XXX , FromBytes};
 
+use ringbuf::*;
 use userlib::*;
 
 use core::cell::Cell;
@@ -19,8 +20,9 @@ use core::cell::Cell;
 #[derive(Debug, Copy, Clone, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Op {
-    Write = 1,  // Write with optional Address and transmit buffer
-    Read = 2,   // Read with optional address and receive buffer
+    Read = 1,   // Read with optional address and receive buffer
+    Write = 2,  // Write with optional Address and transmit buffer
+    Get = 3,    // A Read variant for any instruction that may return data
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -306,6 +308,16 @@ impl From<TaskId> for Qspi {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Read(TaskId, Instruction, Option<u32>, Option<u32>),
+    Write(TaskId, Instruction, Option<u32>, Option<u32>),
+    Result(TaskId, u32),
+    None,
+}
+
+ringbuf!(Trace, 16, Trace::None);
+
 // This structure is tied to the STM32h7 QUADSPI implemnetation.
 // That said, the information is generic to the quadspi protocol and
 // would at worst have several don't-cares for other controller implementations.
@@ -322,6 +334,7 @@ impl Qspi {
         // let mut val = V::default(); // XXX useful to return xfer size?
         let mut response = 0_usize; // not u32?
         let task = self.0.get();
+        ringbuf_entry!(Trace::Read(task, instruction, addr, dlen));
         let (code, _) = sys_send(
             task,
             Op::Read as u16,
@@ -355,6 +368,7 @@ impl Qspi {
         // let mut val = V::default(); // XXX useful to return xfer size?
         let mut response = 0_usize; // not u32?
         let task = self.0.get();
+        ringbuf_entry!(Trace::Write(task, instruction, addr, dlen));
         let (code, _) = sys_send(
             task,
             Op::Write as u16,
@@ -378,6 +392,7 @@ impl Qspi {
     }
 
     pub fn result(&self, task: TaskId, code: u32) -> Result<(), ResponseCode> {
+        ringbuf_entry!(Trace::Result(task, code));
         if code != 0 {
             //
             // If we have an error code, check to see if it denotes a dearly

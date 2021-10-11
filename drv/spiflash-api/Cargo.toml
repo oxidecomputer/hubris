@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
+ringbuf = {path = "../../ringbuf"}
 abi = {path = "../../abi"}
 #drv-stm32h7-qspi = {path = "../stm32h7-qspi"}
 zerocopy = "0.3.0"

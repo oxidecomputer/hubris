@@ -35,6 +35,8 @@ declare_task!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    ConfigGPIO(gpio_api::Port, u32, gpio_api::Alternate),
+    Received(Op, [u8; 9]),
     Start(Op, (usize, usize)),
     Tx(usize, u8),
     Rx(usize, u8),
@@ -52,7 +54,6 @@ fn main() -> ! {
     let peripheral = rcc_api::Peripheral::QuadSpi;
 
     let registers = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = quadspi::Qspi::from(registers);
 
     cfg_if::cfg_if! {
 
@@ -193,6 +194,7 @@ fn main() -> ! {
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
     for (port, mask, af) in &pins {
+        // Trace(ConfigGPIO(*port, *mask, *af));
         gpio_driver
             .configure(
                 *port,
@@ -209,7 +211,8 @@ fn main() -> ! {
     let mut buffer = [0; 9];
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::Write | Op::Read => {
+            Op::Read | Op::Write | Op::Get => {
+                // Trace(Received(op, buffer));
                 // We can take varying numbers of leases, so we'll do lease
                 // verification ourselves just below.
                 let lease_count = msg.lease_count();
@@ -249,6 +252,7 @@ fn main() -> ! {
                         let required_attributes = match op {
                             Op::Read => LeaseAttributes::WRITE,
                             Op::Write => LeaseAttributes::READ,
+                            Op::Get => LeaseAttributes::READ,
                             //Op::Exchange => {
                             //    LeaseAttributes::WRITE | LeaseAttributes::READ
                             //}

@@ -138,11 +138,11 @@ pub enum Functions {
     #[cfg(feature = "spi")]
     SpiWrite((Task, usize), drv_spi_api::SpiError),
     #[cfg(feature = "spiflash")]
-    SpiFlashRead((Task, Instruction, u32, u32), drv_spiflash_api::ResponseCode),
+    SpiFlashRead((Instruction, Option<u32>, Option<u32>), drv_spiflash_api::ResponseCode),
     #[cfg(feature = "spiflash")]
-    SpiFlashWrite((Task, Instruction, u32, u32), drv_spiflash_api::ResponseCode),
+    SpiFlashWrite((Instruction, Option<u32>, Option<u32>), drv_spiflash_api::ResponseCode),
     #[cfg(feature = "spiflash")]
-    SpiFlashGet((Task, Instruction, u32, u32), drv_spiflash_api::ResponseCode),
+    SpiFlashGet((Instruction, Option<u32>, Option<u32>), drv_spiflash_api::ResponseCode),
 }
 
 //
@@ -642,9 +642,40 @@ fn spiflash_read(
     data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    //
-    // We have our task ID, our write size, and our read size
-    //
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 3;
+    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 2])?;
+
+    if dlen.is_some() && dlen.unwrap() as usize > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let dlen = match dlen {
+        Some(_) => dlen,
+        None => Some(rval.len() as u32),
+    };
+
+    if dlen.unwrap() as usize > rval.len() {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
+
+    match spiflash.command_read(inst, addr, dlen, &mut rval[0..dlen.unwrap() as usize]) {
+        Ok(nbytes) => Ok(nbytes),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "spiflash")]
+fn spiflash_write(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
     if stack.len() < 3 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -655,37 +686,7 @@ fn spiflash_read(
     if dlen.is_some() && dlen.unwrap() > data.len() as u32 {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
-
-    let rlen = match stack[fp + 2] {
-        Some(rlen) => rlen as usize,
-        None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(2)));
-        }
-    };
-    if rlen > rval.len() {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-
-    let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
-
-    match spiflash.command_read(inst, addr, dlen, &mut rval[0..rlen]) {
-        Ok(_) => Ok(rlen),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
-}
-
-#[cfg(feature = "spiflash")]
-fn spiflash_write(
-    stack: &[Option<u32>],
-    data: &[u8],
-    _rval: &mut [u8],
-) -> Result<usize, Failure> {
-    let (inst, addr, dlen) = spiflash_args(stack)?;
-
-    if dlen.is_some() && dlen.unwrap() > data.len() as u32 {
-        return Err(Failure::Fault(Fault::AccessOutOfBounds));
-    }
-    // XXX Consider taking unspecified dlen as date.len()
+    // TODO: If dlen is None, use size of buffer
 
     let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
 
@@ -705,27 +706,28 @@ fn spiflash_write(
 }
 
 // spiflash_get handles some standard commands with implicit read parameters
+// TODO: Don't really need "get".
+// Get is essentially the same as read but with optional read buffer.
+// The supplied MT25Q instruction is used to lookup the requirements and
+// controller config. That lookup can contain additional requirements to
+// be applied here on the generic addr, length, input and output buffers.
 #[cfg(feature = "spiflash")]
 fn spiflash_get(
     stack: &[Option<u32>],
     data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    //
-    // We have our task ID, our write size, and our read size
-    //
     if stack.len() < 3 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
     let fp = stack.len() - 3;
-    // TODO: fix: "addr" here is "param" in humility.
-    let (instruction, addr, len) = spiflash_args(&stack[fp..fp + 2])?;
+    let (inst, addr, dlen) = spiflash_args(&stack[fp..fp + 2])?;
 
-    if len.is_some() && len.unwrap() > data.len() as u32 {
+    if dlen.is_some() && dlen.unwrap() > data.len() as u32 {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
-    // XXX Consider taking unspecified len as data.len()
+    // TODO: If dlen is None, use size of buffer
 
     let rlen = match stack[fp + 2] {
         Some(rlen) => rlen as usize,
@@ -740,7 +742,7 @@ fn spiflash_get(
 
     let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
 
-    match spiflash.command_read(instruction, addr, len, &mut rval[0..rlen]) {
+    match spiflash.command_read(inst, addr, dlen, &mut rval[0..dlen.unwrap() as usize]) {
         Ok(_) => Ok(rlen),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
