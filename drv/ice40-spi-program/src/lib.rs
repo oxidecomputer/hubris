@@ -142,11 +142,11 @@ pub fn begin_bitstream_load(
         return Err(Ice40Error::ChipNotListening);
     }
 
-    // At this point, the icoprog tooling performs 8 cycles of clock-twiddling.
-    // I can't find any mention of this in the Lattice docs, but it also doesn't
-    // appear to _hurt_ because the real bitstream starts with a recognizeable
-    // pattern. And so,
+    // Clock out some dummy cycles with CS not asserted, because the most recent
+    // Lattice docs suggest this.
+    spi.lock(spi_api::CsState::NotAsserted)?;
     spi.write(&[0xFF])?;
+    spi.lock(spi_api::CsState::Asserted)?;
     Ok(())
 }
 
@@ -180,12 +180,14 @@ pub fn finish_bitstream_load(
     // If we've sent the bitstream successfully, we expect the iCE40 to release
     // CDONE. This is supposed to happen fairly quickly. Give it a bit and
     // check.
-    hl::sleep_for(1);
     if gpio.read_input(config.cdone_port).unwrap() & config.cdone_pin_mask == 0
     {
         // aw shucks
         return Err(Ice40Error::ConfigDidNotComplete);
     }
+
+    // Release CS so the design doesn't start thinking we're talking to it.
+    spi.lock(spi_api::CsState::NotAsserted)?;
 
     // After receiving the bitstream, the iCE40 wants 49 or more clock edges.
     // Because 48 would be too easy. So, we'll send 56.

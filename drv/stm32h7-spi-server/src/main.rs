@@ -94,7 +94,7 @@ fn main() -> ! {
     for opt in &CONFIG.mux_options[1..] {
         deactivate_mux_option(&opt, &gpio_driver);
     }
-    activate_mux_option(&CONFIG.mux_options[0], &gpio_driver);
+    activate_mux_option(&CONFIG.mux_options[0], &gpio_driver, &spi);
 
     // If we get a lock request, we'll update this with the task ID. We'll then
     // use it to decide between open and closed receive.
@@ -316,6 +316,7 @@ fn main() -> ! {
                         activate_mux_option(
                             &CONFIG.mux_options[device.mux_index],
                             &gpio_driver,
+                            &spi,
                         );
                         // Remember this for later to avoid unnecessary
                         // switching.
@@ -498,7 +499,13 @@ fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
     .unwrap();
 }
 
-fn activate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
+fn activate_mux_option(
+    opt: &SpiMuxOption,
+    gpio: &gpio_api::Gpio,
+    spi: &spi_core::Spi,
+) {
+    // Apply the data line swap if requested.
+    spi.set_data_line_swap(opt.swap_data);
     // Switch all outputs to the SPI peripheral.
     for &(pins, af) in opt.outputs {
         gpio.configure(
@@ -568,6 +575,8 @@ struct SpiMuxOption {
     ///
     /// To disable the mux, we'll switch this pin to HiZ.
     input: (PinSet, gpio_api::Alternate),
+    /// Swap data lines?
+    swap_data: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -659,6 +668,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -693,6 +703,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -728,6 +739,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF6,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -759,6 +771,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -790,6 +803,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -825,6 +839,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
                 // Mux option 1 is on port B15:13.
                 SpiMuxOption {
@@ -844,6 +859,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: true,
                 },
             ],
             devices: &[
@@ -853,7 +869,7 @@ cfg_if::cfg_if! {
                 // CS is SP_TO_SEQ_MISC_B.
                 DeviceDescriptor {
                     mux_index: 1,
-                    cs: PinSet { port: gpio_api::Port::H, pin_mask: 1 << 4 },
+                    cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 0 },
                 },
                 // Device 1 is the U476's iCE40 programming interface.
                 // Shares port B with the the other version of U476 and the
@@ -868,7 +884,7 @@ cfg_if::cfg_if! {
                 // CS is SPI_SP_TO_MGMT_MUX_CSN.
                 DeviceDescriptor {
                     mux_index: 0,
-                    cs: PinSet { port: gpio_api::Port::I, pin_mask: 1 << 0 },
+                    cs: PinSet { port: gpio_api::Port::A, pin_mask: 1 << 0 },
                 },
                 // Device 3 is the local flash (U557).
                 // Shares port B with the sequencer.
@@ -902,6 +918,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF5,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[
@@ -945,6 +962,7 @@ cfg_if::cfg_if! {
                         },
                         gpio_api::Alternate::AF6,
                     ),
+                    swap_data: false,
                 },
             ],
             devices: &[

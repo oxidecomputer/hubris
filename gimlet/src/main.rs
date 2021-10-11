@@ -96,6 +96,21 @@ fn system_init() {
         .targ7_fn_mod
         .modify(|_, w| w.read_iss_override().set_bit());
 
+    // Turn on the SYSCFG so that we can fix the next thing.
+    p.RCC.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+    cortex_m::asm::dmb();
+    // Gimlet uses PA0_C instead of PA0. Flip this.
+    p.SYSCFG.pmcr.modify(|_, w| {
+        w.pa0so()
+            .clear_bit()
+            .pa1so()
+            .set_bit()
+            .pc2so()
+            .set_bit()
+            .pc3so()
+            .set_bit()
+    });
+
     // The H7 -- and perhaps the Cortex-M7 -- has the somewhat annoying
     // property that any attempt to use ITM without having TRCENA set in
     // DBGMCU results in the FIFO never being ready (that is, ITM writes
