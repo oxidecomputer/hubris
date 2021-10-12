@@ -26,8 +26,8 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, FaultSource, LeaseAttributes, SchedState, Sysnum, TaskId,
-    TaskState, UsageError,
+    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState,
+    UsageError,
 };
 
 use crate::arch;
@@ -543,22 +543,15 @@ fn borrow_lease(
     };
 
     // Can the lender actually read the lease table, or are they being sneaky?
-    if !tasks[lender].can_read(&leases) {
-        let wake_hint = task::force_fault(
-            tasks,
-            lender,
-            FaultInfo::MemoryAccess {
-                address: Some(leases.base_addr() as u32),
-                source: FaultSource::Kernel,
-            },
-        );
-        return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
-    }
+    let leases = tasks[lender].try_read(&leases).map_err(|fault| {
+        let wake_hint = task::force_fault(tasks, lender, fault);
+        UserError::Recoverable(abi::DEFECT, wake_hint)
+    })?;
 
     // Try reading the lease. This is unsafe in the general case, but since
     // we've just convinced ourselves that the lease table is in task memory,
     // we can do this safely.
-    let lease = unsafe { leases.get(lease_number) };
+    let lease = leases.get(lease_number).cloned();
     // Is the lease number provided by the borrower legitimate?
     if let Some(mut lease) = lease {
         // Attempt to offset the lease. Handle cases where the offset is bogus.
@@ -723,10 +716,8 @@ fn explicit_panic(
     drop(args);
 
     if let Ok(uslice) = message {
-        if tasks[caller].can_read(&uslice) {
+        if let Ok(slice) = tasks[caller].try_read(&uslice) {
             // Plausible.
-            let slice = unsafe { uslice.assume_readable() };
-
             if slice.iter().all(|&c| c < 0x80) {
                 klog!("task @{} panicked: {}", caller, unsafe {
                     core::str::from_utf8_unchecked(slice)

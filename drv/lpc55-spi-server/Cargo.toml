@@ -12,10 +12,12 @@ drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 drv-lpc55-spi = {path = "../lpc55-spi"}
 cortex-m-semihosting = "0.3.5"
 num-traits = { version = "0.2.12", default-features = false }
+drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 
 [features]
 default = ["standalone"]
 standalone = []
+spi0 = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

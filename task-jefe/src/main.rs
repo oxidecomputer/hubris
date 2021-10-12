@@ -22,8 +22,8 @@
 #![no_std]
 #![no_main]
 
-use ringbuf::*;
-use task_jefe_api::*;
+mod external;
+
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -82,110 +82,87 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
     }
 }
 
-//
-// Iterate over tasks to see if any have faulted, need to have a fault
-// injected, or need to be restarted.
-//
-fn check_tasks(
-    disposition: &[Disposition; NUM_TASKS],
-    logged: &mut [bool; NUM_TASKS],
-) {
-    for i in 0..NUM_TASKS {
-        match kipc::read_task_status(i) {
-            abi::TaskState::Faulted { fault, .. } => {
-                if !logged[i] {
-                    log_fault(i, &fault);
-                    logged[i] = true;
-                }
-
-                if disposition[i] == Disposition::Restart {
-                    // Stand it back up
-                    kipc::restart_task(i, true);
-                    logged[i] = false;
-                }
-            }
-
-            abi::TaskState::Healthy(abi::SchedState::Stopped) => {
-                if disposition[i] == Disposition::Start {
-                    kipc::restart_task(i, true);
-                }
-            }
-
-            abi::TaskState::Healthy(..) => {
-                if disposition[i] == Disposition::Fault {
-                    kipc::fault_task(i);
-                }
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
-    SetDisposition(u16, Disposition),
-    None,
+pub enum Disposition {
+    Restart,
+    Start,
+    Hold,
+    Fault,
 }
-
-ringbuf!(Trace, 32, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("viva el jefe");
 
-    let disposition: [Disposition; NUM_TASKS] =
+    let mut disposition: [Disposition; NUM_TASKS] =
         [Disposition::Restart; NUM_TASKS];
-    let logged: [bool; NUM_TASKS] = [false; NUM_TASKS];
+    let mut logged: [bool; NUM_TASKS] = [false; NUM_TASKS];
 
     // We'll have notification 0 wired up to receive information about task
     // faults.
     let fault_mask = 1;
-    let mut state = (disposition, logged);
-    let mut buffer = [0; 4];
+
+    // We install a timeout to periodcally check for an external direction
+    // of our task disposition (e.g., via Humility).  This timeout should
+    // generally be fast for a human but slow for a computer; we pick a
+    // value of ~100 ms.  Our timer mask can't conflict with our fault
+    // notification, but can otherwise be arbitrary.
+    const TIMER_MASK: u32 = 1 << 1;
+    const TIMER_INTERVAL: u64 = 100;
+    let mut deadline = TIMER_INTERVAL;
+
+    sys_set_timer(Some(deadline), TIMER_MASK);
+
+    external::set_ready();
 
     loop {
-        hl::recv(
-            &mut buffer,
-            fault_mask,
-            &mut state,
-            |(ref disposition, ref mut logged), bits| {
-                if (bits & fault_mask) != 0 {
-                    check_tasks(disposition, logged)
-                }
-            },
-            |state, op: Op, msg| -> Result<(), JefeError> {
-                match op {
-                    Op::SetDisposition => {
-                        let (msg, caller) = msg
-                            .fixed::<SetDispositionRequest, ()>()
-                            .ok_or(JefeError::BadArg)?;
+        let msginfo = sys_recv_open(&mut [], fault_mask | TIMER_MASK);
 
-                        let task = msg.task;
-                        let disposition = Disposition::from_u8(msg.disposition)
-                            .ok_or(JefeError::BadArg)?;
+        if msginfo.sender == TaskId::KERNEL {
+            // Check to see if we have any external requests
+            let changed = external::check(&mut disposition);
 
-                        ringbuf_entry!(Trace::SetDisposition(
-                            task,
-                            disposition
-                        ));
+            // If our timer went off, we need to reestablish it
+            if msginfo.operation & TIMER_MASK != 0 {
+                deadline += TIMER_INTERVAL;
+                sys_set_timer(Some(deadline), TIMER_MASK);
+            }
 
-                        if task == 0 {
-                            return Err(JefeError::IllegalTask);
+            // If our disposition has changed or if we have been notified of
+            // a faulting task, we need to iterate over all of our tasks.
+            if changed || (msginfo.operation & fault_mask) != 0 {
+                for i in 0..NUM_TASKS {
+                    match kipc::read_task_status(i) {
+                        abi::TaskState::Faulted { fault, .. } => {
+                            if !logged[i] {
+                                log_fault(i, &fault);
+                                logged[i] = true;
+                            }
+
+                            if disposition[i] == Disposition::Restart {
+                                // Stand it back up
+                                kipc::restart_task(i, true);
+                                logged[i] = false;
+                            }
                         }
 
-                        let ndx = task as usize;
-
-                        if ndx >= state.0.len() {
-                            return Err(JefeError::BadTask);
+                        abi::TaskState::Healthy(abi::SchedState::Stopped) => {
+                            if disposition[i] == Disposition::Start {
+                                kipc::restart_task(i, true);
+                            }
                         }
 
-                        state.0[ndx] = disposition;
-                        check_tasks(&state.0, &mut state.1);
-
-                        caller.reply(());
-                        Ok(())
+                        abi::TaskState::Healthy(..) => {
+                            if disposition[i] == Disposition::Fault {
+                                kipc::fault_task(i);
+                            }
+                        }
                     }
                 }
-            },
-        );
+            }
+        } else {
+            // ...huh. A task has sent a message to us. That seems wrong.
+            sys_log!("Unexpected message from {}", msginfo.sender.0);
+        }
     }
 }

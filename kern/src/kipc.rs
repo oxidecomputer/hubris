@@ -1,6 +1,6 @@
 //! Implementation of IPC operations on the virtual kernel task.
 
-use abi::{FaultInfo, FaultSource, SchedState, TaskState, UsageError};
+use abi::{FaultInfo, SchedState, TaskState, UsageError};
 
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
@@ -39,13 +39,7 @@ fn deserialize_message<T>(
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    if !task.can_read(&message) {
-        return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
-            address: Some(message.base_addr() as u32),
-            source: FaultSource::Kernel,
-        }));
-    }
-    let (msg, _) = ssmarshal::deserialize(unsafe { message.assume_readable() })
+    let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
         .map_err(|_| UsageError::BadKernelMessage)?;
     Ok(msg)
 }
@@ -58,13 +52,7 @@ fn serialize_response<T>(
 where
     T: serde::Serialize,
 {
-    if !task.can_write(&buf) {
-        return Err(UserError::Unrecoverable(FaultInfo::MemoryAccess {
-            address: Some(buf.base_addr() as u32),
-            source: FaultSource::Kernel,
-        }));
-    }
-    match ssmarshal::serialize(unsafe { buf.assume_writable() }, val) {
+    match ssmarshal::serialize(task.try_write(&mut buf)?, val) {
         Ok(size) => Ok(size),
         Err(ssmarshal::Error::EndOfStream) => {
             // The client provided a response buffer that is too small. We

@@ -422,7 +422,21 @@ name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-gpio-api",
+ "drv-lpc55-syscon-api",
+ "lpc55-iocon-gen",
  "lpc55-pac",
+ "num-traits",
+ "userlib",
+]
+
+[[package]]
+name = "drv-lpc55-gpio-api"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m-semihosting",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -433,6 +447,7 @@ name = "drv-lpc55-i2c"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
@@ -468,6 +483,7 @@ name = "drv-lpc55-spi-server"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
@@ -501,6 +517,8 @@ name = "drv-lpc55-usart"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting",
+ "drv-lpc55-gpio-api",
+ "drv-lpc55-syscon-api",
  "lpc55-pac",
  "userlib",
  "zerocopy",
@@ -682,6 +700,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "drv-lpc55-gpio-api",
  "drv-stm32h7-gpio-api",
  "lpc55-pac",
  "num-traits",
@@ -1098,6 +1117,17 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
+]
+
+[[package]]
+name = "lpc55-iocon-gen"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "proc-macro2",
+ "quote 1.0.9",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1875,18 +1905,19 @@ dependencies = [
 name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
+ "drv-lpc55-gpio-api",
  "drv-spi-api",
  "drv-stm32h7-gpio-api",
  "hif",
  "num-traits",
  "ringbuf",
  "serde",
- "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1906,18 +1937,6 @@ dependencies = [
  "abi",
  "cortex-m",
  "cortex-m-semihosting",
- "num-traits",
- "ringbuf",
- "task-jefe-api",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-jefe-api"
-version = "0.1.0"
-dependencies = [
- "byteorder",
  "num-traits",
  "ringbuf",
  "userlib",

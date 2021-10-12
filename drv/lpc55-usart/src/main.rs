@@ -12,6 +12,8 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_gpio_api::*;
+use drv_lpc55_syscon_api::*;
 use lpc55_pac as device;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -19,6 +21,8 @@ use zerocopy::AsBytes;
 declare_task!(SYSCON, syscon_driver);
 
 const OP_WRITE: u32 = 1;
+
+declare_task!(GPIO, gpio_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -163,64 +167,41 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm() {
-    let rcc_driver = get_task_id(SYSCON);
+    let syscon = Syscon::from(get_task_id(SYSCON));
 
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 43; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        LEAVE_RESET,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    syscon.enable_clock(Peripheral::Fc0);
+    syscon.leave_reset(Peripheral::Fc0);
 }
 
 fn muck_with_gpios() {
-    let rcc_driver = get_task_id(SYSCON);
-
-    const ENABLE_CLOCK: u16 = 1;
-    let pnum = 13; // see bits in APB1ENR
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        ENABLE_CLOCK,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
-
-    const LEAVE_RESET: u16 = 4;
-    let (code, _) = userlib::sys_send(
-        rcc_driver,
-        LEAVE_RESET,
-        pnum.as_bytes(),
-        &mut [],
-        &[],
-    );
-    assert_eq!(code, 0);
+    let gpio_driver = get_task_id(GPIO);
+    let iocon = Gpio::from(gpio_driver);
 
     // Our GPIOs are P0_29 and P0_30 and need to be set to AF1
-    // The existing peripheral API makes doing this via messages
-    // maddening so just muck with IOCON manually for now
-    let iocon = unsafe { &*device::IOCON::ptr() };
+
     iocon
-        .pio0_29
-        .write(|w| w.func().alt1().digimode().digital());
+        .iocon_configure(
+            Pin::PIO0_29,
+            AltFn::Alt1,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
+
     iocon
-        .pio0_30
-        .write(|w| w.func().alt1().digimode().digital());
+        .iocon_configure(
+            Pin::PIO0_30,
+            AltFn::Alt1,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
 }
 
 fn step_transmit(

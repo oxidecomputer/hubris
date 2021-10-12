@@ -62,28 +62,18 @@ requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 
-[tasks.usart_driver]
-path = "../drv/stm32h7-usart"
-name = "drv-stm32h7-usart"
-features = ["h743"]
-priority = 2
-requires = { flash = 8192, ram = 1024}
-uses = ["usart3"]
-start = true
-interrupts = {39 = 1}
-
 [tasks.i2c_driver]
 path = "../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h743", "itm"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
-uses = ["i2c1", "i2c3", "i2c4"]
+uses = ["i2c2", "i2c3", "i2c4"]
 start = true
 
 [tasks.i2c_driver.interrupts]
-31 = 0b0000_0001        # I2C1 event
-32 = 0b0000_0001        # I2C1 error
+33 = 0b0000_0010        # I2C2 event
+34 = 0b0000_0010        # I2C2 error
 72 = 0b0000_0100        # I2C3 event
 73 = 0b0000_0100        # I2C3 error
 95 = 0b0000_1000        # I2C4 event
@@ -102,52 +92,12 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
-#
-# SPI interrupts:
-#   spi1 = 35
-#   spi2 = 36
-#   spi3 = 51
-#   spi4 = 84
-#   spi5 = 85
-#   spi6 = 86
-#
-[tasks.spi2_driver]
-path = "../drv/stm32h7-spi-server"
-name = "drv-stm32h7-spi-server"
-priority = 2
-requires = {flash = 16384, ram = 4096}
-features = ["spi2"]
-uses = ["spi2"]
-start = true
-interrupts = {36 = 1}
-stacksize = 1000
-
-[tasks.spi4_driver]
-path = "../drv/stm32h7-spi-server"
-name = "drv-stm32h7-spi-server"
-priority = 2
-requires = {flash = 16384, ram = 4096}
-features = ["spi4"]
-uses = ["spi4"]
-start = true
-interrupts = {84 = 1}
-stacksize = 1000
-
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["itm", "i2c"]
+features = ["itm", "i2c", "gpio"]
 priority = 3
 requires = {flash = 32768, ram = 16384 }
-start = true
-
-[tasks.thermal]
-path = "../task-thermal"
-name = "task-thermal"
-features = ["itm"]
-priority = 3
-requires = {flash = 65536, ram = 8192 }
-stacksize = 2048
 start = true
 
 [tasks.idle]

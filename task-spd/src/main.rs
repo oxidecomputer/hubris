@@ -44,10 +44,8 @@ fn configure_pin(pin: &I2cPin) {
     let gpio_driver = Gpio::from(gpio_driver);
 
     gpio_driver
-        .configure(
-            pin.gpio_port,
-            pin.mask,
-            Mode::Alternate,
+        .configure_alternate(
+            pin.gpio_pins,
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,
@@ -96,9 +94,8 @@ fn main() -> ! {
             let pin = I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 0) | (1 << 1),
             };
 
             // These should be whatever ports that dimmlets are plugged into
@@ -130,7 +127,7 @@ fn main() -> ! {
             let controller = I2cController {
                 controller: Controller::I2C1,
                 peripheral: Peripheral::I2c1,
-                registers: unsafe { &*device::I2C2::ptr() },
+                registers: unsafe { &*device::I2C1::ptr() },
                 notification: (1 << (1 - 1)),
             };
 
@@ -139,9 +136,8 @@ fn main() -> ! {
             let pin = I2cPin {
                 controller: Controller::I2C1,
                 port: Port::B,
-                gpio_port: drv_stm32h7_gpio_api::Port::B,
+                gpio_pins: drv_stm32h7_gpio_api::Port::B.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 6) | (1 << 7),
             };
 
             //
@@ -170,9 +166,8 @@ fn main() -> ! {
                     let pin = I2cPin {
                         controller: Controller::I2C2,
                         port: Port::F,
-                        gpio_port: drv_stm32h7_gpio_api::Port::F,
+                        gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                         function: Alternate::AF4,
-                        mask: (1 << 0) | (1 << 1),
                     };
                     const BANKS: [Bank; 1] = [
                         (Controller::I2C4, Port::D, None),

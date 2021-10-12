@@ -330,10 +330,8 @@ pub fn reinitialize(task: &mut task::Task) {
     // make that failure a little easier to read:
     uassert!(initial_stack as usize >= frame_size);
     // Ok. Generate a uslice for the task's starting stack frame.
-    let mut uslice: USlice<ExtendedExceptionFrame> =
+    let mut frame_uslice: USlice<ExtendedExceptionFrame> =
         USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap();
-    uassert!(task.can_write(&uslice));
-
     // Before we set our frame, find the region that contains our initial stack
     // pointer, and zap the region from the base to the stack pointer with a
     // distinct (and storied) pattern.
@@ -352,15 +350,13 @@ pub fn reinitialize(task: &mut task::Task) {
         )
         .unwrap();
 
-        uassert!(task.can_write(&uslice));
-        let zap = unsafe { &mut uslice.assume_writable() };
-
+        let zap = task.try_write(&mut uslice).unwrap();
         for word in zap.iter_mut() {
             *word = 0xbaddcafe;
         }
     }
 
-    let frame = unsafe { &mut uslice.assume_writable()[0] };
+    let frame = &mut task.try_write(&mut frame_uslice).unwrap()[0];
 
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();

@@ -48,7 +48,9 @@ members = [
 
     "drv/lpc55-syscon",
     "drv/lpc55-syscon-api",
+    "drv/lpc55-iocon-gen",
     "drv/lpc55-gpio",
+    "drv/lpc55-gpio-api",
     "drv/lpc55-usart",
     "drv/lpc55-i2c",
     "drv/lpc55-spi",

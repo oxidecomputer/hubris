@@ -11,7 +11,9 @@ use stm32h7::stm32h743 as device;
 
 use drv_i2c_api::Port;
 use drv_i2c_api::*;
-use drv_stm32h7_gpio_api::*;
+use drv_stm32h7_gpio_api::{
+    self as gpio_api, Alternate, Gpio, OutputType, Pull, Speed,
+};
 use drv_stm32h7_i2c::*;
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
 
@@ -189,9 +191,8 @@ fn main() -> ! {
             let pins = [ I2cPin {
                 controller: Controller::I2C4,
                 port: Port::D,
-                gpio_port: drv_stm32h7_gpio_api::Port::D,
+                gpio_pins: gpio_api::Port::D.pin(12).and_pin(13),
                 function: Alternate::AF4,
-                mask: (1 << 12) | (1 << 13),
             } ];
 
             let muxes = [];
@@ -206,9 +207,8 @@ fn main() -> ! {
             let pins = [ I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 0) | (1 << 1),
             } ];
 
             let muxes = [
@@ -245,33 +245,28 @@ fn main() -> ! {
             let pins = [ I2cPin {
                 controller: Controller::I2C1,
                 port: Port::B,
-                gpio_port: drv_stm32h7_gpio_api::Port::B,
+                gpio_pins: gpio_api::Port::B.pin(8).and_pin(9),
                 function: Alternate::AF4,
-                mask: (1 << 8) | (1 << 9),
             }, I2cPin {
                 controller: Controller::I2C4,
                 port: Port::D,
-                gpio_port: drv_stm32h7_gpio_api::Port::D,
+                gpio_pins: gpio_api::Port::D.pin(12).and_pin(13),
                 function: Alternate::AF4,
-                mask: (1 << 12) | (1 << 13),
             }, I2cPin {
                 controller: Controller::I2C4,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
                 function: Alternate::AF4,
-                mask: (1 << 14) | (1 << 15),
             }, I2cPin {
                 controller: Controller::I2C3,
                 port: Port::H,
-                gpio_port: drv_stm32h7_gpio_api::Port::H,
+                gpio_pins: gpio_api::Port::H.pin(7).and_pin(8),
                 function: Alternate::AF4,
-                mask: (1 << 7) | (1 << 8),
             }, I2cPin {
                 controller: Controller::I2C4,
                 port: Port::H,
-                gpio_port: drv_stm32h7_gpio_api::Port::H,
+                gpio_pins: gpio_api::Port::H.pin(11).and_pin(12),
                 function: Alternate::AF4,
-                mask: (1 << 11) | (1 << 12),
             } ];
 
             let muxes = [
@@ -283,9 +278,8 @@ fn main() -> ! {
                 enable: Some(I2cPin {
                     controller: Controller::I2C4,
                     port: Port::Default,
-                    gpio_port: drv_stm32h7_gpio_api::Port::G,
+                    gpio_pins: gpio_api::Port::G.pin(0),
                     function: Alternate::AF0,
-                    mask: (1 << 0),
                 }),
                 address: 0x44,
             },
@@ -333,27 +327,23 @@ fn main() -> ! {
             let pins = [ I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 0) | (1 << 1),
             }, I2cPin {
                 controller: Controller::I2C3,
                 port: Port::A,
-                gpio_port: drv_stm32h7_gpio_api::Port::A,
+                gpio_pins: gpio_api::Port::A.pin(8),
                 function: Alternate::AF4,
-                mask: (1 << 8),
             }, I2cPin {
                 controller: Controller::I2C3,
                 port: Port::A,
-                gpio_port: drv_stm32h7_gpio_api::Port::C,
+                gpio_pins: gpio_api::Port::C.pin(9),
                 function: Alternate::AF4,
-                mask: (1 << 9),
             }, I2cPin {
                 controller: Controller::I2C4,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
                 function: Alternate::AF4,
-                mask: (1 << 14) | (1 << 15),
             } ];
 
             let muxes = [];
@@ -393,9 +383,8 @@ fn main() -> ! {
                 I2cPin {
                     controller: Controller::I2C2,
                     port: Port::F,
-                    gpio_port: drv_stm32h7_gpio_api::Port::F,
+                    gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
                     function: Alternate::AF4,
-                    mask: (1 << 0) | (1 << 1),
                 },
 
                 // SMBUS_SP_TO_M2_SMCLK_A2_V3P3
@@ -403,9 +392,8 @@ fn main() -> ! {
                 I2cPin {
                     controller: Controller::I2C2,
                     port: Port::B,
-                    gpio_port: drv_stm32h7_gpio_api::Port::B,
+                    gpio_pins: gpio_api::Port::B.pin(10).and_pin(11),
                     function: Alternate::AF4,
-                    mask: (1 << 10) | (1 << 11),
                 },
 
                 // SMBUS_SP_TO_LVL_MID_SMCLK
@@ -413,18 +401,16 @@ fn main() -> ! {
                 I2cPin {
                     controller: Controller::I2C3,
                     port: Port::H,
-                    gpio_port: drv_stm32h7_gpio_api::Port::H,
+                    gpio_pins: gpio_api::Port::H.pin(7).and_pin(8),
                     function: Alternate::AF4,
-                    mask: (1 << 7) | (1 << 8),
                 },
                 // SMBUS_SP_TO_LVL_REAR_SMCLK
                 // SMBUS_SP_TO_LVL_REAR_SMDAT
                 I2cPin {
                     controller: Controller::I2C4,
                     port: Port::F,
-                    gpio_port: drv_stm32h7_gpio_api::Port::F,
+                    gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
                     function: Alternate::AF4,
-                    mask: (1 << 14) | (1 << 15),
                 },
             ];
 
@@ -635,25 +621,13 @@ fn configure_port(
             //
             // We de-configure our current port by setting the pins to
             // `Mode::input`, which will assure that we don't leave SCL and
-            // SDA pulled high. (The output type and function will be
-            // effectively ignored.)
+            // SDA pulled high.
             //
-            gpio.configure(
-                pin.gpio_port,
-                pin.mask,
-                Mode::Input,
-                OutputType::OpenDrain,
-                Speed::High,
-                Pull::None,
-                Alternate::AF0,
-            )
-            .unwrap();
+            gpio.configure_input(pin.gpio_pins, Pull::None).unwrap();
         } else if pin.port == port {
             // Configure our new port!
-            gpio.configure(
-                pin.gpio_port,
-                pin.mask,
-                Mode::Alternate,
+            gpio.configure_alternate(
+                pin.gpio_pins,
                 OutputType::OpenDrain,
                 Speed::High,
                 Pull::None,
@@ -689,10 +663,8 @@ fn configure_pins(
             _ => {}
         }
 
-        gpio.configure(
-            pin.gpio_port,
-            pin.mask,
-            Mode::Alternate,
+        gpio.configure_alternate(
+            pin.gpio_pins,
             OutputType::OpenDrain,
             Speed::High,
             Pull::None,
