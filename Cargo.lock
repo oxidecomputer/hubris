@@ -394,6 +394,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimlet-hf-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-qspi",
+ "drv-stm32h7-rcc-api",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -657,6 +671,15 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "userlib",
+]
+
+[[package]]
+name = "drv-stm32h7-qspi"
+version = "0.1.0"
+dependencies = [
+ "stm32h7",
+ "vcell",
+ "zerocopy",
 ]
 
 [[package]]

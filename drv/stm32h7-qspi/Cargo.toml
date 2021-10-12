@@ -1,0 +1,15 @@
+[package]
+name = "drv-stm32h7-qspi"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
+vcell = "0.1.2"
+zerocopy = "0.3.0"
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"

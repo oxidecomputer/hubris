@@ -418,6 +418,17 @@ impl Borrow<'_> {
             Some(())
         }
     }
+
+    pub fn write_fully_at(&self, offset: usize, src: &[u8]) -> Option<()> {
+        let (rc, n) = sys_borrow_write(self.id, self.index, offset, src);
+        if rc != 0 {
+            None
+        } else if n != src.len() {
+            None
+        } else {
+            Some(())
+        }
+    }
 }
 
 /// Information record returned by `Borrow::info`.
