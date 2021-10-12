@@ -79,6 +79,17 @@ fn main() -> ! {
     HIFFY_VERSION_MINOR.fetch_add(0, Ordering::SeqCst);
     HIFFY_VERSION_PATCH.fetch_add(0, Ordering::SeqCst);
 
+    //
+    // "This shouldn't work" -- but it seems to, for the moment.  Something
+    // better is required to work with the compiler as opposed to trying
+    // to sneak around its back.
+    //
+    unsafe {
+        HIFFY_DATA[0] = 0u8;
+        HIFFY_TEXT[0] = 0u8;
+        HIFFY_RSTACK[0] = 0u8;
+    }
+
     loop {
         HIFFY_READY.fetch_add(1, Ordering::SeqCst);
         hl::sleep_for(sleep_ms);
