@@ -993,7 +993,6 @@ enum FaultType {
     UsageFault = 6,
 }
 
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn configurable_fault() {
     asm!(
