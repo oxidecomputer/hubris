@@ -91,7 +91,7 @@ impl From<ResponseCode> for u32 {
 // we have no choice but to use macros.
 macro_rules! set_bits {
     ($reg:expr, $mask:expr) => {
-        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) });
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) })
     };
 }
 
@@ -100,7 +100,7 @@ macro_rules! set_bits {
 // -- we have no choice but to use macros.
 macro_rules! clear_bits {
     ($reg:expr, $mask:expr) => {
-        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) });
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) })
     };
 }
 
