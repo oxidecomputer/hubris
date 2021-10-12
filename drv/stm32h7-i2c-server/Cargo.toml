@@ -38,6 +38,12 @@ itm = [ "userlib/log-itm" ]
 external-max7358 = []
 external-pca9548 = []
 
+#
+# This option allows for the Nucleo to be used as an initiator for the
+# purposes of testing the spd-proxy
+#
+external-spd = []
+
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"

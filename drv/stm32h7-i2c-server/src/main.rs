@@ -212,6 +212,15 @@ fn main() -> ! {
             } ];
 
             let muxes = [
+            #[cfg(feature = "external-spd")]
+            I2cMux {
+                controller: Controller::I2C2,
+                port: Port::F,
+                id: Mux::M1,
+                driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
+                enable: None,
+                address: 0b1001_010,
+            },
 
             #[cfg(feature = "external-max7358")]
             I2cMux {

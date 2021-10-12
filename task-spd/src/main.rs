@@ -98,9 +98,10 @@ fn main() -> ! {
                 function: Alternate::AF4,
             };
 
-            // These should be whatever ports that dimmlets are plugged into
-            const BANKS: [Bank; 1] = [
+            // These should be whatever ports the dimmlets are plugged into
+            const BANKS: [Bank; 2] = [
                 (Controller::I2C4, Port::D, None),
+                (Controller::I2C4, Port::F, Some((Mux::M1, Segment::S4))),
             ];
         } else if #[cfg(target_board = "gimletlet-2")] {
             let controller = I2cController {
