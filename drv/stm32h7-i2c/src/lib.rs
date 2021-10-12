@@ -842,7 +842,7 @@ impl<'a> I2cController<'a> {
                                 // ACK'd, so we will just return filler data
                                 // until the iniatior releases us from their
                                 // grip.
-                                //  
+                                //
                                 ringbuf_entry!(Trace::TxOverrun(addr));
                                 i2c.txdr.write(|w| w.txdata().bits(0x1d));
                             }
