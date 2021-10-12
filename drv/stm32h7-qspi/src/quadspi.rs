@@ -1,12 +1,19 @@
-//! A driver for the STM32H7 SPI, in host mode.
-//!
-//! This is the core logic, separated from the IPC server. The peripheral also
-//! supports I2S, which we haven't bothered implementing because we don't have a
-//! need for it.
+//! A driver for the STM32H7 QUADSPI, in host mode.
+//! (See ST document RM0433 section 23)
 //!
 //! # Clocking
 //!
-//! XXX The QUADSPI block has one clock domain.
+//! Clocks 
+//! The signals quadspi_ker_ck (kernel clock) and quadspi_hclk (register interface clock)
+//! provide clocking.
+//!
+//! Each command has five phases:
+//! 1) Instruction
+//! 2) Address
+//! 3) Alternate byte
+//! 4) Dummy cycles
+//! 5) Data
+//!
 //! 
 //!  1. `ker_ck` contains the clock generator and is driven as a "kernel clock"
 //!     from the RCC -- there is a separate mux there to choose its source.
@@ -35,6 +42,8 @@ use stm32h7::stm32h743 as device;
 // use drv_spiflash_api as api;
 
 // XXX figure out clock configuration.
+// stm32h743 maximum clock is 100MHz (Nucleo-144)
+// stm32h753 maximum clock is 133MHz (Gimelet, Gemini)
 //
 // configured/generated with STM CubeMX
 // see ~/my-stm23/Core/Src/quadspi.c
@@ -67,6 +76,18 @@ use stm32h7::stm32h743 as device;
 //    /* QUADSPI interrupt Init */
 //    HAL_NVIC_SetPriority(QUADSPI_IRQn, 0, 0);
 //    HAL_NVIC_EnableIRQ(QUADSPI_IRQn);
+
+use ringbuf::*;
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Line,   // just log the line number
+    Bool(bool),
+    Regs(u32, u32, u32),    // sr, cr, ccr
+    None,
+}
+
+ringbuf!(Trace, 8, Trace::None);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -162,7 +183,36 @@ impl From<&'static device::quadspi::RegisterBlock> for Qspi {
 impl Qspi {
     // Only one connected QSPI device is supported.
     // Having two flash devices working in parallel is not supported.
+    //
 
+    // Set the flash part size as a power of two minus one, e.g. 23 is 16MB, 24 is 32MB
+    // 31 is 4GB.
+    pub fn set_size(&self, power_minus_one: u8) {
+        let fsize = if power_minus_one > 31 {
+            31
+        } else {
+            power_minus_one
+        };
+
+        unsafe {
+        self.reg.dcr.modify(|_, w| w
+            .fsize().bits(fsize)
+        );
+        }
+    }
+
+    pub fn set_prescaler(&self, prescaler: u8) {
+        unsafe {
+        self.reg.cr.modify(|_, w| w
+            .prescaler().bits(prescaler)   // divisor for quadspi_ker_ck
+        );
+        }
+    }
+
+
+    // Note: Some commands will have the intended effect if the chip
+    // state has been set by a previous command (e.g. WEN prior to PageProgram)
+    //
     // ST RM0433 23.3.3
     // The QUADSPI communicates with the Flash memory using commands. Each
     // command can include 5 phases: instruction, address, alternate byte,
@@ -177,126 +227,89 @@ impl Qspi {
     //   - Dummy cycles
     //   - Data
     //
-    pub fn enable(&mut self,
+    pub fn start(&mut self,
         cmd: &CommandConfig,
         address: Option<u32>,
         dlen: Option<u32>,
     ) {
-        // XXX check for BUSY = 0
+        ringbuf_entry!(Trace::Line);
+        self.end_of_transmission(); // Clear flag
+        self.clear_transfer_interrupts(); // Clear EOT flag, etc.
         self.reg.cr.write(|w| w.en().clear_bit());
 
         unsafe {
-        self.reg.ccr.write(|w| w
+        self.reg.ccr.modify(|_, w| w
             // fmode: 0=indirect write, 1=indirect read, 2=auto poll, 3=mmap
-            //
-            // Functional mode This field defines the QUADSPI functional
-            // mode of operation. If DMAEN = 1 already, then the DMA
-            // controller for the corresponding channel must be disabled
-            // before changing the FMODE value. This field can be written
-            // only when BUSY = 0."]
             .fmode().bits(cmd.fmode as u8)
             .ddrm().bit(cmd.ddrm)  // 2x or 1x data rate
             .dhhc().bit(cmd.dhhc)  // DDR Hold if in 2x mode, n/a for 1x
+            // Winbond has an optimization allowing elision of subsequent
+            // identical instrution bytes. sioo=0 does not elide any instructions.
             .sioo().bit(cmd.sioo)  // 1=send inst on each transaction
             .imode().bits(cmd.imode as u8)  // Inst. 0=skip 1=single, 2=dual, 3=quad
-            .instruction().bits(cmd.instruction as u8) // XXX starts command?
-            .admode().bits(cmd.admode as u8)  // Address 0=skip 1=single, 2=dual, 3=quad
+            .instruction().bits(cmd.instruction as u8)
+            .admode().bits(cmd.admode as u8)  // Address mode
             .adsize().bits(cmd.adsize as u8) // Addr: 0=8-bit, 1=16, 2=24, 3=32-bit
-            .abmode().bits(SpiMode::Skip as u8)  // AltBytes 0=skip 1=single, 2=dual, 3=quad
+            .abmode().bits(SpiMode::Skip as u8)  // AltBytes mode
             .absize().bits(0 as u8)
-            .dcyc().bits(cmd.dcycles as u8)
-            .dmode().bits(cmd.dmode as u8)  // Data 0=skip 1=single, 2=dual, 3=quad
+            .dcyc().bits(cmd.dcycles as u8) // zero if no dummy cycles
+            .dmode().bits(cmd.dmode as u8)  // Data mode
         );
         }
 
-        if cmd.admode != SpiMode::Skip && address.is_some() {
-            // XXX In some cases, writing the address starts the command.
-            unsafe {
-                self.reg.ar.write(|w| w.bits(address.unwrap()));
+        // Commands start when the last piece of information needed is written.
+        // That is either the instruction, address, or data length.
+        if cmd.dmode != SpiMode::Skip {
+            if dlen.is_some() {
+                // The controller takes the number of bytes to be
+                // transferred - 1
+                unsafe {
+                self.reg.dlr.write(|w| w.bits(dlen.unwrap() - 1));
+                }
+                ringbuf_entry!(Trace::Line);
+            } else {
+                // XXX This is not legal. Data is required but length not provided.
+                ringbuf_entry!(Trace::Line);
+            }
+        }
+
+        if cmd.admode != SpiMode::Skip {
+            if address.is_some() {
+                // XXX In some cases, writing the address starts the command.
+                // e.g. if the command is a READ, it should start.
+                unsafe {
+                    self.reg.ar.write(|w| w.bits(address.unwrap()));
+                }
+                ringbuf_entry!(Trace::Line);
+            } else {
+                // XXX This is not legal. An address is required but not provided.
+                ringbuf_entry!(Trace::Line);
             }
         }
     }
 
-    pub fn busy(self) -> bool {
+    pub fn enable(&self) {
+        self.reg.cr.modify(|_, w| w.en().set_bit());
+    }
+
+    pub fn abort(&self) {
+        self.reg.cr.modify(|_, w| w.abort().set_bit());
+    }
+
+    pub fn busy(&self) -> bool {
         self.reg.sr.read().busy().bit()
     }
 
-    // All commands have a one byte instruction
-    // Some number of dummy cycles are needed for some instructions.
-    // Some instructions require an address
-    // Some instructions require a length (could be implicit?, e.g. 0x9f reads 3)
-    //
-    // Some commands will only work if the chip state has been set by
-    // a previous command (e.g. WEN prior to PageProgram)
-    // The status register needs the correct mode the for the command.
-    //
-    // ST RM0433 23.3.5
-    //
-    // Triggering the start of a command
-    // Essentially, a command starts as soon as firmware gives the last
-    // information that is necessary for this command.
-    // Depending on the QUADSPI configuration, there are three different ways
-    // to trigger the start of a command in indirect mode.
-    //
-    // The commands starts immediately after:
-    // 1. a write is performed to INSTRUCTION[7:0] (QUADSPI_CCR),
-    //    if no address is necessary (when ADMODE = 00) and if no data needs
-    //    to be provided by the firmware (when FMODE = 01 or DMODE = 00)
-    // 2. a write is performed to ADDRESS[31:0] (QUADSPI_AR), if an address
-    //    is necessary (when ADMODE != 00) and if no data needs to be provided
-    //    by the firmware (when FMODE = 01 or DMODE = 00)
-    // 3. a write is performed to DATA[31:0] (QUADSPI_DR), if an address is
-    //    necessary (when ADMODE != 00) and if data needs to be provided by the
-    //    firmware (when FMODE = 00 and DMODE != 00)
-    //
-    // Writes to the alternate byte register (QUADSPI_ABR) never trigger the
-    // communication start.
-    // If alternate bytes are required, they must be programmed before.
-    // As soon as a command is started, the BUSY bit (bit 5 of QUADSPI_SR)
-    // is automatically set.
-    pub fn inst_will_start(cmd: &CommandConfig) -> bool {
-        cmd.admode == SpiMode::Skip &&
-        (cmd.fmode == FMode::IndirectRead || cmd.dmode == SpiMode::Skip)
+    pub fn sr(&self) -> u32 {
+        self.reg.sr.read().bits()
     }
 
-    pub fn addr_will_start(cmd: &CommandConfig) -> bool {
-        cmd.admode != SpiMode::Skip &&
-        (cmd.fmode == FMode::IndirectRead || cmd.dmode == SpiMode::Skip)
+    pub fn cr(&self) -> u32 {
+        self.reg.cr.read().bits()
     }
 
-    pub fn data_will_start(cmd: &CommandConfig) -> bool {
-        cmd.admode != SpiMode::Skip &&
-        cmd.fmode == FMode::IndirectWrite &&
-        cmd.dmode != SpiMode::Skip
-    }
-
-    pub fn start(&mut self, cmd: &CommandConfig) {
-        // , xfer_len: u32, addr: u32
-        self.end_of_transmission(); // Clear flag
-        self.clear_transfer_interrupts(); // Clear EOT flag, etc.
-
-        //if xfer_len > 0 {
-        //    // 0xffff_ffff is an undefined length: xfer until end of flash
-        //    unsafe {
-        //        self.reg.dlr.write(|w| w.dl().bits(xfer_len + 1));
-        //    }
-        //}
-        if cmd.admode != SpiMode::Skip {
-            unsafe {
-                self.reg.ccr.modify(|_, w| w
-                    .admode().bits(cmd.admode as u8)
-                    .adsize().bits(cmd.adsize)
-                );
-            }
-            //unsafe {
-            //    self.reg.ar.write(|w| w.bits(addr));
-            //}
-        }
-        // self.reg.ar.write(|w| w.address().bits(address));
-        // Trigger start of a command
-        unsafe {
-            self.reg.ccr.modify(|_, w| w.instruction().bits(cmd.instruction));
-        }
+    pub fn ccr(&self) -> u32 {
+        self.reg.ccr.read().bits()
     }
 
     pub fn can_rx_word(&self) -> bool {
@@ -305,13 +318,13 @@ impl Qspi {
 
     pub fn can_rx_byte(&self) -> bool {
         let sr = self.reg.sr.read();
-        sr.ftf().bit() || sr.flevel().bits() > 0
+        sr.flevel().bits() > 0
     }
 
     pub fn can_tx_frame(&self) -> bool {
         let sr = self.reg.sr.read();
         // XXX
-        !sr.ftf().bit() || sr.flevel().bits() < 32
+        sr.flevel().bits() < 32
     }
 
     pub fn send32(&mut self, bytes: u32) {
@@ -334,6 +347,7 @@ impl Qspi {
     /// - There must be room for a byte in the TX FIFO (call `can_tx_frame` to
     ///   check, or call this in response to a TXP interrupt).
     pub fn send8(&mut self, byte: u8) {
+        ringbuf_entry!(Trace::Line);
         // The TXDR register can be accessed as a byte, halfword, or word. This
         // determines how many bytes are pushed in. stm32h7/svd2rust don't
         // understand this, and so we have to get a pointer to the byte portion
@@ -379,6 +393,7 @@ impl Qspi {
     ///   partial frame to the FIFO is not immediately clear from the
     ///   datasheet.)
     pub fn recv8(&mut self) -> u8 {
+        ringbuf_entry!(Trace::Line);
         // The RXDR register can be accessed as a byte, halfword, or word. This
         // determines how many bytes are pushed in. stm32h7/svd2rust don't
         // understand this, and so we have to get a pointer to the byte portion
@@ -402,6 +417,7 @@ impl Qspi {
     }
 
     pub fn end(&mut self) {
+        ringbuf_entry!(Trace::Line);
         // Clear flags that tend to get set during transactions.
         self.reg.fcr.write(|w| w.ctcf().set_bit());
         // Disable the transfer state machine.
@@ -431,12 +447,19 @@ impl Qspi {
         });
     }
 
-    pub fn enable_transfer_interrupts(&mut self) {
-        self.reg.cr.write(|w| w
+    pub fn enable_transfer_interrupts(&mut self, thresh: u8) {
+        unsafe {
+        self.reg.cr.modify(|_, w| w
             .toie().set_bit()   // TimeOut Interrupt Enable
             .ftie().set_bit()   // FIFO Threshold Interrupt Enable
             .tcie().set_bit()   // Transfer complete interrupt enable
-            .teie().set_bit()); // Transfer error interrupt enable
+            .teie().set_bit()   // Transfer error interrupt enable
+            .fthres().bits(thresh)
+            .fsel().clear_bit() // flash one selected (1 or 2, we only have 1)
+            .dfm().clear_bit()  // no dual flash mode
+            .sshift().clear_bit()   // Some modes may requre shif of sampling in a cycle
+        );
+        }
     }
 
     pub fn disable_can_tx_interrupt(&mut self) {

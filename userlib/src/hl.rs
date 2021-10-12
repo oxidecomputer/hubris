@@ -264,7 +264,7 @@ impl<R> Caller<R> {
 #[derive(Clone)]
 pub struct Borrow<'caller> {
     id: TaskId,
-    index: usize,
+    pub index: usize,
     _phantom: PhantomData<&'caller ()>,
 }
 

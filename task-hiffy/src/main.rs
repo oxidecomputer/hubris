@@ -751,6 +751,7 @@ fn spiflash_get(
 
     let spiflash = drv_spiflash_api::Qspi::from(get_task_id(SPIFLASH));
 
+    // Get is just a read with more flexibility in the parameters.
     match spiflash.command_read(inst, addr, dlen, &mut rval[0..dlen.unwrap() as usize]) {
         Ok(nbytes) => {
             ringbuf_entry!(Trace::SpiFlashGetCount(nbytes));

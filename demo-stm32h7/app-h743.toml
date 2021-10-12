@@ -152,7 +152,7 @@ name = "drv-stm32h7-qspi"
 features = ["h743"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
-uses = ["quadspi"]
+uses = ["quadspi", "dlyb"]
 start = true
 interrupts = {92 = 1}
 stacksize = 1000
@@ -219,4 +219,8 @@ size = 1024
 
 [peripherals.quadspi]
 address = 0x52005000
+size = 1024
+
+[peripherals.dlyb]
+address = 0x52008000
 size = 1024

@@ -9,12 +9,20 @@ use super::quadspi::{FMode, SpiMode, CommandConfig};
 // See:
 // [Micron MT25Q family SFDP Tables](https://www.micron.com/-/media/client/global/documents/products/technical-note/nor-flash/tn2506_sfdp_for_mt25q.pdf)
 // JEDEC Standard - Serial Flash Discoverable Parameters (SFDP) JESD216E
-
-
+//
+// Ideally, the JEDEC ID is mapped to information about one of a set of known parts.
+// That would mean that the FW needs to carry around parameters, or a base set and
+// deltas, for each supported part.
+// Alternatively, SFDP can be used to fetch that information from the part itself.
 
 // Table 1: SFDP Header Structure
 // Description, Byte, Address Bits, Data
 // Data: 128Mb 256Mb 512Mb 1Gb 2Gb
+
+// TODO: The 3-byte/4-byte addressing mode is here per command and needs to be
+// variable based on the part that we're talking to.
+// Note that large parts can generally access their first 16MB using 3-byte addressing.
+// 16MB or less parts might not be able to process 4-byte addresses.
 
 // The incoming instruction can be mapped to a different instruction.
 // This is particularly relevant for the FAST READ commands that can have several
@@ -41,7 +49,51 @@ pub fn api_to_h7_sfdp<'a>(instruction: Instruction, cmd: &'a mut CommandConfig) 
             Ok(cmd)
             // TODO: Should we document the expected 3 bytes to be returned?
         },
-        _ => Err(ResponseCode::BadArg),
+        Instruction::RdUUID => { // Read Unique ID 4Bh Dummy Dummy Dummy Dummy (UID63-0)
+            Err(ResponseCode::NotImplemented)
+        },
+        Instruction::Read => {
+            // Read Data 03h A23-A16 A15-A8 A7-A0 (D7-D0)
+            cmd.instruction = instruction as u8; // mapped 1:1 for now
+            cmd.ddrm = false;   // operating in single mode
+            cmd.dhhc = false;   // n/a for single mode
+            cmd.ddrh = false;   // single mode
+            cmd.fmode = FMode::IndirectRead;
+            cmd.imode = SpiMode::Single;
+            cmd.admode = SpiMode::Single;
+            cmd.adsize = 3;     // XXX Needs to be 4 for producion part.
+            cmd.dcycles = 0;    // XXX 3? find doc for this
+            cmd.dmode = SpiMode::Single;
+            cmd.sioo = false;   // n/a for this command
+            Ok(cmd)
+        },
+        Instruction::FastRead => {
+            // Fast Read 0Bh A23-A16 A15-A8 A7-A0 Dummy (D7-D0)
+            Err(ResponseCode::NotImplemented)
+        },
+        Instruction::PageProgram => {
+            // Page Program 02h A23-A16 A15-A8 A7-A0 D7-D0 D7-D0(3)
+            Err(ResponseCode::NotImplemented)
+        },
+        Instruction::SectorErase => {
+            // Sector Erase (4KB) 20h A23-A16 A15-A8 A7-A0
+            Err(ResponseCode::NotImplemented)
+        },
+        Instruction::ChipErase => {  // Chip Erase C7h/60h
+            cmd.instruction = instruction as u8; // mapped 1:1 for now
+            cmd.ddrm = false;   // operating in single mode
+            cmd.dhhc = false;   // n/a for single mode
+            cmd.ddrh = false;   // single mode
+            cmd.fmode = FMode::IndirectWrite;
+            cmd.imode = SpiMode::Single;
+            cmd.admode = SpiMode::Skip;
+            cmd.adsize = 0;
+            cmd.dcycles = 0;    // XXX 3? find doc for this
+            cmd.dmode = SpiMode::Skip;
+            cmd.sioo = false;   // n/a for this command
+            Ok(cmd)
+        },
+        _ => Err(ResponseCode::NotImplemented),
     }
 }
 

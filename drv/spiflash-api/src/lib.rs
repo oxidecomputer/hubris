@@ -77,6 +77,10 @@ pub enum ResponseCode {
 
     /// Server restarted
     ServerRestarted = 14,
+
+    NotImplemented = 15,
+
+    Busy = 16,
 }
 
 // Supported SPI Opcodes
@@ -316,7 +320,7 @@ enum Trace {
     None,
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 8, Trace::None);
 
 // This structure is tied to the STM32h7 QUADSPI implemnetation.
 // That said, the information is generic to the quadspi protocol and

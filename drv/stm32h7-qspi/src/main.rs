@@ -29,21 +29,22 @@ use drv_stm32h7_rcc_api as rcc_api;
 
 mod quadspi;
 mod mt25q;
+mod dlyb;
 
 declare_task!(RCC, rcc_driver);
 declare_task!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    ConfigGPIO(gpio_api::Port, u32, gpio_api::Alternate),
     Received(Op, [u8; 9]),
     Start(Op, (usize, usize)),
-    Tx(usize, u8),
-    Rx(usize, u8),
+    Line,   // just log the line number
+    IO(usize),
+    Regs(u32, u32, u32),    // sr, cr, ccr
     None,
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 16, Trace::None);
 
 const IRQ_MASK: u32 = 1;
 
@@ -53,11 +54,14 @@ fn main() -> ! {
 
     let peripheral = rcc_api::Peripheral::QuadSpi;
 
-    let registers = unsafe { &*device::QUADSPI::ptr() };
+    let quadspi_registers = unsafe { &*device::QUADSPI::ptr() };
+    let dlyb_registers = unsafe { &*device::DELAY_BLOCK_SDMMC1::ptr() };
 
     cfg_if::cfg_if! {
-
         if #[cfg(target_board = "nucleo-h743zi2")] {
+            // Use a 128Mb flash part
+            let fsize = 24_u32; // (128 * 1024 * 1024 / 8, 24)
+
             // The CN10 connector has seven pins labeled "QSPI".
             // Use that over more obscure alternatives.
 
@@ -103,6 +107,9 @@ fn main() -> ! {
             gpio_api::Alternate::AF10,
             )];
         } else if #[cfg(target_board = "gemini-bu-1")] {
+            // Use a 256Mb flash part.
+            let fsize = 25_u32; // (256 * 1024 * 1024 / 8, 25)
+
             // PF6  QSPI_IO3
             // PF7  QSPI_IO2
             // PF8  QSPI_IO0
@@ -138,6 +145,9 @@ fn main() -> ! {
             gpio_api::Alternate::AF10,
             )];
         } else if #[cfg(target_board = "gimlet")] {
+            // Use a 256Mb flash part.
+            let fsize = 25_u32; // (256 * 1024 * 1024 / 8, 25)
+
             // PG6  QSPI_NCS
             // PF6  QSPI_IO3
             // PF7  QSPI_IO2
@@ -176,9 +186,39 @@ fn main() -> ! {
         }
     }
 
+    // Number of address bytes to fully address the flash part.
+    let _address_bytes = ((fsize + 7) / 8) as u8;   // XXX need to use in cmd
+
     rcc_driver.enable_clock(peripheral);
     rcc_driver.leave_reset(peripheral);
-    let mut qspi = quadspi::Qspi::from(registers);
+    let mut qspi = quadspi::Qspi::from(quadspi_registers);
+    let mut dlyb = dlyb::Dlyb::from(dlyb_registers);
+
+    // RM0433 Delay block (DLBY)
+    // The delay block (DLYB) is used to generate an output clock which
+    // is dephased from the input clock.
+    // The phase of the output clock must be programmed by the user
+    // application. The output clock is then used to clock the data received
+    // by another peripheral such as an SDMMC or Quad-SPI interface.
+    // 
+    // The delay is voltage- and temperature-dependent, which may require the application to reconfigure and recenter the output clock phase with the receive data.
+
+
+    // TODO: There may need to be manipulation of the Delay Block to get a
+    // working QUADSPI clock initially or for tuning it.
+    let r = dlyb.get_cr_cfgr();
+    ringbuf_entry!(Trace::Regs(0x1234, r.0, r.1));
+    // The default is that sen and den are both disabled and the
+    // input clock = output clock.
+    //
+    // We may need to use the DLYB to adjust the clock to make things work or to
+    // improve performance in some cases.
+    //
+    // dlyb.set_lngf_lng_unit_sel(lngf, lng, unit, sel) {
+    // dlyb.enable_sen();   // den is a don't care in this case, output clk disabled
+    // dlyb.enable_den();   // sen must be disabled, phase adjustments are applied.
+    // let r = dlyb.get_cr_cfgr();
+    // ringbuf_entry!(Trace::Regs(0x4321, r.0, r.1));
 
     // This should correspond to '0' in the standard SPI parlance
     //spi.initialize(
@@ -194,7 +234,6 @@ fn main() -> ! {
     let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
 
     for (port, mask, af) in &pins {
-        // Trace(ConfigGPIO(*port, *mask, *af));
         gpio_driver
             .configure(
                 *port,
@@ -208,6 +247,11 @@ fn main() -> ! {
             .unwrap();
     }
 
+    // Ideally, flash size needs to be discovered from the part.
+    // TODO: Do dynamic discovery of the SPI Flash parameters.
+    qspi.set_size((fsize - 1) as u8);
+    qspi.set_prescaler(1);  // set clock to quadspi_ker_ck/(n+1)
+
     let mut buffer = [0; 9];
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -219,13 +263,15 @@ fn main() -> ! {
                 // let ((), caller) = msg.fixed().ok_or(ResponseCode::BadArg)?;
 
                 let (payload, caller) = msg
-                    .fixed_with_leases::<[u8; 9], usize>(2)
+                    .fixed_with_leases::<[u8; 9], usize>(1)
                     .ok_or(ResponseCode::BadArg)?;
+                ringbuf_entry!(Trace::Received(op, *payload));
 
                 let (inst, addr, dlen) = Marshal::unmarshal(payload)?;
 
                 let cmd = &mut quadspi::CommandConfig{ ..Default::default() };
                 let cmd = mt25q::api_to_h7_sfdp(inst, cmd)?;
+
 
                 // TODO: Based on inst, check for address and datalength
                 // needed. Check for implicit return data lenth.
@@ -238,6 +284,7 @@ fn main() -> ! {
                 // the same buffer! See the `1` case below for details.
                 let (data_src, data_dst, xfer_len) = match lease_count {
                     1 => {
+                        ringbuf_entry!(Trace::Line);
                         // Caller has provided a single lease, which must
                         // have different attributes depending on what
                         // operation they've requested.
@@ -263,53 +310,20 @@ fn main() -> ! {
                         }
 
                         let read_borrow = if op.is_write() {
+                            ringbuf_entry!(Trace::Line);
                             Some(borrow.clone())
                         } else {
                             None
                         };
-                        let write_borrow =
-                            if op.is_read() { Some(borrow) } else { None };
+                        let write_borrow = if op.is_read() {
+                            ringbuf_entry!(Trace::Line);
+                            Some(borrow)
+                        } else {
+                            None
+                        };
 
                         (read_borrow, write_borrow, (info.len, info.len))
                     }
-                    /*
-                    2 if op == Op::Exchange => {
-                        // Caller has provided two leases, the first as a
-                        // data source and the second as a data sink. This
-                        // is only legal if we are both transmitting and
-                        // receiving. The transmit buffer cannot be larger
-                        // than the receive buffer; for any bytes for which
-                        // the receive buffer exceeds the transmit buffer,
-                        // a zero byte will be put on the wire.
-                        let src_borrow = caller.borrow(0);
-                        let src_info =
-                            src_borrow.info().ok_or(ResponseCode::BadSource)?;
-
-                        if !src_info.attributes.contains(LeaseAttributes::READ)
-                        {
-                            return Err(ResponseCode::BadSourceAttributes);
-                        }
-
-                        let dst_borrow = caller.borrow(1);
-                        let dst_info =
-                            dst_borrow.info().ok_or(ResponseCode::BadSink)?;
-
-                        if !dst_info.attributes.contains(LeaseAttributes::WRITE)
-                        {
-                            return Err(ResponseCode::BadSinkAttributes);
-                        }
-
-                        if dst_info.len < src_info.len {
-                            return Err(ResponseCode::ShortSinkLength);
-                        }
-
-                        (
-                            Some(src_borrow),
-                            Some(dst_borrow),
-                            (dst_info.len, src_info.len),
-                        )
-                    }
-                    */
                     _ => return Err(ResponseCode::BadLeaseCount),
                 };
 
@@ -340,22 +354,18 @@ fn main() -> ! {
                 ringbuf_entry!(Trace::Start(op, xfer_len));
 
                 // Make sure QSPI is on.
-                qspi.enable(cmd, addr, dlen); // rename to start
-                                              // Load transfer count and start the state machine. At this
-                                              // point we _have_ to move the specified number of bytes
-                                              // through (or explicitly cancel, but we don't).
-                qspi.start(cmd); // XXX redundant with enable
+                ringbuf_entry!(Trace::Regs(qspi.sr(), qspi.cr(), qspi.ccr()));
+                if qspi.busy() {
+                    // XXX We might not always be lucky.
+                    ringbuf_entry!(Trace::Line);
+                    return Err(ResponseCode::Busy);
+                }
 
-                // As you might expect, we will work from byte 0 to the end
-                // of each buffer. There are two complications:
-                //
-                // 1. Transmit and receive can be at different positions --
-                //    transmit will tend to lead receive, because the SPI
-                //    unit contains FIFOs.
-                //
-                // 2. We're only keeping track of position in the buffers
-                //    we're using: both tx and rx are `Option<(Borrow,
-                //    usize)>`.
+                // Program the controller with everything needed to initiate the
+                // operation.
+                ringbuf_entry!(Trace::Regs(qspi.sr(), qspi.cr(), qspi.ccr()));
+                qspi.start(cmd, addr, dlen);
+                ringbuf_entry!(Trace::Regs(qspi.sr(), qspi.cr(), qspi.ccr()));
 
                 // Tack a position field onto whichever borrows actually
                 // exist.
@@ -363,12 +373,21 @@ fn main() -> ! {
                 let mut rx = data_dst.map(|borrow| (borrow, 0));
 
                 // Enable interrupt on the conditions we're interested in.
-                qspi.enable_transfer_interrupts();
-
+                qspi.enable_transfer_interrupts(4); // FIFO threshold = n
                 qspi.clear_eot();
+                qspi.enable();  // turn on the actual control register enable flag
+
+                ringbuf_entry!(Trace::Regs(qspi.sr(), qspi.cr(), qspi.ccr()));
                 // While work remains, we'll attempt to move up to one byte
                 // in each direction, sleeping if we can do neither.
+                if tx.is_some() {
+                    ringbuf_entry!(Trace::IO(tx.as_ref().unwrap().0.index));
+                }
+                if rx.is_some() {
+                    ringbuf_entry!(Trace::IO(rx.as_ref().unwrap().0.index));
+                }
                 while tx.is_some() || rx.is_some() {
+                    ringbuf_entry!(Trace::Line);
                     // Entering RECV to check for interrupts is not free, so
                     // we only do it if we've filled the TX FIFO and emptied
                     // the RX and repeating this loop would just burn power
@@ -378,6 +397,7 @@ fn main() -> ! {
 
                     if let Some((tx_data, tx_pos)) = &mut tx {
                         if qspi.can_tx_frame() {
+                            ringbuf_entry!(Trace::Line);
                             // If our position is less than our tx len,
                             // transfer a byte from caller to TX FIFO --
                             // otherwise put a dummy byte on the wire
@@ -389,7 +409,7 @@ fn main() -> ! {
                                 0u8
                             };
 
-                            ringbuf_entry!(Trace::Tx(*tx_pos, byte));
+                            // ringbuf_entry!(Trace::Tx(*tx_pos, byte));
                             qspi.send8(byte);
                             *tx_pos += 1;
 
@@ -407,14 +427,16 @@ fn main() -> ! {
                         }
                     }
 
+                    ringbuf_entry!(Trace::Line);
                     if let Some((rx_data, rx_pos)) = &mut rx {
                         if qspi.can_rx_byte() {
+                            ringbuf_entry!(Trace::Line);
                             // Transfer byte from RX FIFO to caller.
                             let r = qspi.recv8();
                             rx_data
                                 .write_at(*rx_pos, r)
                                 .ok_or(ResponseCode::BadSinkByte)?;
-                            ringbuf_entry!(Trace::Rx(*rx_pos, r));
+                            // ringbuf_entry!(Trace::Rx(*rx_pos, r));
                             *rx_pos += 1;
 
                             if *rx_pos == xfer_len.0 {
@@ -426,17 +448,21 @@ fn main() -> ! {
                     }
 
                     if !made_progress {
+                        ringbuf_entry!(Trace::Line);
                         // Allow the controller interrupt to post to our
                         // notification set.
                         sys_irq_control(IRQ_MASK, true);
                         // Wait for our notification set to get, well, set.
+                        ringbuf_entry!(Trace::Line);
                         sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
                             .expect("kernel died?");
                     }
+                    ringbuf_entry!(Trace::Line);
                 }
 
                 // Wait for the final EOT interrupt to ensure we're really
                 // done before returning to the client
+                ringbuf_entry!(Trace::Line);
                 loop {
                     sys_irq_control(IRQ_MASK, true);
                     sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
@@ -444,9 +470,11 @@ fn main() -> ! {
 
                     if qspi.check_eot() {
                         qspi.clear_eot();
+                        ringbuf_entry!(Trace::Line);
                         break;
                     }
                 }
+                ringbuf_entry!(Trace::Line);
 
                 // Wrap up the transfer and restore things to a reasonable
                 // state.
