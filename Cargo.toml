@@ -45,6 +45,7 @@ members = [
     "drv/stm32h7-spi-server",
     "drv/stm32h7-usart",
     "drv/stm32h7-i2c-server",
+    "drv/stm32h7-qspi",
 
     "drv/lpc55-syscon",
     "drv/lpc55-syscon-api",
@@ -61,6 +62,7 @@ members = [
     "drv/user-leds-api",
     "drv/ice40-spi-program",
     "drv/gimlet-seq-server",
+    "drv/gimlet-hf-server",
 
     "test/tests-gemini-bu",
     "test/tests-gemini-bu-rot",

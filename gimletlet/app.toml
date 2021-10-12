@@ -138,7 +138,7 @@ start = true
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["stm32h7", "itm", "i2c", "gpio", "spi"]
+features = ["stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
 priority = 3
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
@@ -152,6 +152,16 @@ priority = 3
 requires = {flash = 262144, ram = 1024 }
 stacksize = 1024
 start = true
+
+[tasks.hf]
+path = "../drv/gimlet-hf-server"
+name = "drv-gimlet-hf-server"
+features = []
+priority = 3
+requires = {flash = 16384, ram = 1024 }
+stacksize = 1024
+start = true
+uses = ["quadspi"]
 
 [tasks.idle]
 path = "../task-idle"
@@ -221,3 +231,6 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[peripherals.quadspi]
+address = 0x52005000
+size = 4096

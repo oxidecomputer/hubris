@@ -101,3 +101,190 @@ pub(crate) fn spi_write(
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
 }
+
+#[cfg(feature = "qspi")]
+use userlib::*;
+
+#[cfg(feature = "qspi")]
+declare_task!(HF, hf);
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_read_id(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if rval.len() < 20 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let (rc, len) = userlib::sys_send(
+        userlib::get_task_id(HF),
+        1,
+        &[],
+        &mut rval[..20],
+        &[],
+    );
+    if len != 20 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(20)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_read_status(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if rval.len() < 1 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let (rc, len) = userlib::sys_send(
+        userlib::get_task_id(HF),
+        2,
+        &[],
+        &mut rval[..1],
+        &[],
+    );
+    if len != 1 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(1)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_bulk_erase(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (rc, len) =
+        userlib::sys_send(userlib::get_task_id(HF), 3, &[], &mut [], &[]);
+    if len != 0 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(0)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_page_program(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use zerocopy::AsBytes;
+
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 2..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+    let len =
+        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let data = &data[..len];
+
+    let (rc, len) = userlib::sys_send(
+        userlib::get_task_id(HF),
+        4,
+        addr.as_bytes(),
+        &mut [],
+        &[Lease::from(data)],
+    );
+    if len != 0 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(0)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_read(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use zerocopy::AsBytes;
+
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 2..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+    let len =
+        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+
+    if len > rval.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let out = &mut rval[..len];
+
+    let (rc, rlen) = userlib::sys_send(
+        userlib::get_task_id(HF),
+        5,
+        addr.as_bytes(),
+        &mut [],
+        &[Lease::from(out)],
+    );
+    if rlen != 0 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(len)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_sector_erase(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use zerocopy::AsBytes;
+
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 1..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+
+    let (rc, len) = userlib::sys_send(
+        userlib::get_task_id(HF),
+        6,
+        addr.as_bytes(),
+        &mut [],
+        &[],
+    );
+    if len != 0 {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    if rc != 0 {
+        return Err(Failure::FunctionError(rc));
+    }
+
+    Ok(0)
+}
