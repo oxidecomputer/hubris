@@ -43,14 +43,14 @@ pub mod util;
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Lease<'a> {
-    kern_rep: abi::ULease,
+    _kern_rep: abi::ULease,
     _marker: PhantomData<&'a mut ()>,
 }
 
 impl<'a> From<&'a [u8]> for Lease<'a> {
     fn from(x: &'a [u8]) -> Self {
         Self {
-            kern_rep: abi::ULease {
+            _kern_rep: abi::ULease {
                 attributes: abi::LeaseAttributes::READ,
                 base_address: x.as_ptr() as u32,
                 length: x.len() as u32,
@@ -63,7 +63,7 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
 impl<'a> From<&'a mut [u8]> for Lease<'a> {
     fn from(x: &'a mut [u8]) -> Self {
         Self {
-            kern_rep: abi::ULease {
+            _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
                 base_address: x.as_ptr() as u32,
                 length: x.len() as u32,
