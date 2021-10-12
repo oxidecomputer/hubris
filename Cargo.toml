@@ -59,6 +59,8 @@ members = [
 
     "drv/user-leds",
     "drv/user-leds-api",
+    "drv/ice40-spi-program",
+    "drv/gimlet-seq-server",
 
     "test/tests-gemini-bu",
     "test/tests-gemini-bu-rot",
