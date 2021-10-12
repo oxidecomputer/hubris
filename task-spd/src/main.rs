@@ -69,6 +69,7 @@ enum Trace {
     Rx(u8, u8),
     Tx(u8, Option<u8>),
     Present(u8, u8, usize),
+    BankAbsent(u8),
     Absent(u8, u8, usize),
     ReadTop(usize),
     ReadBottom(usize),
@@ -202,11 +203,14 @@ fn main() -> ! {
             .unwrap();
         let page = I2cDevice::new(i2c_task, controller, port, None, addr);
 
-        //
-        // Probably need to do something better than tossing on a failure
-        // here -- but we also *really* don't expect it to fail
-        //
-        page.write(&[0]).unwrap();
+        if let Err(_) = page.write(&[0]) {
+            //
+            // If our operation fails, we are going to assume that there
+            // are no DIMMs on this bank.
+            //
+            ringbuf_entry!(Trace::BankAbsent(nbank));
+            continue;
+        }
 
         for i in 0..spd::MAX_DEVICES {
             let mem = spd::Function::Memory(i).to_device_code().unwrap();
@@ -251,6 +255,10 @@ fn main() -> ! {
             .unwrap();
         let page = I2cDevice::new(i2c_task, controller, port, None, addr);
 
+        //
+        // We really don't expect this to fail, and if it does, tossing here
+        // seems to be best option:  things are pretty wrong.
+        //
         page.write(&[0]).unwrap();
 
         //
