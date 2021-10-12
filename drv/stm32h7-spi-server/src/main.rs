@@ -52,7 +52,7 @@ fn main() -> ! {
 
     // This should correspond to '0' in the standard SPI parlance
     spi.initialize(
-        device::spi1::cfg1::MBR_A::DIV8,
+        device::spi1::cfg1::MBR_A::DIV64,
         8,
         device::spi1::cfg2::COMM_A::FULLDUPLEX,
         device::spi1::cfg2::LSBFRST_A::MSBFIRST,
