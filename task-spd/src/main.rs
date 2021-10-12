@@ -113,9 +113,8 @@ fn main() -> ! {
             let pin = I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
-                gpio_port: drv_stm32h7_gpio_api::Port::F,
+                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-                mask: (1 << 0) | (1 << 1),
             };
 
             const BANKS: [Bank; 2] = [

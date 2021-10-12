@@ -325,11 +325,6 @@ fn main() -> ! {
             // call the pair logical port A.
             //
             let pins = [ I2cPin {
-                controller: Controller::I2C2,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            }, I2cPin {
                 controller: Controller::I2C3,
                 port: Port::A,
                 gpio_pins: gpio_api::Port::A.pin(8),
