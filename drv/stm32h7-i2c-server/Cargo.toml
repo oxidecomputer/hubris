@@ -44,6 +44,12 @@ external-pca9548 = []
 #
 external-spd = []
 
+#
+# This option will -- on Gimletlet -- leave I2C2 available to be used by
+# SPD proxy
+#
+target-enable = []
+
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
