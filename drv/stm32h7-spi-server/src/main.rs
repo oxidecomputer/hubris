@@ -22,7 +22,7 @@ declare_task!(GPIO, gpio_driver);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Start(Operation, (usize, usize)),
-    Tx(usize, u8),
+    Tx(Option<u8>),
     Rx(usize, u8),
     None,
 }
@@ -332,7 +332,7 @@ fn main() -> ! {
 
                     // Tack a position field onto whichever borrows actually
                     // exist.
-                    let mut tx = data_src.map(|borrow| (borrow, 0));
+                    let mut tx = data_src.map(|borrow| BufferedBorrowReader::<16>::new(caller.task_id(), borrow.index(), xfer_len.0));
                     let mut rx = data_dst.map(|borrow| (borrow, 0));
 
                     // Enable interrupt on the conditions we're interested in.
@@ -356,25 +356,17 @@ fn main() -> ! {
                         // the loop immediately, we'll set this flag.
                         let mut made_progress = false;
 
-                        if let Some((tx_data, tx_pos)) = &mut tx {
+                        if let Some(tx_reader) = &mut tx {
                             if spi.can_tx_frame() {
                                 // If our position is less than our tx len,
                                 // transfer a byte from caller to TX FIFO --
                                 // otherwise put a dummy byte on the wire
-                                let byte: u8 = if *tx_pos < xfer_len.1 {
-                                    tx_data
-                                        .read_at(*tx_pos)
-                                        .ok_or(SpiError::BadSourceByte)?
-                                } else {
-                                    0u8
-                                };
-
-                                ringbuf_entry!(Trace::Tx(*tx_pos, byte));
-                                spi.send8(byte);
-                                *tx_pos += 1;
+                                let byte = tx_reader.read();
+                                ringbuf_entry!(Trace::Tx(byte));
+                                spi.send8(byte.unwrap_or(0));
 
                                 // If we have _just_ finished...
-                                if *tx_pos == xfer_len.0 {
+                                if byte.is_none() {
                                     // We will finish transmitting well before
                                     // we're done receiving, so stop getting
                                     // interrupt notifications for transmit
@@ -498,6 +490,51 @@ fn activate_mux_option(
     )
     .unwrap();
 }
+
+struct BufferedBorrowReader<const N: usize> {
+    caller: TaskId,
+    borrow: usize,
+    len: usize,
+    pos: usize,
+
+    buffer: [u8; N],
+    consumed: usize,
+}
+
+impl<const N: usize> BufferedBorrowReader<N> {
+    pub fn new(caller: TaskId, borrow: usize, len: usize) -> Self {
+        Self {
+            caller,
+            borrow,
+            len,
+            pos: 0,
+            buffer: [0; N],
+            consumed: N,
+        }
+    }
+
+    pub fn read(&mut self) -> Option<u8> {
+        if self.consumed == N {
+            if self.len == self.pos {
+                return None;
+            }
+
+            let read_size = N.min(self.len - self.pos);
+            let offset = N - read_size;
+            let (rc, len) = sys_borrow_read(self.caller, self.borrow, self.pos, &mut self.buffer[offset..]);
+            if rc != 0 || len != read_size {
+                return None;
+            }
+
+            self.consumed = offset;
+        }
+
+        let byte = self.buffer[self.consumed];
+        self.consumed += 1;
+        Some(byte)
+    }
+}
+
 
 //////////////////////////////////////////////////////////////////////////////
 // Board-peripheral-server configuration matrix

@@ -429,6 +429,10 @@ impl Borrow<'_> {
             Some(())
         }
     }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
 }
 
 /// Information record returned by `Borrow::info`.
