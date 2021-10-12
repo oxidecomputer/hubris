@@ -312,11 +312,6 @@ fn main() -> ! {
             ];
         } else if #[cfg(target_board = "gimletlet-2")] {
             let controllers = [ I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                notification: (1 << (2 - 1)),
-                registers: unsafe { &*device::I2C2::ptr() },
-            }, I2cController {
                 controller: Controller::I2C3,
                 peripheral: Peripheral::I2c3,
                 notification: (1 << (3 - 1)),
