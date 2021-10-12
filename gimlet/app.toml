@@ -89,8 +89,8 @@ uses = ["i2c1"]
 start = true
 
 [tasks.spd.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
+31 = 0b0000_0010        # I2C1 event
+32 = 0b0000_0010        # I2C1 error
 
 [tasks.hiffy]
 path = "../task-hiffy"
