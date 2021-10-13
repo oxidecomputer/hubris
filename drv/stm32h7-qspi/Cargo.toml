@@ -9,6 +9,7 @@ edition = "2018"
 stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
 vcell = "0.1.2"
 zerocopy = "0.3.0"
+userlib = {path = "../../userlib"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]
