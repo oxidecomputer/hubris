@@ -394,11 +394,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimlet-hf-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "drv-gimlet-hf-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-qspi",
  "drv-stm32h7-rcc-api",
@@ -1959,6 +1970,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-semihosting",
+ "drv-gimlet-hf-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-spi-api",

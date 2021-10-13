@@ -5,6 +5,18 @@ cfg_if::cfg_if! {
     }
 }
 
+/// We allow dead code on this because the functions below are optional.
+///
+/// This could become a From impl on Failure if moved into hif, which would let
+/// it be replaced syntactically by a question mark.
+#[allow(dead_code)]
+fn func_err<T, E>(e: Result<T, E>) -> Result<T, hif::Failure>
+where
+    E: Into<u32>,
+{
+    e.map_err(|e| hif::Failure::FunctionError(e.into()))
+}
+
 #[cfg(feature = "spi")]
 fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
     if stack.len() < 2 {
@@ -74,10 +86,8 @@ pub(crate) fn spi_read(
 
     // TODO: hiffy currently always issues SPI commands to device 0. It is worth
     // changing this at some point.
-    match spi.exchange(0, &data[0..len], &mut rval[0..rlen]) {
-        Ok(_) => Ok(rlen),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    func_err(spi.exchange(0, &data[0..len], &mut rval[0..rlen]))?;
+    Ok(rlen)
 }
 
 #[cfg(feature = "spi")]
@@ -96,10 +106,8 @@ pub(crate) fn spi_write(
 
     // TODO: hiffy currently always issues SPI commands to device 0. It is worth
     // changing this at some point.
-    match spi.write(0, &data[0..len]) {
-        Ok(_) => Ok(0),
-        Err(err) => Err(Failure::FunctionError(err.into())),
-    }
+    func_err(spi.write(0, &data[0..len]))?;
+    Ok(0)
 }
 
 #[cfg(feature = "qspi")]
@@ -110,73 +118,50 @@ declare_task!(HF, hf);
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_read_id(
-    stack: &[Option<u32>],
-    data: &[u8],
+    _stack: &[Option<u32>],
+    _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
+    use core::convert::TryInto;
+    use drv_gimlet_hf_api as hf;
+
     if rval.len() < 20 {
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let (rc, len) = userlib::sys_send(
-        userlib::get_task_id(HF),
-        1,
-        &[],
-        &mut rval[..20],
-        &[],
-    );
-    if len != 20 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
-
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    func_err(server.read_id((&mut rval[..20]).try_into().unwrap()))?;
     Ok(20)
 }
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_read_status(
-    stack: &[Option<u32>],
-    data: &[u8],
+    _stack: &[Option<u32>],
+    _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
+    use drv_gimlet_hf_api as hf;
+
     if rval.len() < 1 {
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let (rc, len) = userlib::sys_send(
-        userlib::get_task_id(HF),
-        2,
-        &[],
-        &mut rval[..1],
-        &[],
-    );
-    if len != 1 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
-
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let x = func_err(server.read_status())?;
+    rval[0] = x;
     Ok(1)
 }
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_bulk_erase(
-    stack: &[Option<u32>],
-    data: &[u8],
-    rval: &mut [u8],
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let (rc, len) =
-        userlib::sys_send(userlib::get_task_id(HF), 3, &[], &mut [], &[]);
-    if len != 0 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
+    use drv_gimlet_hf_api as hf;
 
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    func_err(server.bulk_erase())?;
     Ok(0)
 }
 
@@ -184,9 +169,9 @@ pub(crate) fn qspi_bulk_erase(
 pub(crate) fn qspi_page_program(
     stack: &[Option<u32>],
     data: &[u8],
-    rval: &mut [u8],
+    _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use zerocopy::AsBytes;
+    use drv_gimlet_hf_api as hf;
 
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -202,30 +187,18 @@ pub(crate) fn qspi_page_program(
 
     let data = &data[..len];
 
-    let (rc, len) = userlib::sys_send(
-        userlib::get_task_id(HF),
-        4,
-        addr.as_bytes(),
-        &mut [],
-        &[Lease::from(data)],
-    );
-    if len != 0 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
-
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    func_err(server.page_program(addr, data))?;
     Ok(0)
 }
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_read(
     stack: &[Option<u32>],
-    data: &[u8],
+    _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use zerocopy::AsBytes;
+    use drv_gimlet_hf_api as hf;
 
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -241,30 +214,18 @@ pub(crate) fn qspi_read(
 
     let out = &mut rval[..len];
 
-    let (rc, rlen) = userlib::sys_send(
-        userlib::get_task_id(HF),
-        5,
-        addr.as_bytes(),
-        &mut [],
-        &[Lease::from(out)],
-    );
-    if rlen != 0 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
-
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    func_err(server.read(addr, out))?;
     Ok(len)
 }
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_sector_erase(
     stack: &[Option<u32>],
-    data: &[u8],
-    rval: &mut [u8],
+    _data: &[u8],
+    _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use zerocopy::AsBytes;
+    use drv_gimlet_hf_api as hf;
 
     if stack.len() < 1 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -272,19 +233,7 @@ pub(crate) fn qspi_sector_erase(
     let frame = &stack[stack.len() - 1..];
     let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
 
-    let (rc, len) = userlib::sys_send(
-        userlib::get_task_id(HF),
-        6,
-        addr.as_bytes(),
-        &mut [],
-        &[],
-    );
-    if len != 0 {
-        return Err(Failure::Fault(Fault::ReturnValueOverflow));
-    }
-    if rc != 0 {
-        return Err(Failure::FunctionError(rc));
-    }
-
+    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    func_err(server.sector_erase(addr))?;
     Ok(0)
 }

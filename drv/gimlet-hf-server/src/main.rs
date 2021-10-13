@@ -13,33 +13,10 @@ use drv_stm32h7_qspi::Qspi;
 use drv_stm32h7_rcc_api as rcc_api;
 use stm32h7::stm32h743 as device;
 
+use drv_gimlet_hf_api::{HfError, InternalHfError, Operation};
+
 declare_task!(RCC, rcc_driver);
 declare_task!(GPIO, gpio_driver);
-
-/// Operations in our IPC interface.
-#[derive(FromPrimitive)]
-enum Op {
-    ReadId = 1,
-    ReadStatus = 2,
-    BulkErase = 3,
-    PageProgram = 4,
-    Read = 5,
-    SectorErase = 6,
-}
-
-/// Errors from our IPC interface.
-enum HfError {
-    Bad = 1,
-    WriteEnableFailed = 2,
-    MissingLease = 3,
-    BadLease = 4,
-}
-
-impl From<HfError> for u32 {
-    fn from(e: HfError) -> u32 {
-        e as u32
-    }
-}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -183,94 +160,75 @@ fn main() -> ! {
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Op::ReadId => {
-                let ((), caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::ReadId => {
+                let ((), caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
                 let mut idbuf = [0; 20];
                 qspi.read_id(&mut idbuf);
 
                 caller.reply(idbuf);
-                Ok::<_, HfError>(())
+                Ok::<_, InternalHfError>(())
             }
-            Op::ReadStatus => {
-                let ((), caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::ReadStatus => {
+                let ((), caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
-                let r = qspi.read_status();
-
-                caller.reply(r);
-                Ok::<_, HfError>(())
+                caller.reply(qspi.read_status());
+                Ok::<_, InternalHfError>(())
             }
-            Op::BulkErase => {
-                let ((), caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::BulkErase => {
+                let ((), caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
-                qspi.write_enable();
-                let status = qspi.read_status();
-                if status & 0b10 == 0 {
-                    // oh oh
-                    return Err(HfError::WriteEnableFailed);
-                }
+                set_and_check_write_enable(&qspi)?;
                 qspi.bulk_erase();
-                loop {
-                    let status = qspi.read_status();
-                    if status & 1 == 0 {
-                        // ooh we're done
-                        break;
-                    }
-                }
+                poll_for_write_complete(&qspi);
 
                 caller.reply(());
-                Ok::<_, HfError>(())
+                Ok::<_, InternalHfError>(())
             }
-            Op::PageProgram => {
-                let (&addr, caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::PageProgram => {
+                let (&addr, caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
                 let borrow = caller.borrow(0);
-                let info = borrow.info().ok_or(HfError::MissingLease)?;
+                let info =
+                    borrow.info().ok_or(InternalHfError::MissingLease)?;
 
                 if !info.attributes.contains(LeaseAttributes::READ) {
-                    return Err(HfError::BadLease);
+                    return Err(InternalHfError::BadLease);
                 }
                 if info.len > block.len() {
-                    return Err(HfError::BadLease);
+                    return Err(InternalHfError::BadLease);
                 }
 
                 // Read the entire data block into our address space.
                 borrow
                     .read_fully_at(0, &mut block[..info.len])
-                    .ok_or(HfError::BadLease)?;
+                    .ok_or(InternalHfError::BadLease)?;
 
                 // Now we can't fail.
 
-                qspi.write_enable();
-                let status = qspi.read_status();
-                if status & 0b10 == 0 {
-                    // oh oh
-                    return Err(HfError::WriteEnableFailed);
-                }
-
+                set_and_check_write_enable(&qspi)?;
                 qspi.page_program(addr, &block[..info.len]);
-                loop {
-                    let status = qspi.read_status();
-                    if status & 1 == 0 {
-                        // ooh we're done
-                        break;
-                    }
-                }
-
+                poll_for_write_complete(&qspi);
                 caller.reply(());
-                Ok::<_, HfError>(())
+                Ok::<_, InternalHfError>(())
             }
-            Op::Read => {
-                let (&addr, caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::Read => {
+                let (&addr, caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
                 let borrow = caller.borrow(0);
-                let info = borrow.info().ok_or(HfError::MissingLease)?;
+                let info =
+                    borrow.info().ok_or(InternalHfError::MissingLease)?;
 
                 if !info.attributes.contains(LeaseAttributes::WRITE) {
-                    return Err(HfError::BadLease);
+                    return Err(InternalHfError::BadLease);
                 }
                 if info.len > block.len() {
-                    return Err(HfError::BadLease);
+                    return Err(InternalHfError::BadLease);
                 }
 
                 qspi.read_memory(addr, &mut block[..info.len]);
@@ -280,30 +238,38 @@ fn main() -> ! {
                 borrow.write_fully_at(0, &block[..info.len]);
 
                 caller.reply(());
-                Ok::<_, HfError>(())
+                Ok::<_, InternalHfError>(())
             }
-            Op::SectorErase => {
-                let (&addr, caller) = msg.fixed().ok_or(HfError::Bad)?;
+            Operation::SectorErase => {
+                let (&addr, caller) =
+                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
 
-                qspi.write_enable();
-                let status = qspi.read_status();
-                if status & 0b10 == 0 {
-                    // oh oh
-                    return Err(HfError::WriteEnableFailed);
-                }
-
+                set_and_check_write_enable(&qspi)?;
                 qspi.sector_erase(addr);
-                loop {
-                    let status = qspi.read_status();
-                    if status & 1 == 0 {
-                        // ooh we're done
-                        break;
-                    }
-                }
-
+                poll_for_write_complete(&qspi);
                 caller.reply(());
-                Ok::<_, HfError>(())
+                Ok::<_, InternalHfError>(())
             }
         });
+    }
+}
+
+fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
+    qspi.write_enable();
+    let status = qspi.read_status();
+    if status & 0b10 == 0 {
+        // oh oh
+        return Err(HfError::WriteEnableFailed.into());
+    }
+    Ok(())
+}
+
+fn poll_for_write_complete(qspi: &Qspi) {
+    loop {
+        let status = qspi.read_status();
+        if status & 1 == 0 {
+            // ooh we're done
+            break;
+        }
     }
 }
