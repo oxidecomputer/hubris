@@ -146,26 +146,12 @@ fn main() -> ! {
                 None,
                 MAX31790_ADDRESS,
             ));
-
-            // XXX Something better?
-            let device = I2cDevice::new(task, Controller::I2C4, Port::F, None, 0xff);
-
-            let mut ds2482 = Ds2482::new(&device);
-            let mut adt7420 = [ (Adt7420::new(&device), false) ];
-            let max6634 = [ Max6634::new(&device) ];
-            let mcp9808 = [ Mcp9808::new(&device) ];
-            let pct2075 = [ Pct2075::new(&device) ];
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
                     let device = I2cDevice::mock(task);
                     let fctrl = Max31790::new(&device);
-                    let mut adt7420 = [ (Adt7420::new(&device), false) ];
-                    let max6634 = [ Max6634::new(&device) ];
                     let tmp116 = [ Tmp116::new(&device) ];
-                    let mcp9808 = [ Mcp9808::new(&device) ];
-                    let pct2075 = [ Pct2075::new(&device) ];
-                    let mut ds2482 = Ds2482::new(&device);
                 } else {
                     compile_error!("unknown board");
                 }
