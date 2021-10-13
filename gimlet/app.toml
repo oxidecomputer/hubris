@@ -119,7 +119,7 @@ path = "../task-hiffy"
 name = "task-hiffy"
 features = ["stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
 priority = 3
-requires = {flash = 32768, ram = 16384 }
+requires = {flash = 32768, ram = 32768 }
 start = true
 
 [tasks.gimlet_seq]
