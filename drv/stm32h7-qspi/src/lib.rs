@@ -235,7 +235,8 @@ impl Qspi {
 
         self.set_transfer_length(out.len());
 
-        // Clear flags we'll use later.
+        // Routine below expects that we don't have a transfer-complete flag
+        // hanging around from some previous transfer -- ensure this:
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
         #[rustfmt::skip]
@@ -266,71 +267,72 @@ impl Qspi {
         // perform transfers.
         let mut out = out;
         while !out.is_empty() {
-            // Fast read path. If we discover that the FIFO is non-empty, go
-            // ahead and drain it before bothering to wait for interrupts.
+            // Is there enough to read that we want to bother with it?
             let fl = usize::from(self.reg.sr.read().flevel().bits());
-            if fl >= FIFO_THRESH.min(out.len()) {
-                // Calculate the read size. Note that this may be bigger than
-                // FIFO_THRESH.min(out.len()) above. We'll opportunistically
-                // take however much remains.
-                let immediate_read = fl.min(out.len());
-                let (dest, new_out) = out.split_at_mut(immediate_read);
-                for byte in dest {
-                    *byte = self.recv8();
-                }
-                out = new_out;
-                continue;
-            }
+            if fl < FIFO_THRESH.min(out.len()) {
+                // Nope! Let's wait for more bytes.
 
-            // FIFO was observed to be too empty to worry about. Time to wait.
-
-            // Figure out which event we're looking for.
-            let awaiting_tc;
-            if out.len() >= FIFO_THRESH {
-                // We want the FIFO fill event
-                self.reg.cr.modify(|_, w| w.ftie().set_bit());
-                awaiting_tc = false;
-            } else {
-                // We want the transfer-complete event
-                #[rustfmt::skip]
-                self.reg.cr.modify(|_, w|
-                    w.ftie().clear_bit()
+                // Figure out which event we're looking for and turn it on.
+                if out.len() >= FIFO_THRESH {
+                    // We want the FIFO fill event
+                    self.reg.cr.modify(|_, w| w.ftie().set_bit());
+                } else {
+                    // We want the transfer-complete event
+                    #[rustfmt::skip]
+                    self.reg.cr.modify(|_, w|
+                        w.ftie().clear_bit()
                         .tcie().set_bit()
-                );
-                awaiting_tc = true;
-            }
+                    );
+                }
 
-            // Interrupt-mediated poll of the status register.
-            loop {
                 // Unmask our interrupt.
                 sys_irq_control(self.interrupt, true);
                 // And wait for it to arrive.
                 let _rm =
                     sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
                         .unwrap();
-                let sr = self.reg.sr.read();
-                let ready = if awaiting_tc {
-                    self.reg.fcr.write(|w| w.ctcf().set_bit());
-                    sr.tcf().bit()
-                } else {
-                    sr.ftf().bit()
-                };
-                if ready {
-                    break;
-                }
+
+                // Try the check again. We may retry the check on spurious
+                // wakeups, but, spurious wakeups are expected to be pretty
+                // unusual, and the check isn't that expensive -- so, why add
+                // extra logic.
+                continue;
             }
 
-            // Just loop back around to the fast path to avoid duplicating code
-            // here.
+            // Okay! We have some data! Let's evacuate it.
+
+            // Calculate the read size. Note that, if we have more bytes left to
+            // read than FIFO_THRESH, this may be bigger than FIFO_THRESH. We'll
+            // opportunistically take however much remains.
+            let read_size = fl.min(out.len());
+            let (dest, new_out) = out.split_at_mut(read_size);
+            for byte in dest {
+                *byte = self.recv8();
+            }
+            out = new_out;
+
+            // next!
+        }
+
+        // There's a chance we race BUSY clearing here, because we've seen it
+        // happen in the wild, no matter what the reference manual might
+        // suggest. Waiting for transfer complete seems to be good enough,
+        // though the relationship between BUSY and TC is not documented.
+        self.reg
+            .cr
+            .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
+        while self.is_busy() {
+            // Unmask our interrupt.
+            sys_irq_control(self.interrupt, true);
+            // And wait for it to arrive.
+            let _rm = sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
+                .unwrap();
         }
 
         // Clean up by disabling our interrupt sources.
         self.reg
             .cr
             .modify(|_, w| w.ftie().clear_bit().tcie().clear_bit());
-
-        // Pretty sure we should be done being BUSY by now
-        assert!(!self.is_busy());
     }
 
     fn set_transfer_length(&self, len: usize) {

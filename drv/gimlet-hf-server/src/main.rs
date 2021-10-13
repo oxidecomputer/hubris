@@ -154,7 +154,7 @@ fn main() -> ! {
         let mut idbuf = [0; 20];
         qspi.read_id(&mut idbuf);
 
-        if idbuf[0] == 0x20 && idbuf[1] == 0xBA {
+        if idbuf[0] == 0x20 && matches!(idbuf[1], 0xBA | 0xBB) {
             // ok, I believe you
         } else {
             loop {
