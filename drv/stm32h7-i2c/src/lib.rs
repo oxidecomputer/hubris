@@ -824,6 +824,12 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.txis().is_empty() {
+                    //
+                    // This byte is deliberately indistinguishable from no
+                    // activity from the target on the bus.
+                    //
+                    const FILLER: u8 = 0xff;
+
                     if initiated {
                         match txbyte(addr) {
                             Some(byte) => {
@@ -844,12 +850,12 @@ impl<'a> I2cController<'a> {
                                 // grip.
                                 //
                                 ringbuf_entry!(Trace::TxOverrun(addr));
-                                i2c.txdr.write(|w| w.txdata().bits(0x1d));
+                                i2c.txdr.write(|w| w.txdata().bits(FILLER));
                             }
                         }
                     } else {
                         ringbuf_entry!(Trace::TxBogus(addr));
-                        i2c.txdr.write(|w| w.txdata().bits(0x1f));
+                        i2c.txdr.write(|w| w.txdata().bits(FILLER));
                     }
 
                     continue 'txloop;
