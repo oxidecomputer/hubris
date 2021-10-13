@@ -93,7 +93,7 @@ pub enum Functions {
     #[cfg(feature = "qspi")]
     QspiBulkErase((), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
-    QspiPageProgram((u32, usize), drv_spi_api::SpiError),
+    QspiPageProgram((u32, usize, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
     QspiRead((u32, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]

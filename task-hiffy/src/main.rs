@@ -30,6 +30,14 @@ cfg_if::cfg_if! {
     }
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(any(target_board = "gimlet-1", target_board = "gimletlet-2"))] {
+        const HIFFY_DATA_SIZE: usize = 20_480;
+    } else {
+        const HIFFY_DATA_SIZE: usize = 2_048;
+    }
+}
+
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;
 /// they should not be altered without modifying Humility as well.
@@ -45,7 +53,7 @@ cfg_if::cfg_if! {
 ///                           execution engine is waiting to be kicked
 ///
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
-static mut HIFFY_DATA: [u8; 1024] = [0; 1024];
+static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
 static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);

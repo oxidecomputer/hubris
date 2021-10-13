@@ -173,19 +173,21 @@ pub(crate) fn qspi_page_program(
 ) -> Result<usize, Failure> {
     use drv_gimlet_hf_api as hf;
 
-    if stack.len() < 2 {
+    if stack.len() < 3 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
-    let frame = &stack[stack.len() - 2..];
+    let frame = &stack[stack.len() - 3..];
     let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
-    let len =
+    let offset =
         frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+    let len =
+        frame[2].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
 
-    if len > data.len() {
+    if offset + len > data.len() {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
 
-    let data = &data[..len];
+    let data = &data[offset..offset + len];
 
     let server = hf::HostFlash::from(userlib::get_task_id(HF));
     func_err(server.page_program(addr, data))?;
