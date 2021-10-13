@@ -18,6 +18,8 @@ use drv_gimlet_hf_api::{HfError, InternalHfError, Operation};
 declare_task!(RCC, rcc_driver);
 declare_task!(GPIO, gpio_driver);
 
+const QSPI_IRQ: u32 = 1;
+
 #[export_name = "main"]
 fn main() -> ! {
     let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
@@ -27,12 +29,15 @@ fn main() -> ! {
     rcc_driver.leave_reset(rcc_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
-    let qspi = Qspi::new(reg);
-    qspi.configure();
-
+    let qspi = Qspi::new(reg, QSPI_IRQ);
     // Board specific goo
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-1")] {
+            qspi.configure(
+                5, // 200MHz kernel / 5 = 40MHz clock
+                25, // 2**25 = 32MiB = 256Mib
+            );
+
             // Gimlet pin mapping
             // PF6 SP_QSPI1_IO3
             // PF7 SP_QSPI1_IO2
@@ -79,6 +84,10 @@ fn main() -> ! {
 
             let reset_pin = gpio_api::Port::B.pin(2);
         } else if #[cfg(target_board = "gimletlet-2")] {
+            qspi.configure(
+                5, // 200MHz kernel / 5 = 40MHz clock
+                25, // 2**25 = 32MiB = 256Mib
+            );
             // Gimletlet pin mapping
             // PF6 SP_QSPI1_IO3
             // PF7 SP_QSPI1_IO2

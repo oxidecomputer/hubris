@@ -3,11 +3,16 @@
 #![no_std]
 
 use stm32h7::stm32h743 as device;
+use userlib::{sys_irq_control, sys_recv_closed, TaskId};
 use zerocopy::AsBytes;
+
+const FIFO_SIZE: usize = 32;
+const FIFO_THRESH: usize = 16;
 
 /// Wrapper for a reference to the register block.
 pub struct Qspi {
     reg: &'static device::quadspi::RegisterBlock,
+    interrupt: u32,
 }
 
 enum Command {
@@ -30,8 +35,11 @@ impl From<Command> for u8 {
 
 impl Qspi {
     /// Creates a new wrapper for `reg`.
-    pub fn new(reg: &'static device::quadspi::RegisterBlock) -> Self {
-        Self { reg }
+    pub fn new(
+        reg: &'static device::quadspi::RegisterBlock,
+        interrupt: u32,
+    ) -> Self {
+        Self { reg, interrupt }
     }
 
     /// Sets up the QSPI controller with some canned settings.
@@ -40,22 +48,29 @@ impl Qspi {
     /// calling this.
     ///
     /// You must call this before any other function on this `Qspi`.
-    pub fn configure(&self) {
+    pub fn configure(&self, divider: u8, l2size: u8) {
+        assert!(divider > 0);
+        assert!(l2size > 0 && l2size < 64);
+
         #[rustfmt::skip]
         self.reg.cr.write(|w| unsafe {
             w
-                // Divide kernel clock by 128.
-                .prescaler().bits(127)
+                // Divide kernel clock by the divider, which means setting
+                // prescaler to one less.
+                .prescaler().bits(divider - 1)
+                // In both read and write modes we try to get 16 bytes into the
+                // FIFO before bothering to wake up.
+                .fthres().bits(FIFO_THRESH as u8 - 1)
                 // On.
                 .en().set_bit()
         });
         #[rustfmt::skip]
         self.reg.dcr.write(|w| unsafe {
             w
-                // 2^25 = 32MiB = 256Mib
-                .fsize().bits(24)
-                // CS high time: 8 cycles between (arbitrary)
-                .csht().bits(7)
+                // Flash size is recorded as log2 minus 1.
+                .fsize().bits(l2size - 1)
+                // CS high time: 1 cycle between (arbitrary)
+                .csht().bits(1)
                 // Clock mode 0.
                 .ckmode().clear_bit()
         });
@@ -126,6 +141,10 @@ impl Qspi {
         if !data.is_empty() {
             self.set_transfer_length(data.len());
         }
+
+        // Clear flags we'll use later.
+        self.reg.fcr.write(|w| w.ctcf().set_bit());
+
         // Note: if we aren't using an address, this write will kick things off.
         // Otherwise it's the AR write below.
         #[rustfmt::skip]
@@ -151,14 +170,63 @@ impl Qspi {
         if let Some(addr) = addr {
             self.reg.ar.write(|w| unsafe { w.address().bits(addr) });
         }
-        for &byte in data {
-            self.send8(byte);
+
+        // We're going to update this slice in place as we send data by lopping
+        // off the front.
+        let mut data = data;
+        while !data.is_empty() {
+            // How much space is in the FIFO?
+            let fl = usize::from(self.reg.sr.read().flevel().bits());
+            let ffree = FIFO_SIZE - fl;
+            if ffree >= FIFO_THRESH.min(data.len()) {
+                // Calculate the write size. Note that this may be bigger than
+                // the threshold used above above. We'll opportunistically
+                // insert as much as we can.
+                let immediate_write = ffree.min(data.len());
+                let (chunk, new_data) = data.split_at(immediate_write);
+                for &byte in chunk {
+                    self.send8(byte);
+                }
+                data = new_data;
+                continue;
+            }
+
+            // FIFO was observed to be too full to worry about. Time to wait.
+
+            // During a write, we're only ever waiting for the FIFO to become
+            // empty enough for data. The final, possibly smaller, chunk does
+            // not require special handling.
+            self.reg.cr.modify(|_, w| w.ftie().set_bit());
+
+            // Interrupt-mediated poll of the status register.
+            loop {
+                // Unmask our interrupt.
+                sys_irq_control(self.interrupt, true);
+                // And wait for it to arrive.
+                let _rm =
+                    sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
+                        .unwrap();
+                if self.reg.sr.read().ftf().bit() {
+                    break;
+                }
+            }
+
+            // Just loop back around to the fast path to avoid duplicating code
+            // here.
         }
 
-        // TODO polling interface
+        // We're now interested in transfer complete, not FIFO ready.
+        self.reg
+            .cr
+            .modify(|_, w| w.ftie().clear_bit().tcie().set_bit());
         while self.is_busy() {
-            // spin
+            // Unmask our interrupt.
+            sys_irq_control(self.interrupt, true);
+            // And wait for it to arrive.
+            let _rm = sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
+                .unwrap();
         }
+        self.reg.cr.modify(|_, w| w.tcie().clear_bit());
     }
 
     /// Internal implementation of reads.
@@ -166,6 +234,10 @@ impl Qspi {
         assert!(!out.is_empty());
 
         self.set_transfer_length(out.len());
+
+        // Clear flags we'll use later.
+        self.reg.fcr.write(|w| w.ctcf().set_bit());
+
         #[rustfmt::skip]
         self.reg.ccr.write(|w| unsafe {
             w
@@ -189,22 +261,76 @@ impl Qspi {
         if let Some(addr) = addr {
             self.reg.ar.write(|w| unsafe { w.address().bits(addr) });
         }
-        for byte in out.iter_mut() {
+
+        // We're going to shorten this slice by lopping off the front as we
+        // perform transfers.
+        let mut out = out;
+        while !out.is_empty() {
+            // Fast read path. If we discover that the FIFO is non-empty, go
+            // ahead and drain it before bothering to wait for interrupts.
+            let fl = usize::from(self.reg.sr.read().flevel().bits());
+            if fl >= FIFO_THRESH.min(out.len()) {
+                // Calculate the read size. Note that this may be bigger than
+                // FIFO_THRESH.min(out.len()) above. We'll opportunistically
+                // take however much remains.
+                let immediate_read = fl.min(out.len());
+                let (dest, new_out) = out.split_at_mut(immediate_read);
+                for byte in dest {
+                    *byte = self.recv8();
+                }
+                out = new_out;
+                continue;
+            }
+
+            // FIFO was observed to be too empty to worry about. Time to wait.
+
+            // Figure out which event we're looking for.
+            let awaiting_tc;
+            if out.len() >= FIFO_THRESH {
+                // We want the FIFO fill event
+                self.reg.cr.modify(|_, w| w.ftie().set_bit());
+                awaiting_tc = false;
+            } else {
+                // We want the transfer-complete event
+                #[rustfmt::skip]
+                self.reg.cr.modify(|_, w|
+                    w.ftie().clear_bit()
+                        .tcie().set_bit()
+                );
+                awaiting_tc = true;
+            }
+
+            // Interrupt-mediated poll of the status register.
             loop {
-                // TODO this will get replaced by a wait for a FIFO threshold
-                // interrupt.
-                if let Some(b) = self.try_recv() {
-                    *byte = b;
+                // Unmask our interrupt.
+                sys_irq_control(self.interrupt, true);
+                // And wait for it to arrive.
+                let _rm =
+                    sys_recv_closed(&mut [], self.interrupt, TaskId::KERNEL)
+                        .unwrap();
+                let sr = self.reg.sr.read();
+                let ready = if awaiting_tc {
+                    self.reg.fcr.write(|w| w.ctcf().set_bit());
+                    sr.tcf().bit()
+                } else {
+                    sr.ftf().bit()
+                };
+                if ready {
                     break;
                 }
             }
+
+            // Just loop back around to the fast path to avoid duplicating code
+            // here.
         }
 
-        // TODO polling interface
+        // Clean up by disabling our interrupt sources.
+        self.reg
+            .cr
+            .modify(|_, w| w.ftie().clear_bit().tcie().clear_bit());
 
-        while self.is_busy() {
-            // spin
-        }
+        // Pretty sure we should be done being BUSY by now
+        assert!(!self.is_busy());
     }
 
     fn set_transfer_length(&self, len: usize) {
@@ -212,14 +338,6 @@ impl Qspi {
         self.reg
             .dlr
             .write(|w| unsafe { w.dl().bits(len as u32 - 1) });
-    }
-
-    fn try_recv(&self) -> Option<u8> {
-        if self.reg.sr.read().flevel() == 0 {
-            None
-        } else {
-            Some(self.recv8())
-        }
     }
 
     fn is_busy(&self) -> bool {
@@ -231,6 +349,9 @@ impl Qspi {
     /// The DR is access-size-sensitive, so despite being 32 bits wide, if you
     /// want to remove only one byte from the FIFO, you need to use an 8-bit
     /// access.
+    ///
+    /// You _really_ want to make sure the FIFO has some contents before calling
+    /// this. Otherwise you'll get garbage, not an error.
     fn recv8(&self) -> u8 {
         let dr: &vcell::VolatileCell<u32> =
             unsafe { core::mem::transmute(&self.reg.dr) };
@@ -250,6 +371,10 @@ impl Qspi {
     /// The DR is access-size-sensitive, so despite being 32 bits wide, if you
     /// want to put only one byte into the FIFO, you need to use an 8-bit
     /// access.
+    ///
+    /// You _really_ want to make sure the FIFO has spare space before calling
+    /// this. It's not totally clear what will happen otherwise, but at least
+    /// one byte will definitely get dropped.
     fn send8(&self, b: u8) {
         let dr: &vcell::VolatileCell<u32> =
             unsafe { core::mem::transmute(&self.reg.dr) };

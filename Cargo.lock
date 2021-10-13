@@ -689,6 +689,7 @@ name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
  "stm32h7",
+ "userlib",
  "vcell",
  "zerocopy",
 ]
