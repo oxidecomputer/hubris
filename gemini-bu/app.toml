@@ -94,7 +94,7 @@ path = "../task-spd"
 name = "task-spd"
 features = ["h743", "itm"]
 priority = 2
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 16384, ram = 16384 }
 uses = ["i2c2"]
 start = true
 

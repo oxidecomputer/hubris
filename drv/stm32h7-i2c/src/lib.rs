@@ -116,13 +116,21 @@ enum Trace {
     ResetISR(u32),
     AddrISR(u32),
     AddrMatch,
-    Tx(u8),
+    AddrNack(u8),
+    Rx(u8, u8),
+    RxNack(u8, u8),
+    Tx(u8, u8),
+    TxBogus(u8),
+    TxOverrun(u8),
     TxISR(u32),
+    WaitAddr,
+    WaitRx,
+    WaitTx,
     BusySleep,
     None,
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 48, Trace::None);
 
 impl<'a> I2cMux<'_> {
     /// A convenience routine to translate an error induced by in-band
@@ -662,9 +670,7 @@ impl<'a> I2cController<'a> {
         Ok(())
     }
 
-    fn configure_as_target(&self, address: u8, secondary: Option<u8>) {
-        assert!(address & 0b1000_0000 == 0);
-
+    fn configure_as_target(&self) {
         let i2c = self.registers;
 
         // Disable PE
@@ -674,24 +680,14 @@ impl<'a> I2cController<'a> {
 
         #[rustfmt::skip]
         i2c.oar1.modify(|_, w| { w
-            .oa1en().set_bit()                      // own-address enable
-            .oa1mode().clear_bit()                  // 7-bit address
-            .oa1().bits((address << 1).into())      // address bits
+            .oa1en().clear_bit()                    // own-address disable 
         });
 
-        if let Some(address) = secondary {
-            #[rustfmt::skip]
-            i2c.oar2.modify(|_, w| { w
-                .oa2en().set_bit()                  // own-address-2 enable
-                .oa2().bits(address.into())         // address bits
-                .oa2msk().bits(0)                   // mask 0 == exact match
-            });
-        } else {
-            #[rustfmt::skip]
-            i2c.oar2.modify(|_, w| { w
-                .oa2en().clear_bit()                // own-address 2 disable
-            });
-        }
+        #[rustfmt::skip]
+        i2c.oar2.modify(|_, w| { w
+            .oa2en().set_bit()                  // own-address-2 enable
+            .oa2msk().bits(0b111)                // mask 7 == match all
+        });
 
         #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
@@ -712,21 +708,17 @@ impl<'a> I2cController<'a> {
 
     pub fn operate_as_target<'b>(
         &self,
-        address: u8,
-        secondary: Option<u8>,
         ctrl: &I2cControl,
-        mut readreg: impl FnMut(u8, Option<u8>, &mut [u8]) -> Option<usize>,
+        mut initiate: impl FnMut(u8) -> bool,
+        mut rxbyte: impl FnMut(u8, u8),
+        mut txbyte: impl FnMut(u8) -> Option<u8>,
     ) -> ! {
-        self.configure_as_target(address, secondary);
-
-        let mut wbuf = [0; 4];
+        self.configure_as_target();
 
         let i2c = self.registers;
         let notification = self.notification;
 
         (ctrl.enable)(notification);
-
-        let mut register = None;
 
         'addrloop: loop {
             let (is_write, addr) = loop {
@@ -743,12 +735,28 @@ impl<'a> I2cController<'a> {
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
+                ringbuf_entry!(Trace::WaitAddr);
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
             };
 
+            // Flush our TXDR
+            i2c.isr.modify(|_, w| w.txe().set_bit());
+
             // Clear our Address interrupt
             i2c.icr.write(|w| w.addrcf().set_bit());
+
+            //
+            // See if we want to initiate with this address, NACK'ing it if
+            // not.  Note that if we are being sent bytes, it is too late to
+            // NACK the address itself; the NACK will be on the write.
+            //
+            let initiated = initiate(addr);
+
+            if !initiated {
+                i2c.cr2.modify(|_, w| w.nack().set_bit());
+                ringbuf_entry!(Trace::AddrNack(addr));
+            }
 
             if is_write {
                 'rxloop: loop {
@@ -785,31 +793,23 @@ impl<'a> I2cController<'a> {
                         // We have a byte; we'll read it, and continue to wait
                         // for additional bytes.
                         //
-                        register = Some(i2c.rxdr.read().rxdata().bits());
+                        let rx = i2c.rxdr.read().rxdata().bits();
+
+                        if initiated {
+                            ringbuf_entry!(Trace::Rx(addr, rx));
+                            rxbyte(addr, rx);
+                        } else {
+                            ringbuf_entry!(Trace::RxNack(addr, rx));
+                        }
+
                         continue 'rxloop;
                     }
 
+                    ringbuf_entry!(Trace::WaitRx);
                     (ctrl.wfi)(notification);
                     (ctrl.enable)(notification);
                 }
             }
-
-            let wlen = match readreg(addr, register, &mut wbuf) {
-                None => {
-                    //
-                    // We have read from an invalid register, but we don't
-                    // have a way of immediately NACK'ing it -- so we will
-                    // instead indicate that we have zero bytes to send,
-                    // which will in fact send one byte when we flush TXDR
-                    // below (upshot being that we won't actually NACK invalid
-                    // registers at all -- but many I2C targets can't/don't).
-                    //
-                    0
-                }
-                Some(len) => len,
-            };
-
-            let mut pos = 0;
 
             'txloop: loop {
                 let isr = i2c.isr.read();
@@ -824,21 +824,41 @@ impl<'a> I2cController<'a> {
                 }
 
                 if isr.txis().is_empty() {
-                    if pos < wlen {
-                        ringbuf_entry!(Trace::Tx(wbuf[pos]));
-                        i2c.txdr.write(|w| w.txdata().bits(wbuf[pos]));
-                        pos += 1;
-                        continue 'txloop;
+                    //
+                    // This byte is deliberately indistinguishable from no
+                    // activity from the target on the bus.
+                    //
+                    const FILLER: u8 = 0xff;
+
+                    if initiated {
+                        match txbyte(addr) {
+                            Some(byte) => {
+                                ringbuf_entry!(Trace::Tx(addr, byte));
+                                i2c.txdr.write(|w| w.txdata().bits(byte));
+                            }
+                            None => {
+                                //
+                                // The initiator is asking for more than we've
+                                // got, either because it is reading from an
+                                // invalid device address, or it wrote to an
+                                // invalid register/address, or it's asking
+                                // for more data than is supported.  However
+                                // it's happening, we don't have a way of
+                                // NACK'ing the request once our address is
+                                // ACK'd, so we will just return filler data
+                                // until the iniatior releases us from their
+                                // grip.
+                                //
+                                ringbuf_entry!(Trace::TxOverrun(addr));
+                                i2c.txdr.write(|w| w.txdata().bits(FILLER));
+                            }
+                        }
                     } else {
-                        //
-                        // Nothing more to send -- flush TXDR.  (This bogus
-                        // byte will only be seen on the wire if we haven't
-                        // sent anything at all.)
-                        //
-                        i2c.txdr.write(|w| w.txdata().bits(0x1d));
-                        i2c.isr.modify(|_, w| w.txe().set_bit());
-                        continue 'txloop;
+                        ringbuf_entry!(Trace::TxBogus(addr));
+                        i2c.txdr.write(|w| w.txdata().bits(FILLER));
                     }
+
+                    continue 'txloop;
                 }
 
                 if isr.nackf().is_nack() {
@@ -846,6 +866,7 @@ impl<'a> I2cController<'a> {
                     continue 'addrloop;
                 }
 
+                ringbuf_entry!(Trace::WaitTx);
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
             }

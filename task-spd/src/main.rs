@@ -1,7 +1,17 @@
 //! SPD proxy task
 //!
-//! This is (or will be) a I2C proxy for SPD data -- but at the moment it just
-//! proxies sensor data.
+//! This task acts as a proxy for the Serial Presence Detect (SPD) found in
+//! each DIMM.  This allows the SP to access dynamic information about the
+//! DIMMs (specifically, thermal information), while still allowing the AMD
+//! SoC to get the SPD information it needs for purposes of DIMM training.
+//! (For more detail on the rationale for this, see RFD 88.) Each SPD EEPROM
+//! has 512 bytes of information; this task will read all of it (and cache it)
+//! for each present DIMM in the system.  This task is made slightly more
+//! complicated by the fact that SPD allows at most 8 DIMMs to share a single
+//! I2C bus; to allow for more than 8 DIMMs in the system, AMD defines a mux,
+//! the mechanics of the enabling of which are encoded as an APCB token.  We
+//! use AMD's default of an LTC4306, but only implement two segments, as the
+//! limit of the proxy is 16 total DIMMs.
 //!
 
 #![no_std]
@@ -13,6 +23,8 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+use core::cell::Cell;
+use core::cell::RefCell;
 use drv_i2c_api::*;
 use drv_i2c_api::{Controller, Port};
 use drv_stm32h7_gpio_api::*;
@@ -24,6 +36,8 @@ use userlib::*;
 declare_task!(RCC, rcc_driver);
 declare_task!(GPIO, gpio_driver);
 declare_task!(I2C, i2c_driver);
+
+mod ltc4306;
 
 fn configure_pin(pin: &I2cPin) {
     let gpio_driver = get_task_id(GPIO);
@@ -40,12 +54,32 @@ fn configure_pin(pin: &I2cPin) {
         .unwrap();
 }
 
-const ADT7420_ADDRESS: u8 = 0x48;
+//
+// This is an excellent candidate to put into a non-DTCM memory region
+//
+static mut SPD_DATA: [u8; 8192] = [0; 8192];
 
-const ADT7420_REG_TEMPMSB: u8 = 0;
-const ADT7420_REG_ID: u8 = 0xb;
+const LTC4306_ADDRESS: u8 = 0b1001_010;
+type Bank = (Controller, drv_i2c_api::Port, Option<(Mux, Segment)>);
 
-ringbuf!(u8, 16, 0);
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Ready,
+    Initiate(u8, bool),
+    Rx(u8, u8),
+    Tx(u8, Option<u8>),
+    Present(u8, u8, usize),
+    BankAbsent(u8),
+    Absent(u8, u8, usize),
+    ReadTop(usize),
+    ReadBottom(usize),
+    MemInitiate(usize),
+    MemSetOffset(usize, u8),
+    MuxState(ltc4306::State, ltc4306::State),
+    None,
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -64,8 +98,32 @@ fn main() -> ! {
                 gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
             };
-        }
-        else if #[cfg(target_board = "gimlet-1")] {
+
+            // These should be whatever ports the dimmlets are plugged into
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C4, Port::D, None),
+                (Controller::I2C4, Port::F, Some((Mux::M1, Segment::S4))),
+            ];
+        } else if #[cfg(target_board = "gimletlet-2")] {
+            let controller = I2cController {
+                controller: Controller::I2C2,
+                peripheral: Peripheral::I2c2,
+                registers: unsafe { &*device::I2C2::ptr() },
+                notification: (1 << (2 - 1)),
+            };
+
+            let pin = I2cPin {
+                controller: Controller::I2C2,
+                port: Port::F,
+                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
+                function: Alternate::AF4,
+            };
+
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C3, Port::A, None),
+                (Controller::I2C4, Port::F, None),
+            ];
+        } else if #[cfg(target_board = "gimlet-1")] {
             // SP3 Proxy controller
             let controller = I2cController {
                 controller: Controller::I2C1,
@@ -82,8 +140,22 @@ fn main() -> ! {
                 gpio_pins: drv_stm32h7_gpio_api::Port::B.pin(0).and_pin(1),
                 function: Alternate::AF4,
             };
-        }
-        else {
+
+            //
+            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+            //
+            // - ABCD DIMMs are on the mid bus (I2C3, port H)
+            // - EFGH DIMMS are on the read bus (I2C4, port F)
+            //
+            // It should go without saying that the ordering here is essential
+            // to assure that the SPD data that we return for a DIMM corresponds
+            // to the correct DIMM from the SoC's perspective.
+            //
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C3, Port::H, None),
+                (Controller::I2C4, Port::F, None),
+            ];
+        } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
                     let controller = I2cController {
@@ -98,10 +170,122 @@ fn main() -> ! {
                         gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
                         function: Alternate::AF4,
                     };
+                    const BANKS: [Bank; 1] = [
+                        (Controller::I2C4, Port::D, None),
+                    ];
                 } else {
                     compile_error!("I2C target unsupported for this board");
                 }
             }
+        }
+    }
+
+    let i2c_task = get_task_id(I2C);
+
+    // Boolean indicating that the bank is present
+    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
+
+    // Virtual offset, per virtual DIMM
+    let mut voffs = [0u8; BANKS.len() * spd::MAX_DEVICES as usize];
+
+    // The actual SPD data itself
+    let spd_data = unsafe { &mut SPD_DATA };
+
+    //
+    // For each bank, we're going to iterate over each device, reading all 512
+    // bytes of SPD data from each.
+    //
+    for nbank in 0..BANKS.len() as u8 {
+        let (controller, port, mux) = BANKS[nbank as usize];
+
+        let addr = spd::Function::PageAddress(spd::Page(0))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        if let Err(_) = page.write(&[0]) {
+            //
+            // If our operation fails, we are going to assume that there
+            // are no DIMMs on this bank.
+            //
+            ringbuf_entry!(Trace::BankAbsent(nbank));
+            continue;
+        }
+
+        for i in 0..spd::MAX_DEVICES {
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+            let ndx = (nbank * spd::MAX_DEVICES) as usize + i as usize;
+            let offs = ndx * spd::MAX_SIZE;
+
+            //
+            // Try reading the first byte; if this fails, we will assume
+            // the device isn't present.
+            //
+            let first = match spd.read_reg::<u8, u8>(0) {
+                Ok(val) => {
+                    ringbuf_entry!(Trace::Present(nbank, i, ndx));
+                    present[ndx] = true;
+                    val
+                }
+                Err(_) => {
+                    ringbuf_entry!(Trace::Absent(nbank, i, ndx));
+                    continue;
+                }
+            };
+
+            ringbuf_entry!(Trace::ReadBottom(ndx));
+
+            //
+            // We'll store that byte and then read 255 more.
+            //
+            spd_data[offs] = first;
+
+            let base = offs + 1;
+            let limit = base + 255;
+
+            spd.read_into(&mut spd_data[base..limit]).unwrap();
+        }
+
+        //
+        // Now flip over to the top page.
+        //
+        let addr = spd::Function::PageAddress(spd::Page(1))
+            .to_device_code()
+            .unwrap();
+        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
+
+        //
+        // We really don't expect this to fail, and if it does, tossing here
+        // seems to be best option:  things are pretty wrong.
+        //
+        page.write(&[0]).unwrap();
+
+        //
+        // ...and two more reads for each (present) device.
+        //
+        for i in 0..spd::MAX_DEVICES {
+            let ndx = (nbank as u8 * spd::MAX_DEVICES) as usize + i as usize;
+            let offs = (ndx * spd::MAX_SIZE) + 256;
+
+            if !present[ndx] {
+                continue;
+            }
+
+            ringbuf_entry!(Trace::ReadTop(ndx));
+
+            let mem = spd::Function::Memory(i).to_device_code().unwrap();
+            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
+
+            let chunk = 128;
+            let base = offs;
+            let limit = base + chunk;
+            spd.read_reg_into::<u8>(0, &mut spd_data[base..limit])
+                .unwrap();
+
+            let base = offs + chunk;
+            let limit = base + chunk;
+            spd.read_into(&mut spd_data[base..limit]).unwrap();
         }
     }
 
@@ -113,76 +297,138 @@ fn main() -> ! {
     // Configure our pins
     configure_pin(&pin);
 
-    let i2c_task = get_task_id(I2C);
-    let devices = [
-        I2cDevice::new(
-            i2c_task,
-            Controller::I2C4,
-            Port::F,
-            Some((Mux::M1, Segment::S1)),
-            ADT7420_ADDRESS,
-        ),
-        I2cDevice::new(
-            i2c_task,
-            Controller::I2C4,
-            Port::F,
-            Some((Mux::M1, Segment::S4)),
-            ADT7420_ADDRESS,
-        ),
-    ];
+    ringbuf_entry!(Trace::Ready);
 
-    ringbuf_entry!(0);
+    //
+    // Initialize our virtual state.  Note that we initialize with bank 0
+    // visible.
+    //
+    let ltc4306 = Cell::new(ltc4306::State::init());
+    let vbank = Cell::new(Some(0u8));
+    let page = Cell::new(spd::Page(0));
+    let voffs = RefCell::new(&mut voffs);
 
-    let mut response = |addr, register, buf: &mut [u8]| -> Option<usize> {
-        ringbuf_entry!(addr);
-        let device: &I2cDevice = if addr == ADT7420_ADDRESS - 1 {
-            &devices[0]
-        } else if addr == ADT7420_ADDRESS + 1 {
-            &devices[1]
+    //
+    // For initiation, we only allow SPD-related addresses if the mux has
+    // selected a valid segment.
+    //
+    let mut initiate = |addr: u8| {
+        let rval = if let Some(func) = spd::Function::from_device_code(addr) {
+            if let Some(bank) = vbank.get() {
+                match func {
+                    spd::Function::PageAddress(_) => true,
+                    spd::Function::Memory(device) => {
+                        let base = (bank * spd::MAX_DEVICES) as usize;
+                        let ndx = base + device as usize;
+                        ringbuf_entry!(Trace::MemInitiate(ndx));
+                        present[ndx]
+                    }
+                    _ => false,
+                }
+            } else {
+                false
+            }
         } else {
-            sys_log!("bogus addr {:x}", addr);
-            return None;
+            if addr == LTC4306_ADDRESS {
+                ltc4306.set(ltc4306::State::init());
+                true
+            } else {
+                false
+            }
         };
 
-        match register {
-            Some(val) if val == ADT7420_REG_TEMPMSB => {
-                match device.read_reg::<u8, [u8; 2]>(0 as u8) {
-                    Ok(rval) => {
-                        buf[0] = rval[0];
-                        buf[1] = rval[1];
+        ringbuf_entry!(Trace::Initiate(addr, rval));
+        rval
+    };
 
-                        sys_log!("returning {:x} {:x}", rval[0], rval[1]);
-                        Some(2)
-                    }
+    let mut rx = |addr: u8, byte: u8| {
+        ringbuf_entry!(Trace::Rx(addr, byte));
 
-                    Err(err) => {
-                        sys_log!("failed to read temp: {:?}", err);
-                        buf[0] = 0xff;
-                        Some(1)
+        if addr == LTC4306_ADDRESS {
+            let state = ltc4306.get();
+            let nstate = state.rx(byte, |nbank| {
+                //
+                // For any segment that exceeds the banks that we've been
+                // configured with -- or for any illegal segment -- we'll set
+                // our bank to None, which will make our bus appear empty
+                // except for the mux.
+                //
+                if let Some(nbank) = nbank {
+                    if (nbank as usize) < BANKS.len() {
+                        vbank.set(Some(nbank));
+                    } else {
+                        vbank.set(None);
                     }
+                } else {
+                    vbank.set(None);
                 }
-            }
+            });
 
-            Some(val) if val == ADT7420_REG_ID => {
-                match device.read_reg::<u8, u8>(val) {
-                    Ok(rval) => {
-                        buf[0] = rval;
-                        Some(1)
-                    }
+            ringbuf_entry!(Trace::MuxState(state, nstate));
+            ltc4306.set(nstate);
+        } else {
+            // If our bank were invalid, we should not be here
+            let bank = vbank.get().unwrap();
 
-                    Err(err) => {
-                        sys_log!("failed to read reg {:x}: {:?}", val, err);
-                        buf[0] = 0xff;
-                        Some(1)
-                    }
+            match spd::Function::from_device_code(addr).unwrap() {
+                spd::Function::PageAddress(p) => {
+                    page.set(p);
                 }
-            }
 
-            _ => {
-                buf[0] = 0xfe;
-                None
+                spd::Function::Memory(device) => {
+                    //
+                    // This is always an offset.
+                    //
+                    let base = (bank * spd::MAX_DEVICES) as usize;
+                    let ndx = base + device as usize;
+                    ringbuf_entry!(Trace::MemSetOffset(ndx, byte));
+                    voffs.borrow_mut()[ndx] = byte;
+                }
+                _ => {}
             }
         }
+    };
+
+    let mut tx = |addr: u8| -> Option<u8> {
+        let rval = if addr == LTC4306_ADDRESS {
+            let state = ltc4306.get();
+            let (rval, nstate) = state.tx();
+            ringbuf_entry!(Trace::MuxState(state, nstate));
+            ltc4306.set(nstate);
+            rval
+        } else {
+            // As with rx, if our bank were invalid, we should not be here
+            let bank = vbank.get().unwrap();
+
+            match spd::Function::from_device_code(addr).unwrap() {
+                spd::Function::Memory(device) => {
+                    let base = (bank * spd::MAX_DEVICES) as usize;
+                    let ndx = base + device as usize;
+
+                    let mut voffs = voffs.borrow_mut();
+                    let offs = (ndx * spd::MAX_SIZE) + voffs[ndx] as usize;
+                    let rbyte = spd_data[offs + page.get().offset()];
+
+                    //
+                    // It is actually our intent to overflow the add (that is,
+                    // when performing a read at offset 0xff, the next read
+                    // should be at offset 0x00), but Rust (rightfully) isn't
+                    // so into that -- so unwrap what we're doing.
+                    //
+                    voffs[ndx] = if voffs[ndx] == u8::MAX {
+                        0
+                    } else {
+                        voffs[ndx] + 1
+                    };
+
+                    Some(rbyte)
+                }
+                _ => None,
+            }
+        };
+
+        ringbuf_entry!(Trace::Tx(addr, rval));
+        rval
     };
 
     let ctrl = I2cControl {
@@ -194,10 +440,5 @@ fn main() -> ! {
         },
     };
 
-    controller.operate_as_target(
-        ADT7420_ADDRESS - 1,
-        Some(ADT7420_ADDRESS + 1),
-        &ctrl,
-        &mut response,
-    );
+    controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);
 }

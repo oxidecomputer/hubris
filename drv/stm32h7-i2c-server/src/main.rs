@@ -212,6 +212,15 @@ fn main() -> ! {
             } ];
 
             let muxes = [
+            #[cfg(feature = "external-spd")]
+            I2cMux {
+                controller: Controller::I2C2,
+                port: Port::F,
+                id: Mux::M1,
+                driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
+                enable: None,
+                address: 0b1001_010,
+            },
 
             #[cfg(feature = "external-max7358")]
             I2cMux {
@@ -305,12 +314,17 @@ fn main() -> ! {
 
             ];
         } else if #[cfg(target_board = "gimletlet-2")] {
-            let controllers = [ I2cController {
+            let controllers = [
+
+            #[cfg(not(feature = "target-enable"))]
+            I2cController {
                 controller: Controller::I2C2,
                 peripheral: Peripheral::I2c2,
                 notification: (1 << (2 - 1)),
                 registers: unsafe { &*device::I2C2::ptr() },
-            }, I2cController {
+            },
+
+            I2cController {
                 controller: Controller::I2C3,
                 peripheral: Peripheral::I2c3,
                 notification: (1 << (3 - 1)),
@@ -329,12 +343,16 @@ fn main() -> ! {
             // purposes of the abstraction that we export to consumers, we
             // call the pair logical port A.
             //
-            let pins = [ I2cPin {
+            let pins = [
+            #[cfg(not(feature = "target-enable"))]
+            I2cPin {
                 controller: Controller::I2C2,
                 port: Port::F,
                 gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
                 function: Alternate::AF4,
-            }, I2cPin {
+            },
+
+            I2cPin {
                 controller: Controller::I2C3,
                 port: Port::A,
                 gpio_pins: gpio_api::Port::A.pin(8),

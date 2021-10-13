@@ -7,3 +7,6 @@
 [submodule "hif"]
 	path = hif
 	url = git@github.com:oxidecomputer/hif.git
+[submodule "spd"]
+	path = spd
+	url = git@github.com:oxidecomputer/spd.git
