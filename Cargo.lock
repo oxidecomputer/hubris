@@ -426,6 +426,7 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-i2c-api",
  "drv-ice40-spi-program",
  "drv-spi-api",
  "drv-stm32h7-gpio-api",

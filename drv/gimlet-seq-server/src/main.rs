@@ -12,6 +12,7 @@ use userlib::*;
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
+use drv_i2c_api as i2c_api;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -215,6 +216,14 @@ fn main() -> ! {
         }
     }
 
+    let apml_device = i2c_api::I2cDevice {
+        task: get_task_id(I2C),
+        controller: APML_CONFIG.controller,
+        port: APML_CONFIG.port,
+        segment: APML_CONFIG.segment,
+        address: APML_CONFIG.address,
+    };
+
     // FPGA should now be programmed with the right bitstream.
     loop {
         // TODO this is where, like, sequencer stuff goes
@@ -242,10 +251,21 @@ fn reprogram_fpga(
 
 static BITSTREAM: &[u8] = include_bytes!("../fpga.bin");
 
+// TODO the fact that this parallels most of I2cDevice except the
+// runtime-dependent taskid suggests that we this might want to exist separately
+// in the i2c-api crate.
+struct ApmlConfig {
+    controller: i2c_api::Controller,
+    port: i2c_api::Port,
+    segment: Option<(i2c_api::Mux, i2c_api::Segment)>,
+    address: u8,
+}
+
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gimletlet-2")] {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi_driver);
+        declare_task!(I2C, i2c_driver);
 
         const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 0;
@@ -274,6 +294,15 @@ cfg_if::cfg_if! {
         // simulate "power not good" until the person hacking on the board
         // installs a jumper or whatever.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
+
+        const APML_CONFIG: ApmlConfig = ApmlConfig {
+            controller: i2c_api::Controller::I2C4,
+            port: i2c_api::Port::F, // PMOD I2C4 port
+            segment: None,
+            // We're faking the same address as Gimlet even though we don't have
+            // a real host.
+            address: 0b0111_000,
+        };
     } else if #[cfg(target_board = "gimlet-1")] {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi2_driver);
@@ -314,11 +343,21 @@ cfg_if::cfg_if! {
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
+
+        const APML_CONFIG: ApmlConfig = ApmlConfig {
+            controller: i2c_api::Controller::I2C3,
+            port: i2c_api::Port::H,
+            segment: None,
+            // Final three bits determined by SA[2:0] pins on SP3, which are all
+            // grounded on gimlet-1.
+            address: 0b0111_000,
+        };
     } else if #[cfg(feature = "standalone")] {
         // This is all nonsense to get xtask check to work.
 
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
+        declare_task!(I2C, i2c_driver);
 
         const SEQ_SPI_DEVICE: u8 = 2;
         const ICE40_SPI_DEVICE: u8 = 2;
@@ -345,6 +384,16 @@ cfg_if::cfg_if! {
         const PG_V1P2_MASK: u16 = 1 << 7;
         const PG_V3P3_MASK: u16 = 1 << 6;
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
+
+        // whatever
+        const APML_CONFIG: ApmlConfig = ApmlConfig {
+            controller: i2c_api::Controller::I2C3,
+            port: i2c_api::Port::H,
+            segment: None,
+            // Final three bits determined by SA[2:0] pins on SP3, which are all
+            // grounded on gimlet-1.
+            address: 0b0111_000,
+        };
     } else {
         compiler_error!("unsupported target board");
     }
