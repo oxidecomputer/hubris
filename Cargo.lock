@@ -433,6 +433,7 @@ dependencies = [
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]

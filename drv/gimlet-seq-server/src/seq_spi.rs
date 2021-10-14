@@ -9,7 +9,7 @@ use drv_stm32h7_gpio_api as gpio_api;
 
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
-enum Cmd {
+pub enum Cmd {
     Write = 0,
     Read = 1,
     BitSet = 2,
@@ -17,8 +17,30 @@ enum Cmd {
     //Identify = 4, // proposed in RFD; implemented?
 }
 
-enum Addr {
+pub enum Addr {
     Id0 = 0,
+
+    A1SmStatus = 10,
+    A0SmStatus = 11,
+    EarlyRbks = 12,
+    A1Readbacks = 13,
+    AmdA0 = 14,
+    GroupBPg = 15,
+    GroupBUnused = 16,
+    GroupBCFlts = 17,
+    GroupCPg = 18,
+    NicStatus = 19,
+    ClkgenStatus = 20,
+    AmdStatus = 21,
+    FanOutStatus = 22,
+    EarlyPwrStatus = 23,
+    A1OutStatus = 24,
+    A0OutStatus1 = 25,
+    A0OutStatus2 = 26,
+    OutStatusNic1 = 27,
+    OutStatusNic2 = 28,
+    ClkgenOutStatus = 29,
+    AmdOutStatus = 30,
 }
 
 impl From<Addr> for u16 {

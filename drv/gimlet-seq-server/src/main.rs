@@ -8,11 +8,20 @@
 mod seq_spi;
 
 use userlib::*;
+use ringbuf::*;
 
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
 use drv_i2c_api as i2c_api;
+
+#[derive(Copy, Clone, PartialEq)]
+struct Event {
+    seq_regs: [u8; 20],
+    mailbox: [Result<u8, i2c_api::ResponseCode>; 8],
+}
+
+ringbuf!(Option<Event>, 64, None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -67,7 +76,7 @@ fn main() -> ! {
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
     // Flash. TODO: this may cause trouble with hot restarts, test.
-    gpio.set_reset(ICE40_CONFIG.creset_port, 0, ICE40_CONFIG.creset_pin_mask)
+    gpio.set_reset(ICE40_CONFIG.creset.port, 0, ICE40_CONFIG.creset.pin_mask)
         .unwrap();
 
     // Begin, or resume, the power supply sequencing process for the FPGA. We're
@@ -216,6 +225,12 @@ fn main() -> ! {
         }
     }
 
+    // FPGA should now be programmed with the right bitstream.
+    let seqfpga = seq_spi::SequencerFpga::new(
+        spi.device(SEQ_SPI_DEVICE),
+        gpio.clone(),
+    );
+
     let apml_device = i2c_api::I2cDevice {
         task: get_task_id(I2C),
         controller: APML_CONFIG.controller,
@@ -224,10 +239,26 @@ fn main() -> ! {
         address: APML_CONFIG.address,
     };
 
-    // FPGA should now be programmed with the right bitstream.
     loop {
-        // TODO this is where, like, sequencer stuff goes
-        hl::sleep_for(10);
+        // The 20 bytes starting at A1SmStatus contain useful powerup state
+        // information that we would like to log at the moment.
+        let mut seq_regs = [0; 20];
+        seqfpga.read_bytes(seq_spi::Addr::A1SmStatus, &mut seq_regs)
+            .unwrap();
+
+        // We'd really like to read the 8 bytes of outgoing mailbox using a
+        // single block read, but doing that requires us to configure
+        // SBRMI::Control, and that's a bit much for today.
+        let mut mailbox = [Ok(0); 8];
+        for (i, slot) in mailbox.iter_mut().enumerate() {
+            *slot = apml_device.read_reg(0x30 + i as u8);
+        }
+
+        ringbuf_entry!(Some(Event {
+            seq_regs,
+            mailbox,
+        }));
+        hl::sleep_for(1);
     }
 }
 
@@ -271,10 +302,8 @@ cfg_if::cfg_if! {
         const ICE40_SPI_DEVICE: u8 = 0;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
-            creset_port: gpio_api::Port::B,
-            creset_pin_mask: 1 << 10,
-            cdone_port: gpio_api::Port::E,
-            cdone_pin_mask: 1 << 15,
+            creset: gpio_api::Port::B.pin(10),
+            cdone: gpio_api::Port::E.pin(15),
         };
 
         const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = None;
@@ -312,11 +341,9 @@ cfg_if::cfg_if! {
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
-            creset_port: gpio_api::Port::D,
-            creset_pin_mask: 1 << 5,
+            creset: gpio_api::Port::D.pin(5),
             // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
-            cdone_port: gpio_api::Port::B,
-            cdone_pin_mask: 1 << 4,
+            cdone: gpio_api::Port::B.pin(4),
         };
 
         const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = Some((
@@ -363,10 +390,8 @@ cfg_if::cfg_if! {
         const ICE40_SPI_DEVICE: u8 = 2;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
-            creset_port: gpio_api::Port::D,
-            creset_pin_mask: 1 << 5,
-            cdone_port: gpio_api::Port::B,
-            cdone_pin_mask: 1 << 4,
+            creset: gpio_api::Port::D.pin(5),
+            cdone: gpio_api::Port::B.pin(4),
         };
 
         const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = Some((
