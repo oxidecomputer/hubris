@@ -176,13 +176,24 @@ fn main() -> ! {
     // into it should be willing to talk to us over SPI, and should be able to
     // serve up a recognizable ident code.
     //
-    // TODO except for now we're going to skip the version check and
-    // unconditionally reprogram it because the SPI communication code ain't
-    // written, and also yolo. Replace this with a check.
-    let reprogram = true;
+    // We will retry this as necessary, because there's really no alternative
+    // for getting the system started.
+    loop {
+        // Optimistically create a driver for talking to our FPGA design.
+        let seqfpga = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE), gpio.clone());
+        // See if we can get valid ident.
+        let ident_response = seqfpga.read_ident();
+        if ident_response == Ok(seq_spi::EXPECTED_IDENT) {
+            // Hooray!
+            break;
+        } else if ident_response.is_err() {
+            // This operation only fails if the SPI server crashes. It's worth
+            // retrying.
+            continue;
+        }
+        // We interrogated the FPGA over SPI successfully but received nonsense
+        // in response. Time to replace its brain.
 
-    // We only want to reset and reprogram the FPGA when absolutely required.
-    if reprogram {
         if let Some((port, pin_mask)) = GLOBAL_RESET {
             // Assert the design reset signal (not the same as the FPGA
             // programming logic reset signal). We do this during reprogramming
@@ -195,7 +206,9 @@ fn main() -> ! {
             let prog = spi.device(ICE40_SPI_DEVICE);
             match reprogram_fpga(&prog, &gpio, &ICE40_CONFIG) {
                 Ok(()) => {
-                    // yay
+                    // Yay. Just for the heck of it we're going to delay a bit
+                    // before trying to talk SPI to it.
+                    hl::sleep_for(2);
                     break;
                 }
                 Err(_) => {
@@ -213,6 +226,8 @@ fn main() -> ! {
             // active low.
             gpio.set_reset(port, pin_mask, 0).unwrap();
         }
+
+        // Loop back up to the ident check above.
     }
 
     // FPGA should now be programmed with the right bitstream.
