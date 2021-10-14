@@ -148,6 +148,24 @@ impl Spi {
         self.result(task, code)
     }
 
+    pub fn exchange1(
+        &self,
+        device_index: u8,
+        source_sink: &mut [u8],
+    ) -> Result<(), SpiError> {
+        let task = self.0.get();
+
+        let (code, _) = sys_send(
+            task,
+            Operation::Exchange as u16,
+            &[device_index],
+            &mut [],
+            &[Lease::from(source_sink)],
+        );
+
+        self.result(task, code)
+    }
+
     /// Clock bytes from `source` into the given device.
     ///
     /// `device_index` must be in range for the server.
@@ -308,6 +326,13 @@ impl SpiDevice {
         sink: &mut [u8],
     ) -> Result<(), SpiError> {
         self.server.exchange(self.device_index, source, sink)
+    }
+
+    pub fn exchange1(
+        &self,
+        source_sink: &mut [u8],
+    ) -> Result<(), SpiError> {
+        self.server.exchange1(self.device_index, source_sink)
     }
 
     /// Clock bytes from `source` into the device.

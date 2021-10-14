@@ -130,7 +130,7 @@ impl SequencerFpga {
 
         let addr = U16::new(addr);
         self.spi.write(CmdHeader { cmd, addr }.as_bytes())?;
-        self.spi.read(data_out)?;
+        self.spi.exchange1(data_out)?;
         Ok(())
     }
 
