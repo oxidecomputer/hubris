@@ -65,7 +65,7 @@ pub fn configure_pins(gpio: &Gpio, config: &Config) {
     // Make RESET an output.
     gpio.configure_output(
         config.creset,
-        gpio_api::OutputType::OpenDrain,
+        gpio_api::OutputType::PushPull,
         gpio_api::Speed::High,
         gpio_api::Pull::None, // external resistor on net
     )

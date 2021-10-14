@@ -240,24 +240,24 @@ fn main() -> ! {
     };
 
     loop {
-        // The 20 bytes starting at A1SmStatus contain useful powerup state
-        // information that we would like to log at the moment.
-        let mut seq_regs = [0; 20];
-        seqfpga.read_bytes(seq_spi::Addr::A1SmStatus, &mut seq_regs)
-            .unwrap();
-
-        // We'd really like to read the 8 bytes of outgoing mailbox using a
-        // single block read, but doing that requires us to configure
-        // SBRMI::Control, and that's a bit much for today.
-        let mut mailbox = [Ok(0); 8];
-        for (i, slot) in mailbox.iter_mut().enumerate() {
-            *slot = apml_device.read_reg(0x30 + i as u8);
-        }
-
-        ringbuf_entry!(Some(Event {
-            seq_regs,
-            mailbox,
-        }));
+//        // The 20 bytes starting at A1SmStatus contain useful powerup state
+//        // information that we would like to log at the moment.
+//        let mut seq_regs = [0; 20];
+//        seqfpga.read_bytes(seq_spi::Addr::A1SmStatus, &mut seq_regs)
+//            .unwrap();
+//
+//        // We'd really like to read the 8 bytes of outgoing mailbox using a
+//        // single block read, but doing that requires us to configure
+//        // SBRMI::Control, and that's a bit much for today.
+//        let mut mailbox = [Ok(0); 8];
+//        for (i, slot) in mailbox.iter_mut().enumerate() {
+//            *slot = apml_device.read_reg(0x30 + i as u8);
+//        }
+//
+//        ringbuf_entry!(Some(Event {
+//            seq_regs,
+//            mailbox,
+//        }));
         hl::sleep_for(1);
     }
 }
@@ -335,6 +335,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "gimlet-1")] {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi2_driver);
+        declare_task!(I2C, i2c_driver);
 
         const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
