@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+mod seq_spi;
+
 use userlib::*;
 
 use drv_ice40_spi_program as ice40;
@@ -245,6 +247,7 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi_driver);
 
+        const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 0;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -275,6 +278,7 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi2_driver);
 
+        const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -316,7 +320,8 @@ cfg_if::cfg_if! {
         declare_task!(GPIO, gpio_driver);
         declare_task!(SPI, spi4_driver);
 
-        const ICE40_SPI_DEVICE: u8 = 1;
+        const SEQ_SPI_DEVICE: u8 = 2;
+        const ICE40_SPI_DEVICE: u8 = 2;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             creset_port: gpio_api::Port::D,
