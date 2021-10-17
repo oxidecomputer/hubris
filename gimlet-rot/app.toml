@@ -72,24 +72,24 @@ requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
 
-[tasks.usart_driver]
-path = "../drv/lpc55-usart"
-name = "drv-lpc55-usart"
-priority = 2
-requires = {flash = 16384, ram = 1024}
-uses = ["iocon", "flexcomm0"]
-start = true
-interrupts = {14 = 1}
+#[tasks.usart_driver]
+#path = "../drv/lpc55-usart"
+#name = "drv-lpc55-usart"
+#priority = 2
+#requires = {flash = 16384, ram = 1024}
+#uses = ["iocon", "flexcomm0"]
+#start = true
+#interrupts = {14 = 1}
 
-[tasks.spi_driver]
-path = "../drv/lpc55-spi-server"
-name = "drv-lpc55-spi-server"
-priority = 2
-requires = {flash = 16384, ram = 1024}
-uses = ["iocon", "flexcomm3", "flexcomm8"]
-start = true
-interrupts = {59 = 1}
-stacksize = 1000
+#[tasks.spi_driver]
+#path = "../drv/lpc55-spi-server"
+#name = "drv-lpc55-spi-server"
+#priority = 2
+#requires = {flash = 16384, ram = 1024}
+#uses = ["iocon", "flexcomm3", "flexcomm8"]
+#start = true
+#interrupts = {59 = 1}
+#stacksize = 1000
 
 [peripherals.syscon]
 address = 0x40000000

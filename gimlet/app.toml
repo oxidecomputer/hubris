@@ -142,6 +142,15 @@ start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
 
+[tasks.thermal]
+path = "../task-thermal"
+name = "task-thermal"
+features = ["itm"]
+priority = 3
+requires = {flash = 65536, ram = 8192 }
+stacksize = 2048
+start = true
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
