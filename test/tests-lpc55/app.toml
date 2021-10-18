@@ -74,7 +74,7 @@ uses = ["stage0"]
 path = "../test-suite"
 name = "test-suite"
 priority = 2
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 65536, ram = 4096}
 start = true
 features = ["itm", "lpc55"]
 uses = ["stage0", "rom", "syscon", "flash"]
