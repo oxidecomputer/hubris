@@ -26,8 +26,8 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
 use userlib::*;
 
-declare_task!(SYSCON, syscon_driver);
-declare_task!(GPIO, gpio_driver);
+task_slot!(SYSCON, syscon_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -68,7 +68,7 @@ impl From<ResponseCode> for u32 {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let syscon = Syscon::from(get_task_id(SYSCON));
+    let syscon = Syscon::from(SYSCON.get_task_id());
 
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_flexcomm(&syscon);
@@ -267,7 +267,7 @@ fn muck_with_gpios(syscon: &Syscon) {
     syscon.enable_clock(Peripheral::Iocon);
     syscon.leave_reset(Peripheral::Iocon);
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let iocon = Gpio::from(gpio_driver);
 
     // This is quite the array!
