@@ -75,6 +75,10 @@ uses = ["usart1"]
 start = true
 interrupts = {37 = 1}
 
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.i2c_driver]
 path = "../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
