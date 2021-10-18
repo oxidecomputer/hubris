@@ -87,6 +87,10 @@ uses = ["iocon", "flexcomm0"]
 start = true
 interrupts = {14 = 1}
 
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.spi_driver]
 path = "../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"

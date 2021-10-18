@@ -130,6 +130,10 @@ start = true
 interrupts = {14 = 1}
 stacksize = 1000
 
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.i2c_driver]
 path = "../drv/lpc55-i2c"
 name = "drv-lpc55-i2c"
