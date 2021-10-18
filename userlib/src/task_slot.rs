@@ -42,6 +42,10 @@ impl TaskSlot {
             TaskId::for_index_and_gen(task_index.into(), Generation::default());
         crate::sys_refresh_task_id(prototype)
     }
+
+    pub fn get_task_index(&self) -> u16 {
+        self.0
+    }
 }
 
 /// Description of a task slot in .task_slot_table ELF section.
