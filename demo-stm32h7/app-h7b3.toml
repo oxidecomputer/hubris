@@ -104,6 +104,9 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 start = true
 
+[tasks.user_leds.task-slots]
+gpio_driver = "gpio_driver"
+
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
