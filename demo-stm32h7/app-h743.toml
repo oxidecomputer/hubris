@@ -88,6 +88,10 @@ start = true
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
 
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 #
 # SPI interrupts:
 #   spi1 = 35

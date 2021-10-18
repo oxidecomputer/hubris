@@ -104,6 +104,10 @@ start = true
 95 = 0b0000_1000        # I2C4 event
 96 = 0b0000_1000        # I2C4 error
 
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.spd]
 path = "../task-spd"
 name = "task-spd"
