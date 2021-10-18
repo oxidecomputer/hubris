@@ -13,7 +13,7 @@ use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
 
-declare_task!(I2C, i2c_driver);
+task_slot!(I2C, i2c_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Device {
@@ -43,7 +43,7 @@ fn trace(dev: Device, cmd: Command) {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = get_task_id(I2C);
+    let task = I2C.get_task_id();
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
