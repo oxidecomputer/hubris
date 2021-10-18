@@ -137,7 +137,7 @@ impl From<ResponseCode> for u32 {
     }
 }
 
-declare_task!(RCC, rcc_driver);
+task_slot!(RCC, rcc_driver);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -285,7 +285,7 @@ fn main() -> ! {
 }
 
 fn turn_on_all_gpios() {
-    let rcc_driver = Rcc::from(get_task_id(RCC));
+    let rcc_driver = Rcc::from(RCC.get_task_id());
 
     for port in 0..11 {
         let pnum = Peripheral::GpioA as u32 + port; // see bits in AHB4ENR

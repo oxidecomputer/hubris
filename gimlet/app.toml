@@ -62,6 +62,9 @@ requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 
+[tasks.gpio_driver.task-slots]
+rcc_driver = "rcc_driver"
+
 [tasks.spi4_driver]
 path = "../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
