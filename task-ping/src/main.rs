@@ -4,9 +4,9 @@
 
 use userlib::*;
 
-declare_task!(PEER, pong);
+task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
-declare_task!(UART, usart_driver);
+task_slot!(UART, usart_driver);
 
 #[inline(never)]
 fn nullread() {
@@ -29,7 +29,7 @@ fn divzero() {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let peer = get_task_id(PEER);
+    let peer = PEER.get_task_id();
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
 
@@ -54,7 +54,7 @@ fn main() -> ! {
 
 #[cfg(feature = "uart")]
 fn uart_send(text: &[u8]) {
-    let peer = get_task_id(UART);
+    let peer = UART.get_task_id();
 
     const OP_WRITE: u16 = 1;
     let (code, _) =

@@ -141,6 +141,10 @@ requires = {flash = 8192, ram = 512}
 stacksize = 512
 start = true
 
+[tasks.ping.task-slots]
+peer = "pong"
+usart_driver = "usart_driver"
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
