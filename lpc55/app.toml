@@ -165,6 +165,10 @@ start = true
 interrupts = {59 = 1}
 stacksize = 1000
 
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"

@@ -97,6 +97,10 @@ start = true
 interrupts = {59 = 1}
 stacksize = 1000
 
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [peripherals.syscon]
 address = 0x40000000
 size = 4096
