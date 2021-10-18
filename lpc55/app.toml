@@ -108,6 +108,9 @@ uses = ["gpio", "iocon"]
 start = true
 stacksize = 1000
 
+[tasks.gpio_driver.task-slots]
+syscon_driver = "syscon_driver"
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
