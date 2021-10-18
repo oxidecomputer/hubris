@@ -6,16 +6,12 @@
 use cortex_m_semihosting::hprintln;
 use userlib::*;
 
-#[cfg(feature = "standalone")]
-const I2C: Task = Task::anonymous;
-
-#[cfg(not(feature = "standalone"))]
-const I2C: Task = Task::i2c_driver;
+task_slot!(I2C, i2c_driver);
 
 #[export_name = "main"]
 fn main() -> ! {
     let addr: &[u8] = &[0x0];
-    let i2c = get_task_id(I2C);
+    let i2c = I2C.get_task_id();
     hprintln!("Starting to spam!").ok();
     loop {
         let mut recv: [u8; 4] = [0; 4];
