@@ -177,6 +177,10 @@ start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
 
+[tasks.hf.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
