@@ -47,17 +47,6 @@ macro_rules! sys_log {
 }
 
 #[macro_export]
-macro_rules! declare_task {
-    ($var:ident, $task_name:ident) => {
-        #[cfg(not(feature = "standalone"))]
-        const $var: Task = Task::$task_name;
-
-        #[cfg(feature = "standalone")]
-        const $var: Task = Task::anonymous;
-    };
-}
-
-#[macro_export]
 macro_rules! task_slot {
     ($var:ident, $task_name:ident) => {
         $crate::macros::paste::paste! {
