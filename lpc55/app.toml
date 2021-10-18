@@ -79,6 +79,9 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"

@@ -117,6 +117,9 @@ priority = 3
 requires = {flash = 32768, ram = 16384 }
 start = true
 
+[tasks.hiffy.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
