@@ -1,5 +1,5 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::{self, File};
 use std::hash::Hasher;
 use std::io::{Read, Write};
@@ -74,21 +74,20 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     for (name, range) in &memories {
         println!("{} = {:x?}", name, range);
     }
+    let starting_memories = memories.clone();
 
-    // Allocate space for the kernel.
-    let kern_memory = allocate(&mut memories, &toml.kernel.requires)?;
-    println!("kernel: {:x?}", kern_memory);
+    // Allocate memories.
+    let allocs = allocate_all(&toml.kernel, &toml.tasks, &mut memories)?;
 
-    // Allocate space for tasks.
-    let mut task_memory = IndexMap::new();
-    for (name, task) in &toml.tasks {
-        let mem = allocate(&mut memories, &task.requires)?;
-        task_memory.insert(name.clone(), mem);
+    println!("Used:");
+    for (name, new_range) in &memories {
+        let orig_range = &starting_memories[name];
+        println!("{}: 0x{:x}", name, new_range.start - orig_range.start);
     }
 
     let mut infofile = File::create(out.join("allocations.txt"))?;
-    writeln!(infofile, "kernel: {:#x?}", kern_memory)?;
-    writeln!(infofile, "tasks: {:#x?}", task_memory)?;
+    writeln!(infofile, "kernel: {:#x?}", allocs.kernel)?;
+    writeln!(infofile, "tasks: {:#x?}", allocs.tasks)?;
     drop(infofile);
 
     // Build each task.
@@ -161,7 +160,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
         bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
 
-        let kernel_start = kern_memory.get("flash").unwrap().start;
+        let kernel_start = allocs.kernel.get("flash").unwrap().start;
 
         if kernel_start != bootloader_memory.get("FLASH").unwrap().end {
             panic!("mismatch between bootloader end and hubris start! check app.toml!");
@@ -241,7 +240,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
 
         generate_task_linker_script(
             "memory.x",
-            &task_memory[name],
+            &allocs.tasks[name],
             Some(&task_toml.sections),
             task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
                 anyhow!(
@@ -291,7 +290,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &toml.tasks,
         &toml.peripherals,
         toml.supervisor.as_ref(),
-        &task_memory,
+        &allocs.tasks,
         toml.stacksize,
         &toml.outputs,
         &entry_points,
@@ -301,7 +300,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     }
     let descriptor_text = descriptor_text.join("\n");
 
-    generate_kernel_linker_script("memory.x", &kern_memory, &descriptor_text);
+    generate_kernel_linker_script("memory.x", &allocs.kernel, &descriptor_text);
 
     // this one was for the tasks, but we don't want to use it for the kernel
     fs::remove_file("target/link.x")?;
@@ -693,7 +692,7 @@ fn generate_bootloader_linker_script(
 
 fn generate_task_linker_script(
     name: &str,
-    map: &IndexMap<String, Range<u32>>,
+    map: &BTreeMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
 ) -> Result<()> {
@@ -752,7 +751,7 @@ fn generate_task_linker_script(
 
 fn generate_kernel_linker_script(
     name: &str,
-    map: &IndexMap<String, Range<u32>>,
+    map: &BTreeMap<String, Range<u32>>,
     descriptor: &str,
 ) {
     // Put the linker script somewhere the linker can find it
@@ -881,37 +880,191 @@ fn build(
     Ok(())
 }
 
-fn allocate(
-    free: &mut IndexMap<String, Range<u32>>,
-    needs: &IndexMap<String, u32>,
-) -> Result<IndexMap<String, Range<u32>>> {
-    let mut taken = IndexMap::new();
-    for (name, need) in needs {
-        let need = if need.is_power_of_two() {
-            *need
-        } else {
-            need.next_power_of_two()
-        };
-        let need_mask = need - 1;
+#[derive(Debug, Clone, Default)]
+struct Allocations {
+    /// Map from memory-name to address-range
+    kernel: BTreeMap<String, Range<u32>>,
+    /// Map from task-name to memory-name to address-range
+    tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+}
 
-        if let Some(range) = free.get_mut(name) {
-            let base = (range.start + need_mask) & !need_mask;
-            if base >= range.end || need > range.end - base {
-                bail!(
-                    "out of {}: can't allocate {} more after base {:x}",
-                    name,
-                    need,
-                    base
-                )
-            }
-            let end = base + need;
-            taken.insert(name.clone(), base..end);
-            range.start = end;
-        } else {
-            bail!("unknown output memory {}", name);
+/// Allocates address space from all regions for the kernel and all tasks.
+///
+/// The allocation strategy is slightly involved, because of the limitations of
+/// the ARMv7-M MPU. (Currently we use the same strategy on ARMv8-M even though
+/// it's more flexible.)
+///
+/// Address space regions are required to be power-of-two in size and naturally
+/// aligned. In other words, all the addresses in a single region must have some
+/// number of top bits the same, and any combination of bottom bits.
+///
+/// To complicate things,
+///
+/// - There's no particular reason why the memory regions defined in the
+///   app.toml need to be aligned to any particular power of two.
+/// - When there's a bootloader added to the image, it will bump a nicely
+///   aligned starting address forward by a few kiB anyway.
+/// - Said bootloader requires the kernel text to appear immediately after it in
+///   ROM, so, the kernel must be laid down first. (This is not true of RAM, but
+///   putting the kernel first in RAM has some useful benefits.)
+///
+/// The method we're using here is essentially the "deallocate" side of a
+/// power-of-two buddy allocator, only simplified because we're using it to
+/// allocate a series of known sizes.
+///
+/// To allocate space for a single request, we
+///
+/// - Check the alignment of the current position pointer.
+/// - Find the largest pending request of that alignment _or less._
+/// - If we found one, bump the pointer forward and repeat.
+/// - If not, find the smallest pending request that requires greater alignment,
+///   and skip address space until it can be satisfied, and then repeat.
+///
+/// This means that the algorithm needs to keep track of a queue of pending
+/// requests per alignment size.
+fn allocate_all(
+    kernel: &crate::Kernel,
+    tasks: &IndexMap<String, crate::Task>,
+    free: &mut IndexMap<String, Range<u32>>,
+) -> Result<Allocations> {
+    // Collect all allocation requests into queues, one per memory type, indexed
+    // by allocation size. This is equivalent to required alignment because of
+    // the naturally-aligned-power-of-two requirement.
+    //
+    // We keep kernel and task requests separate so we can always service the
+    // kernel first.
+    //
+    // The task map is: memory name -> allocation size -> queue of task name.
+    // The kernel map is: memory name -> allocation size
+    let kernel_requests = &kernel.requires;
+    for (name, &amt) in kernel_requests {
+        if !amt.is_power_of_two() {
+            bail!("kernel, memory region {}: requirement {} is not a power of two.",
+                name, amt);
         }
     }
-    Ok(taken)
+
+    let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
+        BTreeMap::new();
+
+    for (name, task) in tasks {
+        for (mem, &amt) in &task.requires {
+            if !amt.is_power_of_two() {
+                bail!("task {}, memory region {}: requirement {} is not a power of two.",
+                    task.name, name, amt);
+            }
+            task_requests
+                .entry(mem.as_str())
+                .or_default()
+                .entry(amt)
+                .or_default()
+                .push_back(name.as_str());
+        }
+    }
+
+    // Okay! Do memory types one by one, fitting kernel first.
+    let mut allocs = Allocations::default();
+    for (region, avail) in free {
+        let mut k_req = kernel_requests.get(region.as_str());
+        let mut t_reqs = task_requests.get_mut(region.as_str());
+
+        fn reqs_map_not_empty(
+            om: &Option<&mut BTreeMap<u32, VecDeque<&str>>>,
+        ) -> bool {
+            om.iter()
+                .flat_map(|map| map.values())
+                .any(|q| !q.is_empty())
+        }
+
+        'fitloop: while k_req.is_some() || reqs_map_not_empty(&t_reqs) {
+            let align = 1 << avail.start.trailing_zeros();
+
+            // Search order is:
+            // - Kernel.
+            // - Task requests equal to or smaller than this alignment, in
+            //   descending order of size.
+            // - Task requests larger than this alignment, in ascending order of
+            //   size.
+
+            if let Some(&sz) = k_req.take() {
+                // The kernel wants in on this.
+                allocs.kernel.insert(
+                    region.to_string(),
+                    allocate_one(region, sz, avail)?,
+                );
+                continue 'fitloop;
+            }
+
+            if let Some(t_reqs) = t_reqs.as_mut() {
+                for (&sz, q) in t_reqs.range_mut(..=align).rev() {
+                    if let Some(task) = q.pop_front() {
+                        // We can pack an equal or smaller one in.
+                        allocs
+                            .tasks
+                            .entry(task.to_string())
+                            .or_default()
+                            .insert(
+                                region.to_string(),
+                                allocate_one(region, sz, avail)?,
+                            );
+                        continue 'fitloop;
+                    }
+                }
+
+                for (&sz, q) in t_reqs.range_mut(align + 1..) {
+                    if let Some(task) = q.pop_front() {
+                        // We've gotta use a larger one.
+                        allocs
+                            .tasks
+                            .entry(task.to_string())
+                            .or_default()
+                            .insert(
+                                region.to_string(),
+                                allocate_one(region, sz, avail)?,
+                            );
+                        continue 'fitloop;
+                    }
+                }
+            }
+
+            // If we reach this point, it means our loop condition is wrong,
+            // because one of the above things should really have happened.
+            // Panic here because otherwise it's a hang.
+            panic!("loop iteration without progess made!");
+        }
+    }
+
+    Ok(allocs)
+}
+
+fn allocate_one(
+    region: &str,
+    size: u32,
+    avail: &mut Range<u32>,
+) -> Result<Range<u32>> {
+    // This condition is ensured by allocate_all.
+    assert!(size.is_power_of_two());
+
+    let size_mask = size - 1;
+
+    // Our base address will be larger than avail.start if it doesn't meet our
+    // minimum requirements. Round up.
+    let base = (avail.start + size_mask) & !size_mask;
+
+    if base >= avail.end || size > avail.end - base {
+        bail!(
+            "out of {}: can't allocate {} more after base {:x}",
+            region,
+            size,
+            base
+        )
+    }
+
+    let end = base + size;
+    // Update the available range to exclude what we've taken.
+    avail.start = end;
+
+    Ok(base..end)
 }
 
 fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
@@ -950,7 +1103,7 @@ fn make_descriptors(
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
     supervisor: Option<&Supervisor>,
-    task_allocations: &IndexMap<String, IndexMap<String, Range<u32>>>,
+    task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
     stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
