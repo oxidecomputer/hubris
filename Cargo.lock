@@ -129,8 +129,10 @@ dependencies = [
 name = "build-util"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
@@ -669,6 +671,7 @@ dependencies = [
 name = "drv-stm32h7-i2c-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",

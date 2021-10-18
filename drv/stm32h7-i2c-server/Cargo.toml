@@ -21,6 +21,8 @@ stm32h7 = { version = "0.13.0" }
 
 [build-dependencies]
 build-util = {path = "../../build-util"}
+anyhow = "1.0.31"
+
 [features]
 default = ["standalone"]
 standalone = [ "h743" ]

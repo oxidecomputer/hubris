@@ -12,10 +12,10 @@ use stm32h7::stm32h743 as device;
 use drv_i2c_api::Port;
 use drv_i2c_api::*;
 use drv_stm32h7_gpio_api::{
-    self as gpio_api, Alternate, Gpio, OutputType, Pull, Speed,
+    Gpio, OutputType, Pull, Speed,
 };
 use drv_stm32h7_i2c::*;
-use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use drv_stm32h7_rcc_api::Rcc;
 
 use fixedmap::*;
 use ringbuf::*;
@@ -177,6 +177,8 @@ fn reset_if_needed(
 type PortMap = FixedMap<Controller, Port, 8>;
 type MuxMap = FixedMap<Mux, Segment, 2>;
 
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
+
 #[export_name = "main"]
 fn main() -> ! {
     cfg_if::cfg_if! {
@@ -234,85 +236,9 @@ fn main() -> ! {
 
             ];
         } else if #[cfg(target_board = "gemini-bu-1")] {
-            let controllers = [ I2cController {
-                controller: Controller::I2C1,
-                peripheral: Peripheral::I2c1,
-                notification: (1 << (1 - 1)),
-                registers: unsafe { &*device::I2C1::ptr() },
-            }, I2cController {
-                controller: Controller::I2C3,
-                peripheral: Peripheral::I2c3,
-                notification: (1 << (3 - 1)),
-                registers: unsafe { &*device::I2C3::ptr() },
-            }, I2cController {
-                controller: Controller::I2C4,
-                peripheral: Peripheral::I2c4,
-                notification: (1 << (4 - 1)),
-                registers: unsafe { &*device::I2C4::ptr() },
-            } ];
-
-            let pins = [ I2cPin {
-                controller: Controller::I2C1,
-                port: Port::B,
-                gpio_pins: gpio_api::Port::B.pin(8).and_pin(9),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::D,
-                gpio_pins: gpio_api::Port::D.pin(12).and_pin(13),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C3,
-                port: Port::H,
-                gpio_pins: gpio_api::Port::H.pin(7).and_pin(8),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::H,
-                gpio_pins: gpio_api::Port::H.pin(11).and_pin(12),
-                function: Alternate::AF4,
-            } ];
-
-            let muxes = [
-                I2cMux {
-                controller: Controller::I2C4,
-                port: Port::F,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
-                enable: Some(I2cPin {
-                    controller: Controller::I2C4,
-                    port: Port::Default,
-                    gpio_pins: gpio_api::Port::G.pin(0),
-                    function: Alternate::AF0,
-                }),
-                address: 0x44,
-            },
-            #[cfg(feature = "external-max7358")]
-            I2cMux {
-                controller: Controller::I2C4,
-                port: Port::D,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::max7358::Max7358,
-                enable: None,
-                address: 0x70,
-            },
-
-            #[cfg(feature = "external-pca9548")]
-            I2cMux {
-                controller: Controller::I2C4,
-                port: Port::H,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                enable: None,
-                address: 0x70,
-            },
-
-            ];
+            let controllers = config::controllers();
+            let pins = config::pins();
+            let muxes = config::muxes();
         } else if #[cfg(target_board = "gimletlet-2")] {
             let controllers = [
 
@@ -453,7 +379,7 @@ fn main() -> ! {
                 I2cMux {
                     controller: Controller::I2C2,
                     port: Port::F,
-                    id: Mux::M1,
+                    id: Mux::M2,
                     driver: &drv_stm32h7_i2c::pca9548::Pca9548,
                     enable: None,
                     address: 0x71,
@@ -462,7 +388,7 @@ fn main() -> ! {
                 I2cMux {
                     controller: Controller::I2C2,
                     port: Port::F,
-                    id: Mux::M1,
+                    id: Mux::M3,
                     driver: &drv_stm32h7_i2c::pca9548::Pca9548,
                     enable: None,
                     address: 0x72,
@@ -474,7 +400,7 @@ fn main() -> ! {
                 I2cMux {
                     controller: Controller::I2C2,
                     port: Port::B,
-                    id: Mux::M1,
+                    id: Mux::M4,
                     driver: &drv_stm32h7_i2c::pca9548::Pca9548,
                     enable: None,
                     address: 0x73,

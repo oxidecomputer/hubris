@@ -190,6 +190,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &task_names,
             &None,
             &shared_syms,
+            &None,
+            &toml.config,
         )?;
 
         // Need a bootloader binary for signing
@@ -264,6 +266,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &task_names,
             &toml.secure,
             &shared_syms,
+            &task_toml.config,
+            &toml.config,
         )
         .context(format!("failed to build {}", name))?;
 
@@ -315,6 +319,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         "",
         &toml.secure,
         &None,
+        &None,
+        &toml.config,
     )?;
     let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -791,6 +797,8 @@ fn build(
     task_names: &str,
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
+    config: &Option<toml::Value>,
+    app_config: &Option<toml::Value>,
 ) -> Result<()> {
     println!("building path {}", path.display());
 
@@ -858,6 +866,21 @@ fn build(
         } else {
             cmd.env("HUBRIS_SECURE", "0");
         }
+    }
+
+    //
+    // We allow for task- and app-specific configuration to be passed
+    // via environment variables to build.rs scripts that may choose to
+    // incorporate confiuration into compilation.
+    //
+    if let Some(config) = config {
+        let env = toml::to_string(&config).unwrap();
+        cmd.env("HUBRIS_TASK_CONFIG", env);
+    }
+
+    if let Some(app_config) = app_config {
+        let env = toml::to_string(&app_config).unwrap();
+        cmd.env("HUBRIS_APP_CONFIG", env);
     }
 
     let status = cmd

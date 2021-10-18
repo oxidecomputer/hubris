@@ -243,3 +243,49 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[config]
+
+[[config.i2c.controllers]]
+controller = 1
+
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 8, 9 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 3
+
+[[config.i2c.controllers.ports.H.pins]]
+pins = [ 7, 8 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.D.pins]]
+pins = [ 12, 13 ]
+af = 4
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 14, 15 ]
+af = 4
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "ltc4306"
+address = 0x44
+enable = { port = "G", pins = [ 0 ], af = 0 }
+
+[[config.i2c.controllers.ports.H.pins]]
+pins = [ 11, 12 ]
+af = 4
+
+[[config.i2c.devices]]
+driver = "max31790"
+controller = 1
+address = 0x20
+tasks = [ "thermal" ]
+
+# driver = "isl68224"
+# capabilities = [ { "pmbus": { rails = [ "R0", "R1", "R2" ] } } ]
+ 
+
