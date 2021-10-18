@@ -165,6 +165,9 @@ requires = {flash = 65536, ram = 8192 }
 stacksize = 2048
 start = true
 
+[tasks.thermal.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.power]
 path = "../task-power"
 name = "task-power"
