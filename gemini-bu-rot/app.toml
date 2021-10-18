@@ -112,6 +112,10 @@ uses = ["flexcomm0"]
 start = true
 interrupts = {14 = 1}
 
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.rng_driver]
 path = "../drv/lpc55-rng"
 name = "drv-lpc55-rng"
