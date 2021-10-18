@@ -127,6 +127,11 @@ priority = 3
 requires = {flash = 32768, ram = 32768 }
 start = true
 
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+hf = "hf"
+i2c_driver = "i2c_driver"
+
 [tasks.gimlet_seq]
 path = "../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"

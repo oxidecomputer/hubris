@@ -129,6 +129,9 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"

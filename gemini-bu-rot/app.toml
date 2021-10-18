@@ -152,6 +152,9 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+
 [peripherals.syscon]
 address = 0x40000000
 size = 4096
