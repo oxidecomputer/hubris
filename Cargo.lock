@@ -126,9 +126,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-i2c"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "indexmap",
+ "serde",
+]
+
+[[package]]
 name = "build-util"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "indexmap",
  "serde",
  "serde_json",
@@ -672,6 +683,7 @@ name = "drv-stm32h7-i2c-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "build-i2c",
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",

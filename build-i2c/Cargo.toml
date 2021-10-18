@@ -1,12 +1,11 @@
 [package]
-name = "build-util"
+name = "build-i2c"
 version = "0.1.0"
-authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
+build-util = {path = "../build-util"}
 serde = { version = "1.0.114", features = ["derive"] }
-toml = "0.5.6"
 indexmap = { version = "1.4.0", features = ["serde-1"] }
-serde_json = "1.0.56"
 anyhow = "1.0.31"
