@@ -120,6 +120,9 @@ requires = {flash = 16384, ram = 1024}
 uses = ["rng", "pmc"]
 start = true
 
+[tasks.rng_driver.task-slots]
+syscon_driver = "syscon_driver"
+
 [tasks.spi0_driver]
 path = "../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
