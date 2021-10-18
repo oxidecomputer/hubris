@@ -3,6 +3,8 @@
 
 use userlib::*;
 
+task_slot!(USER_LEDS, user_leds);
+
 #[export_name = "main"]
 pub fn main() -> ! {
     const TIMER_NOTIFICATION: u32 = 1;
@@ -10,7 +12,7 @@ pub fn main() -> ! {
 
     let mut response: u32 = 0;
 
-    let user_leds = get_user_leds();
+    let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
     let mut current = 0;
     let mut msg = [0; 16];
@@ -46,10 +48,4 @@ pub fn main() -> ! {
             }
         }
     }
-}
-
-fn get_user_leds() -> drv_user_leds_api::UserLeds {
-    declare_task!(USER_LEDS, user_leds);
-
-    drv_user_leds_api::UserLeds::from(get_task_id(USER_LEDS))
 }

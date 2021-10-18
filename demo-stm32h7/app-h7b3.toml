@@ -100,6 +100,9 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
 
+[tasks.pong.task-slots]
+user_leds = "user_leds"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
