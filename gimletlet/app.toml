@@ -132,6 +132,10 @@ start = true
 interrupts = {84 = 1}
 stacksize = 1000
 
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"

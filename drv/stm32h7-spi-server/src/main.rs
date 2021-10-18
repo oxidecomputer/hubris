@@ -16,8 +16,8 @@ use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_rcc_api as rcc_api;
 use drv_stm32h7_spi as spi_core;
 
-declare_task!(RCC, rcc_driver);
-declare_task!(GPIO, gpio_driver);
+task_slot!(RCC, rcc_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -42,7 +42,7 @@ struct LockState {
 fn main() -> ! {
     check_server_config();
 
-    let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
+    let rcc_driver = rcc_api::Rcc::from(RCC.get_task_id());
 
     let registers = unsafe { &*CONFIG.registers };
 
@@ -61,7 +61,7 @@ fn main() -> ! {
         device::spi1::cfg2::SSOM_A::ASSERTED,
     );
 
-    let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
+    let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
 
     // Configure all devices' CS pins to be deasserted (set).
     // We leave them in GPIO output mode from this point forward.
