@@ -43,7 +43,7 @@ use drv_lpc55_syscon_api::*;
 use hl;
 use userlib::{FromPrimitive, *};
 
-declare_task!(SYSCON, syscon_driver);
+task_slot!(SYSCON, syscon_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -181,7 +181,7 @@ fn gpio_port_pin_validate(pin: u32) -> Result<(usize, usize), ResponseCode> {
 }
 
 fn turn_on_gpio_clocks() {
-    let syscon = Syscon::from(get_task_id(SYSCON));
+    let syscon = Syscon::from(SYSCON.get_task_id());
 
     syscon.enable_clock(Peripheral::Iocon);
     syscon.leave_reset(Peripheral::Iocon);

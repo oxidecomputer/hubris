@@ -75,6 +75,9 @@ requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
 
+[tasks.gpio_driver.task-slots]
+syscon_driver = "syscon_driver"
+
 [tasks.usart_driver]
 path = "../drv/lpc55-usart"
 name = "drv-lpc55-usart"
