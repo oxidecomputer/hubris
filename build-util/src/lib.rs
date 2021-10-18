@@ -66,7 +66,7 @@ pub struct I2cDevice {
 #[derive(Clone, Debug, Deserialize)]
 pub struct I2cConfig {
     pub controllers: Vec<I2cController>,
-    pub devices: Vec<I2cDevice>
+    pub devices: Option<Vec<I2cDevice>>
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -81,7 +81,7 @@ pub fn i2c_config() -> I2cConfig {
     } else {
         I2cConfig {
             controllers: vec![],
-            devices: vec![],
+            devices: None,
         }
     }
 }

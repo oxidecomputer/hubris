@@ -13,7 +13,11 @@ fn output_header() -> Result<String> {
     #[cfg(feature = "h743")]
     use stm32h7::stm32h743 as device;
 
-    use drv_i2c_api::{{Controller, Mux, Port}};
+    use drv_i2c_api::{{Controller, Port}};
+
+    #[allow(unused_imports)]
+    use drv_i2c_api::Mux;
+
     use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
     use drv_stm32h7_i2c::{{I2cController, I2cMux, I2cPin}};
     use drv_stm32h7_rcc_api::Peripheral;

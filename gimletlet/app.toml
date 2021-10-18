@@ -235,3 +235,36 @@ size = 1024
 [peripherals.quadspi]
 address = 0x52005000
 size = 4096
+
+[config]
+[[config.i2c.controllers]]
+controller = 2
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# Note that I2C3 on Gimletlet is a bit unusual in that its SCL and SDA are on
+# two different ports (port A and port C, respectively); we therefore have two
+# pin structures for I2C3, but for purposes of the abstraction that i2c
+# exports to consumers, we call the pair logical port A.
+#
+[[config.i2c.controllers.ports.A.pins]]
+pins = [ 8 ]
+af = 4
+
+[[config.i2c.controllers.ports.A.pins]]
+port = "C"
+pins = [ 9 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 14, 15 ]
+af = 4

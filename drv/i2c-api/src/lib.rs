@@ -118,7 +118,7 @@ pub enum ReservedAddress {
 
 ///
 /// The port for a given I2C device.  Some controllers can have multiple
-/// ports (which themselves are connected to different I2C busses), but only
+/// ports (which themselves are connected to different I2C buses), but only
 /// one port can be active at a time.  For these controllers, a port must
 /// be specified (generally lettered).  For controllers that have only one
 /// port, [`Port::Default`] should be specified.
@@ -141,13 +141,16 @@ pub enum Port {
 }
 
 ///
-/// A multiplexer for a given I2C device.  Multiplexers are numbered starting
+/// A multiplexer for a given I2C bus.  Multiplexers are numbered starting
 /// from 1.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Mux {
     M1 = 1,
+    M2 = 2,
+    M3 = 3,
+    M4 = 4,
 }
 
 ///

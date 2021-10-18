@@ -197,3 +197,77 @@ size = 1024
 [peripherals.quadspi]
 address = 0x52005000
 size = 4096
+
+[config]
+
+#
+# I2C2: Front/M.2 bus
+#
+[[config.i2c.controllers]]
+controller = 2
+
+#
+# SMBUS_SP_TO_M2_SMCLK_A2_V3P3
+# SMBUS_SP_TO_M2_SMDAT_A2_V3P3
+#
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 10, 11 ]
+af = 4
+
+#
+# M.2 mux
+#
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9548"
+address = 0x73
+
+#
+# SMBUS_SP_TO_LVL_FRONT_SMDAT
+# SMBUS_SP_TO_LVL_FRONT_SMCLK
+#
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+#
+# Shark fin muxes
+#
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x70
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x71
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x72
+
+#
+# I2C3: Mid bus
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# SMBUS_SP_TO_LVL_MID_SMCLK
+# SMBUS_SP_TO_LVL_MID_SMDAT
+#
+[[config.i2c.controllers.ports.H.pins]]
+pins = [ 7, 8 ]
+af = 4
+
+#
+# I2C4: Rear bus
+#
+[[config.i2c.controllers]]
+controller = 4
+
+#
+# SMBUS_SP_TO_LVL_REAR_SMCLK
+# SMBUS_SP_TO_LVL_REAR_SMDAT
+#
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 14, 15 ]
+af = 4

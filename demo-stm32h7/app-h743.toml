@@ -206,3 +206,19 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[config]
+
+[[config.i2c.controllers]]
+controller = 2
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+#
+# To use the Nucleo board as an SPD initiator, uncomment the following:
+#
+# [[config.i2c.controllers.ports.F.muxes]]
+# driver = "ltc4306"
+# address = 0b1001_010
+
