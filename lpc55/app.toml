@@ -120,6 +120,9 @@ requires = {flash = 16384, ram = 1024}
 start = true
 stacksize = 1000
 
+[tasks.user_leds.task-slots]
+gpio_driver = "gpio_driver"
+
 [tasks.usart_driver]
 path = "../drv/lpc55-usart"
 name = "drv-lpc55-usart"

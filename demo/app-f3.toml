@@ -75,6 +75,9 @@ requires = {flash = 16384, ram = 1024}
 uses = ["gpioe"]
 start = true
 
+[tasks.user_leds.task-slots]
+rcc_driver = "rcc_driver"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"

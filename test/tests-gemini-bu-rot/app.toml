@@ -80,6 +80,11 @@ features = ["lpc55"]
 uses = ["stage0", "rom", "syscon", "flash"]
 stacksize = 2048
 
+[tasks.suite.task-slots]
+assist = "assist"
+suite = "suite"
+runner = "runner"
+
 [tasks.assist]
 path = "../test-assist"
 name = "test-assist"
