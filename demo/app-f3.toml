@@ -63,6 +63,9 @@ uses = ["usart2", "gpioa"]
 start = true
 interrupts = {38 = 1}
 
+[tasks.usart_driver.task-slots]
+rcc_driver = "rcc_driver"
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
