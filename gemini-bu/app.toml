@@ -134,6 +134,10 @@ start = true
 interrupts = {36 = 1}
 stacksize = 1000
 
+[tasks.spi2_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.spi4_driver]
 path = "../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -144,6 +148,10 @@ uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
 stacksize = 1000
+
+[tasks.spi4_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
 
 [tasks.user_leds]
 path = "../drv/user-leds"
