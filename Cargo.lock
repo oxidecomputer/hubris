@@ -126,6 +126,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstringify"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
+
+[[package]]
 name = "build-i2c"
 version = "0.1.0"
 dependencies = [
@@ -994,9 +1000,9 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.2.3"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d20fd25aa456527ce4f544271ae4fea65d2eda4a6561ea56f39fb3ee4f7e3884"
+checksum = "32401e89c6446dcd28185931a01b1093726d0356820ac744023e6850689bf926"
 dependencies = [
  "log",
  "plain",
@@ -1459,6 +1465,12 @@ checksum = "82db48cac18f0963b10ddad303fa88447b95bbe0e6dbe3385f98402b63d0cc48"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 
 [[package]]
 name = "path-slash"
@@ -2297,8 +2309,10 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "bstringify",
  "num-derive",
  "num-traits",
+ "paste",
  "serde",
  "ssmarshal",
  "zerocopy",
@@ -2385,6 +2399,7 @@ dependencies = [
  "indexmap",
  "lpc55_support",
  "path-slash",
+ "scroll",
  "serde",
  "serde_json",
  "srec",

@@ -86,6 +86,14 @@ SECTIONS
     KEEP(*(.got .got.*));
   }
 
+  /* ## .task_slot_table */
+  /* Table of TaskSlot instances and their names. Used to resolve task
+     dependencies during packaging. */
+  .task_slot_table (INFO) : {
+    . = .;
+    KEEP(*(.task_slot_table));
+  }
+
   /* ## Discarded sections */
   /DISCARD/ :
   {

@@ -114,6 +114,11 @@ start = true
 31 = 0b0000_0001        # I2C1 event
 32 = 0b0000_0001        # I2C1 error
 
+[tasks.spd.task-slots]
+rcc_driver = "rcc_driver"
+gpio_driver = "gpio_driver"
+i2c_driver = "i2c_driver"
+
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"

@@ -10,9 +10,11 @@ use indexmap::IndexMap;
 mod check;
 mod clippy;
 mod dist;
+mod elf;
 mod flash;
 mod gdb;
 mod humility;
+mod task_slot;
 mod test;
 
 #[derive(Debug, StructOpt)]
@@ -100,6 +102,12 @@ enum Xtask {
         /// check all packages, not only one
         #[structopt(long)]
         all: bool,
+    },
+
+    /// Show a task's .task_slot_table contents
+    TaskSlots {
+        /// Path to task executable
+        task_bin: PathBuf,
     },
 }
 
@@ -200,6 +208,8 @@ struct Task {
     interrupts: IndexMap<String, u32>,
     #[serde(default)]
     sections: IndexMap<String, String>,
+    #[serde(default)]
+    task_slots: IndexMap<String, String>,
     #[serde(default)]
     config: Option<toml::Value>,
 }
@@ -331,6 +341,9 @@ fn main() -> Result<()> {
         } => {
             let requested = RequestedPackages::new(package, target, all);
             run_for_packages(requested, clippy::run)?;
+        }
+        Xtask::TaskSlots { task_bin } => {
+            task_slot::dump_task_slot_table(&task_bin)?;
         }
     }
 

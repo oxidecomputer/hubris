@@ -26,7 +26,7 @@
 #![feature(naked_functions)]
 
 #[macro_use]
-mod macros;
+pub mod macros;
 
 pub use abi::*;
 pub use num_derive::{FromPrimitive, ToPrimitive};
@@ -36,6 +36,7 @@ use core::marker::PhantomData;
 
 pub mod hl;
 pub mod kipc;
+pub mod task_slot;
 pub mod units;
 
 #[derive(Debug)]

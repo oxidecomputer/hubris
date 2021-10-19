@@ -1,3 +1,6 @@
+pub use bstringify;
+pub use paste;
+
 #[cfg(feature = "log-itm")]
 #[macro_export]
 macro_rules! sys_log {
@@ -51,5 +54,25 @@ macro_rules! declare_task {
 
         #[cfg(feature = "standalone")]
         const $var: Task = Task::anonymous;
+    };
+}
+
+#[macro_export]
+macro_rules! task_slot {
+    ($var:ident, $task_name:ident) => {
+        $crate::macros::paste::paste! {
+            #[used]
+            static $var: $crate::task_slot::TaskSlot =
+                $crate::task_slot::TaskSlot::UNBOUND;
+
+            #[used]
+            #[link_section = ".task_slot_table"]
+            static [< _TASK_SLOT_TABLE_ $var >]: $crate::task_slot::TaskSlotTableEntry<
+                { $crate::macros::bstringify::bstringify!($task_name).len() },
+            > = $crate::task_slot::TaskSlotTableEntry::for_task_slot(
+                $crate::macros::bstringify::bstringify!($task_name),
+                &$var,
+            );
+        }
     };
 }

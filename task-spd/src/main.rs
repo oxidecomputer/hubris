@@ -27,14 +27,14 @@ use drv_stm32h7_rcc_api::Rcc;
 use ringbuf::*;
 use userlib::*;
 
-declare_task!(RCC, rcc_driver);
-declare_task!(GPIO, gpio_driver);
-declare_task!(I2C, i2c_driver);
+task_slot!(RCC, rcc_driver);
+task_slot!(GPIO, gpio_driver);
+task_slot!(I2C, i2c_driver);
 
 mod ltc4306;
 
 fn configure_pins(pins: &[I2cPin]) {
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     for pin in pins {
@@ -121,7 +121,7 @@ fn main() -> ! {
         }
     }
 
-    let i2c_task = get_task_id(I2C);
+    let i2c_task = I2C.get_task_id();
 
     // Boolean indicating that the bank is present
     let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
@@ -231,7 +231,7 @@ fn main() -> ! {
     }
 
     // Enable the controller
-    let rcc_driver = Rcc::from(get_task_id(RCC));
+    let rcc_driver = Rcc::from(RCC.get_task_id());
 
     controller.enable(&rcc_driver);
 

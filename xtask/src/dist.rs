@@ -13,7 +13,8 @@ use indexmap::IndexMap;
 use path_slash::PathBufExt;
 
 use crate::{
-    Config, LoadSegment, Output, Peripheral, Signing, Supervisor, Task,
+    elf, task_slot, Config, LoadSegment, Output, Peripheral, Signing,
+    Supervisor, Task,
 };
 
 use lpc55_support::{crc_image, sign_ecc, signed_image};
@@ -270,6 +271,8 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &toml.config,
         )
         .context(format!("failed to build {}", name))?;
+
+        resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
 
         let (ep, flash) = load_elf(&out.join(name), &mut all_output_sections)?;
 
@@ -1504,4 +1507,62 @@ fn cargo_clean(name: &str, target: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn resolve_task_slots(
+    task_name: &String,
+    all_tasks_toml: &IndexMap<String, Task>,
+    task_bin: &PathBuf,
+    verbose: bool,
+) -> Result<()> {
+    use scroll::{Pread, Pwrite};
+
+    let task_toml = &all_tasks_toml[task_name];
+
+    let in_task_bin = std::fs::read(task_bin)?;
+    let elf = goblin::elf::Elf::parse(&in_task_bin)?;
+
+    let mut out_task_bin = in_task_bin.clone();
+
+    for entry in task_slot::get_task_slot_table_entries(&in_task_bin, &elf)? {
+        let in_task_idx = in_task_bin.pread_with::<u16>(
+            entry.taskidx_file_offset as usize,
+            elf::get_endianness(&elf),
+        )?;
+
+        let target_task_name = match task_toml.task_slots.get(entry.slot_name) {
+            Some(x) => x,
+            _ => bail!(
+                "Program for task '{}' contains a task_slot named '{}', but it is missing from the app.toml",
+                task_name,
+                entry.slot_name
+            ),
+        };
+
+        let target_task_idx =
+            match all_tasks_toml.get_index_of(target_task_name) {
+                Some(x) => x,
+                _ => bail!(
+                    "app.toml sets task '{}' task_slot '{}' to task '{}', but no such task exists in the app.toml",
+                    task_name,
+                    entry.slot_name,
+                    target_task_name
+                ),
+            };
+
+        out_task_bin.pwrite_with::<u16>(
+            target_task_idx as u16,
+            entry.taskidx_file_offset as usize,
+            elf::get_endianness(&elf),
+        )?;
+
+        if verbose {
+            println!(
+                "Task '{}' task_slot '{}' changed from task index 0x{:x} to task index 0x{:x}",
+                task_name, entry.slot_name, in_task_idx, target_task_idx
+            );
+        }
+    }
+
+    Ok(std::fs::write(task_bin, out_task_bin)?)
 }
