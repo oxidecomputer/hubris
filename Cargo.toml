@@ -5,6 +5,7 @@ members = [
     "build-util",
     "xtask",
     "membar",
+    "gnarle",
 
     "abi",
     "demo",

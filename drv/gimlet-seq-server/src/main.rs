@@ -233,15 +233,20 @@ fn reprogram_fpga(
     // We've got the bitstream in Flash, so we can technically just send it in
     // one transaction, but we'll want chunking later -- so let's make sure
     // chunking works.
-    const CHUNK_SIZE: usize = 512;
-    for chunk in BITSTREAM.chunks(CHUNK_SIZE) {
-        ice40::continue_bitstream_load(&spi, chunk)?;
+    let mut bitstream = COMPRESSED_BITSTREAM;
+    let mut decompressor = gnarle::Decompressor::default();
+    let mut chunk = [0; 256];
+    while !bitstream.is_empty() || !decompressor.is_idle() {
+        let out =
+            gnarle::decompress(&mut decompressor, &mut bitstream, &mut chunk);
+        ice40::continue_bitstream_load(&spi, out)?;
     }
 
     ice40::finish_bitstream_load(&spi, &gpio, &config)
 }
 
-static BITSTREAM: &[u8] = include_bytes!("../fpga.bin");
+static COMPRESSED_BITSTREAM: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gimletlet-2")] {

@@ -1,0 +1,5 @@
+# gnaRLE
+
+This is a dead-simple RLE compressor/decompressor intended for embedding images
+with runs of constant data into other images. FPGA bitstreams into firmware
+images is the original motivating example.

@@ -166,7 +166,7 @@ path = "../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"
 features = []
 priority = 3
-requires = {flash = 262144, ram = 1024 }
+requires = {flash = 32768, ram = 1024 }
 stacksize = 1024
 start = true
 
