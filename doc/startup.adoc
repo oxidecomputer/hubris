@@ -32,8 +32,8 @@ to happen before the kernel boots.
 
 `main` should do those things, and then call `start_kernel`.
 
-This same file is where you will might declare interrupt service routines for
-any SoC-specific interrupts that you wish to handle outside Hubris's standard
+This same file is where you might declare interrupt service routines for any
+SoC-specific interrupts that you wish to handle outside Hubris's standard
 mechanism -- for cases where an interrupt is so latency-sensitive that you need
 to handle it with a privileged ISR, despite the safety implications. Hubris's
 internal ISR symbols are weak, so, declaring an ISR in this file overrides them.

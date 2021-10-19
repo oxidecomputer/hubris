@@ -74,8 +74,9 @@ When calling `irq_control`, the task names its interrupts by the notification
 bits they will set when they fire, rather than their hardware interrupt numbers.
 This means the task can be written to service multiple sources of interrupts
 without code changes, only configuration changes. It also removes the need to
-validate ownership of the interrupt in the kernel, since tasks can _only_ talk
-about their interrupts, not name arbitrary numbers.
+validate ownership of the interrupt in the kernel: since tasks can only specify
+interrupts using their own notification masks, they can't pick arbitrary IRQ
+numbers that might be invalid or owned by someone else.
 
 Once the interrupt is unmasked, `pending` will cause the kernel ISR to fire,
 preempting some task code. The only things the ISR does are:
