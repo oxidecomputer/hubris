@@ -24,9 +24,10 @@ that library's code in Flash.
 
 NOTE: We could improve this situation by introducing an equivalent to shared
 libraries -- something similar to another physically addressed system, such as
-Microware OS9. This would be a significant amount of work because all the off
-the shelf tooling we have access to assumes that shared libraries go hand in
-hand with virtual addressing. So, we have punted for now.
+early versions of https://en.wikipedia.org/wiki/OS-9[Microware OS9]. This would
+be a significant amount of work because all the off the shelf tooling we have
+access to assumes that shared libraries go hand in hand with virtual
+addressing. So, we have punted for now.
 
 == Tasks can't be created or destroyed
 
@@ -125,8 +126,8 @@ the `userlib` crate, and should "just work" -- by the time execution reaches
 
 It's worth noting a few things that the kernel does _not_ do during reinit:
 
-- It doesn't reset the task's memory protection configuration, since it's
-  constant and can't be changed.
+- The task's memory protection configuration in the kernel is left unchanged,
+  since there are no APIs changing a task's memory protections.
 - It doesn't initialize the task's `data` or zero its `bss`. We leave this to
   the task itself, so that we don't make too many assumptions about task
   internal memory layout. (For programs written in Rust, this is handled by the

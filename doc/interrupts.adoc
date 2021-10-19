@@ -39,12 +39,13 @@ on the design of the ARMv7-M interrupt system, but is intended to be general.
   "enable" flag.
 
 - Interrupt handlers (or interrupt service routines) can be configured not to
-  preempt one another or the kernel, either by configuring priorities in the
-  interrupt controller, or by using explicit critical sections in the
-  implementation. If an interrupt arrives while an ISR is running, it remains
-  pending until the current ISR returns. (Note that the kernel processing a
-  syscall is _also_ an ISR, so this implies that ISRs cannot preempt the
-  kernel.)
+  preempt one another, either by configuring priorities in the interrupt
+  controller, or by using explicit critical sections in the implementation.
+  Hubris runs a quick generic ISR that records an interrupt and returns, so
+  nested interrupts are less important. If an interrupt arrives while an ISR is
+  running, it should remain pending until the current ISR returns. (This also
+  implies that interrupts cannot preempt the kernel, since the kernel always
+  runs in interrupt context.)
 
 For brevity in the discussion below, we'll refer to an interrupt "happening" as
 when the CPU decides to execute the associated in-kernel interrupt service
