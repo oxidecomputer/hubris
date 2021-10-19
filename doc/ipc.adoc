@@ -1,3 +1,4 @@
+[#ipc]
 = IPC
 
 Hubris IPC (inter-process communication) provides a mechanism for communicating
@@ -101,7 +102,8 @@ NOTE: You may be wondering about deadlocks in synchronous IPC. We avoid IPC-leve
 == Sending messages
 
 To simply consume IPC services implemented by others, there's only one operation
-you need to consider: `send`. `send` operates a lot like a function call:
+you need to consider: <<sys_send,`send`>>. `send` operates a lot like a function
+call:
 
 - It takes some arguments,
 - It returns some results,
@@ -328,8 +330,9 @@ fn read(task: TaskId, fd: u32, buffer: &mut [u8]) -> Result<usize, IoError> {
 To write a task that implements some IPC protocol, we need to be able to receive
 and handle messages. There are two operations involved on this side:
 
-- `recv` gets the next pending message, and
-- `reply` unblocks the sender of a message.
+- <<sys_recv,`recv`>> gets the next pending message, and
+- <<sys_reply,`reply`>> unblocks the sender of a message, optionally delivering
+  a response data payload.
 
 [source,rust]
 ----
@@ -514,9 +517,9 @@ If any of the requested bits have been posted:
 1. The kernel atomically clears the bits that have been noticed (but leaves
 others intact),
 
-2. The task immediately returns from `receive` without blocking, and
+2. The task immediately returns from `recv` without blocking, and
 
-3. The result of `receive` is a _notification message_ instead of an IPC.
+3. The result of `recv` is a _notification message_ instead of an IPC.
 
 The task can distinguish a notification message from its contents:
 

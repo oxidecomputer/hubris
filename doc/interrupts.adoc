@@ -27,6 +27,8 @@ applications.
 We assume an interrupt system with the following characteristics. This is based
 on the design of the ARMv7-M interrupt system, but is intended to be general.
 
+You can likely skip this section if you're not porting the kernel.
+
 - Interrupts can be numbered using small integers starting at zero. They may be
   a subset of exception numbers at a fixed offset -- 16, on ARMv7-M -- and we'll
   subtract that offset when numbering interrupts.
@@ -62,7 +64,7 @@ interrupts are delivered as notifications (see the IPC chapter).
 
 Hubris does not allow a single interrupt to be routed to multiple tasks, which
 means that a task has exclusive control over any interrupts it handles. Tasks
-have access to a syscall, `irq_control`, that they can use to mask and unmask
+have access to a syscall, <<sys_irq_control,`irq_control`>>, that they can use to mask and unmask
 their interrupts.
 
 When a task starts (or restarts) its interrupts are initially masked. This means

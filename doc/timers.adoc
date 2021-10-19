@@ -1,8 +1,10 @@
+[#timers]
 = Timers
 
-The microcontrollers we target tend to have a single general-use timer -- the
-`SysTick` on ARM, the `mtimer` on RISC-V. Hubris provides a multiplexer for this
-timer, so that each task appears to have its own.
+In addition to fancier hardware timers, the microcontrollers we target tend to
+have a single general-use timer that is portable across implementations and
+silicon vendors -- the `SysTick` on ARM, the `mtimer` on RISC-V. Hubris provides
+a multiplexer for this timer, so that each task appears to have its own.
 
 The time unit of the clock is selectable by the application, but in practice, we
 always select milliseconds. This chapter will refer to the clock unit as
@@ -17,10 +19,10 @@ way to map a Hubris timestamp to human wall time -- they're mostly used for
 relative delays.
 
 When interacting with the kernel, timestamps are expressed as milliseconds in
-`u64` format. This means the timer will roll over after a bit more than 584,000
-years of continuous operation. The intent is that applications need not concern
-themselves with timer wraparound, because reasoning about timer wraparound is
-hard.
+`u64` format. This means the timer will roll over after a bit more than 584
+million years of continuous operation. The intent is that applications need not
+concern themselves with timer wraparound, because reasoning about timer
+wraparound is hard.
 
 The kernel reserves the right to keep time in a different format internally.
 
@@ -37,11 +39,12 @@ deadline to see if it is in the future. If not (it is `<=` the current time),
 the kernel will
 
 - Clear the enable bit.
-- Post the notificaiton set to the owning task.
+- Post the notification set to the owning task. (Notifications are discussed in
+  more detail in <<notifications>>.)
 
-The task will find out about this next time it enters `receive` with the
-notification bits unmasked -- or, if the task is blocked in `receive` at the
-time the timer fires, immediately.
+The task will find out about this next time it enters `recv` with the
+notification bits unmasked -- or immediately, if the task is already blocked in
+`recv` at the time the timer fires.
 
 Because the enable bit is cleared when the timer fires, tasks can assume that
 setting their timer will result in exactly zero or one notification events.
@@ -50,7 +53,7 @@ NOTE: If a task sets the timer notification set to `0`, it will not receive a
 notification when the timer fires, but it could still poll the enable bit. We
 haven't had a use for this so far, but, now you know.
 
-By default, when a task is created, its timer is set up as:
+By default, when a task is initialized, its timer is set up as:
 
 - Enable bit clear.
 - Deadline `!0` (i.e. the distant future)
@@ -58,10 +61,11 @@ By default, when a task is created, its timer is set up as:
 
 == Timer control operations
 
-Tasks access their timers through a pair of syscalls, `set_timer` and
-`get_timer`. `get_timer` is overloaded to return both the current kernel time
-and the contents of the task's timer -- this is convenient because it ensures
-that both were observed at the same (kernel) time.
+Tasks access their timers through a pair of syscalls,
+<<sys_set_timer,`set_timer`>> and <<sys_get_timer,`get_timer`>>. `get_timer` is
+overloaded to return both the current kernel time and the contents of the task's
+timer -- this is convenient because it ensures that both were observed at the
+same (kernel) time.
 
 == Using the timer to implement `sleep`
 

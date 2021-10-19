@@ -1,3 +1,4 @@
+[#drivers]
 = Drivers
 
 One of the purposes of an operating system is to provide a driver abstraction

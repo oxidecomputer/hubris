@@ -1,3 +1,4 @@
+[#tasks]
 = Tasks
 
 Other than the kernel, all the code in a Hubris application lives in one or more
@@ -29,6 +30,7 @@ be a significant amount of work because all the off the shelf tooling we have
 access to assumes that shared libraries go hand in hand with virtual
 addressing. So, we have punted for now.
 
+[#immortal]
 == Tasks can't be created or destroyed
 
 An application declares all of its tasks in its `app.toml` config file, which
@@ -36,8 +38,8 @@ the build system processes to make an application image. The set of tasks
 declared in that file is the set of tasks the application has, period. Unlike
 most operating systems, Hubris does not support creating new tasks at runtime or
 destroying existing tasks. This is on purpose. Task creation is a common source
-of hard-to-account-for dynamic resource usage, which can allow denial of service
-attacks.
+of hard-to-account-for dynamic resource usage, which can enable denial of
+service attacks.
 
 Put another way, you can't write a fork-bomb without fork.
 
@@ -49,6 +51,9 @@ This has a bunch of advantages, including:
   compile time,_ since there's no way to create tasks in response to load.
 - It makes the addresses of tasks in physical memory predictable, simplifying
   the debugger.
+- Tasks can size data structures based on the fixed number of tasks in the
+  system, if required. (This is used in <<supervision,supervisor tasks>> and in
+  our prototype network stack.)
 
 It _does_ put some requirements on your design of applications, however, if
 you're accustomed to being able to clone tasks in response to load. Hubris
@@ -91,6 +96,8 @@ the supervisor's response will be to read information about the fault from the
 kernel, log that somewhere, and ask the kernel to _reinitialize_ the failed
 task, as described in the next section.
 
+(For a more detailed look at supervisors, see <<supervisor>>.)
+
 == Initialization and re-initialization
 
 At boot, the Hubris kernel sets some number of tasks to run. (The application
@@ -104,18 +111,21 @@ The steps taken when (re)initializing a task are:
 each task that tracks restarts.
 
 2. Identify any _other_ tasks that were blocked interacting with this task's
-previous generation. Unblock them, delivering a _dead code_ to tell them what
-happened. (This is explained in more detail in the chapter on IPC.)
+previous generation. Unblock them, delivering a recognizable error code to tell
+them what happened. (More on this in <<death>>.)
 
 3. Reset the task's registers to their initial values, which were chosen at
 compile time based on information in the `app.toml`.
 
-4. "Scribble" the task's stack memory with a recognizable pattern. This helps
-catch accesses to uninitialized stack memory (in languages other than Rust) and
-can be used by the debugger to determine each task's actual peak stack usage, by
-looking for how much of it has been overwritten.
+4. Reset the task's timer. (Timers will be discussed in the section <<timers>>.)
 
-5. Mark the task as runnable.
+5. "Scribble" the task's stack memory with a recognizable pattern. This helps
+catch accesses to uninitialized stack memory (in languages other than Rust, or
+excessively clever Rust) and can be used by the debugger to determine each
+task's actual peak stack usage, by looking for how much of it has been
+overwritten.
+
+6. Mark the task as runnable.
 
 When the task first runs, it will generally initialize its `data` section and
 zero its `bss` section. The Hubris kernel doesn't do this _for_ the task because
@@ -135,5 +145,3 @@ It's worth noting a few things that the kernel does _not_ do during reinit:
 - It doesn't do anything to the task's executable code, which is assumed to be
   in execute-in-place Flash and immutable. (Hubris has no equivalent to a
   "loader.")
-
-

@@ -74,6 +74,7 @@ Syscalls are invoked using the `ECALL` instruction. The rest is TBD.
 
 == Syscalls
 
+[#sys_send]
 === `SEND` (0)
 
 Sends a message.
@@ -197,6 +198,7 @@ It is possible to fake a dead task by deliberately sending a response code in
 the dead code range -- because it didn't seem useful to spend cycles filtering
 this out.
 
+[#sys_recv]
 === `RECV` (1)
 
 Receives a pending message or notification.
@@ -291,6 +293,7 @@ syscall during the common pattern of updating the mask and then receiving.
 
 `RECV` is called `RECV` because Cliff can't spell "recieve" reliably.
 
+[#sys_reply]
 === `REPLY` (2)
 
 Replies to a received message.
@@ -341,6 +344,7 @@ is ignored. Often, the response code is enough.
 sufficient information to not overflow it. This is why doing so is a fault: it's
 a programming error.
 
+[#sys_set_timer]
 === `SET_TIMER` (3)
 
 Configures your task's timer.
@@ -450,6 +454,7 @@ Collects information about one entry in a sender's lease table.
 - 1: attributes field (see `SEND` for definition of lease table attributes).
 - 2: length in bytes
 
+[#sys_irq_control]
 === `IRQ_CONTROL` (7)
 
 ==== Arguments
@@ -515,8 +520,8 @@ the kernel log path.
 If the panic address is invalid, or the referenced range is not readable by the
 task that's panicking, it is ignored.
 
-
-=== `READ_TIMER` (9)
+[#sys_get_timer]
+=== `GET_TIMER` (9)
 
 Reads the contents of the task's timer: both the current time, and any
 configured deadline.

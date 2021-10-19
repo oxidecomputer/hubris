@@ -1,3 +1,4 @@
+[#supervisor]
 = Supervision
 
 Rather than doing things like crash recovery in the kernel, Hubris assigns the

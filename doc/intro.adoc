@@ -10,22 +10,22 @@ themselves, Hubris is designed around the goal of _robustness._
 - Designed for 32-bit microcontrollers with region-based memory protection and
   kiB to MiB of RAM and Flash.
 
-- Tasks are separately-compiled programs, isolated from one another in memory,
-  and running entirely in the processor's unprivileged mode(s).
+- <<tasks,Tasks>> are separately-compiled programs, isolated from one another in
+  memory, and running entirely in the processor's unprivileged mode(s).
 
-- A flexible IPC operation allows tasks to talk to each other.
+- A flexible <<ipc,IPC model>> allows tasks to talk to each other.
 
 - A small kernel running in privileged mode provides these abstractions and very
   little else.
 
-- Drivers live in tasks, not the kernel.
+- <<drivers,Drivers live in tasks>>, not the kernel.
 
 - All task mechanisms are designed to allow component-level reboots without
   taking out the whole system, under application control.
 
-- One "special task," the _supervisor,_ implements all task management and crash
-  recovery policies, outside the kernel. (Applications are free to provide their
-  own supervisor.)
+- One "special task," <<supervisor,the _supervisor,_>> implements all task
+  management and crash recovery policies, outside the kernel. (Applications are
+  free to provide their own supervisor.)
 
 - Applications ship as integral firmware images, containing a set of tasks and
   the kernel built at the same time. Piecewise update of tasks, or creation of

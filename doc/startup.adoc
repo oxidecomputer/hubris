@@ -82,7 +82,8 @@ Any extra RAM allocated to the kernel, but not used, is lost.
 
 One of the fields in the task descriptor contains a `START_AT_BOOT` flag. Any
 task with this flag set will be initialized in `Runnable` state; all others are
-initialized in `Stopped` state.
+initialized in `Stopped` state. (The `START_AT_BOOT` flag in the descriptor
+corresponds to the `start = true` field in the `app.toml`.)
 
 As its last act during startup, the kernel scans the tasks looking for the
 *highest priority* task marked `START_AT_BOOT`. It then switches into that task,
