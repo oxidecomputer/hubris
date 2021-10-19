@@ -21,6 +21,7 @@ server will:
 This simple version covers _most_ servers on Hubris, believe it or not. All the
 complexity, and application-specific logic, is hidden in the "do it" step.
 
+[#uphill-send]
 == Servers are clients too
 
 The vast majority of servers need to send messages to other servers to do their

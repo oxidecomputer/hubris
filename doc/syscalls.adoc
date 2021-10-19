@@ -39,8 +39,10 @@ Syscalls are invoked using the architecture's supervisor-call instruction or
 equivalent.
 
 We'll describe syscalls in an architecture-independent manner below by referring
-to abstract argument and return slots instead of register names. Syscalls have
+to abstract *argument and return slots* instead of register names. Syscalls have
 seven argument slots and eight return slots.
+
+We assume that all registers are 32 bits wide.
 
 === ARMv7-M / ARMv8-M
 
