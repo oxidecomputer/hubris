@@ -16,9 +16,11 @@ drv-spi-api = {path = "../spi-api"}
 drv-ice40-spi-program = {path = "../ice40-spi-program"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
+gnarle = {path = "../../gnarle"}
 
 [build-dependencies]
 build-util = {path = "../../build-util"}
+gnarle = {path = "../../gnarle"}
 
 [features]
 default = ["standalone"]
