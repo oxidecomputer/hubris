@@ -239,6 +239,7 @@ size = 4096
 [config]
 [[config.i2c.controllers]]
 controller = 2
+target = true
 
 [[config.i2c.controllers.ports.F.pins]]
 pins = [ 0, 1 ]

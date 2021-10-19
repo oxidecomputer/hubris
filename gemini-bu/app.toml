@@ -253,6 +253,14 @@ pins = [ 8, 9 ]
 af = 4
 
 [[config.i2c.controllers]]
+controller = 2
+target = true
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1]
+af = 4
+
+[[config.i2c.controllers]]
 controller = 3
 
 [[config.i2c.controllers.ports.H.pins]]
@@ -283,9 +291,7 @@ af = 4
 driver = "max31790"
 controller = 1
 address = 0x20
-tasks = [ "thermal" ]
 
 # driver = "isl68224"
 # capabilities = [ { "pmbus": { rails = [ "R0", "R1", "R2" ] } } ]
  
-

@@ -5,9 +5,7 @@
 
 use drv_i2c_api::Port;
 use drv_i2c_api::*;
-use drv_stm32h7_gpio_api::{
-    Gpio, OutputType, Pull, Speed,
-};
+use drv_stm32h7_gpio_api::{Gpio, OutputType, Pull, Speed};
 use drv_stm32h7_i2c::*;
 use drv_stm32h7_rcc_api::Rcc;
 

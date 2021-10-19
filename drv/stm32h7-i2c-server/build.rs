@@ -1,9 +1,9 @@
+use anyhow::Result;
 use std::env;
 use std::fs::File;
 use std::path::Path;
-use anyhow::Result;
 
-use build_i2c::{I2cConfigGenerator, I2cConfigDisposition};
+use build_i2c::{I2cConfigDisposition, I2cConfigGenerator};
 
 fn codegen() -> Result<()> {
     use std::io::Write;
@@ -12,7 +12,15 @@ fn codegen() -> Result<()> {
     let dest_path = Path::new(&out_dir).join("config.rs");
     let mut file = File::create(&dest_path)?;
 
-    let mut g = I2cConfigGenerator::new(I2cConfigDisposition::Initiator);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "standalone")] {
+            let disposition = I2cConfigDisposition::Standalone;
+        } else {
+            let disposition = I2cConfigDisposition::Initiator;
+        }
+    }
+
+    let mut g = I2cConfigGenerator::new(disposition);
 
     g.generate_header()?;
     g.generate_controllers()?;

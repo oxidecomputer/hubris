@@ -201,6 +201,21 @@ size = 4096
 [config]
 
 #
+# I2C1: SPD proxy bus
+#
+[[config.i2c.controllers]]
+controller = 1
+target = true
+
+#
+# SMBUS_SPD_PROXY_SP3_TO_SP_SMCLK
+# SMBUS_SPD_PROXY_SP3_TO_SP_SMDAT
+#
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+#
 # I2C2: Front/M.2 bus
 #
 [[config.i2c.controllers]]
