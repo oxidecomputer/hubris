@@ -38,6 +38,7 @@ pub mod hl;
 pub mod kipc;
 pub mod task_slot;
 pub mod units;
+pub mod util;
 
 #[derive(Debug)]
 #[repr(transparent)]
