@@ -79,6 +79,9 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+
 [tasks.idle]
 path = "../task-idle"
 name = "task-idle"
@@ -105,6 +108,9 @@ uses = ["gpio", "iocon"]
 start = true
 stacksize = 1000
 
+[tasks.gpio_driver.task-slots]
+syscon_driver = "syscon_driver"
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -113,6 +119,9 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 start = true
 stacksize = 1000
+
+[tasks.user_leds.task-slots]
+gpio_driver = "gpio_driver"
 
 [tasks.usart_driver]
 path = "../drv/lpc55-usart"
@@ -124,6 +133,10 @@ start = true
 interrupts = {14 = 1}
 stacksize = 1000
 
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.i2c_driver]
 path = "../drv/lpc55-i2c"
 name = "drv-lpc55-i2c"
@@ -133,6 +146,10 @@ uses = ["flexcomm4"]
 start = true
 stacksize = 1000
 
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.rng_driver]
 path = "../drv/lpc55-rng"
 name = "drv-lpc55-rng"
@@ -141,6 +158,9 @@ requires = {flash = 16384, ram = 1024}
 uses = ["rng", "pmc"]
 start = true
 stacksize = 1000
+
+[tasks.rng_driver.task-slots]
+syscon_driver = "syscon_driver"
 
 [tasks.spi_driver]
 path = "../drv/lpc55-spi-server"
@@ -152,6 +172,10 @@ start = true
 interrupts = {59 = 1}
 stacksize = 1000
 
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
@@ -161,6 +185,10 @@ requires = {flash = 8192, ram = 1024}
 start = true
 stacksize = 1000
 
+[tasks.ping.task-slots]
+peer = "pong"
+usart_driver = "usart_driver"
+
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
@@ -169,12 +197,18 @@ requires = {flash = 8192, ram = 1024}
 start = true
 stacksize = 1000
 
+[tasks.pong.task-slots]
+user_leds = "user_leds"
+
 [tasks.spam]
 path = "../task-spam2"
 name = "task-spam"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 stacksize = 1000
+
+[tasks.spam.task-slots]
+i2c_driver = "i2c_driver"
 
 [peripherals.syscon]
 address = 0x40000000

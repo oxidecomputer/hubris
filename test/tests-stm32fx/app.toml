@@ -41,6 +41,11 @@ requires = {flash = 65536, ram = 4096}
 start = true
 features = ["itm"]
 
+[tasks.suite.task-slots]
+assist = "assist"
+suite = "suite"
+runner = "runner"
+
 [tasks.assist]
 path = "../test-assist"
 name = "test-assist"

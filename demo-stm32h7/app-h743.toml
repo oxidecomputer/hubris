@@ -62,6 +62,9 @@ requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 
+[tasks.gpio_driver.task-slots]
+rcc_driver = "rcc_driver"
+
 [tasks.usart_driver]
 path = "../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
@@ -71,6 +74,10 @@ requires = {flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
+
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
 
 [tasks.i2c_driver]
 path = "../drv/stm32h7-i2c-server"
@@ -84,6 +91,10 @@ start = true
 [tasks.i2c_driver.interrupts]
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
+
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
 
 #
 # SPI interrupts:
@@ -105,6 +116,10 @@ start = true
 interrupts = {51 = 1}
 stacksize = 1000
 
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.user_leds]
 path = "../drv/user-leds"
 name = "drv-user-leds"
@@ -113,12 +128,18 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 start = true
 
+[tasks.user_leds.task-slots]
+gpio_driver = "gpio_driver"
+
 [tasks.pong]
 path = "../task-pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
+
+[tasks.pong.task-slots]
+user_leds = "user_leds"
 
 [tasks.hiffy]
 path = "../task-hiffy"
@@ -129,6 +150,9 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 
+[tasks.hiffy.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.ping]
 path = "../task-ping"
 name = "task-ping"
@@ -137,6 +161,10 @@ priority = 4
 requires = {flash = 8192, ram = 512}
 stacksize = 512
 start = true
+
+[tasks.ping.task-slots]
+peer = "pong"
+usart_driver = "usart_driver"
 
 [tasks.idle]
 path = "../task-idle"

@@ -15,7 +15,7 @@ use drv_i2c_devices::TempSensor;
 use userlib::units::*;
 use userlib::*;
 
-declare_task!(I2C, i2c_driver);
+task_slot!(I2C, i2c_driver);
 
 fn convert_fahrenheit(temp: Celsius) -> f32 {
     temp.0 * (9.0 / 5.0) + 32.0
@@ -70,7 +70,7 @@ fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = get_task_id(I2C);
+    let task = I2C.get_task_id();
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {

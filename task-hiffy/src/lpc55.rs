@@ -7,7 +7,7 @@ use ringbuf::*;
 use userlib::*;
 
 #[cfg(feature = "gpio")]
-declare_task!(GPIO, gpio_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -137,7 +137,7 @@ fn gpio_configure(
         None => return Err(Failure::Fault(Fault::EmptyParameter(6))),
     };
 
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     match gpio
@@ -154,7 +154,7 @@ fn gpio_toggle(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     let pin = gpio_args(stack)?;
@@ -171,7 +171,7 @@ fn gpio_direction(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     if stack.len() < 2 {
@@ -201,7 +201,7 @@ fn gpio_input(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     let pin = gpio_args(stack)?;
@@ -221,7 +221,7 @@ fn gpio_set(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     let pin = gpio_args(stack)?;
@@ -238,7 +238,7 @@ fn gpio_reset(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_lpc55_gpio_api::Gpio::from(task);
 
     let pin = gpio_args(stack)?;

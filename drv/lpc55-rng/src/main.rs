@@ -29,7 +29,7 @@ use zerocopy::AsBytes;
 
 use lpc55_pac as device;
 
-declare_task!(SYSCON, syscon_driver);
+task_slot!(SYSCON, syscon_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -45,7 +45,7 @@ impl From<ResponseCode> for u32 {
 
 #[export_name = "main"]
 fn main() -> ! {
-    let syscon = get_task_id(SYSCON);
+    let syscon = SYSCON.get_task_id();
     let syscon = Syscon::from(syscon);
 
     syscon.enable_clock(Peripheral::Rng);

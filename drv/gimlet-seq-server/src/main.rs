@@ -11,10 +11,13 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
 
+task_slot!(GPIO, gpio_driver);
+task_slot!(SPI, spi_driver);
+
 #[export_name = "main"]
 fn main() -> ! {
-    let spi = spi_api::Spi::from(get_task_id(SPI));
-    let gpio = gpio_api::Gpio::from(get_task_id(GPIO));
+    let spi = spi_api::Spi::from(SPI.get_task_id());
+    let gpio = gpio_api::Gpio::from(GPIO.get_task_id());
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -242,9 +245,6 @@ static BITSTREAM: &[u8] = include_bytes!("../fpga.bin");
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gimletlet-2")] {
-        declare_task!(GPIO, gpio_driver);
-        declare_task!(SPI, spi_driver);
-
         const ICE40_SPI_DEVICE: u8 = 0;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -272,9 +272,6 @@ cfg_if::cfg_if! {
         // installs a jumper or whatever.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
     } else if #[cfg(target_board = "gimlet-1")] {
-        declare_task!(GPIO, gpio_driver);
-        declare_task!(SPI, spi2_driver);
-
         const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -312,9 +309,6 @@ cfg_if::cfg_if! {
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
     } else if #[cfg(feature = "standalone")] {
         // This is all nonsense to get xtask check to work.
-
-        declare_task!(GPIO, gpio_driver);
-        declare_task!(SPI, spi4_driver);
 
         const ICE40_SPI_DEVICE: u8 = 1;
 
