@@ -19,6 +19,18 @@ impl TaskSlot {
     pub const UNBOUND: Self = Self(TaskId::UNBOUND.0);
 
     pub fn get_task_id(&self) -> TaskId {
+        let task_index = self.get_task_index();
+
+        if task_index == TaskId::UNBOUND.0 {
+            panic!("Attempted to get task id of unbound TaskSlot");
+        }
+
+        let prototype =
+            TaskId::for_index_and_gen(task_index.into(), Generation::default());
+        crate::sys_refresh_task_id(prototype)
+    }
+
+    pub fn get_task_index(&self) -> u16 {
         // In the expected use case of a static TaskSlot instance, such an
         // instance is considered immutable by the compiler.  The compiler may
         // choose to exploit that immutability to constant-fold the value of
@@ -32,19 +44,7 @@ impl TaskSlot {
         // couldn't know what the value is at compile time.  This is effectively
         // the same as a volatile read where the value in storage may be changed
         // outside the compiler and runtime.
-        let task_index = unsafe { core::ptr::read_volatile(&self.0) };
-
-        if task_index == TaskId::UNBOUND.0 {
-            panic!("Attempted to get task id of unbound TaskSlot");
-        }
-
-        let prototype =
-            TaskId::for_index_and_gen(task_index.into(), Generation::default());
-        crate::sys_refresh_task_id(prototype)
-    }
-
-    pub fn get_task_index(&self) -> u16 {
-        self.0
+        unsafe { core::ptr::read_volatile(&self.0) }
     }
 }
 
