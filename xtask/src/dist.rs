@@ -977,7 +977,13 @@ fn allocate_all(
         }
 
         'fitloop: while k_req.is_some() || reqs_map_not_empty(&t_reqs) {
-            let align = 1 << avail.start.trailing_zeros();
+            let align = if avail.start == 0 {
+                // Lie to keep the masks in range. This could be avoided by
+                // tracking log2 of masks rather than masks.
+                1 << 31
+            } else {
+                1 << avail.start.trailing_zeros()
+            };
 
             // Search order is:
             // - Kernel.
