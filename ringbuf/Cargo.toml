@@ -1,6 +1,6 @@
 [package]
 name = "ringbuf"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
@@ -10,10 +10,8 @@ edition = "2018"
 disabled = []
 
 [dependencies]
-syn = { version = "1.0" }
-quote = "1.0"
+userlib = {path = "../userlib"}
 
-[lib]
-proc_macro = true
-test = false
-bench = false
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
