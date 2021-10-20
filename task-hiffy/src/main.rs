@@ -14,6 +14,7 @@
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
 use userlib::*;
+use userlib::util::StaticCell;
 
 mod common;
 
@@ -52,16 +53,23 @@ cfg_if::cfg_if! {
 /// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
 ///                           execution engine is waiting to be kicked
 ///
-static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
-static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
-static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
+#[used]
+static HIFFY_TEXT: StaticCell<[u8; 2048]> = StaticCell::new([0; 2048]);
+#[used]
+static HIFFY_DATA: StaticCell<[u8; HIFFY_DATA_SIZE]> = StaticCell::new([0; HIFFY_DATA_SIZE]);
+#[used]
+static HIFFY_RSTACK: StaticCell<[u8; 2048]> = StaticCell::new([0; 2048]);
+#[used]
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
+#[used]
 static HIFFY_READY: AtomicU32 = AtomicU32::new(0);
 
 #[used]
-static mut HIFFY_FAILURE: Option<Failure> = None;
+static HIFFY_FAILURE: StaticCell<Option<Failure>> = StaticCell::new(None);
 
 ///
 /// We deliberately export the HIF version numbers to allow Humility to
@@ -112,9 +120,9 @@ fn main() -> ! {
         sleep_ms = 1;
         sleeps = 0;
 
-        let text = unsafe { &HIFFY_TEXT };
-        let data = unsafe { &HIFFY_DATA };
-        let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
+        let text = HIFFY_TEXT.borrow_mut();
+        let data = HIFFY_DATA.borrow_mut();
+        let mut rstack = HIFFY_RSTACK.borrow_mut();
 
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             trace_execute(offset, *op);
@@ -122,14 +130,17 @@ fn main() -> ! {
         };
 
         let rv = execute::<_, NLABELS>(
-            text,
+            &*text,
             HIFFY_FUNCS,
-            data,
+            &*data,
             &mut stack,
-            &mut rstack,
+            &mut &mut rstack[..],
             &mut scratch,
             check,
         );
+
+        // Make sure we've released all the cells before signaling the debugger.
+        drop((text, data, rstack));
 
         match rv {
             Ok(_) => {
@@ -137,10 +148,8 @@ fn main() -> ! {
                 trace_success();
             }
             Err(failure) => {
+                *HIFFY_FAILURE.borrow_mut() = Some(failure);
                 HIFFY_ERRORS.fetch_add(1, Ordering::SeqCst);
-                unsafe {
-                    HIFFY_FAILURE = Some(failure);
-                }
 
                 trace_failure(failure);
             }
