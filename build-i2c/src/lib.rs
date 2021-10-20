@@ -37,9 +37,14 @@ struct I2cController {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct I2cDevice {
-    driver: String,
+    device: String,
     controller: u8,
     address: u8,
+    port: Option<String>,
+    mux: Option<u8>,
+    segment: Option<u8>,
+    description: String,
+    removable: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

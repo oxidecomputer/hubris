@@ -293,10 +293,8 @@ pins = [ 11, 12 ]
 af = 4
 
 [[config.i2c.devices]]
-driver = "max31790"
+device = "max31790"
 controller = 1
 address = 0x20
+description = "Fan controller"
 
-# driver = "isl68224"
-# capabilities = [ { "pmbus": { rails = [ "R0", "R1", "R2" ] } } ]
- 
