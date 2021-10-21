@@ -86,12 +86,12 @@ impl<const N: usize> TaskSlotTableEntry<N> {
 // SAFETY
 //
 // Storing a pointer in a struct causes it to not implement Sync automatically.
-// In this case, PeerTaskTableEntry can only be constructed via for_peer_task()
+// In this case, TaskSlotTableEntry can only be constructed via for_task_slot()
 // which requires &'static arguments.  Thus, the stored pointer can only be to a
-// static PeerTask.  Further, for_peer_task() is only intended to be used by
-// peer_task!() which places the PeerTaskTableEntry in a .peer_task_table linker
+// static TaskSlot.  Further, for_task_slot() is only intended to be used by
+// task_slot!() which places the TaskSlotTableEntry in a .task_slot_table linker
 // section that is treated similar to debug information in that no virtual
 // addresses are allocated to the contents and the section is not loaded into
-// the process space.  As such, instances of PeerTaskTableEntry will never exist
+// the process space.  As such, instances of TaskSlotTableEntry will never exist
 // at runtime.
 unsafe impl<const N: usize> Sync for TaskSlotTableEntry<N> {}
