@@ -244,9 +244,10 @@ target = true
 # SMBUS_SPD_PROXY_SP3_TO_SP_SMCLK
 # SMBUS_SPD_PROXY_SP3_TO_SP_SMDAT
 #
-[[config.i2c.controllers.ports.B.pins]]
-pins = [ 0, 1 ]
-af = 4
+[config.i2c.controllers.ports.B]
+name = "spd"
+description = "SPD proxy"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
 
 #
 # I2C2: Front/M.2 bus
@@ -258,24 +259,20 @@ controller = 2
 # SMBUS_SP_TO_M2_SMCLK_A2_V3P3
 # SMBUS_SP_TO_M2_SMDAT_A2_V3P3
 #
-[[config.i2c.controllers.ports.B.pins]]
-pins = [ 10, 11 ]
-af = 4
-
-#
-# M.2 mux
-#
-[[config.i2c.controllers.ports.B.muxes]]
-driver = "pca9548"
-address = 0x73
+[config.i2c.controllers.ports.B]
+name = "m2"
+description = "M.2 bus"
+pins = [ { pins = [ 10, 11 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x73 } ]
 
 #
 # SMBUS_SP_TO_LVL_FRONT_SMDAT
 # SMBUS_SP_TO_LVL_FRONT_SMCLK
 #
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 0, 1 ]
-af = 4
+[config.i2c.controllers.ports.F]
+name = "front"
+description = "Front bus"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
 
 #
 # Shark fin muxes
@@ -302,9 +299,10 @@ controller = 3
 # SMBUS_SP_TO_LVL_MID_SMCLK
 # SMBUS_SP_TO_LVL_MID_SMDAT
 #
-[[config.i2c.controllers.ports.H.pins]]
-pins = [ 7, 8 ]
-af = 4
+[config.i2c.controllers.ports.H]
+name = "mid"
+description = "Mid bus"
+pins = [ { pins = [ 7, 8 ], af = 4 } ]
 
 #
 # I2C4: Rear bus
@@ -316,9 +314,10 @@ controller = 4
 # SMBUS_SP_TO_LVL_REAR_SMCLK
 # SMBUS_SP_TO_LVL_REAR_SMDAT
 #
-[[config.i2c.controllers.ports.F.pins]]
-pins = [ 14, 15 ]
-af = 4
+[config.i2c.controllers.ports.F]
+name = "rear"
+description = "Rear bus"
+pins = [ { pins = [ 14, 15 ], af = 4 } ]
 
 [[config.i2c.devices]]
 controller = 2

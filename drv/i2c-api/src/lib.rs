@@ -117,11 +117,16 @@ pub enum ReservedAddress {
 }
 
 ///
-/// The port for a given I2C device.  Some controllers can have multiple
-/// ports (which themselves are connected to different I2C buses), but only
-/// one port can be active at a time.  For these controllers, a port must
-/// be specified (generally lettered).  For controllers that have only one
-/// port, [`Port::Default`] should be specified.
+/// The port for a given I2C device.  Some controllers can have multiple ports
+/// (which themselves are connected to different I2C buses), but only one port
+/// can be active at a time.  For these controllers, a port must be specified
+/// (generally lettered).  To minimize confusion, the letter should generally
+/// match the GPIO port of the I2C bus (assuming that GPIO ports are
+/// lettered).  If a given I2C controller straddles two ports, the port of SDA
+/// should generally be used; if a GPIO port contains multiple SDAs on it from
+/// the same controller, the letter/number convention should be used (e.g.,
+/// [`Port::B1`]).  For controllers that have only one port, [`Port::Default`]
+/// should be specified.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
@@ -138,6 +143,28 @@ pub enum Port {
     I = 9,
     J = 10,
     K = 11,
+    A1 = 27,
+    B1 = 28,
+    C1 = 29,
+    D1 = 30,
+    E1 = 31,
+    F1 = 32,
+    G1 = 33,
+    H1 = 34,
+    I1 = 35,
+    J1 = 36,
+    K1 = 37,
+    A2 = 53,
+    B2 = 54,
+    C2 = 55,
+    D2 = 56,
+    E2 = 57,
+    F2 = 58,
+    G2 = 59,
+    H2 = 60,
+    I2 = 61,
+    J2 = 62,
+    K2 = 63,
 }
 
 ///

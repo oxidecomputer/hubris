@@ -6,7 +6,7 @@ use std::fmt::Write;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct I2cPin {
-    port: Option<String>,
+    gpio_port: Option<String>,
     pins: Vec<u8>,
     af: u8,
 }
@@ -22,6 +22,8 @@ struct I2cMux {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct I2cPort {
+    name: Option<String>,
+    description: Option<String>,
     pins: Vec<I2cPin>,
     muxes: Option<Vec<I2cMux>>,
 }
@@ -239,7 +241,7 @@ impl I2cConfigGenerator {
             }},"##,
                         controller = c.controller,
                         i2c_port = p,
-                        gpio_port = match pin.port {
+                        gpio_port = match pin.gpio_port {
                             Some(ref port) => port,
                             None => p,
                         },
@@ -301,7 +303,7 @@ impl I2cConfigGenerator {
                     function: Alternate::AF{af},
                 }})"##,
                                 controller = c.controller,
-                                gpio_port = match enable.port {
+                                gpio_port = match enable.gpio_port {
                                     Some(ref port) => port,
                                     None => bail!(
                                         "missing pin port on mux enable \
