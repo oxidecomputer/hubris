@@ -35,7 +35,7 @@ Each task gets a timer. The timer has three properties:
 - A _notification set._
 
 At periodic intervals (ticks), if the enable bit is set, the kernel checks the
-deadline to see if it is in the future. If not (it is `<=` the current time),
+deadline to see if it is in the future. If not (it is `\<=` the current time),
 the kernel will
 
 - Clear the enable bit.

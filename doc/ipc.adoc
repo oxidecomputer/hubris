@@ -236,7 +236,7 @@ including memory from the caller's stack.
 This property also means that lending data can be expressed, in Rust, as simple
 `&` or `&mut` borrows, and checked for correctness at compile time.
 
-Each `send` can include up to 255 leases (currently -- this number may be
+Each `send` can include up to 256 leases (currently -- this number may be
 reduced because what on earth do you need that many leases for).
 
 On the recipient side, leases are referred to by index (0 through 255), and an

@@ -81,7 +81,8 @@ interrupts using their own notification masks, they can't pick arbitrary IRQ
 numbers that might be invalid or owned by someone else.
 
 Once the interrupt is unmasked, `pending` will cause the kernel ISR to fire,
-preempting some task code. The only things the ISR does are:
+atomically clearing the `pending` bit and preempting some task code. The only
+things the ISR does are:
 
 1. Posts the requested notification to the handling task.
 2. Masks the interrupt (clearing `enable`).
@@ -93,8 +94,8 @@ normally respond to this by inspecting the hardware to figure out the details of
 the event and the next steps required, and then using `irq_control` to unmask
 the interrupt again.
 
-In simplified pseudocode, an interrupt handling task's main loop looks something
-like this:
+In (slightly) simplified pseudocode, an interrupt handling task's main loop
+looks something like this:
 
 [source,rust]
 ----
@@ -114,7 +115,7 @@ loop {
         TaskId::KERNEL,
     ).unwrap();
 
-    if result.operation & MY_INTERRUPTS!= 0 {
+    if result.operation & MY_INTERRUPTS != 0 {
         do_interrupt_stuff();
         // Unmask that interrupt so it can fire again.
         sys_irq_control(MY_INTERRUPT, true);
