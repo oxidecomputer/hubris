@@ -1252,7 +1252,7 @@ the <code>userlib</code> crate, and should "just work"&#8201;&#8212;&#8201;by th
 <ul>
 <li>
 <p>The task&#8217;s memory protection configuration in the kernel is left unchanged,
-since there are no APIs changing a task&#8217;s memory protections.</p>
+since there are no APIs for changing a task&#8217;s memory protections.</p>
 </li>
 <li>
 <p>It doesn&#8217;t initialize the task&#8217;s <code>data</code> or zero its <code>bss</code>. We leave this to
@@ -1668,7 +1668,7 @@ including memory from the caller&#8217;s stack.</p>
 <code>&amp;</code> or <code>&amp;mut</code> borrows, and checked for correctness at compile time.</p>
 </div>
 <div class="paragraph">
-<p>Each <code>send</code> can include up to 255 leases (currently&#8201;&#8212;&#8201;this number may be
+<p>Each <code>send</code> can include up to 256 leases (currently&#8201;&#8212;&#8201;this number may be
 reduced because what on earth do you need that many leases for).</p>
 </div>
 <div class="paragraph">
@@ -2296,7 +2296,8 @@ numbers that might be invalid or owned by someone else.</p>
 </div>
 <div class="paragraph">
 <p>Once the interrupt is unmasked, <code>pending</code> will cause the kernel ISR to fire,
-preempting some task code. The only things the ISR does are:</p>
+atomically clearing the <code>pending</code> bit and preempting some task code. The only
+things the ISR does are:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -2317,8 +2318,8 @@ the event and the next steps required, and then using <code>irq_control</code> t
 the interrupt again.</p>
 </div>
 <div class="paragraph">
-<p>In simplified pseudocode, an interrupt handling task&#8217;s main loop looks something
-like this:</p>
+<p>In (slightly) simplified pseudocode, an interrupt handling task&#8217;s main loop
+looks something like this:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -2338,10 +2339,10 @@ like this:</p>
         <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span><span class="p">,</span>
     <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
 
-    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="nd">MY_INTERRUPTS!</span><span class="o">=</span> <span class="mi">0</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPTS</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
         <span class="nf">do_interrupt_stuff</span><span class="p">();</span>
         <span class="c">// Unmask that interrupt so it can fire again.</span>
-        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span></code></pre>
 </div>
@@ -2463,7 +2464,7 @@ wraparound is hard.</p>
 </div>
 <div class="paragraph">
 <p>At periodic intervals (ticks), if the enable bit is set, the kernel checks the
-deadline to see if it is in the future. If not (it is <code>&#8656;</code> the current time),
+deadline to see if it is in the future. If not (it is <code>&lt;=</code> the current time),
 the kernel will</p>
 </div>
 <div class="ulist">
@@ -5197,7 +5198,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-10-19 14:17:27 -0700
+Last updated 2021-10-22 10:24:06 -0700
 </div>
 </div>
 </body>
