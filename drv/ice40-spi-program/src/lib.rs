@@ -76,7 +76,7 @@ pub fn configure_pins(gpio: &Gpio, config: &Config) {
         config.creset_port,
         config.creset_pin_mask,
         gpio_api::Mode::Output,
-        gpio_api::OutputType::OpenDrain,
+        gpio_api::OutputType::PushPull,
         gpio_api::Speed::High,
         gpio_api::Pull::None,     // external resistor on net
         gpio_api::Alternate::AF0, // doesn't matter
