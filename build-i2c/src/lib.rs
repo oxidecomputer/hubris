@@ -40,7 +40,8 @@ struct I2cController {
 #[serde(deny_unknown_fields)]
 struct I2cDevice {
     device: String,
-    controller: u8,
+    controller: Option<u8>,
+    bus: Option<String>,
     address: u8,
     port: Option<String>,
     mux: Option<u8>,
@@ -81,20 +82,16 @@ pub struct I2cConfigGenerator {
 impl I2cConfigGenerator {
     pub fn new(disposition: I2cConfigDisposition) -> I2cConfigGenerator {
         let i2c = match disposition {
-            I2cConfigDisposition::Standalone => {
-                I2cConfig {
-                    controllers: vec![],
-                    devices: None,
+            I2cConfigDisposition::Standalone => I2cConfig {
+                controllers: vec![],
+                devices: None,
+            },
+            _ => match build_util::config::<Config>() {
+                Ok(config) => config.i2c,
+                Err(err) => {
+                    panic!("malformed config.i2c: {:?}", err);
                 }
-            }
-            _ => {
-                match build_util::config::<Config>() {
-                    Ok(config) => config.i2c,
-                    Err(err) => {
-                        panic!("malformed config.i2c: {:?}", err);
-                    }
-                }
-            }
+            },
         };
 
         let mut controllers = vec![];
@@ -112,6 +109,28 @@ impl I2cConfigGenerator {
             controllers.push(c);
         }
 
+        if let Some(devices) = &i2c.devices {
+            for d in devices {
+                match (d.controller, d.bus.as_ref()) {
+                    (None, None) => {
+                        panic!(
+                            "device {} at address 0x{:x} must have \
+                            a bus or controller",
+                            d.device, d.address
+                        );
+                    }
+                    (Some(_), Some(_)) => {
+                        panic!(
+                            "device {} at address 0x{:x} has both \
+                            a bus and a controller",
+                            d.device, d.address
+                        );
+                    }
+                    (_, _) => {}
+                }
+            }
+        }
+
         I2cConfigGenerator {
             output: String::new(),
             disposition: disposition,
@@ -127,11 +146,14 @@ impl I2cConfigGenerator {
         let mut s = &mut self.output;
 
         if self.disposition == I2cConfigDisposition::Standalone {
-            writeln!(&mut s, r##"mod config {{
+            writeln!(
+                &mut s,
+                r##"mod config {{
     use drv_stm32h7_i2c::{{I2cController, I2cPin}};
 
     #[allow(unused_imports)]
-    use drv_stm32h7_i2c::I2cMux;"##)?;
+    use drv_stm32h7_i2c::I2cMux;"##
+            )?;
 
             return Ok(());
         }

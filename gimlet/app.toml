@@ -320,164 +320,157 @@ description = "Rear bus"
 pins = [ { pins = [ 14, 15 ], af = 4 } ]
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x48
 device = "tmp117"
 description = "Front temperature sensor (zone 1)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x49
 device = "tmp117"
 description = "Front temperature sensor (zone 2)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x4a
 device = "tmp117"
 description = "Front temperature sensor (zone 3)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x70
 device = "pca9545"
 description = "U.2 ABCD mux"
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x71
 device = "pca9545"
 description = "U.2 EFGH mux"
 
 [[config.i2c.devices]]
-controller = 2
-port = "F"
+bus = "front"
 address = 0x72
 device = "pca9545"
 description = "U.2 IJ mux"
 
 [[config.i2c.devices]]
-controller = 2
-port = "B"
+bus = "m2"
 address = 0x73
 device = "pca9545"
 description = "M.2 mux"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x24
 device = "tps546b24a"
 description = "A2 3.3V rail"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x27
 device = "tps546b24a"
 description = "A2 5V rail"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x29
 device = "tps546b24a"
 description = "A2 1.8V rail"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x3a
 device = "max5970"
 description = "M.2 hot plug controller"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x58
 device = "idt8a34004"
 description = "Clock generator"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x5a
 device = "raa229618"
 description = "SoC power controller"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x5b
 device = "raa229618"
 description = "CPU power controller"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x5c
 device = "isl68224"
 description = "DIMM ABCD power controller"
 
 [[config.i2c.devices]]
-controller = 3
+bus = "mid"
 address = 0x5d
 device = "isl68224"
 description = "DIMM EFGH power controller"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x10
 device = "adm1272"
 description = "Fan hot swap controller"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x14
 device = "adm1272"
 description = "Sled hot swap controller"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x20
 device = "max31790"
 description = "Fan controller"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x48
 device = "tmp117"
 description = "Rear temperature sensor (zone 1)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x49
 device = "tmp117"
 description = "Rear temperature sensor (zone 2)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x4a
 device = "tmp117"
 description = "Rear temperature sensor (zone 3)"
 removable = true
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x4c
 device = "tmp451"
 description = "T6 temperature sensor"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x5f
 device = "isl68224"
 description = "T6 power controller"
 
 [[config.i2c.devices]]
-controller = 4
+bus = "rear"
 address = 0x67
 device = "bmr491"
 description = "IBC"
