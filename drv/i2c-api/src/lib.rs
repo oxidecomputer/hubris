@@ -49,8 +49,6 @@ pub enum ResponseCode {
     ReservedAddress = 5,
     /// Inidcated port is invalid
     BadPort = 6,
-    /// Default port indicated, but port must be specified
-    BadDefaultPort = 7,
     /// Device does not have indicated register
     NoRegister = 8,
     /// Indicated mux is an invalid mux identifier
@@ -125,13 +123,11 @@ pub enum ReservedAddress {
 /// lettered).  If a given I2C controller straddles two ports, the port of SDA
 /// should generally be used; if a GPIO port contains multiple SDAs on it from
 /// the same controller, the letter/number convention should be used (e.g.,
-/// [`Port::B1`]).  For controllers that have only one port, [`Port::Default`]
-/// should be specified.
+/// [`Port::B1`]).
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Port {
-    Default = 0,
     A = 1,
     B = 2,
     C = 3,
@@ -165,6 +161,7 @@ pub enum Port {
     I2 = 61,
     J2 = 62,
     K2 = 63,
+    Mock = 0xff,
 }
 
 ///
@@ -255,21 +252,11 @@ impl core::fmt::Display for I2cDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let addr = self.address;
 
-        match (self.port, self.segment) {
-            (Port::Default, None) => {
-                write!(f, "{:?} 0x{:x}", self.controller, addr)
-            }
-            (Port::Default, Some((mux, segment))) => {
-                write!(
-                    f,
-                    "{:?}, {:?}:{:?} 0x{:x}",
-                    self.controller, mux, segment, addr
-                )
-            }
-            (_, None) => {
+        match self.segment {
+            None => {
                 write!(f, "{:?}:{:?} 0x{:x}", self.controller, self.port, addr)
             }
-            (_, Some((mux, segment))) => {
+            Some((mux, segment)) => {
                 write!(
                     f,
                     "{:?}:{:?}, {:?}:{:?} 0x{:x}",
@@ -313,7 +300,7 @@ impl I2cDevice {
         Self {
             task: task,
             controller: Controller::Mock,
-            port: Port::Default,
+            port: Port::Mock,
             segment: None,
             address: 0,
         }

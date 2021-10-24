@@ -335,6 +335,7 @@ pins = [ { pins = [ 14, 15 ], af = 4 } ]
 bus = "front"
 address = 0x48
 device = "tmp117"
+name = "zone1"
 description = "Front temperature sensor (zone 1)"
 removable = true
 
@@ -342,6 +343,7 @@ removable = true
 bus = "front"
 address = 0x49
 device = "tmp117"
+name = "zone2"
 description = "Front temperature sensor (zone 2)"
 removable = true
 
@@ -349,6 +351,7 @@ removable = true
 bus = "front"
 address = 0x4a
 device = "tmp117"
+name = "zone3"
 description = "Front temperature sensor (zone 3)"
 removable = true
 
@@ -452,6 +455,7 @@ description = "Fan controller"
 bus = "rear"
 address = 0x48
 device = "tmp117"
+name = "zone1"
 description = "Rear temperature sensor (zone 1)"
 removable = true
 
@@ -459,6 +463,7 @@ removable = true
 bus = "rear"
 address = 0x49
 device = "tmp117"
+name = "zone2"
 description = "Rear temperature sensor (zone 2)"
 removable = true
 
@@ -466,6 +471,7 @@ removable = true
 bus = "rear"
 address = 0x4a
 device = "tmp117"
+name = "zone3"
 description = "Rear temperature sensor (zone 3)"
 removable = true
 

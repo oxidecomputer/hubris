@@ -30,46 +30,17 @@ fn lookup_controller<'a>(
 }
 
 ///
-/// Validates a port for the specified controller, translating `Port::Default`
-/// to the matching port (or returning an error if there is more than one port
-/// and `Port::Default` has been specified).
+/// Validates a port for the specified controller.
 ///
 fn validate_port<'a>(
     pins: &'a [I2cPin],
     controller: Controller,
     port: Port,
 ) -> Result<Port, ResponseCode> {
-    if port != Port::Default {
-        //
-        // The more straightforward case is when our port has been explicitly
-        // provided -- we just need to verify that it's valid.
-        //
-        pins.iter()
-            .find(|pin| pin.controller == controller && pin.port == port)
-            .map(|pin| pin.port)
-            .ok_or(ResponseCode::BadPort)
-    } else {
-        let mut found = pins
-            .iter()
-            .filter(|pin| pin.controller == controller)
-            .map(|pin| pin.port);
-
-        //
-        // A default port has been requested; we need to verify that there is
-        // but one port for this controller -- if there is more than one, we
-        // require the port to be explicitly provided.
-        //
-        match found.next() {
-            None => Err(ResponseCode::BadController),
-            Some(port) => {
-                if found.any(|p| p != port) {
-                    Err(ResponseCode::BadDefaultPort)
-                } else {
-                    Ok(port)
-                }
-            }
-        }
-    }
+    pins.iter()
+        .find(|pin| pin.controller == controller && pin.port == port)
+        .map(|pin| pin.port)
+        .ok_or(ResponseCode::BadPort)
 }
 
 fn find_mux(
@@ -169,13 +140,13 @@ fn reset_if_needed(
 type PortMap = FixedMap<Controller, Port, 8>;
 type MuxMap = FixedMap<Mux, Segment, 4>;
 
-include!(concat!(env!("OUT_DIR"), "/config.rs"));
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[export_name = "main"]
 fn main() -> ! {
-    let controllers = config::controllers();
-    let pins = config::pins();
-    let muxes = config::muxes();
+    let controllers = i2c_config::controllers();
+    let pins = i2c_config::pins();
+    let muxes = i2c_config::muxes();
 
     // This is our actual mutable state
     let mut portmap = PortMap::new();
@@ -315,7 +286,7 @@ fn configure_port(
 ) {
     let current = map.get(controller.controller).unwrap();
 
-    assert!(port != Port::Default);
+    assert!(port != Port::Mock);
 
     if current == port {
         return;

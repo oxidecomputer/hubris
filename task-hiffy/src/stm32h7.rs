@@ -101,6 +101,9 @@ pub enum Functions {
 }
 
 #[cfg(feature = "i2c")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+#[cfg(feature = "i2c")]
 fn i2c_args(
     stack: &[Option<u32>],
 ) -> Result<(Controller, Port, Option<(Mux, Segment)>, u8, Option<u8>), Failure>
@@ -120,7 +123,35 @@ fn i2c_args(
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
         },
-        None => Port::Default,
+        None => {
+            //
+            // If we could rely on all HIF consumers to read the device
+            // configuration, we could reasonably error out in this case (as
+            // we would expect consumers to correctly determine the port
+            // themselves).  However, to accommodate less savvy (i.e., older)
+            // consumers, we instead look for one (and exactly one) port that
+            // matches our specified controller.
+            //
+            let pins = i2c_config::pins();
+
+            let mut found = pins
+                .iter()
+                .filter(|pin| pin.controller == controller)
+                .map(|pin| pin.port);
+
+            match found.next() {
+                None => {
+                    return Err(Failure::Fault(Fault::BadParameter(1)));
+                }
+                Some(port) => {
+                    if found.any(|p| p != port) {
+                        return Err(Failure::Fault(Fault::BadParameter(1)));
+                    } else {
+                        port
+                    }
+                }
+            }
+        }
     };
 
     let mux = match (stack[2], stack[3]) {

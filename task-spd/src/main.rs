@@ -77,12 +77,12 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
-include!(concat!(env!("OUT_DIR"), "/config.rs"));
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[export_name = "main"]
 fn main() -> ! {
-    let controller = &config::controllers()[0];
-    let pins = config::pins();
+    let controller = &i2c_config::controllers()[0];
+    let pins = i2c_config::pins();
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {

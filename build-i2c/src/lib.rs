@@ -3,7 +3,6 @@ use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt::Write;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -185,51 +184,7 @@ impl I2cConfigGenerator {
     }
 
     pub fn generate_header(&mut self) -> Result<()> {
-        let mut s = &mut self.output;
-
-        match self.disposition {
-            I2cConfigDisposition::Standalone => {
-                writeln!(
-                    &mut s,
-                    r##"mod config {{
-    use drv_stm32h7_i2c::{{I2cController, I2cPin}};
-
-    #[allow(unused_imports)]
-    use drv_stm32h7_i2c::I2cMux;"##
-                )?;
-            }
-
-            I2cConfigDisposition::NoController => {
-                writeln!(&mut s, "mod config {{")?;
-            }
-
-            _ => {
-                writeln!(
-                    &mut s,
-                    r##"mod config {{
-    #[cfg(feature = "h7b3")]
-    use stm32h7::stm32h7b3 as device;
-
-    #[cfg(feature = "h743")]
-    use stm32h7::stm32h743 as device;
-
-    use drv_i2c_api::{{Controller, Port}};
-
-    #[allow(unused_imports)]
-    use drv_i2c_api::Mux;
-
-    use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
-    use drv_stm32h7_i2c::{{I2cController, I2cPin}};
-
-    #[allow(unused_imports)]
-    use drv_stm32h7_i2c::I2cMux;
-
-    use drv_stm32h7_rcc_api::Peripheral;
-        "##
-                )?;
-            }
-        }
-
+        writeln!(&mut self.output, "mod i2c_config {{")?;
         Ok(())
     }
 
@@ -245,7 +200,19 @@ impl I2cConfigGenerator {
 
         write!(
             &mut s,
-            r##"    pub fn controllers() -> [I2cController<'static>; {}] {{
+            r##"
+    use drv_stm32h7_i2c::I2cController;
+
+    pub fn controllers() -> [I2cController<'static>; {}] {{
+        use drv_stm32h7_rcc_api::Peripheral;
+        use drv_i2c_api::Controller;
+
+        #[cfg(feature = "h7b3")]
+        use stm32h7::stm32h7b3 as device;
+
+        #[cfg(feature = "h743")]
+        use stm32h7::stm32h743 as device;
+
         ["##,
             self.controllers.len()
         )?;
@@ -289,7 +256,12 @@ impl I2cConfigGenerator {
         write!(
             &mut s,
             r##"
+    use drv_stm32h7_i2c::I2cPin;
+
     pub fn pins() -> [I2cPin; {}] {{
+        use drv_i2c_api::{{Controller, Port}};
+        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
+
         ["##,
             len
         )?;
@@ -355,7 +327,13 @@ impl I2cConfigGenerator {
         write!(
             &mut s,
             r##"
+    use drv_stm32h7_i2c::I2cMux;
+
     pub fn muxes() -> [I2cMux<'static>; {}] {{
+        use drv_i2c_api::{{Controller, Port, Mux}};
+        #[allow(unused_imports)]
+        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
+
         ["##,
             len
         )?;
@@ -372,11 +350,12 @@ impl I2cConfigGenerator {
                                 &mut enablestr,
                                 r##"Some(I2cPin {{
                     controller: Controller::I2C{controller},
-                    port: Port::Default,
+                    port: Port::{port},
                     gpio_pins: gpio_api::Port::{gpio_port}.pin({gpio_pin}),
                     function: Alternate::AF{af},
                 }})"##,
                                 controller = c.controller,
+                                port = p,
                                 gpio_port = match enable.gpio_port {
                                     Some(ref port) => port,
                                     None => bail!(
@@ -435,31 +414,73 @@ impl I2cConfigGenerator {
         Ok(())
     }
 
+    fn generate_device(&self, d: &I2cDevice) -> String {
+        let controller = match &d.bus {
+            Some(bus) => self.buses.get(bus).unwrap().0,
+            None => d.controller.unwrap(),
+        };
+
+        let port = match &d.bus {
+            Some(bus) => &self.buses.get(bus).unwrap().1,
+            None => match &d.port {
+                Some(port) => port,
+                None => match self.singletons.get(&d.controller.unwrap()) {
+                    Some(port) => port,
+                    None => {
+                        panic!("device {} has ambiguous port", d.device)
+                    }
+                },
+            },
+        };
+
+        format!(
+            r##"
+            // {description}
+            I2cDevice::new(task,
+                Controller::I2C{controller},
+                Port::{port},
+                {segment},
+                0x{address:x}
+            )"##,
+            description = d.description,
+            controller = controller,
+            port = port,
+            segment = "None",
+            address = d.address,
+        )
+    }
+
     pub fn generate_devices(&mut self) -> Result<()> {
         //
         // Throw all devices into a MultiMap based on device.
         //
         let mut bydevice = MultiMap::new();
-        let mut byname = HashSet::new();
+        let mut byname = HashMap::new();
         let mut bybus = MultiMap::new();
-        let mut s = &mut self.output;
 
         for d in &self.devices {
             bydevice.insert(&d.device, d);
 
             if let Some(bus) = &d.bus {
                 bybus.insert((&d.device, bus), d);
-            }
 
-            if let Some(name) = &d.name {
-                if !byname.insert((&d.device, d.bus.as_ref(), name)) {
-                    panic!("duplicate name {} for device {}", name, d.device)
+                if let Some(name) = &d.name {
+                    if byname.insert((&d.device, bus, name), d).is_some() {
+                        panic!(
+                            "duplicate name {} for device {} on bus {}",
+                            name, d.device, bus
+                        )
+                    }
+                }
+            } else {
+                if let Some(name) = &d.name {
+                    panic!("named device {} is on unnamed bus", name);
                 }
             }
         }
 
         write!(
-            &mut s,
+            &mut self.output,
             r##"
     pub mod devices {{
         use drv_i2c_api::{{I2cDevice, Controller, Port}};
@@ -469,7 +490,7 @@ impl I2cConfigGenerator {
 
         for (device, devices) in bydevice.iter_all() {
             write!(
-                &mut s,
+                &mut self.output,
                 r##"
         #[allow(dead_code)]
         pub fn {}(task: TaskId) -> [I2cDevice; {}] {{
@@ -479,55 +500,62 @@ impl I2cConfigGenerator {
             )?;
 
             for d in devices {
-                let controller = match &d.bus {
-                    Some(bus) => self.buses.get(bus).unwrap().0,
-                    None => d.controller.unwrap(),
-                };
-
-                let port = match &d.bus {
-                    Some(bus) => &self.buses.get(bus).unwrap().1,
-                    None => match &d.port {
-                        Some(port) => port,
-                        None => match self
-                            .singletons
-                            .get(&d.controller.unwrap())
-                        {
-                            Some(port) => port,
-                            None => {
-                                panic!("device {} has ambiguous port", d.device)
-                            }
-                        },
-                    },
-                };
-
-                write!(
-                    &mut s,
-                    r##"
-                // {description}
-                I2cDevice::new(task,
-                    Controller::I2C{controller},
-                    Port::{port},
-                    {segment},
-                    0x{address:x}
-                ),"##,
-                    description = d.description,
-                    controller = controller,
-                    port = port,
-                    segment = "None",
-                    address = d.address,
-                )?;
+                let out = self.generate_device(d);
+                write!(&mut self.output, "{},", out)?;
             }
 
             writeln!(
-                &mut s,
+                &mut self.output,
                 r##"
             ]
-        }}
-        "##
+        }}"##
             )?;
         }
 
-        writeln!(&mut s, "    }}")?;
+        for ((device, bus), devices) in bybus.iter_all() {
+            write!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub fn {}_{}(task: TaskId) -> [I2cDevice; {}] {{
+            ["##,
+                device,
+                bus,
+                devices.len()
+            )?;
+
+            for d in devices {
+                let out = self.generate_device(d);
+                write!(&mut self.output, "{},", out)?;
+            }
+            writeln!(
+                &mut self.output,
+                r##"
+            ]
+        }}"##
+            )?;
+        }
+
+        for ((device, bus, name), d) in &byname {
+            write!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub fn {}_{}_{}(task: TaskId) -> I2cDevice {{"##,
+                device, bus, name
+            )?;
+
+            let out = self.generate_device(d);
+            write!(&mut self.output, "{}", out)?;
+
+            writeln!(
+                &mut self.output,
+                r##"
+        }}"##
+            )?;
+        }
+
+        writeln!(&mut self.output, "    }}")?;
         Ok(())
     }
 }

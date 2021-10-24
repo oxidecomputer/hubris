@@ -9,7 +9,7 @@ fn codegen() -> Result<()> {
     use std::io::Write;
 
     let out_dir = env::var("OUT_DIR")?;
-    let dest_path = Path::new(&out_dir).join("config.rs");
+    let dest_path = Path::new(&out_dir).join("i2c_config.rs");
     let mut file = File::create(&dest_path)?;
 
     cfg_if::cfg_if! {

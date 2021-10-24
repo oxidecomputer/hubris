@@ -2019,6 +2019,8 @@ dependencies = [
 name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-i2c",
  "build-util",
  "byteorder",
  "cfg-if 0.1.10",
@@ -2029,6 +2031,8 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-spi-api",
  "drv-stm32h7-gpio-api",
+ "drv-stm32h7-i2c",
+ "drv-stm32h7-rcc-api",
  "hif",
  "num-traits",
  "ringbuf",
