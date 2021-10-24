@@ -21,6 +21,9 @@ drv-onewire-devices = {path = "../drv/onewire-devices"}
 
 [build-dependencies]
 build-util = {path = "../build-util"}
+build-i2c = {path = "../build-i2c"}
+anyhow = "1.0.31"
+cfg-if = "0.1.10"
 
 [features]
 default = ["standalone"]

@@ -68,22 +68,15 @@ fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
     }
 }
 
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
+
 #[export_name = "main"]
 fn main() -> ! {
     let task = I2C.get_task_id();
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            const MAX31790_ADDRESS: u8 = 0x20;
-
-            let fctrl = Max31790::new(&I2cDevice::new(
-                task,
-                Controller::I2C1,
-                Port::Default,
-                None,
-                MAX31790_ADDRESS,
-            ));
-
+            let fctrl = Max31790::new(&config::devices::max31790(task)[0]);
             let tmp116: [Tmp116; 0] = [];
         } else if #[cfg(target_board = "gimlet-1")] {
             // Two sets of TMP117 sensors, Front and Rear
@@ -137,15 +130,7 @@ fn main() -> ! {
             )),
             ];
 
-            const MAX31790_ADDRESS: u8 = 0x20;
-
-            let fctrl = Max31790::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                None,
-                MAX31790_ADDRESS,
-            ));
+            let fctrl = Max31790::new(&config::devices::max31790(task)[0]);
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {

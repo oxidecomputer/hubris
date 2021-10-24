@@ -10,3 +10,4 @@ serde = { version = "1.0.114", features = ["derive"] }
 indexmap = { version = "1.4.0", features = ["serde-1"] }
 anyhow = "1.0.31"
 cfg-if = "0.1.10"
+multimap = "0.8.3"

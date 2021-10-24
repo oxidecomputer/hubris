@@ -134,6 +134,18 @@ rcc_driver = "rcc_driver"
 gpio_driver = "gpio_driver"
 i2c_driver = "i2c_driver"
 
+[tasks.thermal]
+path = "../task-thermal"
+name = "task-thermal"
+features = ["itm"]
+priority = 3
+requires = {flash = 65536, ram = 8192 }
+stacksize = 2048
+start = true
+
+[tasks.thermal.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
