@@ -198,12 +198,19 @@ impl I2cConfigGenerator {
 
         assert!(self.disposition != I2cConfigDisposition::NoController);
 
-        write!(
+        writeln!(
             &mut s,
             r##"
     use drv_stm32h7_i2c::I2cController;
 
-    pub fn controllers() -> [I2cController<'static>; {}] {{
+    pub fn controllers() -> [I2cController<'static>; {}] {{"##,
+            self.controllers.len()
+        )?;
+
+        if self.controllers.len() > 0 {
+            writeln!(
+                &mut s,
+                r##"
         use drv_stm32h7_rcc_api::Peripheral;
         use drv_i2c_api::Controller;
 
@@ -211,10 +218,14 @@ impl I2cConfigGenerator {
         use stm32h7::stm32h7b3 as device;
 
         #[cfg(feature = "h743")]
-        use stm32h7::stm32h743 as device;
+        use stm32h7::stm32h743 as device;"##
+            )?;
+        }
 
-        ["##,
-            self.controllers.len()
+        write!(
+            &mut s,
+            r##"
+        ["##
         )?;
 
         for c in &self.controllers {
@@ -253,17 +264,28 @@ impl I2cConfigGenerator {
             }
         }
 
-        write!(
+        writeln!(
             &mut s,
             r##"
     use drv_stm32h7_i2c::I2cPin;
 
-    pub fn pins() -> [I2cPin; {}] {{
-        use drv_i2c_api::{{Controller, Port}};
-        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
-
-        ["##,
+    pub fn pins() -> [I2cPin; {}] {{"##,
             len
+        )?;
+
+        if len > 0 {
+            writeln!(
+                &mut s,
+                r##"
+        use drv_i2c_api::{{Controller, Port}};
+        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};"##
+            )?;
+        }
+
+        write!(
+            &mut s,
+            r##"
+        ["##
         )?;
 
         for c in &self.controllers {
@@ -451,6 +473,26 @@ impl I2cConfigGenerator {
     }
 
     pub fn generate_devices(&mut self) -> Result<()> {
+        if self.disposition == I2cConfigDisposition::Standalone {
+            //
+            // For the standalone build, we generate a single, mock
+            // device.
+            //
+            writeln!(
+                &mut self.output,
+                r##"
+    pub mod devices {{
+        use drv_i2c_api::I2cDevice;
+        use userlib::TaskId;
+
+        pub fn mock(task: TaskId) -> I2cDevice {{
+            I2cDevice::mock(task)
+        }}
+    }}"##
+            )?;
+            return Ok(());
+        }
+
         //
         // Throw all devices into a MultiMap based on device.
         //

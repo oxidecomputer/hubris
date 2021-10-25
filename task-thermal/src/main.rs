@@ -71,30 +71,28 @@ fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
 #[export_name = "main"]
 fn main() -> ! {
     let task = I2C.get_task_id();
+    use i2c_config::devices;
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            let fctrl = Max31790::new(&i2c_config::devices::max31790(task)[0]);
+            let fctrl = Max31790::new(&devices::max31790(task)[0]);
             let tmp116: [Tmp116; 0] = [];
         } else if #[cfg(target_board = "gimlet-1")] {
-            use i2c_config::devices::*;
-
             let tmp116 = [
-                Tmp116::new(&tmp117_front_zone1(task)),
-                Tmp116::new(&tmp117_front_zone2(task)),
-                Tmp116::new(&tmp117_front_zone3(task)),
-                Tmp116::new(&tmp117_rear_zone1(task)),
-                Tmp116::new(&tmp117_rear_zone2(task)),
-                Tmp116::new(&tmp117_rear_zone3(task)),
+                Tmp116::new(&devices::tmp117_front_zone1(task)),
+                Tmp116::new(&devices::tmp117_front_zone2(task)),
+                Tmp116::new(&devices::tmp117_front_zone3(task)),
+                Tmp116::new(&devices::tmp117_rear_zone1(task)),
+                Tmp116::new(&devices::tmp117_rear_zone2(task)),
+                Tmp116::new(&devices::tmp117_rear_zone3(task)),
             ];
 
-            let fctrl = Max31790::new(&max31790(task)[0]);
+            let fctrl = Max31790::new(&devices::max31790(task)[0]);
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
-                    let device = I2cDevice::mock(task);
-                    let fctrl = Max31790::new(&device);
-                    let tmp116 = [ Tmp116::new(&device) ];
+                    let fctrl = Max31790::new(&devices::mock(task));
+                    let tmp116: [Tmp116; 0] = [];
                 } else {
                     compile_error!("unknown board");
                 }
