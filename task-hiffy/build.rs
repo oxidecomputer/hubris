@@ -5,6 +5,7 @@ use std::path::Path;
 
 use build_i2c::{I2cConfigDisposition, I2cConfigGenerator};
 
+#[allow(dead_code)]
 fn codegen() -> Result<()> {
     use std::io::Write;
 
@@ -33,6 +34,7 @@ fn codegen() -> Result<()> {
 fn main() {
     build_util::expose_target_board();
 
+    #[cfg(feature = "i2c")]
     if let Err(e) = codegen() {
         println!("code generation failed: {}", e);
         std::process::exit(1);
