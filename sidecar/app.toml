@@ -272,3 +272,194 @@ name = "south2"
 description = "South Bend 2"
 pins = [ { pins = [ 12, 13 ], af = 4 } ]
 
+[[config.i2c.devices]]
+device = "bmr480"
+bus = "northwest0"
+address = 0b0010_111
+description = "IBC"
+
+[[config.i2c.devices]]
+device = "bmr491"
+bus = "northwest0"
+address = 0b1100_111
+description = "IBC"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest0"
+address = 0b0010_110
+description = "54V hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northeast1"
+address = 0b0010_000
+description = "Fan 0 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northeast0"
+address = 0b0010_011
+description = "Fan 1 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest1"
+address = 0b0010_000
+description = "Fan 2 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest1"
+address = 0b0010_011
+description = "Fan 3 hot swap controller"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "northwest0"
+address = 0b0011_001
+description = "V5P0_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "northeast1"
+address = 0b0011_010
+description = "V3P3_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "south1"
+address = 0b0011_011
+description = "V1P0_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "south1"
+address = 0b0011_100
+description = "V1P8_SYS rail"
+
+[[config.i2c.devices]]
+device = "raa229618"
+bus = "northeast0"
+address = 0b1100_011
+description = "TF2 VDD rail"
+
+[[config.i2c.devices]]
+device = "raa229618"
+bus = "northwest0"
+address = 0b1100_000
+description = "TF2 VDDA rail"
+
+[[config.i2c.devices]]
+device = "isl68224"
+bus = "south0"
+address = 0b1100_010
+description = "VDD[A]18 rail"
+
+[[config.i2c.devices]]
+device = "tmp451"
+bus = "northwest0"
+address = 0b1001_100
+description = "TF2 temperature sensor"
+
+[[config.i2c.devices]]
+device = "tmp451"
+bus = "south1"
+address = 0b1001_100
+description = "VSC7448 temperature sensor"
+
+[[config.i2c.devices]]
+device = "max31790"
+bus = "northeast0"
+address = 0b0100_011
+description = "Fan 0/1 controller"
+
+[[config.i2c.devices]]
+device = "max31790"
+bus = "northwest1"
+address = 0b0100_000
+description = "Fan 2/3 controller"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_000
+description = "Front temperature sensor (east)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_001
+description = "Front temperature sensor (central)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_010
+description = "Front temperature sensor (west)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northeast1"
+address = 0b1001_000
+description = "Rear temperature sensor (northeast 1)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northeast0"
+address = 0b1001_001
+description = "Rear temperature sensor (northeast 0)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northwest0"
+address = 0b1001_000
+description = "Rear temperature sensor (northwest 0)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northwest1"
+address = 0b1001_001
+description = "Rear temperature sensor (northwest 1)"
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "northeast0"
+# address = 0b1010_0**
+# description = ""
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "northwest1"
+# address = 0b1010_0**
+# description = ""
+
+[[config.i2c.devices]]
+device = "idt8a34001"
+bus = "south0"
+address = 0b1011_000
+description = "Clock generator"
+
+[[config.i2c.devices]]
+device = "pca9545"
+bus = "northwest1"
+address = 0b1110_000
+description = "Northwest fan mux"
+
+[[config.i2c.devices]]
+device = "pca9545"
+bus = "northeast0"
+address = 0b1110_000
+description = "Northeast fan mux"
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "south2"
+# address = 0b1010_0**
+# description = ""
+
+# [[config.i2c.devices]]
+# device = "tf2"
+# bus = "ECP5->S?"
+# address = 0b1011_011
+# description = ""
