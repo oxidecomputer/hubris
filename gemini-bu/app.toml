@@ -288,6 +288,9 @@ size = 1024
 [[config.i2c.controllers]]
 controller = 1
 
+[config.i2c.controllers.ports.B]
+name = "onboard"
+
 [[config.i2c.controllers.ports.B.pins]]
 pins = [ 8, 9 ]
 af = 4
@@ -329,7 +332,32 @@ af = 4
 
 [[config.i2c.devices]]
 device = "max31790"
-controller = 1
+bus = "onboard"
 address = 0x20
 description = "Fan controller"
+
+[[config.i2c.devices]]
+device = "pca9555"
+bus = "onboard"
+address = 0x21
+description = "GPIO expander"
+
+[[config.i2c.devices]]
+device = "ina219"
+bus = "onboard"
+address = 0x40
+description = "Current sensor"
+
+[[config.i2c.devices]]
+device = "ina219"
+bus = "onboard"
+address = 0x41
+description = "Current sensor"
+
+[[config.i2c.devices]]
+device = "ltc4306"
+controller = 4
+port = "F"
+address = 0x44
+description = "Multiplexer"
 
