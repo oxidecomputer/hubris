@@ -40,6 +40,7 @@ pub fn main() -> ! {
                     }
                     Err(drv_user_leds_api::LedError::NoSuchLed) => {
                         current = 0;
+                        user_leds.force().unwrap();
                     }
                     _ => {
                         panic!("unhandled Led error");

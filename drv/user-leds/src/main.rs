@@ -82,6 +82,12 @@ fn main() -> ! {
                 let (msg, caller) =
                     msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
 
+                if *msg == 420 {
+                    led_force();
+                    caller.reply(());
+                    return Ok(());
+                }
+
                 // Every incoming message has the same permitted range, as well.
                 let led = Led::from_u32(*msg).ok_or(ResponseCode::BadArg)?;
 
@@ -345,6 +351,22 @@ fn led_toggle(led: Led) {
     gpio_driver.toggle(pinset.port, pinset.pin_mask).unwrap();
 }
 
+#[cfg(not(feature = "lpc55"))]
+fn led_force() {}
+
+#[cfg(feature = "lpc55")]
+fn led_force() {
+    use drv_lpc55_gpio_api::*;
+
+    let gpio_driver = GPIO.get_task_id();
+    let gpio_driver = Gpio::from(gpio_driver);
+
+    //let pinset = drv_stm32h7_gpio_api::Port::E.pin(3);
+    gpio_driver
+        .toggle(drv_lpc55_gpio_api::Pin::PIO0_18)
+        .unwrap();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // The LPC55 specific bits.
 
@@ -422,6 +444,22 @@ fn enable_led_pins() {
         .set_dir(LED_ZERO_PIN, Direction::Output)
         .unwrap();
     gpio_driver.set_dir(LED_ONE_PIN, Direction::Output).unwrap();
+
+    gpio_driver
+        .iocon_configure(
+            drv_lpc55_gpio_api::Pin::PIO0_18,
+            AltFn::Alt0,
+            Mode::NoPull,
+            Slew::Standard,
+            Invert::Disable,
+            Digimode::Digital,
+            Opendrain::Normal,
+        )
+        .unwrap();
+
+    gpio_driver
+        .set_dir(drv_lpc55_gpio_api::Pin::PIO0_18, Direction::Output)
+        .unwrap();
 }
 
 #[cfg(feature = "lpc55")]

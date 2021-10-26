@@ -223,6 +223,22 @@ requires = {flash = 256, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.gpio_int_driver]
+path = "../drv/stm32h7-gpio-int"
+name = "drv-stm32h7-gpio-int"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+uses = ["exti", "syscfg"]
+start = true
+interrupts = {9 = 1}
+stacksize = 1000
+
+[tasks.gpio_int_driver.task-slots]
+rcc_driver = "rcc_driver"
+gpio_driver = "gpio_driver"
+
+
+
 [peripherals.rcc]
 address = 0x58024400
 size = 1024
@@ -282,4 +298,13 @@ size = 1024
 [peripherals.i2c4]
 address = 0x58001c00
 size = 1024
+
+[peripherals.exti]
+address = 0x58000000
+size = 1024
+
+[peripherals.syscfg]
+address = 0x58000400
+size = 1024
+
 

@@ -84,4 +84,18 @@ impl UserLeds {
 
         hl::send_with_retry(&self.0, &Tog(index))
     }
+
+    pub fn force(&self) -> Result<(), LedError> {
+        #[derive(AsBytes)]
+        #[repr(C)]
+        struct Tog(usize);
+
+        impl hl::Call for Tog {
+            const OP: u16 = Op::Toggle as u16;
+            type Response = ();
+            type Err = LedError;
+        }
+
+        hl::send_with_retry(&self.0, &Tog(420))
+    }
 }
