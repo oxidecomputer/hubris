@@ -44,6 +44,7 @@ cfg_if::cfg_if! {
 ///
 /// - [`HIFFY_TEXT`]       => Program text for HIF operations
 /// - [`HIFFY_RSTACK`]     => HIF return stack
+/// - [`HIFFY_SCRATCH`]    => HIF scratch buffer to be serialized into HIFFY_RSTACK
 /// - [`HIFFY_REQUESTS`]   => Count of succesful requests
 /// - [`HIFFY_ERRORS`]     => Count of HIF execution failures
 /// - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
@@ -55,6 +56,7 @@ cfg_if::cfg_if! {
 static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
 static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
 static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
+static mut HIFFY_SCRATCH: [u8; 256] = [0; 256];
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
@@ -76,7 +78,6 @@ fn main() -> ! {
     let mut sleep_ms = 250;
     let mut sleeps = 0;
     let mut stack = [None; 32];
-    let mut scratch = [0u8; 256];
     const NLABELS: usize = 4;
 
     //
@@ -115,6 +116,7 @@ fn main() -> ! {
         let text = unsafe { &HIFFY_TEXT };
         let data = unsafe { &HIFFY_DATA };
         let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
+        let mut scratch = unsafe { &mut HIFFY_SCRATCH[0..] };
 
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             trace_execute(offset, *op);
