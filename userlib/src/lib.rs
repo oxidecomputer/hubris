@@ -904,6 +904,43 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
     )
 }
 
+#[inline(always)]
+pub fn sys_post(task_id: TaskId, bits: u32) -> u32 {
+    unsafe { sys_post_stub(task_id.0 as u32, bits) }
+}
+
+/// Core implementation of the POST syscall.
+///
+/// See the note on syscall stubs at the top of this module for rationale.
+#[inline(never)]
+#[naked]
+unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
+    asm!("
+        @ Spill the registers we're about to use to pass stuff. Note that we're
+        @ being clever and pushing only the registers we need; this means the
+        @ pop sequence at the end needs to match!
+        push {{r4, r5, r11, lr}}
+
+        @ Move register arguments into place.
+        mov r4, r0
+        mov r5, r1
+        @ Load the constant syscall number.
+        mov r11, {sysnum}
+
+        @ To the kernel!
+        svc #0
+
+        @ Move result into place.
+        mov r0, r4
+
+        @ Restore the registers we used and return.
+        pop {{r4, r5, r11, pc}}
+        ",
+        sysnum = const Sysnum::RefreshTaskId as u32,
+        options(noreturn),
+    )
+}
+
 // Enumeration of tasks in the application, for convenient reference, generated
 // by build.rs.
 //

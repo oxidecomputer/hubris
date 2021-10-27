@@ -583,3 +583,40 @@ This is intended for two use cases:
 | `TaskOutOfRange`
 
 |===
+
+=== `POST` (11)
+
+Accumulates a set of notification bits into another task's notification word
+using bitwise OR. This enables a simple inter-task asynchronous communication
+mechanism. See <<notifications>> for more information on the mechanism.
+
+==== Arguments
+
+- 0: task ID (in low 16 bits)
+- 1: bits to OR in
+
+==== Return values
+
+- 0: zero on success, dead code on generation mismatch.
+
+==== Faults
+
+|===
+| Condition | Fault taken
+
+| Recipient task index greater than the (static) number of tasks in the entire
+  system.
+| `TaskOutOfRange`
+
+|===
+
+==== Notes
+
+If the task generation is wrong, the caller will receive a dead code (see
+<<death>>) and no notification will be posted.
+
+If the task being notified is higher priority, and the notification causes it
+to wake, control will immediately transfer to the higher priority task. This
+will be returned as "success" to the caller, because the notification was
+successfully delivered, even if the higher priority task subsequently crashes
+before the caller gets another chance to run.
