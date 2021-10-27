@@ -40,7 +40,8 @@ You will need:
   OpenOCD, you need to use `brew install --head openocd` to build the tip of the
   main branch rather than using the latest binary release.
 
-- The appropriate Rust toolchain target installed:
+- The appropriate Rust toolchain target installed: (if your toolchain installed
+  automatically, this will too)
   - `rustup target add thumbv7em-none-eabihf` (for the STM32)
   - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
@@ -488,4 +489,3 @@ This magic happens in three parts:
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on
 `userlib`. You generally do not need a `build.rs` in your task unless you need
 to detect compiler/architecture features or depend on board rev.
-
