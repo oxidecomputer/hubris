@@ -300,6 +300,11 @@ impl Task {
         Generation::from(self.generation as u8 & MASK)
     }
 
+    /// Returns this task's priority.
+    pub fn priority(&self) -> Priority {
+        self.priority
+    }
+
     /// Returns a reference to this task's current state, for inspection.
     pub fn state(&self) -> &TaskState {
         &self.state
@@ -423,6 +428,12 @@ pub trait ArchState: Default {
     /// arguments for REFRESH_TASK_ID
     fn as_refresh_task_id_args(&self) -> AsRefreshTaskIdArgs<&Self> {
         AsRefreshTaskIdArgs(self)
+    }
+
+    /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for POST
+    fn as_post_args(&self) -> AsPostArgs<&Self> {
+        AsPostArgs(self)
     }
 
     /// Sets a recoverable error code using the generic ABI.
@@ -658,6 +669,19 @@ pub struct AsRefreshTaskIdArgs<T>(T);
 impl<'a, T: ArchState> AsRefreshTaskIdArgs<&'a T> {
     pub fn task_id(&self) -> TaskId {
         TaskId(self.0.arg0() as u16)
+    }
+}
+
+/// Reference proxy for Post argument registers.
+pub struct AsPostArgs<T>(T);
+
+impl<'a, T: ArchState> AsPostArgs<&'a T> {
+    pub fn task_id(&self) -> TaskId {
+        TaskId(self.0.arg0() as u16)
+    }
+
+    pub fn notification_bits(&self) -> NotificationSet {
+        NotificationSet(self.0.arg1())
     }
 }
 

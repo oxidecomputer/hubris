@@ -142,6 +142,7 @@ fn main() -> ! {
     let mut last_reply = 0u32;
     let mut stored_value = 0;
     let mut borrow_buffer = [0u8; 16];
+    let mut posted_bits = 0;
 
     let fatalops = [
         (AssistOp::BadMemory, badread as fn(u32)),
@@ -157,10 +158,17 @@ fn main() -> ! {
         (AssistOp::IllegalInstruction, illinst),
     ];
 
+    const ALL_NOTIFICATIONS: u32 = !0;
     loop {
-        hl::recv_without_notification(
+        hl::recv(
             &mut buffer,
-            |op, msg| -> Result<(), u32> {
+            ALL_NOTIFICATIONS,
+            &mut posted_bits,
+            |posted_bits, notify_bits| {
+                // Just record any notifications so they can be read back out.
+                *posted_bits |= notify_bits;
+            },
+            |posted_bits, op, msg| -> Result<(), u32> {
                 // Every incoming message uses the same payload type: it's
                 // always u32 -> u32.
                 let (msg, caller) = msg.fixed::<u32, u32>().ok_or(1u32)?;
@@ -257,7 +265,9 @@ fn main() -> ! {
                         ));
                         panic!("unexpectedly survived {:?}", op);
                     }
-
+                    AssistOp::ReadNotifications => {
+                        caller.reply(core::mem::replace(posted_bits, 0));
+                    }
                     _ => {
                         // Anything else should be fatal
                         for (which, func) in &fatalops {

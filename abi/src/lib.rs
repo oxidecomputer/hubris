@@ -459,6 +459,7 @@ pub enum Sysnum {
     Panic = 8,
     GetTimer = 9,
     RefreshTaskId = 10,
+    Post = 11,
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
@@ -480,6 +481,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
             8 => Ok(Self::Panic),
             9 => Ok(Self::GetTimer),
             10 => Ok(Self::RefreshTaskId),
+            11 => Ok(Self::Post),
             _ => Err(()),
         }
     }

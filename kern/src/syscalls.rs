@@ -86,6 +86,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::Panic) => explicit_panic(tasks, current),
         Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
         Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
+        Ok(Sysnum::Post) => post(tasks, current),
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -747,5 +748,33 @@ fn refresh_task_id(
         Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::TaskOutOfRange,
         )))
+    }
+}
+
+fn post(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
+    let args = tasks[caller].save().as_post_args();
+    let peer_id = args.task_id();
+    let bits = args.notification_bits();
+    drop(args);
+
+    let peer_idx = task::check_task_id_against_table(tasks, peer_id)?;
+
+    let woke = tasks[peer_idx].post(bits);
+
+    tasks[caller].save_mut().set_error_response(0);
+
+    // In order to maintain the scheduler invariant that the highest priority
+    // task is always running, we need to force a reschedule here. We could do
+    // that unconditionally by just returning `Ok(woke)`, but that will waste
+    // CPU if the notification is going from higher to lower priority -- and we
+    // expect that to be the common case.
+    //
+    // And so, we will be slightly clever here.
+    let caller_p = tasks[caller].priority();
+    let peer_p = tasks[peer_idx].priority();
+    if woke && peer_p.is_more_important_than(caller_p) {
+        Ok(NextTask::Specific(peer_idx))
+    } else {
+        Ok(NextTask::Same)
     }
 }
