@@ -21,7 +21,7 @@ use zerocopy::AsBytes;
 
 /// Helper macro for building a list of functions with their names.
 macro_rules! test_cases {
-    ($($name:path),*) => {
+    ($($name:path,)*) => {
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
                 (stringify!($name), &$name)
@@ -71,7 +71,8 @@ test_cases! {
     test_refresh_task_id_basic,
     test_refresh_task_id_off_by_one,
     test_refresh_task_id_off_by_many,
-    test_lpc55_flash_write
+    test_lpc55_flash_write,
+    test_post,
 }
 
 #[cfg(feature = "lpc55")]
@@ -870,6 +871,44 @@ fn test_refresh_task_id_off_by_many() {
     let fault = test_fault(AssistOp::RefreshTaskIdOffByMany, 0);
 
     assert_eq!(fault, FaultInfo::SyscallUsage(UsageError::TaskOutOfRange));
+}
+
+/// Tests that notification bit posting works roughly as we'd expect.
+fn test_post() {
+    let assist = assist_task_id();
+
+    let mut response = 0_u32;
+
+    // Do an initial call to drain any previously posted bits.
+    let unused = 0u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::ReadNotifications as u16,
+        unused.as_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    // Now, post some bits.
+    const ARBITRARY_MASK: u32 = 0xAA00006A;
+    let post_rc = sys_post(assist, ARBITRARY_MASK);
+    // Should not have died.
+    assert_eq!(post_rc, 0);
+
+    // And read them back.
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::ReadNotifications as u16,
+        unused.as_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    assert_eq!(response, ARBITRARY_MASK);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
