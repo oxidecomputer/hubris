@@ -104,7 +104,7 @@ impl Task {
     /// that the task `self` can access it for read. This is used to access task
     /// memory from the kernel in validated form.
     pub fn try_read<'a, T>(
-        &self,
+        &'a self,
         slice: &'a USlice<T>,
     ) -> Result<&'a [T], FaultInfo>
     where
@@ -139,7 +139,7 @@ impl Task {
     /// that the task `self` can access it for write. This is used to access task
     /// memory from the kernel in validated form.
     pub fn try_write<'a, T>(
-        &self,
+        &'a mut self,
         slice: &'a mut USlice<T>,
     ) -> Result<&'a mut [T], FaultInfo>
     where
@@ -287,7 +287,7 @@ impl Task {
 
     /// Returns a reference to the `TaskDesc` that was used to initially create
     /// this task.
-    pub fn descriptor(&self) -> &TaskDesc {
+    pub fn descriptor(&self) -> &'static TaskDesc {
         self.descriptor
     }
 

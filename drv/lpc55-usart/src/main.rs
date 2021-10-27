@@ -18,11 +18,11 @@ use lpc55_pac as device;
 use userlib::*;
 use zerocopy::AsBytes;
 
-declare_task!(SYSCON, syscon_driver);
+task_slot!(SYSCON, syscon_driver);
 
 const OP_WRITE: u32 = 1;
 
-declare_task!(GPIO, gpio_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -167,14 +167,14 @@ fn main() -> ! {
 }
 
 fn turn_on_flexcomm() {
-    let syscon = Syscon::from(get_task_id(SYSCON));
+    let syscon = Syscon::from(SYSCON.get_task_id());
 
     syscon.enable_clock(Peripheral::Fc0);
     syscon.leave_reset(Peripheral::Fc0);
 }
 
 fn muck_with_gpios() {
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let iocon = Gpio::from(gpio_driver);
 
     // Our GPIOs are P0_29 and P0_30 and need to be set to AF1

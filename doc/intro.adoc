@@ -1,0 +1,171 @@
+= Introduction
+
+Hubris is a small operating system intended for deeply-embedded computer systems
+-- the kind that usually don't have any user interface, or way for an operator
+to intervene. Because it's important for systems like that to take care of
+themselves, Hubris is designed around the goal of _robustness._
+
+== Obligatory bulleted list of features
+
+- Designed for 32-bit microcontrollers with region-based memory protection and
+  kiB to MiB of RAM and Flash.
+
+- <<tasks,Tasks>> are separately-compiled programs, isolated from one another in
+  memory, and running entirely in the processor's unprivileged mode(s).
+
+- A flexible <<ipc,IPC model>> allows tasks to talk to each other.
+
+- A small kernel running in privileged mode provides these abstractions and very
+  little else.
+
+- <<drivers,Drivers live in tasks>>, not the kernel.
+
+- All task mechanisms are designed to allow component-level reboots without
+  taking out the whole system, under application control.
+
+- One "special task," <<supervisor,the _supervisor,_>> implements all task
+  management and crash recovery policies, outside the kernel. (Applications are
+  free to provide their own supervisor.)
+
+- Applications ship as integral firmware images, containing a set of tasks and
+  the kernel built at the same time. Piecewise update of tasks, or creation of
+  new tasks at runtime, is deliberately not supported.
+
+== Architecture
+
+An _application_ using Hubris consists of a collection of _tasks_ and the Hubris
+_kernel._
+
+----
++---------+ +---------+ +---------+ +---------+  \
+|  task   | |  task   | |  task   | |  task   |   |
++---------+ +---------+ +---------+ +---------+   |
++---------+ +---------+ +---------+ +---------+   |
+|  task   | |  task   | |  task   | |  task   |   | application
++---------+ +---------+ +---------+ +---------+   |
+                                                  |
++---------------------------------------------+   |
+|                kernel                       |   |
++---------------------------------------------+  /
+----
+
+The Hubris build system compiles the tasks and kernel with features chosen by
+a configuration file called `app.toml`, which defines the structure of the
+particular application. The scheme is designed so that tasks can be written to
+be somewhat generic, and then customized for the application.
+
+An application is the unit of firmware that is shipped and flashed. We do not
+support updating _parts_ of an application in the field. This is to ensure that
+we've tested the particular combination of parts that we ship. This decision has
+a lot of implications on the design of the rest of the system -- for instance,
+there is no particular requirement for inter-task ABIs to be stable if all tasks
+will be rebuilt together.
+
+Finally, an important thing to know about Hubris's architecture is that it is a
+_physically addressed_ system. Each task's memory occupies separate,
+non-overlapping sections of address space, and the kernel has its own section.
+This is different from most memory-protected operating systems, like Unix or
+Windows, where each program is allowed to believe it occupies the entire address
+space, through hardware trickery. We initially chose to make Hubris physically
+mapped out of necessity: the low-complexity low-cost microcontrollers we target
+simply do not have virtual memory mapping hardware. However, it turns out that
+having all application components visible in a single address space makes
+debugging _dramatically_ simpler. As a result, we currently intend to keep the
+system physically mapped, even if we port to a processor with virtual addressing
+support.
+
+== Philosophy
+
+=== Toward robustness
+
+We're trying to inch closer to robustness than our previous systems could,
+through a combination of decisions.
+
+**More memory safety.** The bulk of both the Hubris kernel and our applications
+are written in safe Rust, with careful sprinklings of unsafe Rust where
+required. "Unsafe" Rust is still a much safer language than C or assembler and
+helps us avoid thinking about a bunch of potential bugs.
+
+**Fault isolation.** Tasks, including drivers, can crash independently. An
+application might choose to have a driver crash ripple out into clients, but
+could also choose to notify clients and have them retry requests -- whichever is
+appropriate. Memory protection is vital for ensuring this; without it, once some
+invariant in the system is observed to be broken, you have to assume they're all
+in jeopardy.
+
+**Holistic deployment.** It's critical to ship the code you test, but once a
+program has been factored into a bunch of separately compiled pieces, there's a
+temptation to update each of these pieces independently. This leads to a
+combinatorial explosion in the configurations you'd have to test to be thorough.
+To avoid that, engineering processes pick up a lot of overhead about conscious
+forward- and backward-compatible API design, etc. We've chosen to bypass this
+and assume that all the software that runs on a given processor was built -- and
+tested! -- together.
+
+=== Pragmatism
+
+There are a class of "ideal attractors" in engineering, concepts like
+"everything is an object," "homoiconicity," "purely functional," "pure
+capability system," etc. Engineers fall into orbit around these ideas quite
+easily. Systems that follow these principles often get useful properties out of
+the deal.
+
+However, going too far in any of these directions is also a great way to find a
+deep reservoir of unsolved problems, which is part of why these are popular
+directions in academia.
+
+In the interest of shipping, we are consicously steering around unsolved
+problems, even when it means we lose some attractive features. For instance:
+
+- While we expect interrupts to be handled in unprivileged tasks in general, we
+  have left allowances for applications to handle interrupts in lower-latency
+  but more-dangerous privileged code if required.
+
+- While we're bullish on Hubris's ability to enforce system-wide `W^X` -- that
+  is, having no executable sections of the address space writable or vice versa
+  -- this is not mandatory, in case you need to do something we didn't foresee.
+
+- We have chosen fixed system-level resource allocation rather than dynamic,
+  because doing dynamic properly in a real-time system is hard. Yes, we are
+  aware of work done in capability-based memory accounting, space banks, and the
+  like.
+
+- Speaking of capabilities, in the security sense, Hubris doesn't use any. The
+  only object of note in the system is the task, and any task can look up and
+  talk to any other task; we plan to address the most obvious issues with that
+  statement using mandatory access control. Capabilities raise issues around
+  revocation, proxying, branding, etc. that can yield useful results but don't
+  seem necessary for our application.
+
+- We have (so far) not done any kind of inter-task type system relying on
+  session types and the like.
+
+=== Implementation
+
+We are doing our best to avoid writing code.
+
+That might seem like an odd statement coming from a group that has written an
+operating system from whole-cloth, and it is.
+
+Adding code to a system like this adds attack surface, new corner cases that
+must be tested, things the programmer has to reason about, and -- most mundanely
+-- more code we have to understand and maintain.
+
+We're working hard to avoid adding features to the lower layers of the system,
+even when it takes a little more work at higher levels to compensate. For
+instance, the original Hubris proposal included a MINIX-3-inspired asynchronous
+messaging primitive for use by the supervisor task; we're conscious of the
+massive impact this would have on the system, and have been going out of our way
+to avoid implementing it.
+
+Now, that being said: we are doing our best to ensure that the code we _do_
+write is correct.
+
+In many ways, Rust makes this part of the job easy, but "cowboy coding" is as
+feasible in Rust as in other languages, given a sufficiently motivated cowboy.
+Culturally, we try to avoid being "clever" in pursuit of a few saved bytes or
+cycles, and instead solve problems in ways that are more likely to be correct.
+We also prize correctness by construction where possible, meaning, designing
+pieces of the system such that illegal or undesirable states simply can't be
+represented, and defining operations that compose in predictable and useful ways
+that can be discovered by applying local reasoning.

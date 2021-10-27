@@ -9,10 +9,10 @@ use userlib::*;
 use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
 
 #[cfg(feature = "i2c")]
-declare_task!(I2C, i2c_driver);
+task_slot!(I2C, i2c_driver);
 
 #[cfg(feature = "gpio")]
-declare_task!(GPIO, gpio_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -167,7 +167,7 @@ fn i2c_read(
     let fp = stack.len() - 7;
     let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
 
-    let task = get_task_id(I2C);
+    let task = I2C.get_task_id();
     let device = I2cDevice::new(task, controller, port, mux, addr);
 
     match stack[fp + 6] {
@@ -237,7 +237,7 @@ fn i2c_write(
     let fp = stack.len() - (7 + len);
     let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
 
-    let task = get_task_id(I2C);
+    let task = I2C.get_task_id();
     let device = I2cDevice::new(task, controller, port, mux, addr);
 
     let mut offs = 0;
@@ -303,7 +303,7 @@ fn gpio_input(
 ) -> Result<usize, Failure> {
     use byteorder::ByteOrder;
 
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
     if stack.len() < 1 {
@@ -337,7 +337,7 @@ fn gpio_toggle(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
     let (port, mask) = gpio_args(stack)?;
@@ -354,7 +354,7 @@ fn gpio_set(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
     let (port, mask) = gpio_args(stack)?;
@@ -371,7 +371,7 @@ fn gpio_reset(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
     let (port, mask) = gpio_args(stack)?;
@@ -437,7 +437,7 @@ fn gpio_configure(
         None => return Err(Failure::Fault(Fault::EmptyParameter(6))),
     };
 
-    let task = get_task_id(GPIO);
+    let task = GPIO.get_task_id();
     let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
 
     #[rustfmt::skip]

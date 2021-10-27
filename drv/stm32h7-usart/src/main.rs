@@ -16,8 +16,8 @@ use stm32h7::stm32h7b3 as device;
 
 use userlib::*;
 
-declare_task!(RCC, rcc_driver);
-declare_task!(GPIO, gpio_driver);
+task_slot!(RCC, rcc_driver);
+task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
@@ -150,7 +150,7 @@ fn main() -> ! {
 
 fn turn_on_usart() {
     use drv_stm32h7_rcc_api::{Peripheral, Rcc};
-    let rcc_driver = Rcc::from(get_task_id(RCC));
+    let rcc_driver = Rcc::from(RCC.get_task_id());
 
     #[cfg(feature = "h7b3")]
     const PORT: Peripheral = Peripheral::Usart1;
@@ -165,7 +165,7 @@ fn turn_on_usart() {
 fn configure_pins() {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     // TODO these are really board configs, not SoC configs!

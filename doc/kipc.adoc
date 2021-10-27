@@ -1,0 +1,238 @@
+= The Kernel IPC Interface
+
+Hubris provides syscalls for operations that are used by every (or nearly
+every) task, and uses IPC for everything else. But IPC is used to talk between
+tasks -- what about operations that require the kernel to be involved?
+
+We still use IPC, we just do it with the kernel.
+
+Hubris has a concept called the **virtual kernel task**. The virtual kernel
+task is not a real task -- it's an illusion created by the kernel. Any messages
+sent to the virtual kernel task will be processed in the kernel itself and
+replied to directly.
+
+The kernel answers to the task ID `TaskId::KERNEL` in Rust, which has the
+numeric value `0xFFFF`. We chose this number so that the task index portion of
+it (in the 10-12 LSBs) would be larger than any valid task index, so there's no
+risk of it colliding with an actual task.
+
+== Sending messages to the kernel
+
+The kernel accepts normal IPC messages sent to `TaskId::KERNEL`. Currently, none
+of the messages accepted by the kernel make use of leases/borrows, but that's
+just because they haven't been useful yet.
+
+The kernel makes a special guarantee: it will respond to IPCs synchronously,
+without blocking the sender. This means it is safe to send IPCs to the kernel
+from even the highest-priority tasks -- in fact, for the _highest_ priority task
+(normally the supervisor), the kernel is the _only_ place it can send messages
+safely.
+
+The kernel does not reply to _all_ messages, however. Like making a bogus
+syscall, if you send a message to the kernel that uses an out of range selector
+or has a very malformatted body, the kernel will deliver a fault to your task
+and move on to the next highest priority runnable code.
+
+Messages sent to the kernel, and responses sent back, are formatted using the
+`ssmarshal` crate via `serde`. Messages and responses are currently defined as
+Rust structs, simply because we haven't had a need to write a supervisor task in
+C so far. We may wish to formalize this later, but, this is expedient for now.
+Remember when reading the request/response types that it is the `ssmarshal`
+serialized form, and not the in-memory layout of the struct, that is exchanged
+with the kernel.
+
+The `userlib::kipc` module provides wrapper functions for these IPCs for
+programs written in Rust.
+
+NOTE: It is our intent to restrict kernel IPC sends to "privileged" tasks --
+likely just the supervisor task. We haven't implemented this yet.
+
+=== `read_task_status` (1)
+
+Reads out status information about a task, _by index._ This is intended to be
+used for task management purposes by the supervisor -- because tasks can restart
+whenever, the supervisor generally doesn't want to concern itself with getting
+generation numbers right.
+
+==== Request
+
+[source,rust]
+----
+struct TaskStatusRequest {
+    task_index: u32,
+}
+----
+
+==== Preconditions
+
+The `task_index` must be a valid index for this system.
+
+==== Response
+
+[source,rust]
+----
+type TaskStatusResponse = abi::TaskState;
+----
+
+==== Notes
+
+See the `abi` crate for the definition of `TaskState` that matches your kernel.
+Here is a representative example at the time of this writing:
+
+[source,rust]
+----
+pub enum TaskState {
+    /// Task is healthy and can be scheduled subject to the `SchedState`
+    /// requirements.
+    Healthy(SchedState),
+    /// Task has been stopped by a fault and must not be scheduled without
+    /// intervention.
+    Faulted {
+        /// Information about the fault.
+        fault: FaultInfo,
+        /// Record of the previous healthy state at the time the fault was
+        /// taken.
+        original_state: SchedState,
+    },
+}
+
+pub enum FaultInfo {
+    StackOverflow { address: u32 },
+    // other fault cases go here
+}
+
+pub enum SchedState {
+    /// This task is ignored for scheduling purposes.
+    Stopped,
+    /// This task could be scheduled on the CPU.
+    Runnable,
+    /// This task is blocked waiting to deliver a message to the given task.
+    InSend(TaskId),
+    /// This task is blocked waiting for a reply from the given task.
+    InReply(TaskId),
+    /// This task is blocked waiting for messages, either from any source
+    /// (`None`) or from a particular sender only.
+    InRecv(Option<TaskId>),
+}
+----
+
+=== `reinit_task` (2)
+
+Reinitializes a task, chosen by index, and optionally starts it running.
+
+This is valid in any task state, and can be used to interrupt otherwise
+uninterruptible operations like the SEND syscall.
+
+A successful call to `reinit_task` has the following effects:
+
+1. The targeted task is forced out of whatever state it was in, and left in
+either the `Stopped` (if `start` is `false`) or `Runnable` (if `start` is
+`true`) state.
+
+2. The task's generation number is incremented.
+
+3. The task's registers are reset (to particular values where necessary, and to
+zero otherwise) and the stack erased.
+
+4. The task's interrupts are disabled and its timer is stopped.
+
+5. Any _other_ tasks that were blocked in IPC with the targeted task (either
+waiting to deliver a message, waiting for a reply to a delivered message, or
+waiting to receive) are interrupted and given a "dead code" to indicate that the
+IPC will never complete.
+
+==== Request
+
+[source,rust]
+----
+struct ReinitRequest {
+    task_index: u32,
+    start: bool,
+}
+----
+
+==== Preconditions
+
+The `task_index` must be a valid index for this system.
+
+==== Response
+
+[source,rust]
+----
+type ReinitResponse = ();
+----
+
+==== Notes
+
+If a task asks to reinit _itself,_ the kernel mumbles "alright, your funeral"
+and reinits the caller. Given that `reinit_task` is intended to be restricted to
+the supervisor, and the supervisor can't `panic!` to restart without taking out
+the system, this seemingly weird move may actually prove useful.
+
+Reinitialization _does not_ write over the task's memory except for the stack.
+Tasks are responsible for (say) setting up their data/BSS areas on start. This
+is explicitly intended to allow tasks to keep some information from "past lives"
+if required.
+
+=== `fault_task` (3)
+
+Forces a task into a `Faulted` state. Specifically, this will set the task's
+fault to `FaultInfo::Injected(caller)`, where `caller` is the TaskId of the task
+that called `fault_task` (i.e. you). This means that a fault caused by
+`fault_task` is both easily distinguished from any other fault, and traceable.
+
+`fault_task` immediately prevents the targeted task from running, and any
+_other_ tasks that were blocked in IPC with the targeted task are interrupted
+and given a "dead code" to indicate that the IPC will never complete.
+
+==== Request
+
+[source,rust]
+----
+struct FaultRequest {
+    task_index: u32,
+}
+----
+
+==== Preconditions
+
+The `task_index` must be a valid index for this system.
+
+==== Response
+
+[source,rust]
+----
+type FaultResponse = ();
+----
+
+==== Notes
+
+As with `reinit_task`, it is possible for a task to use `fault_task` to fault
+_itself._ This is an odd thing to do.
+
+On faults, the kernel tries to save the pre-fault state of the task. However, if
+you apply `fault_task` to an already-faulted task, the task will be marked as
+double-faulted and the previous fault will be replaced with the new injected
+fault.
+
+== Receiving from the kernel
+
+The kernel never sends messages to tasks. It's simply not equipped to do so.
+However, it is legal to enter a closed receive from the kernel. This might be
+counter-intuitive -- since the kernel will never send a message for you to
+receive, it sure sounds like a programming error, and Hubris as a rule tries to
+turn obvious programming errors into crashes.
+
+Receiving from the kernel is deliberately allowed to enable two use cases:
+
+1. **Blocking the current task until a notification arrives while ignoring all
+incoming messages.** By receiving from the kernel's task ID with a non-zero
+notification mask, the current task will wait until any matching notification
+arrives.
+
+2. **Halting the current task.** If you really want to stop the current task
+forever (or at least, until the supervisor reinits it), you can receive from the
+kernel with _no_ notification mask bits set.
+
+NOTE: We haven't needed that second one in practice, so we might make it an
+error someday. The first one, on the other hand, is useful.

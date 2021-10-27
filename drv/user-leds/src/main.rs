@@ -106,7 +106,7 @@ fn main() -> ! {
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "stm32f4", feature = "stm32f3"))] {
-        declare_task!(RCC, rcc_driver);
+        task_slot!(RCC, rcc_driver);
     }
 }
 
@@ -131,7 +131,7 @@ fn enable_led_pins() {
     // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.
 
     // Contact the RCC driver to get power turned on for GPIOD/E.
-    let rcc_driver = get_task_id(RCC);
+    let rcc_driver = RCC.get_task_id();
     const ENABLE_CLOCK: u16 = 1;
 
     #[cfg(feature = "stm32f3")]
@@ -239,7 +239,7 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
-        declare_task!(GPIO, gpio_driver);
+        task_slot!(GPIO, gpio_driver);
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "stm32h7b3i-dk")] {
@@ -281,7 +281,7 @@ cfg_if::cfg_if! {
 fn enable_led_pins() {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     for &(pinset, active_low) in LEDS {
@@ -315,7 +315,7 @@ fn led_info(led: Led) -> (drv_stm32h7_gpio_api::PinSet, bool) {
 fn led_on(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     let (pinset, active_low) = led_info(led);
@@ -326,7 +326,7 @@ fn led_on(led: Led) {
 fn led_off(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     let (pinset, active_low) = led_info(led);
@@ -338,7 +338,7 @@ fn led_off(led: Led) {
 fn led_toggle(led: Led) {
     use drv_stm32h7_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     let pinset = led_info(led).0;
@@ -350,7 +350,7 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "lpc55")] {
-        declare_task!(GPIO, gpio_driver);
+        task_slot!(GPIO, gpio_driver);
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "lpcxpresso55s69")] {
@@ -386,7 +386,7 @@ const fn led_gpio_num(led: Led) -> drv_lpc55_gpio_api::Pin {
 fn enable_led_pins() {
     use drv_lpc55_gpio_api::*;
 
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
     gpio_driver
@@ -426,7 +426,7 @@ fn enable_led_pins() {
 
 #[cfg(feature = "lpc55")]
 fn led_on(led: Led) {
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
 
     let pin = led_gpio_num(led);
@@ -435,7 +435,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "lpc55")]
 fn led_off(led: Led) {
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
 
     let pin = led_gpio_num(led);
@@ -444,7 +444,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
-    let gpio_driver = get_task_id(GPIO);
+    let gpio_driver = GPIO.get_task_id();
     let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
 
     let pin = led_gpio_num(led);

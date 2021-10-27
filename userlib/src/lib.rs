@@ -38,6 +38,7 @@ pub mod hl;
 pub mod kipc;
 pub mod task_slot;
 pub mod units;
+pub mod util;
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -901,22 +902,6 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
         sysnum = const Sysnum::RefreshTaskId as u32,
         options(noreturn),
     )
-}
-
-/// Returns the current `TaskId` for a `Task`.
-///
-/// A `Task` represents a static task index, while a `TaskId` adds the task's
-/// current generation number. This function queries the current generation
-/// number from the kernel.
-///
-/// Since this involves a kernel entry, if you're at all performance sensitive,
-/// you may want to do this once and then maintain the result across restarts of
-/// the task. The `hl::send_with_retry` function provides an example of how to
-/// do this.
-pub fn get_task_id(task: Task) -> TaskId {
-    let prototype =
-        TaskId::for_index_and_gen(task as usize, Generation::default());
-    sys_refresh_task_id(prototype)
 }
 
 // Enumeration of tasks in the application, for convenient reference, generated

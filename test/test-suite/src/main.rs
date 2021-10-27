@@ -182,7 +182,7 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     // Don't actually care about the response in this case
 
     // Ask the kernel to report the assistant's state.
-    let status = kipc::read_task_status(ASSIST as usize);
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
 
     match status {
         TaskState::Faulted {
@@ -336,7 +336,7 @@ fn test_fault_superinjection() {
 
 fn test_fault_selfinjection() {
     assert_eq!(
-        test_fault(AssistOp::FaultTask, ASSIST as u32),
+        test_fault(AssistOp::FaultTask, ASSIST.get_task_index().into()),
         FaultInfo::SyscallUsage(UsageError::IllegalTask)
     );
 }
@@ -359,7 +359,7 @@ fn test_panic() {
     // Don't actually care about the response in this case
 
     // Read status back from the kernel and check it.
-    let status = kipc::read_task_status(ASSIST as usize);
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
     assert_eq!(
         status,
         TaskState::Faulted {
@@ -444,7 +444,7 @@ fn test_restart_taskgen() {
     assert_eq!(len, 4);
 
     // Read status back from the kernel, check it, and bounce the assistant.
-    let status = kipc::read_task_status(ASSIST as usize);
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
     assert_eq!(
         status,
         TaskState::Faulted {
@@ -770,7 +770,7 @@ fn test_task_status() {
         assert_eq!(rc, 0);
         assert_eq!(len, 4);
 
-        let status = kipc::read_task_status(ASSIST as usize);
+        let status = kipc::read_task_status(ASSIST.get_task_index().into());
 
         if let TaskState::Faulted { fault, .. } = status {
             assert_eq!(id, NUM_TASKS);
@@ -788,7 +788,7 @@ fn test_task_status() {
 
 fn test_task_fault_injection() {
     // Assistant should be fine
-    let status = kipc::read_task_status(ASSIST as usize);
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
     match status {
         TaskState::Healthy(..) => {}
         _ => {
@@ -797,14 +797,14 @@ fn test_task_fault_injection() {
     }
 
     // Inject a fault into it
-    kipc::fault_task(ASSIST as usize);
+    kipc::fault_task(ASSIST.get_task_index().into());
 
     // Assistant should now be faulted, indicating us as the injector
-    let status = kipc::read_task_status(ASSIST as usize);
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
 
     if let TaskState::Faulted { fault, .. } = status {
         if let FaultInfo::Injected(injector) = fault {
-            assert_eq!(injector.index(), SUITE as usize);
+            assert_eq!(injector.index(), SUITE.get_task_index().into());
         } else {
             panic!("unexpected fault: {:?}", fault);
         }
@@ -850,25 +850,25 @@ fn test_refresh_task_id_off_by_many() {
 // Frameworky bits follow
 
 // Identity of our "assistant task" that we require in the image.
-declare_task!(ASSIST, assist);
+task_slot!(ASSIST, assist);
 // Our own identity
-declare_task!(SUITE, suite);
-declare_task!(RUNNER, runner);
+task_slot!(SUITE, suite);
+task_slot!(RUNNER, runner);
 
 /// Gets the current expected `TaskId` for the assistant.
 fn assist_task_id() -> TaskId {
-    get_task_id(ASSIST)
+    ASSIST.get_task_id()
 }
 
 /// Restarts the assistant task.
 fn restart_assistant() {
-    kipc::restart_task(ASSIST as usize, true);
+    kipc::restart_task(ASSIST.get_task_index().into(), true);
 }
 
 /// Contacts the runner task to read (and clear) its accumulated set of
 /// notifications.
 fn read_runner_notifications() -> u32 {
-    let runner = get_task_id(RUNNER);
+    let runner = RUNNER.get_task_id();
     let mut response = 0u32;
     let op = RunnerOp::ReadAndClearNotes as u16;
     let (rc, len) = sys_send(runner, op, &[], response.as_bytes_mut(), &[]);
@@ -883,7 +883,7 @@ fn main() -> ! {
     // Work out the assistant generation. Restart it to ensure it's running
     // before we try talking to it. TODO: this is kind of gross, we need a way
     // to just ask.
-    kipc::restart_task(ASSIST as usize, true);
+    kipc::restart_task(ASSIST.get_task_index().into(), true);
     loop {
         let assist = assist_task_id();
         let challenge = 0xDEADBEEF_u32;

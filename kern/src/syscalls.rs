@@ -343,8 +343,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // in the task that is replying, because it knows how big the target buffer
     // is and is expected to respect that. This is not currently implemented --
     // currently you'll get the prefix.
-    let amount_copied =
-        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice);
+    let amount_copied = safe_copy(tasks, caller, src_slice, callee, dest_slice);
     let amount_copied = match amount_copied {
         Ok(n) => n,
         Err(interact) => {
@@ -423,8 +422,7 @@ fn borrow_read(
     // `leased_area` because `safe_copy` will do it.
 
     // Okay, goodness! We're finally getting close!
-    let copy_result =
-        safe_copy(&tasks[lender], leased_area, &tasks[caller], buffer);
+    let copy_result = safe_copy(tasks, lender, leased_area, caller, buffer);
 
     match copy_result {
         Ok(n) => {
@@ -469,8 +467,7 @@ fn borrow_write(
     // `leased_area` because `safe_copy` will do it.
 
     // Okay, goodness! We're finally getting close!
-    let copy_result =
-        safe_copy(&tasks[caller], buffer, &tasks[lender], leased_area);
+    let copy_result = safe_copy(tasks, caller, buffer, lender, leased_area);
 
     match copy_result {
         Ok(n) => {
@@ -543,10 +540,13 @@ fn borrow_lease(
     };
 
     // Can the lender actually read the lease table, or are they being sneaky?
-    let leases = tasks[lender].try_read(&leases).map_err(|fault| {
-        let wake_hint = task::force_fault(tasks, lender, fault);
-        UserError::Recoverable(abi::DEFECT, wake_hint)
-    })?;
+    let leases = match tasks[lender].try_read(&leases) {
+        Ok(slice) => Ok(slice),
+        Err(fault) => {
+            let wake_hint = task::force_fault(tasks, lender, fault);
+            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
+        }
+    }?;
 
     // Try reading the lease. This is unsafe in the general case, but since
     // we've just convinced ourselves that the lease table is in task memory,
@@ -650,7 +650,7 @@ fn deliver(
 
     // Okay, ready to attempt the copy.
     let amount_copied =
-        safe_copy(&tasks[caller], src_slice, &tasks[callee], dest_slice)?;
+        safe_copy(tasks, caller, src_slice, callee, dest_slice)?;
     tasks[callee].save_mut().set_recv_result(
         caller_id,
         u32::from(op),

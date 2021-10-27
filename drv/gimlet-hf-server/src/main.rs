@@ -15,15 +15,15 @@ use stm32h7::stm32h743 as device;
 
 use drv_gimlet_hf_api::{HfError, InternalHfError, Operation};
 
-declare_task!(RCC, rcc_driver);
-declare_task!(GPIO, gpio_driver);
+task_slot!(RCC, rcc_driver);
+task_slot!(GPIO, gpio_driver);
 
 const QSPI_IRQ: u32 = 1;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let rcc_driver = rcc_api::Rcc::from(get_task_id(RCC));
-    let gpio_driver = gpio_api::Gpio::from(get_task_id(GPIO));
+    let rcc_driver = rcc_api::Rcc::from(RCC.get_task_id());
+    let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
 
     rcc_driver.enable_clock(rcc_api::Peripheral::QuadSpi);
     rcc_driver.leave_reset(rcc_api::Peripheral::QuadSpi);

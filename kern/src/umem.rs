@@ -157,29 +157,6 @@ impl<T> USlice<T> {
             _ => false,
         }
     }
-
-    /// Copies out element `index` from the slice, if `index` is in range.
-    /// Otherwise returns `None`.
-    ///
-    /// # Safety
-    ///
-    /// To read data from the slice safely, you must be certain that it reflects
-    /// readable non-kernel memory. The easiest way to ensure this is to check
-    /// `Task::can_read` (assuming the application's memory regions don't
-    /// overlap the kernel).
-    ///
-    /// The read is *not* performed using `volatile`, so this is not appropriate
-    /// for accessing device registers.
-    pub unsafe fn get(&self, index: usize) -> Option<T>
-    where
-        T: Copy,
-    {
-        if index < self.length {
-            Some((self.base_address as *const T).add(index).read())
-        } else {
-            None
-        }
-    }
 }
 
 impl<T> USlice<T>
@@ -262,24 +239,28 @@ impl<'a> From<&'a ULease> for USlice<u8> {
     }
 }
 
-/// Copies bytes from task `from` in region `from_slice` into task `to` at
-/// region `to_slice`, checking memory access before doing so.
+/// Copies bytes from `tasks[from_index]` in region `from_slice` into
+/// `tasks[to_index]` at region `to_slice`, checking memory access before doing
+/// so.
 ///
 /// The actual number of bytes copied will be `min(from_slice.length,
 /// to_slice.length)`, and will be returned.
 ///
-/// If `from_slice` or `to_slice` refers to memory the task can't read or write
-/// (respectively), no bytes are copied, and this returns an `InteractFault`
-/// indicating which task(s) messed this up.
+/// If `from_slice` or `to_slice` refers to memory that the respective task
+/// can't read or write (respectively), no bytes are copied, and this returns an
+/// `InteractFault` indicating which task(s) messed this up.
 ///
 /// This operation will not accept device memory as readable or writable.
 pub fn safe_copy(
-    from: &Task,
+    tasks: &mut [Task],
+    from_index: usize,
     from_slice: USlice<u8>,
-    to: &Task,
+    to_index: usize,
     mut to_slice: USlice<u8>,
 ) -> Result<usize, InteractFault> {
     let copy_len = from_slice.len().min(to_slice.len());
+
+    let (from, to) = index2_distinct(tasks, from_index, to_index);
 
     let src = from.try_read(&from_slice);
     // We're going to blame any aliasing on the recipient, who shouldn't have
@@ -305,5 +286,23 @@ pub fn safe_copy(
             src: src.err(),
             dst: dst.err(),
         }),
+    }
+}
+
+/// Utility routine for getting `&mut` to _two_ elements of a slice, at indexes
+/// `i` and `j`. `i` and `j` must be distinct, or this will panic.
+fn index2_distinct<T>(
+    elements: &mut [T],
+    i: usize,
+    j: usize,
+) -> (&mut T, &mut T) {
+    if i < j {
+        let (prefix, suffix) = elements.split_at_mut(i + 1);
+        (&mut prefix[i], &mut suffix[j - (i + 1)])
+    } else if j < i {
+        let (prefix, suffix) = elements.split_at_mut(j + 1);
+        (&mut suffix[i - (j + 1)], &mut prefix[j])
+    } else {
+        panic!()
     }
 }

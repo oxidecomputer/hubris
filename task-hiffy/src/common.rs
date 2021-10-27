@@ -114,7 +114,7 @@ pub(crate) fn spi_write(
 use userlib::*;
 
 #[cfg(feature = "qspi")]
-declare_task!(HF, hf);
+task_slot!(HF, hf);
 
 #[cfg(feature = "qspi")]
 pub(crate) fn qspi_read_id(
@@ -129,7 +129,7 @@ pub(crate) fn qspi_read_id(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.read_id((&mut rval[..20]).try_into().unwrap()))?;
     Ok(20)
 }
@@ -146,7 +146,7 @@ pub(crate) fn qspi_read_status(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     let x = func_err(server.read_status())?;
     rval[0] = x;
     Ok(1)
@@ -160,7 +160,7 @@ pub(crate) fn qspi_bulk_erase(
 ) -> Result<usize, Failure> {
     use drv_gimlet_hf_api as hf;
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.bulk_erase())?;
     Ok(0)
 }
@@ -189,7 +189,7 @@ pub(crate) fn qspi_page_program(
 
     let data = &data[offset..offset + len];
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.page_program(addr, data))?;
     Ok(0)
 }
@@ -216,7 +216,7 @@ pub(crate) fn qspi_read(
 
     let out = &mut rval[..len];
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.read(addr, out))?;
     Ok(len)
 }
@@ -235,7 +235,7 @@ pub(crate) fn qspi_sector_erase(
     let frame = &stack[stack.len() - 1..];
     let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
 
-    let server = hf::HostFlash::from(userlib::get_task_id(HF));
+    let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.sector_erase(addr))?;
     Ok(0)
 }

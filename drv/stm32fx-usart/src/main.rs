@@ -18,7 +18,7 @@ use stm32f3::stm32f303 as device;
 use userlib::*;
 use zerocopy::AsBytes;
 
-declare_task!(RCC, rcc_driver);
+task_slot!(RCC, rcc_driver);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
@@ -174,7 +174,7 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    let rcc_driver = get_task_id(RCC);
+    let rcc_driver = RCC.get_task_id();
 
     const ENABLE_CLOCK: u16 = 1;
     let pnum = 113; // see bits in APB1ENR
@@ -199,7 +199,7 @@ fn turn_on_usart() {
 }
 
 fn turn_on_gpioa() {
-    let rcc_driver = get_task_id(RCC);
+    let rcc_driver = RCC.get_task_id();
 
     const ENABLE_CLOCK: u16 = 1;
 

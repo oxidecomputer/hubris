@@ -21,8 +21,8 @@ use fixedmap::*;
 use ringbuf::*;
 use userlib::*;
 
-declare_task!(RCC, rcc_driver);
-declare_task!(GPIO, gpio_driver);
+task_slot!(RCC, rcc_driver);
+task_slot!(GPIO, gpio_driver);
 
 fn lookup_controller<'a>(
     controllers: &'a [I2cController],
@@ -160,7 +160,7 @@ fn reset_if_needed(
         }
     }
 
-    let gpio = get_task_id(GPIO);
+    let gpio = GPIO.get_task_id();
     let gpio = Gpio::from(gpio);
 
     // First, bounce our I2C controller
@@ -601,7 +601,7 @@ fn main() -> ! {
 }
 
 fn turn_on_i2c(controllers: &[I2cController]) {
-    let rcc_driver = Rcc::from(get_task_id(RCC));
+    let rcc_driver = Rcc::from(RCC.get_task_id());
 
     for controller in controllers {
         controller.enable(&rcc_driver);
@@ -629,7 +629,7 @@ fn configure_port(
         return;
     }
 
-    let gpio = get_task_id(GPIO);
+    let gpio = GPIO.get_task_id();
     let gpio = Gpio::from(gpio);
 
     //
@@ -668,7 +668,7 @@ fn configure_pins(
     pins: &[I2cPin],
     map: &mut PortMap,
 ) {
-    let gpio = get_task_id(GPIO);
+    let gpio = GPIO.get_task_id();
     let gpio = Gpio::from(gpio);
 
     for pin in pins {
@@ -706,7 +706,7 @@ fn configure_muxes(
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {
-    let gpio = get_task_id(GPIO);
+    let gpio = GPIO.get_task_id();
     let gpio = Gpio::from(gpio);
 
     for mux in muxes {
