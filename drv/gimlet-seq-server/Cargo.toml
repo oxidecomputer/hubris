@@ -14,7 +14,7 @@ drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-spi-api = {path = "../spi-api"}
 drv-ice40-spi-program = {path = "../ice40-spi-program"}
-cortex-m = "0.7"
+cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
 
 [build-dependencies]
