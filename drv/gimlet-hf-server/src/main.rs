@@ -6,6 +6,7 @@
 #![no_std]
 #![no_main]
 
+use ringbuf::*;
 use userlib::*;
 
 use drv_stm32h7_gpio_api as gpio_api;
@@ -19,6 +20,14 @@ task_slot!(RCC, rcc_driver);
 task_slot!(GPIO, gpio_driver);
 
 const QSPI_IRQ: u32 = 1;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    WriteEnableStatus(u8),
+    Empty,
+}
+
+ringbuf!(Trace, 256, Trace::Empty);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -114,6 +123,60 @@ fn main() -> ! {
                 gpio_api::Speed::VeryHigh,
                 gpio_api::Pull::None,
                 gpio_api::Alternate::AF10,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::G.pin(6),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF10,
+            ).unwrap();
+
+            // start reset and select off low
+            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+
+            gpio_driver.configure_output(
+                gpio_api::Port::F.pin(4).and_pin(5),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+            ).unwrap();
+
+            let reset_pin = gpio_api::Port::F.pin(4);
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+            qspi.configure(
+                50, // 200MHz kernel / 5 = 4MHz clock
+                25, // 2**25 = 32MiB = 256Mib
+            );
+            // Nucleo-144 pin mapping
+            // PB2 SP_QSPI1_CLK
+            // PD11 SP_QSPI1_IO0
+            // PD12 SP_QSPI1_IO1
+            // PD13 SP_QSPI1_IO3
+            // PE2 SP_QSPI1_IO2
+            //
+            // PG6 SP_QSPI1_CS
+            //
+            gpio_driver.configure_alternate(
+                gpio_api::Port::B.pin(2),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::D.pin(11).and_pin(12).and_pin(13),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::E.pin(2),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
             ).unwrap();
             gpio_driver.configure_alternate(
                 gpio_api::Port::G.pin(6),
@@ -266,6 +329,8 @@ fn main() -> ! {
 fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
     qspi.write_enable();
     let status = qspi.read_status();
+    ringbuf_entry!(Trace::WriteEnableStatus(status));
+
     if status & 0b10 == 0 {
         // oh oh
         return Err(HfError::WriteEnableFailed.into());

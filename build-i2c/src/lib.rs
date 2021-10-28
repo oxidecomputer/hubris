@@ -351,13 +351,23 @@ impl I2cConfigGenerator {
             r##"
     use drv_stm32h7_i2c::I2cMux;
 
-    pub fn muxes() -> [I2cMux<'static>; {}] {{
-        use drv_i2c_api::{{Controller, Port, Mux}};
-        #[allow(unused_imports)]
-        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};
-
-        ["##,
+    pub fn muxes() -> [I2cMux<'static>; {}] {{"##,
             len
+        )?;
+
+        if len > 0 {
+            writeln!(
+                &mut s,
+                r##"
+        use drv_i2c_api::{{Controller, Port, Mux}};
+        use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};"##
+            )?;
+        }
+
+        write!(
+            &mut s,
+            r##"
+        ["##
         )?;
 
         for c in &self.controllers {

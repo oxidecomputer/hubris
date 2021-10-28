@@ -1,6 +1,7 @@
+use hif::{Failure, Fault};
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "spi")] {
-        use hif::{Fault, Failure};
         use userlib::{sys_refresh_task_id, Generation, TaskId, NUM_TASKS};
     }
 }
@@ -219,6 +220,56 @@ pub(crate) fn qspi_read(
     let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.read(addr, out))?;
     Ok(len)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_verify(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_gimlet_hf_api as hf;
+
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 3..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+    let offset =
+        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+    let len =
+        frame[2].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+
+    if offset + len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    if len > rval.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let data = &data[offset..offset + len];
+    let out = &mut rval[..len];
+
+    let server = hf::HostFlash::from(HF.get_task_id());
+    func_err(server.read(addr, out))?;
+
+    let mut differ = false;
+
+    for i in 0..len {
+        if data[i] != out[i] {
+            differ = true;
+            break;
+        }
+    }
+
+    if differ {
+        rval[0] = 1;
+    } else {
+        rval[0] = 0;
+    }
+
+    Ok(1)
 }
 
 #[cfg(feature = "qspi")]

@@ -87,17 +87,19 @@ pub enum Functions {
     #[cfg(feature = "spi")]
     SpiWrite((Task, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
-    QspiReadId((), drv_spi_api::SpiError),
+    QspiReadId((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiReadStatus((), drv_spi_api::SpiError),
+    QspiReadStatus((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiBulkErase((), drv_spi_api::SpiError),
+    QspiBulkErase((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiPageProgram((u32, usize, usize), drv_spi_api::SpiError),
+    QspiPageProgram((u32, usize, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiRead((u32, usize), drv_spi_api::SpiError),
+    QspiRead((u32, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiSectorErase(u32, drv_spi_api::SpiError),
+    QspiSectorErase(u32, drv_gimlet_hf_api::HfError),
+    #[cfg(feature = "qspi")]
+    QspiVerify((u32, usize, usize), drv_gimlet_hf_api::HfError),
 }
 
 #[cfg(feature = "i2c")]
@@ -513,6 +515,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::qspi_read,
     #[cfg(feature = "qspi")]
     crate::common::qspi_sector_erase,
+    #[cfg(feature = "qspi")]
+    crate::common::qspi_verify,
 ];
 
 //
