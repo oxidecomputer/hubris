@@ -452,6 +452,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "cortex-m",
  "drv-gimlet-hf-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-qspi",
@@ -673,6 +674,7 @@ name = "drv-stm32h7-gpio"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "cortex-m",
  "drv-stm32h7-rcc-api",
  "num-traits",
  "stm32h7",
@@ -741,6 +743,7 @@ dependencies = [
 name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
+ "cortex-m",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -790,6 +793,7 @@ dependencies = [
 name = "drv-stm32h7-usart"
 version = "0.1.0"
 dependencies = [
+ "cortex-m",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "num-traits",

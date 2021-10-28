@@ -18,9 +18,9 @@ cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0" }
 
-
 [build-dependencies]
 build-util = {path = "../../build-util"}
+
 [features]
 default = ["standalone"]
 standalone = [ "h743" ]

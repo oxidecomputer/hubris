@@ -50,7 +50,11 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "h743")]
+use stm32h7::stm32h743 as device;
+#[cfg(feature = "h7b3")]
 use stm32h7::stm32h7b3 as device;
+
 use userlib::*;
 use zerocopy::AsBytes;
 
