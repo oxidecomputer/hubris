@@ -14,7 +14,6 @@
 
 #![no_std]
 
-#[macro_use]
 macro_rules! pmbus_read {
     ($device:expr, $cmd:ident) => {
         match $cmd::CommandData::from_slice(&match $device
@@ -53,7 +52,6 @@ macro_rules! pmbus_read {
     };
 }
 
-#[macro_use]
 macro_rules! pmbus_write {
     ($device:expr, $dev:ident::$cmd:ident, $data:expr) => {{
         let mut payload = [0u8; $dev::$cmd::CommandData::len() + 1];
