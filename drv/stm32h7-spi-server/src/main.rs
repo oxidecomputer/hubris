@@ -35,7 +35,6 @@ const IRQ_MASK: u32 = 1;
 struct LockState {
     task: TaskId,
     device_index: usize,
-    cs_state: CsState,
 }
 
 #[export_name = "main"]
@@ -154,7 +153,6 @@ fn main() -> ! {
                     lock_holder = Some(LockState {
                         task: caller.task_id(),
                         device_index: devidx,
-                        cs_state,
                     });
                     caller.reply(());
                     Ok(())
