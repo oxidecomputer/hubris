@@ -40,16 +40,46 @@ struct I2cController {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct I2cPmbus {
+    rails: Option<Vec<String>>,
+}
+
+//
+// Unfortunately, the toml-rs parsing of enums isn't quite right (see
+// https://github.com/alexcrichton/toml-rs/issues/390 for details).  As a
+// result, we currently flatten what really should be enums around topology
+// (i.e., [`controller`]/[`port`] vs. [`bus`]) and device class parameters
+// (i.e., [`pmbus`]) into optional fields in [`I2cDevice`].  This makes it
+// easier to accidentally create invalid entries (e.g., a device that has both
+// a controller *and* a named bus), so the validation code should go to
+// additional lengths to assure that these mistakes are caught in compilation.
+//
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct I2cDevice {
+    /// device part name
     device: String,
+    /// device name
     name: Option<String>,
+    /// I2C controller, if bus not named
     controller: Option<u8>,
+    /// I2C bus name, if controller not specified
     bus: Option<String>,
-    address: u8,
+    /// I2C port, if required
     port: Option<String>,
+    /// I2C address
+    address: u8,
+    /// I2C mux, if any
     mux: Option<u8>,
+    /// I2C segment, if any
     segment: Option<u8>,
+    /// description of device
     description: String,
+    /// reference designator, if any
+    refdes: Option<String>,
+    /// PMBus information, if any
+    pmbus: Option<I2cPmbus>,
+    /// device is removable
     removable: Option<bool>,
 }
 
