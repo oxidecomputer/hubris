@@ -360,6 +360,8 @@ impl I2cConfigGenerator {
                 &mut s,
                 r##"
         use drv_i2c_api::{{Controller, Port, Mux}};
+
+        #[allow(unused_imports)]
         use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};"##
             )?;
         }

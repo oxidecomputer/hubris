@@ -6,7 +6,6 @@
 #![no_std]
 #![no_main]
 
-use ringbuf::*;
 use userlib::*;
 
 use drv_stm32h7_gpio_api as gpio_api;
@@ -20,14 +19,6 @@ task_slot!(RCC, rcc_driver);
 task_slot!(GPIO, gpio_driver);
 
 const QSPI_IRQ: u32 = 1;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
-    WriteEnableStatus(u8),
-    Empty,
-}
-
-ringbuf!(Trace, 256, Trace::Empty);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -329,7 +320,6 @@ fn main() -> ! {
 fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
     qspi.write_enable();
     let status = qspi.read_status();
-    ringbuf_entry!(Trace::WriteEnableStatus(status));
 
     if status & 0b10 == 0 {
         // oh oh
