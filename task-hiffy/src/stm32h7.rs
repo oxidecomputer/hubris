@@ -42,6 +42,7 @@ pub struct Buffer(u8);
 // is passed to execute.
 //
 pub enum Functions {
+    Sleep(u16, u32),
     #[cfg(feature = "i2c")]
     I2cRead(
         (Controller, Port, Mux, Segment, u8, u8, usize),
@@ -50,6 +51,11 @@ pub enum Functions {
     #[cfg(feature = "i2c")]
     I2cWrite(
         (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
+        ResponseCode,
+    ),
+    #[cfg(feature = "i2c")]
+    I2cBulkWrite(
+        (Controller, Port, Mux, Segment, u8, u8, usize, usize),
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
@@ -297,6 +303,49 @@ fn i2c_write(
     }
 }
 
+#[cfg(feature = "i2c")]
+fn i2c_bulk_write(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    //
+    // We need exactly 8 parameters: the normal i2c paramaters (controller,
+    // port, mux, segment, address, register) plus the offset and length.
+    // Note that the register must be None.
+    //
+    if stack.len() != 8 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let offset = match stack[stack.len() - 2] {
+        Some(offset) if (offset as usize) < data.len() => Ok(offset as usize),
+        _ => Err(Failure::Fault(Fault::BadParameter(6))),
+    }?;
+
+    let len = match stack[stack.len() - 1] {
+        Some(len) if len > 0 && offset + (len as usize) < data.len() => {
+            Ok(len as usize)
+        }
+        _ => Err(Failure::Fault(Fault::BadParameter(7))),
+    }?;
+
+    let fp = stack.len() - 8;
+    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
+
+    if register.is_some() {
+        return Err(Failure::Fault(Fault::BadParameter(5)));
+    }
+
+    let task = I2C.get_task_id();
+    let device = I2cDevice::new(task, controller, port, mux, addr);
+
+    match device.write(&data[offset..offset + len]) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
 #[cfg(feature = "gpio")]
 fn gpio_args(
     stack: &[Option<u32>],
@@ -485,10 +534,13 @@ fn gpio_configure(
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
+    crate::common::sleep,
     #[cfg(feature = "i2c")]
     i2c_read,
     #[cfg(feature = "i2c")]
     i2c_write,
+    #[cfg(feature = "i2c")]
+    i2c_bulk_write,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]

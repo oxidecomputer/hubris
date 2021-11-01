@@ -18,6 +18,33 @@ where
     e.map_err(|e| hif::Failure::FunctionError(e.into()))
 }
 
+///
+/// Function to sleep(), which takes a single parameter: the number of
+/// milliseconds.  This is expected to be short:  if sleeping for any
+/// serious length of time, it should be done on the initiator side, not
+/// on the Hubris side.  (The purpose of this function is to allow for
+/// device-mandated sleeps to in turn for allow for bulk device operations.)
+///
+pub(crate) fn sleep(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 1;
+    let ms = match stack[fp] {
+        Some(ms) if ms > 0 && ms <= 100 => Ok(ms),
+        _ => Err(Failure::Fault(Fault::BadParameter(0))),
+    }?;
+
+    userlib::hl::sleep_for(ms.into());
+
+    Ok(0)
+}
+
 #[cfg(feature = "spi")]
 fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
     if stack.len() < 2 {
