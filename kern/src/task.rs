@@ -157,12 +157,18 @@ impl Task {
     }
 
     /// Tests whether this task has access to `slice` as normal memory with
-    /// *all* of the given access attributes. This is used to validate kernel
-    /// accesses to the memory.
+    /// *all* of the given access attributes, and none of the forbidden
+    /// attributes. This is used to validate kernel accesses to the memory.
+    ///
+    /// This will refuse access to any memory marked as DEVICE or DMA. This is a
+    /// big hammer, as a lot of tasks will probably want to lend memory that is
+    /// DMA-capable, and this will block that. It is potentially fixable with
+    /// more work. See issue #171.
     ///
     /// You could call this with `atts` as `RegionAttributes::empty()`; this
-    /// would just check that memory is not device, and is a weird thing to do.
-    /// A normal call would pass something like `RegionAttributes::READ`.
+    /// would just check that memory is not device or available for DMA, and is
+    /// a weird thing to do.  A normal call would pass something like
+    /// `RegionAttributes::READ`.
     ///
     /// Note that all tasks can "access" any empty slice.
     ///
@@ -182,6 +188,7 @@ impl Task {
             region.covers(slice)
                 && region.attributes.contains(atts)
                 && !region.attributes.contains(RegionAttributes::DEVICE)
+                && !region.attributes.contains(RegionAttributes::DMA)
         })
     }
 
