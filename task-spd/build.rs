@@ -35,6 +35,7 @@ fn codegen() -> Result<()> {
     g.generate_header()?;
     g.generate_controllers()?;
     g.generate_pins()?;
+    g.generate_ports()?;
     g.generate_footer()?;
 
     file.write_all(g.output.as_bytes())?;

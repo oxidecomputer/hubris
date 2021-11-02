@@ -292,7 +292,7 @@ controller = 3
 # two different ports (port A and port C, respectively); we therefore have two
 # pin structures for I2C3, but for purposes of the abstraction that i2c
 # exports to consumers, we adhere to the convention outlined in the
-# definition of `Port` and name the logical port C after the GPIO pin that
+# definition of `PortIndex` and name the logical port C after the GPIO pin that
 # corresponds to SDA.
 #
 [[config.i2c.controllers.ports.C.pins]]

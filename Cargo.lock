@@ -138,6 +138,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cfg-if 0.1.10",
+ "convert_case 0.4.0",
  "indexmap",
  "multimap",
  "serde",
@@ -247,6 +248,12 @@ name = "convert_case"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e1f025f441cdfb75831bec89b9d6a6ed02e5e763f78fc5e1ff30d4870fefaec"
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "cortex-m"
@@ -1544,7 +1551,7 @@ name = "pmbus"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "convert_case",
+ "convert_case 0.3.2",
  "libm",
  "num-derive",
  "num-traits",
@@ -2085,6 +2092,8 @@ dependencies = [
 name = "task-power"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "build-i2c",
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",

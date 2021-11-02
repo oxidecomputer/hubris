@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
@@ -7,7 +8,7 @@ use std::fmt::Write;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct I2cPin {
+struct I2cPinSet {
     gpio_port: Option<String>,
     pins: Vec<u8>,
     af: u8,
@@ -18,7 +19,7 @@ struct I2cPin {
 struct I2cMux {
     driver: String,
     address: u8,
-    enable: Option<I2cPin>,
+    enable: Option<I2cPinSet>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -26,7 +27,7 @@ struct I2cMux {
 struct I2cPort {
     name: Option<String>,
     description: Option<String>,
-    pins: Vec<I2cPin>,
+    pins: Vec<I2cPinSet>,
     muxes: Option<Vec<I2cMux>>,
 }
 
@@ -109,12 +110,26 @@ pub enum I2cConfigDisposition {
 
 #[allow(dead_code)]
 pub struct I2cConfigGenerator {
+    /// output that we're building
     pub output: String,
+
+    /// disposition of this configuration: target v. initiator v. standalone
     disposition: I2cConfigDisposition,
+
+    /// all controllers
     controllers: Vec<I2cController>,
+
+    /// all devices
     devices: Vec<I2cDevice>,
-    buses: HashMap<String, (u8, String)>,
-    singletons: HashMap<u8, String>,
+
+    /// hash bus name to controller/port index pair
+    buses: HashMap<String, (u8, usize)>,
+
+    /// hash controller/port pair to port index
+    ports: IndexMap<(u8, String), usize>,
+
+    /// hash of controllers to single port indices
+    singletons: HashMap<u8, usize>,
 }
 
 impl I2cConfigGenerator {
@@ -134,6 +149,7 @@ impl I2cConfigGenerator {
 
         let mut controllers = vec![];
         let mut buses = HashMap::new();
+        let mut ports = IndexMap::new();
         let mut singletons = HashMap::new();
 
         for c in i2c.controllers {
@@ -147,10 +163,9 @@ impl I2cConfigGenerator {
             // match our dispostion) to assure that devices can always find
             // their bus.
             //
-            for (p, port) in &c.ports {
+            for (index, (p, port)) in c.ports.iter().enumerate() {
                 if let Some(name) = &port.name {
-                    match buses.insert(name.clone(), (c.controller, p.clone()))
-                    {
+                    match buses.insert(name.clone(), (c.controller, index)) {
                         Some(_) => {
                             panic!("i2c bus {} appears twice", name);
                         }
@@ -159,8 +174,10 @@ impl I2cConfigGenerator {
                 }
 
                 if c.ports.len() == 1 {
-                    singletons.insert(c.controller, p.clone());
+                    singletons.insert(c.controller, index);
                 }
+
+                ports.insert((c.controller, p.clone()), index);
             }
 
             if target != (disposition == I2cConfigDisposition::Target) {
@@ -204,6 +221,7 @@ impl I2cConfigGenerator {
             disposition: disposition,
             controllers: controllers,
             buses: buses,
+            ports: ports,
             singletons: singletons,
             devices: i2c.devices.unwrap_or(Vec::new()),
         }
@@ -307,7 +325,7 @@ impl I2cConfigGenerator {
             writeln!(
                 &mut s,
                 r##"
-        use drv_i2c_api::{{Controller, Port}};
+        use drv_i2c_api::{{Controller, PortIndex}};
         use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};"##
             )?;
         }
@@ -319,7 +337,7 @@ impl I2cConfigGenerator {
         )?;
 
         for c in &self.controllers {
-            for (p, port) in &c.ports {
+            for (index, (p, port)) in c.ports.iter().enumerate() {
                 for pin in &port.pins {
                     let mut pinstr = String::new();
                     write!(&mut pinstr, "pin({})", pin.pins[0])?;
@@ -333,12 +351,12 @@ impl I2cConfigGenerator {
                         r##"
             I2cPin {{
                 controller: Controller::I2C{controller},
-                port: Port::{i2c_port},
+                port: PortIndex({i2c_port}),
                 gpio_pins: gpio_api::Port::{gpio_port}.{pinstr},
                 function: Alternate::AF{af},
             }},"##,
                         controller = c.controller,
-                        i2c_port = p,
+                        i2c_port = index,
                         gpio_port = match pin.gpio_port {
                             Some(ref port) => port,
                             None => p,
@@ -389,7 +407,7 @@ impl I2cConfigGenerator {
             writeln!(
                 &mut s,
                 r##"
-        use drv_i2c_api::{{Controller, Port, Mux}};
+        use drv_i2c_api::{{Controller, PortIndex, Mux}};
 
         #[allow(unused_imports)]
         use drv_stm32h7_gpio_api::{{self as gpio_api, Alternate}};"##
@@ -403,7 +421,7 @@ impl I2cConfigGenerator {
         )?;
 
         for c in &self.controllers {
-            for (p, port) in &c.ports {
+            for (index, (p, port)) in c.ports.iter().enumerate() {
                 if let Some(ref muxes) = port.muxes {
                     for i in 0..muxes.len() {
                         let mux = &muxes[i];
@@ -414,12 +432,12 @@ impl I2cConfigGenerator {
                                 &mut enablestr,
                                 r##"Some(I2cPin {{
                     controller: Controller::I2C{controller},
-                    port: Port::{port},
+                    port: PortIndex({port}),
                     gpio_pins: gpio_api::Port::{gpio_port}.pin({gpio_pin}),
                     function: Alternate::AF{af},
                 }})"##,
                                 controller = c.controller,
-                                port = p,
+                                port = index,
                                 gpio_port = match enable.gpio_port {
                                     Some(ref port) => port,
                                     None => bail!(
@@ -449,14 +467,14 @@ impl I2cConfigGenerator {
                             r##"
             I2cMux {{
                 controller: Controller::I2C{controller},
-                port: Port::{i2c_port},
+                port: PortIndex({i2c_port}),
                 id: Mux::M{ndx},
                 driver: &drv_stm32h7_i2c::{driver}::{driver_struct},
                 enable: {enable},
                 address: 0x{address:x},
             }},"##,
                             controller = c.controller,
-                            i2c_port = p,
+                            i2c_port = index,
                             ndx = i + 1,
                             driver = mux.driver,
                             driver_struct = driver_struct,
@@ -484,16 +502,36 @@ impl I2cConfigGenerator {
             None => d.controller.unwrap(),
         };
 
-        let port = match &d.bus {
-            Some(bus) => &self.buses.get(bus).unwrap().1,
-            None => match &d.port {
-                Some(port) => port,
-                None => match self.singletons.get(&d.controller.unwrap()) {
-                    Some(port) => port,
+        let port = match (&d.bus, &d.port) {
+            (Some(_), Some(_)) => {
+                panic!("device {} has both port and bus", d.device);
+            }
+
+            (Some(bus), None) => match self.buses.get(bus) {
+                Some((_, port)) => port,
+                None => {
+                    panic!("device {} has invalid bus", d.device);
+                }
+            },
+
+            (None, Some(port)) => {
+                match self.ports.get(&(controller, port.to_string())) {
                     None => {
-                        panic!("device {} has ambiguous port", d.device)
+                        panic!("device {} has invalid port", d.device);
                     }
-                },
+                    Some(port) => port,
+                }
+            }
+
+            //
+            // We allow ports to be unspecified if the specified
+            // controller has only a single port; check the singletons.
+            //
+            (None, None) => match self.singletons.get(&controller) {
+                Some(port) => port,
+                None => {
+                    panic!("device {} has ambiguous port", d.device)
+                }
             },
         };
 
@@ -502,7 +540,7 @@ impl I2cConfigGenerator {
             // {description}
             I2cDevice::new(task,
                 Controller::I2C{controller},
-                Port::{port},
+                PortIndex({port}),
                 {segment},
                 0x{address:x}
             )"##,
@@ -567,7 +605,7 @@ impl I2cConfigGenerator {
             &mut self.output,
             r##"
     pub mod devices {{
-        use drv_i2c_api::{{I2cDevice, Controller, Port}};
+        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
 "##
         )?;
@@ -636,6 +674,31 @@ impl I2cConfigGenerator {
                 &mut self.output,
                 r##"
         }}"##
+            )?;
+        }
+
+        writeln!(&mut self.output, "    }}")?;
+        Ok(())
+    }
+
+    pub fn generate_ports(&mut self) -> Result<()> {
+        writeln!(
+            &mut self.output,
+            r##"
+    pub mod ports {{"##
+        )?;
+
+        for ((controller, port), index) in &self.ports {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const fn i2c{controller}_{port}() -> drv_i2c_api::PortIndex {{
+            drv_i2c_api::PortIndex({index})
+        }}"##,
+                controller = controller,
+                port = port.to_case(Case::Snake),
+                index = index,
             )?;
         }
 

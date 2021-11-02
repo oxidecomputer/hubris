@@ -6,7 +6,6 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::*;
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::tps546b24a::*;
 use ringbuf::*;
@@ -14,6 +13,7 @@ use userlib::units::*;
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[derive(Copy, Clone, PartialEq)]
 enum Device {
@@ -44,32 +44,20 @@ fn trace(dev: Device, cmd: Command) {
 #[export_name = "main"]
 fn main() -> ! {
     let task = I2C.get_task_id();
+    use i2c_config::devices;
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            const ADM1272_ADDRESS: u8 = 0x10;
+            let mut adm1272 = Adm1272::new(
+                &devices::adm1272(task)[0],
+                Ohms(0.001)
+            );
 
-            let mut adm1272 = Adm1272::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                Some((Mux::M1, Segment::S3)),
-                ADM1272_ADDRESS
-            ), Ohms(0.001));
-
-            const TPS546B24A_ADDRESS: u8 = 0x24;
-
-            let mut tps546 = Tps546b24a::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                Some((Mux::M1, Segment::S4)),
-                TPS546B24A_ADDRESS
-            ));
+            let mut tps546 = Tps546b24a::new(&devices::tps546b24a(task)[0]);
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
-                    let device = I2cDevice::mock(task);
+                    let device = &devices::mock(task);
                     let mut adm1272 = Adm1272::new(&device, Ohms(0.0));
                     let mut tps546 = Tps546b24a::new(&device);
                 } else {

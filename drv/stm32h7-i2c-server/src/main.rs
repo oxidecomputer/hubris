@@ -3,7 +3,6 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::Port;
 use drv_i2c_api::*;
 use drv_stm32h7_gpio_api::{Gpio, OutputType, Pull, Speed};
 use drv_stm32h7_i2c::*;
@@ -35,17 +34,18 @@ fn lookup_controller<'a>(
 fn validate_port<'a>(
     pins: &'a [I2cPin],
     controller: Controller,
-    port: Port,
-) -> Result<Port, ResponseCode> {
+    port: PortIndex,
+) -> Result<(), ResponseCode> {
     pins.iter()
         .find(|pin| pin.controller == controller && pin.port == port)
-        .map(|pin| pin.port)
-        .ok_or(ResponseCode::BadPort)
+        .ok_or(ResponseCode::BadPort)?;
+
+    Ok(())
 }
 
 fn find_mux(
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     muxes: &[I2cMux],
     mux: Option<(Mux, Segment)>,
     mut func: impl FnMut(&I2cMux, Mux, Segment) -> Result<(), ResponseCode>,
@@ -73,7 +73,7 @@ fn find_mux(
 fn configure_mux(
     map: &mut MuxMap,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     mux: Option<(Mux, Segment)>,
     muxes: &[I2cMux],
     ctrl: &I2cControl,
@@ -106,7 +106,7 @@ ringbuf!(Option<ResponseCode>, 16, None);
 fn reset_if_needed(
     code: ResponseCode,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     muxes: &[I2cMux],
     mux: Option<(Mux, Segment)>,
 ) {
@@ -137,7 +137,7 @@ fn reset_if_needed(
     });
 }
 
-type PortMap = FixedMap<Controller, Port, 8>;
+type PortMap = FixedMap<Controller, PortIndex, 8>;
 type MuxMap = FixedMap<Mux, Segment, 4>;
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
@@ -186,7 +186,7 @@ fn main() -> ! {
                 }
 
                 let controller = lookup_controller(&controllers, controller)?;
-                let port = validate_port(&pins, controller.controller, port)?;
+                validate_port(&pins, controller.controller, port)?;
 
                 configure_port(&mut portmap, controller, port, &pins);
 
@@ -281,12 +281,10 @@ fn configure_controllers(controllers: &[I2cController]) {
 fn configure_port(
     map: &mut PortMap,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     pins: &[I2cPin],
 ) {
     let current = map.get(controller.controller).unwrap();
-
-    assert!(port != Port::Mock);
 
     if current == port {
         return;

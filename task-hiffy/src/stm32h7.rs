@@ -6,7 +6,9 @@ use ringbuf::*;
 use userlib::*;
 
 #[cfg(feature = "i2c")]
-use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
+use drv_i2c_api::{
+    Controller, I2cDevice, Mux, PortIndex, ResponseCode, Segment,
+};
 
 #[cfg(feature = "i2c")]
 task_slot!(I2C, i2c_driver);
@@ -45,17 +47,17 @@ pub enum Functions {
     Sleep(u16, u32),
     #[cfg(feature = "i2c")]
     I2cRead(
-        (Controller, Port, Mux, Segment, u8, u8, usize),
+        (Controller, PortIndex, Mux, Segment, u8, u8, usize),
         ResponseCode,
     ),
     #[cfg(feature = "i2c")]
     I2cWrite(
-        (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
+        (Controller, PortIndex, Mux, Segment, u8, u8, Buffer, usize),
         ResponseCode,
     ),
     #[cfg(feature = "i2c")]
     I2cBulkWrite(
-        (Controller, Port, Mux, Segment, u8, u8, usize, usize),
+        (Controller, PortIndex, Mux, Segment, u8, u8, usize, usize),
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
@@ -114,8 +116,16 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 #[cfg(feature = "i2c")]
 fn i2c_args(
     stack: &[Option<u32>],
-) -> Result<(Controller, Port, Option<(Mux, Segment)>, u8, Option<u8>), Failure>
-{
+) -> Result<
+    (
+        Controller,
+        PortIndex,
+        Option<(Mux, Segment)>,
+        u8,
+        Option<u8>,
+    ),
+    Failure,
+> {
     let controller = match stack[0] {
         Some(controller) => match Controller::from_u32(controller) {
             Some(controller) => controller,
@@ -125,12 +135,13 @@ fn i2c_args(
     };
 
     let port = match stack[1] {
-        Some(port) => match Port::from_u32(port) {
-            Some(port) => port,
-            None => {
+        Some(port) => {
+            if port > core::u8::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
-        },
+
+            PortIndex(port as u8)
+        }
         None => {
             //
             // If we could rely on all HIF consumers to read the device
