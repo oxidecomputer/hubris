@@ -657,14 +657,37 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         CURRENT_TASK_PTR = Some(NonNull::from(task));
     }
 
+    extern "C" {
+        // Exposed by the linker script.
+        static _stack_base: u32;
+    }
+
+    // Safety: this is setting the Main stack pointer (i.e. kernel/interrupt
+    // stack pointer) limit register. There are two potential outcomes from
+    // this:
+    // 1. We proceed without issue because we have not yet overflowed our stack.
+    // 2. We take an immediate fault.
+    //
+    // Both these outcomes are safe, even if the second one is annoying.
+    #[cfg(armv8m)]
+    unsafe {
+        cortex_m::register::msplim::write(
+            core::ptr::addr_of!(_stack_base) as u32
+        );
+    }
+
+    // Safety: this is setting the Process (task) stack pointer, which has no
+    // effect _assuming_ this code is running on the Main (kernel) stack.
+    unsafe {
+        cortex_m::register::psp::write(task.save().psp);
+    }
+
     unsafe {
         asm!("
-            msr PSP, {user_sp}      @ set the user stack pointer
-            ldm {task}, {{r4-r11}}  @ restore the callee-save registers
-            svc #0xFF               @ branch into user mode (svc # ignored)
-            udf #0xad               @ should not return
+            ldm {task}, {{r4-r11}}    @ restore the callee-save registers
+            svc #0xFF                 @ branch into user mode (svc # ignored)
+            udf #0xad                 @ should not return
             ",
-            user_sp = in(reg) task.save().psp,
             task = in(reg) &task.save().r4,
             options(noreturn),
         )

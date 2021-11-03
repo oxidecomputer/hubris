@@ -770,6 +770,7 @@ fn generate_kernel_linker_script(
         File::create(Path::new(&format!("target/{}", name))).unwrap();
 
     let mut stack_start = None;
+    let mut stack_base = None;
 
     writeln!(linkscr, "MEMORY\n{{").unwrap();
     for (name, range) in map {
@@ -786,6 +787,7 @@ fn generate_kernel_linker_script(
                 bail!("specified kernel stack size is not 8-byte aligned");
             }
 
+            stack_base = Some(start);
             writeln!(
                 linkscr,
                 "STACK (rw) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
@@ -810,6 +812,7 @@ fn generate_kernel_linker_script(
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
+    writeln!(linkscr, "_stack_base = 0x{:08x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = 0x{:08x};", stack_start.unwrap())
         .unwrap();
     writeln!(linkscr, "SECTIONS {{").unwrap();
