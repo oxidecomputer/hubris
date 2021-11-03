@@ -296,7 +296,7 @@ impl Task {
 
     /// Returns this task's current generation number.
     pub fn generation(&self) -> Generation {
-        const MASK: u8 = (1u32 << (16 - TaskId::INDEX_BITS) - 1) as u8;
+        const MASK: u8 = ((1u32 << (16 - TaskId::INDEX_BITS)) - 1) as u8;
         Generation::from(self.generation as u8 & MASK)
     }
 
