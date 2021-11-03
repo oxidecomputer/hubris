@@ -688,6 +688,20 @@ impl I2cConfigGenerator {
     pub mod ports {{"##
         )?;
 
+        if self.disposition == I2cConfigDisposition::Standalone {
+            //
+            // For the standalone build, we generate a mock port.
+            //
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const fn i2c_mock() -> drv_i2c_api::PortIndex {{
+            drv_i2c_api::PortIndex(0)
+        }}"##
+            )?;
+        }
+
         for ((controller, port), index) in &self.ports {
             writeln!(
                 &mut self.output,

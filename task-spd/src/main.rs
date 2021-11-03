@@ -114,7 +114,7 @@ fn main() -> ! {
             ];
         } else if #[cfg(feature = "standalone")] {
             const BANKS: [Bank; 1] = [
-                (Controller::I2C4, i2c4_d(), None),
+                (Controller::Mock, i2c_mock(), None),
             ];
         } else {
             compile_error!("I2C target unsupported for this board");
