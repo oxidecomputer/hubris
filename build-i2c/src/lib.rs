@@ -4,7 +4,10 @@ use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::env;
 use std::fmt::Write;
+use std::fs::File;
+use std::path::Path;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -100,10 +103,13 @@ struct Config {
 pub enum I2cConfigDisposition {
     /// controller is an initiator
     Initiator,
+
     /// controller is a target
     Target,
-    /// controller is not used
-    NoController,
+
+    /// only devices are used (i.e., controller is not used)
+    DevicesOnly,
+
     /// standalone build: config should be mocked
     Standalone,
 }
@@ -244,7 +250,7 @@ impl I2cConfigGenerator {
     pub fn generate_controllers(&mut self) -> Result<()> {
         let mut s = &mut self.output;
 
-        assert!(self.disposition != I2cConfigDisposition::NoController);
+        assert!(self.disposition != I2cConfigDisposition::DevicesOnly);
 
         writeln!(
             &mut s,
@@ -304,7 +310,7 @@ impl I2cConfigGenerator {
         let mut s = &mut self.output;
         let mut len = 0;
 
-        assert!(self.disposition != I2cConfigDisposition::NoController);
+        assert!(self.disposition != I2cConfigDisposition::DevicesOnly);
 
         for c in &self.controllers {
             for (_, port) in &c.ports {
@@ -719,4 +725,49 @@ impl I2cConfigGenerator {
         writeln!(&mut self.output, "    }}")?;
         Ok(())
     }
+}
+
+pub fn codegen(disposition: I2cConfigDisposition) -> Result<()> {
+    use std::io::Write;
+
+    let out_dir = env::var("OUT_DIR")?;
+    let dest_path = Path::new(&out_dir).join("i2c_config.rs");
+    let mut file = File::create(&dest_path)?;
+
+    let mut g = I2cConfigGenerator::new(disposition);
+
+    if disposition == I2cConfigDisposition::Target {
+        let n = g.ncontrollers();
+
+        if n != 1 {
+            //
+            // If we have the disposition of a target, we expect exactly
+            // one controller to be configured as a target; if none have
+            // been specified, the task should be deconfigured.
+            //
+            panic!("found {} I2C controller(s); expected exactly one", n);
+        }
+    }
+
+    g.generate_header()?;
+
+    if disposition != I2cConfigDisposition::DevicesOnly {
+        g.generate_controllers()?;
+        g.generate_pins()?;
+    }
+
+    g.generate_ports()?;
+
+    if disposition != I2cConfigDisposition::Target
+        && disposition != I2cConfigDisposition::DevicesOnly
+    {
+        g.generate_muxes()?;
+    }
+
+    g.generate_devices()?;
+    g.generate_footer()?;
+
+    file.write_all(g.output.as_bytes())?;
+
+    Ok(())
 }

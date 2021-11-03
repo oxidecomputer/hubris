@@ -442,7 +442,6 @@ dependencies = [
  "drv-stm32h7-qspi",
  "drv-stm32h7-rcc-api",
  "num-traits",
- "ringbuf",
  "stm32h7",
  "userlib",
 ]

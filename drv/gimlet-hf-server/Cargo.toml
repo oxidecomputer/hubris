@@ -7,7 +7,6 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../userlib"}
-ringbuf = {path = "../../ringbuf"}
 stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", features = ["h743"]}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
