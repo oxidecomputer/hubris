@@ -24,7 +24,7 @@ use lpc55_support::{crc_image, sign_ecc, signed_image};
 /// padded that a bit.
 const DEFAULT_KERNEL_STACK: u32 = 1024;
 
-pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
+pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
@@ -192,6 +192,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &bootloader.features,
             out.join(&bootloader.name),
             verbose,
+            edges,
             &task_names,
             &None,
             &shared_syms,
@@ -268,6 +269,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
             &task_toml.features,
             out.join(name),
             verbose,
+            edges,
             &task_names,
             &toml.secure,
             &shared_syms,
@@ -328,6 +330,7 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
         &toml.kernel.features,
         out.join("kernel"),
         verbose,
+        edges,
         "",
         &toml.secure,
         &None,
@@ -839,6 +842,7 @@ fn build(
     features: &[String],
     dest: PathBuf,
     verbose: bool,
+    edges: bool,
     task_names: &str,
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
@@ -926,6 +930,27 @@ fn build(
     if let Some(app_config) = app_config {
         let env = toml::to_string(&app_config).unwrap();
         cmd.env("HUBRIS_APP_CONFIG", env);
+    }
+
+    if edges {
+        let mut tree = Command::new("cargo");
+        tree.arg("tree")
+            .arg("--no-default-features")
+            .arg("--edges")
+            .arg("features")
+            .arg("--verbose");
+        if !features.is_empty() {
+            tree.arg("--features");
+            tree.arg(features.join(","));
+        }
+        tree.current_dir(path);
+        println!("Path: {}\nRunning cargo {:?}", path.display(), tree);
+        let tree_status = tree
+            .status()
+            .context(format!("failed to run edge ({:?})", tree))?;
+        if !tree_status.success() {
+            bail!("tree command failed, see output for details");
+        }
     }
 
     let status = cmd

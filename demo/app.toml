@@ -47,7 +47,7 @@ stacksize = 1536
 [tasks.rcc_driver]
 path = "../drv/stm32fx-rcc"
 name = "drv-stm32fx-rcc"
-features = ["stm32f4"]
+features = ["f4"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
@@ -105,6 +105,7 @@ user_leds = "user_leds"
 path = "../task-hiffy"
 name = "task-hiffy"
 priority = 3
+features = ["stm32f4"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

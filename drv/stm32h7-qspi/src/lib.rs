@@ -2,7 +2,14 @@
 
 #![no_std]
 
+// Note that stm32h7b3 has QUADSPI support also.
+
+#[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
+
 use userlib::{sys_irq_control, sys_recv_closed, TaskId};
 use zerocopy::AsBytes;
 

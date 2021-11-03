@@ -11,6 +11,10 @@
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
+
 #[cfg(feature = "h7b3")]
 use stm32h7::stm32h7b3 as device;
 
@@ -56,7 +60,7 @@ fn main() -> ! {
     // concern. Were it literally a static, we could just reference it.
     #[cfg(feature = "h7b3")]
     let usart = unsafe { &*device::USART1::ptr() };
-    #[cfg(feature = "h743")]
+    #[cfg(any(feature = "h743", feature = "h753"))]
     let usart = unsafe { &*device::USART3::ptr() };
 
     // The UART has clock and is out of reset, but isn't actually on until we:
@@ -65,7 +69,7 @@ fn main() -> ! {
     // TODO: this module should _not_ know our clock rate. That's a hack.
     #[cfg(feature = "h7b3")]
     const CLOCK_HZ: u32 = 280_000_000;
-    #[cfg(feature = "h743")]
+    #[cfg(any(feature = "h743", feature = "h753"))]
     const CLOCK_HZ: u32 = 200_000_000;
 
     const BAUDRATE: u32 = 115_200;
@@ -155,7 +159,7 @@ fn turn_on_usart() {
     #[cfg(feature = "h7b3")]
     const PORT: Peripheral = Peripheral::Usart1;
 
-    #[cfg(feature = "h743")]
+    #[cfg(any(feature = "h743", feature = "h753"))]
     const PORT: Peripheral = Peripheral::Usart3;
 
     rcc_driver.enable_clock(PORT);
@@ -171,7 +175,7 @@ fn configure_pins() {
     // TODO these are really board configs, not SoC configs!
     #[cfg(feature = "h7b3")]
     const TX_RX_MASK: PinSet = Port::A.pin(9).and_pin(10);
-    #[cfg(feature = "h743")]
+    #[cfg(any(feature = "h743", feature = "h753"))]
     const TX_RX_MASK: PinSet = Port::D.pin(8).and_pin(9);
 
     gpio_driver

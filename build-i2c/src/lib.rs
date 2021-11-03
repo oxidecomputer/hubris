@@ -293,11 +293,14 @@ impl ConfigGenerator {
         use drv_stm32h7_rcc_api::Peripheral;
         use drv_i2c_api::Controller;
 
-        #[cfg(feature = "h7b3")]
-        use stm32h7::stm32h7b3 as device;
-
         #[cfg(feature = "h743")]
-        use stm32h7::stm32h743 as device;"##
+        use stm32h7::stm32h743 as device;
+
+        #[cfg(feature = "h753")]
+        use stm32h7::stm32h753 as device;
+
+        #[cfg(feature = "h7b3")]
+        use stm32h7::stm32h7b3 as device;"##
             )?;
         }
 

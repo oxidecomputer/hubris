@@ -17,7 +17,7 @@ requires = {flash = 32768, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["itm", "h7b3"]
+features = ["h7b3", "itm"]
 
 [supervisor]
 notification = 1
@@ -135,7 +135,7 @@ usart_driver = "usart_driver"
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["stm32h7", "itm", "i2c"]
+features = ["h7b3", "stm32h7", "itm", "i2c"]
 priority = 3
 requires = {flash = 32768, ram = 16384 }
 start = true

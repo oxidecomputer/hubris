@@ -29,6 +29,9 @@ enum Xtask {
         /// Request verbosity from tools we shell out to.
         #[structopt(short)]
         verbose: bool,
+        /// Run `cargo tree --edges features ...` before each invoction of `cargo rustc ...`
+        #[structopt(short, long)]
+        edges: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
     },
@@ -301,15 +304,19 @@ fn main() -> Result<()> {
     let xtask = Xtask::from_args();
 
     match xtask {
-        Xtask::Dist { verbose, cfg } => {
-            dist::package(verbose, &cfg)?;
+        Xtask::Dist {
+            verbose,
+            edges,
+            cfg,
+        } => {
+            dist::package(verbose, edges, &cfg)?;
         }
         Xtask::Flash { verbose, cfg } => {
-            dist::package(verbose, &cfg)?;
+            dist::package(verbose, false, &cfg)?;
             flash::run(verbose, &cfg)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
-            dist::package(false, &cfg)?;
+            dist::package(false, false, &cfg)?;
             gdb::run(&cfg, &gdb_cfg)?;
         }
         Xtask::Humility { cfg, options } => {
@@ -321,7 +328,7 @@ fn main() -> Result<()> {
             verbose,
         } => {
             if !noflash {
-                dist::package(verbose, &cfg)?;
+                dist::package(verbose, false, &cfg)?;
                 flash::run(verbose, &cfg)?;
             }
 

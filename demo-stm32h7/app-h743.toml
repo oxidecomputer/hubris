@@ -17,7 +17,7 @@ requires = {flash = 32768, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["itm", "h743"]
+features = ["h743", "itm"]
 
 [supervisor]
 notification = 1
@@ -112,7 +112,7 @@ path = "../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 4096}
-features = ["spi3"]
+features = ["spi3", "h743"]
 uses = ["spi3"]
 start = true
 interrupts = {51 = 1}
@@ -146,7 +146,7 @@ user_leds = "user_leds"
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["stm32h7", "itm", "i2c", "gpio", "qspi"]
+features = ["h743", "stm32h7", "itm", "i2c", "gpio", "qspi"]
 priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
@@ -160,7 +160,7 @@ i2c_driver = "i2c_driver"
 [tasks.hf]
 path = "../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
-features = []
+features = ["h743"]
 priority = 3
 requires = {flash = 16384, ram = 8192 }
 stacksize = 2048

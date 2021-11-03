@@ -11,7 +11,14 @@ use userlib::*;
 use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32h7_rcc_api as rcc_api;
+
+// Note: h7b3 has QUADSPI but has not been used in this project.
+
+#[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
 
 use drv_gimlet_hf_api::{HfError, InternalHfError, Operation};
 

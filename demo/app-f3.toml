@@ -47,7 +47,7 @@ stacksize = 1536
 [tasks.rcc_driver]
 path = "../drv/stm32fx-rcc"
 name = "drv-stm32fx-rcc"
-features = ["stm32f3"]
+features = ["f3"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]

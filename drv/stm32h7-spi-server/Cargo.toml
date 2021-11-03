@@ -9,12 +9,12 @@ userlib = {path = "../../userlib"}
 ringbuf = {path = "../../ringbuf"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32h7-spi = {path = "../stm32h7-spi"}
-drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
-drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
-drv-spi-api = {path = "../spi-api"}
+drv-stm32h7-spi = {path = "../stm32h7-spi", default-features = false}
+drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
+drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", default-features = false}
+drv-spi-api = {path = "../spi-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
-stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
+stm32h7 = { version = "0.13.0", default-features = false }
 cfg-if = "0.1.10"
 
 [build-dependencies]
@@ -22,13 +22,16 @@ build-util = {path = "../../build-util"}
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["h753"]
 spi1 = []
 spi2 = []
 spi3 = []
 spi4 = []
 spi5 = []
 spi6 = []
+h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-spi/h7b3", "drv-stm32h7-rcc-api/h7b3"]
+h743 = ["stm32h7/stm32h743", "drv-stm32h7-spi/h743", "drv-stm32h7-rcc-api/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32h7-spi/h753", "drv-stm32h7-rcc-api/h753"]
 
 # a target for `cargo xtask check`
 [package.metadata.build]

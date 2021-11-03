@@ -18,7 +18,7 @@ use cortex_m_rt::pre_init;
 // gets linked in.
 extern crate stm32h7;
 
-use stm32h7::stm32h743 as device;
+use stm32h7::stm32h753 as device;
 
 use cortex_m_rt::entry;
 use kern::app::App;

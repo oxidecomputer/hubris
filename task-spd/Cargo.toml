@@ -9,14 +9,14 @@ userlib = {path = "../userlib"}
 ringbuf = {path = "../ringbuf"}
 spd = {path = "../spd" }
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api"}
-drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api"}
-drv-stm32h7-i2c = {path = "../drv/stm32h7-i2c"}
-drv-i2c-api = {path = "../drv/i2c-api"}
+drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api", default-features = false}
+drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api", default-features = false}
+drv-stm32h7-i2c = {path = "../drv/stm32h7-i2c", default-features = false}
+drv-i2c-api = {path = "../drv/i2c-api", default-features = false}
 cortex-m-semihosting = "0.3.5"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
-stm32h7 = { version = "0.13.0" }
+stm32h7 = { version = "0.13.0", default-features = false }
 
 [build-dependencies]
 build-util = {path = "../build-util"}
@@ -25,10 +25,11 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-default = ["standalone", "h743"]
-standalone = [ "h743", "itm" ]
-h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3"]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743"]
+default = ["standalone"]
+standalone = [ "h753", "itm" ]
+h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32h7-rcc-api/h743", "build-i2c/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32h7-rcc-api/h753", "build-i2c/h753"]
+h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3", "drv-stm32h7-rcc-api/h7b3", "build-i2c/h7b3"]
 itm = [ "userlib/log-itm" ]
 
 # a target for `cargo xtask check`

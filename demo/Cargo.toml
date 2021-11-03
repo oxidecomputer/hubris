@@ -7,9 +7,9 @@ version = "0.1.0"
 
 [features]
 default = ["standalone"]
+standalone = ["itm", "stm32f4"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
-standalone = ["itm", "stm32f4"]
 
 # a target for `cargo xtask check`
 [package.metadata.build]
