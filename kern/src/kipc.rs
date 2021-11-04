@@ -45,7 +45,7 @@ where
 }
 
 fn serialize_response<T>(
-    task: &Task,
+    task: &mut Task,
     mut buf: USlice<u8>,
     val: &T,
 ) -> Result<usize, UserError>
@@ -76,11 +76,11 @@ fn read_task_status(
             UsageError::TaskOutOfRange,
         )));
     }
-    let response_len = serialize_response(
-        &tasks[caller],
-        response,
-        tasks[index as usize].state(),
-    )?;
+    // cache other state before taking out a mutable borrow on tasks
+    let other_state = *tasks[index as usize].state();
+
+    let response_len =
+        serialize_response(&mut tasks[caller], response, &other_state)?;
     tasks[caller]
         .save_mut()
         .set_send_response_and_length(0, response_len);

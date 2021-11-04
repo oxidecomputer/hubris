@@ -19,6 +19,11 @@ use crate::{
 
 use lpc55_support::{crc_image, sign_ecc, signed_image};
 
+/// In practice, applications with active interrupt activity tend to use about
+/// 650 bytes of stack. Because kernel stack overflows are annoying, we've
+/// padded that a bit.
+const DEFAULT_KERNEL_STACK: u32 = 1024;
+
 pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
@@ -304,7 +309,12 @@ pub fn package(verbose: bool, cfg: &Path) -> Result<()> {
     }
     let descriptor_text = descriptor_text.join("\n");
 
-    generate_kernel_linker_script("memory.x", &allocs.kernel, &descriptor_text);
+    generate_kernel_linker_script(
+        "memory.x",
+        &allocs.kernel,
+        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        &descriptor_text,
+    )?;
 
     // this one was for the tasks, but we don't want to use it for the kernel
     fs::remove_file("target/link.x")?;
@@ -758,17 +768,45 @@ fn generate_task_linker_script(
 fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
+    stacksize: u32,
     descriptor: &str,
-) {
+) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
         File::create(Path::new(&format!("target/{}", name))).unwrap();
 
+    let mut stack_start = None;
+    let mut stack_base = None;
+
     writeln!(linkscr, "MEMORY\n{{").unwrap();
     for (name, range) in map {
-        let start = range.start;
+        let mut start = range.start;
         let end = range.end;
         let name = name.to_ascii_uppercase();
+
+        // Our stack comes out of RAM
+        if name == "RAM" {
+            if stacksize & 0x7 != 0 {
+                // If we are not 8-byte aligned, the kernel will not be
+                // pleased -- and can't be blamed for a little rudeness;
+                // check this here and fail explicitly if it's unaligned.
+                bail!("specified kernel stack size is not 8-byte aligned");
+            }
+
+            stack_base = Some(start);
+            writeln!(
+                linkscr,
+                "STACK (rw) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                start, stacksize,
+            )?;
+            start += stacksize;
+            stack_start = Some(start);
+
+            if start > end {
+                bail!("specified kernel stack size is greater than RAM size");
+            }
+        }
+
         writeln!(
             linkscr,
             "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
@@ -780,12 +818,17 @@ fn generate_kernel_linker_script(
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
+    writeln!(linkscr, "_stack_base = 0x{:08x};", stack_base.unwrap()).unwrap();
+    writeln!(linkscr, "_stack_start = 0x{:08x};", stack_start.unwrap())
+        .unwrap();
     writeln!(linkscr, "SECTIONS {{").unwrap();
     writeln!(linkscr, "  .hubris_app_table : AT(__erodata) {{").unwrap();
     writeln!(linkscr, "    hubris_app_table = .;").unwrap();
     writeln!(linkscr, "{}", descriptor).unwrap();
     writeln!(linkscr, "  }} > FLASH").unwrap();
     writeln!(linkscr, "}} INSERT AFTER .data").unwrap();
+
+    Ok(())
 }
 
 fn build(

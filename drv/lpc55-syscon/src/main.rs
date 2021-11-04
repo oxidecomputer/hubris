@@ -139,13 +139,13 @@ impl From<ResponseCode> for u32 {
 
 macro_rules! set_bit {
     ($reg:expr, $mask:expr) => {
-        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) });
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() | $mask) })
     };
 }
 
 macro_rules! clear_bit {
     ($reg:expr, $mask:expr) => {
-        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) });
+        $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) })
     };
 }
 

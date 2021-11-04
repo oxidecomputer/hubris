@@ -46,11 +46,9 @@ pub struct Task {
     state: TaskState,
     /// State for tracking the task's timer.
     timer: TimerState,
-    /// Generation number of this task's current incarnation. This begins at
-    /// zero and gets incremented whenever a task gets rebooted, to try to help
-    /// peers notice that they're talking to a new copy that may have lost
-    /// state.
-    generation: Generation,
+    /// Restart count for this task. We increment this whenever we reinitialize
+    /// the task. The low bits of this become the task's generation number.
+    generation: u32,
 
     /// Static table defining this task's memory regions.
     region_table: &'static [&'static RegionDesc],
@@ -81,7 +79,7 @@ impl Task {
             descriptor,
             region_table,
 
-            generation: Generation::default(),
+            generation: 0,
             notifications: 0,
             save: crate::arch::SavedState::default(),
             timer: crate::task::TimerState::default(),
@@ -104,7 +102,7 @@ impl Task {
     /// that the task `self` can access it for read. This is used to access task
     /// memory from the kernel in validated form.
     pub fn try_read<'a, T>(
-        &self,
+        &'a self,
         slice: &'a USlice<T>,
     ) -> Result<&'a [T], FaultInfo>
     where
@@ -139,7 +137,7 @@ impl Task {
     /// that the task `self` can access it for write. This is used to access task
     /// memory from the kernel in validated form.
     pub fn try_write<'a, T>(
-        &self,
+        &'a mut self,
         slice: &'a mut USlice<T>,
     ) -> Result<&'a mut [T], FaultInfo>
     where
@@ -277,7 +275,7 @@ impl Task {
     /// system reboot. The task will be left in `Stopped` state. If you would
     /// like to run the task after reinitializing it, you must do so explicitly.
     pub fn reinitialize(&mut self) {
-        self.generation = self.generation.next();
+        self.generation = self.generation.wrapping_add(1);
         self.timer = TimerState::default();
         self.notifications = 0;
         self.state = TaskState::default();
@@ -287,7 +285,7 @@ impl Task {
 
     /// Returns a reference to the `TaskDesc` that was used to initially create
     /// this task.
-    pub fn descriptor(&self) -> &TaskDesc {
+    pub fn descriptor(&self) -> &'static TaskDesc {
         self.descriptor
     }
 
@@ -298,7 +296,8 @@ impl Task {
 
     /// Returns this task's current generation number.
     pub fn generation(&self) -> Generation {
-        self.generation
+        const MASK: u8 = ((1u32 << (16 - TaskId::INDEX_BITS)) - 1) as u8;
+        Generation::from(self.generation as u8 & MASK)
     }
 
     /// Returns a reference to this task's current state, for inspection.
@@ -751,7 +750,7 @@ pub fn check_task_id_against_table(
     }
 
     // Check for dead task ID.
-    let table_generation = table[id.index()].generation;
+    let table_generation = table[id.index()].generation();
 
     if table_generation != id.generation() {
         let code = abi::dead_response_code(table_generation);
@@ -857,5 +856,5 @@ pub fn force_fault(
 /// Produces a current `TaskId` (i.e. one with the correct generation) for
 /// `tasks[index]`.
 pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
-    TaskId::for_index_and_gen(index, tasks[index].generation)
+    TaskId::for_index_and_gen(index, tasks[index].generation())
 }

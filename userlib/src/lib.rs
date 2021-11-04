@@ -43,14 +43,14 @@ pub mod util;
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct Lease<'a> {
-    kern_rep: abi::ULease,
+    _kern_rep: abi::ULease,
     _marker: PhantomData<&'a mut ()>,
 }
 
 impl<'a> From<&'a [u8]> for Lease<'a> {
     fn from(x: &'a [u8]) -> Self {
         Self {
-            kern_rep: abi::ULease {
+            _kern_rep: abi::ULease {
                 attributes: abi::LeaseAttributes::READ,
                 base_address: x.as_ptr() as u32,
                 length: x.len() as u32,
@@ -63,7 +63,7 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
 impl<'a> From<&'a mut [u8]> for Lease<'a> {
     fn from(x: &'a mut [u8]) -> Self {
         Self {
-            kern_rep: abi::ULease {
+            _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
                 base_address: x.as_ptr() as u32,
                 length: x.len() as u32,
@@ -125,7 +125,6 @@ struct SendArgs<'a> {
 /// Core implementation of the SEND syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
     asm!("
@@ -260,7 +259,6 @@ pub struct RecvMessage {
 /// Core implementation of the RECV syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 #[must_use]
 unsafe extern "C" fn sys_recv_stub(
@@ -326,7 +324,6 @@ pub fn sys_reply(peer: TaskId, code: u32, message: &[u8]) {
 /// Core implementation of the REPLY syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_reply_stub(
     _peer: u32,
@@ -390,7 +387,6 @@ pub fn sys_set_timer(deadline: Option<u64>, notifications: u32) {
 /// Core implementation of the SET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_set_timer_stub(
     _set_timer: u32,
@@ -447,7 +443,6 @@ pub fn sys_borrow_read(
 /// Core implementation of the BORROW_READ syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
     asm!("
@@ -506,7 +501,6 @@ pub fn sys_borrow_write(
 /// Core implementation of the BORROW_WRITE syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_borrow_write_stub(
     _args: *mut BorrowWriteArgs,
@@ -571,7 +565,6 @@ struct RawBorrowInfo {
 /// Core implementation of the BORROW_INFO syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_borrow_info_stub(
     _lender: u32,
@@ -615,7 +608,6 @@ pub fn sys_irq_control(mask: u32, enable: bool) {
 /// Core implementation of the IRQ_CONTROL syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
     asm!("
@@ -651,7 +643,6 @@ pub fn sys_panic(msg: &[u8]) -> ! {
 /// Core implementation of the PANIC syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
     asm!("
@@ -734,7 +725,6 @@ struct RawTimerState {
 /// Core implementation of the GET_TIMER syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
     asm!("
@@ -875,7 +865,6 @@ pub fn sys_refresh_task_id(task_id: TaskId) -> TaskId {
 /// Core implementation of the REFRESH_TASK_ID syscall.
 ///
 /// See the note on syscall stubs at the top of this module for rationale.
-#[inline(never)]
 #[naked]
 unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
     asm!("

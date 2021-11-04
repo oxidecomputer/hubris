@@ -165,6 +165,7 @@ struct Kernel {
     path: PathBuf,
     name: String,
     requires: IndexMap<String, u32>,
+    stacksize: Option<u32>,
     #[serde(default)]
     features: Vec<String>,
 }

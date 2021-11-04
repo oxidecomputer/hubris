@@ -13,7 +13,7 @@ drv-stm32h7-spi = {path = "../stm32h7-spi"}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-spi-api = {path = "../spi-api"}
-cortex-m = "0.7"
+cortex-m = { version = "0.7", features = ["inline-asm"] }
 stm32h7 = { version = "0.13.0", features = ["stm32h743"] }
 cfg-if = "0.1.10"
 

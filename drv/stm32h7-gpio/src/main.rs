@@ -77,9 +77,13 @@
 
 use byteorder::LittleEndian;
 use drv_stm32h7_rcc_api::{Peripheral, Rcc};
-use stm32h7::stm32h7b3 as device;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
+
+#[cfg(feature = "h743")]
+use stm32h7::stm32h743 as device;
+#[cfg(feature = "h7b3")]
+use stm32h7::stm32h7b3 as device;
 
 #[derive(FromPrimitive)]
 enum Op {

@@ -49,6 +49,7 @@ stacksize = 1536
 [tasks.rcc_driver]
 path = "../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
+features = ["h7b3"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
@@ -57,6 +58,7 @@ start = true
 [tasks.gpio_driver]
 path = "../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
+features = ["h7b3"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
