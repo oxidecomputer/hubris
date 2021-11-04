@@ -29,6 +29,7 @@ struct I2cMux {
 #[serde(deny_unknown_fields)]
 struct I2cPort {
     name: Option<String>,
+    #[allow(dead_code)]
     description: Option<String>,
     pins: Vec<I2cPinSet>,
     #[serde(default)]
@@ -46,6 +47,7 @@ struct I2cController {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)]
 struct I2cPmbus {
     rails: Option<Vec<String>>,
 }
@@ -62,6 +64,7 @@ struct I2cPmbus {
 //
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)]
 struct I2cDevice {
     /// device part name
     device: String,
