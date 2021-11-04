@@ -31,7 +31,8 @@ struct I2cPort {
     name: Option<String>,
     description: Option<String>,
     pins: Vec<I2cPinSet>,
-    muxes: Option<Vec<I2cMux>>,
+    #[serde(default)]
+    muxes: Vec<I2cMux>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -39,7 +40,8 @@ struct I2cPort {
 struct I2cController {
     controller: u8,
     ports: IndexMap<String, I2cPort>,
-    target: Option<bool>,
+    #[serde(default)]
+    target: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -63,28 +65,40 @@ struct I2cPmbus {
 struct I2cDevice {
     /// device part name
     device: String,
+
     /// device name
     name: Option<String>,
+
     /// I2C controller, if bus not named
     controller: Option<u8>,
+
     /// I2C bus name, if controller not specified
     bus: Option<String>,
+
     /// I2C port, if required
     port: Option<String>,
+
     /// I2C address
     address: u8,
+
     /// I2C mux, if any
     mux: Option<u8>,
+
     /// I2C segment, if any
     segment: Option<u8>,
+
     /// description of device
     description: String,
+
     /// reference designator, if any
     refdes: Option<String>,
+
     /// PMBus information, if any
     pmbus: Option<I2cPmbus>,
+
     /// device is removable
-    removable: Option<bool>,
+    #[serde(default)]
+    removable: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -167,11 +181,6 @@ impl ConfigGenerator {
         let mut singletons = HashMap::new();
 
         for c in i2c.controllers {
-            let target = match c.target {
-                Some(target) => target,
-                None => false,
-            };
-
             //
             // We always insert our buses (even for controllers that don't
             // match our dispostion) to assure that devices can always find
@@ -194,7 +203,7 @@ impl ConfigGenerator {
                 ports.insert((c.controller, p.clone()), index);
             }
 
-            if target != (disposition == Disposition::Target) {
+            if c.target != (disposition == Disposition::Target) {
                 continue;
             }
 
@@ -403,9 +412,7 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (_, port) in &c.ports {
-                if let Some(ref muxes) = port.muxes {
-                    len += muxes.len();
-                }
+                len += port.muxes.len();
             }
         }
 
@@ -437,66 +444,62 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for (index, (p, port)) in c.ports.iter().enumerate() {
-                if let Some(ref muxes) = port.muxes {
-                    for i in 0..muxes.len() {
-                        let mux = &muxes[i];
-
-                        let enablestr = if let Some(enable) = &mux.enable {
-                            let mut enablestr = String::new();
-                            write!(
-                                &mut enablestr,
-                                r##"Some(I2cPin {{
+                for (mindex, mux) in port.muxes.iter().enumerate() {
+                    let enablestr = if let Some(enable) = &mux.enable {
+                        let mut enablestr = String::new();
+                        write!(
+                            &mut enablestr,
+                            r##"Some(I2cPin {{
                     controller: Controller::I2C{controller},
                     port: PortIndex({port}),
                     gpio_pins: gpio_api::Port::{gpio_port}.pin({gpio_pin}),
                     function: Alternate::AF{af},
                 }})"##,
-                                controller = c.controller,
-                                port = index,
-                                gpio_port = match enable.gpio_port {
-                                    Some(ref port) => port,
-                                    None => bail!(
-                                        "missing pin port on mux enable \
-                                        on I2C{}, port {}, mux {}",
-                                        c.controller,
-                                        p,
-                                        i + 1
-                                    ),
-                                },
-                                gpio_pin = enable.pins[0],
-                                af = enable.af
-                            )?;
-                            enablestr
-                        } else {
-                            "None".to_string()
-                        };
+                            controller = c.controller,
+                            port = index,
+                            gpio_port = match enable.gpio_port {
+                                Some(ref port) => port,
+                                None => bail!(
+                                    "missing pin port on mux enable \
+                                    on I2C{}, port {}, mux {}",
+                                    c.controller,
+                                    p,
+                                    mindex + 1
+                                ),
+                            },
+                            gpio_pin = enable.pins[0],
+                            af = enable.af
+                        )?;
+                        enablestr
+                    } else {
+                        "None".to_string()
+                    };
 
-                        let driver_struct = format!(
-                            "{}{}",
-                            (&mux.driver[..1].to_string()).to_uppercase(),
-                            &mux.driver[1..]
-                        );
+                    let driver_struct = format!(
+                        "{}{}",
+                        (&mux.driver[..1].to_string()).to_uppercase(),
+                        &mux.driver[1..]
+                    );
 
-                        write!(
-                            &mut s,
-                            r##"
+                    write!(
+                        &mut s,
+                        r##"
             I2cMux {{
                 controller: Controller::I2C{controller},
                 port: PortIndex({i2c_port}),
-                id: Mux::M{ndx},
+                id: Mux::M{mindex},
                 driver: &drv_stm32h7_i2c::{driver}::{driver_struct},
                 enable: {enable},
                 address: 0x{address:x},
             }},"##,
-                            controller = c.controller,
-                            i2c_port = index,
-                            ndx = i + 1,
-                            driver = mux.driver,
-                            driver_struct = driver_struct,
-                            enable = enablestr,
-                            address = mux.address,
-                        )?;
-                    }
+                        controller = c.controller,
+                        i2c_port = index,
+                        mindex = mindex + 1,
+                        driver = mux.driver,
+                        driver_struct = driver_struct,
+                        enable = enablestr,
+                        address = mux.address,
+                    )?;
                 }
             }
         }
