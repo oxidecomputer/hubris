@@ -393,17 +393,17 @@ refdes = "U522"
 bus = "mid"
 address = 0x27
 device = "tps546b24a"
-description = "A2 5V rail"
-pmbus = { rails = [ "V5_SYS_A2" ] }
-refdes = "U524"
+description = "A2 1.8V rail"
+pmbus = { rails = [ "V1P8_SP3" ] }
+refdes = "U523"
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x29
 device = "tps546b24a"
-description = "A2 1.8V rail"
-pmbus = { rails = [ "V1P8_SP3" ] }
-refdes = "U523"
+description = "A2 5V rail"
+pmbus = { rails = [ "V5_SYS_A2" ] }
+refdes = "U524"
 
 [[config.i2c.devices]]
 bus = "mid"
