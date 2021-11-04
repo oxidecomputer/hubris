@@ -100,7 +100,16 @@ struct Config {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum I2cConfigDisposition {
+pub enum Artifact {
+    /// part of a complete distribution of an application
+    Dist,
+
+    /// standalone build of a single task
+    Standalone,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub enum Disposition {
     /// controller is an initiator
     Initiator,
 
@@ -108,19 +117,18 @@ pub enum I2cConfigDisposition {
     Target,
 
     /// only devices are used (i.e., controller is not used)
-    DevicesOnly,
-
-    /// standalone build: config should be mocked
-    Standalone,
+    Devices,
 }
 
-#[allow(dead_code)]
-pub struct I2cConfigGenerator {
+struct ConfigGenerator {
     /// output that we're building
-    pub output: String,
+    output: String,
 
-    /// disposition of this configuration: target v. initiator v. standalone
-    disposition: I2cConfigDisposition,
+    /// disposition of this configuration: target v. initiator v. devices
+    disposition: Disposition,
+
+    /// artifact that we're creating: standalone v. dist
+    artifact: Artifact,
 
     /// all controllers
     controllers: Vec<I2cController>,
@@ -138,14 +146,14 @@ pub struct I2cConfigGenerator {
     singletons: HashMap<u8, usize>,
 }
 
-impl I2cConfigGenerator {
-    pub fn new(disposition: I2cConfigDisposition) -> I2cConfigGenerator {
-        let i2c = match disposition {
-            I2cConfigDisposition::Standalone => I2cConfig {
+impl ConfigGenerator {
+    fn new(disposition: Disposition, artifact: Artifact) -> Self {
+        let i2c = match artifact {
+            Artifact::Standalone => I2cConfig {
                 controllers: vec![],
                 devices: None,
             },
-            _ => match build_util::config::<Config>() {
+            Artifact::Dist => match build_util::config::<Config>() {
                 Ok(config) => config.i2c,
                 Err(err) => {
                     panic!("malformed config.i2c: {:?}", err);
@@ -186,7 +194,7 @@ impl I2cConfigGenerator {
                 ports.insert((c.controller, p.clone()), index);
             }
 
-            if target != (disposition == I2cConfigDisposition::Target) {
+            if target != (disposition == Disposition::Target) {
                 continue;
             }
 
@@ -222,9 +230,10 @@ impl I2cConfigGenerator {
             }
         }
 
-        I2cConfigGenerator {
+        Self {
             output: String::new(),
             disposition: disposition,
+            artifact: artifact,
             controllers: controllers,
             buses: buses,
             ports: ports,
@@ -250,7 +259,7 @@ impl I2cConfigGenerator {
     pub fn generate_controllers(&mut self) -> Result<()> {
         let mut s = &mut self.output;
 
-        assert!(self.disposition != I2cConfigDisposition::DevicesOnly);
+        assert!(self.disposition != Disposition::Devices);
 
         writeln!(
             &mut s,
@@ -310,7 +319,7 @@ impl I2cConfigGenerator {
         let mut s = &mut self.output;
         let mut len = 0;
 
-        assert!(self.disposition != I2cConfigDisposition::DevicesOnly);
+        assert!(self.disposition != Disposition::Devices);
 
         for c in &self.controllers {
             for (_, port) in &c.ports {
@@ -385,7 +394,7 @@ impl I2cConfigGenerator {
     }
 
     pub fn generate_muxes(&mut self) -> Result<()> {
-        if self.disposition == I2cConfigDisposition::Target {
+        if self.disposition == Disposition::Target {
             panic!("cannot generate muxes when configured as target");
         }
 
@@ -559,7 +568,7 @@ impl I2cConfigGenerator {
     }
 
     pub fn generate_devices(&mut self) -> Result<()> {
-        if self.disposition == I2cConfigDisposition::Standalone {
+        if self.artifact == Artifact::Standalone {
             //
             // For the standalone build, we generate a single, mock
             // device.
@@ -694,7 +703,7 @@ impl I2cConfigGenerator {
     pub mod ports {{"##
         )?;
 
-        if self.disposition == I2cConfigDisposition::Standalone {
+        if self.artifact == Artifact::Standalone {
             //
             // For the standalone build, we generate a mock port.
             //
@@ -727,44 +736,47 @@ impl I2cConfigGenerator {
     }
 }
 
-pub fn codegen(disposition: I2cConfigDisposition) -> Result<()> {
+pub fn codegen(disposition: Disposition, artifact: Artifact) -> Result<()> {
     use std::io::Write;
 
     let out_dir = env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("i2c_config.rs");
     let mut file = File::create(&dest_path)?;
 
-    let mut g = I2cConfigGenerator::new(disposition);
-
-    if disposition == I2cConfigDisposition::Target {
-        let n = g.ncontrollers();
-
-        if n != 1 {
-            //
-            // If we have the disposition of a target, we expect exactly
-            // one controller to be configured as a target; if none have
-            // been specified, the task should be deconfigured.
-            //
-            panic!("found {} I2C controller(s); expected exactly one", n);
-        }
-    }
+    let mut g = ConfigGenerator::new(disposition, artifact);
 
     g.generate_header()?;
 
-    if disposition != I2cConfigDisposition::DevicesOnly {
-        g.generate_controllers()?;
-        g.generate_pins()?;
+    match disposition {
+        Disposition::Target => {
+            let n = g.ncontrollers();
+
+            if n != 1 && artifact == Artifact::Dist {
+                //
+                // If we have the disposition of a target, we expect exactly one
+                // controller to be configured as a target; if none have been
+                // specified, the task should be deconfigured.
+                //
+                panic!("found {} I2C controller(s); expected exactly one", n);
+            }
+
+            g.generate_controllers()?;
+            g.generate_pins()?;
+            g.generate_ports()?;
+        }
+
+        Disposition::Initiator => {
+            g.generate_controllers()?;
+            g.generate_pins()?;
+            g.generate_ports()?;
+            g.generate_muxes()?;
+        }
+
+        Disposition::Devices => {
+            g.generate_devices()?;
+        }
     }
 
-    g.generate_ports()?;
-
-    if disposition != I2cConfigDisposition::Target
-        && disposition != I2cConfigDisposition::DevicesOnly
-    {
-        g.generate_muxes()?;
-    }
-
-    g.generate_devices()?;
     g.generate_footer()?;
 
     file.write_all(g.output.as_bytes())?;

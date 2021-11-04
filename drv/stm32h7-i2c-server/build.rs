@@ -1,16 +1,16 @@
 fn main() {
     build_util::expose_target_board();
 
+    let disposition = build_i2c::Disposition::Initiator;
+
     #[cfg(feature = "standalone")]
-    let disposition = build_i2c::I2cConfigDisposition::Standalone;
+    let artifact = build_i2c::Artifact::Standalone;
 
     #[cfg(not(feature = "standalone"))]
-    let disposition = build_i2c::I2cConfigDisposition::Initiator;
+    let artifact = build_i2c::Artifact::Dist;
 
-    if let Err(e) = build_i2c::codegen(disposition) {
+    if let Err(e) = build_i2c::codegen(disposition, artifact) {
         println!("code generation failed: {}", e);
         std::process::exit(1);
     }
-
-    println!("cargo:rerun-if-changed=build.rs");
 }

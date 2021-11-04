@@ -1,6 +1,6 @@
-use std::env;
 use anyhow::Result;
 use serde::de::DeserializeOwned;
+use std::env;
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
 /// rustc's standard environment.
@@ -42,5 +42,6 @@ pub fn expose_target_board() {
 pub fn config<T: DeserializeOwned>() -> Result<T> {
     let config = env::var("HUBRIS_APP_CONFIG")?;
     let rval = toml::from_slice(config.as_bytes())?;
+    println!("cargo:rerun-if-env-changed=HUBRIS_APP_CONFIG");
     Ok(rval)
 }
