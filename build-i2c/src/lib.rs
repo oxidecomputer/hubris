@@ -9,31 +9,20 @@ use std::fmt::Write;
 use std::fs::File;
 use std::path::Path;
 
+//
+// Our definition of the `Config` type.  We share this type with all other
+// build-specific types; we must not set `deny_unknown_fields` here.
+//
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct I2cPinSet {
-    gpio_port: Option<String>,
-    pins: Vec<u8>,
-    af: u8,
+struct Config {
+    i2c: I2cConfig,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct I2cMux {
-    driver: String,
-    address: u8,
-    enable: Option<I2cPinSet>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct I2cPort {
-    name: Option<String>,
-    #[allow(dead_code)]
-    description: Option<String>,
-    pins: Vec<I2cPinSet>,
-    #[serde(default)]
-    muxes: Vec<I2cMux>,
+struct I2cConfig {
+    controllers: Vec<I2cController>,
+    devices: Option<Vec<I2cDevice>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -43,13 +32,6 @@ struct I2cController {
     ports: IndexMap<String, I2cPort>,
     #[serde(default)]
     target: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[allow(dead_code)]
-struct I2cPmbus {
-    rails: Option<Vec<String>>,
 }
 
 //
@@ -106,14 +88,36 @@ struct I2cDevice {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct I2cConfig {
-    controllers: Vec<I2cController>,
-    devices: Option<Vec<I2cDevice>>,
+struct I2cPort {
+    name: Option<String>,
+    #[allow(dead_code)]
+    description: Option<String>,
+    pins: Vec<I2cPinSet>,
+    #[serde(default)]
+    muxes: Vec<I2cMux>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct Config {
-    i2c: I2cConfig,
+#[serde(deny_unknown_fields)]
+struct I2cPinSet {
+    gpio_port: Option<String>,
+    pins: Vec<u8>,
+    af: u8,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct I2cMux {
+    driver: String,
+    address: u8,
+    enable: Option<I2cPinSet>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+struct I2cPmbus {
+    rails: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, PartialEq)]

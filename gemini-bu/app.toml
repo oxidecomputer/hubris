@@ -375,7 +375,7 @@ mux = 1
 segment = 1
 address = 0x10
 description = "ADM1272 evaluation board"
-pmbus = { rails = [ "VOUT" ] }
+pmbus = { rails = [ "ADM_EVL_VOUT" ] }
 
 [[config.i2c.devices]]
 device = "isl68224"
@@ -385,7 +385,7 @@ mux = 1
 segment = 3
 address = 0x60
 description = "ISL68224 evaluation board"
-pmbus = { rails = [ "VOUT0", "VOUT1", "VOUT2" ] }
+pmbus = { rails = [ "ISL_EVL_VOUT0", "ISL_EVL_VOUT1", "ISL_EVL_VOUT2" ] }
 
 [[config.i2c.devices]]
 device = "tps546b24a"
@@ -395,5 +395,5 @@ mux = 1
 segment = 4
 address = 0x24
 description = "TPS546B24A evaluation board"
-pmbus = { rails = [ "VOUT" ] }
+pmbus = { rails = [ "TPS_EVL_VOUT" ] }
 

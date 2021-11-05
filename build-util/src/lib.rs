@@ -36,8 +36,9 @@ pub fn expose_target_board() {
 /// should not) contain the entire app-wide configuration, but rather only
 /// those parts that a particular build task cares about.  (It should go
 /// without saying that `deny_unknown_fields` should *not* be set on this
-/// type.) if the configuration field is optional, `T` should reflect that
-/// by having its member (or members) be an `Option` type.
+/// type -- but it may well be set within the task-specific types that
+/// this type contains.)  If the configuration field is optional, `T` should
+/// reflect that by having its member (or members) be an `Option` type.
 ///
 pub fn config<T: DeserializeOwned>() -> Result<T> {
     let config = env::var("HUBRIS_APP_CONFIG")?;
