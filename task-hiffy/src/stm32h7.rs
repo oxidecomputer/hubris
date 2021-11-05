@@ -6,7 +6,9 @@ use ringbuf::*;
 use userlib::*;
 
 #[cfg(feature = "i2c")]
-use drv_i2c_api::{Controller, I2cDevice, Mux, Port, ResponseCode, Segment};
+use drv_i2c_api::{
+    Controller, I2cDevice, Mux, PortIndex, ResponseCode, Segment,
+};
 
 #[cfg(feature = "i2c")]
 task_slot!(I2C, i2c_driver);
@@ -42,14 +44,20 @@ pub struct Buffer(u8);
 // is passed to execute.
 //
 pub enum Functions {
+    Sleep(u16, u32),
     #[cfg(feature = "i2c")]
     I2cRead(
-        (Controller, Port, Mux, Segment, u8, u8, usize),
+        (Controller, PortIndex, Mux, Segment, u8, u8, usize),
         ResponseCode,
     ),
     #[cfg(feature = "i2c")]
     I2cWrite(
-        (Controller, Port, Mux, Segment, u8, u8, Buffer, usize),
+        (Controller, PortIndex, Mux, Segment, u8, u8, Buffer, usize),
+        ResponseCode,
+    ),
+    #[cfg(feature = "i2c")]
+    I2cBulkWrite(
+        (Controller, PortIndex, Mux, Segment, u8, u8, usize, usize),
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
@@ -87,24 +95,34 @@ pub enum Functions {
     #[cfg(feature = "spi")]
     SpiWrite((Task, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
-    QspiReadId((), drv_spi_api::SpiError),
+    QspiReadId((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiReadStatus((), drv_spi_api::SpiError),
+    QspiReadStatus((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiBulkErase((), drv_spi_api::SpiError),
+    QspiBulkErase((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiPageProgram((u32, usize, usize), drv_spi_api::SpiError),
+    QspiPageProgram((u32, usize, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiRead((u32, usize), drv_spi_api::SpiError),
+    QspiRead((u32, usize), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
-    QspiSectorErase(u32, drv_spi_api::SpiError),
+    QspiSectorErase(u32, drv_gimlet_hf_api::HfError),
+    #[cfg(feature = "qspi")]
+    QspiVerify((u32, usize, usize), drv_gimlet_hf_api::HfError),
 }
 
 #[cfg(feature = "i2c")]
 fn i2c_args(
     stack: &[Option<u32>],
-) -> Result<(Controller, Port, Option<(Mux, Segment)>, u8, Option<u8>), Failure>
-{
+) -> Result<
+    (
+        Controller,
+        PortIndex,
+        Option<(Mux, Segment)>,
+        u8,
+        Option<u8>,
+    ),
+    Failure,
+> {
     let controller = match stack[0] {
         Some(controller) => match Controller::from_u32(controller) {
             Some(controller) => controller,
@@ -114,13 +132,22 @@ fn i2c_args(
     };
 
     let port = match stack[1] {
-        Some(port) => match Port::from_u32(port) {
-            Some(port) => port,
-            None => {
+        Some(port) => {
+            if port > core::u8::MAX.into() {
                 return Err(Failure::Fault(Fault::BadParameter(1)));
             }
-        },
-        None => Port::Default,
+
+            PortIndex(port as u8)
+        }
+        None => {
+            //
+            // While we once upon a time allowed HIF consumers to specify
+            // a default port, we now expect all HIF consumers to read the
+            // device configuration and correctly specify a port index:
+            // this is an error.
+            //
+            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+        }
     };
 
     let mux = match (stack[2], stack[3]) {
@@ -259,6 +286,49 @@ fn i2c_write(
     }
 
     match device.write(&buf[0..len + offs]) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "i2c")]
+fn i2c_bulk_write(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    //
+    // We need exactly 8 parameters: the normal i2c paramaters (controller,
+    // port, mux, segment, address, register) plus the offset and length.
+    // Note that the register must be None.
+    //
+    if stack.len() != 8 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let offset = match stack[stack.len() - 2] {
+        Some(offset) if (offset as usize) < data.len() => Ok(offset as usize),
+        _ => Err(Failure::Fault(Fault::BadParameter(6))),
+    }?;
+
+    let len = match stack[stack.len() - 1] {
+        Some(len) if len > 0 && offset + (len as usize) < data.len() => {
+            Ok(len as usize)
+        }
+        _ => Err(Failure::Fault(Fault::BadParameter(7))),
+    }?;
+
+    let fp = stack.len() - 8;
+    let (controller, port, mux, addr, register) = i2c_args(&stack[fp..])?;
+
+    if register.is_some() {
+        return Err(Failure::Fault(Fault::BadParameter(5)));
+    }
+
+    let task = I2C.get_task_id();
+    let device = I2cDevice::new(task, controller, port, mux, addr);
+
+    match device.write(&data[offset..offset + len]) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -452,10 +522,13 @@ fn gpio_configure(
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
+    crate::common::sleep,
     #[cfg(feature = "i2c")]
     i2c_read,
     #[cfg(feature = "i2c")]
     i2c_write,
+    #[cfg(feature = "i2c")]
+    i2c_bulk_write,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]
@@ -482,6 +555,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::qspi_read,
     #[cfg(feature = "qspi")]
     crate::common::qspi_sector_erase,
+    #[cfg(feature = "qspi")]
+    crate::common::qspi_verify,
 ];
 
 //

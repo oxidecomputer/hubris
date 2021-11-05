@@ -187,3 +187,12 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[config]
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.D.pins]]
+pins = [ 12, 13 ]
+af = 4
+

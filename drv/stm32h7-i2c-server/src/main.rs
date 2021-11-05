@@ -3,19 +3,10 @@
 #![no_std]
 #![no_main]
 
-#[cfg(feature = "h7b3")]
-use stm32h7::stm32h7b3 as device;
-
-#[cfg(feature = "h743")]
-use stm32h7::stm32h743 as device;
-
-use drv_i2c_api::Port;
 use drv_i2c_api::*;
-use drv_stm32h7_gpio_api::{
-    self as gpio_api, Alternate, Gpio, OutputType, Pull, Speed,
-};
+use drv_stm32h7_gpio_api::{Gpio, OutputType, Pull, Speed};
 use drv_stm32h7_i2c::*;
-use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use drv_stm32h7_rcc_api::Rcc;
 
 use fixedmap::*;
 use ringbuf::*;
@@ -38,51 +29,23 @@ fn lookup_controller<'a>(
 }
 
 ///
-/// Validates a port for the specified controller, translating `Port::Default`
-/// to the matching port (or returning an error if there is more than one port
-/// and `Port::Default` has been specified).
+/// Validates a port for the specified controller.
 ///
 fn validate_port<'a>(
     pins: &'a [I2cPin],
     controller: Controller,
-    port: Port,
-) -> Result<Port, ResponseCode> {
-    if port != Port::Default {
-        //
-        // The more straightforward case is when our port has been explicitly
-        // provided -- we just need to verify that it's valid.
-        //
-        pins.iter()
-            .find(|pin| pin.controller == controller && pin.port == port)
-            .map(|pin| pin.port)
-            .ok_or(ResponseCode::BadPort)
-    } else {
-        let mut found = pins
-            .iter()
-            .filter(|pin| pin.controller == controller)
-            .map(|pin| pin.port);
+    port: PortIndex,
+) -> Result<(), ResponseCode> {
+    pins.iter()
+        .find(|pin| pin.controller == controller && pin.port == port)
+        .ok_or(ResponseCode::BadPort)?;
 
-        //
-        // A default port has been requested; we need to verify that there is
-        // but one port for this controller -- if there is more than one, we
-        // require the port to be explicitly provided.
-        //
-        match found.next() {
-            None => Err(ResponseCode::BadController),
-            Some(port) => {
-                if found.any(|p| p != port) {
-                    Err(ResponseCode::BadDefaultPort)
-                } else {
-                    Ok(port)
-                }
-            }
-        }
-    }
+    Ok(())
 }
 
 fn find_mux(
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     muxes: &[I2cMux],
     mux: Option<(Mux, Segment)>,
     mut func: impl FnMut(&I2cMux, Mux, Segment) -> Result<(), ResponseCode>,
@@ -110,7 +73,7 @@ fn find_mux(
 fn configure_mux(
     map: &mut MuxMap,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     mux: Option<(Mux, Segment)>,
     muxes: &[I2cMux],
     ctrl: &I2cControl,
@@ -143,7 +106,7 @@ ringbuf!(Option<ResponseCode>, 16, None);
 fn reset_if_needed(
     code: ResponseCode,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     muxes: &[I2cMux],
     mux: Option<(Mux, Segment)>,
 ) {
@@ -174,316 +137,16 @@ fn reset_if_needed(
     });
 }
 
-type PortMap = FixedMap<Controller, Port, 8>;
-type MuxMap = FixedMap<Mux, Segment, 2>;
+type PortMap = FixedMap<Controller, PortIndex, 8>;
+type MuxMap = FixedMap<Mux, Segment, 4>;
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 #[export_name = "main"]
 fn main() -> ! {
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "stm32h7b3i-dk")] {
-            let controllers = [ I2cController {
-                controller: Controller::I2C4,
-                peripheral: Peripheral::I2c4,
-                notification: (1 << (4 - 1)),
-                registers: unsafe { &*device::I2C4::ptr() },
-            } ];
-
-            let pins = [ I2cPin {
-                controller: Controller::I2C4,
-                port: Port::D,
-                gpio_pins: gpio_api::Port::D.pin(12).and_pin(13),
-                function: Alternate::AF4,
-            } ];
-
-            let muxes = [];
-        } else if #[cfg(target_board = "nucleo-h743zi2")] {
-            let controllers = [ I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                notification: (1 << (2 - 1)),
-                registers: unsafe { &*device::I2C2::ptr() },
-            } ];
-
-            let pins = [ I2cPin {
-                controller: Controller::I2C2,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            } ];
-
-            let muxes = [
-            #[cfg(feature = "external-spd")]
-            I2cMux {
-                controller: Controller::I2C2,
-                port: Port::F,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
-                enable: None,
-                address: 0b1001_010,
-            },
-
-            #[cfg(feature = "external-max7358")]
-            I2cMux {
-                controller: Controller::I2C2,
-                port: Port::F,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::max7358::Max7358,
-                enable: None,
-                address: 0x70,
-            },
-
-            ];
-        } else if #[cfg(target_board = "gemini-bu-1")] {
-            let controllers = [ I2cController {
-                controller: Controller::I2C1,
-                peripheral: Peripheral::I2c1,
-                notification: (1 << (1 - 1)),
-                registers: unsafe { &*device::I2C1::ptr() },
-            }, I2cController {
-                controller: Controller::I2C3,
-                peripheral: Peripheral::I2c3,
-                notification: (1 << (3 - 1)),
-                registers: unsafe { &*device::I2C3::ptr() },
-            }, I2cController {
-                controller: Controller::I2C4,
-                peripheral: Peripheral::I2c4,
-                notification: (1 << (4 - 1)),
-                registers: unsafe { &*device::I2C4::ptr() },
-            } ];
-
-            let pins = [ I2cPin {
-                controller: Controller::I2C1,
-                port: Port::B,
-                gpio_pins: gpio_api::Port::B.pin(8).and_pin(9),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::D,
-                gpio_pins: gpio_api::Port::D.pin(12).and_pin(13),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C3,
-                port: Port::H,
-                gpio_pins: gpio_api::Port::H.pin(7).and_pin(8),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::H,
-                gpio_pins: gpio_api::Port::H.pin(11).and_pin(12),
-                function: Alternate::AF4,
-            } ];
-
-            let muxes = [
-                I2cMux {
-                controller: Controller::I2C4,
-                port: Port::F,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::ltc4306::Ltc4306,
-                enable: Some(I2cPin {
-                    controller: Controller::I2C4,
-                    port: Port::Default,
-                    gpio_pins: gpio_api::Port::G.pin(0),
-                    function: Alternate::AF0,
-                }),
-                address: 0x44,
-            },
-            #[cfg(feature = "external-max7358")]
-            I2cMux {
-                controller: Controller::I2C4,
-                port: Port::D,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::max7358::Max7358,
-                enable: None,
-                address: 0x70,
-            },
-
-            #[cfg(feature = "external-pca9548")]
-            I2cMux {
-                controller: Controller::I2C4,
-                port: Port::H,
-                id: Mux::M1,
-                driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                enable: None,
-                address: 0x70,
-            },
-
-            ];
-        } else if #[cfg(target_board = "gimletlet-2")] {
-            let controllers = [
-
-            #[cfg(not(feature = "target-enable"))]
-            I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                notification: (1 << (2 - 1)),
-                registers: unsafe { &*device::I2C2::ptr() },
-            },
-
-            I2cController {
-                controller: Controller::I2C3,
-                peripheral: Peripheral::I2c3,
-                notification: (1 << (3 - 1)),
-                registers: unsafe { &*device::I2C3::ptr() },
-            }, I2cController {
-                controller: Controller::I2C4,
-                peripheral: Peripheral::I2c4,
-                notification: (1 << (4 - 1)),
-                registers: unsafe { &*device::I2C4::ptr() },
-            } ];
-
-            //
-            // Note that I2C3 is a bit unusual in that its SCL and SDA are on
-            // two different ports (port A and port C, respectively); we
-            // therefore have two `I2cPin` structures for I2C3, but for
-            // purposes of the abstraction that we export to consumers, we
-            // call the pair logical port A.
-            //
-            let pins = [
-            #[cfg(not(feature = "target-enable"))]
-            I2cPin {
-                controller: Controller::I2C2,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            },
-
-            I2cPin {
-                controller: Controller::I2C3,
-                port: Port::A,
-                gpio_pins: gpio_api::Port::A.pin(8),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C3,
-                port: Port::A,
-                gpio_pins: gpio_api::Port::C.pin(9),
-                function: Alternate::AF4,
-            }, I2cPin {
-                controller: Controller::I2C4,
-                port: Port::F,
-                gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
-                function: Alternate::AF4,
-            } ];
-
-            let muxes = [];
-        } else if #[cfg(target_board = "gimlet-1")] {
-            // SP3 proxy is handled in task-spd
-
-            let controllers = [
-                // Front M.2
-                I2cController {
-                    controller: Controller::I2C2,
-                    peripheral: Peripheral::I2c2,
-                    notification: (1 << (2 - 1)),
-                    registers: unsafe { &*device::I2C2::ptr() },
-                },
-                // Mid
-                I2cController {
-                    controller: Controller::I2C3,
-                    peripheral: Peripheral::I2c3,
-                    notification: (1 << (3 - 1)),
-                    registers: unsafe { &*device::I2C3::ptr() },
-                },
-                // Rear
-                I2cController {
-                    controller: Controller::I2C4,
-                    peripheral: Peripheral::I2c4,
-                    notification: (1 << (4 - 1)),
-                    registers: unsafe { &*device::I2C4::ptr() },
-            } ];
-
-
-            let pins = [
-                // Note we have two different sets of pins on two different
-                // ports for I2C2!
-
-                // SMBUS_SP_TO_LVL_FRONT_SMDAT
-                // SMBUS_SP_TO_LVL_FRONT_SMCLK
-                I2cPin {
-                    controller: Controller::I2C2,
-                    port: Port::F,
-                    gpio_pins: gpio_api::Port::F.pin(0).and_pin(1),
-                    function: Alternate::AF4,
-                },
-
-                // SMBUS_SP_TO_M2_SMCLK_A2_V3P3
-                // SMBUS_SP_TO_M2_SMDAT_A2_V3P3
-                I2cPin {
-                    controller: Controller::I2C2,
-                    port: Port::B,
-                    gpio_pins: gpio_api::Port::B.pin(10).and_pin(11),
-                    function: Alternate::AF4,
-                },
-
-                // SMBUS_SP_TO_LVL_MID_SMCLK
-                // SMBUS_SP_TO_LVL_MID_SMDAT
-                I2cPin {
-                    controller: Controller::I2C3,
-                    port: Port::H,
-                    gpio_pins: gpio_api::Port::H.pin(7).and_pin(8),
-                    function: Alternate::AF4,
-                },
-                // SMBUS_SP_TO_LVL_REAR_SMCLK
-                // SMBUS_SP_TO_LVL_REAR_SMDAT
-                I2cPin {
-                    controller: Controller::I2C4,
-                    port: Port::F,
-                    gpio_pins: gpio_api::Port::F.pin(14).and_pin(15),
-                    function: Alternate::AF4,
-                },
-            ];
-
-            let muxes = [
-                // Front muxes for
-                // SMBUS_SP_TO_FRONT_SMCLK_A2_V3P3
-                // SMBUS_SP_TO_FRONT_SMDAT_A2_V3P3
-                I2cMux {
-                    controller: Controller::I2C2,
-                    port: Port::F,
-                    id: Mux::M1,
-                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                    enable: None,
-                    address: 0x70,
-                },
-
-                I2cMux {
-                    controller: Controller::I2C2,
-                    port: Port::F,
-                    id: Mux::M1,
-                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                    enable: None,
-                    address: 0x71,
-                },
-
-                I2cMux {
-                    controller: Controller::I2C2,
-                    port: Port::F,
-                    id: Mux::M1,
-                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                    enable: None,
-                    address: 0x72,
-                },
-
-                // M.2 mux on
-                // SMBUS_SP_TO_M2_SMCLK_A2_V3P3
-                // SMBUS_SP_TO_M2_SMDAT_A2_V3P3
-                I2cMux {
-                    controller: Controller::I2C2,
-                    port: Port::B,
-                    id: Mux::M1,
-                    driver: &drv_stm32h7_i2c::pca9548::Pca9548,
-                    enable: None,
-                    address: 0x73,
-                },
-            ];
-        } else {
-            compile_error!("no I2C controllers/pins for unknown board");
-        }
-    }
+    let controllers = i2c_config::controllers();
+    let pins = i2c_config::pins();
+    let muxes = i2c_config::muxes();
 
     // This is our actual mutable state
     let mut portmap = PortMap::new();
@@ -523,7 +186,7 @@ fn main() -> ! {
                 }
 
                 let controller = lookup_controller(&controllers, controller)?;
-                let port = validate_port(&pins, controller.controller, port)?;
+                validate_port(&pins, controller.controller, port)?;
 
                 configure_port(&mut portmap, controller, port, &pins);
 
@@ -618,12 +281,10 @@ fn configure_controllers(controllers: &[I2cController]) {
 fn configure_port(
     map: &mut PortMap,
     controller: &I2cController,
-    port: Port,
+    port: PortIndex,
     pins: &[I2cPin],
 ) {
     let current = map.get(controller.controller).unwrap();
-
-    assert!(port != Port::Default);
 
     if current == port {
         return;

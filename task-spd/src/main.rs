@@ -17,19 +17,12 @@
 #![no_std]
 #![no_main]
 
-#[cfg(feature = "h7b3")]
-use stm32h7::stm32h7b3 as device;
-
-#[cfg(feature = "h743")]
-use stm32h7::stm32h743 as device;
-
 use core::cell::Cell;
 use core::cell::RefCell;
 use drv_i2c_api::*;
-use drv_i2c_api::{Controller, Port};
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
-use drv_stm32h7_rcc_api::{Peripheral, Rcc};
+use drv_stm32h7_rcc_api::Rcc;
 use ringbuf::*;
 use userlib::*;
 
@@ -39,19 +32,21 @@ task_slot!(I2C, i2c_driver);
 
 mod ltc4306;
 
-fn configure_pin(pin: &I2cPin) {
+fn configure_pins(pins: &[I2cPin]) {
     let gpio_driver = GPIO.get_task_id();
     let gpio_driver = Gpio::from(gpio_driver);
 
-    gpio_driver
-        .configure_alternate(
-            pin.gpio_pins,
-            OutputType::OpenDrain,
-            Speed::High,
-            Pull::None,
-            pin.function,
-        )
-        .unwrap();
+    for pin in pins {
+        gpio_driver
+            .configure_alternate(
+                pin.gpio_pins,
+                OutputType::OpenDrain,
+                Speed::High,
+                Pull::None,
+                pin.function,
+            )
+            .unwrap();
+    }
 }
 
 //
@@ -60,7 +55,7 @@ fn configure_pin(pin: &I2cPin) {
 static mut SPD_DATA: [u8; 8192] = [0; 8192];
 
 const LTC4306_ADDRESS: u8 = 0b1001_010;
-type Bank = (Controller, drv_i2c_api::Port, Option<(Mux, Segment)>);
+type Bank = (Controller, drv_i2c_api::PortIndex, Option<(Mux, Segment)>);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -81,66 +76,28 @@ enum Trace {
 
 ringbuf!(Trace, 16, Trace::None);
 
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
 #[export_name = "main"]
 fn main() -> ! {
+    let controller = &i2c_config::controllers()[0];
+    let pins = i2c_config::pins();
+    use i2c_config::ports::*;
+
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            let controller = I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                registers: unsafe { &*device::I2C2::ptr() },
-                notification: (1 << (2 - 1)),
-            };
-
-            let pin = I2cPin {
-                controller: Controller::I2C2,
-                port: Port::F,
-                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            };
-
             // These should be whatever ports the dimmlets are plugged into
             const BANKS: [Bank; 2] = [
-                (Controller::I2C4, Port::D, None),
-                (Controller::I2C4, Port::F, Some((Mux::M1, Segment::S4))),
+                (Controller::I2C4, i2c4_d(), None),
+                (Controller::I2C4, i2c4_f(), Some((Mux::M1, Segment::S4))),
             ];
         } else if #[cfg(target_board = "gimletlet-2")] {
-            let controller = I2cController {
-                controller: Controller::I2C2,
-                peripheral: Peripheral::I2c2,
-                registers: unsafe { &*device::I2C2::ptr() },
-                notification: (1 << (2 - 1)),
-            };
-
-            let pin = I2cPin {
-                controller: Controller::I2C2,
-                port: Port::F,
-                gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            };
-
+            // These should be whatever ports the dimmlets are plugged into
             const BANKS: [Bank; 2] = [
-                (Controller::I2C3, Port::A, None),
-                (Controller::I2C4, Port::F, None),
+                (Controller::I2C3, i2c3_a(), None),
+                (Controller::I2C4, i2c4_f(), None),
             ];
         } else if #[cfg(target_board = "gimlet-1")] {
-            // SP3 Proxy controller
-            let controller = I2cController {
-                controller: Controller::I2C1,
-                peripheral: Peripheral::I2c1,
-                registers: unsafe { &*device::I2C1::ptr() },
-                notification: (1 << (1 - 1)),
-            };
-
-            // SMBUS_SPD_PROXY_SP3_TO_SP_SMCLK
-            // SMBUS_SPD_PROXY_SP3_TO_SP_SMDAT
-            let pin = I2cPin {
-                controller: Controller::I2C1,
-                port: Port::B,
-                gpio_pins: drv_stm32h7_gpio_api::Port::B.pin(0).and_pin(1),
-                function: Alternate::AF4,
-            };
-
             //
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:
             //
@@ -152,31 +109,15 @@ fn main() -> ! {
             // to the correct DIMM from the SoC's perspective.
             //
             const BANKS: [Bank; 2] = [
-                (Controller::I2C3, Port::H, None),
-                (Controller::I2C4, Port::F, None),
+                (Controller::I2C3, i2c3_h(), None),
+                (Controller::I2C4, i2c4_f(), None),
+            ];
+        } else if #[cfg(feature = "standalone")] {
+            const BANKS: [Bank; 1] = [
+                (Controller::Mock, i2c_mock(), None),
             ];
         } else {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "standalone")] {
-                    let controller = I2cController {
-                        controller: Controller::I2C1,
-                        peripheral: Peripheral::I2c1,
-                        registers: unsafe { &*device::I2C1::ptr() },
-                        notification: (1 << (1 - 1)),
-                    };
-                    let pin = I2cPin {
-                        controller: Controller::I2C2,
-                        port: Port::F,
-                        gpio_pins: drv_stm32h7_gpio_api::Port::F.pin(0).and_pin(1),
-                        function: Alternate::AF4,
-                    };
-                    const BANKS: [Bank; 1] = [
-                        (Controller::I2C4, Port::D, None),
-                    ];
-                } else {
-                    compile_error!("I2C target unsupported for this board");
-                }
-            }
+            compile_error!("I2C target unsupported for this board");
         }
     }
 
@@ -295,7 +236,7 @@ fn main() -> ! {
     controller.enable(&rcc_driver);
 
     // Configure our pins
-    configure_pin(&pin);
+    configure_pins(&pins);
 
     ringbuf_entry!(Trace::Ready);
 

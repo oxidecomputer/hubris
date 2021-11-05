@@ -31,7 +31,11 @@ cfg_if::cfg_if! {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "gimlet-1", target_board = "gimletlet-2"))] {
+    if #[cfg(any(
+        target_board = "gimlet-1",
+        target_board = "gimletlet-2",
+        target_board = "nucleo-h743zi2"
+    ))] {
         const HIFFY_DATA_SIZE: usize = 20_480;
     } else {
         const HIFFY_DATA_SIZE: usize = 2_048;

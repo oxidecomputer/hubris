@@ -134,6 +134,60 @@ fn main() -> ! {
             ).unwrap();
 
             let reset_pin = gpio_api::Port::F.pin(4);
+        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+            qspi.configure(
+                50, // 200MHz kernel / 5 = 4MHz clock
+                25, // 2**25 = 32MiB = 256Mib
+            );
+            // Nucleo-144 pin mapping
+            // PB2 SP_QSPI1_CLK
+            // PD11 SP_QSPI1_IO0
+            // PD12 SP_QSPI1_IO1
+            // PD13 SP_QSPI1_IO3
+            // PE2 SP_QSPI1_IO2
+            //
+            // PG6 SP_QSPI1_CS
+            //
+            gpio_driver.configure_alternate(
+                gpio_api::Port::B.pin(2),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::D.pin(11).and_pin(12).and_pin(13),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::E.pin(2),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::G.pin(6),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF10,
+            ).unwrap();
+
+            // start reset and select off low
+            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+
+            gpio_driver.configure_output(
+                gpio_api::Port::F.pin(4).and_pin(5),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+            ).unwrap();
+
+            let reset_pin = gpio_api::Port::F.pin(4);
         } else if #[cfg(feature = "standalone")] {
             let reset_pin = gpio_api::Port::B.pin(2);
         } else {
@@ -266,6 +320,7 @@ fn main() -> ! {
 fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
     qspi.write_enable();
     let status = qspi.read_status();
+
     if status & 0b10 == 0 {
         // oh oh
         return Err(HfError::WriteEnableFailed.into());

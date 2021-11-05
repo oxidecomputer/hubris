@@ -13,6 +13,8 @@ ringbuf = {path = "../ringbuf" }
 drv-i2c-api = {path = "../drv/i2c-api"}
 drv-spi-api = {path = "../drv/spi-api"}
 drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api", optional = true}
+drv-stm32h7-i2c = {path = "../drv/stm32h7-i2c" }
+drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api"}
 drv-lpc55-gpio-api = {path = "../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../drv/gimlet-hf-api", optional = true}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
@@ -26,6 +28,9 @@ byteorder = { version = "1.3.4", default-features = false }
 
 [build-dependencies]
 build-util = {path = "../build-util"}
+build-i2c = {path = "../build-i2c"}
+anyhow = "1.0.31"
+cfg-if = "0.1.10"
 
 [features]
 default = ["standalone"]

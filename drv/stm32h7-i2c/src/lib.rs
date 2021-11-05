@@ -23,7 +23,7 @@ use userlib::*;
 
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
-    pub port: drv_i2c_api::Port,
+    pub port: drv_i2c_api::PortIndex,
     pub gpio_pins: drv_stm32h7_gpio_api::PinSet,
     pub function: drv_stm32h7_gpio_api::Alternate,
 }
@@ -85,7 +85,7 @@ pub trait I2cMuxDriver {
 
 pub struct I2cMux<'a> {
     pub controller: drv_i2c_api::Controller,
-    pub port: drv_i2c_api::Port,
+    pub port: drv_i2c_api::PortIndex,
     pub id: drv_i2c_api::Mux,
     pub driver: &'a dyn I2cMuxDriver,
     pub enable: Option<I2cPin>,

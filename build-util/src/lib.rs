@@ -1,3 +1,5 @@
+use anyhow::Result;
+use serde::de::DeserializeOwned;
 use std::env;
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
@@ -25,4 +27,22 @@ pub fn expose_target_board() {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
     println!("cargo:rerun-if-env-changed=HUBRIS_BOARD");
+}
+
+///
+/// Pulls the app-wide configuration for purposes of a build task.  This
+/// will fail if the app-wide configuration doesn't exist or can't parse.
+/// Note that -- thanks to the magic of Serde -- `T` need not (and indeed,
+/// should not) contain the entire app-wide configuration, but rather only
+/// those parts that a particular build task cares about.  (It should go
+/// without saying that `deny_unknown_fields` should *not* be set on this
+/// type -- but it may well be set within the task-specific types that
+/// this type contains.)  If the configuration field is optional, `T` should
+/// reflect that by having its member (or members) be an `Option` type.
+///
+pub fn config<T: DeserializeOwned>() -> Result<T> {
+    let config = env::var("HUBRIS_APP_CONFIG")?;
+    let rval = toml::from_slice(config.as_bytes())?;
+    println!("cargo:rerun-if-env-changed=HUBRIS_APP_CONFIG");
+    Ok(rval)
 }

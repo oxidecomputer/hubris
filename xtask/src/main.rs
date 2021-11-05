@@ -130,6 +130,8 @@ struct Config {
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
+    #[serde(default)]
+    config: Option<toml::Value>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -209,6 +211,8 @@ struct Task {
     sections: IndexMap<String, String>,
     #[serde(default)]
     task_slots: IndexMap<String, String>,
+    #[serde(default)]
+    config: Option<toml::Value>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

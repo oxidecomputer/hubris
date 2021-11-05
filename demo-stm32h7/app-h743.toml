@@ -146,27 +146,31 @@ user_leds = "user_leds"
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
-features = ["stm32h7", "itm", "i2c"]
+features = ["stm32h7", "itm", "i2c", "gpio", "qspi"]
 priority = 3
-requires = {flash = 32768, ram = 16384 }
+requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 
 [tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+hf = "hf"
 i2c_driver = "i2c_driver"
 
-[tasks.ping]
-path = "../task-ping"
-name = "task-ping"
-features = ["uart"]
-priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
+[tasks.hf]
+path = "../drv/gimlet-hf-server"
+name = "drv-gimlet-hf-server"
+features = []
+priority = 3
+requires = {flash = 16384, ram = 8192 }
+stacksize = 2048
 start = true
+uses = ["quadspi"]
+interrupts = {92 = 1}
 
-[tasks.ping.task-slots]
-peer = "pong"
-usart_driver = "usart_driver"
+[tasks.hf.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
 
 [tasks.idle]
 path = "../task-idle"
@@ -235,4 +239,24 @@ size = 1024
 [peripherals.i2c4]
 address = 0x58001c00
 size = 1024
+
+[peripherals.quadspi]
+address = 0x52005000
+size = 4096
+
+[config]
+
+[[config.i2c.controllers]]
+controller = 2
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
+af = 4
+
+#
+# To use the Nucleo board as an SPD initiator, uncomment the following:
+#
+# [[config.i2c.controllers.ports.F.muxes]]
+# driver = "ltc4306"
+# address = 0b1001_010
 

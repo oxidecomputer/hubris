@@ -23,6 +23,7 @@ ringbuf!(Trace, 64, Trace::None);
  * The ordering here MUST match the ordering in the function table below!
  */
 pub enum Functions {
+    Sleep(u16, u32),
     #[cfg(feature = "gpio")]
     GpioInput(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
     #[cfg(feature = "gpio")]
@@ -250,6 +251,7 @@ fn gpio_reset(
 }
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
+    crate::common::sleep,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]

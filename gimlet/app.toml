@@ -136,6 +136,18 @@ rcc_driver = "rcc_driver"
 gpio_driver = "gpio_driver"
 i2c_driver = "i2c_driver"
 
+[tasks.thermal]
+path = "../task-thermal"
+name = "task-thermal"
+features = ["itm"]
+priority = 3
+requires = {flash = 65536, ram = 8192 }
+stacksize = 2048
+start = true
+
+[tasks.thermal.task-slots]
+i2c_driver = "i2c_driver"
+
 [tasks.hiffy]
 path = "../task-hiffy"
 name = "task-hiffy"
@@ -232,3 +244,276 @@ size = 1024
 [peripherals.quadspi]
 address = 0x52005000
 size = 4096
+
+[config]
+
+#
+# I2C1: SPD proxy bus
+#
+[[config.i2c.controllers]]
+controller = 1
+target = true
+
+#
+# SMBUS_SPD_PROXY_SP3_TO_SP_SMCLK
+# SMBUS_SPD_PROXY_SP3_TO_SP_SMDAT
+#
+[config.i2c.controllers.ports.B]
+name = "spd"
+description = "SPD proxy"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
+
+#
+# I2C2: Front/M.2 bus
+#
+[[config.i2c.controllers]]
+controller = 2
+
+#
+# SMBUS_SP_TO_M2_SMCLK_A2_V3P3
+# SMBUS_SP_TO_M2_SMDAT_A2_V3P3
+#
+[config.i2c.controllers.ports.B]
+name = "m2"
+description = "M.2 bus"
+pins = [ { pins = [ 10, 11 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x73 } ]
+
+#
+# SMBUS_SP_TO_LVL_FRONT_SMDAT
+# SMBUS_SP_TO_LVL_FRONT_SMCLK
+#
+[config.i2c.controllers.ports.F]
+name = "front"
+description = "Front bus"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
+
+#
+# Shark fin muxes
+#
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x70
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x71
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "pca9548"
+address = 0x72
+
+#
+# I2C3: Mid bus
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# SMBUS_SP_TO_LVL_MID_SMCLK
+# SMBUS_SP_TO_LVL_MID_SMDAT
+#
+[config.i2c.controllers.ports.H]
+name = "mid"
+description = "Mid bus"
+pins = [ { pins = [ 7, 8 ], af = 4 } ]
+
+#
+# I2C4: Rear bus
+#
+[[config.i2c.controllers]]
+controller = 4
+
+#
+# SMBUS_SP_TO_LVL_REAR_SMCLK
+# SMBUS_SP_TO_LVL_REAR_SMDAT
+#
+[config.i2c.controllers.ports.F]
+name = "rear"
+description = "Rear bus"
+pins = [ { pins = [ 14, 15 ], af = 4 } ]
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x48
+device = "tmp117"
+name = "zone1"
+description = "Front temperature sensor (zone 1)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x49
+device = "tmp117"
+name = "zone2"
+description = "Front temperature sensor (zone 2)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x4a
+device = "tmp117"
+name = "zone3"
+description = "Front temperature sensor (zone 3)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x70
+device = "pca9545"
+description = "U.2 ABCD mux"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x71
+device = "pca9545"
+description = "U.2 EFGH mux"
+
+[[config.i2c.devices]]
+bus = "front"
+address = 0x72
+device = "pca9545"
+description = "U.2 IJ mux"
+
+[[config.i2c.devices]]
+bus = "m2"
+address = 0x73
+device = "pca9545"
+description = "M.2 mux"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x24
+device = "tps546b24a"
+description = "A2 3.3V rail"
+pmbus = { rails = [ "V3P3_SP_A2" ] }
+refdes = "U522"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x27
+device = "tps546b24a"
+description = "A2 1.8V rail"
+pmbus = { rails = [ "V1P8_SP3" ] }
+refdes = "U523"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x29
+device = "tps546b24a"
+description = "A2 5V rail"
+pmbus = { rails = [ "V5_SYS_A2" ] }
+refdes = "U524"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x3a
+device = "max5970"
+description = "M.2 hot plug controller"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x58
+device = "idt8a34004"
+description = "Clock generator"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x5a
+device = "raa229618"
+description = "CPU power controller"
+pmbus = { rails = [ "VDD_MEM_ABCD", "VDD_VCORE" ] }
+refdes = "U350"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x5b
+device = "raa229618"
+description = "SoC power controller"
+pmbus = { rails = [ "VDD_MEM_EFGH", "VDDCR_SOC" ] }
+refdes = "U351"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x5c
+device = "isl68224"
+description = "DIMM ABCD power controller"
+pmbus = { rails = [ "VPP_ABCD", "V3P3_SYS", "" ] }
+refdes = "U352"
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x5d
+device = "isl68224"
+description = "DIMM EFGH power controller"
+pmbus = { rails = [ "VPP_EFGH", "", "" ] }
+refdes = "U418"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x10
+device = "adm1272"
+description = "Fan hot swap controller"
+pmbus = { rails = [ "V54_FAN" ] }
+refdes = "U419"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x14
+device = "adm1272"
+description = "Sled hot swap controller"
+pmbus = { rails = [ "V54_HS_OUTPUT" ] }
+refdes = "U452"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x20
+device = "max31790"
+description = "Fan controller"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x48
+device = "tmp117"
+name = "zone1"
+description = "Rear temperature sensor (zone 1)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x49
+device = "tmp117"
+name = "zone2"
+description = "Rear temperature sensor (zone 2)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x4a
+device = "tmp117"
+name = "zone3"
+description = "Rear temperature sensor (zone 3)"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x4c
+device = "tmp451"
+description = "T6 temperature sensor"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x5f
+device = "isl68224"
+description = "T6 power controller"
+pmbus = { rails = [ "V0P96_NIC_VDD" ] }
+refdes = "U357"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x67
+device = "bmr491"
+description = "IBC"
+pmbus = { rails = [ "V12_SYS_A2" ] }
+refdes = "U431"
+

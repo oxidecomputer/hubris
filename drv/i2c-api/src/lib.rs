@@ -47,10 +47,8 @@ pub enum ResponseCode {
     BadController = 4,
     /// Device address is reserved
     ReservedAddress = 5,
-    /// Inidcated port is invalid
+    /// Indicated port is invalid
     BadPort = 6,
-    /// Default port indicated, but port must be specified
-    BadDefaultPort = 7,
     /// Device does not have indicated register
     NoRegister = 8,
     /// Indicated mux is an invalid mux identifier
@@ -117,41 +115,39 @@ pub enum ReservedAddress {
 }
 
 ///
-/// The port for a given I2C device.  Some controllers can have multiple
-/// ports (which themselves are connected to different I2C busses), but only
-/// one port can be active at a time.  For these controllers, a port must
-/// be specified (generally lettered).  For controllers that have only one
-/// port, [`Port::Default`] should be specified.
+/// The port index for a given I2C device.  Some controllers can have multiple
+/// ports (which themselves are connected to different I2C buses), but only
+/// one port can be active at a time.  For these controllers, a port index
+/// must be specified.  The mapping between these indices and values that make
+/// sense in terms of the I2C controller (e.g., the lettered port) is
+/// specified in the application configuration; to minimize confusion, the
+/// letter should generally match the GPIO port of the I2C bus (assuming that
+/// GPIO ports are lettered), but these values are in fact strings and can
+/// take any value.  Note that if a given I2C controller straddles two ports,
+/// the port of SDA should generally be used when naming the port; if a GPIO
+/// port contains multiple SDAs on it from the same controller, the
+/// letter/number convention should be used (e.g., "B1") -- but this is purely
+/// convention.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
-#[repr(u8)]
-pub enum Port {
-    Default = 0,
-    A = 1,
-    B = 2,
-    C = 3,
-    D = 4,
-    E = 5,
-    F = 6,
-    G = 7,
-    H = 8,
-    I = 9,
-    J = 10,
-    K = 11,
-}
+pub struct PortIndex(pub u8);
 
 ///
-/// A multiplexer for a given I2C device.  Multiplexers are numbered starting
-/// from 1.
+/// A multiplexer identifier for a given I2C bus.  Multiplexer identifiers
+/// need not start at 0.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Mux {
     M1 = 1,
+    M2 = 2,
+    M3 = 3,
+    M4 = 4,
 }
 
 ///
-/// A segment on a given multiplexer.  Segments are nubered starting from 1.
+/// A segment identifier on a given multiplexer.  Segment identifiers
+/// need not start at 0.
 ///
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
@@ -174,12 +170,12 @@ pub enum Segment {
 pub struct I2cDevice {
     pub task: TaskId,
     pub controller: Controller,
-    pub port: Port,
+    pub port: PortIndex,
     pub segment: Option<(Mux, Segment)>,
     pub address: u8,
 }
 
-type I2cMessage = (u8, Controller, Port, Option<(Mux, Segment)>);
+type I2cMessage = (u8, Controller, PortIndex, Option<(Mux, Segment)>);
 
 pub trait Marshal<T> {
     fn marshal(&self) -> T;
@@ -193,7 +189,7 @@ impl Marshal<[u8; 4]> for I2cMessage {
         [
             self.0,
             self.1 as u8,
-            self.2 as u8,
+            self.2 .0 as u8,
             match self.3 {
                 Some((mux, seg)) => {
                     0b1000_0000 | ((mux as u8) << 4) | (seg as u8)
@@ -206,7 +202,7 @@ impl Marshal<[u8; 4]> for I2cMessage {
         Ok((
             val[0],
             Controller::from_u8(val[1]).ok_or(ResponseCode::BadController)?,
-            Port::from_u8(val[2]).ok_or(ResponseCode::BadPort)?,
+            PortIndex(val[2]),
             if val[3] == 0 {
                 None
             } else {
@@ -225,21 +221,11 @@ impl core::fmt::Display for I2cDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let addr = self.address;
 
-        match (self.port, self.segment) {
-            (Port::Default, None) => {
-                write!(f, "{:?} 0x{:x}", self.controller, addr)
-            }
-            (Port::Default, Some((mux, segment))) => {
-                write!(
-                    f,
-                    "{:?}, {:?}:{:?} 0x{:x}",
-                    self.controller, mux, segment, addr
-                )
-            }
-            (_, None) => {
+        match self.segment {
+            None => {
                 write!(f, "{:?}:{:?} 0x{:x}", self.controller, self.port, addr)
             }
-            (_, Some((mux, segment))) => {
+            Some((mux, segment)) => {
                 write!(
                     f,
                     "{:?}:{:?}, {:?}:{:?} 0x{:x}",
@@ -259,7 +245,7 @@ impl I2cDevice {
     pub fn new(
         task: TaskId,
         controller: Controller,
-        port: Port,
+        port: PortIndex,
         segment: Option<(Mux, Segment)>,
         address: u8,
     ) -> Self {
@@ -283,7 +269,7 @@ impl I2cDevice {
         Self {
             task: task,
             controller: Controller::Mock,
-            port: Port::Default,
+            port: PortIndex(0),
             segment: None,
             address: 0,
         }

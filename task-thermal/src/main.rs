@@ -8,7 +8,6 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::*;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::tmp116::*;
 use drv_i2c_devices::TempSensor;
@@ -16,6 +15,7 @@ use userlib::units::*;
 use userlib::*;
 
 task_slot!(I2C, i2c_driver);
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 fn convert_fahrenheit(temp: Celsius) -> f32 {
     temp.0 * (9.0 / 5.0) + 32.0
@@ -71,87 +71,28 @@ fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
 #[export_name = "main"]
 fn main() -> ! {
     let task = I2C.get_task_id();
+    use i2c_config::devices;
 
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gemini-bu-1")] {
-            const MAX31790_ADDRESS: u8 = 0x20;
-
-            let fctrl = Max31790::new(&I2cDevice::new(
-                task,
-                Controller::I2C1,
-                Port::Default,
-                None,
-                MAX31790_ADDRESS,
-            ));
-
+            let fctrl = Max31790::new(&devices::max31790(task)[0]);
             let tmp116: [Tmp116; 0] = [];
         } else if #[cfg(target_board = "gimlet-1")] {
-            // Two sets of TMP117 sensors, Front and Rear
-            // These all have the same address but are on different
-            // controllers/ports
-
-            const TMP116_ADDRESS: u8 = 0x48;
-
-            // Front sensors (U.2)
-            let tmp116 = [ Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C2,
-                Port::F,
-                None,
-                TMP116_ADDRESS
-            )), Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C2,
-                Port::F,
-                None,
-                TMP116_ADDRESS + 1
-            )),
-                Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C2,
-                Port::F,
-                None,
-                TMP116_ADDRESS + 2
-            )),
-
-            // Rear sensors (fans)
-                Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                None,
-                TMP116_ADDRESS
-            )), Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                None,
-                TMP116_ADDRESS + 1
-            )),
-                Tmp116::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                None,
-                TMP116_ADDRESS + 2
-            )),
+            let tmp116 = [
+                Tmp116::new(&devices::tmp117_front_zone1(task)),
+                Tmp116::new(&devices::tmp117_front_zone2(task)),
+                Tmp116::new(&devices::tmp117_front_zone3(task)),
+                Tmp116::new(&devices::tmp117_rear_zone1(task)),
+                Tmp116::new(&devices::tmp117_rear_zone2(task)),
+                Tmp116::new(&devices::tmp117_rear_zone3(task)),
             ];
 
-            const MAX31790_ADDRESS: u8 = 0x20;
-
-            let fctrl = Max31790::new(&I2cDevice::new(
-                task,
-                Controller::I2C4,
-                Port::F,
-                None,
-                MAX31790_ADDRESS,
-            ));
+            let fctrl = Max31790::new(&devices::max31790(task)[0]);
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
-                    let device = I2cDevice::mock(task);
-                    let fctrl = Max31790::new(&device);
-                    let tmp116 = [ Tmp116::new(&device) ];
+                    let fctrl = Max31790::new(&devices::mock(task));
+                    let tmp116: [Tmp116; 0] = [];
                 } else {
                     compile_error!("unknown board");
                 }

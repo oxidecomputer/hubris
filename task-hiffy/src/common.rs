@@ -1,6 +1,7 @@
+use hif::{Failure, Fault};
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "spi")] {
-        use hif::{Fault, Failure};
         use userlib::{sys_refresh_task_id, Generation, TaskId, NUM_TASKS};
     }
 }
@@ -15,6 +16,33 @@ where
     E: Into<u32>,
 {
     e.map_err(|e| hif::Failure::FunctionError(e.into()))
+}
+
+///
+/// Function to sleep(), which takes a single parameter: the number of
+/// milliseconds.  This is expected to be short:  if sleeping for any
+/// serious length of time, it should be done on the initiator side, not
+/// on the Hubris side.  (The purpose of this function is to allow for
+/// device-mandated sleeps to in turn for allow for bulk device operations.)
+///
+pub(crate) fn sleep(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 1;
+    let ms = match stack[fp] {
+        Some(ms) if ms > 0 && ms <= 100 => Ok(ms),
+        _ => Err(Failure::Fault(Fault::BadParameter(0))),
+    }?;
+
+    userlib::hl::sleep_for(ms.into());
+
+    Ok(0)
 }
 
 #[cfg(feature = "spi")]
@@ -219,6 +247,56 @@ pub(crate) fn qspi_read(
     let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.read(addr, out))?;
     Ok(len)
+}
+
+#[cfg(feature = "qspi")]
+pub(crate) fn qspi_verify(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_gimlet_hf_api as hf;
+
+    if stack.len() < 3 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 3..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+    let offset =
+        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+    let len =
+        frame[2].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+
+    if offset + len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    if len > rval.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let data = &data[offset..offset + len];
+    let out = &mut rval[..len];
+
+    let server = hf::HostFlash::from(HF.get_task_id());
+    func_err(server.read(addr, out))?;
+
+    let mut differ = false;
+
+    for i in 0..len {
+        if data[i] != out[i] {
+            differ = true;
+            break;
+        }
+    }
+
+    if differ {
+        rval[0] = 1;
+    } else {
+        rval[0] = 0;
+    }
+
+    Ok(1)
 }
 
 #[cfg(feature = "qspi")]

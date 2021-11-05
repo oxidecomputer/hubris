@@ -285,3 +285,115 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[config]
+
+[[config.i2c.controllers]]
+controller = 1
+
+[config.i2c.controllers.ports.B]
+name = "onboard"
+
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 8, 9 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 2
+target = true
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 3
+
+[[config.i2c.controllers.ports.H.pins]]
+pins = [ 7, 8 ]
+af = 4
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.D.pins]]
+pins = [ 12, 13 ]
+af = 4
+
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 14, 15 ]
+af = 4
+
+[[config.i2c.controllers.ports.F.muxes]]
+driver = "ltc4306"
+address = 0x44
+enable = { gpio_port = "G", pins = [ 0 ], af = 0 }
+
+[[config.i2c.controllers.ports.H.pins]]
+pins = [ 11, 12 ]
+af = 4
+
+[[config.i2c.devices]]
+device = "max31790"
+bus = "onboard"
+address = 0x20
+description = "Fan controller"
+
+[[config.i2c.devices]]
+device = "pca9555"
+bus = "onboard"
+address = 0x21
+description = "GPIO expander"
+
+[[config.i2c.devices]]
+device = "ina219"
+bus = "onboard"
+address = 0x40
+description = "Current sensor"
+
+[[config.i2c.devices]]
+device = "ina219"
+bus = "onboard"
+address = 0x41
+description = "Current sensor"
+
+[[config.i2c.devices]]
+device = "ltc4306"
+controller = 4
+port = "F"
+address = 0x44
+description = "Multiplexer"
+
+#
+# The following are devices for which Gemini BU has been or can be used as
+# a development or evaluation vehicle
+#
+[[config.i2c.devices]]
+device = "adm1272"
+controller = 4
+port = "F"
+mux = 1
+segment = 1
+address = 0x10
+description = "ADM1272 evaluation board"
+pmbus = { rails = [ "ADM_EVL_VOUT" ] }
+
+[[config.i2c.devices]]
+device = "isl68224"
+controller = 4
+port = "F"
+mux = 1
+segment = 3
+address = 0x60
+description = "ISL68224 evaluation board"
+pmbus = { rails = [ "ISL_EVL_VOUT0", "ISL_EVL_VOUT1", "ISL_EVL_VOUT2" ] }
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+controller = 4
+port = "F"
+mux = 1
+segment = 4
+address = 0x24
+description = "TPS546B24A evaluation board"
+pmbus = { rails = [ "TPS_EVL_VOUT" ] }
+
