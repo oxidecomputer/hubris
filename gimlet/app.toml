@@ -421,7 +421,7 @@ description = "Clock generator"
 bus = "mid"
 address = 0x5a
 device = "raa229618"
-description = "SoC power controller"
+description = "CPU power controller"
 pmbus = { rails = [ "VDD_MEM_ABCD", "VDD_VCORE" ] }
 refdes = "U350"
 
@@ -429,7 +429,7 @@ refdes = "U350"
 bus = "mid"
 address = 0x5b
 device = "raa229618"
-description = "CPU power controller"
+description = "SoC power controller"
 pmbus = { rails = [ "VDD_MEM_EFGH", "VDDCR_SOC" ] }
 refdes = "U351"
 
