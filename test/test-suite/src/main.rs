@@ -61,6 +61,7 @@ test_cases! {
     test_borrow_info,
     test_borrow_read,
     test_borrow_write,
+    test_borrow_invalid,
     test_supervisor_fault_notification,
     test_timer_advance,
     test_timer_notify,
@@ -603,6 +604,44 @@ fn test_borrow_write() {
             Ok(())
         },
     );
+}
+
+/// Tests the three borrow syscalls on a task that is not waiting in reply,
+/// which should return `DEFECT` but not cause either task to fault.
+fn test_borrow_invalid() {
+    let initial_id = assist_task_id();
+
+    // Helper function to confirm that the assist task hasn't restarted
+    let check_id = || {
+        // Confirm that the assist task hasn't crashed
+        let new_id = sys_refresh_task_id(initial_id);
+        assert_eq!(
+            new_id.index(),
+            initial_id.index(),
+            "should not change the task index"
+        );
+        assert_eq!(
+            new_id.generation(),
+            initial_id.generation(),
+            "generation should be unchanged"
+        );
+    };
+
+    // First, try getting borrow info (which shouldn't exist)
+    let (rc, _atts, _len) = sys_borrow_info(initial_id, 0);
+    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_info");
+    check_id();
+
+    // Next, attempt to do a non-existent borrow read
+    let mut buf = [0; 16];
+    let (rc, _n) = sys_borrow_read(initial_id, 0, 0, &mut buf);
+    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_read");
+    check_id();
+
+    // Finally, attempt to do a non-existent borrow read
+    let (rc, _n) = sys_borrow_write(initial_id, 0, 0, &mut buf);
+    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_write");
+    check_id();
 }
 
 /// Tests that faults in tasks are reported to the supervisor.
