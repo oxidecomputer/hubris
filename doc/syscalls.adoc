@@ -450,7 +450,8 @@ Collects information about one entry in a sender's lease table.
 
 ==== Return values
 
-- 0: response code (always zero)
+- 0: response code: zero on success, non-zero if something went wrong on the
+  sender side.
 - 1: attributes field (see `SEND` for definition of lease table attributes).
 - 2: length in bytes
 
