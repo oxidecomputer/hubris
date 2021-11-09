@@ -94,7 +94,7 @@ fn main() -> ! {
         } else if #[cfg(target_board = "gimletlet-2")] {
             // These should be whatever ports the dimmlets are plugged into
             const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_a(), None),
+                (Controller::I2C3, i2c3_c(), None),
                 (Controller::I2C4, i2c4_f(), None),
             ];
         } else if #[cfg(target_board = "gimlet-1")] {
