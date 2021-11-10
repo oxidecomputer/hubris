@@ -1,0 +1,5 @@
+[toolchain]
+channel = "nightly-2021-09-22"
+targets = [ "thumbv7em-none-eabihf", "thumbv8m.main-none-eabihf" ]
+profile = "minimal"
+components = [ "rustfmt" ]
