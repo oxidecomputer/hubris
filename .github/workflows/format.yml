@@ -36,13 +36,8 @@ jobs:
             mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
         shell: bash
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          # normally we would specify a toolchain here, but we have a
-          # rust-toolchain file, so that gets picked up automatically.
-          profile: minimal
-          override: true
-          components: rustfmt
+      - name: Install Rust toolchain
+        run: rustup show
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
