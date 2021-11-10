@@ -757,6 +757,7 @@ pre.rouge {
 <li><a href="#_panic_8">7.2.9. <code>PANIC</code> (8)</a></li>
 <li><a href="#sys_get_timer">7.2.10. <code>GET_TIMER</code> (9)</a></li>
 <li><a href="#_refresh_task_id_10">7.2.11. <code>REFRESH_TASK_ID</code> (10)</a></li>
+<li><a href="#_post_11">7.2.12. <code>POST</code> (11)</a></li>
 </ul>
 </li>
 </ul>
@@ -1252,7 +1253,7 @@ the <code>userlib</code> crate, and should "just work"&#8201;&#8212;&#8201;by th
 <ul>
 <li>
 <p>The task&#8217;s memory protection configuration in the kernel is left unchanged,
-since there are no APIs for changing a task&#8217;s memory protections.</p>
+since there are no APIs changing a task&#8217;s memory protections.</p>
 </li>
 <li>
 <p>It doesn&#8217;t initialize the task&#8217;s <code>data</code> or zero its <code>bss</code>. We leave this to
@@ -1668,7 +1669,7 @@ including memory from the caller&#8217;s stack.</p>
 <code>&amp;</code> or <code>&amp;mut</code> borrows, and checked for correctness at compile time.</p>
 </div>
 <div class="paragraph">
-<p>Each <code>send</code> can include up to 256 leases (currently&#8201;&#8212;&#8201;this number may be
+<p>Each <code>send</code> can include up to 255 leases (currently&#8201;&#8212;&#8201;this number may be
 reduced because what on earth do you need that many leases for).</p>
 </div>
 <div class="paragraph">
@@ -2296,8 +2297,7 @@ numbers that might be invalid or owned by someone else.</p>
 </div>
 <div class="paragraph">
 <p>Once the interrupt is unmasked, <code>pending</code> will cause the kernel ISR to fire,
-atomically clearing the <code>pending</code> bit and preempting some task code. The only
-things the ISR does are:</p>
+preempting some task code. The only things the ISR does are:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -2318,8 +2318,8 @@ the event and the next steps required, and then using <code>irq_control</code> t
 the interrupt again.</p>
 </div>
 <div class="paragraph">
-<p>In (slightly) simplified pseudocode, an interrupt handling task&#8217;s main loop
-looks something like this:</p>
+<p>In simplified pseudocode, an interrupt handling task&#8217;s main loop looks something
+like this:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -2339,10 +2339,10 @@ looks something like this:</p>
         <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span><span class="p">,</span>
     <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
 
-    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPTS</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="nd">MY_INTERRUPTS!</span><span class="o">=</span> <span class="mi">0</span> <span class="p">{</span>
         <span class="nf">do_interrupt_stuff</span><span class="p">();</span>
         <span class="c">// Unmask that interrupt so it can fire again.</span>
-        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span></code></pre>
 </div>
@@ -2464,7 +2464,7 @@ wraparound is hard.</p>
 </div>
 <div class="paragraph">
 <p>At periodic intervals (ticks), if the enable bit is set, the kernel checks the
-deadline to see if it is in the future. If not (it is <code>&lt;=</code> the current time),
+deadline to see if it is in the future. If not (it is <code>&#8656;</code> the current time),
 the kernel will</p>
 </div>
 <div class="ulist">
@@ -3514,7 +3514,8 @@ opportunity to induce faults in shared servers, which would be bad.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>0: response code (always zero)</p>
+<p>0: response code: zero on success, non-zero if something went wrong on the
+sender side.</p>
 </li>
 <li>
 <p>1: attributes field (see <code>SEND</code> for definition of lease table attributes).</p>
@@ -3760,6 +3761,73 @@ valid TaskId to redeem it for a new one.</p>
 </table>
 </div>
 </div>
+<div class="sect3">
+<h4 id="_post_11">7.2.12. <code>POST</code> (11)</h4>
+<div class="paragraph">
+<p>Accumulates a set of notification bits into another task&#8217;s notification word
+using bitwise OR. This enables a simple inter-task asynchronous communication
+mechanism. See <a href="#notifications">Notifications: the <em>other</em> IPC mechanism</a> for more information on the mechanism.</p>
+</div>
+<div class="sect4">
+<h5 id="_arguments_12">Arguments</h5>
+<div class="ulist">
+<ul>
+<li>
+<p>0: task ID (in low 16 bits)</p>
+</li>
+<li>
+<p>1: bits to OR in</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_return_values_12">Return values</h5>
+<div class="ulist">
+<ul>
+<li>
+<p>0: zero on success, dead code on generation mismatch.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_faults_11">Faults</h5>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Condition</th>
+<th class="tableblock halign-left valign-top">Fault taken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Recipient task index greater than the (static) number of tasks in the entire
+  system.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>TaskOutOfRange</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect4">
+<h5 id="_notes_10">Notes</h5>
+<div class="paragraph">
+<p>If the task generation is wrong, the caller will receive a dead code (see
+<a href="#death">Death and IPC</a>) and no notification will be posted.</p>
+</div>
+<div class="paragraph">
+<p>If the task being notified is higher priority, and the notification causes it
+to wake, control will immediately transfer to the higher priority task. This
+will be returned as "success" to the caller, because the notification was
+successfully delivered, even if the higher priority task subsequently crashes
+before the caller gets another chance to run.</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -3864,7 +3932,7 @@ generation numbers right.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_10">Notes</h5>
+<h5 id="_notes_11">Notes</h5>
 <div class="paragraph">
 <p>See the <code>abi</code> crate for the definition of <code>TaskState</code> that matches your kernel.
 Here is a representative example at the time of this writing:</p>
@@ -3971,7 +4039,7 @@ IPC will never complete.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_11">Notes</h5>
+<h5 id="_notes_12">Notes</h5>
 <div class="paragraph">
 <p>If a task asks to reinit <em>itself,</em> the kernel mumbles "alright, your funeral"
 and reinits the caller. Given that <code>reinit_task</code> is intended to be restricted to
@@ -4024,7 +4092,7 @@ and given a "dead code" to indicate that the IPC will never complete.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_12">Notes</h5>
+<h5 id="_notes_13">Notes</h5>
 <div class="paragraph">
 <p>As with <code>reinit_task</code>, it is possible for a task to use <code>fault_task</code> to fault
 <em>itself.</em> This is an odd thing to do.</p>
@@ -5198,7 +5266,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-10-22 10:24:06 -0700
+Last updated 2021-10-28 13:05:25 -0700
 </div>
 </div>
 </body>
