@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 fixedmap = {path = "../../fixedmap"}
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 ringbuf = {path = "../../ringbuf"}
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
@@ -19,8 +19,8 @@ cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0" }
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
-build-i2c = {path = "../../build-i2c"}
+build-util = {path = "../../build/util"}
+build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
 cfg-if = "0.1.10"
 

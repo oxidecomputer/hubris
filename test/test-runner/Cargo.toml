@@ -5,7 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 test-api = {path = "../test-api"}
 cortex-m = "0.7"
 zerocopy = "0.3.0"

@@ -5,7 +5,7 @@ authors = ["Your Name Here <anonymous@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../userlib"}
+userlib = {path = "../sys/userlib"}
 
 [features]
 default = ["standalone"]

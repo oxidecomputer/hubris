@@ -34,7 +34,7 @@ version = "0.13.0"
 optional = true
 
 [dependencies.kern]
-path = "../kern"
+path = "../sys/kern"
 default-features = false
 
 # this lets you use `cargo fix`!

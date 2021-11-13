@@ -5,7 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 ringbuf = {path = "../../ringbuf"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
@@ -18,7 +18,7 @@ stm32h7 = { version = "0.13.0", default-features = false }
 cfg-if = "0.1.10"
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
+build-util = {path = "../../build/util"}
 
 [features]
 default = ["standalone"]

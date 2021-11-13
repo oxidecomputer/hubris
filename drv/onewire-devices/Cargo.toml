@@ -5,7 +5,7 @@ authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-onewire = {path = "../onewire"}

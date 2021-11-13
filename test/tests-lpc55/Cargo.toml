@@ -22,7 +22,7 @@ lpc55-pac = "0.3.0"
 cfg-if = "0.1.10"
 
 [dependencies.kern]
-path = "../../kern"
+path = "../../sys/kern"
 default-features = false
 
 # a target for `cargo xtask check`

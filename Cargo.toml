@@ -2,12 +2,17 @@ cargo-features = ["resolver"]
 
 [workspace]
 members = [
-    "build-util",
-    "xtask",
+    "build/i2c",
+    "build/util",
+    "build/xtask",
+
+    "sys/abi",
+    "sys/kern",
+    "sys/userlib",
+
     "membar",
     "gnarle",
 
-    "abi",
     "demo",
     "demo-stm32h7",
     "gemini-bu",
@@ -16,9 +21,7 @@ members = [
     "gimlet-rot",
     "gimletlet",
     "lpc55",
-    "kern",
     "ringbuf",
-    "userlib",
     "sidecar",
     "stage0",
     "hypocalls",

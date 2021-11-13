@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-spi = {path = "../stm32h7-spi", default-features = false }
@@ -19,7 +19,7 @@ cfg-if = "0.1.10"
 gnarle = {path = "../../gnarle"}
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
+build-util = {path = "../../build/util"}
 gnarle = {path = "../../gnarle"}
 
 [features]

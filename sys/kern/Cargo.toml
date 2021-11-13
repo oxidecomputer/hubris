@@ -25,7 +25,7 @@ ssmarshal = { version = "1.0.0", default-features = false }
 target = "thumbv7em-none-eabihf"
 
 [build-dependencies]
-build-util = {path = "../build-util"}
+build-util = {path = "../../build/util"}
 
 [lib]
 test = false

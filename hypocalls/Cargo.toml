@@ -9,7 +9,7 @@ default = ["standalone"]
 standalone = []
 
 [dependencies]
-abi = {path = "../abi"}
+abi = {path = "../sys/abi"}
 serde = { version = "1.0.114", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 zerocopy = "0.3.0"

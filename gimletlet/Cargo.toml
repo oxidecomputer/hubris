@@ -22,11 +22,11 @@ cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0", default-features = false, features = ["rt", "stm32h753"] }
 
 [dependencies.kern]
-path = "../kern"
+path = "../sys/kern"
 default-features = false
 
 [build-dependencies]
-build-util = {path = "../build-util"}
+build-util = {path = "../build/util"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]

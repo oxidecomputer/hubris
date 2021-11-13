@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 stm32h7 = { version = "0.13.0", default-features = false }
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", default-features = false}
@@ -17,7 +17,7 @@ drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
+build-util = {path = "../../build/util"}
 
 [features]
 default = ["standalone"]

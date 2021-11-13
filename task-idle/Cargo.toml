@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 # suppress default features to avoid including panic message collection, to
 # ensure the idle task remains tiny.
-userlib = {path = "../userlib", default-features = false}
+userlib = {path = "../sys/userlib", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [features]

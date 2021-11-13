@@ -8,7 +8,7 @@ edition = "2018"
 target = "thumbv7em-none-eabihf"
 
 [dependencies]
-userlib = {path = "../userlib", default-features = false}
+userlib = {path = "../sys/userlib", default-features = false}
 ringbuf = {path = "../ringbuf" }
 drv-i2c-api = {path = "../drv/i2c-api"}
 cortex-m = "0.7"
@@ -20,8 +20,8 @@ drv-onewire = {path = "../drv/onewire"}
 drv-onewire-devices = {path = "../drv/onewire-devices"}
 
 [build-dependencies]
-build-util = {path = "../build-util"}
-build-i2c = {path = "../build-i2c"}
+build-util = {path = "../build/util"}
+build-i2c = {path = "../build/i2c"}
 anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
