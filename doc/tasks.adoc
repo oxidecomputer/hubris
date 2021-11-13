@@ -6,6 +6,41 @@ _tasks._ Tasks are programs that run in the processor's _unprivileged mode,_
 subject to memory isolation. This means that tasks cannot directly stomp on
 memory owned by the kernel, or each other.
 
+== A brief note on priorities
+
+Tasks have priorities, which are currently fixed at build time. These are small
+integers.
+
+Priorities are numbered in a way that may feel backwards: 0 is the highest
+priority, 1 is the next highest, and so forth. In general, when we talk about
+something being "higher priority," we mean its priority number is numerically
+smaller.
+
+== Scheduling
+
+The kernel is responsible for scheduling tasks by swapping between them as
+needed. At any given time, one task has control of the CPU, and the others are
+_blocked._
+
+Hubris uses a strict priority scheduling method: the kernel ensures that, at any
+given time, the highest-priority task that is ready to run has control of the
+CPU. If that task becomes ready while another task is running -- say, due to an
+interrupt -- the kernel will preempt the lower priority task and switch to the
+higher priority task.
+
+Within a single priority level, multitasking is effectively cooperative: the
+kernel will never interrupt a task to switch to another task of equal or lower
+priority, until that task performs an operation that yields the CPU, such as
+sending a message or blocking to receive messages that haven't arrived yet. The
+alternative to this is to implement _time-slicing,_ where a task gets a fixed
+amount of time before another task at the same priority will have the
+opportunity to run; we chose not to implement this.
+
+Priority levels in Hubris are effectively unlimited (currently, there are up to
+256 of them), and using more levels has no runtime cost -- so, if the absence of
+time-slicing is a problem for your application, you can use a single task per
+priority level and get full preemption.
+
 == Separate compilation
 
 Tasks are _separately compiled_ and do not share code. This is both good and
