@@ -259,7 +259,7 @@ pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
         )
         .context(format!("failed to generate linker script for {}", name))?;
 
-        fs::copy("task-link.x", "target/link.x")?;
+        fs::copy("build/task-link.x", "target/link.x")?;
 
         build(
             &toml.target,
