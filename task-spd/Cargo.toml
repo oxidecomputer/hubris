@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../sys/userlib"}
-ringbuf = {path = "../ringbuf"}
-spd = {path = "../spd" }
+ringbuf = {path = "../lib/ringbuf"}
+spd = {path = "../lib/spd" }
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api", default-features = false}
 drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api", default-features = false}

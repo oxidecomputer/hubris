@@ -10,7 +10,7 @@ edition = "2018"
 disabled = []
 
 [dependencies]
-userlib = {path = "../sys/userlib"}
+userlib = {path = "../../sys/userlib"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]

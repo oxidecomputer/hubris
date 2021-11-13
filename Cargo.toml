@@ -10,8 +10,15 @@ members = [
     "sys/kern",
     "sys/userlib",
 
+    "lib/fixedmap",
+    "lib/gnarle",
+    "lib/hif",
+    "lib/hypocalls",
+    "lib/pmbus",
+    "lib/ringbuf",
+    "lib/spd",
+
     "membar",
-    "gnarle",
 
     "demo",
     "demo-stm32h7",
@@ -21,10 +28,8 @@ members = [
     "gimlet-rot",
     "gimletlet",
     "lpc55",
-    "ringbuf",
     "sidecar",
     "stage0",
-    "hypocalls",
     "lpc55_romapi",
 
     "task-template",
