@@ -8,8 +8,8 @@ edition = "2018"
 
 [dependencies]
 cortex-m = "0.7"
-userlib = {path = "../sys/userlib"}
-drv-user-leds-api = {path = "../drv/user-leds-api"}
+userlib = {path = "../../sys/userlib"}
+drv-user-leds-api = {path = "../../drv/user-leds-api"}
 
 [features]
 default = ["standalone"]

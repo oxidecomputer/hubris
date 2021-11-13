@@ -1,16 +1,14 @@
 [package]
-name = "task-spam"
+name = "task-idle"
 version = "0.1.0"
 authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
 # suppress default features to avoid including panic message collection, to
-# ensure the spam task remains tiny.
-userlib = {path = "../sys/userlib", default-features = false}
-cortex-m-semihosting = "0.3.5"
-zerocopy = "0.3.0"
-lpc55-pac = "0.3.0"
+# ensure the idle task remains tiny.
+userlib = {path = "../../sys/userlib", default-features = false}
+cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [features]
 default = ["standalone"]
@@ -23,6 +21,6 @@ target = "thumbv7em-none-eabihf"
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "task-spam"
+name = "task-idle"
 test = false
 bench = false

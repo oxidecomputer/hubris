@@ -38,7 +38,7 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../task-jefe"
+path = "../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 2048}
@@ -119,7 +119,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.spd]
-path = "../task-spd"
+path = "../task/spd"
 name = "task-spd"
 features = ["h753", "itm"]
 priority = 2
@@ -137,7 +137,7 @@ gpio_driver = "gpio_driver"
 i2c_driver = "i2c_driver"
 
 [tasks.thermal]
-path = "../task-thermal"
+path = "../task/thermal"
 name = "task-thermal"
 features = ["itm", "h753"]
 priority = 3
@@ -149,7 +149,7 @@ start = true
 i2c_driver = "i2c_driver"
 
 [tasks.hiffy]
-path = "../task-hiffy"
+path = "../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
 priority = 3
@@ -190,7 +190,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.idle]
-path = "../task-idle"
+path = "../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}

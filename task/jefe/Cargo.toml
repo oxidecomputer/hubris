@@ -5,9 +5,9 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-abi = {path = "../sys/abi"}
-userlib = {path = "../sys/userlib" }
-ringbuf = {path = "../lib/ringbuf" }
+abi = {path = "../../sys/abi"}
+userlib = {path = "../../sys/userlib" }
+ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.3.0"
 cortex-m = { version = "0.7", features = ["inline-asm"] }

@@ -38,7 +38,7 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../task-jefe"
+path = "../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 2048}
@@ -110,7 +110,7 @@ start = true
 gpio_driver = "gpio_driver"
 
 [tasks.pong]
-path = "../task-pong"
+path = "../task/pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
@@ -120,7 +120,7 @@ start = true
 user_leds = "user_leds"
 
 [tasks.ping]
-path = "../task-ping"
+path = "../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
@@ -133,7 +133,7 @@ peer = "pong"
 usart_driver = "usart_driver"
 
 [tasks.hiffy]
-path = "../task-hiffy"
+path = "../task/hiffy"
 name = "task-hiffy"
 features = ["h7b3", "stm32h7", "itm", "i2c"]
 priority = 3
@@ -144,7 +144,7 @@ start = true
 i2c_driver = "i2c_driver"
 
 [tasks.idle]
-path = "../task-idle"
+path = "../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}

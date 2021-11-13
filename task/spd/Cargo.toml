@@ -5,22 +5,22 @@ authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../sys/userlib"}
-ringbuf = {path = "../lib/ringbuf"}
-spd = {path = "../lib/spd" }
+userlib = {path = "../../sys/userlib"}
+ringbuf = {path = "../../lib/ringbuf"}
+spd = {path = "../../lib/spd" }
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32h7-gpio-api = {path = "../drv/stm32h7-gpio-api", default-features = false}
-drv-stm32h7-rcc-api = {path = "../drv/stm32h7-rcc-api", default-features = false}
-drv-stm32h7-i2c = {path = "../drv/stm32h7-i2c", default-features = false}
-drv-i2c-api = {path = "../drv/i2c-api", default-features = false}
+drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api", default-features = false}
+drv-stm32h7-rcc-api = {path = "../../drv/stm32h7-rcc-api", default-features = false}
+drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", default-features = false}
+drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m-semihosting = "0.3.5"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0", default-features = false }
 
 [build-dependencies]
-build-util = {path = "../build/util"}
-build-i2c = {path = "../build/i2c"}
+build-util = {path = "../../build/util"}
+build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
