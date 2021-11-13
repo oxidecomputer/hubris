@@ -40,12 +40,12 @@ execute = false
 
 [signing.combined]
 method = "ecc"
-priv-key = "../../fake_certs/p256-private-key.der"
+priv-key = "../../support/fake_certs/p256-private-key.der"
 
 [signing.bootloader]
 method = "rsa"
-priv-key = "../../fake_certs/fake_private_key.pem"
-root-cert = "../../fake_certs/fake_certificate.der.crt"
+priv-key = "../../support/fake_certs/fake_private_key.pem"
+root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 
 
 [bootloader]
