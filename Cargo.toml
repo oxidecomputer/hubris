@@ -30,7 +30,6 @@ members = [
     "lpc55",
     "sidecar",
     "stage0",
-    "lpc55_romapi",
 
     "task-template",
 
@@ -57,6 +56,7 @@ members = [
     "drv/stm32h7-i2c-server",
     "drv/stm32h7-qspi",
 
+    "drv/lpc55-romapi",
     "drv/lpc55-syscon",
     "drv/lpc55-syscon-api",
     "drv/lpc55-iocon-gen",
