@@ -38,7 +38,7 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../task/jefe"
+path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 2048}
@@ -47,7 +47,7 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.rcc_driver]
-path = "../drv/stm32h7-rcc"
+path = "../../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
 features = ["h753"]
 priority = 1
@@ -56,7 +56,7 @@ uses = ["rcc"]
 start = true
 
 [tasks.gpio_driver]
-path = "../drv/stm32h7-gpio"
+path = "../../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
 features = ["h753"]
 priority = 2
@@ -68,7 +68,7 @@ start = true
 rcc_driver = "rcc_driver"
 
 [tasks.spi4_driver]
-path = "../drv/stm32h7-spi-server"
+path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 4096}
@@ -83,7 +83,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.spi2_driver]
-path = "../drv/stm32h7-spi-server"
+path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 4096}
@@ -98,7 +98,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.i2c_driver]
-path = "../drv/stm32h7-i2c-server"
+path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
@@ -119,7 +119,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.spd]
-path = "../task/spd"
+path = "../../task/spd"
 name = "task-spd"
 features = ["h753", "itm"]
 priority = 2
@@ -137,7 +137,7 @@ gpio_driver = "gpio_driver"
 i2c_driver = "i2c_driver"
 
 [tasks.thermal]
-path = "../task/thermal"
+path = "../../task/thermal"
 name = "task-thermal"
 features = ["itm", "h753"]
 priority = 3
@@ -149,7 +149,7 @@ start = true
 i2c_driver = "i2c_driver"
 
 [tasks.hiffy]
-path = "../task/hiffy"
+path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
 priority = 3
@@ -162,7 +162,7 @@ hf = "hf"
 i2c_driver = "i2c_driver"
 
 [tasks.gimlet_seq]
-path = "../drv/gimlet-seq-server"
+path = "../../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
 priority = 3
@@ -175,7 +175,7 @@ gpio_driver = "gpio_driver"
 spi_driver = "spi2_driver"
 
 [tasks.hf]
-path = "../drv/gimlet-hf-server"
+path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
@@ -190,7 +190,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.idle]
-path = "../task/idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}

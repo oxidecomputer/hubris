@@ -32,7 +32,7 @@ target = "thumbv8m.main-none-eabihf"
 # this lets you use `cargo fix`!
 [[bin]]
 name = "tests-lpc55"
-path = "../../lpc55/src/main.rs"
+path = "../../app/lpc55xpresso/src/main.rs"
 test = false
 bench = false
 

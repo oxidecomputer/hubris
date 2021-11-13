@@ -1,16 +1,19 @@
 [package]
-authors = ["Rick Altherr <rick@oxide.computer>"]
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
-name = "gemini-bu-rot"
+name = "demo-stm32f4-discovery"
 version = "0.1.0"
 
 [features]
 default = ["standalone"]
-standalone = ["itm"]
+standalone = ["itm", "stm32f4"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
-plls = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
 
 [dependencies]
 cortex-m = "0.7"
@@ -19,19 +22,23 @@ cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
-lpc55-pac = "0.3.0"
-cfg-if = "0.1.10"
+
+[dependencies.stm32f3]
+features = ["stm32f303", "rt"]
+version = "0.13.0"
+optional = true
+
+[dependencies.stm32f4]
+features = ["stm32f407", "rt"]
+version = "0.13.0"
+optional = true
 
 [dependencies.kern]
-path = "../sys/kern"
+path = "../../sys/kern"
 default-features = false
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
- 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "gemini-bu-rot"
+name = "demo-stm32f4-discovery"
 test = false
 bench = false

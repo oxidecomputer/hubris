@@ -38,7 +38,7 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../task/jefe"
+path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 2048}
@@ -47,7 +47,7 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.rcc_driver]
-path = "../drv/stm32h7-rcc"
+path = "../../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
 features = ["h753"]
 priority = 1
@@ -56,7 +56,7 @@ uses = ["rcc"]
 start = true
 
 [tasks.gpio_driver]
-path = "../drv/stm32h7-gpio"
+path = "../../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
 features = ["h753"]
 priority = 2
@@ -68,7 +68,7 @@ start = true
 rcc_driver = "rcc_driver"
 
 [tasks.i2c_driver]
-path = "../drv/stm32h7-i2c-server"
+path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
@@ -91,7 +91,7 @@ gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.hiffy]
-path = "../task/hiffy"
+path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio"]
 priority = 3
@@ -103,7 +103,7 @@ gpio_driver = "gpio_driver"
 i2c_driver = "i2c_driver"
 
 [tasks.idle]
-path = "../task/idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}

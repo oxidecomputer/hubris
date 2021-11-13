@@ -4,7 +4,7 @@ board = "lpcxpresso55s69"
 stacksize = 2048
 
 [kernel]
-path = "../../lpc55"
+path = "../../app/lpc55xpresso"
 name = "lpc55"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]

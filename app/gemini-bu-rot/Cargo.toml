@@ -1,8 +1,8 @@
 [package]
-authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+authors = ["Rick Altherr <rick@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
-name = "gemini-bu"
+name = "gemini-bu-rot"
 version = "0.1.0"
 
 [features]
@@ -10,30 +10,28 @@ default = ["standalone"]
 standalone = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+plls = []
 
 [dependencies]
-cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m = "0.7"
 cortex-m-rt = "0.6.12"
 cortex-m-semihosting = "0.3.5"
 panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
+lpc55-pac = "0.3.0"
 cfg-if = "0.1.10"
-stm32h7 = { version = "0.13.0", default-features = false, features = ["rt", "stm32h753"] }
 
 [dependencies.kern]
-path = "../sys/kern"
+path = "../../sys/kern"
 default-features = false
-
-[build-dependencies]
-build-util = {path = "../build/util"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
+target = "thumbv8m.main-none-eabihf"
+ 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "gemini-bu"
+name = "gemini-bu-rot"
 test = false
 bench = false

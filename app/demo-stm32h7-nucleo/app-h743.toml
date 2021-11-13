@@ -1,11 +1,11 @@
-name = "demo-stm32h7b3"
+name = "demo-stm32h743-nucleo"
 target = "thumbv7em-none-eabihf"
-board = "stm32h7b3i-dk"
+board = "nucleo-h743zi2"
 stacksize = 1024
 
 [kernel]
 path = "."
-name = "demo-stm32h7"
+name = "demo-stm32h7-nucleo"
 requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
@@ -17,7 +17,7 @@ requires = {flash = 32768, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["h7b3", "itm"]
+features = ["h743", "itm"]
 
 [supervisor]
 notification = 1
@@ -38,7 +38,7 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../task/jefe"
+path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 16384, ram = 2048}
@@ -47,18 +47,18 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.rcc_driver]
-path = "../drv/stm32h7-rcc"
+path = "../../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
-features = ["h7b3"]
+features = ["h743"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
 [tasks.gpio_driver]
-path = "../drv/stm32h7-gpio"
+path = "../../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
-features = ["h7b3"]
+features = ["h743"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
@@ -68,38 +68,62 @@ start = true
 rcc_driver = "rcc_driver"
 
 [tasks.usart_driver]
-path = "../drv/stm32h7-usart"
+path = "../../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
-features = ["h7b3"]
+features = ["h743"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
-uses = ["usart1"]
+uses = ["usart3"]
 start = true
-interrupts = {37 = 1}
+interrupts = {39 = 1}
 
 [tasks.usart_driver.task-slots]
 gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
 [tasks.i2c_driver]
-path = "../drv/stm32h7-i2c-server"
+path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
-features = ["h7b3"]
+features = ["h743"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 start = true
 
 [tasks.i2c_driver.interrupts]
-95 = 0b0000_1000        # I2C4 event
-96 = 0b0000_1000        # I2C4 error
+33 = 0b0000_0010        # I2C2 event
+34 = 0b0000_0010        # I2C2 error
 
 [tasks.i2c_driver.task-slots]
 gpio_driver = "gpio_driver"
 rcc_driver = "rcc_driver"
 
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
+[tasks.spi_driver]
+path = "../../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["spi3", "h743"]
+uses = ["spi3"]
+start = true
+interrupts = {51 = 1}
+stacksize = 1000
+
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.user_leds]
-path = "../drv/user-leds"
+path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
@@ -110,7 +134,7 @@ start = true
 gpio_driver = "gpio_driver"
 
 [tasks.pong]
-path = "../task/pong"
+path = "../../task/pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
@@ -119,32 +143,37 @@ start = true
 [tasks.pong.task-slots]
 user_leds = "user_leds"
 
-[tasks.ping]
-path = "../task/ping"
-name = "task-ping"
-features = ["uart"]
-priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
-start = true
-
-[tasks.ping.task-slots]
-peer = "pong"
-usart_driver = "usart_driver"
-
 [tasks.hiffy]
-path = "../task/hiffy"
+path = "../../task/hiffy"
 name = "task-hiffy"
-features = ["h7b3", "stm32h7", "itm", "i2c"]
+features = ["h743", "stm32h7", "itm", "i2c", "gpio", "qspi"]
 priority = 3
-requires = {flash = 32768, ram = 16384 }
+requires = {flash = 32768, ram = 32768 }
+stacksize = 2048
 start = true
 
 [tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+hf = "hf"
 i2c_driver = "i2c_driver"
 
+[tasks.hf]
+path = "../../drv/gimlet-hf-server"
+name = "drv-gimlet-hf-server"
+features = ["h743"]
+priority = 3
+requires = {flash = 16384, ram = 8192 }
+stacksize = 2048
+start = true
+uses = ["quadspi"]
+interrupts = {92 = 1}
+
+[tasks.hf.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
 [tasks.idle]
-path = "../task/idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}
@@ -167,8 +196,32 @@ size = 0x0800
 address = 0x58022800
 size = 0x0400
 
-[peripherals.usart1]
-address = 0x40011000
+[peripherals.spi1]
+address = 0x40013000
+size = 1024
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi3]
+address = 0x40003c00
+size = 1024
+
+[peripherals.spi4]
+address = 0x40013400
+size = 1024
+
+[peripherals.spi5]
+address = 0x40015000
+size = 1024
+
+[peripherals.spi6]
+address = 0x58001400
+size = 1024
+
+[peripherals.usart3]
+address = 0x40004800
 size = 1024
 
 [peripherals.i2c1]
@@ -187,12 +240,23 @@ size = 1024
 address = 0x58001c00
 size = 1024
 
+[peripherals.quadspi]
+address = 0x52005000
+size = 4096
+
 [config]
 
 [[config.i2c.controllers]]
-controller = 4
+controller = 2
 
-[[config.i2c.controllers.ports.D.pins]]
-pins = [ 12, 13 ]
+[[config.i2c.controllers.ports.F.pins]]
+pins = [ 0, 1 ]
 af = 4
+
+#
+# To use the Nucleo board as an SPD initiator, uncomment the following:
+#
+# [[config.i2c.controllers.ports.F.muxes]]
+# driver = "ltc4306"
+# address = 0b1001_010
 

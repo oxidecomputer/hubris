@@ -11,8 +11,8 @@ features = ["itm"]
 
 [signing.combined]
 method = "rsa"
-priv-key = "../support/fake_certs/fake_private_key.pem"
-root-cert = "../support/fake_certs/fake_certificate.der.crt"
+priv-key = "../../support/fake_certs/fake_private_key.pem"
+root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 
 [supervisor]
 notification = 1
@@ -31,7 +31,7 @@ write = true
 execute = true
 
 [tasks.jefe]
-path = "../task/jefe"
+path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 4096}
@@ -40,7 +40,7 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.hiffy]
-path = "../task/hiffy"
+path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
 features = ["lpc55", "gpio"]
@@ -52,7 +52,7 @@ start = true
 gpio_driver = "gpio_driver"
 
 [tasks.idle]
-path = "../task/idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}
@@ -60,7 +60,7 @@ stacksize = 256
 start = true
 
 [tasks.syscon_driver]
-path = "../drv/lpc55-syscon"
+path = "../../drv/lpc55-syscon"
 name = "drv-lpc55-syscon"
 priority = 2
 requires = {flash = 16384, ram = 1024}
@@ -68,7 +68,7 @@ uses = ["syscon", "anactrl", "pmc"]
 start = true
 
 [tasks.gpio_driver]
-path = "../drv/lpc55-gpio"
+path = "../../drv/lpc55-gpio"
 name = "drv-lpc55-gpio"
 priority = 2
 requires = {flash = 16384, ram = 1024}
@@ -79,7 +79,7 @@ start = true
 syscon_driver = "syscon_driver"
 
 [tasks.usart_driver]
-path = "../drv/lpc55-usart"
+path = "../../drv/lpc55-usart"
 name = "drv-lpc55-usart"
 priority = 2
 requires = {flash = 16384, ram = 1024}
@@ -92,7 +92,7 @@ gpio_driver = "gpio_driver"
 syscon_driver = "syscon_driver"
 
 [tasks.spi_driver]
-path = "../drv/lpc55-spi-server"
+path = "../../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 1024}

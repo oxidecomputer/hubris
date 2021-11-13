@@ -18,16 +18,15 @@ members = [
     "lib/ringbuf",
     "lib/spd",
 
-    "demo",
-    "demo-stm32h7",
-    "gemini-bu",
-    "gemini-bu-rot",
-    "gimlet",
-    "gimlet-rot",
-    "gimletlet",
-    "lpc55",
-    "sidecar",
-    "stage0",
+    "app/demo-stm32f4-discovery",
+    "app/demo-stm32h7-nucleo",
+    "app/gemini-bu",
+    "app/gemini-bu-rot",
+    "app/gimlet",
+    "app/gimlet-rot",
+    "app/gimletlet",
+    "app/lpc55xpresso",
+    "app/sidecar",
 
     "task/template",
 
@@ -83,6 +82,7 @@ members = [
     "test/test-suite",
 
     "support/lpc55",
+    "stage0",
 ]
 default-members = []
 resolver = "2"

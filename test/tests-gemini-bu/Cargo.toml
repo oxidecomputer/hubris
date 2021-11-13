@@ -36,6 +36,6 @@ target = "thumbv7em-none-eabihf"
 # this lets you use `cargo fix`!
 [[bin]]
 name = "tests-gemini-bu"
-path = "../../gemini-bu/src/main.rs"
+path = "../../app/gemini-bu/src/main.rs"
 test = false
 bench = false

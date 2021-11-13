@@ -4,7 +4,7 @@ board = "gemini-bu-rot-1"
 stacksize = 1400
 
 [kernel]
-path = "../../gemini-bu-rot"
+path = "../../app/gemini-bu-rot"
 name = "gemini-bu-rot"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]

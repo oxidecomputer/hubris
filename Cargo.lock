@@ -445,7 +445,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76fbd10dce159c002b9c688ae8ab7cd531151e185e0ad360f4bfea3b0eede3a8"
 
 [[package]]
-name = "demo"
+name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
@@ -460,7 +460,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "demo-stm32h7"
+name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
@@ -1311,21 +1311,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lpc55"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
-]
-
-[[package]]
 name = "lpc55-iocon-gen"
 version = "0.1.0"
 dependencies = [
@@ -1372,6 +1357,21 @@ dependencies = [
  "parse_int",
  "serialport",
  "structopt",
+]
+
+[[package]]
+name = "lpc55xpresso"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
 ]
 
 [[package]]

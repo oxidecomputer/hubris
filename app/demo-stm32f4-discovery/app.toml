@@ -1,11 +1,11 @@
-name = "demo"
+name = "demo-stm32f4-discovery"
 target = "thumbv7em-none-eabihf"
 board = "stm32f4-discovery"
 stacksize = 1024
 
 [kernel]
-path = "../demo"
-name = "demo"
+path = "."
+name = "demo-stm32f4-discovery"
 requires = {flash = 65536, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
@@ -36,7 +36,7 @@ write = true
 execute = true
 
 [tasks.jefe]
-path = "../task/jefe"
+path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 32768, ram = 2048}
@@ -45,7 +45,7 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.rcc_driver]
-path = "../drv/stm32fx-rcc"
+path = "../../drv/stm32fx-rcc"
 name = "drv-stm32fx-rcc"
 features = ["f4"]
 priority = 1
@@ -54,7 +54,7 @@ uses = ["rcc"]
 start = true
 
 [tasks.usart_driver]
-path = "../drv/stm32fx-usart"
+path = "../../drv/stm32fx-usart"
 name = "drv-stm32fx-usart"
 features = ["stm32f4"]
 priority = 2
@@ -67,7 +67,7 @@ interrupts = {38 = 1}
 rcc_driver = "rcc_driver"
 
 [tasks.user_leds]
-path = "../drv/user-leds"
+path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32f4"]
 priority = 2
@@ -79,7 +79,7 @@ start = true
 rcc_driver = "rcc_driver"
 
 [tasks.ping]
-path = "../task/ping"
+path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
@@ -92,7 +92,7 @@ peer = "pong"
 usart_driver = "usart_driver"
 
 [tasks.pong]
-path = "../task/pong"
+path = "../../task/pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
@@ -102,7 +102,7 @@ start = true
 user_leds = "user_leds"
 
 [tasks.hiffy]
-path = "../task/hiffy"
+path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
 features = ["stm32f4"]
@@ -111,7 +111,7 @@ stacksize = 2048
 start = true
 
 [tasks.idle]
-path = "../task/idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 256, ram = 256}

@@ -4,7 +4,7 @@ board = "gemini-bu-1"
 stacksize = 2048
 
 [kernel]
-path = "../../gemini-bu"
+path = "../../app/gemini-bu"
 name = "gemini-bu"
 requires = {flash = 32768, ram = 4096}
 #
