@@ -7,6 +7,36 @@ use std::process::Command;
 
 use anyhow::{bail, Result};
 
+fn get_custom_target(pkg_name: &str) -> Option<String> {
+    use cargo_metadata::MetadataCommand;
+    use serde::Deserialize;
+
+    let metadata = MetadataCommand::new()
+        .exec()
+        .expect("unable to get Cargo metadata");
+    let package = metadata
+        .packages
+        .iter()
+        .find(|p| p.name == pkg_name)
+        .unwrap()
+        .clone();
+
+    #[derive(Debug, Deserialize)]
+    struct CustomMetadata {
+        build: Option<BuildMetadata>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct BuildMetadata {
+        target: Option<String>,
+    }
+
+    let m: Option<CustomMetadata> =
+        serde_json::from_value(package.metadata).unwrap();
+
+    m?.build?.target
+}
+
 pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     let package = package.unwrap_or_else(|| {
         let path = env::current_dir().unwrap();
@@ -21,6 +51,8 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
             .expect("Couldn't find [package.name]; pass -p <package> to check a specific package or --all to check all packages")
             .to_string()
     });
+
+    let target = target.or_else(|| get_custom_target(&package));
 
     println!("checking: {}", package);
 
