@@ -8,8 +8,45 @@ RFD41, but has evolved considerably since then.
 
 # Learning
 
-We have some documentation in disjointed files in the `doc/` directory. This
-file gives quick-start information.
+Developer documentation is in Asciidoc in the `doc/` directory. It gets rendered
+via GitHub pages, and is available at https://oxidecomputer.github.io/hubris .
+
+# Navigating
+
+The repo is laid out as follows.
+
+- `app/` is where the top-level binary crates for applications live, e.g.
+  `app/gimlet` contains the firmware crate for Gimlet. Generally speaking, if
+  you want to build an image for something, look here.
+
+- `build/` contains the build system and supporting crates.
+
+- `doc/` contains developer documentation.
+
+- `drv/` contains drivers, a mix of simple driver lib crates and fully-fledged
+  server bin crates. Current convention is that `drv/SYSTEM-DEVICE` is the
+  driver for `DEVICE` on `SYSTEM` (where `SYSTEM` is usually an SoC name),
+  whereas `drv/SYSTEM-DEVICE-server` is the server bin crate.
+
+- `lib/` contains assorted utility libraries we've written. If you need to make
+  a reusable crate that doesn't fit into one of the other directories, it
+  probably belongs here.
+
+- `stage0/` is the bootloader/hypovisor, primarily for LPC55.
+
+- `support/` contains some interface and programming support files, like fake
+  certificates and programmer firmware images.
+
+- `sys/` contains the "system" bits of Hubris, namely the kernel (`sys/kern`),
+  the shared crate defining the ABI (`sys/abi`), and the user library used by
+  tasks (`sys/userlib`).
+
+- `task/` contains reusable tasks that aren't drivers. The distinction between
+  things that live in `task` vs in `drv/something-server` is fuzzy. Use your
+  judgement.
+
+- `test/` contains the test framework and binary crates for building it for
+  various boards.
 
 # Developing
 
@@ -30,17 +67,20 @@ submodules, so they'll fail when run from a fork.)
 
 You will need:
 
-- The nightly toolchain. (It will *probably* automatically install when you try
-  to build, but people have had issues.)
+- A `rustup`-based toolchain install. `rustup` will take care of automatically
+  installing our pinned toolchain version, and the cross-compilation targets,
+  when you first try to build.
 
-- `openocd` (mostly tested on 0.10) or (if using the LPC55)
-  `pyocd` (0.27 or later).  Note that the 0.10 release of OpenOCD predates the
-  STLink v3.  People are using various post-0.10 builds provided by system
-  package managers.  If you're going to use Homebrew on macOS to install
-  OpenOCD, you need to use `brew install --head openocd` to build the tip of the
-  main branch rather than using the latest binary release.
+- `openocd` (ideally 0.11) or (if using the LPC55) `pyocd` (0.27 or later).
+  Note that the 0.10 release of OpenOCD predates the STLink v3. People are using
+  various post-0.10, pre-0.11 builds provided by system package managers, with
+  some success, but if your system isn't packaging 0.11 yet, pester them. If
+  you're going to use Homebrew on macOS to install OpenOCD, you need to use
+  `brew install --head openocd` to build the tip of the main branch rather than
+  using the latest binary release.
 
-- The appropriate Rust toolchain target installed:
+- The appropriate Rust toolchain target installed (note: this should happen
+  automatically):
   - `rustup target add thumbv7em-none-eabihf` (for the STM32)
   - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
@@ -488,4 +528,3 @@ This magic happens in three parts:
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on
 `userlib`. You generally do not need a `build.rs` in your task unless you need
 to detect compiler/architecture features or depend on board rev.
-
