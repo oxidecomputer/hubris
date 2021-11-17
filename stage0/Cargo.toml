@@ -1,7 +1,6 @@
 [package]
 name = "stage0"
 version = "0.1.0"
-authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 
 [dependencies]

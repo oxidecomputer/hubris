@@ -1,7 +1,6 @@
 [package]
 name = "task-template"
 version = "0.1.0"
-authors = ["Your Name Here <anonymous@oxide.computer>"]
 edition = "2018"
 
 [dependencies]

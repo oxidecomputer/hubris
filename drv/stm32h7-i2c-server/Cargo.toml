@@ -1,7 +1,6 @@
 [package]
 name = "drv-stm32h7-i2c-server"
 version = "0.1.0"
-authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]

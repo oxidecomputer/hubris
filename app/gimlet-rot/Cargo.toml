@@ -1,5 +1,4 @@
 [package]
-authors = ["Rick Altherr <rick@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
 name = "gimlet-rot"

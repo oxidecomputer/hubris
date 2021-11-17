@@ -1,7 +1,6 @@
 [package]
 name = "build-i2c"
 version = "0.1.0"
-authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]

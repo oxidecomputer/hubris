@@ -1,5 +1,4 @@
 [package]
-authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
 name = "gimlet"
