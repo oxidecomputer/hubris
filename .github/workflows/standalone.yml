@@ -35,13 +35,6 @@ jobs:
       # install rust toolchain
       - name: Install Rust toolchain
         run: rustup show
-        id: rust-toolchain
-        with:
-          # normally we would specify a toolchain here, but we have a
-          # rust-toolchain file, so that gets picked up automatically.
-          profile: minimal
-          target: thumbv7em-none-eabihf
-          override: true
 
       # cache the cargo registry & index
       - name: Cache cargo outputs
