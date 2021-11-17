@@ -12,7 +12,7 @@ cfg-if = "0.1.10"
 proc-macro2 = "1.0.9"
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
+build-util = {path = "../../build/util"}
 
 [features]
 default = ["standalone"]

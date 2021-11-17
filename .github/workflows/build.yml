@@ -24,36 +24,36 @@ jobs:
         build: [stm32f3, stm32f4, lpc55, stm32h7b3, stm32h743, gemini, gemini-rot, gimlet]
         include:
           - build: stm32f3
-            app_name: demo
-            app_toml: demo/app-f3.toml
+            app_name: demo-stm32f3-discovery
+            app_toml: app/demo-stm32f4-discovery/app-f3.toml
             target: thumbv7em-none-eabihf
           - build: stm32f4
-            app_name: demo
-            app_toml: demo/app.toml
+            app_name: demo-stm32f4-discovery
+            app_toml: app/demo-stm32f4-discovery/app.toml
             target: thumbv7em-none-eabihf
           - build: stm32h7b3
-            app_name: demo-stm32h7b3
-            app_toml: demo-stm32h7/app-h7b3.toml
+            app_name: demo-stm32h7b3-nucleo
+            app_toml: app/demo-stm32h7-nucleo/app-h7b3.toml
             target: thumbv7em-none-eabihf
           - build: lpc55
-            app_name: lpc55
-            app_toml: lpc55/app.toml
+            app_name: lpc55xpresso
+            app_toml: app/lpc55xpresso/app.toml
             target: thumbv8m.main-none-eabihf
           - build: stm32h743
-            app_name: demo-stm32h743
-            app_toml: demo-stm32h7/app-h743.toml
+            app_name: demo-stm32h743-nucleo
+            app_toml: app/demo-stm32h7-nucleo/app-h743.toml
             target: thumbv7em-none-eabihf
           - build: gemini
             app_name: gemini-bu
-            app_toml: gemini-bu/app.toml
+            app_toml: app/gemini-bu/app.toml
             target: thumbv7em-none-eabihf
           - build: gemini-rot
             app_name: gemini-bu-rot
-            app_toml: gemini-bu-rot/app.toml
+            app_toml: app/gemini-bu-rot/app.toml
             target: thumbv8m.main-none-eabihf
           - build: gimlet
             app_name: gimlet
-            app_toml: gimlet/app.toml
+            app_toml: app/gimlet/app.toml
             target: thumbv7em-none-eabihf
 
           - os: ubuntu-latest

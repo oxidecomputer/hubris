@@ -4,7 +4,7 @@ board = "gemini-bu-rot-1"
 stacksize = 1400
 
 [kernel]
-path = "../../gemini-bu-rot"
+path = "../../app/gemini-bu-rot"
 name = "gemini-bu-rot"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
@@ -40,12 +40,12 @@ execute = false
 
 [signing.combined]
 method = "ecc"
-priv-key = "../../fake_certs/p256-private-key.der"
+priv-key = "../../support/fake_certs/p256-private-key.der"
 
 [signing.bootloader]
 method = "rsa"
-priv-key = "../../fake_certs/fake_private_key.pem"
-root-cert = "../../fake_certs/fake_certificate.der.crt"
+priv-key = "../../support/fake_certs/fake_private_key.pem"
+root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 
 
 [bootloader]
@@ -95,7 +95,7 @@ features = ["itm"]
 uses = ["stage0"]
 
 [tasks.idle]
-path = "../../task-idle"
+path = "../../task/idle"
 name = "task-idle"
 priority = 3
 requires = {flash = 256, ram = 256}

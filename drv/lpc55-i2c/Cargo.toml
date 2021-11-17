@@ -5,7 +5,7 @@ authors = ["Laura Abbott <laura@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.3.0"
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}

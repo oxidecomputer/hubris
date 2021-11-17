@@ -5,12 +5,12 @@ authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-fixedmap = {path = "../../fixedmap"}
-userlib = {path = "../../userlib"}
-ringbuf = {path = "../../ringbuf"}
+fixedmap = {path = "../../lib/fixedmap"}
+userlib = {path = "../../sys/userlib"}
+ringbuf = {path = "../../lib/ringbuf"}
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
-drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
+drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
 drv-stm32h7-i2c = {path = "../stm32h7-i2c", default-features = false }
 drv-i2c-api = {path = "../i2c-api"}
 cortex-m-semihosting = "0.3.5"
@@ -19,16 +19,17 @@ cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0" }
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
-build-i2c = {path = "../../build-i2c"}
+build-util = {path = "../../build/util"}
+build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
 default = ["standalone"]
-standalone = [ "h743" ]
-h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3"]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743"]
+standalone = [ "h753" ]
+h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3", "drv-stm32h7-rcc-api/h7b3", "build-i2c/h7b3"]
+h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32h7-rcc-api/h743", "build-i2c/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32h7-rcc-api/h753", "build-i2c/h753"]
 itm = [ "userlib/log-itm" ]
 
 # These options allow for external muxes on the Gemini bringup board:

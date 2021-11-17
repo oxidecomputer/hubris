@@ -8,10 +8,13 @@ use stm32h7::stm32h7b3 as device;
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
+
 #[cfg(feature = "h7b3")]
 pub type RegisterBlock = device::i2c3::RegisterBlock;
 
-#[cfg(feature = "h743")]
+#[cfg(any(feature = "h743", feature = "h753"))]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
 pub mod ltc4306;
@@ -213,7 +216,7 @@ impl<'a> I2cController<'a> {
                     .scldel().bits(8)
                     .sdadel().bits(0)
                 });
-            } else if #[cfg(feature = "h743")] {
+            } else if #[cfg(any(feature = "h743", feature = "h753"))] {
                 // Here our APB1 peripheral clock is 100MHz, yielding the
                 // following:
                 //
@@ -250,7 +253,7 @@ impl<'a> I2cController<'a> {
             // t_i2cclk this yields 1219.7 (1220); on h7b3, this is 3416.9
             // (3417).
             //
-            if #[cfg(feature = "h743")] {
+            if #[cfg(any(feature = "h743", feature = "h753"))] {
                 i2c.timeoutr.write(|w| { w
                     .timouten().set_bit()           // Enable SCL timeout
                     .timeouta().bits(1220)          // Timeout value

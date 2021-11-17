@@ -30,7 +30,7 @@ version = "0.13.0"
 optional = true
 
 [dependencies.kern]
-path = "../../kern"
+path = "../../sys/kern"
 default-features = false
 
 # a target for `cargo xtask check`
@@ -41,6 +41,6 @@ target = "thumbv7em-none-eabihf"
 # since test builds don't work for cross compilation.
 [[bin]]
 name = "tests-stm32fx"
-path = "../../demo/src/main.rs"
+path = "../../app/demo-stm32f4-discovery/src/main.rs"
 test = false
 bench = false

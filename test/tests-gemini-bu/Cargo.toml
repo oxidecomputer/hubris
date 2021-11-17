@@ -7,9 +7,10 @@ version = "0.1.0"
 
 [features]
 default = ["standalone"]
-standalone = ["itm"]
+standalone = ["itm", "h753"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+h753 = ["stm32h7/stm32h753"]
 
 [dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
@@ -19,14 +20,14 @@ panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
 cfg-if = "0.1.10"
-stm32h7 = { version = "0.13.0", features = ["rt", "stm32h743"] }
+stm32h7 = { version = "0.13.0", default-features = false, features = ["rt"] }
 
 [dependencies.kern]
-path = "../../kern"
+path = "../../sys/kern"
 default-features = false
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
+build-util = {path = "../../build/util"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]
@@ -35,6 +36,6 @@ target = "thumbv7em-none-eabihf"
 # this lets you use `cargo fix`!
 [[bin]]
 name = "tests-gemini-bu"
-path = "../../gemini-bu/src/main.rs"
+path = "../../app/gemini-bu/src/main.rs"
 test = false
 bench = false

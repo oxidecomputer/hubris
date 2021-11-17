@@ -1,0 +1,26 @@
+[package]
+name = "task-idle"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2018"
+
+[dependencies]
+# suppress default features to avoid including panic message collection, to
+# ensure the idle task remains tiny.
+userlib = {path = "../../sys/userlib", default-features = false}
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-idle"
+test = false
+bench = false

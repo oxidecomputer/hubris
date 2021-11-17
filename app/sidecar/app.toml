@@ -1,0 +1,467 @@
+name = "sidecar"
+target = "thumbv7em-none-eabihf"
+board = "sidecar-1"
+stacksize = 1024
+
+[kernel]
+path = "."
+name = "sidecar"
+requires = {flash = 32768, ram = 4096}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["itm"]
+
+[supervisor]
+notification = 1
+
+# Flash sections are mapped into flash bank 1 (of 2).
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 16384, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.rcc_driver]
+path = "../../drv/stm32h7-rcc"
+name = "drv-stm32h7-rcc"
+features = ["h753"]
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc"]
+start = true
+
+[tasks.gpio_driver]
+path = "../../drv/stm32h7-gpio"
+name = "drv-stm32h7-gpio"
+features = ["h753"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpios1", "gpios2", "gpios3"]
+start = true
+
+[tasks.gpio_driver.task-slots]
+rcc_driver = "rcc_driver"
+
+[tasks.i2c_driver]
+path = "../../drv/stm32h7-i2c-server"
+name = "drv-stm32h7-i2c-server"
+features = ["h753", "itm"]
+priority = 2
+requires = {flash = 16384, ram = 2048}
+uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+start = true
+
+[tasks.i2c_driver.interrupts]
+31 = 0b0000_0001        # I2C1 event
+32 = 0b0000_0001        # I2C1 error
+33 = 0b0000_0010        # I2C2 event
+34 = 0b0000_0010        # I2C2 error
+72 = 0b0000_0100        # I2C3 event
+73 = 0b0000_0100        # I2C3 error
+95 = 0b0000_1000        # I2C4 event
+96 = 0b0000_1000        # I2C4 error
+
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio"]
+priority = 3
+requires = {flash = 32768, ram = 32768 }
+start = true
+
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+i2c_driver = "i2c_driver"
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
+
+[peripherals.gpios1]
+address = 0x58020000
+size = 0x2000
+
+[peripherals.gpios2]
+address = 0x58022000
+size = 0x0800
+
+[peripherals.gpios3]
+address = 0x58022800
+size = 0x0400
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi4]
+address = 0x40013400
+size = 1024
+
+[peripherals.usart3]
+address = 0x40004800
+size = 1024
+
+[peripherals.i2c1]
+address = 0x40005400
+size = 1024
+
+[peripherals.i2c2]
+address = 0x40005800
+size = 1024
+
+[peripherals.i2c3]
+address = 0x40005c00
+size = 1024
+
+[peripherals.i2c4]
+address = 0x58001c00
+size = 1024
+
+[peripherals.quadspi]
+address = 0x52005000
+size = 4096
+
+[config]
+
+#
+# I2C1: Northeast corridors
+#
+[[config.i2c.controllers]]
+controller = 1
+
+#
+# I2C_NORTH_EAST0_SCL
+# I2C_NORTH_EAST0_SDA
+#
+[config.i2c.controllers.ports.B1]
+name = "northeast0"
+description = "Northeast Corridor 0"
+pins = [ { gpio_port = "B", pins = [ 6, 7 ], af = 4 } ]
+
+#
+# I2C_NORTH_EAST1_SCL
+# I2C_NORTH_EAST1_SDA
+#
+[config.i2c.controllers.ports.B2]
+name = "northeast1"
+description = "Northeast Corridor 1"
+pins = [ { gpio_port = "B", pins = [ 8, 9 ], af = 4 } ]
+
+#
+# I2C2: Front I/O
+#
+[[config.i2c.controllers]]
+controller = 2 
+
+#
+# I2C_FRONT_IO0_SCL
+# I2C_FRONT_IO0_SDA
+#
+[config.i2c.controllers.ports.F]
+name = "frontio"
+description = "Front I/O Board"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
+
+#
+# I2C_FRONT_IO1_SCL
+# I2C_FRONT_IO1_SDA
+#
+[config.i2c.controllers.ports.H]
+name = "frontgps"
+description = "Front I/O GPS"
+pins = [ { pins = [ 4, 5 ], af = 4 } ]
+
+#
+# I2C3: Northwest corridors
+#
+[[config.i2c.controllers]]
+controller = 3
+
+#
+# I2C_NORTH_WEST0_SCL
+# I2C_NORTH_WEST0_SDL
+#
+[config.i2c.controllers.ports.C]
+name = "northwest0"
+description = "Northwest Corridor 0"
+
+[[config.i2c.controllers.ports.C.pins]]
+gpio_port = "A"
+pins = [ 8 ]
+af = 4
+
+[[config.i2c.controllers.ports.C.pins]]
+gpio_port = "C"
+pins = [ 9 ]
+af = 4
+
+#
+# I2C_NORTH_WEST1_SCL
+# I2C_NORTH_WEST1_SDL
+#
+[config.i2c.controllers.ports.H]
+name = "northwest1"
+description = "Northwest Corridor 1"
+pins = [ { pins = [ 7, 8 ], af = 4 } ]
+
+#
+# I2C4: South bend
+#
+[[config.i2c.controllers]]
+controller = 4
+
+#
+# I2C_SOUTH0_SCL
+# I2C_SOUTH0_SDA
+#
+[config.i2c.controllers.ports.F]
+name = "south0"
+description = "South Bend 0"
+pins = [ { pins = [ 14, 15 ], af = 4 } ]
+
+#
+# I2C_SOUTH1_SCL
+# I2C_SOUTH1_SDA
+#
+[config.i2c.controllers.ports.H]
+name = "south1"
+description = "South Bend 1"
+pins = [ { pins = [ 11, 12 ], af = 4 } ]
+
+#
+# I2C_SOUTH2_SCL
+# I2C_SOUTH2_SDA
+#
+[config.i2c.controllers.ports.D]
+name = "south2"
+description = "South Bend 2"
+pins = [ { pins = [ 12, 13 ], af = 4 } ]
+
+[[config.i2c.devices]]
+device = "bmr480"
+bus = "northwest0"
+address = 0b0010_111
+description = "IBC"
+
+[[config.i2c.devices]]
+device = "bmr491"
+bus = "northwest0"
+address = 0b1100_111
+description = "IBC"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest0"
+address = 0b0010_110
+description = "54V hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northeast1"
+address = 0b0010_000
+description = "Fan 0 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northeast0"
+address = 0b0010_011
+description = "Fan 1 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest1"
+address = 0b0010_000
+description = "Fan 2 hot swap controller"
+
+[[config.i2c.devices]]
+device = "adm1272"
+bus = "northwest1"
+address = 0b0010_011
+description = "Fan 3 hot swap controller"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "northwest0"
+address = 0b0011_001
+description = "V5P0_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "northeast1"
+address = 0b0011_010
+description = "V3P3_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "south1"
+address = 0b0011_011
+description = "V1P0_SYS rail"
+
+[[config.i2c.devices]]
+device = "tps546b24a"
+bus = "south1"
+address = 0b0011_100
+description = "V1P8_SYS rail"
+
+[[config.i2c.devices]]
+device = "raa229618"
+bus = "northeast0"
+address = 0b1100_011
+description = "TF2 VDD rail"
+
+[[config.i2c.devices]]
+device = "raa229618"
+bus = "northwest0"
+address = 0b1100_000
+description = "TF2 VDDA rail"
+
+[[config.i2c.devices]]
+device = "isl68224"
+bus = "south0"
+address = 0b1100_010
+description = "VDD[A]18 rail"
+
+[[config.i2c.devices]]
+device = "tmp451"
+bus = "northwest0"
+address = 0b1001_100
+description = "TF2 temperature sensor"
+
+[[config.i2c.devices]]
+device = "tmp451"
+bus = "south1"
+address = 0b1001_100
+description = "VSC7448 temperature sensor"
+
+[[config.i2c.devices]]
+device = "max31790"
+bus = "northeast0"
+address = 0b0100_011
+description = "Fan 0/1 controller"
+
+[[config.i2c.devices]]
+device = "max31790"
+bus = "northwest1"
+address = 0b0100_000
+description = "Fan 2/3 controller"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_000
+description = "Front temperature sensor (east)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_001
+description = "Front temperature sensor (central)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "south0"
+address = 0b1001_010
+description = "Front temperature sensor (west)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northeast1"
+address = 0b1001_000
+description = "Rear temperature sensor (northeast 1)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northeast0"
+address = 0b1001_001
+description = "Rear temperature sensor (northeast 0)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northwest0"
+address = 0b1001_000
+description = "Rear temperature sensor (northwest 0)"
+
+[[config.i2c.devices]]
+device = "tmp117"
+bus = "northwest1"
+address = 0b1001_001
+description = "Rear temperature sensor (northwest 1)"
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "northeast0"
+# address = 0b1010_0**
+# description = ""
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "northwest1"
+# address = 0b1010_0**
+# description = ""
+
+[[config.i2c.devices]]
+device = "idt8a34001"
+bus = "south0"
+address = 0b1011_000
+description = "Clock generator"
+
+[[config.i2c.devices]]
+device = "pca9545"
+bus = "northwest1"
+address = 0b1110_000
+description = "Northwest fan mux"
+
+[[config.i2c.devices]]
+device = "pca9545"
+bus = "northeast0"
+address = 0b1110_000
+description = "Northeast fan mux"
+
+# [[config.i2c.devices]]
+# device = "at24csw080"
+# bus = "south2"
+# address = 0b1010_0**
+# description = ""
+
+# [[config.i2c.devices]]
+# device = "tf2"
+# bus = "ECP5->S?"
+# address = 0b1011_011
+# description = ""

@@ -6,25 +6,26 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-userlib = {path = "../../userlib"}
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32h7-spi = {path = "../stm32h7-spi"}
-drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api"}
+drv-stm32h7-spi = {path = "../stm32h7-spi", default-features = false }
+drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-spi-api = {path = "../spi-api"}
 drv-ice40-spi-program = {path = "../ice40-spi-program"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
-gnarle = {path = "../../gnarle"}
+gnarle = {path = "../../lib/gnarle"}
 
 [build-dependencies]
-build-util = {path = "../../build-util"}
-gnarle = {path = "../../gnarle"}
+build-util = {path = "../../build/util"}
+gnarle = {path = "../../lib/gnarle"}
 
 [features]
 default = ["standalone"]
-standalone = []
+standalone = ["h753"]
+h753 = ["drv-stm32h7-spi/h753", "drv-stm32h7-rcc-api/h753"]
 
 # a target for `cargo xtask check`
 [package.metadata.build]

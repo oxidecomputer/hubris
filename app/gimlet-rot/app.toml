@@ -1,0 +1,146 @@
+name = "gimlet-rot"
+target = "thumbv8m.main-none-eabihf"
+board = "gimlet-rot-1"
+stacksize = 1024
+
+[kernel]
+path = "."
+name = "gimlet-rot"
+requires = {flash = 65536, ram = 4096}
+features = ["itm"]
+
+[signing.combined]
+method = "rsa"
+priv-key = "../../support/fake_certs/fake_private_key.pem"
+root-cert = "../../support/fake_certs/fake_certificate.der.crt"
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x00000000
+size = 645120
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 114688
+read = true
+write = true
+execute = true
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 32768, ram = 4096}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+priority = 3
+features = ["lpc55", "gpio"]
+requires = {flash = 32768, ram = 16384 }
+stacksize = 2048
+start = true
+
+[tasks.hiffy.task-slots]
+gpio_driver = "gpio_driver"
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.syscon_driver]
+path = "../../drv/lpc55-syscon"
+name = "drv-lpc55-syscon"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["syscon", "anactrl", "pmc"]
+start = true
+
+[tasks.gpio_driver]
+path = "../../drv/lpc55-gpio"
+name = "drv-lpc55-gpio"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["gpio", "iocon"]
+start = true
+
+[tasks.gpio_driver.task-slots]
+syscon_driver = "syscon_driver"
+
+[tasks.usart_driver]
+path = "../../drv/lpc55-usart"
+name = "drv-lpc55-usart"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm0"]
+start = true
+interrupts = {14 = 1}
+
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
+[tasks.spi_driver]
+path = "../../drv/lpc55-spi-server"
+name = "drv-lpc55-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 1024}
+uses = ["iocon", "flexcomm3", "flexcomm8"]
+start = true
+interrupts = {59 = 1}
+stacksize = 1000
+
+[tasks.spi_driver.task-slots]
+gpio_driver = "gpio_driver"
+syscon_driver = "syscon_driver"
+
+[peripherals.syscon]
+address = 0x40000000
+size = 4096
+
+[peripherals.anactrl]
+address = 0x40013000
+size = 4096
+
+[peripherals.gpio]
+address = 0x4008c000
+size = 9348
+
+[peripherals.iocon]
+address = 0x40001000
+size = 4096
+
+[peripherals.flexcomm0]
+address = 0x40086000
+size = 4096
+
+[peripherals.flexcomm3]
+address = 0x40089000
+size = 4096
+
+[peripherals.flexcomm4]
+address = 0x4008A000
+size = 4096
+
+[peripherals.pmc]
+address = 0x40020000
+size = 4096
+
+[peripherals.flexcomm8]
+address = 0x4009F000
+size = 4096
+
+[peripherals.rng]
+address = 0x4003A000
+size = 4096

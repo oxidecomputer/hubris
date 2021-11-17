@@ -5,13 +5,13 @@ authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../userlib"}
-ringbuf = {path = "../../ringbuf" }
+userlib = {path = "../../sys/userlib"}
+ringbuf = {path = "../../lib/ringbuf" }
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-onewire = {path = "../onewire"}
 drv-i2c-api = {path = "../i2c-api"}
-pmbus = { path = "../../pmbus" }
+pmbus = { path = "../../lib/pmbus" }
 bitfield = "0.13"
 
 # a target for `cargo xtask check`

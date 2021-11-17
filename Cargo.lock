@@ -445,7 +445,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76fbd10dce159c002b9c688ae8ab7cd531151e185e0ad360f4bfea3b0eede3a8"
 
 [[package]]
-name = "demo"
+name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
@@ -460,7 +460,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "demo-stm32h7"
+name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
@@ -1311,21 +1311,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lpc55"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
- "cortex-m",
- "cortex-m-rt",
- "cortex-m-semihosting",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
-]
-
-[[package]]
 name = "lpc55-iocon-gen"
 version = "0.1.0"
 dependencies = [
@@ -1375,6 +1360,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "lpc55xpresso"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "cortex-m-semihosting",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
+
+[[package]]
 name = "mach"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1390,13 +1390,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86dd2487cdfea56def77b88438a2c915fb45113c5319bfe7e14306ca4cd0b0e1"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "membar"
-version = "0.1.0"
-dependencies = [
- "cfg-if 0.1.10",
 ]
 
 [[package]]
@@ -2212,6 +2205,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-spi-api",
+ "drv-stm32fx-rcc",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",

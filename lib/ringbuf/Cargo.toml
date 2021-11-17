@@ -1,0 +1,17 @@
+[package]
+name = "ringbuf"
+version = "0.2.0"
+authors = ["Bryan Cantrill <bryan@oxide.computer>"]
+edition = "2018"
+
+[features]
+# To disable a ring buffer (but leave it otherwise present), enable the
+# "disabled" feature
+disabled = []
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"

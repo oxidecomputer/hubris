@@ -253,7 +253,7 @@ pub enum Peripheral {
 
     #[cfg(feature = "h7b3")]
     OctoSpi1 = ahb3!(14), // B3 only
-    #[cfg(any(feature = "h743", feature = "h747"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h753"))]
     QuadSpi = ahb3!(14), // 43/47 only
 
     Fmc = ahb3!(12),
@@ -280,8 +280,12 @@ pub enum Peripheral {
     Sram1 = ahb2!(29),
     DfsdmDma = ahb2!(11), // B3 only
     Sdmmc2 = ahb2!(9),
+
+    #[cfg(any(feature = "h753"))]
     Rng = ahb2!(6),
+    #[cfg(any(feature = "h753"))]
     Hash = ahb2!(5),
+    #[cfg(any(feature = "h753"))]
     Crypt = ahb2!(4),
 
     #[cfg(feature = "h7b3")]
@@ -292,12 +296,12 @@ pub enum Peripheral {
     SmartRunSram = ahb4!(29), // B3 only
     BackupRam = ahb4!(28),
 
-    #[cfg(any(feature = "h743", feature = "h747"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h753"))]
     Hsem = ahb4!(25), // 43/47: differs from B3
 
     #[cfg(feature = "h7b3")]
     Bdma2 = ahb4!(21),
-    #[cfg(any(feature = "h743", feature = "h747"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h757"))]
     Bdma = ahb4!(21),
 
     GpioK = ahb4!(10),
@@ -353,7 +357,7 @@ pub enum Peripheral {
 
     Hrtim = apb2!(29), // 43/47 only
 
-    #[cfg(any(feature = "h743", feature = "h747"))]
+    #[cfg(any(feature = "h743", feature = "h747", feature = "h757"))]
     Dfsdm1 = apb2!(28), // 43/47 differ from B3
 
     Sai3 = apb2!(24), // 43/47 only

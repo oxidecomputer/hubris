@@ -1,0 +1,198 @@
+name = "demo-stm32h7b3-nucleo"
+target = "thumbv7em-none-eabihf"
+board = "stm32h7b3i-dk"
+stacksize = 1024
+
+[kernel]
+path = "."
+name = "demo-stm32h7-nucleo"
+requires = {flash = 32768, ram = 4096}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["h7b3", "itm"]
+
+[supervisor]
+notification = 1
+
+# Flash sections are mapped into flash bank 1 (of 2).
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 16384, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.rcc_driver]
+path = "../../drv/stm32h7-rcc"
+name = "drv-stm32h7-rcc"
+features = ["h7b3"]
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc"]
+start = true
+
+[tasks.gpio_driver]
+path = "../../drv/stm32h7-gpio"
+name = "drv-stm32h7-gpio"
+features = ["h7b3"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpios1", "gpios2", "gpios3"]
+start = true
+
+[tasks.gpio_driver.task-slots]
+rcc_driver = "rcc_driver"
+
+[tasks.usart_driver]
+path = "../../drv/stm32h7-usart"
+name = "drv-stm32h7-usart"
+features = ["h7b3"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["usart1"]
+start = true
+interrupts = {37 = 1}
+
+[tasks.usart_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
+[tasks.i2c_driver]
+path = "../../drv/stm32h7-i2c-server"
+name = "drv-stm32h7-i2c-server"
+features = ["h7b3"]
+priority = 2
+requires = {flash = 16384, ram = 2048}
+uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
+start = true
+
+[tasks.i2c_driver.interrupts]
+95 = 0b0000_1000        # I2C4 event
+96 = 0b0000_1000        # I2C4 error
+
+[tasks.i2c_driver.task-slots]
+gpio_driver = "gpio_driver"
+rcc_driver = "rcc_driver"
+
+[tasks.user_leds]
+path = "../../drv/user-leds"
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+start = true
+
+[tasks.user_leds.task-slots]
+gpio_driver = "gpio_driver"
+
+[tasks.pong]
+path = "../../task/pong"
+name = "task-pong"
+priority = 3
+requires = {flash = 8192, ram = 1024}
+start = true
+
+[tasks.pong.task-slots]
+user_leds = "user_leds"
+
+[tasks.ping]
+path = "../../task/ping"
+name = "task-ping"
+features = ["uart"]
+priority = 4
+requires = {flash = 8192, ram = 512}
+stacksize = 512
+start = true
+
+[tasks.ping.task-slots]
+peer = "pong"
+usart_driver = "usart_driver"
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+features = ["h7b3", "stm32h7", "itm", "i2c"]
+priority = 3
+requires = {flash = 32768, ram = 16384 }
+start = true
+
+[tasks.hiffy.task-slots]
+i2c_driver = "i2c_driver"
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
+
+[peripherals.gpios1]
+address = 0x58020000
+size = 0x2000
+
+[peripherals.gpios2]
+address = 0x58022000
+size = 0x0800
+
+[peripherals.gpios3]
+address = 0x58022800
+size = 0x0400
+
+[peripherals.usart1]
+address = 0x40011000
+size = 1024
+
+[peripherals.i2c1]
+address = 0x40005400
+size = 1024
+
+[peripherals.i2c2]
+address = 0x40005800
+size = 1024
+
+[peripherals.i2c3]
+address = 0x40005c00
+size = 1024
+
+[peripherals.i2c4]
+address = 0x58001c00
+size = 1024
+
+[config]
+
+[[config.i2c.controllers]]
+controller = 4
+
+[[config.i2c.controllers.ports.D.pins]]
+pins = [ 12, 13 ]
+af = 4
+
