@@ -1,5 +1,4 @@
 [package]
-authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
 name = "tests-stm32h7"
