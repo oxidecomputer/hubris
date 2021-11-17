@@ -75,6 +75,7 @@ pub trait TempSensor<T> {
 pub mod adm1272;
 pub mod adt7420;
 pub mod ds2482;
+pub mod isl68224;
 pub mod max31790;
 pub mod max6634;
 pub mod mcp9808;

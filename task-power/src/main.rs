@@ -8,6 +8,7 @@
 
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::tps546b24a::*;
+use drv_i2c_devices::isl68224::*;
 use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
@@ -19,6 +20,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 enum Device {
     Adm1272,
     Tps546b24a,
+    Isl68224,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -54,6 +56,11 @@ fn main() -> ! {
             );
 
             let mut tps546 = Tps546b24a::new(&devices::tps546b24a(task)[0]);
+
+            let (device, rail) = i2c_config::pmbus::isl_evl_vout0(task);
+            let mut isl = Isl68224::new(&device);
+            isl.set_rail(rail);
+
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
@@ -68,6 +75,10 @@ fn main() -> ! {
     }
 
     loop {
+        match isl.read_vout() {
+            Ok(volts) => {
+                trace(Device::I, Command::VIn(volts));
+
         match adm1272.read_vin() {
             Ok(volts) => {
                 trace(Device::Adm1272, Command::VIn(volts));
