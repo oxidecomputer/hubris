@@ -709,6 +709,55 @@ impl ConfigGenerator {
         Ok(())
     }
 
+    pub fn generate_pmbus(&mut self) -> Result<()> {
+        if self.artifact == Artifact::Standalone {
+            return Ok(());
+        }
+
+        let mut byrail = HashMap::new();
+
+        for d in &self.devices {
+            if let Some(pmbus) = &d.pmbus {
+                if let Some(rails) = &pmbus.rails {
+                    for (index, rail) in rails.iter().enumerate() {
+                        if rail.len() == 0 {
+                            continue;
+                        }
+
+                        if byrail.insert(rail, (d, index)).is_some() {
+                            panic!("duplicate rail {}", rail);
+                        }
+                    }
+                }
+            }
+        }
+
+        write!(
+            &mut self.output,
+            r##"
+    pub mod pmbus {{
+        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
+        use userlib::TaskId;
+"##
+        )?;
+
+        for (rail, (device, index)) in &byrail {
+            write!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub fn {}(task: TaskId) -> (I2cDevice, u8) {{"##,
+                rail.to_lowercase(),
+            )?;
+
+            let out = self.generate_device(device);
+            writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
+        }
+
+        writeln!(&mut self.output, "    }}")?;
+        Ok(())
+    }
+
     pub fn generate_ports(&mut self) -> Result<()> {
         writeln!(
             &mut self.output,
@@ -787,6 +836,7 @@ pub fn codegen(disposition: Disposition, artifact: Artifact) -> Result<()> {
 
         Disposition::Devices => {
             g.generate_devices()?;
+            g.generate_pmbus()?;
         }
     }
 

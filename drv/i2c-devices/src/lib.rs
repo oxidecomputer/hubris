@@ -5,10 +5,12 @@
 //! - [`adm1272`]: ADM1272 hot swap controller
 //! - [`adt7420`]: ADT7420 temperature sensor
 //! - [`ds2482`]: DS2482-100 1-wire initiator
+//! - [`isl68224`]: ISL68224 power controller
 //! - [`max6634`]: MAX6634 temperature sensor
 //! - [`max31790`]: MAX31790 fan controller
 //! - [`mcp9808`]: MCP9808 temperature sensor
 //! - [`pct2075`]: PCT2075 temperature sensor
+//! - [`raa229618`]: RAA229618 power controller
 //! - [`tmp116`]: TMP116 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
 
@@ -66,6 +68,20 @@ macro_rules! pmbus_write {
             Ok(_) => Ok(()),
         }
     }};
+
+    ($device:expr, $cmd:ident, $data:expr) => {{
+        let mut payload = [0u8; $cmd::CommandData::len() + 1];
+        payload[0] = $cmd::CommandData::code();
+        $data.to_slice(&mut payload[1..]);
+
+        match $device.write(&payload) {
+            Err(code) => Err(Error::BadWrite {
+                cmd: $cmd::CommandData::code(),
+                code: code,
+            }),
+            Ok(_) => Ok(()),
+        }
+    }};
 }
 
 pub trait TempSensor<T> {
@@ -75,9 +91,11 @@ pub trait TempSensor<T> {
 pub mod adm1272;
 pub mod adt7420;
 pub mod ds2482;
+pub mod isl68224;
 pub mod max31790;
 pub mod max6634;
 pub mod mcp9808;
 pub mod pct2075;
+pub mod raa229618;
 pub mod tmp116;
 pub mod tps546b24a;
