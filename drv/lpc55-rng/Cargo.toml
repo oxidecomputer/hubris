@@ -1,7 +1,6 @@
 [package]
 name = "drv-lpc55-rng"
 version = "0.1.0"
-authors = ["Steve Klabnik <steve.klabnik@oxide.computer>",]
 edition = "2018"
 
 [features]

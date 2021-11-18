@@ -1,5 +1,4 @@
 [package]
-authors = ["Bryan Cantrill <bryan@oxide.computer>"]
 edition = "2018"
 readme = "README.md"
 name = "tests-lpc55"

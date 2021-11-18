@@ -1,7 +1,6 @@
 [package]
 name = "kern"
 version = "0.1.0"
-authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2018"
 
 [features]

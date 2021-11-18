@@ -1,10 +1,6 @@
 [package]
 name = "drv-lpc55-syscon-api"
 version = "0.1.0"
-authors = [
-  "Laura Abbott <laura@oxide.computer>",
-  "Cliff L. Biffle <cliff@oxide.computer>",
-]
 edition = "2018"
 
 [dependencies]
