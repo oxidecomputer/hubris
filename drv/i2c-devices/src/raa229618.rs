@@ -1,6 +1,6 @@
 use drv_i2c_api::*;
-use pmbus::*;
 use pmbus::commands::raa229618::*;
+use pmbus::*;
 use userlib::units::*;
 
 pub struct Raa229618 {
