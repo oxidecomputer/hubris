@@ -1,6 +1,6 @@
 use drv_i2c_api::*;
-use pmbus::*;
 use pmbus::commands::isl68224::*;
+use pmbus::*;
 use userlib::units::*;
 
 pub struct Isl68224 {
