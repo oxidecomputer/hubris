@@ -1,15 +1,15 @@
 use drv_i2c_api::*;
 use pmbus::*;
-use pmbus::commands::isl68224::*;
+use pmbus::commands::raa229618::*;
 use userlib::units::*;
 
-pub struct Isl68224 {
+pub struct Raa229618 {
     device: I2cDevice,
     rail: u8,
     mode: Option<pmbus::VOutModeCommandData>,
 }
 
-impl core::fmt::Display for Isl68224 {
+impl core::fmt::Display for Raa229618 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "isl68224: {}", &self.device)
     }
@@ -29,9 +29,9 @@ impl From<pmbus::Error> for Error {
     }
 }
 
-impl Isl68224 {
+impl Raa229618 {
     pub fn new(device: &I2cDevice, rail: u8) -> Self {
-        Isl68224 {
+        Raa229618 {
             device: *device,
             rail: rail,
             mode: None,
