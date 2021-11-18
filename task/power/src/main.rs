@@ -57,7 +57,7 @@ fn main() -> ! {
         } else {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "standalone")] {
-                    let device = &devices::mock(task);
+                    let device = &i2c_config::devices::mock(task);
                     let mut isl0 = Isl68224::new(&device, 0);
                     let mut isl1 = Isl68224::new(&device, 0);
                 } else {
