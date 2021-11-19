@@ -23,6 +23,8 @@ cfg_if::cfg_if! {
         use stm32h7::stm32h7b3 as device;
     } else if #[cfg(target_board = "nucleo-h743zi2")] {
         use stm32h7::stm32h743 as device;
+    } else if #[cfg(target_board = "nucleo-h753zi")] {
+        use stm32h7::stm32h753 as device;
     } else {
         compile_error!("target_board unknown or missing");
     }
@@ -44,7 +46,7 @@ fn main() -> ! {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "stm32h7b3i-dk")] {
             const CYCLES_PER_MS: u32 = 280_000;
-        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+        } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             const CYCLES_PER_MS: u32 = 400_000;
         } else {
             compile_error!("target_board unknown or missing");
@@ -63,7 +65,7 @@ fn main() -> ! {
     }
 }
 
-#[cfg(target_board = "nucleo-h743zi2")]
+#[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))]
 #[pre_init]
 unsafe fn system_pre_init() {
     // Configure the power supply to latch the LDO on and prevent further
@@ -278,7 +280,7 @@ fn system_init() {
                     .divr1()
                     .bits(1)
             });
-        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+        } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // The H743 Nucleo board doesn't include an external crystal. Thus,
             // we use the HSI64 oscillator.
 
@@ -356,7 +358,7 @@ fn system_init() {
                 // spin
             }
             cortex_m::asm::dmb();
-        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+        } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // Configure peripheral clock dividers to make sure we stay within
             // range when we change oscillators.  At VOS1, the AHB frequency is
             // limited to 200Mhz and the APB frequency is limited to 100MHz

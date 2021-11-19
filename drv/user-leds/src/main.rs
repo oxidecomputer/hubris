@@ -248,7 +248,7 @@ cfg_if::cfg_if! {
                     (drv_stm32h7_gpio_api::Port::G.pin(2), true),
                     (drv_stm32h7_gpio_api::Port::G.pin(11), true),
                 ];
-            } else if #[cfg(target_board = "nucleo-h743zi2")] {
+            } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo board: LEDs are on B0 and B14.
                 const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
                     (drv_stm32h7_gpio_api::Port::B.pin(0), false),

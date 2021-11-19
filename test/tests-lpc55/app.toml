@@ -5,7 +5,7 @@ stacksize = 2048
 
 [kernel]
 path = "../../app/lpc55xpresso"
-name = "lpc55"
+name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
 

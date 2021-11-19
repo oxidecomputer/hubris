@@ -940,7 +940,7 @@ cfg_if::cfg_if! {
     //
     // NUCLEO 743 board
     //
-    } else if #[cfg(all(target_board = "nucleo-h743zi2", feature = "spi3"))] {
+    } else if #[cfg(all(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"),feature = "spi3"))] {
         const CONFIG: ServerConfig = ServerConfig {
             registers: device::SPI3::ptr(),
             peripheral: rcc_api::Peripheral::Spi3,

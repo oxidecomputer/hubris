@@ -1,6 +1,6 @@
-name = "tests-stm32h7b3"
+name = "tests-stm32h753"
 target = "thumbv7em-none-eabihf"
-board = "stm32h7b3i-dk"
+board = "nucleo-h753zi"
 stacksize = 2048
 
 [kernel]
@@ -17,7 +17,7 @@ requires = {flash = 32768, ram = 4096}
 # If one does choose to change this to semihosting for purposes of
 # development, be sure to also change it in every task of interest.
 #
-features = ["itm", "h7b3"]
+features = ["itm", "h753"]
 
 [supervisor]
 notification = 1
