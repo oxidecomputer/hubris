@@ -920,7 +920,7 @@ fn build(
     //
     // We allow for task- and app-specific configuration to be passed
     // via environment variables to build.rs scripts that may choose to
-    // incorporate confiuration into compilation.
+    // incorporate configuration into compilation.
     //
     if let Some(config) = config {
         let env = toml::to_string(&config).unwrap();

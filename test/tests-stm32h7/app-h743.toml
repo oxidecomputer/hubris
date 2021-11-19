@@ -5,7 +5,7 @@ stacksize = 2048
 
 [kernel]
 path = "../../app/demo-stm32h7-nucleo"
-name = "demo-stm32h7"
+name = "demo-stm32h7-nucleo"
 requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable

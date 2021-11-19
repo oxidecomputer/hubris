@@ -141,7 +141,82 @@ fn main() -> ! {
             ).unwrap();
 
             let reset_pin = gpio_api::Port::F.pin(4);
-        } else if #[cfg(target_board = "nucleo-h743zi2")] {
+
+        } else if #[cfg(target_board = "gemini-bu-1")] {
+            // PF4 HOST_ACCESS
+            // PF5 RESET
+            // PF6:AF9 IO3
+            // PF7:AF9 IO2
+            // PF8:AF10 IO0
+            // PF9:AF10 IO1
+            // PF10:AF9 CLK
+            // PB6:AF10 CS
+            qspi.configure(
+                // Adjust this as needed for the SI and Logic Analyzer BW available
+                200 / 25, // 200MHz kernel clock / $x MHz SPI clock = divisor
+                25, // 2**25 = 32MiB = 256Mib
+            );
+            gpio_driver.configure_alternate(
+                gpio_api::Port::F.pin(6).and_pin(7).and_pin(10),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF9,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::F.pin(8).and_pin(9),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF10,
+            ).unwrap();
+            gpio_driver.configure_alternate(
+                gpio_api::Port::B.pin(6),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::VeryHigh,
+                gpio_api::Pull::None,
+                gpio_api::Alternate::AF10,
+            ).unwrap();
+
+            // start reset and select off low
+            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+
+            gpio_driver.configure_output(
+                gpio_api::Port::F.pin(4).and_pin(5),
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::High,
+                gpio_api::Pull::None,
+            ).unwrap();
+            let reset_pin = gpio_api::Port::F.pin(5);
+            let _host_access = gpio_api::Port::F.pin(4);
+
+        } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+            // Nucleo-h743zi2/h753zi pin mappings
+            // These development boards are often wired by hand.
+            // Although there are several choices for pin assignment,
+            // the CN10 connector on the board has a marked "QSPI" block
+            // of pins. Use those. Use two pull-up resistors and a
+            // decoupling capacitor if needed.
+            //
+            // CNxx- Pin   MT25QL256xxx
+            // pin   Fn    Pin           Signal   Notes
+            // ----- ---   ------------, -------, ------
+            // 10-07 PF4,  3,            RESET#,  10K ohm to Vcc
+            // 10-09 PF5,  ---           nc,
+            // 10-11 PF6,  ---           nc,
+            // 10-13 PG6,  7,            CS#,     10K ohm to Vcc
+            // 10-15 PB2,  16,           CLK,
+            // 10-17 GND,  10,           GND,
+            // 10-19 PD13, 1,            IO3,
+            // 10-21 PD12, 8,            IO1,
+            // 10-23 PD11, 15,           IO0,
+            // 10-25 PE2,  9,            IO2,
+            // 10-27 GND,  ---           nc,
+            // 10-29 PA0,  ---           nc,
+            // 10-31 PB0,  ---           nc,
+            // 10-33 PE0,  ---           nc,
+            //
+            // 08-07 3V3,  2,            Vcc,     100nF to GND
             qspi.configure(
                 50, // 200MHz kernel / 5 = 4MHz clock
                 25, // 2**25 = 32MiB = 256Mib
