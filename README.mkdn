@@ -142,12 +142,12 @@ custom build commands.
 
 - `cargo xtask dist TOMLFILE` builds a distribution image for the
   application described by the TOML file.
-  - `cargo xtask dist demo/app.toml` - stm32f4-discovery
-  - `cargo xtask dist demo/app-f3.toml` - stm32f3-discovery
-  - `cargo xtask dist lpc55/app.toml` - lpcxpresso55s69
-  - `cargo xtask dist demo-stm32h7/app-h743.toml` - nucleo-ih743zi2
-  - `cargo xtask dist demo-stm32h7/app-h7b3.toml` - stm32h7b3i-dk
-  - `cargo xtask dist gemini-bu/app.toml` - Gemini bringup board
+  - `cargo xtask dist app/demo-stm32f4-discovery/app.toml` - stm32f4-discovery
+  - `cargo xtask dist app/demo-stm32f4-discovery/app-f3.toml` - stm32f3-discovery
+  - `cargo xtask dist app/lpc55xpresso/app.toml` - lpcxpresso55s69
+  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
+  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk
+  - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
 - `cargo xtask build` from within a task or kernel directory builds that one
   component in isolation. **The result won't actually run,** because it's
   missing important system context, but this provides a cheaper way to do
@@ -174,15 +174,15 @@ Connect board via USB.
 From one terminal, launch `openocd` with the corresponding config file:
 
 ```console
-$ openocd -f demo/openocd.cfg       # STM32F4 Discovery boards OR
-$ openocd -f demo/openocd-f3.cfg    # STM32F3 Discovery boards
+$ openocd -f app/demo-stm32f4-discovery/openocd.cfg       # STM32F4 Discovery boards OR
+$ openocd -f app/demo-stm32f4-discovery/openocd-f3.cfg    # STM32F3 Discovery boards
 ```
 
 From another terminal:
 
 ```console
-$ cargo xtask gdb demo/app.toml openocd.gdb         # STM32F4 Discovery boards OR
-$ cargo xtask gdb demo/app-f3.toml openocd-f3.gdb   # STM32F3 Discovery boards
+$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml openocd.gdb         # STM32F4 Discovery boards OR
+$ cargo xtask gdb app/demo-stm32f4-discovery/app-f3.toml openocd-f3.gdb   # STM32F3 Discovery boards
 ```
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
@@ -346,7 +346,7 @@ Once RickLink is running:
 
 - Terminal 1: `pyocd gdbserver -t lpc55s69` 
 - Terminal 2: `telnet localhost 4444` (semihosting output)
-- Terminal 3: `cargo xtask gdb lpc55/app.toml openocd.gdb`
+- Terminal 3: `cargo xtask gdb app/lpc55xpresso/app.toml openocd.gdb`
 
 ### LPC55S28 on Gemini carrier board
 
@@ -370,13 +370,13 @@ remove the jumper on J5 and move J3 to "Loc".)
 
 ### ST Nucleo-H743ZI2 board
 
-- Terminal 1: `cd demo-stm32h7; openocd`
-- Terminal 2: `cargo xtask gdb demo-stm32h7/app-h743.toml openocd.gdb`
+- Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h743.toml openocd.gdb`
 
 ### ST STM32H7B3I-DK board
 
-- Terminal 1: `cd demo-stm32h7; openocd`
-- Terminal 2: `cargo xtask gdb demo-stm32h7/app-h7b3.toml openocd.gdb`
+- Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h7b3.toml openocd.gdb`
 
 ### Multiple boards simultaneously
 
@@ -402,11 +402,11 @@ TOML file.  This will run `cargo xtask dist` and then execute the appropriate
 command (either OpenOCD or pyOCD) to flash the image; the exact invocation
 depends on the board:
 
-- LPCXpresso55S69: `cargo xtask flash lpc55/app.toml`
-- STM32F4 Discovery board: `cargo xtask flash demo/app.toml`
-- ST Nucleo-H743ZI2 board: `cargo xtash flash demo-stm32h7/app-h743.toml`
-- ST STM32H7B3I-DK board: `cargo xtask flash demo-stm32h7/app-h7b3.toml`
-- Gemini bringup board: `cargo xtask flash gemini-bu/app.toml`
+- LPCXpresso55S69: `cargo xtask flash app/lpc55xpresso/app.toml`
+- STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtash flash app/demo-stm32h7-nucleo/app-h743.toml`
+- ST STM32H7B3I-DK board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h7b3.toml`
+- Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
 
 ## Debug
 
@@ -417,7 +417,7 @@ Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
 on a machine with an STM32F4 Discovery board directly attached:
 
 ```console
-$ cargo xtask humility demo/app.toml tasks
+$ cargo xtask humility app/demo-stm32f4-discovery/app.toml tasks
     Finished dev [optimized + debuginfo] target(s) in 0.17s
      Running `target/debug/xtask humility demo/app.toml tasks`
 humility: attached via ST-Link
