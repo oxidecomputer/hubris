@@ -276,6 +276,7 @@ cfg_if::cfg_if! {
         // simulate "power not good" until the person hacking on the board
         // installs a jumper or whatever.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
+
     } else if #[cfg(target_board = "gimlet-1")] {
         const ICE40_SPI_DEVICE: u8 = 1;
 
@@ -312,6 +313,39 @@ cfg_if::cfg_if! {
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
+
+        task_slot!(I2C, i2c_driver);
+        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+        #[allow(dead_code)]
+        fn vcore_soc_off() {
+            use drv_i2c_devices::raa229618::Raa229618;
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let mut vdd_vcore = Raa229618::new(&device, rail);
+
+            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let mut vddcr_soc = Raa229618::new(&device, rail);
+
+            vdd_vcore.turn_off().unwrap();
+            vddcr_soc.turn_off().unwrap();
+        }
+
+        #[allow(dead_code)]
+        fn vcore_soc_on() {
+            use drv_i2c_devices::raa229618::Raa229618;
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let mut vdd_vcore = Raa229618::new(&device, rail);
+
+            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let mut vddcr_soc = Raa229618::new(&device, rail);
+
+            vdd_vcore.turn_on().unwrap();
+            vddcr_soc.turn_on().unwrap();
+        }
     } else if #[cfg(feature = "standalone")] {
         // This is all nonsense to get xtask check to work.
 

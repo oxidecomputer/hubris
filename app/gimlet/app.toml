@@ -173,6 +173,7 @@ start = true
 [tasks.gimlet_seq.task-slots]
 gpio_driver = "gpio_driver"
 spi_driver = "spi2_driver"
+i2c_driver = "i2c_driver"
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"

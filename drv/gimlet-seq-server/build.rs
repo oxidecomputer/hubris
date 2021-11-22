@@ -8,6 +8,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     fs::write(out.join("fpga.bin.rle"), compressed)?;
+
+    let disposition = build_i2c::Disposition::Devices;
+
+    #[cfg(feature = "standalone")]
+    let artifact = build_i2c::Artifact::Standalone;
+
+    #[cfg(not(feature = "standalone"))]
+    let artifact = build_i2c::Artifact::Dist;
+
+    if let Err(e) = build_i2c::codegen(disposition, artifact) {
+        println!("code generation failed: {}", e);
+        std::process::exit(1);
+    }
+
     Ok(())
 }
 
