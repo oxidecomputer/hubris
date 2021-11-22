@@ -423,7 +423,7 @@ bus = "mid"
 address = 0x5a
 device = "raa229618"
 description = "CPU power controller"
-pmbus = { rails = [ "VDD_MEM_ABCD", "VDD_VCORE" ] }
+pmbus = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ] }
 refdes = "U350"
 
 [[config.i2c.devices]]
@@ -431,7 +431,7 @@ bus = "mid"
 address = 0x5b
 device = "raa229618"
 description = "SoC power controller"
-pmbus = { rails = [ "VDD_MEM_EFGH", "VDDCR_SOC" ] }
+pmbus = { rails = [ "VDDCR_SOC", "VDD_MEM_EFGH" ] }
 refdes = "U351"
 
 [[config.i2c.devices]]
