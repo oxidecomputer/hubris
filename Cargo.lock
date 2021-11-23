@@ -525,6 +525,7 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
+ "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
  "drv-i2c-api",
@@ -536,6 +537,7 @@ dependencies = [
  "drv-stm32h7-spi",
  "gnarle",
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]

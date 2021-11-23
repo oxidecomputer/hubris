@@ -5,7 +5,10 @@
 #![no_std]
 #![no_main]
 
+mod seq_spi;
+
 use userlib::*;
+use ringbuf::*;
 
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
@@ -13,6 +16,14 @@ use drv_stm32h7_gpio_api as gpio_api;
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Ident(u32),
+    None
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -216,8 +227,13 @@ fn main() -> ! {
         }
     }
 
+    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+
     // FPGA should now be programmed with the right bitstream.
     loop {
+        let ident = seq.read_ident().unwrap();
+        ringbuf_entry!(Trace::Ident(ident));
+
         // TODO this is where, like, sequencer stuff goes
         hl::sleep_for(10);
     }
@@ -251,6 +267,7 @@ static COMPRESSED_BITSTREAM: &[u8] =
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gimletlet-2")] {
         const ICE40_SPI_DEVICE: u8 = 0;
+        const SEQ_SPI_DEVICE: u8 = 0;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             creset_port: gpio_api::Port::B,
@@ -278,6 +295,7 @@ cfg_if::cfg_if! {
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
 
     } else if #[cfg(target_board = "gimlet-1")] {
+        const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -349,6 +367,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "standalone")] {
         // This is all nonsense to get xtask check to work.
 
+        const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
