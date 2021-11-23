@@ -290,6 +290,22 @@ fn main() -> ! {
     vcore_soc_on();
     ringbuf_entry!(Trace::RailsOn);
 
+    //
+    // Now wait for the end of Group C.
+    //
+    loop {
+        let mut power = [ 0u8 ];
+
+        seq.read_bytes(Addr::A0PowerReadback, &mut power).unwrap();
+        ringbuf_entry!(Trace::A0Power(power[0]));
+
+        if power[0] == 0xc {
+            break;
+        }
+
+        hl::sleep_for(1);
+    }
+
     loop {
         ringbuf_entry!(Trace::Done);
         hl::sleep_for(10);
