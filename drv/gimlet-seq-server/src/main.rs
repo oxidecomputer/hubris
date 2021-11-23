@@ -245,8 +245,10 @@ fn main() -> ! {
 
         // let ident = seq.read_bytes().unwrap();
 
-        let data = [ 0u8; 32 ];
+        let mut data = [ 0u8; 32 ];
         let mut rval = [ 0u8; 32 ];
+
+        data[0] = 1;
         spi.exchange(0, &data, &mut rval).unwrap();
         ringbuf_entry!(Trace::Ident(rval[3], rval[4], rval[5], rval[6]));
 
