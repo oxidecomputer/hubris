@@ -28,6 +28,7 @@ enum Trace {
     Ident(u32),
     A1Status(u8),
     A2,
+    A1Power(u8, u8),
     A0Power(u8),
     RailsOn,
     Done,
@@ -272,12 +273,12 @@ fn main() -> ! {
     seq.write_bytes(Addr::A1Status, &[ a1a0 ]).unwrap();
 
     loop {
-        let mut power = [ 0u8 ];
+        let mut power = [ 0u8, 0u8 ];
 
-        seq.read_bytes(Addr::A0PowerReadback, &mut power).unwrap();
-        ringbuf_entry!(Trace::A0Power(power[0]));
+        seq.read_bytes(Addr::A1PowerReadback, &mut power).unwrap();
+        ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
-        if power[0] == 0x7 {
+        if power[1] == 0x7 {
             break;
         }
 
