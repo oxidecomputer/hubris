@@ -17,8 +17,23 @@ enum Cmd {
     //Identify = 4, // proposed in RFD; implemented?
 }
 
-enum Addr {
+pub enum Addr {
     Id0 = 0,
+    InterruptFlag = 4,
+    InterruptEnable = 5,
+    SequencerStatus = 6,
+    PowerControl = 7,
+    FanFeedback = 8,
+    A1Status = 9,
+    A1PowerReadback = 0xa,
+    A0PowerReadback = 0xb,
+    A0PowerGoodGroupB = 0xc,
+    A0PowerGoodUnused = 0xd,
+    A0PowerFaultAPlusB = 0xe,
+    A0StatusGroupC = 0xf,
+    FanOutStatus = 0x10,
+    A1OutputStatus = 0x11,
+    A1OutputDebug = 0x12,
 }
 
 impl From<Addr> for u16 {
@@ -96,18 +111,25 @@ impl SequencerFpga {
         addr: u16,
         data_out: &mut [u8],
     ) -> Result<(), spi_api::SpiError> {
-        // The current SPI API doesn't let us do "scatter-gather" style
-        // write-read sequences, which is kind of what we want to construct a
-        // SPI read command against the FPGA without allocating huge buffers.
-        // (TODO: we should change this eventually.)
-        //
-        // Instead, we issue several transactions while keeping CS asserted
-        // using the SPI lock facility.
-        let _lock = self.spi.lock_auto(spi_api::CsState::Asserted)?;
+        let mut data = [ 0u8; 16 ];
+        let mut rval = [ 0u8; 16 ];
 
         let addr = U16::new(addr);
-        self.spi.write(CmdHeader { cmd, addr }.as_bytes())?;
-        self.spi.read(data_out)?;
+        let header = CmdHeader { cmd, addr };
+        let header = header.as_bytes();
+
+        for i in 0..header.len() {
+            data[i] = header[i];
+        }
+
+        self.spi.exchange(&data, &mut rval)?;
+
+        for i in 0..data_out.len() {
+            if i + header.len() < data.len() {
+                data_out[i] = rval[i + header.len()];
+            }
+        }
+
         Ok(())
     }
 
@@ -119,14 +141,25 @@ impl SequencerFpga {
         addr: u16,
         data_in: &[u8],
     ) -> Result<(), spi_api::SpiError> {
-        // While writes are in theory easier than reads with the current SPI
-        // API, in practice, we still need to do a "gather" and prepend header
-        // data to `data_in`, so, we still have to lock.
-        let _lock = self.spi.lock_auto(spi_api::CsState::Asserted)?;
+        let mut data = [ 0u8; 16 ];
+        let mut rval = [ 0u8; 16 ];
 
         let addr = U16::new(addr);
-        self.spi.write(CmdHeader { cmd, addr }.as_bytes())?;
-        self.spi.write(data_in)?;
+        let header = CmdHeader { cmd, addr };
+        let header = header.as_bytes();
+
+        for i in 0..header.len() {
+            data[i] = header[i];
+        }
+
+        for i in 0..data_in.len() {
+            if i + header.len() < data.len() {
+                data[i + header.len()] = data_in[i];
+            }
+        }
+
+        self.spi.exchange(&data, &mut rval)?;
+
         Ok(())
     }
 }

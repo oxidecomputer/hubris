@@ -13,6 +13,7 @@ use ringbuf::*;
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
+use seq_spi::Addr;
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
@@ -23,11 +24,17 @@ enum Trace {
     Programming,
     Ice40PowerGoodV1P2(bool),
     Ice40PowerGoodV3P3(bool),
-    Ident(u8, u8, u8, u8),
+    RailsOff,
+    Ident(u32),
+    A1Status(u8),
+    A2,
+    A0Power(u8),
+    RailsOn,
+    Done,
     None
 }
 
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 64, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -234,25 +241,58 @@ fn main() -> ! {
         }
     }
 
-    // let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
-    let seq = spi.device(SEQ_SPI_DEVICE);
+    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
 
     ringbuf_entry!(Trace::Programmed);
+    vcore_soc_off();
+    ringbuf_entry!(Trace::RailsOff);
 
-    // FPGA should now be programmed with the right bitstream.
+    let ident = seq.read_ident().unwrap();
+    ringbuf_entry!(Trace::Ident(ident));
+
     loop {
+        let mut status = [ 0u8 ];
+
+        seq.read_bytes(Addr::A1Status, &mut status).unwrap();
+        ringbuf_entry!(Trace::A1Status(status[0]));
+
+        if status[0] == 0 {
+            break;
+        }
+
+        hl::sleep_for(1);
+    }
+
+    ringbuf_entry!(Trace::A2);
+
+    //
+    // We know that we're in A2 -- send us to A1 and A0.
+    //
+    let a1a0 = 0x3u8;
+    seq.write_bytes(Addr::A1Status, &[ a1a0 ]).unwrap();
+
+    loop {
+        let mut power = [ 0u8 ];
+
+        seq.read_bytes(Addr::A0PowerReadback, &mut power).unwrap();
+        ringbuf_entry!(Trace::A0Power(power[0]));
+
+        if power[0] == 0x7 {
+            break;
+        }
+
+        hl::sleep_for(1);
+    }
+
+    //
+    // And power up!
+    //
+    vcore_soc_on();
+    ringbuf_entry!(Trace::RailsOn);
+
+    loop {
+        ringbuf_entry!(Trace::Done);
         hl::sleep_for(10);
-
-        // let ident = seq.read_bytes().unwrap();
-
-        let mut data = [ 0u8; 32 ];
-        let mut rval = [ 0u8; 32 ];
-
-        data[0] = 1;
-        spi.exchange(0, &data, &mut rval).unwrap();
-        ringbuf_entry!(Trace::Ident(rval[3], rval[4], rval[5], rval[6]));
-
-        // hl::sleep_for(10);
     }
 }
 
