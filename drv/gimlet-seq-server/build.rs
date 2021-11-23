@@ -22,6 +22,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
+    println!("cargo:rerun-if-changed=fpga.bin");
+
     Ok(())
 }
 
