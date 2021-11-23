@@ -7,9 +7,7 @@ fn get_custom_target(pkg_name: &str) -> Option<String> {
     use cargo_metadata::MetadataCommand;
     use serde::Deserialize;
 
-    let metadata = MetadataCommand::new()
-        .exec()
-        .unwrap();
+    let metadata = MetadataCommand::new().exec().unwrap();
 
     let package = metadata
         .packages
