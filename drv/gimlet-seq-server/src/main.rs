@@ -19,6 +19,10 @@ task_slot!(SPI, spi_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    Programmed,
+    Programming,
+    Ice40PowerGoodV1P2(bool),
+    Ice40PowerGoodV3P3(bool),
     Ident(u32),
     None
 }
@@ -103,6 +107,7 @@ fn main() -> ! {
     loop {
         // active high
         let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V1P2_MASK != 0;
+        ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
         if pg {
             break;
         }
@@ -123,6 +128,7 @@ fn main() -> ! {
     loop {
         // active high
         let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V3P3_MASK != 0;
+        ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
         if pg {
             break;
         }
@@ -205,6 +211,7 @@ fn main() -> ! {
         // Reprogramming will continue until morale improves.
         loop {
             let prog = spi.device(ICE40_SPI_DEVICE);
+            ringbuf_entry!(Trace::Programming);
             match reprogram_fpga(&prog, &gpio, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
@@ -228,6 +235,8 @@ fn main() -> ! {
     }
 
     let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+
+    ringbuf_entry!(Trace::Programmed);
 
     // FPGA should now be programmed with the right bitstream.
     loop {
