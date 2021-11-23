@@ -23,7 +23,7 @@ enum Trace {
     Programming,
     Ice40PowerGoodV1P2(bool),
     Ice40PowerGoodV3P3(bool),
-    Ident(u32),
+    Ident(u8, u8, u8, u8),
     None
 }
 
@@ -234,17 +234,23 @@ fn main() -> ! {
         }
     }
 
-    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+    // let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+    let seq = spi.device(SEQ_SPI_DEVICE);
 
     ringbuf_entry!(Trace::Programmed);
 
     // FPGA should now be programmed with the right bitstream.
     loop {
-        let ident = seq.read_ident().unwrap();
-        ringbuf_entry!(Trace::Ident(ident));
-
-        // TODO this is where, like, sequencer stuff goes
         hl::sleep_for(10);
+
+        // let ident = seq.read_bytes().unwrap();
+
+        let data = [ 0u8; 32 ];
+        let mut rval = [ 0u8; 32 ];
+        spi.exchange(0, &data, &mut rval).unwrap();
+        ringbuf_entry!(Trace::Ident(rval[3], rval[4], rval[5], rval[6]));
+
+        // hl::sleep_for(10);
     }
 }
 
