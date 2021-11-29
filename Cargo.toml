@@ -76,7 +76,7 @@ members = [
     "test/tests-gemini-bu-rot",
     "test/tests-stm32fx",
     "test/tests-stm32h7",
-    "test/tests-lpc55",
+    "test/tests-lpc55xpresso",
     "test/test-runner",
     "test/test-assist",
     "test/test-suite",

@@ -2404,7 +2404,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tests-lpc55"
+name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.10",

@@ -1,4 +1,4 @@
-name = "tests-lpc55"
+name = "tests-lpc55xpresso"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 stacksize = 2048
