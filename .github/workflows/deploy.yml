@@ -1,0 +1,48 @@
+# adapted from:
+#
+# * base code: https://peterevans.dev/posts/github-actions-how-to-automate-code-formatting-in-pull-requests/
+# * fix push auth: https://github.com/ad-m/github-push-action
+# * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+name: deploy
+on: [pull_request]
+jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispath", "schedule"]'
+  deploy:
+    needs: skip_duplicate_jobs
+    # Check if the PR is not from a fork
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fkirc/skip-duplicate-actions@master
+      - uses: actions/checkout@v2.3.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Create output directories
+        run: mkdir -p output/reference
+
+      - name: Copy index.html
+        run: cp website/index.html output/index.html
+
+      - name: Generate reference
+        id: adocbuild
+        uses: tonynv/asciidoctor-action@master
+        with:
+            program: asciidoctor doc/index.adoc -o output/reference/index.html
+
+
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@4.1.7
+        with:
+          branch: gh-pages # The branch the action should deploy to.
+          folder: output # The folder the action should deploy.
