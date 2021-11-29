@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Code for programming an iCE40 FPGA using separate GPIO and SPI servers.
 //!
 //! **Note:** this code makes an environmental assumption that you are not using

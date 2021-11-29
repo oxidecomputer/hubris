@@ -26,6 +26,7 @@ abi = { path = "../../sys/abi" }
 byteorder = "1.3.4"
 filetime = "0.2.12"
 scroll = "0.10"
+walkdir = "2.0.0"
 
 # For NXP signing
 lpc55_support = { path = "../../support/lpc55" }

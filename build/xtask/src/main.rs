@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -14,6 +18,7 @@ mod elf;
 mod flash;
 mod gdb;
 mod humility;
+mod license;
 mod task_slot;
 mod test;
 
@@ -112,6 +117,9 @@ enum Xtask {
         /// Path to task executable
         task_bin: PathBuf,
     },
+
+    /// Check that all .rs files have the MPL header
+    LicenseCheck,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -352,6 +360,11 @@ fn main() -> Result<()> {
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
+        }
+        Xtask::LicenseCheck => {
+            if !license::check()? {
+                std::process::exit(1);
+            }
         }
     }
 
