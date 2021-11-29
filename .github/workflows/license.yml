@@ -1,0 +1,46 @@
+# adapted from:
+#
+# * base code: https://peterevans.dev/posts/github-actions-how-to-automate-code-formatting-in-pull-requests/
+# * fix push auth: https://github.com/ad-m/github-push-action
+# * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
+name: license-check
+on: pull_request
+jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispath", "schedule"]'
+  format:
+    needs: skip_duplicate_jobs
+    # Check if the PR is not from a fork
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: fkirc/skip-duplicate-actions@master
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Update submodule
+        env:
+          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
+          SSH_PUBKEY_FOR_SUBMODULE: ${{secrets.SSH_PUBKEY_FOR_SUBMODULE}}
+        run: |
+            mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
+        shell: bash
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
+
+      - name: Show Rust toolchain
+        run: rustup show
+
+      - name: Run cargo xtask license-check
+        run: cargo xtask license-check

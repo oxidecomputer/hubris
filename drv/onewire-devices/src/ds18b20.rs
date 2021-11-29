@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Driver for the DS18B20 Programmable Resolution 1-Wire Digital Thermometer
 //!
 //! This is a basic driver for converting and reading the temperature on

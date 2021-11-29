@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! A driver for some basic dev board User LEDs.
 //!
 //! We assume that there are two user LEDs available, numbered 0 and 1. The
