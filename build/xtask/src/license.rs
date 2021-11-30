@@ -72,7 +72,8 @@ pub fn check() -> Result<bool> {
         }
     }
 
-    Ok(fail)
+    // if we have failed, return false, but if we haven't, return true
+    Ok(!fail)
 }
 
 fn is_rust_file(entry: &DirEntry) -> bool {
