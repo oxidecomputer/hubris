@@ -436,7 +436,7 @@ few options for dealing with these cases:
 The general case that we've been discussing so far is the open receive case.
 
 In a closed receive, the task selects a single other task to receive messages
-from. Any other sender will be queued.
+from. Any other sender will be blocked.
 
 This can be used to implement mutual exclusion. If a client sends a lock request
 to a server, for instance, the server could then perform a closed receive and
