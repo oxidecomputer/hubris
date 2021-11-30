@@ -272,7 +272,7 @@ A concrete mapping of these operations to IPCs might go as follows.
 
 - Message is a four-byte struct containing `fd` as a little-endian `u32`. Borrow
   0 is `buffer` and must be writable.
-- Data will be written to a prefix of borrow 0, starting at offset 0.
+- Data will be written to a prefix of lease 0, starting at offset 0.
 - On success, returns response code 0 and a four-byte response, containing the
   bytes-read count as a little-endian `u32`.
 - On failure, returns a non-zero response code that maps to an `IoError`, and a
@@ -282,7 +282,7 @@ A concrete mapping of these operations to IPCs might go as follows.
 
 - Message is a four-byte struct containing `fd` as a little-endian `u32`. Borrow
   0 is `buffer` and must be readable.
-- Data will be taken from a prefix of borrow 0, starting at offset 0.
+- Data will be taken from a prefix of lease 0, starting at offset 0.
 - On success, returns response code 0 and a four-byte response, containing the
   bytes-written count as a little-endian `u32`.
 - On failure, returns a non-zero response code that maps to an `IoError`, and a
@@ -309,7 +309,7 @@ fn read(task: TaskId, fd: u32, buffer: &mut [u8]) -> Result<usize, IoError> {
     let (rc, len) = sys_send(
         task,
         0,
-        &u32.to_le_bytes(),
+        &fd.to_le_bytes(),
         &mut response,
         &[Lease::from(buffer)],
     );
