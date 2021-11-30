@@ -4,7 +4,10 @@
 # * fix push auth: https://github.com/ad-m/github-push-action
 # * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
 name: deploy
-on: [pull_request]
+on:
+  push:
+    branches:
+      - master
 jobs:
   skip_duplicate_jobs:
     runs-on: ubuntu-latest
