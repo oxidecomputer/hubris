@@ -360,7 +360,8 @@ explained in the section <<notifications>>.)
 caller sent an over-long message that has been truncated, and you likely want to
 return an error.
 <5> Number of bytes the caller reserved for receiving your reply.
-<6> Number of leases the caller sent you.
+<6> Number of leases the caller sent you. The actual borrows are accessed
+    with separate system calls — see section <<sys_borrow_read>>.
 
 [source,rust]
 ----

@@ -375,6 +375,7 @@ you `RECV`).
 The time unit for deadlines is not currently specified -- it's currently an
 abstract "kernel ticks" unit. This will be fixed.
 
+[#sys_borrow_read]
 === `BORROW_READ` (4)
 
 Copies data from memory borrowed from a caller (a "borrow").
