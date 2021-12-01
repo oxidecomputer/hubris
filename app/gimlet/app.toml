@@ -262,7 +262,7 @@ target = true
 [config.i2c.controllers.ports.B]
 name = "spd"
 description = "SPD proxy"
-pins = [ { pins = [ 0, 1 ], af = 4 } ]
+pins = [ { pins = [ 6, 7 ], af = 4 } ]
 
 #
 # I2C2: Front/M.2 bus
