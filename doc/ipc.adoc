@@ -21,8 +21,8 @@ that could easily be you. So in this chapter, we'll peel back the abstractions
 and deal in the raw IPC operations provided by the kernel.
 
 NOTE: IPC is technically a misnomer, since we don't have what most folks think
-of as "processes" (the P in IPC). But hey. Inter-Task Communication just isn't
-as catchy.
+of as "`processes`" (the P in IPC). But hey. Inter-Task Communication just
+isn't as catchy.
 
 == Synchronous IPC basics
 
@@ -43,8 +43,8 @@ sender to the recipient, and provides the recipient with some metadata it can
 use to process the message.
 
 This style of messaging is also called a _rendezvous_ or _handoff,_ because both
-tasks need to arrange to "meet" in the right state for the message transfer to
-happen.
+tasks need to arrange to "`meet`" in the right state for the message transfer
+to happen.
 
 NOTE: In case you're concerned that all messages are small, you will be relieved
 to know that we have a mechanism for dealing with that; if you want to skip
@@ -78,8 +78,8 @@ synchronous rendezvous messaging, we avoid having queues in the first place.
 **It limits the power of any single task.** A Hubris task can either be doing
 local work, or sending one message. It can't, for instance, spam every other
 task in the system with messages simultaneously, or set up hundreds of messages
-to a single task. This avoids "fault amplification" scenarios where a bug in one
-task cascades into a much larger problem, as in a denial-of-service attack.
+to a single task. This avoids "`fault amplification`" scenarios where a bug in
+one task cascades into a much larger problem, as in a denial-of-service attack.
 
 **It lets message recipients reason about what their callers are doing.** When
 your task is processing a message, it knows that the sending task is parked
@@ -168,9 +168,9 @@ message data flowing between tasks. Any meaning there is defined by the
 application. The kernel looks only at the task IDs, and copies the rest blindly
 from place to place.
 
-TIP: The Hubris source code sometimes refers to operation codes as "selectors"
-or "discriminators," because Cliff can't make up his mind on which metaphor to
-use.
+TIP: The Hubris source code sometimes refers to operation codes as
+"`selectors`" or "`discriminators,`" because Cliff can't make up his mind on
+which metaphor to use.
 
 [#response-codes]
 === Response codes and `Result`
@@ -197,7 +197,7 @@ non-zero response code and any additional data returned. Most wrappers do this.
 
 NOTE: While response codes are _mostly_ up to the application, there is a class
 of non-zero response codes used by the kernel to indicate certain failure cases
-related to crashing tasks. These are called "dead codes," and will be covered
+related to crashing tasks. These are called "`dead codes,`" and will be covered
 later, in the section <<death>>. Applications should choose their response codes
 to avoid colliding with them. Fortunately, they're very large numbers, so if
 applications start their errors from 1 they should be safe.
@@ -209,8 +209,8 @@ from one place to another. This operation is uninterruptible, so it may delay
 processing of interrupts or timers. To limit this, we impose a maximum length on
 messages, currently 256 bytes.
 
-TIP: If you need to move more data than this, you can use the "lease" mechanism,
-described in the next section.
+TIP: If you need to move more data than this, you can use the "`lease`"
+mechanism, described in the next section.
 
 [#leases]
 === Lending out memory
@@ -444,8 +444,8 @@ from. Any other sender will be blocked.
 This can be used to implement mutual exclusion. If a client sends a lock request
 to a server, for instance, the server could then perform a closed receive and
 only accept messages from that client. Other clients could send lock requests,
-but they'd queue up, until the first client either sends a "release" message, or
-dies (see below).
+but they'd queue up, until the first client either sends a "`release`" message,
+or dies (see below).
 
 [#death]
 == Death and IPC
@@ -469,7 +469,7 @@ stateless, and no action is needed, but often some kind of an init sequence may
 be in order.
 
 When an operation fails because of a generation mismatch, it returns a
-predictable response code called a "dead code." A dead code has its 24 top bits
+predictable response code called a "`dead code.`" A dead code has its 24 top bits
 set to 1, with the peer's _new_ generation number in the low 8. You can use this
 to update your `TaskId` and retry your request, for instance.
 
@@ -528,7 +528,7 @@ The task can distinguish a notification message from its contents:
 
 - The sender's `TaskId` will be `TaskId::KERNEL`, indicating that the message
   comes from the kernel. Since the kernel never sends messages in any other
-  context, any message "from" the kernel is a notification.
+  context, any message "`from`" the kernel is a notification.
 
 - The `operation` field will contain the bits that were posted and matched the
   provided mask. (These are also the bits that the kernel atomically cleared.)
@@ -549,7 +549,7 @@ clients to signal a single client -- if it used `send` instead, that client
 could decide not to `reply`, starving all the other clients.
 
 In developing firmware on Hubris we've found a particular pattern to be useful,
-called "pingback." In this pattern, a high-priority shared server (such as a
+called "`pingback.`" In this pattern, a high-priority shared server (such as a
 network stack) has obtained data that it needs to give to one of its clients --
 but it can't just `send` the data for the reason described above. One option is
 to have all clients forever blocked in `send` to the _server_ until data

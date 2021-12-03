@@ -33,12 +33,12 @@ You can likely skip this section if you're not porting the kernel.
   a subset of exception numbers at a fixed offset -- 16, on ARMv7-M -- and we'll
   subtract that offset when numbering interrupts.
 
-- Interrupts have a "pending" flag and an "enable" flag. The pending flag can be
-  set by hardware at any time, but the ISR will only be invoked if the enable
-  and pending flags are set at the same time. (This ensures that momentary
-  events are latched and can be handled with a delay.) Starting the interrupt
-  service routine clears the "pending" flag and may or may not affect the
-  "enable" flag.
+- Interrupts have a "`pending`" flag and an "`enable`" flag. The pending flag
+  can be set by hardware at any time, but the ISR will only be invoked if the
+  enable and pending flags are set at the same time. (This ensures that
+  momentary events are latched and can be handled with a delay.) Starting the
+  interrupt service routine clears the "`pending`" flag and may or may not
+  affect the "`enable`" flag.
 
 - Interrupt handlers (or interrupt service routines) can be configured not to
   preempt one another, either by configuring priorities in the interrupt
@@ -49,8 +49,8 @@ You can likely skip this section if you're not porting the kernel.
   implies that interrupts cannot preempt the kernel, since the kernel always
   runs in interrupt context.)
 
-For brevity in the discussion below, we'll refer to an interrupt "happening" as
-when the CPU decides to execute the associated in-kernel interrupt service
+For brevity in the discussion below, we'll refer to an interrupt "`happening`"
+as when the CPU decides to execute the associated in-kernel interrupt service
 routine. That can occur when...
 
 - The `pending` bit is set while `enable` was already set.
