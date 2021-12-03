@@ -8,11 +8,13 @@ default = ["panic-messages"]
 panic-messages = []
 log-itm = []
 log-semihosting = []
+0A-hardware = []
 
 [dependencies]
 lpc55-pac = "0.3.0"
 num-derive = "0.3.3"
 num-traits = { version = "0.2", default-features = false }
+cfg-if = "0.1.10"
 
 # a target for `cargo xtask check`
 [package.metadata.build]
