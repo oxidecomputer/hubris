@@ -1,5 +1,11 @@
 name: standalone
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - 'doc/**'
+  pull_request:
+    paths-ignore:
+      - 'doc/**'
 
 jobs:
   skip_duplicate_jobs:
