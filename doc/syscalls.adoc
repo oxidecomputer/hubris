@@ -30,8 +30,8 @@ In general, syscalls should represent *operations that every task should have
 access to,* while anything privileged or sensitive should be done through IPC.
 
 This doesn't mean all these things need to be done outside the kernel, though.
-We have an escape hatch, in the form of messages to the virtual "kernel task."
-The kernel IPC interface is the topic of the next chapter.
+We have an escape hatch, in the form of messages to the virtual "`kernel
+task.`" The kernel IPC interface is the topic of the next chapter.
 
 == Syscall ABI
 
@@ -222,7 +222,7 @@ sender.
 
 One argument to RECV determines whether to accept messages from _any_ sender, or
 to only accept messages from _one._ Accepting messages from any sender is called
-an "open" receive, while only listening for one sender is "closed."
+an "`open`" receive, while only listening for one sender is "`closed.`"
 
 During an open receive, a task may receive messages sent by any other task, plus
 any notifications enabled by the notification mask.
@@ -244,7 +244,7 @@ notification masks, and may change.)
 
 ==== Return values
 
-- 0: always 0 for open receive; closed receive may also return a "dead code"
+- 0: always 0 for open receive; closed receive may also return a *dead code*
   (see `SEND`) to indicate that the chosen peer has died.
 - 1: Task ID of the sender (generation in 15:12, ID in 11:0).
 - 2: Operation code used by sender. (Or notification bits, if the sender is the
@@ -291,7 +291,7 @@ The notification mask is provided anew with each receive because the `RECV`
 callsite has a clear idea of which notifications it can handle. Plus, it saves a
 syscall during the common pattern of updating the mask and then receiving.
 
-`RECV` is called `RECV` because Cliff can't spell "recieve" reliably.
+`RECV` is called `RECV` because Cliff can't spell "`recieve`" reliably.
 
 [#sys_reply]
 === `REPLY` (2)
@@ -335,7 +335,7 @@ There is only one way to break `REPLY`, and that's with a bogus slice.
 
 It might strike you as odd that `REPLY` doesn't return any status. This is a
 subtle decision, and has to do with what servers will do if their clients
-"defect" or crash before reply (generally: nothing).
+"`defect`" or crash before reply (generally: nothing).
 
 Reply messages can be zero-length, in which case the base address of the slice
 is ignored. Often, the response code is enough.
@@ -373,12 +373,12 @@ in the past delivers the notification immediately (though you won't notice until
 you `RECV`).
 
 The time unit for deadlines is not currently specified -- it's currently an
-abstract "kernel ticks" unit. This will be fixed.
+abstract "`kernel ticks`" unit. This will be fixed.
 
 [#sys_borrow_read]
 === `BORROW_READ` (4)
 
-Copies data from memory borrowed from a caller (a "borrow").
+Copies data from memory borrowed from a caller (a "`borrow`").
 
 ==== Arguments
 
@@ -400,7 +400,7 @@ TBD
 
 ==== Notes
 
-This provides "file-like" access to memory borrowed from other tasks, rather
+This provides "`file-like`" access to memory borrowed from other tasks, rather
 than direct memory-mapped access, and that's for a good reason: the other task
 may potentially be restarted at any time. In the event that the peer restarts
 while you're working with one of its borrows, you'll get an error return code
@@ -411,7 +411,7 @@ opportunity to induce faults in shared servers, which would be bad.
 [#sys_borrow_write]
 === `BORROW_WRITE` (5)
 
-Copies data into memory borrowed from a caller (a "borrow").
+Copies data into memory borrowed from a caller (a "`borrow`").
 
 ==== Arguments
 
@@ -433,7 +433,7 @@ TBD
 
 ==== Notes
 
-This provides "file-like" access to memory borrowed from other tasks, rather
+This provides "`file-like`" access to memory borrowed from other tasks, rather
 than direct memory-mapped access, and that's for a good reason: the other task
 may potentially be restarted at any time. In the event that the peer restarts
 while you're working with one of its borrows, you'll get an error return code
@@ -487,7 +487,7 @@ their notification bits. However, this is quite deliberate, for two reasons:
 
 1. It gives tasks a consistent semantic model. When an interrupt goes off, they
    see a notification in bit X; when they want to re-enable that interrupt,
-   they request enabling on bit X. There is no separate "IRQ number" to
+   they request enabling on bit X. There is no separate "`IRQ number`" to
    configure; that's left to the application-level config file.
 
 2. It makes it impossible for a task to mess with other tasks' interrupts,
@@ -553,8 +553,8 @@ The timestamp is defined as being CPU-wide, consistent for all tasks, so the
 result of this syscall can be meaningfully sent to other tasks on the same CPU.
 (Behavior in multicore situations is not yet defined.)
 
-The time unit is not currently specified -- it's currently an abstract "kernel
-ticks" unit. This will be fixed.
+The time unit is not currently specified -- it's currently an abstract "`kernel
+ticks`" unit. This will be fixed.
 
 === `REFRESH_TASK_ID` (10)
 
@@ -621,6 +621,6 @@ If the task generation is wrong, the caller will receive a dead code (see
 
 If the task being notified is higher priority, and the notification causes it
 to wake, control will immediately transfer to the higher priority task. This
-will be returned as "success" to the caller, because the notification was
+will be returned as "`success`" to the caller, because the notification was
 successfully delivered, even if the higher priority task subsequently crashes
 before the caller gets another chance to run.
