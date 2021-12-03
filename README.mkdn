@@ -420,8 +420,8 @@ depends on the board:
 
 - LPCXpresso55S69: `cargo xtask flash app/lpc55xpresso/app.toml`
 - STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
-- ST Nucleo-H743ZI2 board: `cargo xtash flash app/demo-stm32h7-nucleo/app-h743.toml`
-- ST Nucleo-H753ZI board: `cargo xtash flash app/demo-stm32h7-nucleo/app-h753.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h743.toml`
+- ST Nucleo-H753ZI board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h753.toml`
 - ST STM32H7B3I-DK board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h7b3.toml`
 - Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
 
