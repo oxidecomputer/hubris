@@ -1,11 +1,5 @@
 name: build
-on:
-  push:
-    paths-ignore:
-      - 'doc/**'
-  pull_request:
-    paths-ignore:
-      - 'doc/**'
+on: [push, pull_request]
 
 jobs:
   skip_duplicate_jobs:
@@ -18,7 +12,7 @@ jobs:
         with:
           concurrent_skipping: 'same_content'
           skip_after_successful_duplicate: 'true'
-          do_not_skip: '["pull_request", "workflow_dispath", "schedule"]'
+          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
   build:
     needs: skip_duplicate_jobs
     if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
