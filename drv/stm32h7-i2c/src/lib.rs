@@ -400,14 +400,14 @@ impl<'a> I2cController<'a> {
         self.wait_until_notbusy()?;
 
         if wlen > 0 {
-            #[rustfmt::skip]
-            i2c.cr2.modify(|_, w| { w
-                .nbytes().bits(wlen as u8)
-                .autoend().clear_bit()
-                .add10().clear_bit()
-                .sadd().bits((addr << 1).into())
-                .rd_wrn().clear_bit()
-                .start().set_bit()
+            i2c.cr2.modify(|_, w| {
+                w.nbytes().bits(wlen as u8);
+                w.autoend().clear_bit();
+                w.add10().clear_bit();
+                w.sadd().bits((addr << 1).into());
+                w.rd_wrn().clear_bit();
+                w.start().set_bit();
+                w
             });
 
             let mut pos = 0;
@@ -487,25 +487,25 @@ impl<'a> I2cController<'a> {
             // read).
             //
             if let ReadLength::Fixed(rlen) = rlen {
-                #[rustfmt::skip]
-                i2c.cr2.modify(|_, w| { w
-                    .nbytes().bits(rlen as u8)
-                    .autoend().clear_bit()
-                    .add10().clear_bit()
-                    .sadd().bits((addr << 1).into())
-                    .rd_wrn().set_bit()
-                    .start().set_bit()
+                i2c.cr2.modify(|_, w| {
+                    w.nbytes().bits(rlen as u8);
+                    w.autoend().clear_bit();
+                    w.add10().clear_bit();
+                    w.sadd().bits((addr << 1).into());
+                    w.rd_wrn().set_bit();
+                    w.start().set_bit();
+                    w
                 });
             } else {
-                #[rustfmt::skip]
-                i2c.cr2.modify(|_, w| { w
-                    .nbytes().bits(1)
-                    .autoend().clear_bit()
-                    .reload().set_bit()
-                    .add10().clear_bit()
-                    .sadd().bits((addr << 1).into())
-                    .rd_wrn().set_bit()
-                    .start().set_bit()
+                i2c.cr2.modify(|_, w| {
+                    w.nbytes().bits(1);
+                    w.autoend().clear_bit();
+                    w.reload().set_bit();
+                    w.add10().clear_bit();
+                    w.sadd().bits((addr << 1).into());
+                    w.rd_wrn().set_bit();
+                    w.start().set_bit();
+                    w
                 });
             }
 
@@ -549,10 +549,10 @@ impl<'a> I2cController<'a> {
                 let byte: u8 = i2c.rxdr.read().rxdata().bits();
 
                 if rlen == ReadLength::Variable {
-                    #[rustfmt::skip]
-                    i2c.cr2.modify(|_, w| { w
-                        .nbytes().bits(byte)
-                        .reload().clear_bit()
+                    i2c.cr2.modify(|_, w| {
+                        w.nbytes().bits(byte);
+                        w.reload().clear_bit();
+                        w
                     });
 
                     rlen = ReadLength::Fixed(byte.into());
@@ -628,14 +628,14 @@ impl<'a> I2cController<'a> {
 
             ringbuf_entry!(Trace::Konami(*op));
 
-            #[rustfmt::skip]
-            i2c.cr2.modify(|_, w| { w
-                .nbytes().bits(0u8)
-                .autoend().clear_bit()
-                .add10().clear_bit()
-                .sadd().bits((addr << 1).into())
-                .rd_wrn().bit(opval)
-                .start().set_bit()
+            i2c.cr2.modify(|_, w| {
+                w.nbytes().bits(0u8);
+                w.autoend().clear_bit();
+                w.add10().clear_bit();
+                w.sadd().bits((addr << 1).into());
+                w.rd_wrn().bit(opval);
+                w.start().set_bit();
+                w
             });
 
             // All done; now block until our transfer is complete -- or until

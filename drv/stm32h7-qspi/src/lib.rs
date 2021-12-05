@@ -63,27 +63,25 @@ impl Qspi {
         assert!(divider > 0);
         assert!(l2size > 0 && l2size < 64);
 
-        #[rustfmt::skip]
         self.reg.cr.write(|w| unsafe {
+            // Divide kernel clock by the divider, which means setting
+            // prescaler to one less.
+            w.prescaler().bits(divider - 1);
+            // In both read and write modes we try to get 16 bytes into the
+            // FIFO before bothering to wake up.
+            w.fthres().bits(FIFO_THRESH as u8 - 1);
+            // On.
+            w.en().set_bit();
             w
-                // Divide kernel clock by the divider, which means setting
-                // prescaler to one less.
-                .prescaler().bits(divider - 1)
-                // In both read and write modes we try to get 16 bytes into the
-                // FIFO before bothering to wake up.
-                .fthres().bits(FIFO_THRESH as u8 - 1)
-                // On.
-                .en().set_bit()
         });
-        #[rustfmt::skip]
         self.reg.dcr.write(|w| unsafe {
+            // Flash size is recorded as log2 minus 1.
+            w.fsize().bits(l2size - 1);
+            // CS high time: 1 cycle between (arbitrary)
+            w.csht().bits(1);
+            // Clock mode 0.
+            w.ckmode().clear_bit();
             w
-                // Flash size is recorded as log2 minus 1.
-                .fsize().bits(l2size - 1)
-                // CS high time: 1 cycle between (arbitrary)
-                .csht().bits(1)
-                // Clock mode 0.
-                .ckmode().clear_bit()
         });
     }
 
@@ -158,25 +156,24 @@ impl Qspi {
 
         // Note: if we aren't using an address, this write will kick things off.
         // Otherwise it's the AR write below.
-        #[rustfmt::skip]
         self.reg.ccr.write(|w| unsafe {
+            // Indirect write
+            w.fmode().bits(0b00);
+            // Data on single line, or no data
+            w.dmode().bits(if data.is_empty() { 0b00 } else { 0b01 });
+            // Dummy cycles = 0 for this
+            w.dcyc().bits(0);
+            // No alternate bytes
+            w.abmode().bits(0);
+            // 32-bit address, if present.
+            w.adsize().bits(if addr.is_some() { 0b11 } else { 0b00 });
+            // ...on one line for now, if present.
+            w.admode().bits(if addr.is_some() { 0b01 } else { 0b00 });
+            // Instruction on single line
+            w.imode().bits(0b01);
+            // And, the op
+            w.instruction().bits(command as u8);
             w
-                // Indirect write
-                .fmode().bits(0b00)
-                // Data on single line, or no data
-                .dmode().bits(if data.is_empty() { 0b00 } else { 0b01 })
-                // Dummy cycles = 0 for this
-                .dcyc().bits(0)
-                // No alternate bytes
-                .abmode().bits(0)
-                // 32-bit address, if present.
-                .adsize().bits(if addr.is_some() { 0b11 } else { 0b00 })
-                // ...on one line for now, if present.
-                .admode().bits(if addr.is_some() { 0b01 } else { 0b00 })
-                // Instruction on single line
-                .imode().bits(0b01)
-                // And, the op
-                .instruction().bits(command as u8)
         });
         if let Some(addr) = addr {
             self.reg.ar.write(|w| unsafe { w.address().bits(addr) });
@@ -250,25 +247,24 @@ impl Qspi {
         // hanging around from some previous transfer -- ensure this:
         self.reg.fcr.write(|w| w.ctcf().set_bit());
 
-        #[rustfmt::skip]
         self.reg.ccr.write(|w| unsafe {
+            // Indirect read
+            w.fmode().bits(0b01);
+            // Data on single line, or no data
+            w.dmode().bits(if out.is_empty() { 0b00 } else { 0b01 });
+            // Dummy cycles = 0 for this
+            w.dcyc().bits(0);
+            // No alternate bytes
+            w.abmode().bits(0);
+            // 32-bit address if present.
+            w.adsize().bits(if addr.is_some() { 0b11 } else { 0b00 });
+            // ...on one line for now, if present.
+            w.admode().bits(if addr.is_some() { 0b01 } else { 0b00 });
+            // Instruction on single line
+            w.imode().bits(0b01);
+            // And, the op
+            w.instruction().bits(command as u8);
             w
-                // Indirect read
-                .fmode().bits(0b01)
-                // Data on single line, or no data
-                .dmode().bits(if out.is_empty() { 0b00 } else { 0b01 })
-                // Dummy cycles = 0 for this
-                .dcyc().bits(0)
-                // No alternate bytes
-                .abmode().bits(0)
-                // 32-bit address if present.
-                .adsize().bits(if addr.is_some() { 0b11 } else { 0b00 })
-                // ...on one line for now, if present.
-                .admode().bits(if addr.is_some() { 0b01 } else { 0b00 })
-                // Instruction on single line
-                .imode().bits(0b01)
-                // And, the op
-                .instruction().bits(command as u8)
         });
         if let Some(addr) = addr {
             self.reg.ar.write(|w| unsafe { w.address().bits(addr) });
@@ -289,11 +285,11 @@ impl Qspi {
                     self.reg.cr.modify(|_, w| w.ftie().set_bit());
                 } else {
                     // We want the transfer-complete event
-                    #[rustfmt::skip]
-                    self.reg.cr.modify(|_, w|
-                        w.ftie().clear_bit()
-                        .tcie().set_bit()
-                    );
+                    self.reg.cr.modify(|_, w| {
+                        w.ftie().clear_bit();
+                        w.tcie().set_bit();
+                        w
+                    });
                 }
 
                 // Unmask our interrupt.

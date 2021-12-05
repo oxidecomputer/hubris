@@ -80,24 +80,23 @@ impl Spi {
         // TODO: C driver has some bits about twiddling SSI state to avoid MODF.
         // I've hardcoded what I believe is the equivalent result here.
 
-        #[rustfmt::skip]
         self.reg.cfg2.write(|w| {
+            // This bit determines if software manages SS (SSM = 1) or
+            // hardware (SSM = 0). Let hardware set SS appropriately.
+            w.ssm().clear_bit();
+            // SS output enabled; but not necessarily routed to a pin
+            // (caller determines that)
+            w.ssoe().enabled();
+            // Don't glitch pins when being reconfigured.
+            w.afcntr().controlled();
+            // This is currently a host-only driver.
+            w.master().set_bit();
+            w.comm().variant(comm);
+            w.lsbfrst().variant(lsbfrst);
+            w.cpha().variant(cpha);
+            w.cpol().variant(cpol);
+            w.ssom().variant(ssom);
             w
-                // This bit determines if software manages SS (SSM = 1) or
-                // hardware (SSM = 0). Let hardware set SS appropriately.
-                .ssm().clear_bit()
-                // SS output enabled; but not necessarily routed to a pin
-                // (caller determines that)
-                .ssoe().enabled()
-                // Don't glitch pins when being reconfigured.
-                .afcntr().controlled()
-                // This is currently a host-only driver.
-                .master().set_bit()
-                .comm().variant(comm)
-                .lsbfrst().variant(lsbfrst)
-                .cpha().variant(cpha)
-                .cpol().variant(cpol)
-                .ssom().variant(ssom)
         });
 
         self.reg.cr1.write(|w| w.ssi().set_bit());
