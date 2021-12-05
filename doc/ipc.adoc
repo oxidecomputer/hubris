@@ -309,7 +309,7 @@ fn read(task: TaskId, fd: u32, buffer: &mut [u8]) -> Result<usize, IoError> {
     let (rc, len) = sys_send(
         task,
         0,
-        &u32.to_le_bytes(),
+        &fd.to_le_bytes(),
         &mut response,
         &[Lease::from(buffer)],
     );
