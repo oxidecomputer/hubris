@@ -229,9 +229,9 @@ and `lpc55` are _generally_ safe to use, as long as you don't rely on the parts
 that assume global system mutexes like `Peripherals::take()` -- those parts are
 also unsound.
 
-Having to be this careful is unfortunate, and we've reported the behavior
-upstream, but upstream doesn't seem to be particularly worried about shipping
-unsound code. So it goes.
+Having to be this careful is unfortunate, but [we reported this unsoundness to
+upstream in July 2020](https://github.com/rust-embedded/cortex-m/issues/233) and
+it has not been fixed. So it goes.
 
 ### Can I write tasks in languages other than Rust?
 
