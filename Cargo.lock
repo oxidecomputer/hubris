@@ -1335,6 +1335,7 @@ dependencies = [
 name = "lpc55_romapi"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "lpc55-pac",
  "num-derive",
  "num-traits",
@@ -2166,6 +2167,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",

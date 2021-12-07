@@ -13,7 +13,7 @@ integers.
 
 Priorities are numbered in a way that may feel backwards: 0 is the highest
 priority, 1 is the next highest, and so forth. In general, when we talk about
-something being "higher priority," we mean its priority number is numerically
+something being "`higher priority,`" we mean its priority number is numerically
 smaller.
 
 == Scheduling
@@ -154,7 +154,7 @@ compile time based on information in the `app.toml`.
 
 4. Reset the task's timer. (Timers will be discussed in the section <<timers>>.)
 
-5. "Scribble" the task's stack memory with a recognizable pattern. This helps
+5. "`Scribble`" the task's stack memory with a recognizable pattern. This helps
 catch accesses to uninitialized stack memory (in languages other than Rust, or
 excessively clever Rust) and can be used by the debugger to determine each
 task's actual peak stack usage, by looking for how much of it has been
@@ -166,7 +166,7 @@ When the task first runs, it will generally initialize its `data` section and
 zero its `bss` section. The Hubris kernel doesn't do this _for_ the task because
 we don't want to make too many assumptions about task internal memory layouts.
 For tasks written in Rust, this is handled by the `_start` routine provided by
-the `userlib` crate, and should "just work" -- by the time execution reaches
+the `userlib` crate, and should "`just work`" -- by the time execution reaches
 `main`, memory is set up.
 
 It's worth noting a few things that the kernel does _not_ do during reinit:
@@ -179,4 +179,4 @@ It's worth noting a few things that the kernel does _not_ do during reinit:
   `_start` routine in `userlib` before execution reaches `main`.)
 - It doesn't do anything to the task's executable code, which is assumed to be
   in execute-in-place Flash and immutable. (Hubris has no equivalent to a
-  "loader.")
+  "`loader.`")
