@@ -408,6 +408,7 @@ and can clean up -- whereas if you were directly accessing its memory, we'd
 have no choice but to deliver a fault to stop you. That would give clients the
 opportunity to induce faults in shared servers, which would be bad.
 
+[#sys_borrow_write]
 === `BORROW_WRITE` (5)
 
 Copies data into memory borrowed from a caller (a "borrow").
@@ -440,6 +441,7 @@ and can clean up -- whereas if you were directly accessing its memory, we'd
 have no choice but to deliver a fault to stop you. That would give clients the
 opportunity to induce faults in shared servers, which would be bad.
 
+[#sys_borrow_info]
 === `BORROW_INFO` (6)
 
 Collects information about one entry in a sender's lease table.
