@@ -66,8 +66,6 @@ jobs:
             deps: |
               Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
               echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
-              echo "VCPKG_ROOT=$Env:VCPKG_INSTALLATION_ROOT" >> $Env:GITHUB_ENV
-              vcpkg install openssl:x64-windows
     env:
       VCPKGRS_DYNAMIC: 1
 
