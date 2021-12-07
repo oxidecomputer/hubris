@@ -257,7 +257,16 @@ $ /usr/local/lpcscrypt/bin/lpcscrypt clockslow
 $
 ```
 
-4. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
+4. Run `lpcscrypt program +w1 0x0 BankA` to overwrite existing firmware
+
+```console
+$ /usr/local/lpcscrypt/bin/lpcscrypt program +w1 0x0 BankA
+................
+Programmed 524288 bytes to 0x1a000000 in 2.610s (196.165KB/sec)
+$
+```
+
+5. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
 
 ```console
 $ /usr/local/lpcscrypt/bin/lpcscrypt program +c ~/hubris/support/lpc4322_bl_crc.bin BankA
@@ -266,9 +275,9 @@ Programmed 57344 bytes to 0x1a000000 in 0.827s (67.717KB/sec)
 $
 ```
 
-5. Assuming it is successful, remove the DFU jumper and disconnect/reconnect USB
+6. Assuming it is successful, remove the DFU jumper and disconnect/reconnect USB
 
-6. There should now be a USB mass storage device named `MAINTENANCE`
+7. There should now be a USB mass storage device named `MAINTENANCE`
 
 ```console
 # fdisk -l
@@ -315,21 +324,21 @@ Remount count: 0
 URL: https://os.mbed.com/platforms/LPCXpresso55S69/
 ```
 
-7. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
+8. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
 
 ```console
 $ sudo cp ~/hubris/support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin /mnt
 $
 ```
 
-8. Unmount (or otherwise sync) the USB drive:
+9. Unmount (or otherwise sync) the USB drive:
 
 ```console
 # umount /mnt
 #
 ```
 
-9. Unplug and replug the USB cable.
+10. Unplug and replug the USB cable.
 
 Verify that you are on the new firmware by running `pyocd list`:
 
@@ -339,12 +348,6 @@ $ pyocd list
 -------------------------------------------------------------------------------------
   0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
 ```
-
-Once RickLink is running:
-
-- Terminal 1: `pyocd gdbserver -t lpc55s69` 
-- Terminal 2: `telnet localhost 4444` (semihosting output)
-- Terminal 3: `cargo xtask gdb app/lpc55xpresso/app.toml openocd.gdb`
 
 ### LPC55S28 on Gemini carrier board
 
