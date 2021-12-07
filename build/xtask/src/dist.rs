@@ -21,7 +21,7 @@ use crate::{
     Supervisor, Task,
 };
 
-use lpc55_support::{crc_image, sign_ecc, signed_image};
+use lpc55_sign::{crc_image, sign_ecc, signed_image};
 
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
@@ -608,6 +608,7 @@ fn do_sign_file(
         let priv_key = sign.priv_key.as_ref().unwrap();
         let root_cert = sign.root_cert.as_ref().unwrap();
         signed_image::sign_image(
+            false, // TODO add an option to enable DICE
             &out.join(format!("{}.bin", fname)),
             &src_dir.join(&priv_key),
             &src_dir.join(&root_cert),

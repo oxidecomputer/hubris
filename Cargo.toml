@@ -81,11 +81,11 @@ members = [
     "test/test-assist",
     "test/test-suite",
 
-    "support/lpc55",
     "stage0",
 ]
 default-members = []
 resolver = "2"
+exclude = ["lpc55"]
 
 [profile.release]
 codegen-units = 1 # better optimizations

@@ -1,5 +1,5 @@
 [submodule "lpc55_support"]
-	path = support/lpc55
+	path = lpc55
 	url = https://github.com/oxidecomputer/lpc55_support
 [submodule "pmbus"]
 	path = lib/pmbus
