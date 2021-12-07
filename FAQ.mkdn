@@ -245,6 +245,30 @@ Folks have also asked about MicroPython or similar REPLs. We see no place for
 garbage-collected interpreters in our systems, but you could almost certainly
 get one working if _you_ have a need for it!
 
+### Can I write tasks using `async` / `await` ?
+
+Not easily, yet.
+
+We have not pursued `async` support because some of our favorite Humility
+features interact poorly with it. In particular, it is not currently possible to
+print a stack trace (or equivalent state dump) for an `async fn` that is not
+currently being polled -- and we like stack traces.
+
+In the longer term, some of us (mostly Cliff) would like to support `async` in
+tasks to eliminate the remaining cases where we have to write hand-rolled state
+machines. But, this is will have to wait until we have more free time.
+
+There are some open design questions about how things like IPC should interact
+with async -- the system invariant that a task can only have one outstanding
+synchronous SEND message at a time is kind of important, and might cramp your
+style a bit if you're imagining a preemptive async paradise. However, async in
+_servers_ (such as drivers) should be significantly easier, and if you're
+excited about this you may be able to write your own async runtime that lives in
+a task today, as a separate crate.
+
+For a worked example of an embedded async runtime targeting the same chips as
+Hubris, see [lilos](https://github.com/cbiffle/lilos/).
+
 ## Task interaction corner cases
 
 ### How does recv decide which message to deliver?
