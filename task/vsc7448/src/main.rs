@@ -42,7 +42,7 @@ impl From<SpiError> for VscError {
 /// Helper struct to read and write from the VSC7448 over SPI
 struct Vsc7448Spi(SpiDevice);
 impl Vsc7448Spi {
-    fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, SpiError>
+    fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u32>,
     {
@@ -73,7 +73,7 @@ impl Vsc7448Spi {
         &self,
         reg: RegisterAddress<T>,
         value: T,
-    ) -> Result<(), SpiError>
+    ) -> Result<(), VscError>
     where
         u32: From<T>,
     {
@@ -93,13 +93,14 @@ impl Vsc7448Spi {
         ];
 
         ringbuf_entry!(Trace::Write(reg.addr, value.into()));
-        self.0.write(&data[..])
+        self.0.write(&data[..])?;
+        Ok(())
     }
     fn modify<T, F>(
         &self,
         reg: RegisterAddress<T>,
         f: F,
-    ) -> Result<(), SpiError>
+    ) -> Result<(), VscError>
     where
         T: From<u32>,
         u32: From<T>,
@@ -115,18 +116,12 @@ impl Vsc7448Spi {
 
 fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // Write the byte ordering / endianness configuration
-    vsc7448
-        .write(
-            Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
-            0x81818181.into(),
-        )
-        .map_err(|e| VscError::SpiError(e))?;
+    vsc7448.write(
+        Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
+        0x81818181.into(),
+    )?;
     // Configure reads to include 1 padding byte, since we're reading quickly
-    vsc7448
-        .modify(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |f| {
-            f.set_if_cfg(1)
-        })
-        .map_err(|e| VscError::SpiError(e))?;
+    vsc7448.write(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), 1.into())?;
 
     let chip_id = vsc7448.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
