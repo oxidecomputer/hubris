@@ -3,7 +3,7 @@
 # * base code: https://peterevans.dev/posts/github-actions-how-to-automate-code-formatting-in-pull-requests/
 # * fix push auth: https://github.com/ad-m/github-push-action
 # * checkout PR head commit https://github.com/actions/checkout#checkout-pull-request-head-commit-instead-of-merge-commit
-name: deploy
+name: documentation
 on:
   push:
     branches:

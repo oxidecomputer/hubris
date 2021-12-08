@@ -1,4 +1,4 @@
-name: build
+name: dist
 on: [push, pull_request]
 
 jobs:
