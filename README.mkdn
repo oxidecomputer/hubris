@@ -77,7 +77,10 @@ You will need:
   some success, but if your system isn't packaging 0.11 yet, pester them. If
   you're going to use Homebrew on macOS to install OpenOCD, you need to use
   `brew install --head openocd` to build the tip of the main branch rather than
-  using the latest binary release.
+  using the latest binary release. If you need to build from source, you can
+  find the [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
+  When running `./configure`, make sure that you see that the
+  `ST-Link Programmer` is set enabled (which should be the default).
 
 - The appropriate Rust toolchain target installed (note: this should happen
   automatically):
