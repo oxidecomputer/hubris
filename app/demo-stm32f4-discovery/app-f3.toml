@@ -82,7 +82,7 @@ priority = 4
 requires = {flash = 8192, ram = 512}
 stacksize = 512
 start = true
-task-slots = [{peer = "ping"}, "usart_driver"]
+task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 path = "../../task/pong"
