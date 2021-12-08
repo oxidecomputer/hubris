@@ -10,7 +10,7 @@ zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-onewire = {path = "../onewire"}
 drv-i2c-api = {path = "../i2c-api"}
-pmbus = { path = "../../lib/pmbus" }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus" }
 bitfield = "0.13"
 
 # a target for `cargo xtask check`
