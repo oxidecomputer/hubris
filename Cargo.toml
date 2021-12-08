@@ -12,11 +12,8 @@ members = [
 
     "lib/fixedmap",
     "lib/gnarle",
-    "lib/hif",
     "lib/hypocalls",
-    "lib/pmbus",
     "lib/ringbuf",
-    "lib/spd",
 
     "app/demo-stm32f4-discovery",
     "app/demo-stm32h7-nucleo",
@@ -85,7 +82,6 @@ members = [
 ]
 default-members = []
 resolver = "2"
-exclude = ["lpc55"]
 
 [profile.release]
 codegen-units = 1 # better optimizations

@@ -59,9 +59,7 @@ To submit changes for review, push them to a new branch in this repo (_not_ a
 separate GitHub fork) and submit a pull request to merge that branch into
 master.  (Pull requests from separate GitHub forks do not currently work.
 First, the pre-integration checks do not get run automatically in forks, so
-you'd have to enable Actions in your fork.  More importantly, these checks
-require configuration of a repository secret in order to clone private
-submodules, so they'll fail when run from a fork.)
+you'd have to enable Actions in your fork.
 
 ## Prereqs
 
@@ -156,10 +154,6 @@ custom build commands.
   component in isolation, performing a basic check of the code but not linking.
   This provides a cheaper way to do incremental builds during development. See
   the `Iterating` section below.
-
-Note: Because the Hubris repository contains submodules, before building, you
-must update submodules, either via `git clone --recursive`, or
-`git submodule update --init` or similar.
 
 ## Run
 

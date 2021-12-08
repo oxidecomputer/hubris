@@ -1193,6 +1193,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "hif"
 version = "0.2.3"
+source = "git+https://github.com/oxidecomputer/hif#e512e4ce109eb697513cf59def667e2f0d6eae5c"
 dependencies = [
  "pkg-version",
  "postcard",
@@ -1344,6 +1345,7 @@ dependencies = [
 [[package]]
 name = "lpc55_sign"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/lpc55_support#98c44ba761f5a487c456e288d95859e7f6058d65"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -1686,6 +1688,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/pmbus#1907e4470c84f7dfd86e8ca9a910f97ce548076e"
 dependencies = [
  "anyhow",
  "convert_case 0.3.2",
@@ -2112,6 +2115,7 @@ checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 [[package]]
 name = "spd"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
 dependencies = [
  "num-derive",
  "num-traits",
