@@ -4,9 +4,9 @@
 // NOTE: you will probably want to remove this when you write your actual code;
 // we need to import userlib to get this to compile, but it throws a warning
 // because we're not actually using it yet!
+use ringbuf::*;
 #[allow(unused_imports)]
 use userlib::*;
-use ringbuf::*;
 
 use drv_spi_api::{Spi, SpiDevice, SpiError};
 use vsc7448_pac::{types::RegisterAddress, Vsc7448};
@@ -17,6 +17,7 @@ enum Trace {
     Read(u32, u32),
     Write(u32, u32),
     Initialized,
+    FailedToInitialize(VscError),
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -25,6 +26,18 @@ task_slot!(SPI, spi_driver);
 const VSC7448_SPI_DEVICE: u8 = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Copy, Clone, PartialEq)]
+enum VscError {
+    SpiError(SpiError),
+    BadChipId(u32),
+}
+
+impl From<SpiError> for VscError {
+    fn from(s: SpiError) -> Self {
+        Self::SpiError(s)
+    }
+}
 
 /// Helper struct to read and write from the VSC7448 over SPI
 struct Vsc7448Spi(SpiDevice);
@@ -100,24 +113,29 @@ impl Vsc7448Spi {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-fn init(vsc7448: &Vsc7448Spi) -> Result<(), SpiError> {
+fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // Write the byte ordering / endianness configuration
     vsc7448
         .write(
             Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
             0x81818181.into(),
-        )?;
+        )
+        .map_err(|e| VscError::SpiError(e))?;
     // Configure reads to include 1 padding byte, since we're reading quickly
     vsc7448
         .modify(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |f| {
             f.set_if_cfg(1)
-        })?;
+        })
+        .map_err(|e| VscError::SpiError(e))?;
 
     let chip_id = vsc7448.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
-    assert_eq!(chip_id.rev_id(), 0x3);
-    assert_eq!(chip_id.part_id(), 0x7468);
-    assert_eq!(chip_id.mfg_id(), 0x74);
-    assert_eq!(chip_id.one(), 0x1);
+    if chip_id.rev_id() != 0x3
+        || chip_id.part_id() != 0x7468
+        || chip_id.mfg_id() != 0x74
+        || chip_id.one() != 0x1
+    {
+        return Err(VscError::BadChipId(chip_id.into()));
+    }
 
     Ok(())
 }
@@ -127,8 +145,18 @@ fn main() -> ! {
     let spi = Spi::from(SPI.get_task_id()).device(VSC7448_SPI_DEVICE);
     let vsc7448 = Vsc7448Spi(spi);
 
-    init(&vsc7448).expect("Failed to initialize");
-    ringbuf_entry!(Trace::Initialized);
+    loop {
+        match init(&vsc7448) {
+            Ok(()) => {
+                ringbuf_entry!(Trace::Initialized);
+                break;
+            }
+            Err(e) => {
+                ringbuf_entry!(Trace::FailedToInitialize(e));
+                hl::sleep_for(200);
+            }
+        }
+    }
 
     loop {
         hl::sleep_for(10);
