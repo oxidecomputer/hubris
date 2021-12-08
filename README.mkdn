@@ -152,10 +152,10 @@ custom build commands.
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk
   - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
-- `cargo xtask build` from within a task or kernel directory builds that one
-  component in isolation. **The result won't actually run,** because it's
-  missing important system context, but this provides a cheaper way to do
-  incremental builds during development. See the `Iterating` section below.
+- `cargo xtask check` from within a task or kernel directory compiles that one
+  component in isolation, performing a basic check of the code but not linking.
+  This provides a cheaper way to do incremental builds during development. See
+  the `Iterating` section below.
 
 Note: Because the Hubris repository contains submodules, before building, you
 must update submodules, either via `git clone --recursive`, or
@@ -506,7 +506,7 @@ To create your own task, the easiest method is:
 - Edit its `Cargo.toml` with your name and a new package name.
 - Add it to the list of workspace members in the root `Cargo.toml`.
 
-You can now run `cargo xtask build` in the task's directory to run a standalone
+You can now run `cargo xtask check` in the task's directory to run a standalone
 build. (See below for details.)
 
 To actually test the task, you need to add it to a system image by editing an
@@ -533,7 +533,7 @@ For instance, to run a standalone build of `task-ping`, run:
 
 ```console
 $ cd task-ping
-$ cargo xtask build
+$ cargo xtask check
 ```
 
 This magic happens in three parts:
@@ -543,8 +543,8 @@ This magic happens in three parts:
 2. Our `build.rs` files that receive information from the `dist` xtask will do
    reasonable defaulty things if that information is missing, e.g. in this case.
 3. By convention, we set a default feature `"standalone"` for standalone builds,
-   and switch it off in the `app.toml` used by the `package` xtask. You can use this
-   feature to conditionally compile stuff.
+   and switch it off in the `app.toml` used by the `package` xtask. You can use
+   this feature to conditionally compile stuff.
 
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on
 `userlib`. You generally do not need a `build.rs` in your task unless you need
