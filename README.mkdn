@@ -103,7 +103,7 @@ You will need:
 
 If you're on Windows, you can get set up by doing this:
 
-See [here](http://openocd.org/getting-openocd/) for getting the source of `openocd`
+See [here](https://openocd.org/pages/getting-openocd.html) for getting the source of `openocd`
 or get unofficial binaries. Alternatively, you can install via
 with [chocolatey](https://chocolatey.org/install):
 
