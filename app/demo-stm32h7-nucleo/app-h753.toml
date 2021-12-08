@@ -55,6 +55,15 @@ requires = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
+[tasks.ecc_driver]
+path = "../../drv/stm32h7-ecc"
+name = "drv-stm32h7-ecc"
+features = ["h753"]
+priority = 1
+requires = {flash = 1024, ram = 1024}
+interrupts = { 145 = 1 }
+start = true
+
 [tasks.gpio_driver]
 path = "../../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"

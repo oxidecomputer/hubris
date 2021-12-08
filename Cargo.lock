@@ -752,6 +752,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-ecc"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-gpio"
 version = "0.1.0"
 dependencies = [
