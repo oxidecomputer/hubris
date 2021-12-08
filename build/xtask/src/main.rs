@@ -220,10 +220,59 @@ struct Task {
     interrupts: IndexMap<String, u32>,
     #[serde(default)]
     sections: IndexMap<String, String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_task_slot")]
     task_slots: IndexMap<String, String>,
     #[serde(default)]
     config: Option<toml::Value>,
+}
+
+/// In the common case, task slots map back to a task of the same name (e.g.
+/// `gpio_driver`, `rcc_driver`).  However, certain tasks need generic task
+/// slot names, e.g. they'll have a task slot named `spi_driver` which will
+/// be mapped to a specific SPI driver task (`spi2_driver`).
+///
+/// This deserializer lets us handle both cases, while making the common case
+/// easiest to write.  In `app.toml`, you can write something like
+/// ```toml
+/// task-slots = [
+///     "gpio_driver",
+///     "i2c_driver",
+///     "rcc_driver",
+///     {spi_driver: "spi2_driver"},
+/// ]
+/// ```
+fn deserialize_task_slot<'de, D>(
+    deserializer: D,
+) -> Result<IndexMap<String, String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Clone, Debug, Deserialize)]
+    #[serde(untagged)]
+    enum ArrayItem {
+        Identity(String),
+        Remap(IndexMap<String, String>),
+    }
+    let s: Vec<ArrayItem> = serde::Deserialize::deserialize(deserializer)?;
+    let mut out = IndexMap::new();
+    for a in s {
+        match a {
+            ArrayItem::Identity(s) => {
+                out.insert(s.clone(), s.clone());
+            }
+            ArrayItem::Remap(m) => {
+                if m.len() != 1 {
+                    return Err(serde::de::Error::invalid_length(
+                        m.len(),
+                        &"a single value",
+                    ));
+                }
+                let (k, v) = m.iter().next().unwrap();
+                out.insert(k.to_string(), v.to_string());
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[derive(Clone, Debug, Deserialize)]
