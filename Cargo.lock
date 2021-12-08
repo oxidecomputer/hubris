@@ -550,6 +550,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2757,6 +2768,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-vsc7448"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 0.1.10",
+ "drv-spi-api",
+ "ringbuf",
+ "userlib",
+ "vsc7448-pac",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3037,6 +3059,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ee8f19f9d74293faf70901bc20ad067dc1ad390d2cbf1e3f75f721ffee908b6"
 dependencies = [
  "vcell",
+]
+
+[[package]]
+name = "vsc7448-pac"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/vsc7448?branch=pac#a5c8b6d3ef9185b7e4ef228a6b75c4326128bb21"
+dependencies = [
+ "derive_more",
 ]
 
 [[package]]
