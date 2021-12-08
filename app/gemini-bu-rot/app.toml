@@ -91,9 +91,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
-
-[tasks.gpio_driver.task-slots]
-syscon_driver = "syscon_driver"
+task-slots = ["syscon_driver"]
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
@@ -102,9 +100,7 @@ features = ["lpc55"]
 priority = 2
 requires = {flash = 16384, ram = 1024}
 start = true
-
-[tasks.user_leds.task-slots]
-gpio_driver = "gpio_driver"
+task-slots = ["gpio_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/lpc55-usart"
@@ -114,10 +110,7 @@ requires = {flash = 16384, ram = 1024}
 uses = ["flexcomm0"]
 start = true
 interrupts = {14 = 1}
-
-[tasks.usart_driver.task-slots]
-gpio_driver = "gpio_driver"
-syscon_driver = "syscon_driver"
+task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.rng_driver]
 path = "../../drv/lpc55-rng"
@@ -126,9 +119,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["rng", "pmc"]
 start = true
-
-[tasks.rng_driver.task-slots]
-syscon_driver = "syscon_driver"
+task-slots = ["syscon_driver"]
 
 [tasks.spi0_driver]
 path = "../../drv/lpc55-spi-server"
@@ -140,10 +131,7 @@ uses = ["flexcomm3", "flexcomm8"]
 start = true
 interrupts = {59 = 1}
 stacksize = 1000
-
-[tasks.spi0_driver.task-slots]
-gpio_driver = "gpio_driver"
-syscon_driver = "syscon_driver"
+task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.ping]
 path = "../../task/ping"
@@ -152,10 +140,7 @@ features = ["uart"]
 priority = 4
 requires = {flash = 8192, ram = 1024}
 start = true
-
-[tasks.ping.task-slots]
-peer = "pong"
-usart_driver = "usart_driver"
+task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -163,9 +148,7 @@ name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
-
-[tasks.pong.task-slots]
-user_leds = "user_leds"
+task-slots = ["user_leds"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -175,9 +158,7 @@ features = ["lpc55", "gpio", "spi"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-
-[tasks.hiffy.task-slots]
-gpio_driver = "gpio_driver"
+task-slots = ["gpio_driver"]
 
 [peripherals.syscon]
 address = 0x40000000

@@ -63,9 +63,7 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
-
-[tasks.gpio_driver.task-slots]
-rcc_driver = "rcc_driver"
+task-slots = ["rcc_driver"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -85,10 +83,7 @@ start = true
 73 = 0b0000_0100        # I2C3 error
 95 = 0b0000_1000        # I2C4 event
 96 = 0b0000_1000        # I2C4 error
-
-[tasks.i2c_driver.task-slots]
-gpio_driver = "gpio_driver"
-rcc_driver = "rcc_driver"
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -97,10 +92,7 @@ features = ["h753", "stm32h7", "itm", "i2c", "gpio"]
 priority = 3
 requires = {flash = 32768, ram = 32768 }
 start = true
-
-[tasks.hiffy.task-slots]
-gpio_driver = "gpio_driver"
-i2c_driver = "i2c_driver"
+task-slots = ["gpio_driver", "i2c_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
