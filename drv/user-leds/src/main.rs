@@ -41,19 +41,31 @@ enum Op {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(not(any(target_board = "gemini-bu-1", target_board = "gimletlet-2")))] {
-        #[derive(FromPrimitive)]
-        enum Led {
-            Zero = 0,
-            One = 1,
-        }
-    } else {
+    // Target boards with 4 leds
+    if #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
             One = 1,
             Two = 2,
             Three = 3,
+        }
+    }
+    // Target boards with 3 leds
+    else if #[cfg(any(target_board = "nucleo-h753zi", target_board = "nucleo-h743zi2"))] {
+        #[derive(FromPrimitive)]
+        enum Led {
+            Zero = 0,
+            One = 1,
+            Two = 2,
+        }
+    }
+    // Target boards with 2 leds -> the rest
+    else {
+        #[derive(FromPrimitive)]
+        enum Led {
+            Zero = 0,
+            One = 1,
         }
     }
 }
@@ -253,10 +265,11 @@ cfg_if::cfg_if! {
                     (drv_stm32h7_gpio_api::Port::G.pin(11), true),
                 ];
             } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
-                // Nucleo board: LEDs are on B0 and B14.
+                // Nucleo boards: LEDs are on PB0, PB14 and PE1.
                 const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
                     (drv_stm32h7_gpio_api::Port::B.pin(0), false),
                     (drv_stm32h7_gpio_api::Port::B.pin(14), false),
+                    (drv_stm32h7_gpio_api::Port::E.pin(1), false),
                 ];
             } else if #[cfg(target_board = "gemini-bu-1")] {
                 // Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.
@@ -308,7 +321,7 @@ fn led_info(led: Led) -> (drv_stm32h7_gpio_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
         Led::One => LEDS[1],
-        #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))]
+        #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2", target_board = "nucleo-h753zi", target_board = "nucleo-h743zi2"))]
         Led::Two => LEDS[2],
         #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))]
         Led::Three => LEDS[3],
