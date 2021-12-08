@@ -29,4 +29,4 @@ scroll = "0.10"
 walkdir = "2.0.0"
 
 # For NXP signing
-lpc55_sign = { path = "../../lpc55/lpc55_sign" }
+lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support" }

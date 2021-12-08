@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 userlib = {path = "../../sys/userlib"}
 ringbuf = {path = "../../lib/ringbuf"}
-spd = {path = "../../lib/spd" }
+spd = { git = "https://github.com/oxidecomputer/spd" }
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api", default-features = false}
 drv-stm32h7-rcc-api = {path = "../../drv/stm32h7-rcc-api", default-features = false}
@@ -41,4 +41,3 @@ target = "thumbv7em-none-eabihf"
 name = "task-spd"
 test = false
 bench = false
-
