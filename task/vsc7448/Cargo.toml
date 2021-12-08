@@ -1,0 +1,26 @@
+[package]
+name = "task-vsc7448"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+ringbuf = {path = "../../lib/ringbuf" }
+drv-spi-api = {path = "../../drv/spi-api"}
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", branch = "pac" }
+cfg-if = "0.1.10"
+
+[features]
+default = ["standalone"]
+standalone = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-vsc7448"
+test = false
+bench = false

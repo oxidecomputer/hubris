@@ -48,6 +48,7 @@ members = [
     "task/thermal",
     "task/thermal-api",
     "task/udpecho",
+    "task/vsc7448",
 
     "drv/stm32fx-rcc",
     "drv/stm32fx-usart",

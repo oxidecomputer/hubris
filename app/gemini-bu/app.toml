@@ -164,6 +164,17 @@ requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.vsc7448]
+path = "../../task/vsc7448"
+name = "task-vsc7448"
+priority = 3
+requires = {flash = 65536, ram = 8192}
+stacksize = 2048
+start = true
+
+[tasks.vsc7448.task-slots]
+spi_driver = "spi2_driver"
+
 [config]
 
 [[config.i2c.controllers]]
