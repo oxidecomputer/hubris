@@ -9,13 +9,36 @@ use ringbuf::*;
 use userlib::*;
 
 use drv_spi_api::{Spi, SpiDevice, SpiError};
-use vsc7448_pac::{types::RegisterAddress, Vsc7448};
+use vsc7448_pac::{
+    types::{PhyRegisterAddress, RegisterAddress},
+    Vsc7448,
+};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Read(u32, u32),
-    Write(u32, u32),
+    Read {
+        addr: u32,
+        value: u32,
+    },
+    Write {
+        addr: u32,
+        value: u32,
+    },
+    MiimRead {
+        miim: u8,
+        phy: u8,
+        page: u16,
+        addr: u8,
+        value: u16,
+    },
+    MiimWrite {
+        miim: u8,
+        phy: u8,
+        page: u16,
+        addr: u8,
+        value: u16,
+    },
     Initialized,
     FailedToInitialize(VscError),
 }
@@ -31,6 +54,12 @@ const VSC7448_SPI_DEVICE: u8 = 0;
 enum VscError {
     SpiError(SpiError),
     BadChipId(u32),
+    BadMiimRead {
+        miim: u8,
+        phy: u8,
+        page: u16,
+        addr: u8,
+    },
 }
 
 impl From<SpiError> for VscError {
@@ -42,6 +71,7 @@ impl From<SpiError> for VscError {
 /// Helper struct to read and write from the VSC7448 over SPI
 struct Vsc7448Spi(SpiDevice);
 impl Vsc7448Spi {
+    /// Reads from a VSC7448 register
     fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u32>,
@@ -66,9 +96,15 @@ impl Vsc7448Spi {
             | ((out[5] as u32) << 16)
             | ((out[4] as u32) << 24);
 
-        ringbuf_entry!(Trace::Read(reg.addr, value));
+        ringbuf_entry!(Trace::Read {
+            addr: reg.addr,
+            value
+        });
         Ok(value.into())
     }
+
+    /// Writes to a VSC7448 register.  This will overwrite the entire register;
+    /// if you want to modify it, then use [Self::modify] instead.
     fn write<T>(
         &self,
         reg: RegisterAddress<T>,
@@ -92,10 +128,15 @@ impl Vsc7448Spi {
             (value & 0xFF) as u8,
         ];
 
-        ringbuf_entry!(Trace::Write(reg.addr, value.into()));
+        ringbuf_entry!(Trace::Write {
+            addr: reg.addr,
+            value: value.into()
+        });
         self.0.write(&data[..])?;
         Ok(())
     }
+
+    /// Performs a read-modify-write operation on a VSC7448 register
     fn modify<T, F>(
         &self,
         reg: RegisterAddress<T>,
@@ -109,6 +150,117 @@ impl Vsc7448Spi {
         let mut data = self.read(reg)?;
         f(&mut data);
         self.write(reg, data)
+    }
+
+    /// Builds a MII_CMD register based on the given phy and register.  Note
+    /// that miim_cmd_opr_field is unset; you must configure it for a read
+    /// or write yourself.
+    fn miim_cmd(
+        phy: u8,
+        reg_addr: u8,
+    ) -> vsc7448_pac::devcpu_gcb::miim::MII_CMD {
+        let mut v: vsc7448_pac::devcpu_gcb::miim::MII_CMD = 0.into();
+        v.set_miim_cmd_vld(1);
+        v.set_miim_cmd_phyad(phy as u32);
+        v.set_miim_cmd_regad(reg_addr as u32);
+        v
+    }
+
+    /// Writes a register to the PHY without modifying the page.  This
+    /// shouldn't be called directly, as the page could be in an unknown
+    /// state.
+    fn phy_write_inner<T: From<u16>>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+        where u16: From<T>
+    {
+        let value: u16 = value.into();
+        let mut v = Self::miim_cmd(phy, reg.addr);
+        v.set_miim_cmd_opr_field(0b01); // read
+        v.set_miim_cmd_wrdata(value as u32);
+
+        ringbuf_entry!(Trace::MiimWrite {
+            miim,
+            phy,
+            page: reg.page,
+            addr: reg.addr,
+            value,
+        });
+        self.write(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CMD(), v)
+    }
+
+    /// Reads a register from the PHY without modifying the page.  This
+    /// shouldn't be called directly, as the page could be in an unknown
+    /// state.
+    fn phy_read_inner<T: From<u16>>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+    ) -> Result<T, VscError> {
+        let mut v = Self::miim_cmd(phy, reg.addr);
+        v.set_miim_cmd_opr_field(0b10); // read
+
+        self.write(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CMD(), v)?;
+        let out =
+            self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_DATA())?;
+        if out.miim_data_success() == 0b11 {
+            return Err(VscError::BadMiimRead {
+                miim,
+                phy,
+                page: reg.page,
+                addr: reg.addr,
+            });
+        }
+
+        let value = out.miim_data_rddata() as u16;
+        ringbuf_entry!(Trace::MiimRead {
+            miim,
+            phy,
+            page: reg.page,
+            addr: reg.addr,
+            value
+        });
+        Ok(value.into())
+    }
+
+    /// Reads a register from the PHY
+    fn phy_read<T: From<u16>>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+    ) -> Result<T, VscError> {
+        self.phy_write_inner(
+            miim,
+            phy,
+            vsc7448_pac::phy::STANDARD::PAGE(),
+            reg.page.into(),
+        )?;
+        self.phy_read_inner(miim, phy, reg)
+    }
+
+    /// Writes a register to the PHY
+    fn phy_write<T: From<u16>>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+        where u16: From<T>
+    {
+        self.phy_write_inner::<vsc7448_pac::phy::standard::PAGE>(
+            miim,
+            phy,
+            vsc7448_pac::phy::STANDARD::PAGE(),
+            reg.page.into(),
+        )?;
+        self.phy_write_inner(miim, phy, reg, value)
     }
 }
 
