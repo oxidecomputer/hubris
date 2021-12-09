@@ -2771,6 +2771,7 @@ dependencies = [
 name = "task-vsc7448"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if 0.1.10",
  "drv-spi-api",
  "ringbuf",

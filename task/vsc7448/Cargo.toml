@@ -14,6 +14,9 @@ cfg-if = "0.1.10"
 default = ["standalone"]
 standalone = []
 
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
