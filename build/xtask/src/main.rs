@@ -264,7 +264,7 @@ where
                 if m.len() != 1 {
                     return Err(serde::de::Error::invalid_length(
                         m.len(),
-                        &"a single value",
+                        &"a single key-value pair",
                     ));
                 }
                 let (k, v) = m.iter().next().unwrap();
