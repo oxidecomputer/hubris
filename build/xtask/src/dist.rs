@@ -28,7 +28,16 @@ use lpc55_sign::{crc_image, sign_ecc, signed_image};
 /// padded that a bit.
 const DEFAULT_KERNEL_STACK: u32 = 1024;
 
-pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
+pub fn package(
+    verbose: bool,
+    edges: bool,
+    cfg: &Path,
+    tasks_to_build: Option<Vec<String>>,
+) -> Result<()> {
+    // If we're using filters, we change behavior at the end. Record this in a
+    // convenient flag.
+    let partial_build = tasks_to_build.is_some();
+
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
@@ -248,6 +257,13 @@ pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
     }
 
     for name in toml.tasks.keys() {
+        // Implement task name filter. If we're only building a subset of tasks,
+        // skip the other ones here.
+        if let Some(included_names) = &tasks_to_build {
+            if !included_names.contains(name) {
+                continue;
+            }
+        }
         let task_toml = &toml.tasks[name];
 
         generate_task_linker_script(
@@ -296,6 +312,12 @@ pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
         }
 
         entry_points.insert(name.clone(), ep);
+    }
+
+    // If we've done a partial build, we can't do the rest because we're missing
+    // required information, so, escape.
+    if partial_build {
+        return Ok(());
     }
 
     // Format the descriptors for the kernel build.
