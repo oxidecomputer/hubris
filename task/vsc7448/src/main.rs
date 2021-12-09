@@ -12,6 +12,7 @@ use drv_spi_api::{Spi, SpiDevice, SpiError};
 use vsc7448_pac::{
     types::{PhyRegisterAddress, RegisterAddress},
     Vsc7448,
+    phy,
 };
 
 #[derive(Copy, Clone, PartialEq)]
@@ -60,6 +61,8 @@ enum VscError {
         page: u16,
         addr: u8,
     },
+    BadPhyId1(u16),
+    BadPhyId2(u16),
 }
 
 impl From<SpiError> for VscError {
@@ -238,7 +241,7 @@ impl Vsc7448Spi {
         self.phy_write_inner(
             miim,
             phy,
-            vsc7448_pac::phy::STANDARD::PAGE(),
+            phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
         self.phy_read_inner(miim, phy, reg)
@@ -254,17 +257,57 @@ impl Vsc7448Spi {
     ) -> Result<(), VscError>
         where u16: From<T>
     {
-        self.phy_write_inner::<vsc7448_pac::phy::standard::PAGE>(
+        self.phy_write_inner::<phy::standard::PAGE>(
             miim,
             phy,
-            vsc7448_pac::phy::STANDARD::PAGE(),
+            phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
         self.phy_write_inner(miim, phy, reg, value)
     }
+
+    /// Performs a read-modify-write operation on a VSC7448 register
+    fn phy_modify<T, F>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        f: F,
+    ) -> Result<(), VscError>
+    where
+        T: From<u16>,
+        u16: From<T>,
+        F: Fn(&mut T),
+    {
+        let mut data = self.phy_read(miim, phy, reg)?;
+        f(&mut data);
+        self.phy_write(miim, phy, reg, data)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+#[cfg(target_board = "gemini-bu-1")]
+fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
+    // We assume that the only person running on a gemini-bu-1 is Matt, who is
+    // talking to a VSC7448 dev kit on his desk.  In this case, we want to
+    // configure the GPIOs to allow MIIM1 and 2 to be active.
+    vsc7448.write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0x3000000.into())?;
+
+    // The VSC7448 dev kit has a VSC8522 PHY on MIIM1 and MIIM2
+    let id1 = vsc7448.phy_read(1, 0, phy::STANDARD::IDENTIFIER_1())?.0;
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
+    }
+    let id2 = vsc7448.phy_read(1, 0, phy::STANDARD::IDENTIFIER_2())?.0;
+    if id2 != 0x6f3 {
+        return Err(VscError::BadPhyId2(id2));
+    }
+
+    // Disable COMA MODE, which keeps the chip holding itself in reset
+    vsc7448.phy_modify(1, 0, phy::GPIO::GPIO_CONTROL_2(),
+        |g| g.set_coma_mode_output_enable(0))?;
+    Ok(())
+}
 
 fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // Write the byte ordering / endianness configuration
@@ -274,6 +317,8 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     )?;
     // Configure reads to include 1 padding byte, since we're reading quickly
     vsc7448.write(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), 1.into())?;
+
+    bsp_init(vsc7448)?;
 
     let chip_id = vsc7448.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
