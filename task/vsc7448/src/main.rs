@@ -216,7 +216,8 @@ impl Vsc7448Spi {
     /// it's safe to read or write to the MIIM.
     fn miim_idle_wait(&self, miim: u8) -> Result<(), VscError> {
         for i in 0..32 {
-            let status = self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
+            let status = self
+                .read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
             if status.miim_stat_opr_pend() == 0 {
                 return Ok(());
             } else {
@@ -230,7 +231,8 @@ impl Vsc7448Spi {
     /// finished and data is available.
     fn miim_read_wait(&self, miim: u8) -> Result<(), VscError> {
         for i in 0..32 {
-            let status = self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
+            let status = self
+                .read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
             if status.miim_stat_busy() == 0 {
                 return Ok(());
             } else {
@@ -249,7 +251,6 @@ impl Vsc7448Spi {
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-
         let mut v = Self::miim_cmd(phy, reg.addr);
         v.set_miim_cmd_opr_field(0b10); // read
 
@@ -375,21 +376,35 @@ fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     vsc7448
         .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
 
-    // The VSC7448 dev kit has a VSC8522 PHY on MIIM1 and MIIM2
-    for miim in 1..=2 {
-        let id1 = vsc7448.phy_read(miim, 0, phy::STANDARD::IDENTIFIER_1())?.0;
-        if id1 != 0x7 {
-            return Err(VscError::BadPhyId1(id1));
-        }
-        let id2 = vsc7448.phy_read(miim, 0, phy::STANDARD::IDENTIFIER_2())?.0;
-        if id2 != 0x6f3 {
-            return Err(VscError::BadPhyId2(id2));
-        }
-
-        // Disable COMA MODE, which keeps the chip holding itself in reset
-        vsc7448.phy_modify(miim, 0, phy::GPIO::GPIO_CONTROL_2(), |g| {
-            g.set_coma_mode_output_enable(0)
+    // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
+    // Each PHYs on the same MIIM bus is strapped to different ports.
+    hl::sleep_for(105); // Minimum time between reset and SMI access
+    for miim in [1, 2] {
+        vsc7448.modify(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CFG(), |cfg| {
+            cfg.set_miim_cfg_prescale(0xFF)
         })?;
+        for phy in [0, 12] {
+            let id1 = vsc7448
+                .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_1())?
+                .0;
+            if id1 != 0x7 {
+                return Err(VscError::BadPhyId1(id1));
+            }
+            let id2 = vsc7448
+                .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_2())?
+                .0;
+            if id2 != 0x6f3 {
+                return Err(VscError::BadPhyId2(id2));
+            }
+
+            // Disable COMA MODE, which keeps the chip holding itself in reset
+            vsc7448.phy_modify(
+                miim,
+                phy,
+                phy::GPIO::GPIO_CONTROL_2(),
+                |g| g.set_coma_mode_output_enable(0),
+            )?;
+        }
     }
     Ok(())
 }
@@ -433,10 +448,7 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     )?;
 
     // Trigger a soft reset
-    vsc7448.write(
-        Vsc7448::DEVCPU_GCB().CHIP_REGS().SOFT_RST(),
-        1.into(),
-    )?;
+    vsc7448.write(Vsc7448::DEVCPU_GCB().CHIP_REGS().SOFT_RST(), 1.into())?;
 
     // Re-write byte ordering / endianness
     vsc7448.write(
