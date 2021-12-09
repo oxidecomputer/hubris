@@ -42,7 +42,7 @@ execute = false  # let's assume XN until proven otherwise
 path = "../../task/vsc7448"
 name = "task-vsc7448"
 priority = 3
-requires = {flash = 8192, ram = 4096}
+requires = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = [{ spi_driver = "spi2_driver" }]
