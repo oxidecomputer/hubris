@@ -62,9 +62,7 @@ requires = {flash = 16384, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
 interrupts = {38 = 1}
-
-[tasks.usart_driver.task-slots]
-rcc_driver = "rcc_driver"
+task-slots = ["rcc_driver"]
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
@@ -74,9 +72,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["gpioe"]
 start = true
-
-[tasks.user_leds.task-slots]
-rcc_driver = "rcc_driver"
+task-slots = ["rcc_driver"]
 
 [tasks.ping]
 path = "../../task/ping"
@@ -86,10 +82,7 @@ priority = 4
 requires = {flash = 8192, ram = 512}
 stacksize = 512
 start = true
-
-[tasks.ping.task-slots]
-peer = "pong"
-usart_driver = "usart_driver"
+task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -97,9 +90,7 @@ name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
-
-[tasks.pong.task-slots]
-user_leds = "user_leds"
+task-slots = ["user_leds"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"

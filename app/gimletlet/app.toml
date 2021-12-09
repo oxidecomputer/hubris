@@ -63,9 +63,7 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
-
-[tasks.gpio_driver.task-slots]
-rcc_driver = "rcc_driver"
+task-slots = ["rcc_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/stm32h7-usart"
@@ -76,10 +74,7 @@ requires = { flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
-
-[tasks.usart_driver.task-slots]
-gpio_driver = "gpio_driver"
-rcc_driver = "rcc_driver"
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -89,16 +84,13 @@ priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c3", "i2c4"]
 start = true
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.i2c_driver.interrupts]
 72 = 0b0000_0100        # I2C3 event
 73 = 0b0000_0100        # I2C3 error
 95 = 0b0000_1000        # I2C4 event
 96 = 0b0000_1000        # I2C4 error
-
-[tasks.i2c_driver.task-slots]
-gpio_driver = "gpio_driver"
-rcc_driver = "rcc_driver"
 
 [tasks.spd]
 path = "../../task/spd"
@@ -108,15 +100,11 @@ priority = 2
 requires = {flash = 16384, ram = 16384}
 uses = ["i2c2"]
 start = true
+task-slots = ["gpio_driver", "rcc_driver", "i2c_driver"]
 
 [tasks.spd.interrupts]
 33 = 0b0000_0010        # I2C2 event
 34 = 0b0000_0010        # I2C2 error
-
-[tasks.spd.task-slots]
-rcc_driver = "rcc_driver"
-gpio_driver = "gpio_driver"
-i2c_driver = "i2c_driver"
 
 #
 # SPI interrupts:
@@ -137,10 +125,7 @@ uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
 stacksize = 1000
-
-[tasks.spi_driver.task-slots]
-gpio_driver = "gpio_driver"
-rcc_driver = "rcc_driver"
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
@@ -149,9 +134,7 @@ features = ["stm32h7"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 start = true
-
-[tasks.user_leds.task-slots]
-gpio_driver = "gpio_driver"
+task-slots = ["gpio_driver"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -159,9 +142,7 @@ name = "task-pong"
 priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
-
-[tasks.pong.task-slots]
-user_leds = "user_leds"
+task-slots = ["user_leds"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -171,11 +152,7 @@ priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
-
-[tasks.hiffy.task-slots]
-gpio_driver = "gpio_driver"
-hf = "hf"
-i2c_driver = "i2c_driver"
+task-slots = ["hf", "gpio_driver", "i2c_driver", "user_leds"]
 
 [tasks.gimlet_seq]
 path = "../../drv/gimlet-seq-server"
@@ -185,10 +162,7 @@ priority = 3
 requires = {flash = 32768, ram = 1024 }
 stacksize = 1024
 start = true
-
-[tasks.gimlet_seq.task-slots]
-gpio_driver = "gpio_driver"
-spi_driver = "spi_driver"
+task-slots = ["gpio_driver", "spi_driver"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
@@ -200,10 +174,7 @@ stacksize = 2048
 start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
-
-[tasks.hf.task-slots]
-gpio_driver = "gpio_driver"
-rcc_driver = "rcc_driver"
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
