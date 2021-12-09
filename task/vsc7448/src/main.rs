@@ -10,14 +10,15 @@ use userlib::*;
 
 use drv_spi_api::{Spi, SpiDevice, SpiError};
 use vsc7448_pac::{
+    phy,
     types::{PhyRegisterAddress, RegisterAddress},
     Vsc7448,
-    phy,
 };
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
+    Start(u64),
     Read {
         addr: u32,
         value: u32,
@@ -25,6 +26,11 @@ enum Trace {
     Write {
         addr: u32,
         value: u32,
+    },
+    MiimSetPage {
+        miim: u8,
+        phy: u8,
+        page: u16,
     },
     MiimRead {
         miim: u8,
@@ -40,7 +46,7 @@ enum Trace {
         addr: u8,
         value: u16,
     },
-    Initialized,
+    Initialized(u64),
     FailedToInitialize(VscError),
 }
 
@@ -179,20 +185,14 @@ impl Vsc7448Spi {
         reg: PhyRegisterAddress<T>,
         value: T,
     ) -> Result<(), VscError>
-        where u16: From<T>
+    where
+        u16: From<T>,
     {
         let value: u16 = value.into();
         let mut v = Self::miim_cmd(phy, reg.addr);
         v.set_miim_cmd_opr_field(0b01); // read
         v.set_miim_cmd_wrdata(value as u32);
 
-        ringbuf_entry!(Trace::MiimWrite {
-            miim,
-            phy,
-            page: reg.page,
-            addr: reg.addr,
-            value,
-        });
         self.write(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CMD(), v)
     }
 
@@ -221,48 +221,72 @@ impl Vsc7448Spi {
         }
 
         let value = out.miim_data_rddata() as u16;
-        ringbuf_entry!(Trace::MiimRead {
-            miim,
-            phy,
-            page: reg.page,
-            addr: reg.addr,
-            value
-        });
         Ok(value.into())
     }
 
     /// Reads a register from the PHY
-    fn phy_read<T: From<u16>>(
+    fn phy_read<T>(
         &self,
         miim: u8,
         phy: u8,
         reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        self.phy_write_inner(
+    ) -> Result<T, VscError>
+    where
+        T: From<u16> + Clone,
+        u16: From<T>,
+    {
+        ringbuf_entry!(Trace::MiimSetPage {
             miim,
             phy,
-            phy::STANDARD::PAGE(),
-            reg.page.into(),
-        )?;
-        self.phy_read_inner(miim, phy, reg)
-    }
-
-    /// Writes a register to the PHY
-    fn phy_write<T: From<u16>>(
-        &self,
-        miim: u8,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-        where u16: From<T>
-    {
+            page: reg.page,
+        });
         self.phy_write_inner::<phy::standard::PAGE>(
             miim,
             phy,
             phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
+        let out = self.phy_read_inner(miim, phy, reg)?;
+        ringbuf_entry!(Trace::MiimRead {
+            miim,
+            phy,
+            page: reg.page,
+            addr: reg.addr,
+            value: out.clone().into(),
+        });
+        Ok(out)
+    }
+
+    /// Writes a register to the PHY
+    fn phy_write<T>(
+        &self,
+        miim: u8,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+    where
+        T: From<u16> + Clone,
+        u16: From<T>,
+    {
+        ringbuf_entry!(Trace::MiimSetPage {
+            miim,
+            phy,
+            page: reg.page,
+        });
+        self.phy_write_inner::<phy::standard::PAGE>(
+            miim,
+            phy,
+            phy::STANDARD::PAGE(),
+            reg.page.into(),
+        )?;
+        ringbuf_entry!(Trace::MiimWrite {
+            miim,
+            phy,
+            page: reg.page,
+            addr: reg.addr,
+            value: value.clone().into(),
+        });
         self.phy_write_inner(miim, phy, reg, value)
     }
 
@@ -275,7 +299,7 @@ impl Vsc7448Spi {
         f: F,
     ) -> Result<(), VscError>
     where
-        T: From<u16>,
+        T: From<u16> + Clone,
         u16: From<T>,
         F: Fn(&mut T),
     {
@@ -291,7 +315,8 @@ fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // We assume that the only person running on a gemini-bu-1 is Matt, who is
     // talking to a VSC7448 dev kit on his desk.  In this case, we want to
     // configure the GPIOs to allow MIIM1 and 2 to be active.
-    vsc7448.write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0x3000000.into())?;
+    vsc7448
+        .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0x3000000.into())?;
 
     // The VSC7448 dev kit has a VSC8522 PHY on MIIM1 and MIIM2
     let id1 = vsc7448.phy_read(1, 0, phy::STANDARD::IDENTIFIER_1())?.0;
@@ -304,8 +329,9 @@ fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     }
 
     // Disable COMA MODE, which keeps the chip holding itself in reset
-    vsc7448.phy_modify(1, 0, phy::GPIO::GPIO_CONTROL_2(),
-        |g| g.set_coma_mode_output_enable(0))?;
+    vsc7448.phy_modify(1, 0, phy::GPIO::GPIO_CONTROL_2(), |g| {
+        g.set_coma_mode_output_enable(0)
+    })?;
     Ok(())
 }
 
@@ -334,13 +360,14 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
 
 #[export_name = "main"]
 fn main() -> ! {
+    ringbuf_entry!(Trace::Start(sys_get_timer().now));
     let spi = Spi::from(SPI.get_task_id()).device(VSC7448_SPI_DEVICE);
     let vsc7448 = Vsc7448Spi(spi);
 
     loop {
         match init(&vsc7448) {
             Ok(()) => {
-                ringbuf_entry!(Trace::Initialized);
+                ringbuf_entry!(Trace::Initialized(sys_get_timer().now));
                 break;
             }
             Err(e) => {
