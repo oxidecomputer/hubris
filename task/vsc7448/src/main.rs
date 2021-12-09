@@ -57,7 +57,7 @@ const VSC7448_SPI_DEVICE: u8 = 0;
 enum VscError {
     SpiError(SpiError),
     BadChipId(u32),
-    BadMiimRead {
+    MiimReadErr {
         miim: u8,
         phy: u8,
         page: u16,
@@ -208,7 +208,7 @@ impl Vsc7448Spi {
         let out =
             self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_DATA())?;
         if out.miim_data_success() == 0b11 {
-            return Err(VscError::BadMiimRead {
+            return Err(VscError::MiimReadErr {
                 miim,
                 phy,
                 page: reg.page,
@@ -310,24 +310,27 @@ impl Vsc7448Spi {
 fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // We assume that the only person running on a gemini-bu-1 is Matt, who is
     // talking to a VSC7448 dev kit on his desk.  In this case, we want to
-    // configure the GPIOs to allow MIIM1 and 2 to be active.
+    // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
+    // GPIO_56-59 to Overlaid Function 1
     vsc7448
-        .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0x3000000.into())?;
+        .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
 
     // The VSC7448 dev kit has a VSC8522 PHY on MIIM1 and MIIM2
-    let id1 = vsc7448.phy_read(1, 0, phy::STANDARD::IDENTIFIER_1())?.0;
-    if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
-    }
-    let id2 = vsc7448.phy_read(1, 0, phy::STANDARD::IDENTIFIER_2())?.0;
-    if id2 != 0x6f3 {
-        return Err(VscError::BadPhyId2(id2));
-    }
+    for miim in 1..= 2 {
+        let id1 = vsc7448.phy_read(miim, 0, phy::STANDARD::IDENTIFIER_1())?.0;
+        if id1 != 0x7 {
+            return Err(VscError::BadPhyId1(id1));
+        }
+        let id2 = vsc7448.phy_read(miim, 0, phy::STANDARD::IDENTIFIER_2())?.0;
+        if id2 != 0x6f3 {
+            return Err(VscError::BadPhyId2(id2));
+        }
 
-    // Disable COMA MODE, which keeps the chip holding itself in reset
-    vsc7448.phy_modify(1, 0, phy::GPIO::GPIO_CONTROL_2(), |g| {
-        g.set_coma_mode_output_enable(0)
-    })?;
+        // Disable COMA MODE, which keeps the chip holding itself in reset
+        vsc7448.phy_modify(miim, 0, phy::GPIO::GPIO_CONTROL_2(), |g| {
+            g.set_coma_mode_output_enable(0)
+        })?;
+    }
     Ok(())
 }
 
