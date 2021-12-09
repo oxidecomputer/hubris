@@ -4,6 +4,8 @@
 use ringbuf::*;
 use userlib::*;
 
+const DEBUG_LEVEL: u8 = 0;
+
 use drv_spi_api::{Spi, SpiDevice, SpiError};
 use vsc7448_pac::{
     phy,
@@ -42,6 +44,17 @@ enum Trace {
         addr: u8,
         value: u16,
     },
+    MiimIdleWait,
+    MiimReadWait,
+    PhyScanError {
+        miim: u8,
+        phy: u8,
+        err: VscError,
+    },
+    PhyLinkChanged {
+        port: u8,
+        status: u16,
+    },
     Initialized(u64),
     FailedToInitialize(VscError),
 }
@@ -65,6 +78,8 @@ enum VscError {
     },
     BadPhyId1(u16),
     BadPhyId2(u16),
+    MiimIdleTimeout,
+    MiimReadTimeout,
 }
 
 impl From<SpiError> for VscError {
@@ -101,10 +116,12 @@ impl Vsc7448Spi {
             | ((out[5] as u32) << 16)
             | ((out[4] as u32) << 24);
 
-        ringbuf_entry!(Trace::Read {
-            addr: reg.addr,
-            value
-        });
+        if DEBUG_LEVEL > 1 {
+            ringbuf_entry!(Trace::Read {
+                addr: reg.addr,
+                value
+            });
+        }
         Ok(value.into())
     }
 
@@ -133,10 +150,12 @@ impl Vsc7448Spi {
             (value & 0xFF) as u8,
         ];
 
-        ringbuf_entry!(Trace::Write {
-            addr: reg.addr,
-            value: value.into()
-        });
+        if DEBUG_LEVEL > 1 {
+            ringbuf_entry!(Trace::Write {
+                addr: reg.addr,
+                value: value.into()
+            });
+        }
         self.0.write(&data[..])?;
         Ok(())
     }
@@ -189,7 +208,36 @@ impl Vsc7448Spi {
         v.set_miim_cmd_opr_field(0b01); // read
         v.set_miim_cmd_wrdata(value as u32);
 
+        self.miim_idle_wait(miim)?;
         self.write(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CMD(), v)
+    }
+
+    /// Waits for the PENDING_RD and PENDING_WR bits to go low, indicating that
+    /// it's safe to read or write to the MIIM.
+    fn miim_idle_wait(&self, miim: u8) -> Result<(), VscError> {
+        for i in 0..32 {
+            let status = self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
+            if status.miim_stat_opr_pend() == 0 {
+                return Ok(());
+            } else {
+                ringbuf_entry!(Trace::MiimIdleWait);
+            }
+        }
+        return Err(VscError::MiimIdleTimeout);
+    }
+
+    /// Waits for the STAT_BUSY bit to go low, indicating that a read has
+    /// finished and data is available.
+    fn miim_read_wait(&self, miim: u8) -> Result<(), VscError> {
+        for i in 0..32 {
+            let status = self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_STATUS())?;
+            if status.miim_stat_busy() == 0 {
+                return Ok(());
+            } else {
+                ringbuf_entry!(Trace::MiimReadWait);
+            }
+        }
+        return Err(VscError::MiimReadTimeout);
     }
 
     /// Reads a register from the PHY without modifying the page.  This
@@ -201,10 +249,14 @@ impl Vsc7448Spi {
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
+
         let mut v = Self::miim_cmd(phy, reg.addr);
         v.set_miim_cmd_opr_field(0b10); // read
 
+        self.miim_idle_wait(miim)?;
         self.write(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CMD(), v)?;
+        self.miim_read_wait(miim)?;
+
         let out =
             self.read(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_DATA())?;
         if out.miim_data_success() == 0b11 {
@@ -231,11 +283,13 @@ impl Vsc7448Spi {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        ringbuf_entry!(Trace::MiimSetPage {
-            miim,
-            phy,
-            page: reg.page,
-        });
+        if DEBUG_LEVEL > 0 {
+            ringbuf_entry!(Trace::MiimSetPage {
+                miim,
+                phy,
+                page: reg.page,
+            });
+        }
         self.phy_write_inner::<phy::standard::PAGE>(
             miim,
             phy,
@@ -243,13 +297,15 @@ impl Vsc7448Spi {
             reg.page.into(),
         )?;
         let out = self.phy_read_inner(miim, phy, reg)?;
-        ringbuf_entry!(Trace::MiimRead {
-            miim,
-            phy,
-            page: reg.page,
-            addr: reg.addr,
-            value: out.clone().into(),
-        });
+        if DEBUG_LEVEL > 0 {
+            ringbuf_entry!(Trace::MiimRead {
+                miim,
+                phy,
+                page: reg.page,
+                addr: reg.addr,
+                value: out.clone().into(),
+            });
+        }
         Ok(out)
     }
 
@@ -265,24 +321,28 @@ impl Vsc7448Spi {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        ringbuf_entry!(Trace::MiimSetPage {
-            miim,
-            phy,
-            page: reg.page,
-        });
+        if DEBUG_LEVEL > 0 {
+            ringbuf_entry!(Trace::MiimSetPage {
+                miim,
+                phy,
+                page: reg.page,
+            });
+        }
         self.phy_write_inner::<phy::standard::PAGE>(
             miim,
             phy,
             phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
-        ringbuf_entry!(Trace::MiimWrite {
-            miim,
-            phy,
-            page: reg.page,
-            addr: reg.addr,
-            value: value.clone().into(),
-        });
+        if DEBUG_LEVEL > 0 {
+            ringbuf_entry!(Trace::MiimWrite {
+                miim,
+                phy,
+                page: reg.page,
+                addr: reg.addr,
+                value: value.clone().into(),
+            });
+        }
         self.phy_write_inner(miim, phy, reg, value)
     }
 
@@ -316,7 +376,7 @@ fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
         .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
 
     // The VSC7448 dev kit has a VSC8522 PHY on MIIM1 and MIIM2
-    for miim in 1..= 2 {
+    for miim in 1..=2 {
         let id1 = vsc7448.phy_read(miim, 0, phy::STANDARD::IDENTIFIER_1())?.0;
         if id1 != 0x7 {
             return Err(VscError::BadPhyId1(id1));
@@ -334,8 +394,51 @@ fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     Ok(())
 }
 
+#[cfg(target_board = "gemini-bu-1")]
+fn bsp_run(vsc7448: &Vsc7448Spi) -> ! {
+    let mut link_up = [[false; 24]; 2];
+    loop {
+        hl::sleep_for(100);
+        for miim in 0..2 {
+            for phy in 0..24 {
+                match vsc7448.phy_read(
+                    miim + 1,
+                    phy,
+                    phy::STANDARD::MODE_STATUS(),
+                ) {
+                    Ok(status) => {
+                        let up = (status.0 & (1 << 5)) != 0;
+                        if up != link_up[miim as usize][phy as usize] {
+                            link_up[miim as usize][phy as usize] = up;
+                            ringbuf_entry!(Trace::PhyLinkChanged {
+                                port: miim * 24 + phy,
+                                status: status.0,
+                            });
+                        }
+                    }
+                    Err(err) => {
+                        ringbuf_entry!(Trace::PhyScanError { miim, phy, err })
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // Write the byte ordering / endianness configuration
+    vsc7448.write(
+        Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
+        0x81818181.into(),
+    )?;
+
+    // Trigger a soft reset
+    vsc7448.write(
+        Vsc7448::DEVCPU_GCB().CHIP_REGS().SOFT_RST(),
+        1.into(),
+    )?;
+
+    // Re-write byte ordering / endianness
     vsc7448.write(
         Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
         0x81818181.into(),
@@ -376,7 +479,5 @@ fn main() -> ! {
         }
     }
 
-    loop {
-        hl::sleep_for(10);
-    }
+    bsp_run(&vsc7448);
 }
