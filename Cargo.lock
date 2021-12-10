@@ -788,7 +788,6 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "cfg-if 0.1.10",
- "cortex-m",
  "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
