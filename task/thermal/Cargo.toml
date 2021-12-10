@@ -11,7 +11,6 @@ userlib = {path = "../../sys/userlib", default-features = false}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-cortex-m-semihosting = { version = "0.3.5", optional = true }
 zerocopy = "0.3.0"
 cfg-if = "0.1.10"
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
@@ -28,7 +27,7 @@ cfg-if = "0.1.10"
 default = ["standalone"]
 standalone = ["itm", "drv-i2c-api/standalone" ]
 itm = [ "userlib/log-itm" ]
-semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
+semihosting = [ "userlib/log-semihosting" ]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]

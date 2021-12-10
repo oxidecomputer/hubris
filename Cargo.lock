@@ -457,7 +457,6 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -474,7 +473,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -606,7 +604,6 @@ dependencies = [
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
- "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
  "lpc55-iocon-gen",
@@ -621,7 +618,6 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
- "cortex-m-semihosting",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -631,7 +627,6 @@ dependencies = [
 name = "drv-lpc55-i2c"
 version = "0.1.0"
 dependencies = [
- "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
@@ -655,7 +650,6 @@ dependencies = [
 name = "drv-lpc55-spi"
 version = "0.1.0"
 dependencies = [
- "cortex-m-semihosting",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
@@ -667,7 +661,6 @@ dependencies = [
 name = "drv-lpc55-spi-server"
 version = "0.1.0"
 dependencies = [
- "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
@@ -701,7 +694,6 @@ dependencies = [
 name = "drv-lpc55-usart"
 version = "0.1.0"
 dependencies = [
- "cortex-m-semihosting",
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
@@ -788,7 +780,6 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "cfg-if 0.1.10",
- "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
@@ -808,7 +799,6 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
@@ -1020,7 +1010,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1035,7 +1024,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "lpc55-pac",
  "panic-halt",
@@ -1072,7 +1060,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1087,7 +1074,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "lpc55-pac",
  "panic-halt",
@@ -1103,7 +1089,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1368,7 +1353,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "lpc55-pac",
  "panic-halt",
@@ -2087,7 +2071,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -2173,7 +2156,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "ecdsa",
  "hmac 0.10.1",
  "lpc55-pac",
@@ -2302,7 +2284,6 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-gimlet-hf-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
@@ -2333,7 +2314,6 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "cortex-m",
- "cortex-m-semihosting",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -2367,7 +2347,6 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-i2c-devices",
  "ringbuf",
@@ -2394,7 +2373,6 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
@@ -2422,7 +2400,6 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-onewire",
@@ -2482,7 +2459,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -2497,7 +2473,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "lpc55-pac",
  "panic-halt",
@@ -2512,7 +2487,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "lpc55-pac",
  "panic-halt",
@@ -2526,7 +2500,6 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -2543,7 +2516,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
- "cortex-m-semihosting",
  "kern",
  "panic-halt",
  "panic-itm",
