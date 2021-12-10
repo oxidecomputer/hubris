@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-userlib = {path = "../../sys/userlib"}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api"}
 
 [features]

@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-# suppress default features to avoid including panic message collection, to
-# ensure the idle task remains tiny.
-userlib = {path = "../../sys/userlib", default-features = false}
+# The idle task cannot panic, so we deliberately don't request panic-messages
+# to keep the binary tiny.
+userlib = {path = "../../sys/userlib"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [features]
