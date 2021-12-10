@@ -18,7 +18,6 @@ drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 drv-stm32fx-rcc = {path = "../../drv/stm32fx-rcc", default-features = false, optional = true}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-semihosting = { version = "0.3.5", optional = true }
 cfg-if = "0.1.10"
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
@@ -36,7 +35,7 @@ cfg-if = "0.1.10"
 default = ["standalone"]
 standalone = ["itm", "stm32h7", "h753"]
 itm = [ "userlib/log-itm" ]
-semihosting = [ "cortex-m-semihosting", "userlib/log-semihosting" ]
+semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
