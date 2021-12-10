@@ -88,7 +88,7 @@ fn main() -> ! {
             device.cs.pin_mask,
             sys_api::Mode::Output,
             sys_api::OutputType::PushPull,
-            sys_api::Speed::High,
+            sys_api::Speed::Low,
             sys_api::Pull::None,
             sys_api::Alternate::AF1, // doesn't matter in GPIO mode
         )
@@ -517,7 +517,7 @@ fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &sys_api::Sys) {
             pins.pin_mask,
             sys_api::Mode::Output,
             sys_api::OutputType::PushPull,
-            sys_api::Speed::High,
+            sys_api::Speed::Low,
             sys_api::Pull::None,
             sys_api::Alternate::AF0, // doesn't matter in GPIO mode
         )
@@ -551,7 +551,7 @@ fn activate_mux_option(
             pins.pin_mask,
             sys_api::Mode::Alternate,
             sys_api::OutputType::PushPull,
-            sys_api::Speed::High,
+            sys_api::Speed::Low,
             sys_api::Pull::None,
             af,
         )

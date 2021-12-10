@@ -106,7 +106,7 @@ task-slots = ["sys", "i2c_driver"]
 
 [tasks.spd.interrupts]
 "i2c2.event" = 0b0000_0010
-"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
 
 [tasks.spi2_driver]
 path = "../../drv/stm32h7-spi-server"
@@ -172,17 +172,6 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-
-[tasks.vsc7448]
-path = "../../task/vsc7448"
-name = "task-vsc7448"
-priority = 3
-requires = {flash = 8192, ram = 4096}
-stacksize = 2048
-start = true
-
-[tasks.vsc7448.task-slots]
-spi_driver = "spi2_driver"
 
 [config]
 
