@@ -33,7 +33,6 @@ members = [
     "task/idle",
     "task/hiffy",
     "task/power",
-    "task/spam2",
     "task/spd",
     "task/thermal",
 
