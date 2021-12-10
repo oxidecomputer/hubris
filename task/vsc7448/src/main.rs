@@ -368,71 +368,89 @@ impl Vsc7448Spi {
 
 ////////////////////////////////////////////////////////////////////////////////
 #[cfg(target_board = "gemini-bu-1")]
-fn bsp_init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
-    // We assume that the only person running on a gemini-bu-1 is Matt, who is
-    // talking to a VSC7448 dev kit on his desk.  In this case, we want to
-    // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
-    // GPIO_56-59 to Overlaid Function 1
-    vsc7448
-        .write(Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
-
-    // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
-    // Each PHYs on the same MIIM bus is strapped to different ports.
-    hl::sleep_for(105); // Minimum time between reset and SMI access
-    for miim in [1, 2] {
-        vsc7448.modify(Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CFG(), |cfg| {
-            cfg.set_miim_cfg_prescale(0xFF)
-        })?;
-        for phy in [0, 12] {
-            let id1 = vsc7448
-                .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_1())?
-                .0;
-            if id1 != 0x7 {
-                return Err(VscError::BadPhyId1(id1));
-            }
-            let id2 = vsc7448
-                .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_2())?
-                .0;
-            if id2 != 0x6f3 {
-                return Err(VscError::BadPhyId2(id2));
-            }
-
-            // Disable COMA MODE, which keeps the chip holding itself in reset
-            vsc7448.phy_modify(
-                miim,
-                phy,
-                phy::GPIO::GPIO_CONTROL_2(),
-                |g| g.set_coma_mode_output_enable(0),
-            )?;
-        }
-    }
-    Ok(())
+struct Bsp<'a> {
+    vsc7448: &'a Vsc7448Spi,
 }
-
 #[cfg(target_board = "gemini-bu-1")]
-fn bsp_run(vsc7448: &Vsc7448Spi) -> ! {
-    let mut link_up = [[false; 24]; 2];
-    loop {
-        hl::sleep_for(100);
+impl<'a> Bsp<'a> {
+    fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
+        let out = Bsp { vsc7448 };
+        out.init()?;
+        Ok(out)
+    }
+    fn init(&self) -> Result<(), VscError> {
+        // We assume that the only person running on a gemini-bu-1 is Matt, who is
+        // talking to a VSC7448 dev kit on his desk.  In this case, we want to
+        // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
+        // GPIO_56-59 to Overlaid Function 1
+        self.vsc7448.write(
+            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0),
+            0xF000000.into(),
+        )?;
+
+        // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
+        // Each PHYs on the same MIIM bus is strapped to different ports.
+        hl::sleep_for(105); // Minimum time between reset and SMI access
         for miim in [1, 2] {
-            for phy in 0..24 {
-                match vsc7448.phy_read(
+            self.vsc7448.modify(
+                Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CFG(),
+                |cfg| cfg.set_miim_cfg_prescale(0xFF),
+            )?;
+            for phy in [0, 12] {
+                let id1 = self
+                    .vsc7448
+                    .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_1())?
+                    .0;
+                if id1 != 0x7 {
+                    return Err(VscError::BadPhyId1(id1));
+                }
+                let id2 = self
+                    .vsc7448
+                    .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_2())?
+                    .0;
+                if id2 != 0x6f3 {
+                    return Err(VscError::BadPhyId2(id2));
+                }
+
+                // Disable COMA MODE, which keeps the chip holding itself in reset
+                self.vsc7448.phy_modify(
                     miim,
                     phy,
-                    phy::STANDARD::MODE_STATUS(),
-                ) {
-                    Ok(status) => {
-                        let up = (status.0 & (1 << 5)) != 0;
-                        if up != link_up[miim as usize - 1][phy as usize] {
-                            link_up[miim as usize - 1][phy as usize] = up;
-                            ringbuf_entry!(Trace::PhyLinkChanged {
-                                port: (miim - 1) * 24 + phy,
-                                status: status.0,
-                            });
+                    phy::GPIO::GPIO_CONTROL_2(),
+                    |g| g.set_coma_mode_output_enable(0),
+                )?;
+            }
+        }
+        Ok(())
+    }
+    fn run(&self) -> ! {
+        let mut link_up = [[false; 24]; 2];
+        loop {
+            hl::sleep_for(100);
+            for miim in [1, 2] {
+                for phy in 0..24 {
+                    match self.vsc7448.phy_read(
+                        miim,
+                        phy,
+                        phy::STANDARD::MODE_STATUS(),
+                    ) {
+                        Ok(status) => {
+                            let up = (status.0 & (1 << 5)) != 0;
+                            if up != link_up[miim as usize - 1][phy as usize] {
+                                link_up[miim as usize - 1][phy as usize] = up;
+                                ringbuf_entry!(Trace::PhyLinkChanged {
+                                    port: (miim - 1) * 24 + phy,
+                                    status: status.0,
+                                });
+                            }
                         }
-                    }
-                    Err(err) => {
-                        ringbuf_entry!(Trace::PhyScanError { miim, phy, err })
+                        Err(err) => {
+                            ringbuf_entry!(Trace::PhyScanError {
+                                miim,
+                                phy,
+                                err
+                            })
+                        }
                     }
                 }
             }
@@ -440,7 +458,21 @@ fn bsp_run(vsc7448: &Vsc7448Spi) -> ! {
     }
 }
 
-fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
+#[cfg(not(target_board = "gemini-bu-1"))]
+struct Bsp {}
+#[cfg(not(target_board = "gemini-bu-1"))]
+impl Bsp {
+    fn new(_vsc7448: &Vsc7448Spi) -> Result<Self, VscError> {
+        panic!("No implementation for this board")
+    }
+    fn run(&self) -> ! {
+        loop {
+            hl::sleep_for(100);
+        }
+    }
+}
+
+fn init(vsc7448: &Vsc7448Spi) -> Result<Bsp, VscError> {
     // Write the byte ordering / endianness configuration
     vsc7448.write(
         Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
@@ -458,7 +490,7 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
     // Configure reads to include 1 padding byte, since we're reading quickly
     vsc7448.write(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), 1.into())?;
 
-    bsp_init(vsc7448)?;
+    let bsp = Bsp::new(vsc7448)?;
 
     let chip_id = vsc7448.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
@@ -469,7 +501,7 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<(), VscError> {
         return Err(VscError::BadChipId(chip_id.into()));
     }
 
-    Ok(())
+    Ok(bsp)
 }
 
 #[export_name = "main"]
@@ -480,9 +512,9 @@ fn main() -> ! {
 
     loop {
         match init(&vsc7448) {
-            Ok(()) => {
+            Ok(bsp) => {
                 ringbuf_entry!(Trace::Initialized(sys_get_timer().now));
-                break;
+                bsp.run(); // Does not terminate
             }
             Err(e) => {
                 ringbuf_entry!(Trace::FailedToInitialize(e));
@@ -490,6 +522,4 @@ fn main() -> ! {
             }
         }
     }
-
-    bsp_run(&vsc7448);
 }
