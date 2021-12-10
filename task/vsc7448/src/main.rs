@@ -414,19 +414,19 @@ fn bsp_run(vsc7448: &Vsc7448Spi) -> ! {
     let mut link_up = [[false; 24]; 2];
     loop {
         hl::sleep_for(100);
-        for miim in 0..2 {
+        for miim in [1, 2] {
             for phy in 0..24 {
                 match vsc7448.phy_read(
-                    miim + 1,
+                    miim,
                     phy,
                     phy::STANDARD::MODE_STATUS(),
                 ) {
                     Ok(status) => {
                         let up = (status.0 & (1 << 5)) != 0;
-                        if up != link_up[miim as usize][phy as usize] {
-                            link_up[miim as usize][phy as usize] = up;
+                        if up != link_up[miim as usize - 1][phy as usize] {
+                            link_up[miim as usize - 1][phy as usize] = up;
                             ringbuf_entry!(Trace::PhyLinkChanged {
-                                port: miim * 24 + phy,
+                                port: (miim - 1) * 24 + phy,
                                 status: status.0,
                             });
                         }
