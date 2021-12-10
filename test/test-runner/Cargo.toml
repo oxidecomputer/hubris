@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 userlib = {path = "../../sys/userlib"}
 test-api = {path = "../test-api"}
-cortex-m = "0.7"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
 zerocopy = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 

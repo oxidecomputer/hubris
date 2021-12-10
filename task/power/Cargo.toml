@@ -10,7 +10,7 @@ target = "thumbv7em-none-eabihf"
 userlib = {path = "../../sys/userlib", default-features = false}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
-cortex-m = "0.7"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m-semihosting = { version = "0.3.5", optional = true }
 zerocopy = "0.3.0"
 cfg-if = "0.1.10"

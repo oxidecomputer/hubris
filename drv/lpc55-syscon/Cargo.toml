@@ -7,7 +7,7 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.3.0"
 lpc55-pac = "0.3.0"
-cortex-m = "0.7"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]
