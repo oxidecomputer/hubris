@@ -230,14 +230,14 @@ impl<'a> I2cController<'a> {
                 // SDADEL to 0 -- values that come from from the STM32CubeMX
                 // tool (as advised by 47.4.5).
                 //
-                // XXX setting SDADEL to 6 as an experiment
+                // XXX setting SDADEL to 13 as an experiment
                 //
                 i2c.timingr.write(|w| { w
                     .presc().bits(1)
                     .sclh().bits(236)
                     .scll().bits(255)
                     .scldel().bits(12)
-                    .sdadel().bits(6)
+                    .sdadel().bits(13)
                 });
             } else {
                 compile_error!("unknown STM32H7 variant");
