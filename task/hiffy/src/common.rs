@@ -6,7 +6,8 @@ use hif::{Failure, Fault};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "spi")] {
-        use userlib::{sys_refresh_task_id, Generation, TaskId, NUM_TASKS};
+        use userlib::{sys_refresh_task_id, Generation, TaskId};
+        use hubris_num_tasks::NUM_TASKS;
     }
 }
 

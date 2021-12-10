@@ -362,7 +362,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
 /// function returns `true`.
 fn find_and_report_fault() -> bool {
     let mut tester_faulted = false;
-    for i in 0..NUM_TASKS {
+    for i in 0..hubris_num_tasks::NUM_TASKS {
         let s = kipc::read_task_status(i);
         if let TaskState::Faulted { fault, .. } = s {
             log_fault(i, &fault);

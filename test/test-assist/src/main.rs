@@ -8,6 +8,7 @@
 #![no_main]
 #![feature(asm)]
 
+use hubris_num_tasks::NUM_TASKS;
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;

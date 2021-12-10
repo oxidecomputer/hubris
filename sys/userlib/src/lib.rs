@@ -931,24 +931,3 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
         options(noreturn),
     )
 }
-
-// Enumeration of tasks in the application, for convenient reference, generated
-// by build.rs.
-//
-// The `Task` enum will contain one entry per task defined in the application,
-// with the value of that task's index. The `SELF` constant refers to the
-// current task. e.g.
-//
-// ```
-// enum Task {
-//     Init = 0,
-//     Foo = 1,
-//     Bar = 2,
-// }
-//
-// pub const SELF: Task = Task::Foo;
-// ```
-//
-// When building a single task outside the context of an application, there will
-// be exactly one "task" in the enum, called `anonymous`.
-include!(concat!(env!("OUT_DIR"), "/tasks.rs"));

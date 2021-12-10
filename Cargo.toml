@@ -9,6 +9,7 @@ members = [
     "sys/abi",
     "sys/kern",
     "sys/userlib",
+    "sys/num-tasks",
 
     "lib/fixedmap",
     "lib/gnarle",

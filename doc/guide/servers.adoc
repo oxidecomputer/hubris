@@ -378,8 +378,8 @@ Typically, a pipelined server will keep information about outstanding requests
 in a table. The maximum size of that table is dictated by the number of
 potential clients. If the server has specific knowledge of this number in the
 application, it can use that to size the table -- or it be conservative and set
-the size of the table to `userlib::NUM_TASKS`, the number of tasks in the
-system. Such a table should never overflow.
+the size of the table to `hubris_num_tasks::NUM_TASKS`, the number of tasks in
+the system. Such a table should never overflow.
 
 NOTE: Remember that tasks can restart -- any table tracking per-task state
 should be indexed by task _index_ and record the generation. If a new request

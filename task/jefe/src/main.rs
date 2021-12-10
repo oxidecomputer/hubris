@@ -98,9 +98,10 @@ pub enum Disposition {
 fn main() -> ! {
     sys_log!("viva el jefe");
 
-    let mut disposition: [Disposition; NUM_TASKS] =
-        [Disposition::Restart; NUM_TASKS];
-    let mut logged: [bool; NUM_TASKS] = [false; NUM_TASKS];
+    let mut disposition: [Disposition; hubris_num_tasks::NUM_TASKS] =
+        [Disposition::Restart; hubris_num_tasks::NUM_TASKS];
+    let mut logged: [bool; hubris_num_tasks::NUM_TASKS] =
+        [false; hubris_num_tasks::NUM_TASKS];
 
     // We'll have notification 0 wired up to receive information about task
     // faults.
@@ -135,7 +136,7 @@ fn main() -> ! {
             // If our disposition has changed or if we have been notified of
             // a faulting task, we need to iterate over all of our tasks.
             if changed || (msginfo.operation & fault_mask) != 0 {
-                for i in 0..NUM_TASKS {
+                for i in 0..hubris_num_tasks::NUM_TASKS {
                     match kipc::read_task_status(i) {
                         abi::TaskState::Faulted { fault, .. } => {
                             if !logged[i] {
