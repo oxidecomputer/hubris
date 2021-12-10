@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 abi = {path = "../../sys/abi"}
-userlib = {path = "../../sys/userlib" }
+userlib = {path = "../../sys/userlib"}
 ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.3.0"
