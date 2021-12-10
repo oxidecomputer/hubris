@@ -1205,6 +1205,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubris-num-tasks"
+version = "0.1.0"
+
+[[package]]
 name = "hypocalls"
 version = "0.1.0"
 dependencies = [
@@ -2293,6 +2297,7 @@ dependencies = [
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",
  "hif",
+ "hubris-num-tasks",
  "num-traits",
  "ringbuf",
  "serde",
@@ -2314,6 +2319,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "cortex-m",
+ "hubris-num-tasks",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -2422,6 +2428,7 @@ name = "test-assist"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "hubris-num-tasks",
  "num-traits",
  "test-api",
  "userlib",
@@ -2433,6 +2440,7 @@ name = "test-runner"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "hubris-num-tasks",
  "num-traits",
  "test-api",
  "userlib",
@@ -2444,6 +2452,7 @@ name = "test-suite"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "hubris-num-tasks",
  "hypocalls",
  "num-traits",
  "test-api",

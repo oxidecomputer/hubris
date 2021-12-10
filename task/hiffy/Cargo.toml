@@ -8,6 +8,7 @@ target = "thumbv7em-none-eabihf"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 drv-spi-api = {path = "../../drv/spi-api"}

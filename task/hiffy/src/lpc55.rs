@@ -7,6 +7,8 @@ use crate::common::{spi_read, spi_write};
 use byteorder::ByteOrder;
 use drv_lpc55_gpio_api::*;
 use hif::*;
+#[cfg(feature = "spi")]
+use hubris_num_tasks::Task;
 use ringbuf::*;
 use userlib::*;
 

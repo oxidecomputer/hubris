@@ -1,0 +1,17 @@
+[package]
+name = "hubris-num-tasks"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+
+[features]
+task-enum = []
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[lib]
+test = false
+bench = false
