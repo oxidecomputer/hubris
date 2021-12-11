@@ -220,23 +220,23 @@ impl<'a> I2cController<'a> {
                 // Here our APB1 peripheral clock is 100MHz, yielding the
                 // following:
                 //
-                // - A PRESC of 1, yielding a t_presc of 20 ns
-                // - An SCLH of 236 (0xec), yielding a t_sclh of 4740 ns
-                // - An SCLL of 255 (0xff), yielding a t_scll of 5120 ns
+                // - A PRESC of 3, yielding a t_presc of 40 ns
+                // - An SCLH of 118, yielding a t_sclh of 4760 ns
+                // - An SCLL of 127, yielding a t_scll of 5120 ns
                 //
-                // Taken together, this yields a t_scl of 9860 ns, which (as
+                // Taken together, this yields a t_scl of 9880 ns, which (as
                 // above) when added to t_sync1 and t_sync2 will be close to
-                // our target of 10000 ns.  Finally, we set SCLDEL to 12 and
-                // SDADEL to 0 -- values that come from from the STM32CubeMX
-                // tool (as advised by 47.4.5).
-                //
-                // XXX setting SDADEL to 13 as an experiment
+                // our target of 10000 ns.  Finally, we set SCLDEL to 6
+                // (280 ns) from the STM32CubeMX tool (as advised by 47.4.5).
+                // We set SDADEL to a whopping 13, however -- yielding a
+                // hold time of 560 ns, which, like the apocryphal 640K,
+                // really ought to be enough for anyone.
                 //
                 i2c.timingr.write(|w| { w
-                    .presc().bits(1)
-                    .sclh().bits(236)
-                    .scll().bits(255)
-                    .scldel().bits(12)
+                    .presc().bits(3)
+                    .sclh().bits(118)
+                    .scll().bits(127)
+                    .scldel().bits(6)
                     .sdadel().bits(13)
                 });
             } else {
