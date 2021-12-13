@@ -2361,16 +2361,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-spam"
-version = "0.1.0"
-dependencies = [
- "cortex-m-semihosting",
- "lpc55-pac",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
 name = "task-spd"
 version = "0.1.0"
 dependencies = [
