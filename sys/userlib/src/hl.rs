@@ -15,7 +15,7 @@ use zerocopy::{AsBytes, FromBytes, LayoutVerified};
 use crate::{
     sys_borrow_info, sys_borrow_read, sys_borrow_write, sys_get_timer,
     sys_recv, sys_recv_closed, sys_recv_open, sys_reply, sys_send,
-    sys_set_timer, ClosedRecvError, FromPrimitive,
+    sys_set_timer, BorrowInfo, ClosedRecvError, FromPrimitive,
 };
 
 const INTERNAL_TIMER_NOTIFICATION: u32 = 1 << 31;
@@ -338,15 +338,7 @@ impl Borrow<'_> {
     /// If the borrow doesn't exist -- either because it never did, or because
     /// the caller has been killed asynchronously -- this returns `None`.
     pub fn info(&self) -> Option<BorrowInfo> {
-        let (rc, atts, len) = sys_borrow_info(self.id, self.index);
-        if rc == 0 {
-            Some(BorrowInfo {
-                attributes: abi::LeaseAttributes::from_bits_truncate(atts),
-                len,
-            })
-        } else {
-            None
-        }
+        sys_borrow_info(self.id, self.index)
     }
 
     /// Starting at offset `offset` within the borrow, reads exactly
@@ -433,14 +425,6 @@ impl Borrow<'_> {
             Some(())
         }
     }
-}
-
-/// Information record returned by `Borrow::info`.
-pub struct BorrowInfo {
-    /// Attributes of the lease.
-    pub attributes: abi::LeaseAttributes,
-    /// Length of borrowed memory, in bytes.
-    pub len: usize,
 }
 
 /// Trait implemented by types that represent a message sent to another task.

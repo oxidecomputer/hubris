@@ -50,8 +50,8 @@ pub struct Lease<'a> {
     _marker: PhantomData<&'a mut ()>,
 }
 
-impl<'a> From<&'a [u8]> for Lease<'a> {
-    fn from(x: &'a [u8]) -> Self {
+impl<'a> Lease<'a> {
+    pub fn read_only(x: &'a [u8]) -> Self {
         Self {
             _kern_rep: abi::ULease {
                 attributes: abi::LeaseAttributes::READ,
@@ -61,10 +61,8 @@ impl<'a> From<&'a [u8]> for Lease<'a> {
             _marker: PhantomData,
         }
     }
-}
 
-impl<'a> From<&'a mut [u8]> for Lease<'a> {
-    fn from(x: &'a mut [u8]) -> Self {
+    pub fn read_write(x: &'a mut [u8]) -> Self {
         Self {
             _kern_rep: abi::ULease {
                 attributes: LeaseAttributes::READ | LeaseAttributes::WRITE,
@@ -73,6 +71,29 @@ impl<'a> From<&'a mut [u8]> for Lease<'a> {
             },
             _marker: PhantomData,
         }
+    }
+
+    pub fn write_only(x: &'a mut [u8]) -> Self {
+        Self {
+            _kern_rep: abi::ULease {
+                attributes: LeaseAttributes::WRITE,
+                base_address: x.as_ptr() as u32,
+                length: x.len() as u32,
+            },
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a> From<&'a [u8]> for Lease<'a> {
+    fn from(x: &'a [u8]) -> Self {
+        Self::read_only(x)
+    }
+}
+
+impl<'a> From<&'a mut [u8]> for Lease<'a> {
+    fn from(x: &'a mut [u8]) -> Self {
+        Self::read_write(x)
     }
 }
 
@@ -545,7 +566,7 @@ struct BorrowWriteArgs {
 }
 
 #[inline(always)]
-pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
+pub fn sys_borrow_info(lender: TaskId, index: usize) -> Option<BorrowInfo> {
     use core::mem::MaybeUninit;
 
     let mut raw = MaybeUninit::<RawBorrowInfo>::uninit();
@@ -555,7 +576,14 @@ pub fn sys_borrow_info(lender: TaskId, index: usize) -> (u32, u32, usize) {
     // Safety: stub completely initializes record
     let raw = unsafe { raw.assume_init() };
 
-    (raw.rc, raw.atts, raw.length)
+    if raw.rc == 0 {
+        Some(BorrowInfo {
+            attributes: abi::LeaseAttributes::from_bits_truncate(raw.atts),
+            len: raw.length,
+        })
+    } else {
+        None
+    }
 }
 
 #[repr(C)]
@@ -563,6 +591,14 @@ struct RawBorrowInfo {
     rc: u32,
     atts: u32,
     length: usize,
+}
+
+/// Information record returned by `sys_borrow_info`.
+pub struct BorrowInfo {
+    /// Attributes of the lease.
+    pub attributes: abi::LeaseAttributes,
+    /// Length of borrowed memory, in bytes.
+    pub len: usize,
 }
 
 /// Core implementation of the BORROW_INFO syscall.

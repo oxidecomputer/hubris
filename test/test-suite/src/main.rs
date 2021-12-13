@@ -618,8 +618,8 @@ fn test_borrow_without_peer_waiting() {
     let initial_id = assist_task_id();
 
     // First, try getting borrow info (which shouldn't exist)
-    let (rc, _atts, _len) = sys_borrow_info(initial_id, 0);
-    assert_eq!(rc, DEFECT, "expected to fail sys_borrow_info");
+    let info = sys_borrow_info(initial_id, 0);
+    assert!(info.is_none(), "expected to fail sys_borrow_info");
     let new_id = sys_refresh_task_id(initial_id);
     assert_eq!(initial_id, new_id, "id should not change");
 
