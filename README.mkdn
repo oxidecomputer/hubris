@@ -95,7 +95,7 @@ You will need:
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
-  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
+  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git --locked`
 
 ### Windows
 
