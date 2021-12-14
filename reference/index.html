@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="generator" content="Asciidoctor 2.0.16">
-<title>Hubris</title>
+<title>Hubris Reference</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
 /*! Asciidoctor default stylesheet | MIT License | https://asciidoctor.org */
@@ -655,7 +655,7 @@ pre.rouge {
 </head>
 <body class="article toc2 toc-left">
 <div id="header">
-<h1>Hubris</h1>
+<h1>Hubris Reference</h1>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
@@ -674,10 +674,12 @@ pre.rouge {
 </li>
 <li><a href="#tasks">2. Tasks</a>
 <ul class="sectlevel2">
-<li><a href="#_separate_compilation">2.1. Separate compilation</a></li>
-<li><a href="#immortal">2.2. Tasks can&#8217;t be created or destroyed</a></li>
-<li><a href="#_failure_and_supervision">2.3. Failure and supervision</a></li>
-<li><a href="#_initialization_and_re_initialization">2.4. Initialization and re-initialization</a></li>
+<li><a href="#_a_brief_note_on_priorities">2.1. A brief note on priorities</a></li>
+<li><a href="#_scheduling">2.2. Scheduling</a></li>
+<li><a href="#_separate_compilation">2.3. Separate compilation</a></li>
+<li><a href="#immortal">2.4. Tasks can&#8217;t be created or destroyed</a></li>
+<li><a href="#_failure_and_supervision">2.5. Failure and supervision</a></li>
+<li><a href="#_initialization_and_re_initialization">2.6. Initialization and re-initialization</a></li>
 </ul>
 </li>
 <li><a href="#ipc">3. IPC</a>
@@ -750,9 +752,9 @@ pre.rouge {
 <li><a href="#sys_recv">7.2.2. <code>RECV</code> (1)</a></li>
 <li><a href="#sys_reply">7.2.3. <code>REPLY</code> (2)</a></li>
 <li><a href="#sys_set_timer">7.2.4. <code>SET_TIMER</code> (3)</a></li>
-<li><a href="#_borrow_read_4">7.2.5. <code>BORROW_READ</code> (4)</a></li>
-<li><a href="#_borrow_write_5">7.2.6. <code>BORROW_WRITE</code> (5)</a></li>
-<li><a href="#_borrow_info_6">7.2.7. <code>BORROW_INFO</code> (6)</a></li>
+<li><a href="#sys_borrow_read">7.2.5. <code>BORROW_READ</code> (4)</a></li>
+<li><a href="#sys_borrow_write">7.2.6. <code>BORROW_WRITE</code> (5)</a></li>
+<li><a href="#sys_borrow_info">7.2.7. <code>BORROW_INFO</code> (6)</a></li>
 <li><a href="#sys_irq_control">7.2.8. <code>IRQ_CONTROL</code> (7)</a></li>
 <li><a href="#_panic_8">7.2.9. <code>PANIC</code> (8)</a></li>
 <li><a href="#sys_get_timer">7.2.10. <code>GET_TIMER</code> (9)</a></li>
@@ -843,7 +845,7 @@ little else.</p>
 taking out the whole system, under application control.</p>
 </li>
 <li>
-<p>One "special task," <a href="#supervisor">the <em>supervisor,</em></a> implements all task
+<p>One &#8220;special task,&#8221; <a href="#supervisor">the <em>supervisor,</em></a> implements all task
 management and crash recovery policies, outside the kernel. (Applications are
 free to provide their own supervisor.)</p>
 </li>
@@ -915,7 +917,7 @@ through a combination of decisions.</p>
 <div class="paragraph">
 <p><strong>More memory safety.</strong> The bulk of both the Hubris kernel and our applications
 are written in safe Rust, with careful sprinklings of unsafe Rust where
-required. "Unsafe" Rust is still a much safer language than C or assembler and
+required. &#8220;Unsafe&#8221; Rust is still a much safer language than C or assembler and
 helps us avoid thinking about a bunch of potential bugs.</p>
 </div>
 <div class="paragraph">
@@ -940,9 +942,9 @@ tested!&#8201;&#8212;&#8201;together.</p>
 <div class="sect3">
 <h4 id="_pragmatism">1.3.2. Pragmatism</h4>
 <div class="paragraph">
-<p>There are a class of "ideal attractors" in engineering, concepts like
-"everything is an object," "homoiconicity," "purely functional," "pure
-capability system," etc. Engineers fall into orbit around these ideas quite
+<p>There are a class of &#8220;ideal attractors&#8221; in engineering, concepts like
+&#8220;everything is an object,&#8221; &#8220;homoiconicity,&#8221; &#8220;purely functional,&#8221; &#8220;pure
+capability system,&#8221; etc. Engineers fall into orbit around these ideas quite
 easily. Systems that follow these principles often get useful properties out of
 the deal.</p>
 </div>
@@ -1013,9 +1015,9 @@ to avoid implementing it.</p>
 write is correct.</p>
 </div>
 <div class="paragraph">
-<p>In many ways, Rust makes this part of the job easy, but "cowboy coding" is as
+<p>In many ways, Rust makes this part of the job easy, but &#8220;cowboy coding&#8221; is as
 feasible in Rust as in other languages, given a sufficiently motivated cowboy.
-Culturally, we try to avoid being "clever" in pursuit of a few saved bytes or
+Culturally, we try to avoid being &#8220;clever&#8221; in pursuit of a few saved bytes or
 cycles, and instead solve problems in ways that are more likely to be correct.
 We also prize correctness by construction where possible, meaning, designing
 pieces of the system such that illegal or undesirable states simply can&#8217;t be
@@ -1036,7 +1038,50 @@ subject to memory isolation. This means that tasks cannot directly stomp on
 memory owned by the kernel, or each other.</p>
 </div>
 <div class="sect2">
-<h3 id="_separate_compilation">2.1. Separate compilation</h3>
+<h3 id="_a_brief_note_on_priorities">2.1. A brief note on priorities</h3>
+<div class="paragraph">
+<p>Tasks have priorities, which are currently fixed at build time. These are small
+integers.</p>
+</div>
+<div class="paragraph">
+<p>Priorities are numbered in a way that may feel backwards: 0 is the highest
+priority, 1 is the next highest, and so forth. In general, when we talk about
+something being &#8220;higher priority,&#8221; we mean its priority number is numerically
+smaller.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_scheduling">2.2. Scheduling</h3>
+<div class="paragraph">
+<p>The kernel is responsible for scheduling tasks by swapping between them as
+needed. At any given time, one task has control of the CPU, and the others are
+<em>blocked.</em></p>
+</div>
+<div class="paragraph">
+<p>Hubris uses a strict priority scheduling method: the kernel ensures that, at any
+given time, the highest-priority task that is ready to run has control of the
+CPU. If that task becomes ready while another task is running&#8201;&#8212;&#8201;say, due to an
+interrupt&#8201;&#8212;&#8201;the kernel will preempt the lower priority task and switch to the
+higher priority task.</p>
+</div>
+<div class="paragraph">
+<p>Within a single priority level, multitasking is effectively cooperative: the
+kernel will never interrupt a task to switch to another task of equal or lower
+priority, until that task performs an operation that yields the CPU, such as
+sending a message or blocking to receive messages that haven&#8217;t arrived yet. The
+alternative to this is to implement <em>time-slicing,</em> where a task gets a fixed
+amount of time before another task at the same priority will have the
+opportunity to run; we chose not to implement this.</p>
+</div>
+<div class="paragraph">
+<p>Priority levels in Hubris are effectively unlimited (currently, there are up to
+256 of them), and using more levels has no runtime cost&#8201;&#8212;&#8201;so, if the absence of
+time-slicing is a problem for your application, you can use a single task per
+priority level and get full preemption.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_separate_compilation">2.3. Separate compilation</h3>
 <div class="paragraph">
 <p>Tasks are <em>separately compiled</em> and do not share code. This is both good and
 bad. Some advantages:</p>
@@ -1084,7 +1129,7 @@ addressing. So, we have punted for now.
 </div>
 </div>
 <div class="sect2">
-<h3 id="immortal">2.2. Tasks can&#8217;t be created or destroyed</h3>
+<h3 id="immortal">2.4. Tasks can&#8217;t be created or destroyed</h3>
 <div class="paragraph">
 <p>An application declares all of its tasks in its <code>app.toml</code> config file, which
 the build system processes to make an application image. The set of tasks
@@ -1143,7 +1188,7 @@ other events. More on that below.
 </div>
 </div>
 <div class="sect2">
-<h3 id="_failure_and_supervision">2.3. Failure and supervision</h3>
+<h3 id="_failure_and_supervision">2.5. Failure and supervision</h3>
 <div class="paragraph">
 <p>Hubris is built on the assumption that individual tasks may <em>fail.</em> A task fails
 by causing a <em>fault</em>&#8201;&#8212;&#8201;or, more precisely, by taking an action that causes the
@@ -1198,7 +1243,7 @@ task, as described in the next section.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_initialization_and_re_initialization">2.4. Initialization and re-initialization</h3>
+<h3 id="_initialization_and_re_initialization">2.6. Initialization and re-initialization</h3>
 <div class="paragraph">
 <p>At boot, the Hubris kernel sets some number of tasks to run. (The application
 can designate which tasks to start at boot in its <code>app.toml</code>.) Later, the kernel
@@ -1227,7 +1272,7 @@ compile time based on information in the <code>app.toml</code>.</p>
 <p>Reset the task&#8217;s timer. (Timers will be discussed in the section <a href="#timers">Timers</a>.)</p>
 </li>
 <li>
-<p>"Scribble" the task&#8217;s stack memory with a recognizable pattern. This helps
+<p>&#8220;Scribble&#8221; the task&#8217;s stack memory with a recognizable pattern. This helps
 catch accesses to uninitialized stack memory (in languages other than Rust, or
 excessively clever Rust) and can be used by the debugger to determine each
 task&#8217;s actual peak stack usage, by looking for how much of it has been
@@ -1243,7 +1288,7 @@ overwritten.</p>
 zero its <code>bss</code> section. The Hubris kernel doesn&#8217;t do this <em>for</em> the task because
 we don&#8217;t want to make too many assumptions about task internal memory layouts.
 For tasks written in Rust, this is handled by the <code>_start</code> routine provided by
-the <code>userlib</code> crate, and should "just work"&#8201;&#8212;&#8201;by the time execution reaches
+the <code>userlib</code> crate, and should &#8220;just work&#8221;&#8201;&#8212;&#8201;by the time execution reaches
 <code>main</code>, memory is set up.</p>
 </div>
 <div class="paragraph">
@@ -1264,7 +1309,7 @@ internal memory layout. (For programs written in Rust, this is handled by the
 <li>
 <p>It doesn&#8217;t do anything to the task&#8217;s executable code, which is assumed to be
 in execute-in-place Flash and immutable. (Hubris has no equivalent to a
-"loader.")</p>
+&#8220;loader.&#8221;)</p>
 </li>
 </ul>
 </div>
@@ -1315,8 +1360,8 @@ and deal in the raw IPC operations provided by the kernel.</p>
 </td>
 <td class="content">
 IPC is technically a misnomer, since we don&#8217;t have what most folks think
-of as "processes" (the P in IPC). But hey. Inter-Task Communication just isn&#8217;t
-as catchy.
+of as &#8220;processes&#8221; (the P in IPC). But hey. Inter-Task Communication just
+isn&#8217;t as catchy.
 </td>
 </tr>
 </table>
@@ -1354,8 +1399,8 @@ use to process the message.</p>
 </div>
 <div class="paragraph">
 <p>This style of messaging is also called a <em>rendezvous</em> or <em>handoff,</em> because both
-tasks need to arrange to "meet" in the right state for the message transfer to
-happen.</p>
+tasks need to arrange to &#8220;meet&#8221; in the right state for the message transfer
+to happen.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -1404,8 +1449,8 @@ synchronous rendezvous messaging, we avoid having queues in the first place.</p>
 <p><strong>It limits the power of any single task.</strong> A Hubris task can either be doing
 local work, or sending one message. It can&#8217;t, for instance, spam every other
 task in the system with messages simultaneously, or set up hundreds of messages
-to a single task. This avoids "fault amplification" scenarios where a bug in one
-task cascades into a much larger problem, as in a denial-of-service attack.</p>
+to a single task. This avoids &#8220;fault amplification&#8221; scenarios where a bug in
+one task cascades into a much larger problem, as in a denial-of-service attack.</p>
 </div>
 <div class="paragraph">
 <p><strong>It lets message recipients reason about what their callers are doing.</strong> When
@@ -1560,9 +1605,9 @@ from place to place.</p>
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-The Hubris source code sometimes refers to operation codes as "selectors"
-or "discriminators," because Cliff can&#8217;t make up his mind on which metaphor to
-use.
+The Hubris source code sometimes refers to operation codes as
+&#8220;selectors&#8221; or &#8220;discriminators,&#8221; because Cliff can&#8217;t make up his mind on
+which metaphor to use.
 </td>
 </tr>
 </table>
@@ -1609,7 +1654,7 @@ non-zero response code and any additional data returned. Most wrappers do this.<
 <td class="content">
 While response codes are <em>mostly</em> up to the application, there is a class
 of non-zero response codes used by the kernel to indicate certain failure cases
-related to crashing tasks. These are called "dead codes," and will be covered
+related to crashing tasks. These are called &#8220;dead codes,&#8221; and will be covered
 later, in the section <a href="#death">Death and IPC</a>. Applications should choose their response codes
 to avoid colliding with them. Fortunately, they&#8217;re very large numbers, so if
 applications start their errors from 1 they should be safe.
@@ -1633,8 +1678,8 @@ messages, currently 256 bytes.</p>
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-If you need to move more data than this, you can use the "lease" mechanism,
-described in the next section.
+If you need to move more data than this, you can use the &#8220;lease&#8221;
+mechanism, described in the next section.
 </td>
 </tr>
 </table>
@@ -1727,7 +1772,7 @@ streaming data access protocol consisting of two functions (written as in Rust):
 0 is <code>buffer</code> and must be writable.</p>
 </li>
 <li>
-<p>Data will be written to a prefix of borrow 0, starting at offset 0.</p>
+<p>Data will be written to a prefix of lease 0, starting at offset 0.</p>
 </li>
 <li>
 <p>On success, returns response code 0 and a four-byte response, containing the
@@ -1749,7 +1794,7 @@ zero-length response message.</p>
 0 is <code>buffer</code> and must be readable.</p>
 </li>
 <li>
-<p>Data will be taken from a prefix of borrow 0, starting at offset 0.</p>
+<p>Data will be taken from a prefix of lease 0, starting at offset 0.</p>
 </li>
 <li>
 <p>On success, returns response code 0 and a four-byte response, containing the
@@ -1793,7 +1838,7 @@ changing the <code>IoError</code> type in Rust to have data fields.
     <span class="k">let</span> <span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="n">len</span><span class="p">)</span> <span class="o">=</span> <span class="nf">sys_send</span><span class="p">(</span>
         <span class="n">task</span><span class="p">,</span>
         <span class="mi">0</span><span class="p">,</span>
-        <span class="o">&amp;</span><span class="nb">u32</span><span class="nf">.to_le_bytes</span><span class="p">(),</span>
+        <span class="o">&amp;</span><span class="n">fd</span><span class="nf">.to_le_bytes</span><span class="p">(),</span>
         <span class="o">&amp;</span><span class="k">mut</span> <span class="n">response</span><span class="p">,</span>
         <span class="o">&amp;</span><span class="p">[</span><span class="nn">Lease</span><span class="p">::</span><span class="nf">from</span><span class="p">(</span><span class="n">buffer</span><span class="p">)],</span>
     <span class="p">);</span>
@@ -1874,7 +1919,10 @@ return an error.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Number of leases the caller sent you.</td>
+<td>Number of leases the caller sent you. You can get additional information
+about these borrows using the <a href="#sys_borrow_info"><code>BORROW_INFO</code> (6)</a> syscall, and there are
+additional syscalls for <a href="#sys_borrow_read">reading</a> and
+<a href="#sys_borrow_write">writing</a>.</td>
 </tr>
 </table>
 </div>
@@ -1990,14 +2038,14 @@ The general case that we&#8217;ve been discussing so far is the open receive cas
 </div>
 <div class="paragraph">
 <p>In a closed receive, the task selects a single other task to receive messages
-from. Any other sender will be queued.</p>
+from. Any other sender will be blocked.</p>
 </div>
 <div class="paragraph">
 <p>This can be used to implement mutual exclusion. If a client sends a lock request
 to a server, for instance, the server could then perform a closed receive and
 only accept messages from that client. Other clients could send lock requests,
-but they&#8217;d queue up, until the first client either sends a "release" message, or
-dies (see below).</p>
+but they&#8217;d queue up, until the first client either sends a &#8220;release&#8221; message,
+or dies (see below).</p>
 </div>
 </div>
 </div>
@@ -2026,7 +2074,7 @@ be in order.</p>
 </div>
 <div class="paragraph">
 <p>When an operation fails because of a generation mismatch, it returns a
-predictable response code called a "dead code." A dead code has its 24 top bits
+predictable response code called a &#8220;dead code.&#8221; A dead code has its 24 top bits
 set to 1, with the peer&#8217;s <em>new</em> generation number in the low 8. You can use this
 to update your <code>TaskId</code> and retry your request, for instance.</p>
 </div>
@@ -2113,7 +2161,7 @@ others intact),</p>
 <li>
 <p>The sender&#8217;s <code>TaskId</code> will be <code>TaskId::KERNEL</code>, indicating that the message
 comes from the kernel. Since the kernel never sends messages in any other
-context, any message "from" the kernel is a notification.</p>
+context, any message &#8220;from&#8221; the kernel is a notification.</p>
 </li>
 <li>
 <p>The <code>operation</code> field will contain the bits that were posted and matched the
@@ -2141,7 +2189,7 @@ could decide not to <code>reply</code>, starving all the other clients.</p>
 </div>
 <div class="paragraph">
 <p>In developing firmware on Hubris we&#8217;ve found a particular pattern to be useful,
-called "pingback." In this pattern, a high-priority shared server (such as a
+called &#8220;pingback.&#8221; In this pattern, a high-priority shared server (such as a
 network stack) has obtained data that it needs to give to one of its clients&#8201;&#8212;&#8201;but it can&#8217;t just <code>send</code> the data for the reason described above. One option is
 to have all clients forever blocked in <code>send</code> to the <em>server</em> until data
 arrived, but that keeps the clients from ever doing anything else! Instead, the
@@ -2232,12 +2280,12 @@ a subset of exception numbers at a fixed offset&#8201;&#8212;&#8201;16, on ARMv7
 subtract that offset when numbering interrupts.</p>
 </li>
 <li>
-<p>Interrupts have a "pending" flag and an "enable" flag. The pending flag can be
-set by hardware at any time, but the ISR will only be invoked if the enable
-and pending flags are set at the same time. (This ensures that momentary
-events are latched and can be handled with a delay.) Starting the interrupt
-service routine clears the "pending" flag and may or may not affect the
-"enable" flag.</p>
+<p>Interrupts have a &#8220;pending&#8221; flag and an &#8220;enable&#8221; flag. The pending flag
+can be set by hardware at any time, but the ISR will only be invoked if the
+enable and pending flags are set at the same time. (This ensures that
+momentary events are latched and can be handled with a delay.) Starting the
+interrupt service routine clears the &#8220;pending&#8221; flag and may or may not
+affect the &#8220;enable&#8221; flag.</p>
 </li>
 <li>
 <p>Interrupt handlers (or interrupt service routines) can be configured not to
@@ -2252,8 +2300,8 @@ runs in interrupt context.)</p>
 </ul>
 </div>
 <div class="paragraph">
-<p>For brevity in the discussion below, we&#8217;ll refer to an interrupt "happening" as
-when the CPU decides to execute the associated in-kernel interrupt service
+<p>For brevity in the discussion below, we&#8217;ll refer to an interrupt &#8220;happening&#8221;
+as when the CPU decides to execute the associated in-kernel interrupt service
 routine. That can occur when&#8230;&#8203;</p>
 </div>
 <div class="ulist">
@@ -2339,10 +2387,10 @@ like this:</p>
         <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span><span class="p">,</span>
     <span class="p">)</span><span class="nf">.unwrap</span><span class="p">();</span>
 
-    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="nd">MY_INTERRUPTS!</span><span class="o">=</span> <span class="mi">0</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPTS</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
         <span class="nf">do_interrupt_stuff</span><span class="p">();</span>
         <span class="c">// Unmask that interrupt so it can fire again.</span>
-        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+        <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span></code></pre>
 </div>
@@ -2464,7 +2512,7 @@ wraparound is hard.</p>
 </div>
 <div class="paragraph">
 <p>At periodic intervals (ticks), if the enable bit is set, the kernel checks the
-deadline to see if it is in the future. If not (it is <code>&#8656;</code> the current time),
+deadline to see if it is in the future. If not (it is <code>&lt;=</code> the current time),
 the kernel will</p>
 </div>
 <div class="ulist">
@@ -2779,8 +2827,8 @@ access to,</strong> while anything privileged or sensitive should be done throug
 </div>
 <div class="paragraph">
 <p>This doesn&#8217;t mean all these things need to be done outside the kernel, though.
-We have an escape hatch, in the form of messages to the virtual "kernel task."
-The kernel IPC interface is the topic of the next chapter.</p>
+We have an escape hatch, in the form of messages to the virtual &#8220;kernel
+task.&#8221; The kernel IPC interface is the topic of the next chapter.</p>
 </div>
 <div class="sect2">
 <h3 id="_syscall_abi">7.1. Syscall ABI</h3>
@@ -3103,7 +3151,7 @@ sender.</p>
 <div class="paragraph">
 <p>One argument to RECV determines whether to accept messages from <em>any</em> sender, or
 to only accept messages from <em>one.</em> Accepting messages from any sender is called
-an "open" receive, while only listening for one sender is "closed."</p>
+an &#8220;open&#8221; receive, while only listening for one sender is &#8220;closed.&#8221;</p>
 </div>
 <div class="paragraph">
 <p>During an open receive, a task may receive messages sent by any other task, plus
@@ -3153,7 +3201,7 @@ notification masks, and may change.)</p>
 <div class="ulist">
 <ul>
 <li>
-<p>0: always 0 for open receive; closed receive may also return a "dead code"
+<p>0: always 0 for open receive; closed receive may also return a <strong>dead code</strong>
 (see <code>SEND</code>) to indicate that the chosen peer has died.</p>
 </li>
 <li>
@@ -3231,7 +3279,7 @@ callsite has a clear idea of which notifications it can handle. Plus, it saves a
 syscall during the common pattern of updating the mask and then receiving.</p>
 </div>
 <div class="paragraph">
-<p><code>RECV</code> is called <code>RECV</code> because Cliff can&#8217;t spell "recieve" reliably.</p>
+<p><code>RECV</code> is called <code>RECV</code> because Cliff can&#8217;t spell &#8220;recieve&#8221; reliably.</p>
 </div>
 </div>
 </div>
@@ -3307,7 +3355,7 @@ registers 0 and 1 for future compatibility.</p>
 <div class="paragraph">
 <p>It might strike you as odd that <code>REPLY</code> doesn&#8217;t return any status. This is a
 subtle decision, and has to do with what servers will do if their clients
-"defect" or crash before reply (generally: nothing).</p>
+&#8220;defect&#8221; or crash before reply (generally: nothing).</p>
 </div>
 <div class="paragraph">
 <p>Reply messages can be zero-length, in which case the base address of the slice
@@ -3367,14 +3415,14 @@ you <code>RECV</code>).</p>
 </div>
 <div class="paragraph">
 <p>The time unit for deadlines is not currently specified&#8201;&#8212;&#8201;it&#8217;s currently an
-abstract "kernel ticks" unit. This will be fixed.</p>
+abstract &#8220;kernel ticks&#8221; unit. This will be fixed.</p>
 </div>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_borrow_read_4">7.2.5. <code>BORROW_READ</code> (4)</h4>
+<h4 id="sys_borrow_read">7.2.5. <code>BORROW_READ</code> (4)</h4>
 <div class="paragraph">
-<p>Copies data from memory borrowed from a caller (a "borrow").</p>
+<p>Copies data from memory borrowed from a caller (a &#8220;borrow&#8221;).</p>
 </div>
 <div class="sect4">
 <h5 id="_arguments_5">Arguments</h5>
@@ -3421,7 +3469,7 @@ sender side.</p>
 <div class="sect4">
 <h5 id="_notes_5">Notes</h5>
 <div class="paragraph">
-<p>This provides "file-like" access to memory borrowed from other tasks, rather
+<p>This provides &#8220;file-like&#8221; access to memory borrowed from other tasks, rather
 than direct memory-mapped access, and that&#8217;s for a good reason: the other task
 may potentially be restarted at any time. In the event that the peer restarts
 while you&#8217;re working with one of its borrows, you&#8217;ll get an error return code
@@ -3432,9 +3480,9 @@ opportunity to induce faults in shared servers, which would be bad.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_borrow_write_5">7.2.6. <code>BORROW_WRITE</code> (5)</h4>
+<h4 id="sys_borrow_write">7.2.6. <code>BORROW_WRITE</code> (5)</h4>
 <div class="paragraph">
-<p>Copies data into memory borrowed from a caller (a "borrow").</p>
+<p>Copies data into memory borrowed from a caller (a &#8220;borrow&#8221;).</p>
 </div>
 <div class="sect4">
 <h5 id="_arguments_6">Arguments</h5>
@@ -3481,7 +3529,7 @@ sender side.</p>
 <div class="sect4">
 <h5 id="_notes_6">Notes</h5>
 <div class="paragraph">
-<p>This provides "file-like" access to memory borrowed from other tasks, rather
+<p>This provides &#8220;file-like&#8221; access to memory borrowed from other tasks, rather
 than direct memory-mapped access, and that&#8217;s for a good reason: the other task
 may potentially be restarted at any time. In the event that the peer restarts
 while you&#8217;re working with one of its borrows, you&#8217;ll get an error return code
@@ -3492,7 +3540,7 @@ opportunity to induce faults in shared servers, which would be bad.</p>
 </div>
 </div>
 <div class="sect3">
-<h4 id="_borrow_info_6">7.2.7. <code>BORROW_INFO</code> (6)</h4>
+<h4 id="sys_borrow_info">7.2.7. <code>BORROW_INFO</code> (6)</h4>
 <div class="paragraph">
 <p>Collects information about one entry in a sender&#8217;s lease table.</p>
 </div>
@@ -3580,7 +3628,7 @@ their notification bits. However, this is quite deliberate, for two reasons:</p>
 <li>
 <p>It gives tasks a consistent semantic model. When an interrupt goes off, they
 see a notification in bit X; when they want to re-enable that interrupt,
-they request enabling on bit X. There is no separate "IRQ number" to
+they request enabling on bit X. There is no separate &#8220;IRQ number&#8221; to
 configure; that&#8217;s left to the application-level config file.</p>
 </li>
 <li>
@@ -3692,8 +3740,8 @@ result of this syscall can be meaningfully sent to other tasks on the same CPU.
 (Behavior in multicore situations is not yet defined.)</p>
 </div>
 <div class="paragraph">
-<p>The time unit is not currently specified&#8201;&#8212;&#8201;it&#8217;s currently an abstract "kernel
-ticks" unit. This will be fixed.</p>
+<p>The time unit is not currently specified&#8201;&#8212;&#8201;it&#8217;s currently an abstract &#8220;kernel
+ticks&#8221; unit. This will be fixed.</p>
 </div>
 </div>
 </div>
@@ -3822,7 +3870,7 @@ mechanism. See <a href="#notifications">Notifications: the <em>other</em> IPC me
 <div class="paragraph">
 <p>If the task being notified is higher priority, and the notification causes it
 to wake, control will immediately transfer to the higher priority task. This
-will be returned as "success" to the caller, because the notification was
+will be returned as &#8220;success&#8221; to the caller, because the notification was
 successfully delivered, even if the higher priority task subsequently crashes
 before the caller gets another chance to run.</p>
 </div>
@@ -3894,7 +3942,7 @@ programs written in Rust.</p>
 <i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
-It is our intent to restrict kernel IPC sends to "privileged" tasks&#8201;&#8212;&#8201;likely just the supervisor task. We haven&#8217;t implemented this yet.
+It is our intent to restrict kernel IPC sends to &#8220;privileged&#8221; tasks&#8201;&#8212;&#8201;likely just the supervisor task. We haven&#8217;t implemented this yet.
 </td>
 </tr>
 </table>
@@ -4008,8 +4056,8 @@ zero otherwise) and the stack erased.</p>
 <li>
 <p>Any <em>other</em> tasks that were blocked in IPC with the targeted task (either
 waiting to deliver a message, waiting for a reply to a delivered message, or
-waiting to receive) are interrupted and given a "dead code" to indicate that the
-IPC will never complete.</p>
+waiting to receive) are interrupted and given a <a href="#death">dead code</a> to indicate
+that the IPC will never complete.</p>
 </li>
 </ol>
 </div>
@@ -4041,7 +4089,7 @@ IPC will never complete.</p>
 <div class="sect4">
 <h5 id="_notes_12">Notes</h5>
 <div class="paragraph">
-<p>If a task asks to reinit <em>itself,</em> the kernel mumbles "alright, your funeral"
+<p>If a task asks to reinit <em>itself,</em> the kernel mumbles &#8220;alright, your funeral&#8221;
 and reinits the caller. Given that <code>reinit_task</code> is intended to be restricted to
 the supervisor, and the supervisor can&#8217;t <code>panic!</code> to restart without taking out
 the system, this seemingly weird move may actually prove useful.</p>
@@ -4049,8 +4097,8 @@ the system, this seemingly weird move may actually prove useful.</p>
 <div class="paragraph">
 <p>Reinitialization <em>does not</em> write over the task&#8217;s memory except for the stack.
 Tasks are responsible for (say) setting up their data/BSS areas on start. This
-is explicitly intended to allow tasks to keep some information from "past lives"
-if required.</p>
+is explicitly intended to allow tasks to keep some information from &#8220;past
+lives&#8221; if required.</p>
 </div>
 </div>
 </div>
@@ -4065,7 +4113,7 @@ that called <code>fault_task</code> (i.e. you). This means that a fault caused b
 <div class="paragraph">
 <p><code>fault_task</code> immediately prevents the targeted task from running, and any
 <em>other</em> tasks that were blocked in IPC with the targeted task are interrupted
-and given a "dead code" to indicate that the IPC will never complete.</p>
+and given a <a href="#death">dead code</a> to indicate that the IPC will never complete.</p>
 </div>
 <div class="sect4">
 <h5 id="_request_3">Request</h5>
@@ -4720,8 +4768,8 @@ finish at least one outstanding request before doing another RECV.</p>
 in a table. The maximum size of that table is dictated by the number of
 potential clients. If the server has specific knowledge of this number in the
 application, it can use that to size the table&#8201;&#8212;&#8201;or it be conservative and set
-the size of the table to <code>userlib::NUM_TASKS</code>, the number of tasks in the
-system. Such a table should never overflow.</p>
+the size of the table to <code>hubris_num_tasks::NUM_TASKS</code>, the number of tasks in
+the system. Such a table should never overflow.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -4848,7 +4896,7 @@ crash(es) from the kernel via IPC.
     <span class="c">// below for a more complex example.</span>
 
     <span class="c">// Scan tasks. Skip ourselves at index 0.</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">userlib</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">hubris_num_tasks</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
         <span class="k">match</span> <span class="nn">userlib</span><span class="p">::</span><span class="nn">kipc</span><span class="p">::</span><span class="nf">read_task_status</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
             <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
                 <span class="c">// Record any observed faults and restart.</span>
@@ -4911,7 +4959,7 @@ follows:</p>
 
     <span class="k">if</span> <span class="n">msg</span><span class="py">.sender</span> <span class="o">==</span> <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span> <span class="p">{</span> <i class="conum" data-value="3"></i><b>(3)</b>
         <span class="c">// Scan tasks. Skip ourselves at index 0.</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">userlib</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">hubris_num_tasks</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
             <span class="k">match</span> <span class="nn">userlib</span><span class="p">::</span><span class="nn">kipc</span><span class="p">::</span><span class="nf">read_task_status</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
                 <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
                     <span class="c">// Record any observed faults and restart.</span>
@@ -5266,7 +5314,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-11-30 15:18:45 UTC
+Last updated 2021-12-14 03:59:05 UTC
 </div>
 </div>
 </body>
