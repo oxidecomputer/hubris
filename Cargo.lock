@@ -2292,7 +2292,6 @@ dependencies = [
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-spi-api",
- "drv-stm32fx-rcc",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",
@@ -2356,16 +2355,6 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "ringbuf",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "task-spam"
-version = "0.1.0"
-dependencies = [
- "cortex-m-semihosting",
- "lpc55-pac",
  "userlib",
  "zerocopy",
 ]
