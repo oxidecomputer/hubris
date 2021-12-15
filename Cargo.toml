@@ -9,14 +9,12 @@ members = [
     "sys/abi",
     "sys/kern",
     "sys/userlib",
+    "sys/num-tasks",
 
     "lib/fixedmap",
     "lib/gnarle",
-    "lib/hif",
     "lib/hypocalls",
-    "lib/pmbus",
     "lib/ringbuf",
-    "lib/spd",
 
     "app/demo-stm32f4-discovery",
     "app/demo-stm32h7-nucleo",
@@ -36,7 +34,6 @@ members = [
     "task/idle",
     "task/hiffy",
     "task/power",
-    "task/spam2",
     "task/spd",
     "task/thermal",
 
@@ -76,12 +73,11 @@ members = [
     "test/tests-gemini-bu-rot",
     "test/tests-stm32fx",
     "test/tests-stm32h7",
-    "test/tests-lpc55",
+    "test/tests-lpc55xpresso",
     "test/test-runner",
     "test/test-assist",
     "test/test-suite",
 
-    "support/lpc55",
     "stage0",
 ]
 default-members = []

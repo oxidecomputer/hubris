@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::{self, File};
@@ -17,14 +21,23 @@ use crate::{
     Supervisor, Task,
 };
 
-use lpc55_support::{crc_image, sign_ecc, signed_image};
+use lpc55_sign::{crc_image, sign_ecc, signed_image};
 
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
 const DEFAULT_KERNEL_STACK: u32 = 1024;
 
-pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
+pub fn package(
+    verbose: bool,
+    edges: bool,
+    cfg: &Path,
+    tasks_to_build: Option<Vec<String>>,
+) -> Result<()> {
+    // If we're using filters, we change behavior at the end. Record this in a
+    // convenient flag.
+    let partial_build = tasks_to_build.is_some();
+
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
@@ -244,6 +257,13 @@ pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
     }
 
     for name in toml.tasks.keys() {
+        // Implement task name filter. If we're only building a subset of tasks,
+        // skip the other ones here.
+        if let Some(included_names) = &tasks_to_build {
+            if !included_names.contains(name) {
+                continue;
+            }
+        }
         let task_toml = &toml.tasks[name];
 
         generate_task_linker_script(
@@ -292,6 +312,12 @@ pub fn package(verbose: bool, edges: bool, cfg: &Path) -> Result<()> {
         }
 
         entry_points.insert(name.clone(), ep);
+    }
+
+    // If we've done a partial build, we can't do the rest because we're missing
+    // required information, so, escape.
+    if partial_build {
+        return Ok(());
     }
 
     // Format the descriptors for the kernel build.
@@ -604,6 +630,7 @@ fn do_sign_file(
         let priv_key = sign.priv_key.as_ref().unwrap();
         let root_cert = sign.root_cert.as_ref().unwrap();
         signed_image::sign_image(
+            false, // TODO add an option to enable DICE
             &out.join(format!("{}.bin", fname)),
             &src_dir.join(&priv_key),
             &src_dir.join(&root_cert),

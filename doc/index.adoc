@@ -4,7 +4,8 @@
 :source-highlighter: rouge
 :icons: font
 
-= Hubris
+
+= Hubris Reference
 
 include::intro.adoc[leveloffset=+1]
 include::tasks.adoc[leveloffset=+1]

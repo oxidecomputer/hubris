@@ -1,8 +1,13 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use hif::{Failure, Fault};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "spi")] {
-        use userlib::{sys_refresh_task_id, Generation, TaskId, NUM_TASKS};
+        use userlib::{sys_refresh_task_id, Generation, TaskId};
+        use hubris_num_tasks::NUM_TASKS;
     }
 }
 

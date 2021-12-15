@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-default = ["panic-messages"]
+default = []
 panic-messages = []
 log-itm = []
 log-semihosting = []

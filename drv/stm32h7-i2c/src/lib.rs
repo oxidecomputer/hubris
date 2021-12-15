@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! A driver for the STM32H7 I2C interface
 
 #![no_std]
@@ -309,7 +313,7 @@ impl<'a> I2cController<'a> {
             .smbhen().set_bit()         // enable SMBus host mode
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // must enable clock stretching
-            .errie().set_bit()          // emable Error Interrupt
+            .errie().set_bit()          // enable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
             .stopie().clear_bit()       // disable Stop Detection interrupt
             .nackie().set_bit()         // enable NACK interrupt
@@ -723,7 +727,7 @@ impl<'a> I2cController<'a> {
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // enable clock stretching
             .sbc().clear_bit()          // disable byte control 
-            .errie().set_bit()          // emable Error Interrupt
+            .errie().set_bit()          // enable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
             .stopie().set_bit()         // enable Stop Detection interrupt
             .nackie().set_bit()         // enable NACK interrupt

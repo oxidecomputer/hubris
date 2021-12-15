@@ -74,7 +74,7 @@ loop {
     // below for a more complex example.
 
     // Scan tasks. Skip ourselves at index 0.
-    for i in 1..userlib::NUM_TASKS {
+    for i in 1..hubris_num_tasks::NUM_TASKS {
         match userlib::kipc::read_task_status(i) {
             abi::TaskState::Faulted { fault, .. } => {
                 // Record any observed faults and restart.
@@ -125,7 +125,7 @@ loop {
 
     if msg.sender == TaskId::KERNEL { // <3>
         // Scan tasks. Skip ourselves at index 0.
-        for i in 1..userlib::NUM_TASKS {
+        for i in 1..hubris_num_tasks::NUM_TASKS {
             match userlib::kipc::read_task_status(i) {
                 abi::TaskState::Faulted { fault, .. } => {
                     // Record any observed faults and restart.

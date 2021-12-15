@@ -40,11 +40,7 @@ priority = 2
 requires = {flash = 65536, ram = 4096}
 start = true
 features = ["itm"]
-
-[tasks.suite.task-slots]
-assist = "assist"
-suite = "suite"
-runner = "runner"
+task-slots = ["assist", "suite", "runner"]
 
 [tasks.assist]
 path = "../test-assist"

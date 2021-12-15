@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Server task for the STM32H7 SPI peripheral.
 //!
 //! Currently this hardcodes the clock rate.
@@ -378,7 +382,7 @@ fn main() -> ! {
                         let mut made_progress = false;
 
                         if let Some((tx_data, tx_pos)) = &mut tx {
-                            if spi.can_tx_frame() {
+                            while spi.can_tx_frame() {
                                 // If our position is less than our tx len,
                                 // transfer a byte from caller to TX FIFO --
                                 // otherwise put a dummy byte on the wire
@@ -393,6 +397,7 @@ fn main() -> ! {
                                 ringbuf_entry!(Trace::Tx(*tx_pos, byte));
                                 spi.send8(byte);
                                 *tx_pos += 1;
+                                made_progress = true;
 
                                 // If we have _just_ finished...
                                 if *tx_pos == xfer_len.0 {
@@ -402,9 +407,8 @@ fn main() -> ! {
                                     // space available during that time.
                                     spi.disable_can_tx_interrupt();
                                     tx = None;
+                                    break;
                                 }
-
-                                made_progress = true;
                             }
                         }
 

@@ -23,7 +23,7 @@ themselves, Hubris is designed around the goal of _robustness._
 - All task mechanisms are designed to allow component-level reboots without
   taking out the whole system, under application control.
 
-- One "special task," <<supervisor,the _supervisor,_>> implements all task
+- One "`special task,`" <<supervisor,the _supervisor,_>> implements all task
   management and crash recovery policies, outside the kernel. (Applications are
   free to provide their own supervisor.)
 
@@ -83,7 +83,7 @@ through a combination of decisions.
 
 **More memory safety.** The bulk of both the Hubris kernel and our applications
 are written in safe Rust, with careful sprinklings of unsafe Rust where
-required. "Unsafe" Rust is still a much safer language than C or assembler and
+required. "`Unsafe`" Rust is still a much safer language than C or assembler and
 helps us avoid thinking about a bunch of potential bugs.
 
 **Fault isolation.** Tasks, including drivers, can crash independently. An
@@ -104,9 +104,9 @@ tested! -- together.
 
 === Pragmatism
 
-There are a class of "ideal attractors" in engineering, concepts like
-"everything is an object," "homoiconicity," "purely functional," "pure
-capability system," etc. Engineers fall into orbit around these ideas quite
+There are a class of "`ideal attractors`" in engineering, concepts like
+"`everything is an object,`" "`homoiconicity,`" "`purely functional,`" "`pure
+capability system,`" etc. Engineers fall into orbit around these ideas quite
 easily. Systems that follow these principles often get useful properties out of
 the deal.
 
@@ -161,9 +161,9 @@ to avoid implementing it.
 Now, that being said: we are doing our best to ensure that the code we _do_
 write is correct.
 
-In many ways, Rust makes this part of the job easy, but "cowboy coding" is as
+In many ways, Rust makes this part of the job easy, but "`cowboy coding`" is as
 feasible in Rust as in other languages, given a sufficiently motivated cowboy.
-Culturally, we try to avoid being "clever" in pursuit of a few saved bytes or
+Culturally, we try to avoid being "`clever`" in pursuit of a few saved bytes or
 cycles, and instead solve problems in ways that are more likely to be correct.
 We also prize correctness by construction where possible, meaning, designing
 pieces of the system such that illegal or undesirable states simply can't be

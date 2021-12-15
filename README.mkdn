@@ -55,13 +55,8 @@ probably also works on Illumos and Mac; if anyone would like to step up to
 maintain support and a continuous build for those architectures, we'd love the
 help.
 
-To submit changes for review, push them to a new branch in this repo (_not_ a
-separate GitHub fork) and submit a pull request to merge that branch into
-master.  (Pull requests from separate GitHub forks do not currently work.
-First, the pre-integration checks do not get run automatically in forks, so
-you'd have to enable Actions in your fork.  More importantly, these checks
-require configuration of a repository secret in order to clone private
-submodules, so they'll fail when run from a fork.)
+To submit changes for review push them to a branch in a fork and submit a pull
+request to merge that branch into master.
 
 ## Prereqs
 
@@ -77,7 +72,10 @@ You will need:
   some success, but if your system isn't packaging 0.11 yet, pester them. If
   you're going to use Homebrew on macOS to install OpenOCD, you need to use
   `brew install --head openocd` to build the tip of the main branch rather than
-  using the latest binary release.
+  using the latest binary release. If you need to build from source, you can
+  find the [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
+  When running `./configure`, make sure that you see that the
+  `ST-Link Programmer` is set enabled (which should be the default).
 
 - The appropriate Rust toolchain target installed (note: this should happen
   automatically):
@@ -97,13 +95,13 @@ You will need:
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
-  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
+  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git --locked`
 
 ### Windows
 
 If you're on Windows, you can get set up by doing this:
 
-See [here](http://openocd.org/getting-openocd/) for getting the source of `openocd`
+See [here](https://openocd.org/pages/getting-openocd.html) for getting the source of `openocd`
 or get unofficial binaries. Alternatively, you can install via
 with [chocolatey](https://chocolatey.org/install):
 
@@ -146,16 +144,13 @@ custom build commands.
   - `cargo xtask dist app/demo-stm32f4-discovery/app-f3.toml` - stm32f3-discovery
   - `cargo xtask dist app/lpc55xpresso/app.toml` - lpcxpresso55s69
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
+  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk
   - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
-- `cargo xtask build` from within a task or kernel directory builds that one
-  component in isolation. **The result won't actually run,** because it's
-  missing important system context, but this provides a cheaper way to do
-  incremental builds during development. See the `Iterating` section below.
-
-Note: Because the Hubris repository contains submodules, before building, you
-must update submodules, either via `git clone --recursive`, or
-`git submodule update --init` or similar.
+- `cargo xtask check` from within a task or kernel directory compiles that one
+  component in isolation, performing a basic check of the code but not linking.
+  This provides a cheaper way to do incremental builds during development. See
+  the `Iterating` section below.
 
 ## Run
 
@@ -259,7 +254,16 @@ $ /usr/local/lpcscrypt/bin/lpcscrypt clockslow
 $
 ```
 
-4. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
+4. Run `lpcscrypt program +w1 0x0 BankA` to overwrite existing firmware
+
+```console
+$ /usr/local/lpcscrypt/bin/lpcscrypt program +w1 0x0 BankA
+................
+Programmed 524288 bytes to 0x1a000000 in 2.610s (196.165KB/sec)
+$
+```
+
+5. Run `lpcscrypt program +c <path-to-lpc4322_bl_crc.bin> BankA`:
 
 ```console
 $ /usr/local/lpcscrypt/bin/lpcscrypt program +c ~/hubris/support/lpc4322_bl_crc.bin BankA
@@ -268,9 +272,9 @@ Programmed 57344 bytes to 0x1a000000 in 0.827s (67.717KB/sec)
 $
 ```
 
-5. Assuming it is successful, remove the DFU jumper and disconnect/reconnect USB
+6. Assuming it is successful, remove the DFU jumper and disconnect/reconnect USB
 
-6. There should now be a USB mass storage device named `MAINTENANCE`
+7. There should now be a USB mass storage device named `MAINTENANCE`
 
 ```console
 # fdisk -l
@@ -317,21 +321,21 @@ Remount count: 0
 URL: https://os.mbed.com/platforms/LPCXpresso55S69/
 ```
 
-7. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
+8. Copy `lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin` to the USB drive
 
 ```console
 $ sudo cp ~/hubris/support/lpc4322_lpc55s69xpresso_if_rla_swo_hacks.bin /mnt
 $
 ```
 
-8. Unmount (or otherwise sync) the USB drive:
+9. Unmount (or otherwise sync) the USB drive:
 
 ```console
 # umount /mnt
 #
 ```
 
-9. Unplug and replug the USB cable.
+10. Unplug and replug the USB cable.
 
 Verify that you are on the new firmware by running `pyocd list`:
 
@@ -341,12 +345,6 @@ $ pyocd list
 -------------------------------------------------------------------------------------
   0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
 ```
-
-Once RickLink is running:
-
-- Terminal 1: `pyocd gdbserver -t lpc55s69` 
-- Terminal 2: `telnet localhost 4444` (semihosting output)
-- Terminal 3: `cargo xtask gdb app/lpc55xpresso/app.toml openocd.gdb`
 
 ### LPC55S28 on Gemini carrier board
 
@@ -373,6 +371,11 @@ remove the jumper on J5 and move J3 to "Loc".)
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
 - Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h743.toml openocd.gdb`
 
+### ST Nucleo-H753ZI board
+
+- Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h753.toml openocd.gdb`
+
 ### ST STM32H7B3I-DK board
 
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
@@ -394,6 +397,16 @@ hla_serial 271828182845904523536028
 
 (Where `271828182845904523536028` is the serial number of the probe.)
 
+## Update ST-Link Firmware if necessary
+
+It is common that debugging dongles, and development boards with embedded
+debug hardware like the Nucleo series, are delivered with older firmware.
+
+You will not be able to use Humilty with outdated ST-Link firmware.
+
+Follow this "[ST-LINK firmware upgrade](https://www.st.com/en/development-tools/stsw-link007.html)" link to find
+software and instructions necessary to install current firmware.
+
 ## Flash
 
 An image within a Hubris archive can be flashed directly onto a target board
@@ -404,7 +417,8 @@ depends on the board:
 
 - LPCXpresso55S69: `cargo xtask flash app/lpc55xpresso/app.toml`
 - STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
-- ST Nucleo-H743ZI2 board: `cargo xtash flash app/demo-stm32h7-nucleo/app-h743.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h743.toml`
+- ST Nucleo-H753ZI board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h753.toml`
 - ST STM32H7B3I-DK board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h7b3.toml`
 - Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
 
@@ -445,6 +459,7 @@ and `cargo xtask humility test`.  The exact invocation depends on the board:
   **Note: for this board, SB10 must be soldered closed for ITM to work**
 - STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
+- ST Nucleo-H753ZI board: `cargo xtask test test/tests-stm32h7/app-h753.toml`
 - ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
 
 See the [documentation for `humility
@@ -485,7 +500,7 @@ To create your own task, the easiest method is:
 - Edit its `Cargo.toml` with your name and a new package name.
 - Add it to the list of workspace members in the root `Cargo.toml`.
 
-You can now run `cargo xtask build` in the task's directory to run a standalone
+You can now run `cargo xtask check` in the task's directory to run a standalone
 build. (See below for details.)
 
 To actually test the task, you need to add it to a system image by editing an
@@ -512,7 +527,7 @@ For instance, to run a standalone build of `task-ping`, run:
 
 ```console
 $ cd task-ping
-$ cargo xtask build
+$ cargo xtask check
 ```
 
 This magic happens in three parts:
@@ -522,8 +537,8 @@ This magic happens in three parts:
 2. Our `build.rs` files that receive information from the `dist` xtask will do
    reasonable defaulty things if that information is missing, e.g. in this case.
 3. By convention, we set a default feature `"standalone"` for standalone builds,
-   and switch it off in the `app.toml` used by the `package` xtask. You can use this
-   feature to conditionally compile stuff.
+   and switch it off in the `app.toml` used by the `package` xtask. You can use
+   this feature to conditionally compile stuff.
 
 Note: most tasks pick up their `build.rs` behavior implicitly by depending on
 `userlib`. You generally do not need a `build.rs` in your task unless you need

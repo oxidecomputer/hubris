@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Generic test suite runner task.
 //!
 //! # Architecture
@@ -358,7 +362,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
 /// function returns `true`.
 fn find_and_report_fault() -> bool {
     let mut tester_faulted = false;
-    for i in 0..NUM_TASKS {
+    for i in 0..hubris_num_tasks::NUM_TASKS {
         let s = kipc::read_task_status(i);
         if let TaskState::Faulted { fault, .. } = s {
             log_fault(i, &fault);

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Test suite.
 //!
 //! This task is driven by the `runner` to run test cases (defined below).
@@ -15,6 +19,7 @@
 #![no_main]
 #![feature(asm)]
 
+use hubris_num_tasks::NUM_TASKS;
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;

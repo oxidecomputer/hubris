@@ -1,6 +1,12 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
 use hif::*;
+#[cfg(feature = "spi")]
+use hubris_num_tasks::Task;
 use ringbuf::*;
 #[cfg(any(feature = "spi", feature = "gpio", feature = "i2c"))]
 use userlib::*;

@@ -47,9 +47,7 @@ features = ["lpc55", "gpio"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-
-[tasks.hiffy.task-slots]
-gpio_driver = "gpio_driver"
+task-slots = ["gpio_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -74,9 +72,7 @@ priority = 2
 requires = {flash = 16384, ram = 1024}
 uses = ["gpio", "iocon"]
 start = true
-
-[tasks.gpio_driver.task-slots]
-syscon_driver = "syscon_driver"
+task-slots = ["syscon_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/lpc55-usart"
@@ -86,10 +82,7 @@ requires = {flash = 16384, ram = 1024}
 uses = ["iocon", "flexcomm0"]
 start = true
 interrupts = {14 = 1}
-
-[tasks.usart_driver.task-slots]
-gpio_driver = "gpio_driver"
-syscon_driver = "syscon_driver"
+task-slots = ["gpio_driver", "syscon_driver"]
 
 [tasks.spi_driver]
 path = "../../drv/lpc55-spi-server"
@@ -100,10 +93,7 @@ uses = ["iocon", "flexcomm3", "flexcomm8"]
 start = true
 interrupts = {59 = 1}
 stacksize = 1000
-
-[tasks.spi_driver.task-slots]
-gpio_driver = "gpio_driver"
-syscon_driver = "syscon_driver"
+task-slots = ["gpio_driver", "syscon_driver"]
 
 [peripherals.syscon]
 address = 0x40000000

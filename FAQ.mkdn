@@ -1,0 +1,408 @@
+# Hubris Fervently Anticipated Questions (FAQ)
+
+## Analogies to other things
+
+You might be trying to understand Hubris by fitting it into an existing category
+you're familiar with. This section tries to help. Hubris is a somewhat unusual
+system, and doesn't fit _perfectly_ into most established categories, so the
+answers here will be longer than yes/no.
+
+### Is Hubris preemptively scheduled?
+
+Hubris uses strict task priorities. If a more-important task becomes runnable,
+the less-important task is immediately preempted. So in that sense, yes.
+
+Hubris is _not_ time-sliced, so, within a single priority level, each task is
+allowed to run until it blocks before other tasks at that priority have an
+opportunity to run. So you could sort of squint and view this as cooperative,
+within a single priority level.
+
+For strictly predictable preemption behavior, assign each task a separate
+priority -- the system performance doesn't change as you use more priority
+levels.
+
+### Is this a Real-Time Operating System (RTOS)?
+
+From our perspective, yes. But it depends on what exactly you mean by RTOS.
+
+Hubris is designed to support applications with real-time constraints, because
+that's what we need. It keeps critical sections as short as practical and allows
+for strict prioritization of tasks, so that you can reason (informally) about
+the worst-case response time to an event even under high load. It contains
+system features designed to make priority inversion and deadlock more difficult
+to achieve. And, while we don't have hard worst-case execution time bounds on
+the kernel right now, we _did_ choose algorithms in the kernel whose performance
+scales with build-time factors, rather than run-time factors -- for instance,
+the total number of tasks, not the total number of tasks blocked in state X.
+
+There are several things that might make Hubris unfamiliar to users of other
+RTOSes, however.
+
+Many RTOSes provide a set of common abstractions such as copy-in-out queues and
+mutexes. Hubris doesn't provide these at the operating system level.
+
+Finally, many RTOS APIs are festooned with timeout parameters, to the point that
+people have come to think of "everything has a timeout" as one of the
+characteristics of an RTOS. Hubris follows later versions of L4 in not providing
+timeouts on OS operations for reasons of principle, but provides the parts you'd
+need to implement application-level timeouts instead, if you need them.
+
+### Is this a microkernel?
+
+The Hubris kernel is designed to be fairly small with a nearly-minimal set of
+abstractions and operations. For robustness reasons we move a lot of code that
+normally runs in the privileged-mode kernel _out_ of privileged mode -- in
+particular, hardware drivers. These features are shared by many systems that
+refer to themselves as "microkernels."
+
+However, "microkernel" is an ambiguous term -- and for some people, a
+controversial one. It has also been diluted enough by large systems calling
+themselves "micro" that you can draw very few conclusions about the actual shape
+of a system from the term "microkernel." So, we haven't found it particularly
+useful to call Hubris a "microkernel."
+
+Instead, if you need a concise term to describe Hubris's design philosophy, we
+suggest "emokernel."
+
+### Is this a single-address-space system?
+
+Literally, yes. However, that term is overloaded in practice to mean two
+different things:
+
+- A _flat addressed_ system where numeric addresses are globally unambiguous.
+  Hubris is a flat addressed system. Specifically, Hubris uses physical
+  addresses without translation.
+
+- A _non-isolated_ system where all software in the flat address space can
+  potentially access all other software, like Windows 95 or MacOS System 7.
+  Hubris was specifically designed to _avoid_ doing this.
+
+### Is this a library operating system?
+
+Hubris is not a "library operating system" in the conventional sense of an
+operating system that gets linked into the application's address space as a
+library, because the "operating system" parts of Hubris -- the kernel and
+drivers -- are separately compiled and accessed by syscalls rather than being
+directly addressable. Thus, compared to most things that call themselves
+"library operating systems," Hubris has somewhat higher call overhead due to the
+need for a context switch.
+
+### Is this a unikernel?
+
+No. While Hubris has some design decisions in common with _some_ systems that
+call themselves "unikernels," like the lack of a binary program loader or an
+easy ability to create new processes/tasks at runtime, in most respects Hubris
+is at the polar opposite end of the design space.
+
+- Unikernels claim performance benefits by linking everything into a single
+  address space and thus eliminating context switch overhead for inter-modular
+  calls. Hubris aggressively segments the address space and accepts context
+  switch overhead as a necessary evil in exchange for fault isolation within the
+  application.
+
+- Traditional unikernels put the kernel and the application in the same address
+  space such that the application can arbitrarily corrupt kernel state. Hubris
+  does the opposite.
+
+- Unikernels are typically intended to be run on a hypervisor. Hubris is not.
+
+### Is this a teapot?
+
+Well, it really depends on what you mean by "teapot."
+
+But, probably not.
+
+### Didn't system X do this Y years ago?
+
+Probably.
+
+We've tried to be pretty explicit in the Hubris docs that very few of our ideas
+are genuinely new -- rather, we're assembling existing ideas, some of which have
+sat disused for decades, into a new system that we think is useful.
+
+## The Build
+
+### What operating systems do you support for building Hubris?
+
+We mostly build and test on Linux (Ubuntu, Fedora, Arch) and Windows. We also
+try to keep things working on Mac and Illumos.
+
+### What Rust toolchain versions do you support?
+
+Because of our reliance on nightly toolchain features, we support exactly one
+version of the toolchain -- the one listed in our `rust-toolchain.toml` file at
+the top of the repo.
+
+### Why does Hubris require the nightly Rust toolchain?
+
+Mostly because we need some assembly language, and we'd like to write that in
+Rust functions instead of separate files, which means we need the unstable `asm`
+feature. To do context switching, specifically, we need to be able to write a
+function that contains _only_ assembly instructions without additional
+preamble/epilogue code. For this, we need the unstable `naked_fn` feature.
+
+At the time of this writing, portions of `asm` are on track to stabilizing, but
+unfortunately not the portions we use.
+
+Unfortunately, Hubris's use of the nightly toolchain more or less requires any
+applications of Hubris to also use the nightly toolchain.
+
+Just because we're on nightly doesn't mean we can use any unstable feature --
+we're trying hard _not_ to use any additional unstable features, in the hopes of
+eventually being able to use stable.
+
+
+## Hardware support
+
+### Which processors / SoCs does Hubris support?
+
+Hubris-the-system primarily targets the ST STM32H74/5 and NXP LPC55S
+systems-on-chip, because we're using them for stuff. We have "second tier"
+support for STM32F3/4 and STM32H7B, because they're available on useful
+evaluation boards.
+
+Hubris-the-kernel is essentially device-independent and runs on any ARMv7E-M or
+ARMv8-M Main-profile processor with a floating point unit. (The FPU requirement
+comes from our context switch code, which currently unconditionally saves the
+floating point registers -- simply because we haven't had reason to make this
+conditional.)
+
+Porting the kernel to support Cortex-M3 or Cortex-M0+ would be straightforward
+and we'll probably do it eventually.
+
+### Can Hubris run on an ARM Cortex part without a Memory Protection Unit (MPU)?
+
+Short answer: not at the moment.
+
+The Hubris kernel assumes that an MPU is available, and configures it. This
+behavior isn't conditional, because it's important that it always happens. But,
+on CPUs whose vendors chose to omit the MPU, this means the kernel will fault
+early in startup with a Bus Fault.
+
+It is technically possible to get Hubris to run on an MPU-less Cortex-M, but it
+would discard some of the properties that guided Hubris's design. In particular,
+unsafe code in any task can now mess with any other task, or the kernel, and
+drivers can access each others' peripherals. This means that restarting tasks is
+no longer reliable, because we can't reason about how far any corruption could
+have leaked.
+
+In addition, many vendors who have cheaped out by configuring their processors
+without MPUs have _also_ removed the unprivileged/privileged distinction that
+provides separate interrupt/process stack pointers. (The Microchip SAMD21 is a
+notable example of this.) This change would be _much_ harder to work around in
+the Hubris kernel, and we're treating it as a blocking issue for the time being.
+
+### Which processors sound confusingly similar but _aren't_ supported?
+
+Just because something says "ARM" doesn't mean it looks anything like another
+thing that says "ARM." The Cortex-M processors we currently support are very
+different from earlier ARM parts or the modern Cortex-A/R lines.
+
+- Cortex-R has the right memory protection model for Hubris, but an entirely
+  different interrupt model.
+- Cortex-A has a different interrupt model _plus_ a different memory protection
+  model, which we'd need to add support for.
+- ARM7/ARM9/ARM11 (pre-Cortex) ARM cores are most similar to Cortex-A, but often
+  are implemented without a memory protection unit of any kind, making Hubris
+  way less interesting.
+
+This means that, at the moment, Hubris won't run on your Game Boy Advance,
+Nintendo DS, or Apple Newton.
+
+### Why not support RISC-V?
+
+In short, because we couldn't buy a RISC-V-based microcontroller that met our
+needs at the time that we had to commit to a processor. We hope to switch our
+products to RISC-V as soon as practical. Hubris was designed to be compatible
+with the microcontroller-class RV32I cores with physical memory protection, but
+actually supporting them would take a lot of paperwork -- particularly in
+Humility.
+
+### Can Hubris run under QEMU?
+
+Not usefully, no.
+
+QEMU's emulation of Cortex-M system peripherals -- specifically, the interrupt
+model, NVIC, and SysTick timer, at minimum -- is buggy, and has been for about a
+decade. These bugs combine to make Hubris unreliable on QEMU. Even if Hubris ran
+reliably, QEMU's lack of rigor in emulating M-profile CPUs (for, again, a
+decade) mean that we wouldn't trust the results.
+
+Ideally we'll be moving to an open-source RISC-V core that we can emulate at the
+RTL level for guaranteed-correct results. But, we're not there yet.
+
+## Using Hubris
+
+### Can I use the Rust Embedded HAL to write tasks on Hubris?
+
+Generally speaking, no, you can't. This is because the Rust Embedded ecosystem
+is generally written with the assumption that it runs in the processor's
+privileged mode, and assumes that it can disable interrupts whenever it wants to
+enforce data structure invariants. Now, this offends us from a real-time
+perspective, but the problem is more than just one of taste -- on ARM, the
+interrupt enable/disable instructions are no-ops in unprivileged mode.
+
+**This means that the Rust Embedded HAL code is generally unsound in
+unprivileged mode.** Using it can corrupt its data structures and lead to odd
+results.
+
+However, the lower level Rust Peripheral Access Crates (PACs) such as `stm32h7`
+and `lpc55` are _generally_ safe to use, as long as you don't rely on the parts
+that assume global system mutexes like `Peripherals::take()` -- those parts are
+also unsound.
+
+Having to be this careful is unfortunate, but [we reported this unsoundness to
+upstream in July 2020](https://github.com/rust-embedded/cortex-m/issues/233) and
+it has not been fixed. So it goes.
+
+### Can I write tasks in languages other than Rust?
+
+While this isn't supported _out of the box,_ we've tried to keep it possible. In
+particular, the system call ABI isn't tied to the Rust API, and could be
+used from C. Note that this would require you to interact with the Hubris IPC
+ecosystem from a language with no equivalent of serde or data-bearing enums,
+which sounds pretty unpleasant to us, but it is technically possible.
+
+Folks have also asked about MicroPython or similar REPLs. We see no place for
+garbage-collected interpreters in our systems, but you could almost certainly
+get one working if _you_ have a need for it!
+
+### Can I write tasks using `async` / `await` ?
+
+Not easily, yet.
+
+We have not pursued `async` support because some of our favorite Humility
+features interact poorly with it. In particular, it is not currently possible to
+print a stack trace (or equivalent state dump) for an `async fn` that is not
+currently being polled -- and we like stack traces.
+
+In the longer term, some of us (mostly Cliff) would like to support `async` in
+tasks to eliminate the remaining cases where we have to write hand-rolled state
+machines. But, this is will have to wait until we have more free time.
+
+There are some open design questions about how things like IPC should interact
+with async -- the system invariant that a task can only have one outstanding
+synchronous SEND message at a time is kind of important, and might cramp your
+style a bit if you're imagining a preemptive async paradise. However, async in
+_servers_ (such as drivers) should be significantly easier, and if you're
+excited about this you may be able to write your own async runtime that lives in
+a task today, as a separate crate.
+
+For a worked example of an embedded async runtime targeting the same chips as
+Hubris, see [lilos](https://github.com/cbiffle/lilos/).
+
+## Task interaction corner cases
+
+### How does recv decide which message to deliver?
+
+RECV always delivers the highest-priority message, meaning, the message from the
+highest-priority sender. If the recipient calls RECV while one or more tasks are
+blocked to send to it, the kernel will choose the highest priority one and
+deliver its message. If no tasks are blocked waiting to send, then the recipient
+task itself will be blocked -- the kernel will then deliver whichever message is
+sent to it first. This is guaranteed to be the highest priority pending message,
+as it's the only pending message.
+
+### It sure looks like messages can be silently truncated, isn't that bad?
+
+Ah, you've been reading the syscall docs. Great!
+
+Messages can indeed be truncated, but it is never silent. Truncation can happen
+in only one case:
+
+A client sends a message to a server, and that message is larger than the
+server's incoming buffer. This is assumed to be a client bug. In this case, the
+data returned from `sys_recv` tells the server that the client messed up.  The
+server can inspect the prefix of the message if it wants, but in practice, we
+just return an error code to the client and ignore the message.
+
+In the other direction, if a server tries to send a reply message that is too
+large for the client's incoming buffer, we immediately fault the server. Why?
+Because the server was informed of the size of the client's incoming buffer --
+it's part of the data returned by `sys_recv` -- and so a failure to respect that
+is a programming error in the server program. So, this direction will never
+truncate.
+
+### Can a rapidly failing task DoS the supervisor or kernel?
+
+Short answer: it really depends on which task is failing. In the simplest case,
+if the supervisor itself crashes, then yes, that can take out the supervisor --
+but that's probably not what you meant.
+
+Task failures are converted, by the kernel, into a notification delivered to the
+application's supervisor task. The supervisor task is expected to do _something_
+in response to this, typically restarting the failed task.
+
+So, it's worth discussing what happens if a task enters a rapid crash-loop, and
+the supervisor unconditionally and promptly restarts it.
+
+In the absence of other tasks, this will cause control of the CPU to bounce
+between the crash-looping task and the supervisor task. If the crash-loop
+happens without yielding (e.g. blocking on a syscall or timer or something), the
+CPU will not idle.
+
+If there are other tasks in the application, priorities come into play. If a
+task starts crash-looping at priority 6, say,
+
+- All tasks that are more important (priorities 0 through 5 inclusive) have
+  priority on the CPU. This means that they didn't need to do useful work at the
+  time of the crash, or our crashing task wouldn't have been able to run, and so
+  wouldn't have crashed. This also means that if an interrupt _causes them_ to
+  have useful work to do, they will either directly preempt the crashing task,
+  or run directly after the supervisor finishes restarting the crashing task.
+  So, they'll be essentially unaffected.
+
+- All tasks that are less important (priorities 7+) will only be able to run if
+  the crashing task blocks between crashes, or if the supervisor delays
+  restarting it.
+
+If this is a concern in your application, you can address it with logic in the
+supervisor to delay, perhaps indefinitely, the restart of a crash-looping task.
+
+In our experience so far, bugs causing genuine crash-loops are fairly rare, and
+tend to be caught during development -- we've had to deliberately write some
+crashy tasks to test the behavior.
+
+## Design and implementation questions
+
+### Why send/recv/reply instead of just send/recv?
+
+Because we expected most of our inter-task interactions to be shaped like calls,
+so it seemed useful to support call-shaped interactions as a first-class thing.
+
+People have tried a lot of different things here; early versions of L4 had
+send/recv operations but also a variety of fused forms that looked a lot like
+Hubris's API. Later versions of L4 have tried, well, basically anything you can
+possibly try -- that's one of the nice parts about academia. MINIX 3 has a
+SENDREC operation that is equivalent to Hubris SEND, plus a SENDNB operation
+equivalent to REPLY. So, there are a lot of potential choices that are valid; we
+might adjust Hubris's set of primitives in the future if we find a good reason.
+
+Practically speaking, however, the choice to privilege call-shaped sends above
+all others has had huge benefits by enabling safe memory sharing through leases,
+which are analogous to MINIX 3 grants but without the risk of aliasing and
+races.
+
+See the IPC chapter of the reference manual for more.
+
+### Why synchronous? Isn't asynchronous faster?
+
+No. Asynchronous system call APIs can produce higher _throughput_ in situations
+where there are many events in flight, particularly on multicore systems. They
+cannot produce lower _latency,_ however, and that's the version of "faster" that
+matters to us in embedded control systems.
+
+As for the design reasons for going with synchronous interaction, [there's a
+section on that in the reference
+manual](https://hubris.oxide.computer/reference/#_why_synchronous).
+
+Note also that asynchronous systems are not immune to deadlock -- they just
+deadlock in ways that are far harder to observe.
+
+### Where did that "about 2000 lines of code" number come from? I see a lot of code here.
+
+The line count we've occasionally cited is the number of lines of code in
+Hubris's trusted codebase, aka the part you _have_ to use, aka the kernel. We
+measure lines of code with `cloc`, so it's actually a significant over-estimate
+compared to (say) semicolon counting, because of the way we have rustfmt
+configured. Rustfmt really loves to use vertical space.

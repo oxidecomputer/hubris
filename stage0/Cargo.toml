@@ -3,10 +3,13 @@ name = "stage0"
 version = "0.1.0"
 edition = "2018"
 
+[features]
+default = []
+0A-hardware = ["lpc55_romapi/0A-hardware"]
+
 [dependencies]
-cortex-m = "0.7"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m-rt = "0.6.12"
-cortex-m-semihosting = "0.3.5"
 panic-semihosting = "0.5.3"
 lpc55_romapi = { path = "../drv/lpc55-romapi" }
 panic-halt = "0.2.0"
@@ -16,6 +19,7 @@ p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecds
 hmac = { version = "0.10.1", default-features = false }
 sha2 = { version = "0.9.2", default-features = false }
 zerocopy = "0.3.0"
+cfg-if = "0.1.10"
 
 [package.metadata.build]
 target = "thumbv8m.main-none-eabihf"

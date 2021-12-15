@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 #![feature(cmse_nonsecure_entry)]
 #![feature(asm)]
 #![feature(naked_functions)]
@@ -39,8 +43,23 @@ pub unsafe extern "C" fn SecureFault() {
     loop {}
 }
 
+// These correspond to REV_ID in the SYSCON_DIEID field
+#[cfg(feature = "0A-hardware")]
+const ROM_VER: u32 = 0;
+
+#[cfg(not(feature = "0A-hardware"))]
+const ROM_VER: u32 = 1;
+
 #[entry]
 fn main() -> ! {
+    // This is the SYSCON_DIEID register on LPC55 which contains the ROM
+    // version. Make sure our configuration matches!
+    let val = unsafe { core::ptr::read_volatile(0x50000ffc as *const u32) };
+
+    if val & 1 != ROM_VER {
+        loop {}
+    }
+
     let imagea = image_header::get_image_a().unwrap();
 
     let entry_pt = imagea.get_pc();

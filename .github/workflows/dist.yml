@@ -1,4 +1,4 @@
-name: build
+name: dist
 on: [push, pull_request]
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
         with:
           concurrent_skipping: 'same_content'
           skip_after_successful_duplicate: 'true'
-          do_not_skip: '["pull_request", "workflow_dispath", "schedule"]'
+          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
   build:
     needs: skip_duplicate_jobs
     if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
@@ -66,21 +66,12 @@ jobs:
             deps: |
               Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
               echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
-              echo "VCPKG_ROOT=$Env:VCPKG_INSTALLATION_ROOT" >> $Env:GITHUB_ENV
-              vcpkg install openssl:x64-windows
     env:
       VCPKGRS_DYNAMIC: 1
 
     steps:
       # check out our code
       - uses: actions/checkout@v2
-      - name: Update submodule
-        env:
-          SSH_KEY_FOR_SUBMODULE: ${{secrets.SSH_KEY_FOR_SUBMODULE}}
-          SSH_PUBKEY_FOR_SUBMODULE: ${{secrets.SSH_PUBKEY_FOR_SUBMODULE}}
-        run: |
-            mkdir $HOME/.ssh && ssh-keyscan github.com >> $HOME/.ssh/known_hosts && echo "$SSH_KEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa && echo "$SSH_PUBKEY_FOR_SUBMODULE" > $HOME/.ssh/id_rsa.pub && chmod 600 $HOME/.ssh/id_rsa && chmod 600 $HOME/.ssh/id_rsa.pub && git submodule update --init --recursive
-        shell: bash
 
       # install rust toolchain
       - name: Install Rust toolchain
