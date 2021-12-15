@@ -1228,6 +1228,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-update-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
@@ -2729,6 +2740,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32h7-update-server"
+version = "0.1.0"
+dependencies = [
+ "drv-update-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2830,6 +2855,7 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
+ "drv-update-api",
  "hif",
  "hubris-num-tasks",
  "num-traits",
