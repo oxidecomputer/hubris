@@ -183,6 +183,22 @@ impl Vsc7448Spi {
         Ok(())
     }
 
+    /// Writes to a port mask, which is assumed to be a pair of adjacent
+    /// registers representing all 53 ports.
+    fn write_port_mask<T>(
+        &self,
+        mut reg: RegisterAddress<T>,
+        value: u64,
+    ) -> Result<(), VscError>
+    where
+        T: From<u32>,
+        u32: From<T>,
+    {
+        self.write(reg, ((value & 0xFFFFFFFF) as u32).into())?;
+        reg.addr += 4; // Good luck!
+        self.write(reg, (((value >> 32) as u32) & 0x1FFFFF).into())
+    }
+
     /// Performs a write operation on the given register, where the value is
     /// calculated by calling f(0).  This is helpful as a way to reduce manual
     /// type information.
@@ -419,11 +435,15 @@ struct Bsp<'a> {
 }
 #[cfg(target_board = "gemini-bu-1")]
 impl<'a> Bsp<'a> {
+    /// Constructs and initializes a new BSP handle
     fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
         let out = Bsp { vsc7448 };
         out.init()?;
         Ok(out)
     }
+
+    /// Attempts to initialize the system.  This is based on a VSC7448 dev kit
+    /// (VSC5627EV), so will need to change depending on your system.
     fn init(&self) -> Result<(), VscError> {
         // We assume that the only person running on a gemini-bu-1 is Matt, who is
         // talking to a VSC7448 dev kit on his desk.  In this case, we want to
@@ -864,8 +884,6 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<Bsp, VscError> {
     // Configure reads to include 1 padding byte, since we're reading quickly
     vsc7448.write(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), 1.into())?;
 
-    let bsp = Bsp::new(vsc7448)?;
-
     let chip_id = vsc7448.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
         || chip_id.part_id() != 0x7468
@@ -875,7 +893,7 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<Bsp, VscError> {
         return Err(VscError::BadChipId(chip_id.into()));
     }
 
-    Ok(bsp)
+    Bsp::new(vsc7448)
 }
 
 #[export_name = "main"]
