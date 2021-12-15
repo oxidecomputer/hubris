@@ -73,7 +73,7 @@ You will need:
   you're going to use Homebrew on macOS to install OpenOCD, you need to use
   `brew install --head openocd` to build the tip of the main branch rather than
   using the latest binary release. If you need to build from source, you can
-  find the [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
+  find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
   When running `./configure`, make sure that you see that the
   `ST-Link Programmer` is set enabled (which should be the default).
 
@@ -95,7 +95,7 @@ You will need:
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
-  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git --locked`
+  - `cargo install --git https://github.com/oxidecomputer/humility.git --locked`
 
 ### Windows
 
@@ -176,8 +176,8 @@ $ openocd -f app/demo-stm32f4-discovery/openocd-f3.cfg    # STM32F3 Discovery bo
 From another terminal:
 
 ```console
-$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml openocd.gdb         # STM32F4 Discovery boards OR
-$ cargo xtask gdb app/demo-stm32f4-discovery/app-f3.toml openocd-f3.gdb   # STM32F3 Discovery boards
+$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml app/demo-stm32f4-discovery/openocd.gdb         # STM32F4 Discovery boards OR
+$ cargo xtask gdb app/demo-stm32f4-discovery/app-f3.toml app/demo-stm32f4-discovery/openocd-f3.gdb   # STM32F3 Discovery boards
 ```
 
 If this works, you'll see `gdb` mumble some things about flashing, `openocd`
@@ -369,17 +369,17 @@ remove the jumper on J5 and move J3 to "Loc".)
 ### ST Nucleo-H743ZI2 board
 
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h743.toml openocd.gdb`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h743.toml app/demo-stm32h7-nucleo/openocd.gdb`
 
 ### ST Nucleo-H753ZI board
 
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h753.toml openocd.gdb`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h753.toml app/demo-stm32h7-nucleo/openocd.gdb`
 
 ### ST STM32H7B3I-DK board
 
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h7b3.toml openocd.gdb`
+- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h7b3.toml app/demo-stm32h7-nucleo/openocd.gdb`
 
 ### Multiple boards simultaneously
 
@@ -402,7 +402,19 @@ hla_serial 271828182845904523536028
 It is common that debugging dongles, and development boards with embedded
 debug hardware like the Nucleo series, are delivered with older firmware.
 
-You will not be able to use Humilty with outdated ST-Link firmware.
+You will not be able to use Humilty with outdated ST-Link firmware. Humility
+will tell you this is the case, for example when attempting to use `humility test`:
+
+```
+...
+Warn : Adding extra erase range, 0x08020060 .. 0x0803ffff
+** Programming Finished **
+** Verify Started **
+** Verified OK **
+** Resetting Target **
+humility: test failed: The firmware on the probe is outdated
+Error: test failed
+```
 
 Follow this "[ST-LINK firmware upgrade](https://www.st.com/en/development-tools/stsw-link007.html)" link to find
 software and instructions necessary to install current firmware.
@@ -462,6 +474,10 @@ and `cargo xtask humility test`.  The exact invocation depends on the board:
 - ST Nucleo-H753ZI board: `cargo xtask test test/tests-stm32h7/app-h753.toml`
 - ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
 
+Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
+You must exit any other instances of OpenOCD that you have connected to the device
+before running tests.
+
 See the [documentation for `humility
 test`](https://github.com/oxidecomputer/humility#humility-test) for details
 on test results.
@@ -496,7 +512,7 @@ breakpoints at the test of interest.
 
 To create your own task, the easiest method is:
 
-- Copy `task-template` to a new name.
+- Copy `task/template` to a new name.
 - Edit its `Cargo.toml` with your name and a new package name.
 - Add it to the list of workspace members in the root `Cargo.toml`.
 
