@@ -38,15 +38,6 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
-[tasks.vsc7448]
-path = "../../task/vsc7448"
-name = "task-vsc7448"
-priority = 3
-requires = {flash = 32768, ram = 4096}
-stacksize = 2048
-start = true
-task-slots = [{ spi_driver = "spi2_driver" }]
-
 [tasks.jefe]
 path = "../../task/jefe"
 name = "task-jefe"
@@ -172,6 +163,15 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.vsc7448]
+path = "../../task/vsc7448"
+name = "task-vsc7448"
+priority = 3
+requires = {flash = 32768, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = [{ spi_driver = "spi2_driver" }]
 
 [config]
 
