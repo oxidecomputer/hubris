@@ -131,6 +131,14 @@ size = 0x20000
 address = 0x48021800
 size = 4096
 
+[flash_controller]
+address = 0x52002000
+size = 0x2000
+
+[bank2]
+address = 0x08100000
+size = 0x00100000
+
 #[cryp]
 #address = 0x48021000
 #size = 4096

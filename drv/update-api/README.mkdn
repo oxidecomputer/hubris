@@ -1,0 +1,41 @@
+# Update API
+
+The Update API is designed with a few thoughts in mind
+
+- The API should be easy to reason about
+- The API should leave the system in a known state
+- The API should be able to handle errors in a reasonble way
+
+The update API consists of four main functions
+
+- `prep_image_update`: Responsible for doing any necessary preparation to write
+  the image.
+- `block_size`: Gets the size in bytes to pass to `write_one_block`. This is a
+  software definition and may not correspond to the underlying hardware
+  definition.
+- `write_one_block`: Writes a single block to flash at a given offset
+- `finish_image_update`: Responsible for any work after all blocks have been
+   written.
+
+The high level flow looks like
+
+```
+prep_image_update()
+
+for (i, block) in image_byte_array {
+	write_one_block(i, block)
+}
+
+finish_image_update()
+```
+
+# Who holds the state?
+
+Breaking the update mechanism is a very bad idea. A simple example where this
+could happen would be a task restarting and not reinitializing internal state
+or not communicating its updating state to another task. Hubris has some built
+in features to catch errors (e.g. task generation) but in the interest of
+increasing robustness almost all the useful state should be held in the
+task that calls the update API. The state of the update API should be limited
+to making sure that start has been called before writing a block and disallowing
+more writes after finish is called.
