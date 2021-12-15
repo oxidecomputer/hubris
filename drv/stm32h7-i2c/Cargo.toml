@@ -24,6 +24,7 @@ h743 = ["stm32h7/stm32h743", "drv-stm32h7-rcc-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-rcc-api/h753"]
 h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-rcc-api/h7b3"]
 itm = [ "userlib/log-itm" ]
+amd_erratum_1394 = []
 
 # a target for `cargo xtask check`
 [package.metadata.build]

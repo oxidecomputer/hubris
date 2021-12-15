@@ -216,7 +216,33 @@ impl<'a> I2cController<'a> {
                     .scldel().bits(8)
                     .sdadel().bits(0)
                 });
+
+                if #[cfg(feature = "amd_erratum_1394")] {
+                    compile_error!("no support for amd_erratum_1394 on h7b3");
+                }
             } else if #[cfg(any(feature = "h743", feature = "h753"))] {
+                cfg_if::cfg_if! {
+                    // Due to AMD Milan erratum 1394, the processor needs an
+                    // abnormally long data setup time from an I2C target
+                    // sending an ACK. (According to the erratum,
+                    // "[u]nexpected collisions may be observed on the SMBUS
+                    // if Data Setup Time is less than 500 ns.")  In practice,
+                    // this means that the delta between SDA being pulled down
+                    // by an acknowledging target and the rising edge of SCL
+                    // should be 500 ns.  This can be achieved by the target
+                    // holding SCL down after pulling down SDA, which in turn
+                    // can be effected by setting SCLDEL accordingly high.  If
+                    // the [`amd_erratum_1394`] feature has been enabled, we
+                    // therefore set SCLDEL to a value that will amount to a
+                    // 560 ns setup time; if it is not set, we set SCLDEL to
+                    // the ST-prescribed value of 280 ns.
+                    if #[cfg(feature = "amd_erratum_1394")] {
+                        let scldel = 13;
+                    } else {
+                        let scldel = 6;
+                    }
+                }
+
                 // Here our APB1 peripheral clock is 100MHz, yielding the
                 // following:
                 //
@@ -226,18 +252,15 @@ impl<'a> I2cController<'a> {
                 //
                 // Taken together, this yields a t_scl of 9880 ns, which (as
                 // above) when added to t_sync1 and t_sync2 will be close to
-                // our target of 10000 ns.  Finally, we set SCLDEL to 6
-                // (280 ns) from the STM32CubeMX tool (as advised by 47.4.5).
-                // We set SDADEL to a whopping 13, however -- yielding a
-                // hold time of 560 ns, which, like the apocryphal 640K,
-                // really ought to be enough for anyone.
-                //
+                // our target of 10000 ns.  We set SCLDEL to our [`scldel`]
+                // variable and SDADEL to 0 -- the latter coming from the
+                // STM32CubeMX tool as advised by 47.4.5.
                 i2c.timingr.write(|w| { w
                     .presc().bits(3)
                     .sclh().bits(118)
                     .scll().bits(127)
-                    .scldel().bits(6)
-                    .sdadel().bits(13)
+                    .scldel().bits(scldel)
+                    .sdadel().bits(0)
                 });
             } else {
                 compile_error!("unknown STM32H7 variant");
