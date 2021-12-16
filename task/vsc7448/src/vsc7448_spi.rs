@@ -1,11 +1,11 @@
-use drv_spi_api::{SpiDevice};
+use crate::VscError;
+use drv_spi_api::SpiDevice;
 use ringbuf::*;
 use vsc7448_pac::{
     phy,
     types::{PhyRegisterAddress, RegisterAddress},
     Vsc7448,
 };
-use crate::VscError;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -379,4 +379,3 @@ impl Vsc7448Spi {
         self.phy_write(miim, phy, reg, data)
     }
 }
-

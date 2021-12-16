@@ -46,6 +46,195 @@ impl<'a> Bsp<'a> {
             0xF000000.into(),
         )?;
 
+        // Based on `jr2_init_conf_set`
+        self.vsc7448.modify(
+            Vsc7448::ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(),
+            |r| r.set_reset(1),
+        )?;
+        self.vsc7448.modify(Vsc7448::ASM().CFG().STAT_CFG(), |r| {
+            r.set_stat_cnt_clr_shot(1)
+        })?;
+        self.vsc7448
+            .modify(Vsc7448::QSYS().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::REW().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        // The VOP isn't in the datasheet, but it's in the SDK
+        self.vsc7448
+            .modify(Vsc7448::VOP().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::ASM().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::DSM().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+
+        hl::sleep_for(1);
+        // TODO: read back all of those autoclear bits and make sure they cleared
+
+        // TODO:     vtss_lc_pll5g_setup(vtss_state)
+        // plus lots more stuff from jr2_init_conf_set
+        self.vsc7448
+            .write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
+                r.set_core_ena(1)
+            })?;
+
+        // Based on `jr2_init_ana`
+        self.vsc7448.modify(
+            Vsc7448::ANA_AC_POL().POL_ALL_CFG().POL_ALL_CFG(),
+            |r| {
+                r.set_storm_force_init(1);
+                r.set_prio_force_init(1);
+                r.set_acl_force_init(1);
+                r.set_force_init(1);
+            },
+        )?;
+        // TODO: this is where we can configure stats
+
+        // Spin until the chip autoclears all of the one-shot bits from above
+        // Note that we don't check PRIO_FORCE_INIT, which experimentally
+        // doesn't get autocleared (?); this matches the behavior in the SDK,
+        // but seems... odd.
+        {
+            let mut ready = false;
+            for _i in 0..1000 {
+                let r = self
+                    .vsc7448
+                    .read(Vsc7448::ANA_AC_POL().POL_ALL_CFG().POL_ALL_CFG())?;
+                if r.storm_force_init() == 0
+                    && r.acl_force_init() == 0
+                    && r.force_init() == 0
+                {
+                    ready = true;
+                    break;
+                }
+                hl::sleep_for(1);
+            }
+            if !ready {
+                return Err(VscError::AnaCfgTimeout);
+            }
+        }
+
+        // TODO: The SDK configures VAUI stuff here using
+        // `vtss_jr2_vaui_lane_alignement`.  This will matter for the 10G port
+        // bringup later.
+
+        // Quoth the SDK in `vtss_jr2_port_init`:
+        // "Gotta disable ingress and egress queue limitation, because directed
+        //  frames transmitted from the CPU could cause the feature to wrongly
+        //  think the queue has reached its limit after a link down-up."
+        //
+        //  and
+        //
+        // "Make sure the ports are not VStaX aware, because that will cause the
+        //  switch to move a possible VStaX header from the frame into the IFH.
+        //  This is not NPI-port compatible."
+        for port in 0..53 {
+            self.vsc7448.modify(
+                Vsc7448::XQS().QLIMIT_PORT(port).QLIMIT_DIS_CFG(),
+                |r| {
+                    r.set_qlimit_igr_dis(1);
+                    r.set_qlimit_egr_dis(1);
+                },
+            )?;
+            self.vsc7448
+                .modify(Vsc7448::ASM().CFG().PORT_CFG(port), |r| {
+                    r.set_vstax2_awr_ena(0);
+                })?;
+        }
+
+        // Compared to the SDK, we're skipping `jr2_sgpio_init` since we're
+        // not using IRQs, and `jr2_packet_init`, since we're not doing packet
+        // injection.
+
+        // The code below is based on `jr2_l2_init`, to initialize the L2 and
+        // VPN functionality.
+        self.vsc7448
+            .write_with(Vsc7448::ANA_L3().COMMON().VLAN_CTRL(), |r| {
+                r.set_vlan_ena(1)
+            })?;
+        // Clear VID 4095 mask, for some reason!
+        self.vsc7448
+            .write_port_mask(Vsc7448::ANA_L3().VLAN(4095).VLAN_MASK_CFG(), 0)?;
+
+        // Do some per-port configuration that I don't really understand
+        for port in 0..53 {
+            let port = Vsc7448::ANA_CL().PORT(port);
+            self.vsc7448.modify(
+                port.VLAN_TPID_CTRL(),
+                |r| r.set_basic_tpid_aware_dis(0x7fff), // ???
+            )?;
+            // Discard frames with multicast SMAC address
+            self.vsc7448
+                .modify(port.FILTER_CTRL(), |r| r.set_filter_smac_mc_dis(0))?;
+        }
+
+        // Enable forwarding and learning
+        const NUM_MSTP_TABLES: u32 = 66;
+        const PORT_MASK_ALL: u64 = (1 << 53) - 1;
+        for msti in 0..NUM_MSTP_TABLES {
+            // Enable all ports for MSTP table 0, and no ports for the others
+            // TODO: is this necessary??
+            let mask = if msti == 0 { PORT_MASK_ALL } else { 0 };
+            self.vsc7448.write_port_mask(
+                Vsc7448::ANA_L3().MSTP(msti).MSTP_FWD_CFG(),
+                mask,
+            )?;
+            self.vsc7448.write_port_mask(
+                Vsc7448::ANA_L3().MSTP(msti).MSTP_LRN_CFG(),
+                mask,
+            )?;
+        }
+        self.vsc7448.write_port_mask(
+            Vsc7448::ANA_L3().COMMON().PORT_FWD_CTRL(),
+            PORT_MASK_ALL,
+        )?;
+        self.vsc7448.write_port_mask(
+            Vsc7448::ANA_L3().COMMON().PORT_LRN_CTRL(),
+            PORT_MASK_ALL,
+        )?;
+
+        // "Disable learning in VLAN 0 (used for EVCs)" ??
+        self.vsc7448
+            .modify(Vsc7448::ANA_L3().VLAN(0).VLAN_CFG(), |r| {
+                r.set_vlan_lrn_dis(0)
+            })?;
+
+        // The SDK now configures alternate S-tag ethernet type and MAC aging;
+        // let's skip both of those steps for now.
+
+        // Enable frame aging
+        self.vsc7448
+            .write_with(Vsc7448::QSYS().SYSTEM().FRM_AGING(), |r| {
+                // This is in units of 4 us, so this is 0.5 seconds
+                r.set_max_age(500000 / 4)
+            })?;
+
+        // Disable advanced (VSTAX) learning (?)
+        self.vsc7448
+            .modify(Vsc7448::ANA_L2().COMMON().LRN_CFG(), |r| {
+                r.set_vstax_basic_lrn_mode_ena(1)
+            })?;
+
+        // This concludes the code based on `vtss_jr2_l2_init`!
+
         // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
         // Each PHYs on the same MIIM bus is strapped to different ports.
         hl::sleep_for(105); // Minimum time between reset and SMI access
@@ -163,7 +352,7 @@ impl<'a> Bsp<'a> {
         self.serdes6g_write(SERDES6G_INSTANCE)?;
 
         for port in 0..4 {
-            //self.port1g_flush(port)?;
+            self.port1g_flush(port)?;
 
             // Enable full duplex mode and GIGA SPEED
             let dev = Vsc7448::DEV1G(port as u32);

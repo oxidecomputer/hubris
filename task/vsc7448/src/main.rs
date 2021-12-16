@@ -43,6 +43,7 @@ pub enum VscError {
     PortFlushTimeout {
         port: u8,
     },
+    AnaCfgTimeout,
 }
 
 impl From<SpiError> for VscError {
