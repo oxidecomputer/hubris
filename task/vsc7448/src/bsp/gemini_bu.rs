@@ -89,8 +89,7 @@ impl<'a> Bsp<'a> {
         hl::sleep_for(1);
         // TODO: read back all of those autoclear bits and make sure they cleared
 
-        // TODO:     vtss_lc_pll5g_setup(vtss_state)
-        // plus lots more stuff from jr2_init_conf_set
+        // Enable the queue system
         self.vsc7448
             .write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
                 r.set_core_ena(1)
@@ -247,6 +246,13 @@ impl<'a> Bsp<'a> {
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
             for phy in [0, 12] {
+                // Do a self-reset on the PHY
+                self.vsc7448.phy_modify(
+                    miim,
+                    phy,
+                    phy::STANDARD::MODE_CONTROL(),
+                    |g| g.set_sw_reset(1),
+                )?;
                 let id1 = self
                     .vsc7448
                     .phy_read(miim, phy, phy::STANDARD::IDENTIFIER_1())?
@@ -268,6 +274,14 @@ impl<'a> Bsp<'a> {
                     phy,
                     phy::GPIO::GPIO_CONTROL_2(),
                     |g| g.set_coma_mode_output_enable(0),
+                )?;
+
+                // Configure the PHY in QSGMII + 12 port mode
+                self.vsc7448.phy_write(
+                    miim,
+                    phy,
+                    phy::GPIO::MICRO_PAGE(),
+                    0x80A0.into(),
                 )?;
             }
         }
