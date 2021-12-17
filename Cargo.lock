@@ -528,6 +528,7 @@ name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -544,9 +545,12 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-qspi",
  "drv-stm32h7-rcc-api",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "stm32h7",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
