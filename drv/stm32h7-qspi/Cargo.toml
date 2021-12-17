@@ -8,7 +8,7 @@ edition = "2018"
 [dependencies]
 stm32h7 = { version = "0.13.0", default-features = false }
 vcell = "0.1.2"
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 userlib = {path = "../../sys/userlib"}
 
 # a target for `cargo xtask check`

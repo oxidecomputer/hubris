@@ -11,7 +11,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 cfg-if = "0.1.10"
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
 

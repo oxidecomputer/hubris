@@ -19,7 +19,7 @@ drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 hif = { git = "https://github.com/oxidecomputer/hif" }
 serde = { version = "1.0.114", default-features = false }
