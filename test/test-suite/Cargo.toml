@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks"}
 num-traits = { version = "0.2.12", default-features = false }
