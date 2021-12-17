@@ -18,3 +18,5 @@ target = "thumbv7em-none-eabihf"
 [features]
 standalone = []
 
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
