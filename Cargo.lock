@@ -725,8 +725,10 @@ name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "idol",
  "num-traits",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -866,6 +868,8 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "stm32h7",
