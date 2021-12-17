@@ -15,9 +15,11 @@ drv-spi-api = {path = "../spi-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 stm32h7 = { version = "0.13.0", default-features = false }
 cfg-if = "0.1.10"
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 default = ["standalone"]
