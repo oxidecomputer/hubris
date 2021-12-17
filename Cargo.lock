@@ -825,6 +825,8 @@ name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -836,6 +838,7 @@ name = "drv-stm32h7-rcc-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",

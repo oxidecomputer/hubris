@@ -6,40 +6,18 @@
 
 #![no_std]
 
-use core::cell::Cell;
-
-use byteorder::LittleEndian;
-use zerocopy::{AsBytes, U32};
-
 use userlib::*;
-
-enum Op {
-    EnableClock = 1,
-    DisableClock = 2,
-    EnterReset = 3,
-    LeaveReset = 4,
-}
-
-#[derive(Clone, Debug)]
-pub struct Rcc(Cell<TaskId>);
-
-impl From<TaskId> for Rcc {
-    fn from(t: TaskId) -> Self {
-        Self(Cell::new(t))
-    }
-}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum RccError {
-    BadArg = 2,
+    NoSuchPeripheral = 1,
 }
 
 impl From<u32> for RccError {
     fn from(x: u32) -> Self {
         match x {
-            2 => RccError::BadArg,
-            // Panicking here might be rude. TODO.
+            1 => RccError::NoSuchPeripheral,
             _ => panic!(),
         }
     }
@@ -56,22 +34,8 @@ impl Rcc {
     /// If the RCC server has died.
     pub fn enable_clock(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
-        // BadArg for a valid member of the Peripheral enum.
+        // NoSuchPeripheral for a valid member of the Peripheral enum.
         self.enable_clock_raw(peripheral as u32).unwrap()
-    }
-
-    pub fn enable_clock_raw(&self, index: u32) -> Result<(), RccError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct Request(U32<LittleEndian>);
-
-        impl hl::Call for Request {
-            const OP: u16 = Op::EnableClock as u16;
-            type Response = ();
-            type Err = RccError;
-        }
-
-        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the clock to a peripheral be turned off.
@@ -84,22 +48,8 @@ impl Rcc {
     /// If the RCC server has died.
     pub fn disable_clock(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
-        // BadArg for a valid member of the Peripheral enum.
+        // NoSuchPeripheral for a valid member of the Peripheral enum.
         self.disable_clock_raw(peripheral as u32).unwrap()
-    }
-
-    pub fn disable_clock_raw(&self, index: u32) -> Result<(), RccError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct Request(U32<LittleEndian>);
-
-        impl hl::Call for Request {
-            const OP: u16 = Op::DisableClock as u16;
-            type Response = ();
-            type Err = RccError;
-        }
-
-        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the reset line to a peripheral be asserted.
@@ -112,22 +62,8 @@ impl Rcc {
     /// If the RCC server has died.
     pub fn enter_reset(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
-        // BadArg for a valid member of the Peripheral enum.
+        // NoSuchPeripheral for a valid member of the Peripheral enum.
         self.enter_reset_raw(peripheral as u32).unwrap()
-    }
-
-    pub fn enter_reset_raw(&self, index: u32) -> Result<(), RccError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct Request(U32<LittleEndian>);
-
-        impl hl::Call for Request {
-            const OP: u16 = Op::EnterReset as u16;
-            type Response = ();
-            type Err = RccError;
-        }
-
-        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 
     /// Requests that the reset line to a peripheral be deasserted.
@@ -140,22 +76,8 @@ impl Rcc {
     /// If the RCC server has died.
     pub fn leave_reset(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
-        // BadArg for a valid member of the Peripheral enum.
+        // NoSuchPeripheral for a valid member of the Peripheral enum.
         self.leave_reset_raw(peripheral as u32).unwrap()
-    }
-
-    pub fn leave_reset_raw(&self, index: u32) -> Result<(), RccError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct Request(U32<LittleEndian>);
-
-        impl hl::Call for Request {
-            const OP: u16 = Op::LeaveReset as u16;
-            type Response = ();
-            type Err = RccError;
-        }
-
-        hl::send_with_retry(&self.0, &Request(U32::new(index)))
     }
 }
 
@@ -241,7 +163,7 @@ macro_rules! apb4 {
 /// while thankfully uniform across the STM32H7 variants, is not necessarily
 /// an order that is at all sensible!  This is the union of all STM32H7
 /// peripherals; not all peripherals will exist on all variants!
-#[derive(Copy, Clone, Eq, PartialEq, Debug, FromPrimitive, AsBytes)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u32)]
 pub enum Peripheral {
     AxisRam = ahb3!(31),  // 47 only
@@ -396,3 +318,5 @@ pub enum Peripheral {
     LpUart = apb4!(3),
     SysCfg = apb4!(1),
 }
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
