@@ -9,6 +9,10 @@ zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 stm32h7 = { version = "0.13.0", default-features = false }
 cortex-m = { version = "0.7", features = ["inline-asm"] }
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 default = ["standalone"]
