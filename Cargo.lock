@@ -771,6 +771,7 @@ name = "drv-stm32h7-gpio-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
