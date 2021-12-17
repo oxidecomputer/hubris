@@ -42,7 +42,7 @@ pub fn main() -> ! {
                         current = current + 1;
                         break;
                     }
-                    Err(drv_user_leds_api::LedError::NoSuchLed) => {
+                    Err(drv_user_leds_api::LedError::NotPresent) => {
                         current = 0;
                     }
                     _ => {

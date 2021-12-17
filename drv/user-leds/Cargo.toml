@@ -13,9 +13,11 @@ num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", optional = true}
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api", default-features = false, optional = true}
 cfg-if = "0.1.10"
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 default = ["standalone"]

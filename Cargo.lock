@@ -891,6 +891,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
  "drv-stm32h7-gpio-api",
+ "idol",
+ "idol-runtime",
  "lpc55-pac",
  "num-traits",
  "stm32f3",
@@ -903,6 +905,8 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "abi",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1226,6 +1230,27 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
+name = "idol"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/idolatry.git#ec1047cce1c35dad72162b102e9a8193f0f4572d"
+dependencies = [
+ "indexmap",
+ "quote",
+ "ron 0.7.0",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "idol-runtime"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/idolatry.git#ec1047cce1c35dad72162b102e9a8193f0f4572d"
+dependencies = [
+ "userlib",
+ "zerocopy",
+]
 
 [[package]]
 name = "indexmap"
@@ -1682,7 +1707,7 @@ dependencies = [
  "libm",
  "num-derive",
  "num-traits",
- "ron",
+ "ron 0.6.6",
  "serde",
  "serde_with",
 ]
@@ -1875,6 +1900,17 @@ name = "ron"
 version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86018df177b1beef6c7c8ef949969c4f7cb9a9344181b92486b23c79995bdaa4"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
+]
+
+[[package]]
+name = "ron"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b861ecaade43ac97886a512b360d01d66be9f41f3c61088b42cedf92e03d678"
 dependencies = [
  "base64",
  "bitflags",
