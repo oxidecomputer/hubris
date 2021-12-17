@@ -15,6 +15,7 @@
 //! - [`mcp9808`]: MCP9808 temperature sensor
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
+//! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
 
@@ -101,5 +102,6 @@ pub mod max6634;
 pub mod mcp9808;
 pub mod pct2075;
 pub mod raa229618;
+pub mod sbtsi;
 pub mod tmp116;
 pub mod tps546b24a;

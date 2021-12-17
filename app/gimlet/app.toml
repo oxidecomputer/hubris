@@ -386,6 +386,12 @@ description = "M.2 hot plug controller"
 
 [[config.i2c.devices]]
 bus = "mid"
+address = 0x4c
+device = "sbtsi"
+description = "CPU temperature sensor"
+
+[[config.i2c.devices]]
+bus = "mid"
 address = 0x58
 device = "idt8a34004"
 description = "Clock generator"
