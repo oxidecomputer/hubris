@@ -568,6 +568,8 @@ dependencies = [
  "gnarle",
  "num-traits",
  "ringbuf",
+ "serde",
+ "serde_json",
  "userlib",
  "zerocopy",
 ]
