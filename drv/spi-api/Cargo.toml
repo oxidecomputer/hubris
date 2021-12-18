@@ -7,6 +7,7 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 abi = {path = "../../sys/abi"}
 num-traits = { version = "0.2.12", default-features = false }
+zerocopy = "0.6.1"
 
 # a target for `cargo xtask check`
 [package.metadata.build]
@@ -20,3 +21,6 @@ standalone = []
 [lib]
 test = false
 bench = false
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

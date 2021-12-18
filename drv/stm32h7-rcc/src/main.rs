@@ -61,15 +61,28 @@ use stm32h7::stm32h753 as device;
 #[cfg(feature = "h7b3")]
 use stm32h7::stm32h7b3 as device;
 
+use idol_runtime::RequestError;
 use userlib::*;
-use zerocopy::AsBytes;
 
-#[derive(FromPrimitive)]
-enum Op {
-    EnableClock = 1,
-    DisableClock = 2,
-    EnterReset = 3,
-    LeaveReset = 4,
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[repr(u32)]
+pub enum RccError {
+    NoSuchPeripheral = 1,
+}
+
+impl From<u32> for RccError {
+    fn from(x: u32) -> Self {
+        match x {
+            1 => RccError::NoSuchPeripheral,
+            _ => panic!(),
+        }
+    }
+}
+
+impl From<RccError> for u16 {
+    fn from(x: RccError) -> Self {
+        x as u16
+    }
 }
 
 #[derive(FromPrimitive)]
@@ -83,17 +96,6 @@ enum Bus {
     Apb2 = 6,
     Apb3 = 7,
     Apb4 = 8,
-}
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
-}
-
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
 }
 
 // None of the registers we interact with have the same types, and they share no
@@ -127,75 +129,105 @@ fn main() -> ! {
 
     // Field messages.
     // Ensure our buffer is aligned properly for a u32 by declaring it as one.
-    let mut buffer = [0u32; 1];
+    let mut buffer = [0u8; idl::INCOMING_SIZE];
+    let mut server = ServerImpl { rcc };
     loop {
-        hl::recv_without_notification(
-            buffer.as_bytes_mut(),
-            |op, msg| -> Result<(), ResponseCode> {
-                // Every incoming message uses the same payload type and
-                // response type: it's always u32 -> (). So we can do the
-                // check-and-convert here:
-                let (msg, caller) =
-                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
-                let pmask: u32 = 1 << (msg % 32);
-                let bus =
-                    Bus::from_u32(msg / 32).ok_or(ResponseCode::BadArg)?;
-
-                // Note: you're probably looking at the match arms below and
-                // saying to yourself, "gosh, I bet we could eliminate some
-                // duplication here." Well, good luck. svd2rust has ensured that
-                // every *ENR and *RSTR register is a *totally distinct type*,
-                // meaning we can't operate on them generically.
-                match op {
-                    Op::EnableClock => match bus {
-                        Bus::Ahb1 => set_bits!(rcc.ahb1enr, pmask),
-                        Bus::Ahb2 => set_bits!(rcc.ahb2enr, pmask),
-                        Bus::Ahb3 => set_bits!(rcc.ahb3enr, pmask),
-                        Bus::Ahb4 => set_bits!(rcc.ahb4enr, pmask),
-                        Bus::Apb1L => set_bits!(rcc.apb1lenr, pmask),
-                        Bus::Apb1H => set_bits!(rcc.apb1henr, pmask),
-                        Bus::Apb2 => set_bits!(rcc.apb2enr, pmask),
-                        Bus::Apb3 => set_bits!(rcc.apb3enr, pmask),
-                        Bus::Apb4 => set_bits!(rcc.apb4enr, pmask),
-                    },
-                    Op::DisableClock => match bus {
-                        Bus::Ahb1 => clear_bits!(rcc.ahb1enr, pmask),
-                        Bus::Ahb2 => clear_bits!(rcc.ahb2enr, pmask),
-                        Bus::Ahb3 => clear_bits!(rcc.ahb3enr, pmask),
-                        Bus::Ahb4 => clear_bits!(rcc.ahb4enr, pmask),
-                        Bus::Apb1L => clear_bits!(rcc.apb1lenr, pmask),
-                        Bus::Apb1H => clear_bits!(rcc.apb1henr, pmask),
-                        Bus::Apb2 => clear_bits!(rcc.apb2enr, pmask),
-                        Bus::Apb3 => clear_bits!(rcc.apb3enr, pmask),
-                        Bus::Apb4 => clear_bits!(rcc.apb4enr, pmask),
-                    },
-                    Op::EnterReset => match bus {
-                        Bus::Ahb1 => set_bits!(rcc.ahb1rstr, pmask),
-                        Bus::Ahb2 => set_bits!(rcc.ahb2rstr, pmask),
-                        Bus::Ahb3 => set_bits!(rcc.ahb3rstr, pmask),
-                        Bus::Ahb4 => set_bits!(rcc.ahb4rstr, pmask),
-                        Bus::Apb1L => set_bits!(rcc.apb1lrstr, pmask),
-                        Bus::Apb1H => set_bits!(rcc.apb1hrstr, pmask),
-                        Bus::Apb2 => set_bits!(rcc.apb2rstr, pmask),
-                        Bus::Apb3 => set_bits!(rcc.apb3rstr, pmask),
-                        Bus::Apb4 => set_bits!(rcc.apb4rstr, pmask),
-                    },
-                    Op::LeaveReset => match bus {
-                        Bus::Ahb1 => clear_bits!(rcc.ahb1rstr, pmask),
-                        Bus::Ahb2 => clear_bits!(rcc.ahb2rstr, pmask),
-                        Bus::Ahb3 => clear_bits!(rcc.ahb3rstr, pmask),
-                        Bus::Ahb4 => clear_bits!(rcc.ahb4rstr, pmask),
-                        Bus::Apb1L => clear_bits!(rcc.apb1lrstr, pmask),
-                        Bus::Apb1H => clear_bits!(rcc.apb1hrstr, pmask),
-                        Bus::Apb2 => clear_bits!(rcc.apb2rstr, pmask),
-                        Bus::Apb3 => clear_bits!(rcc.apb3rstr, pmask),
-                        Bus::Apb4 => clear_bits!(rcc.apb4rstr, pmask),
-                    },
-                }
-
-                caller.reply(());
-                Ok(())
-            },
-        );
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
+}
+
+struct ServerImpl<'a> {
+    rcc: &'a device::rcc::RegisterBlock,
+}
+
+impl ServerImpl<'_> {
+    fn unpack_raw(raw: u32) -> Result<(Bus, u32), RequestError<RccError>> {
+        let pmask: u32 = 1 << (raw % 32);
+        let bus = Bus::from_u32(raw / 32).ok_or(RccError::NoSuchPeripheral)?;
+        Ok((bus, pmask))
+    }
+}
+
+impl idl::InOrderRccImpl for ServerImpl<'_> {
+    fn enable_clock_raw(
+        &mut self,
+        _: &RecvMessage,
+        raw: u32,
+    ) -> Result<(), RequestError<RccError>> {
+        match Self::unpack_raw(raw)? {
+            (Bus::Ahb1, pmask) => set_bits!(self.rcc.ahb1enr, pmask),
+            (Bus::Ahb2, pmask) => set_bits!(self.rcc.ahb2enr, pmask),
+            (Bus::Ahb3, pmask) => set_bits!(self.rcc.ahb3enr, pmask),
+            (Bus::Ahb4, pmask) => set_bits!(self.rcc.ahb4enr, pmask),
+            (Bus::Apb1L, pmask) => set_bits!(self.rcc.apb1lenr, pmask),
+            (Bus::Apb1H, pmask) => set_bits!(self.rcc.apb1henr, pmask),
+            (Bus::Apb2, pmask) => set_bits!(self.rcc.apb2enr, pmask),
+            (Bus::Apb3, pmask) => set_bits!(self.rcc.apb3enr, pmask),
+            (Bus::Apb4, pmask) => set_bits!(self.rcc.apb4enr, pmask),
+        }
+        Ok(())
+    }
+
+    fn disable_clock_raw(
+        &mut self,
+        _: &RecvMessage,
+        raw: u32,
+    ) -> Result<(), RequestError<RccError>> {
+        match Self::unpack_raw(raw)? {
+            (Bus::Ahb1, pmask) => clear_bits!(self.rcc.ahb1enr, pmask),
+            (Bus::Ahb2, pmask) => clear_bits!(self.rcc.ahb2enr, pmask),
+            (Bus::Ahb3, pmask) => clear_bits!(self.rcc.ahb3enr, pmask),
+            (Bus::Ahb4, pmask) => clear_bits!(self.rcc.ahb4enr, pmask),
+            (Bus::Apb1L, pmask) => clear_bits!(self.rcc.apb1lenr, pmask),
+            (Bus::Apb1H, pmask) => clear_bits!(self.rcc.apb1henr, pmask),
+            (Bus::Apb2, pmask) => clear_bits!(self.rcc.apb2enr, pmask),
+            (Bus::Apb3, pmask) => clear_bits!(self.rcc.apb3enr, pmask),
+            (Bus::Apb4, pmask) => clear_bits!(self.rcc.apb4enr, pmask),
+        }
+        Ok(())
+    }
+
+    fn enter_reset_raw(
+        &mut self,
+        _: &RecvMessage,
+        raw: u32,
+    ) -> Result<(), RequestError<RccError>> {
+        match Self::unpack_raw(raw)? {
+            (Bus::Ahb1, pmask) => set_bits!(self.rcc.ahb1rstr, pmask),
+            (Bus::Ahb2, pmask) => set_bits!(self.rcc.ahb2rstr, pmask),
+            (Bus::Ahb3, pmask) => set_bits!(self.rcc.ahb3rstr, pmask),
+            (Bus::Ahb4, pmask) => set_bits!(self.rcc.ahb4rstr, pmask),
+            (Bus::Apb1L, pmask) => set_bits!(self.rcc.apb1lrstr, pmask),
+            (Bus::Apb1H, pmask) => set_bits!(self.rcc.apb1hrstr, pmask),
+            (Bus::Apb2, pmask) => set_bits!(self.rcc.apb2rstr, pmask),
+            (Bus::Apb3, pmask) => set_bits!(self.rcc.apb3rstr, pmask),
+            (Bus::Apb4, pmask) => set_bits!(self.rcc.apb4rstr, pmask),
+        }
+        Ok(())
+    }
+
+    fn leave_reset_raw(
+        &mut self,
+        _: &RecvMessage,
+        raw: u32,
+    ) -> Result<(), RequestError<RccError>> {
+        match Self::unpack_raw(raw)? {
+            (Bus::Ahb1, pmask) => clear_bits!(self.rcc.ahb1rstr, pmask),
+            (Bus::Ahb2, pmask) => clear_bits!(self.rcc.ahb2rstr, pmask),
+            (Bus::Ahb3, pmask) => clear_bits!(self.rcc.ahb3rstr, pmask),
+            (Bus::Ahb4, pmask) => clear_bits!(self.rcc.ahb4rstr, pmask),
+            (Bus::Apb1L, pmask) => clear_bits!(self.rcc.apb1lrstr, pmask),
+            (Bus::Apb1H, pmask) => clear_bits!(self.rcc.apb1hrstr, pmask),
+            (Bus::Apb2, pmask) => clear_bits!(self.rcc.apb2rstr, pmask),
+            (Bus::Apb3, pmask) => clear_bits!(self.rcc.apb3rstr, pmask),
+            (Bus::Apb4, pmask) => clear_bits!(self.rcc.apb4rstr, pmask),
+        }
+        Ok(())
+    }
+}
+
+mod idl {
+    use super::RccError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

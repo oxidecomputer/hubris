@@ -287,7 +287,7 @@ impl<'a> I2cController<'a> {
             .smbhen().set_bit()         // enable SMBus host mode
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // must enable clock stretching
-            .errie().set_bit()          // emable Error Interrupt
+            .errie().set_bit()          // enable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
             .stopie().clear_bit()       // disable Stop Detection interrupt
             .nackie().set_bit()         // enable NACK interrupt
@@ -701,7 +701,7 @@ impl<'a> I2cController<'a> {
             .gcen().clear_bit()         // disable General Call
             .nostretch().clear_bit()    // enable clock stretching
             .sbc().clear_bit()          // disable byte control 
-            .errie().set_bit()          // emable Error Interrupt
+            .errie().set_bit()          // enable Error Interrupt
             .tcie().set_bit()           // enable Transfer Complete interrupt
             .stopie().set_bit()         // enable Stop Detection interrupt
             .nackie().set_bit()         // enable NACK interrupt

@@ -55,11 +55,8 @@ probably also works on Illumos and Mac; if anyone would like to step up to
 maintain support and a continuous build for those architectures, we'd love the
 help.
 
-To submit changes for review, push them to a new branch in this repo (_not_ a
-separate GitHub fork) and submit a pull request to merge that branch into
-master.  (Pull requests from separate GitHub forks do not currently work.
-First, the pre-integration checks do not get run automatically in forks, so
-you'd have to enable Actions in your fork.
+To submit changes for review push them to a branch in a fork and submit a pull
+request to merge that branch into master.
 
 ## Prereqs
 
@@ -98,7 +95,7 @@ You will need:
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
-  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git`
+  - `cargo install --git ssh://git@github.com/oxidecomputer/humility.git --locked`
 
 ### Windows
 

@@ -96,7 +96,6 @@ task-slots = ["user_leds"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["stm32f4"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true

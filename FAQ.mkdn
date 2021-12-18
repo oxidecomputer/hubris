@@ -170,6 +170,28 @@ conditional.)
 Porting the kernel to support Cortex-M3 or Cortex-M0+ would be straightforward
 and we'll probably do it eventually.
 
+### Can Hubris run on an ARM Cortex part without a Memory Protection Unit (MPU)?
+
+Short answer: not at the moment.
+
+The Hubris kernel assumes that an MPU is available, and configures it. This
+behavior isn't conditional, because it's important that it always happens. But,
+on CPUs whose vendors chose to omit the MPU, this means the kernel will fault
+early in startup with a Bus Fault.
+
+It is technically possible to get Hubris to run on an MPU-less Cortex-M, but it
+would discard some of the properties that guided Hubris's design. In particular,
+unsafe code in any task can now mess with any other task, or the kernel, and
+drivers can access each others' peripherals. This means that restarting tasks is
+no longer reliable, because we can't reason about how far any corruption could
+have leaked.
+
+In addition, many vendors who have cheaped out by configuring their processors
+without MPUs have _also_ removed the unprivileged/privileged distinction that
+provides separate interrupt/process stack pointers. (The Microchip SAMD21 is a
+notable example of this.) This change would be _much_ harder to work around in
+the Hubris kernel, and we're treating it as a blocking issue for the time being.
+
 ### Which processors sound confusingly similar but _aren't_ supported?
 
 Just because something says "ARM" doesn't mean it looks anything like another
