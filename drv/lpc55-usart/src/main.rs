@@ -143,15 +143,29 @@ fn main() -> ! {
                         continue;
                     }
 
-                    let (rc, atts, len) = sys_borrow_info(msginfo.sender, 0);
-                    if rc != 0 || atts & 1 == 0 {
-                        sys_reply(
-                            msginfo.sender,
-                            ResponseCode::BadArg as u32,
-                            &[],
-                        );
-                        continue;
-                    }
+                    let len = match sys_borrow_info(msginfo.sender, 0) {
+                        None => {
+                            sys_reply(
+                                msginfo.sender,
+                                ResponseCode::BadArg as u32,
+                                &[],
+                            );
+                            continue;
+                        }
+                        Some(info)
+                            if !info
+                                .attributes
+                                .contains(LeaseAttributes::READ) =>
+                        {
+                            sys_reply(
+                                msginfo.sender,
+                                ResponseCode::BadArg as u32,
+                                &[],
+                            );
+                            continue;
+                        }
+                        Some(info) => info.len,
+                    };
 
                     // Okay! Begin a transfer!
                     tx = Some(Transmit {

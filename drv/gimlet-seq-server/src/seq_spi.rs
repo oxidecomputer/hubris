@@ -17,30 +17,7 @@ enum Cmd {
     //Identify = 4, // proposed in RFD; implemented?
 }
 
-pub enum Addr {
-    Id0 = 0,
-    InterruptFlag = 4,
-    InterruptEnable = 5,
-    SequencerStatus = 6,
-    PowerControl = 7,
-    FanFeedback = 8,
-    A1Status = 9,
-    A1PowerReadback = 0xa,
-    A0PowerReadback = 0xb,
-    A0PowerGoodGroupB = 0xc,
-    A0PowerGoodUnused = 0xd,
-    A0PowerFaultAPlusB = 0xe,
-    A0StatusGroupC = 0xf,
-    FanOutStatus = 0x10,
-    A1OutputStatus = 0x11,
-    A1OutputDebug = 0x12,
-}
-
-impl From<Addr> for u16 {
-    fn from(a: Addr) -> Self {
-        a as u16
-    }
-}
+include!(concat!(env!("OUT_DIR"), "/gimlet_regs.rs"));
 
 pub const EXPECTED_IDENT: u32 = 0x1DE_AA55;
 
@@ -54,11 +31,9 @@ impl SequencerFpga {
     }
 
     /// Reads the IDENT0:3 registers as a big-endian 32-bit integer.
-    pub fn read_ident(
-        &self,
-    ) -> Result<u32, spi_api::SpiError> {
+    pub fn read_ident(&self) -> Result<u32, spi_api::SpiError> {
         let mut ident = 0;
-        self.read_bytes(Addr::Id0, ident.as_bytes_mut())?;
+        self.read_bytes(Addr::ID0, ident.as_bytes_mut())?;
         Ok(ident)
     }
 
@@ -111,8 +86,8 @@ impl SequencerFpga {
         addr: u16,
         data_out: &mut [u8],
     ) -> Result<(), spi_api::SpiError> {
-        let mut data = [ 0u8; 16 ];
-        let mut rval = [ 0u8; 16 ];
+        let mut data = [0u8; 16];
+        let mut rval = [0u8; 16];
 
         let addr = U16::new(addr);
         let header = CmdHeader { cmd, addr };
@@ -141,8 +116,8 @@ impl SequencerFpga {
         addr: u16,
         data_in: &[u8],
     ) -> Result<(), spi_api::SpiError> {
-        let mut data = [ 0u8; 16 ];
-        let mut rval = [ 0u8; 16 ];
+        let mut data = [0u8; 16];
+        let mut rval = [0u8; 16];
 
         let addr = U16::new(addr);
         let header = CmdHeader { cmd, addr };

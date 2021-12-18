@@ -11,8 +11,8 @@
 
 mod seq_spi;
 
-use userlib::*;
 use ringbuf::*;
+use userlib::*;
 
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
@@ -36,7 +36,7 @@ enum Trace {
     A0Power(u8),
     RailsOn,
     Done,
-    None
+    None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -256,9 +256,9 @@ fn main() -> ! {
     ringbuf_entry!(Trace::Ident(ident));
 
     loop {
-        let mut status = [ 0u8 ];
+        let mut status = [0u8];
 
-        seq.read_bytes(Addr::A1Status, &mut status).unwrap();
+        seq.read_bytes(Addr::PWRCTRL, &mut status).unwrap();
         ringbuf_entry!(Trace::A1Status(status[0]));
 
         if status[0] == 0 {
@@ -274,12 +274,12 @@ fn main() -> ! {
     // We know that we're in A2 -- send us to A1 and A0.
     //
     let a1a0 = 0x3u8;
-    seq.write_bytes(Addr::A1Status, &[ a1a0 ]).unwrap();
+    seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
 
     loop {
-        let mut power = [ 0u8, 0u8 ];
+        let mut power = [0u8, 0u8];
 
-        seq.read_bytes(Addr::A1PowerReadback, &mut power).unwrap();
+        seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
         ringbuf_entry!(Trace::A1Power(power[0], power[1]));
 
         if power[1] == 0x7 {
@@ -299,9 +299,9 @@ fn main() -> ! {
     // Now wait for the end of Group C.
     //
     loop {
-        let mut power = [ 0u8 ];
+        let mut power = [0u8];
 
-        seq.read_bytes(Addr::A0PowerReadback, &mut power).unwrap();
+        seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
         ringbuf_entry!(Trace::A0Power(power[0]));
 
         if power[0] == 0xc {
