@@ -5,8 +5,6 @@ name = "sidecar"
 version = "0.1.0"
 
 [features]
-default = ["standalone"]
-standalone = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 
@@ -25,10 +23,6 @@ default-features = false
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 # this lets you use `cargo fix`!
 [[bin]]

@@ -3,10 +3,6 @@ name = "hypocalls"
 version = "0.1.0"
 edition = "2018"
 
-[features]
-default = ["standalone"]
-standalone = []
-
 [dependencies]
 abi = {path = "../../sys/abi"}
 serde = { version = "1.0.114", default-features = false }
@@ -15,10 +11,6 @@ zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 num-derive = "0.3.0"
 lpc55_romapi = { path = "../../drv/lpc55-romapi" }
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
 
 [lib]
 test = false

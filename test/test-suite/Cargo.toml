@@ -13,14 +13,8 @@ test-api = {path = "../test-api"}
 hypocalls = {path = "../../lib/hypocalls", default-features = false, optional = true }
 
 [features]
-default = ["standalone"]
-standalone = []
 itm = [ "userlib/log-itm" ]
 lpc55 = ["hypocalls"]
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 [[bin]]
 name = "test-suite"

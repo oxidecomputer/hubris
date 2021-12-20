@@ -12,7 +12,6 @@ pub use lpc55_romapi::FlashStatus;
 ///
 /// Once we've established our regions this should be changed to an enum
 /// or something else representative
-#[cfg(not(feature = "standalone"))]
 #[inline(never)]
 pub fn hypo_write_to_flash(region: u32, buf: &[u8]) -> FlashStatus {
     use num_traits::cast::FromPrimitive;
@@ -36,8 +35,4 @@ pub fn hypo_write_to_flash(region: u32, buf: &[u8]) -> FlashStatus {
     return result;
 }
 
-#[cfg(feature = "standalone")]
-pub fn hypo_write_to_flash(_addr: u32, _buf: &[u8], _size: u32) -> FlashStatus {
-    return FlashStatus::Success;
-}
 include!(concat!(env!("OUT_DIR"), "/hypo.rs"));

@@ -93,14 +93,7 @@ fn main() -> ! {
 
             let fctrl = Max31790::new(&devices::max31790(task)[0]);
         } else {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "standalone")] {
-                    let fctrl = Max31790::new(&devices::mock(task));
-                    let tmp116: [Tmp116; 0] = [];
-                } else {
-                    compile_error!("unknown board");
-                }
-            }
+            compile_error!("unknown board");
         }
     }
 
