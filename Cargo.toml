@@ -97,3 +97,7 @@ path = "sys/userlib"
 
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
+
+[patch."https://github.com/oxidecomputer/idolatry"]
+idol = { path = "../idolatry" }
+
