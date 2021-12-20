@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             task_enum.push(format!("    {} = {},", name, i));
         }
     } else {
-        task_enum.push("    anonymous = 0,".to_string());
+        panic!("can't build this crate outside of the build system.");
     }
     let task_count = task_enum.len();
 

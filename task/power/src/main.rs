@@ -59,15 +59,7 @@ fn main() -> ! {
             let (device, rail) = i2c_config::pmbus::isl_evl_vout1(task);
             let mut isl1 = Isl68224::new(&device, rail);
         } else {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "standalone")] {
-                    let device = &i2c_config::devices::mock(task);
-                    let mut isl0 = Isl68224::new(&device, 0);
-                    let mut isl1 = Isl68224::new(&device, 0);
-                } else {
-                    compile_error!("unknown board");
-                }
-            }
+            compile_error!("unknown board");
         }
     }
 

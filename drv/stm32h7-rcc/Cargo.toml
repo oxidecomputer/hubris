@@ -15,15 +15,9 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-default = ["standalone"]
-standalone = [ "h753" ]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
 h7b3 = ["stm32h7/stm32h7b3"]
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

@@ -8,10 +8,6 @@ edition = "2018"
 [features]
 task-enum = []
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
 [lib]
 test = false
 bench = false

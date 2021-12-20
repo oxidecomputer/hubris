@@ -32,8 +32,6 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-default = ["standalone"]
-standalone = ["itm", "stm32h7", "h753"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 i2c = []

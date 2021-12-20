@@ -147,10 +147,9 @@ custom build commands.
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk
   - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
-- `cargo xtask check` from within a task or kernel directory compiles that one
-  component in isolation, performing a basic check of the code but not linking.
-  This provides a cheaper way to do incremental builds during development. See
-  the `Iterating` section below.
+- `cargo xtask build TOMLFILE TASKNAME` compiles one task of an application in
+  isolation, the same way it would be built with `dist`. This is useful for
+  iterating on a single task.
 
 ## Run
 
@@ -515,12 +514,10 @@ To create your own task, the easiest method is:
 - Copy `task/template` to a new name.
 - Edit its `Cargo.toml` with your name and a new package name.
 - Add it to the list of workspace members in the root `Cargo.toml`.
+- Add it to a system image by editing an `app.toml` file.
+- Run `cargo xtask build` to compile it.
 
-You can now run `cargo xtask check` in the task's directory to run a standalone
-build. (See below for details.)
-
-To actually test the task, you need to add it to a system image by editing an
-`app.toml` file. A typical entry for a small task that uses no memory-mapped
+A typical `app.toml` entry for a small task that uses no memory-mapped
 peripherals would read
 
 ```toml
@@ -536,26 +533,11 @@ start = true
 
 Because a full image build can take 10 seconds or more, depending on what you've
 changed, when you're iterating on a task or kernel you'll probably want to build
-it *outside* the context of an image. We have a thing called a "standalone
-build" for this.
+it separately. This is what `cargo xtask build` is for.
 
-For instance, to run a standalone build of `task-ping`, run:
+For instance, to build `task-ping` as it would be built in one of the images, but
+without building the rest of the demo, run:
 
 ```console
-$ cd task-ping
-$ cargo xtask check
+$ cargo xtask build app/gimletlet/app.toml ping
 ```
-
-This magic happens in three parts:
-
-1. Packages that support standalone build have a `package.metadata.build.target`
-   key giving the default target architecture for standalone builds.
-2. Our `build.rs` files that receive information from the `dist` xtask will do
-   reasonable defaulty things if that information is missing, e.g. in this case.
-3. By convention, we set a default feature `"standalone"` for standalone builds,
-   and switch it off in the `app.toml` used by the `package` xtask. You can use
-   this feature to conditionally compile stuff.
-
-Note: most tasks pick up their `build.rs` behavior implicitly by depending on
-`userlib`. You generally do not need a `build.rs` in your task unless you need
-to detect compiler/architecture features or depend on board rev.

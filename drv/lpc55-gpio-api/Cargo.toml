@@ -11,12 +11,3 @@ cfg-if = "0.1.10"
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-
-[features]
-default = ["standalone"]
-standalone = []
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
-

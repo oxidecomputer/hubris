@@ -261,23 +261,6 @@ impl I2cDevice {
             address: address,
         }
     }
-
-    ///
-    /// Returns a mocked I2C device that does not correspond to an actual
-    /// device.  This is for purposes of allowing standalone builds of tasks;
-    /// production code should not have such a device, and all operations
-    /// would be expected to fail with a `ResponseCode::BadController`.
-    ///
-    #[cfg(feature = "standalone")]
-    pub fn mock(task: TaskId) -> Self {
-        Self {
-            task: task,
-            controller: Controller::Mock,
-            port: PortIndex(0),
-            segment: None,
-            address: 0,
-        }
-    }
 }
 
 impl From<ResponseCode> for u32 {

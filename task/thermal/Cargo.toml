@@ -24,8 +24,6 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-default = ["standalone"]
-standalone = ["itm", "drv-i2c-api/standalone" ]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 h743 = ["build-i2c/h743"]

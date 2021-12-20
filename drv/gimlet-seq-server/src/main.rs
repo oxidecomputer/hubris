@@ -316,33 +316,6 @@ cfg_if::cfg_if! {
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
-    } else if #[cfg(feature = "standalone")] {
-        // This is all nonsense to get xtask check to work.
-
-        const ICE40_SPI_DEVICE: u8 = 1;
-
-        const ICE40_CONFIG: ice40::Config = ice40::Config {
-            creset_port: gpio_api::Port::D,
-            creset_pin_mask: 1 << 5,
-            cdone_port: gpio_api::Port::B,
-            cdone_pin_mask: 1 << 4,
-        };
-
-        const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = Some((
-            gpio_api::Port::A,
-            1 << 6,
-        ));
-
-        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = None;
-
-        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::A;
-        const ENABLE_V1P2_MASK: u16 = 1 << 15;
-        const ENABLE_V3P3_MASK: u16 = 1 << 4;
-
-        const PGS_PORT: gpio_api::Port = gpio_api::Port::C;
-        const PG_V1P2_MASK: u16 = 1 << 7;
-        const PG_V3P3_MASK: u16 = 1 << 6;
-        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
     } else {
         compiler_error!("unsupported target board");
     }

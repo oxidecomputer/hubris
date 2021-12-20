@@ -10,14 +10,6 @@ stm32f4 = { version = "0.13.0", features = ["stm32f407"], optional = true }
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 
-[features]
-default = ["standalone"]
-standalone = ["stm32f4"]
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]

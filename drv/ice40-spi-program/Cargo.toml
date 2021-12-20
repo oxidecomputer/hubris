@@ -9,7 +9,3 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 drv-spi-api = {path = "../spi-api"}
 drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
