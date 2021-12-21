@@ -9,7 +9,7 @@ userlib = {path = "../../sys/userlib"}
 hubris-num-tasks = {path = "../../sys/num-tasks"}
 ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [features]

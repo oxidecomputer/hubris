@@ -1,0 +1,37 @@
+// User LED blinky API
+
+Interface(
+    name: "UserLeds",
+    ops: {
+        "led_on": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("LedError"),
+            ),
+            idempotent: true,
+        ),
+        "led_off": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("LedError"),
+            ),
+            idempotent: true,
+        ),
+        "led_toggle": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("LedError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)

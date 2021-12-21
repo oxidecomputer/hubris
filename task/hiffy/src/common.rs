@@ -155,7 +155,6 @@ pub(crate) fn qspi_read_id(
     _data: &[u8],
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use core::convert::TryInto;
     use drv_gimlet_hf_api as hf;
 
     if rval.len() < 20 {
@@ -163,7 +162,8 @@ pub(crate) fn qspi_read_id(
     }
 
     let server = hf::HostFlash::from(HF.get_task_id());
-    func_err(server.read_id((&mut rval[..20]).try_into().unwrap()))?;
+    let id = func_err(server.read_id())?;
+    rval[..20].copy_from_slice(&id);
     Ok(20)
 }
 

@@ -15,6 +15,7 @@ use userlib::*;
 use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_qspi::Qspi;
 use drv_stm32h7_rcc_api as rcc_api;
+use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 
 // Note: h7b3 has QUADSPI but has not been used in this project.
 
@@ -24,7 +25,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_gimlet_hf_api::{HfError, InternalHfError, Operation};
+use drv_gimlet_hf_api::HfError;
 
 task_slot!(RCC, rcc_driver);
 task_slot!(GPIO, gpio_driver);
@@ -304,106 +305,96 @@ fn main() -> ! {
         }
     }
 
-    let mut buffer = [0; 4];
-    let mut block = [0; 256];
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    let mut server = ServerImpl {
+        qspi,
+        block: [0; 256],
+    };
 
     loop {
-        hl::recv_without_notification(&mut buffer, |op, msg| match op {
-            Operation::ReadId => {
-                let ((), caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                let mut idbuf = [0; 20];
-                qspi.read_id(&mut idbuf);
-
-                caller.reply(idbuf);
-                Ok::<_, InternalHfError>(())
-            }
-            Operation::ReadStatus => {
-                let ((), caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                caller.reply(qspi.read_status());
-                Ok::<_, InternalHfError>(())
-            }
-            Operation::BulkErase => {
-                let ((), caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                set_and_check_write_enable(&qspi)?;
-                qspi.bulk_erase();
-                poll_for_write_complete(&qspi);
-
-                caller.reply(());
-                Ok::<_, InternalHfError>(())
-            }
-            Operation::PageProgram => {
-                let (&addr, caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                let borrow = caller.borrow(0);
-                let info =
-                    borrow.info().ok_or(InternalHfError::MissingLease)?;
-
-                if !info.attributes.contains(LeaseAttributes::READ) {
-                    return Err(InternalHfError::BadLease);
-                }
-                if info.len > block.len() {
-                    return Err(InternalHfError::BadLease);
-                }
-
-                // Read the entire data block into our address space.
-                borrow
-                    .read_fully_at(0, &mut block[..info.len])
-                    .ok_or(InternalHfError::BadLease)?;
-
-                // Now we can't fail.
-
-                set_and_check_write_enable(&qspi)?;
-                qspi.page_program(addr, &block[..info.len]);
-                poll_for_write_complete(&qspi);
-                caller.reply(());
-                Ok::<_, InternalHfError>(())
-            }
-            Operation::Read => {
-                let (&addr, caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                let borrow = caller.borrow(0);
-                let info =
-                    borrow.info().ok_or(InternalHfError::MissingLease)?;
-
-                if !info.attributes.contains(LeaseAttributes::WRITE) {
-                    return Err(InternalHfError::BadLease);
-                }
-                if info.len > block.len() {
-                    return Err(InternalHfError::BadLease);
-                }
-
-                qspi.read_memory(addr, &mut block[..info.len]);
-
-                // Throw away an error here since it means the caller's
-                // wandered off
-                borrow.write_fully_at(0, &block[..info.len]);
-
-                caller.reply(());
-                Ok::<_, InternalHfError>(())
-            }
-            Operation::SectorErase => {
-                let (&addr, caller) =
-                    msg.fixed().ok_or(InternalHfError::BadMessage)?;
-
-                set_and_check_write_enable(&qspi)?;
-                qspi.sector_erase(addr);
-                poll_for_write_complete(&qspi);
-                caller.reply(());
-                Ok::<_, InternalHfError>(())
-            }
-        });
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
-fn set_and_check_write_enable(qspi: &Qspi) -> Result<(), HfError> {
+struct ServerImpl {
+    qspi: Qspi,
+    block: [u8; 256],
+}
+
+impl idl::InOrderHostFlashImpl for ServerImpl {
+    fn read_id(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 20], RequestError<HfError>> {
+        let mut idbuf = [0; 20];
+        self.qspi.read_id(&mut idbuf);
+        Ok(idbuf)
+    }
+
+    fn read_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<HfError>> {
+        Ok(self.qspi.read_status())
+    }
+
+    fn bulk_erase(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<HfError>> {
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.bulk_erase();
+        poll_for_write_complete(&self.qspi);
+        Ok(())
+    }
+
+    fn page_program(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        data: LenLimit<Leased<R, [u8]>, 256>,
+    ) -> Result<(), RequestError<HfError>> {
+        // Read the entire data block into our address space.
+        data.read_range(0..data.len(), &mut self.block[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        // Now we can't fail.
+
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.page_program(addr, &self.block[..data.len()]);
+        poll_for_write_complete(&self.qspi);
+        Ok(())
+    }
+
+    fn read(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+        dest: LenLimit<Leased<W, [u8]>, 256>,
+    ) -> Result<(), RequestError<HfError>> {
+        self.qspi.read_memory(addr, &mut self.block[..dest.len()]);
+
+        dest.write_range(0..dest.len(), &self.block[..dest.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        Ok(())
+    }
+
+    fn sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        addr: u32,
+    ) -> Result<(), RequestError<HfError>> {
+        set_and_check_write_enable(&self.qspi)?;
+        self.qspi.sector_erase(addr);
+        poll_for_write_complete(&self.qspi);
+        Ok(())
+    }
+}
+
+fn set_and_check_write_enable(
+    qspi: &Qspi,
+) -> Result<(), RequestError<HfError>> {
     qspi.write_enable();
     let status = qspi.read_status();
 
@@ -422,4 +413,10 @@ fn poll_for_write_complete(qspi: &Qspi) {
             break;
         }
     }
+}
+
+mod idl {
+    use super::HfError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

@@ -1,0 +1,61 @@
+// Gimlet Host Flash API
+
+Interface(
+    name: "HostFlash",
+    ops: {
+        "read_id": (
+            args: {},
+            reply: Result(
+                ok: "[u8; 20]",
+                err: CLike("HfError"),
+            ),
+        ),
+        "read_status": (
+            args: {},
+            reply: Result(
+                ok: "u8",
+                err: CLike("HfError"),
+            ),
+        ),
+        "bulk_erase": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "page_program": (
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "read": (
+            args: {
+                "address": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+        "sector_erase": (
+            args: {
+                "address": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
+    },
+)
