@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 quote = "1.0.9"
 cfg-if = "0.1.10"
 proc-macro2 = "1.0.9"

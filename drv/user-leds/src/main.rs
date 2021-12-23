@@ -30,15 +30,8 @@
 #![no_std]
 #![no_main]
 
+use idol_runtime::RequestError;
 use userlib::*;
-use zerocopy::AsBytes;
-
-#[derive(FromPrimitive)]
-enum Op {
-    On = 1,
-    Off = 2,
-    Toggle = 3,
-}
 
 cfg_if::cfg_if! {
     // Target boards with 4 leds
@@ -71,13 +64,45 @@ cfg_if::cfg_if! {
 }
 
 #[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
+pub enum LedError {
+    NotPresent = 1,
 }
 
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
+impl From<LedError> for u16 {
+    fn from(rc: LedError) -> Self {
+        rc as u16
+    }
+}
+
+struct ServerImpl;
+
+impl idl::InOrderUserLedsImpl for ServerImpl {
+    fn led_on(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<LedError>> {
+        let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        led_on(led);
+        Ok(())
+    }
+    fn led_off(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<LedError>> {
+        let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        led_off(led);
+        Ok(())
+    }
+    fn led_toggle(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<(), RequestError<LedError>> {
+        let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        led_toggle(led);
+        Ok(())
     }
 }
 
@@ -85,32 +110,11 @@ impl From<ResponseCode> for u32 {
 fn main() -> ! {
     enable_led_pins();
 
-    // Field messages.
-    // Ensure our buffer is aligned properly for a u32 by declaring it as one.
-    let mut buffer = 0u32;
+    // Handle messages.
+    let mut incoming = [0u8; idl::INCOMING_SIZE];
+    let mut serverimpl = ServerImpl;
     loop {
-        hl::recv_without_notification(
-            buffer.as_bytes_mut(),
-            |op, msg| -> Result<(), ResponseCode> {
-                // Every incoming message uses the same payload type and
-                // response type: it's always u32 -> (). So we can do the
-                // check-and-convert here:
-                let (msg, caller) =
-                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
-
-                // Every incoming message has the same permitted range, as well.
-                let led = Led::from_u32(*msg).ok_or(ResponseCode::BadArg)?;
-
-                match op {
-                    Op::On => led_on(led),
-                    Op::Off => led_off(led),
-                    Op::Toggle => led_toggle(led),
-                }
-
-                caller.reply(());
-                Ok(())
-            },
-        );
+        idol_runtime::dispatch(&mut incoming, &mut serverimpl);
     }
 }
 
@@ -143,6 +147,8 @@ macro_rules! gpio {
 
 #[cfg(any(feature = "stm32f3", feature = "stm32f4"))]
 fn enable_led_pins() {
+    use zerocopy::AsBytes;
+
     // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
     // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.
 
@@ -151,9 +157,9 @@ fn enable_led_pins() {
     const ENABLE_CLOCK: u16 = 1;
 
     #[cfg(feature = "stm32f3")]
-    let gpio_pnum = 21; // see bits in AHBENR
+    let gpio_pnum: u32 = 21; // see bits in AHBENR
     #[cfg(feature = "stm32f4")]
-    let gpio_pnum = 3; // see bits in AHB1ENR
+    let gpio_pnum: u32 = 3; // see bits in AHB1ENR
 
     let (code, _) = userlib::sys_send(
         rcc_driver,
@@ -471,4 +477,10 @@ fn led_toggle(led: Led) {
 
     let pin = led_gpio_num(led);
     gpio_driver.toggle(pin).unwrap();
+}
+
+mod idl {
+    use super::LedError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

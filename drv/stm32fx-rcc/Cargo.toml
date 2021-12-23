@@ -7,7 +7,7 @@ edition = "2018"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 stm32f3 = { version = "0.13.0", optional = true, default-features = false }
 stm32f4 = { version = "0.13.0", optional = true, default-features = false }
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]

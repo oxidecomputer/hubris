@@ -528,6 +528,7 @@ name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -544,9 +545,12 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-qspi",
  "drv-stm32h7-rcc-api",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "stm32h7",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -725,8 +729,10 @@ name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "idol",
  "num-traits",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -769,6 +775,7 @@ name = "drv-stm32h7-gpio-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -825,6 +832,8 @@ name = "drv-stm32h7-rcc"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "stm32h7",
  "userlib",
@@ -836,6 +845,7 @@ name = "drv-stm32h7-rcc-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -863,6 +873,8 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "stm32h7",
@@ -891,6 +903,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
  "drv-stm32h7-gpio-api",
+ "idol",
+ "idol-runtime",
  "lpc55-pac",
  "num-traits",
  "stm32f3",
@@ -903,6 +917,8 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "abi",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",
@@ -1226,6 +1242,27 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
+name = "idol"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/idolatry.git#6d18e14c952f6f351c8ce07a1611dd3e4b5a9012"
+dependencies = [
+ "indexmap",
+ "quote",
+ "ron 0.7.0",
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "idol-runtime"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/idolatry.git#6d18e14c952f6f351c8ce07a1611dd3e4b5a9012"
+dependencies = [
+ "userlib",
+ "zerocopy",
+]
 
 [[package]]
 name = "indexmap"
@@ -1682,7 +1719,7 @@ dependencies = [
  "libm",
  "num-derive",
  "num-traits",
- "ron",
+ "ron 0.6.6",
  "serde",
  "serde_with",
 ]
@@ -1875,6 +1912,17 @@ name = "ron"
 version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86018df177b1beef6c7c8ef949969c4f7cb9a9344181b92486b23c79995bdaa4"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
+]
+
+[[package]]
+name = "ron"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b861ecaade43ac97886a512b360d01d66be9f41f3c61088b42cedf92e03d678"
 dependencies = [
  "base64",
  "bitflags",
@@ -2746,9 +2794,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.3.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6580539ad917b7c026220c4b3f2c08d52ce54d6ce0dc491e66002e35388fab46"
+checksum = "332f188cc1bcf1fe1064b8c58d150f497e697f49774aa846f2dc949d9a25f236"
 dependencies = [
  "byteorder",
  "zerocopy-derive",
@@ -2756,9 +2804,9 @@ dependencies = [
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d498dbd1fd7beb83c86709ae1c33ca50942889473473d287d56ce4770a18edfb"
+checksum = "a0fbc82b82efe24da867ee52e015e58178684bd9dd64c34e66bdf21da2582a9f"
 dependencies = [
  "proc-macro2",
  "syn",

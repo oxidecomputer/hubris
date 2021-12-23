@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib"}
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 cfg-if = "0.1.10"
 

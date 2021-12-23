@@ -91,3 +91,9 @@ opt-level = "z" # smaller optimizations
 
 [profile.dev]
 opt-level = 1 # no optimizations was just too painful in terms of flash size
+
+[patch."https://github.com/oxidecomputer/hubris".userlib]
+path = "sys/userlib"
+
+[patch."https://github.com/oxidecomputer/hubris".abi]
+path = "sys/abi"

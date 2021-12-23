@@ -3,13 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_target_board();
-
-    idol::server::build_server_support(
-        "../../idl/spi.idol",
-        "server_stub.rs",
-        idol::server::ServerStyle::InOrder,
+    idol::client::build_client_stub(
+        "../../idl/user-leds.idol",
+        "client_stub.rs",
     )?;
-
     Ok(())
 }

@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 ringbuf = {path = "../../lib/ringbuf"}
-zerocopy = "0.3.0"
+zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 vcell = "0.1.2"
 stm32h7 = { version = "0.13.0", default-features = false }

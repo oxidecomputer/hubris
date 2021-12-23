@@ -6,23 +6,15 @@
 
 #![no_std]
 
-use byteorder::LittleEndian;
-use core::cell::Cell;
-use zerocopy::{AsBytes, U16};
+use zerocopy::AsBytes;
 
 use userlib::*;
-
-enum Op {
-    Configure = 1,
-    SetReset = 2,
-    ReadInput = 3,
-    Toggle = 4,
-}
 
 /// Enumeration of all GPIO ports on the STM32H7 series. Note that not all these
 /// ports may be externally exposed on your device/package. We do not check this
 /// at compile time.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
 pub enum Port {
     A = 0,
     B = 1,
@@ -120,15 +112,6 @@ pub enum Alternate {
     AF15 = 15,
 }
 
-#[derive(Clone, Debug)]
-pub struct Gpio(Cell<TaskId>);
-
-impl From<TaskId> for Gpio {
-    fn from(t: TaskId) -> Self {
-        Self(Cell::new(t))
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum GpioError {
@@ -166,34 +149,13 @@ impl Gpio {
         pull: Pull,
         af: Alternate,
     ) -> Result<(), GpioError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct ConfigureRequest {
-            port: u8,
-            pins: U16<LittleEndian>,
-            packed_attributes: U16<LittleEndian>,
-        }
-
-        impl hl::Call for ConfigureRequest {
-            const OP: u16 = Op::Configure as u16;
-            type Response = ();
-            type Err = GpioError;
-        }
-
         let packed_attributes = mode as u16
             | (output_type as u16) << 2
             | (speed as u16) << 3
             | (pull as u16) << 5
             | (af as u16) << 7;
 
-        hl::send_with_retry(
-            &self.0,
-            &ConfigureRequest {
-                port: port as u8,
-                pins: U16::new(pins),
-                packed_attributes: U16::new(packed_attributes),
-            },
-        )
+        self.configure_raw(port, pins, packed_attributes)
     }
 
     /// Configures the pins in `PinSet` as high-impedance digital inputs, with
@@ -280,37 +242,6 @@ impl Gpio {
         )
     }
 
-    /// Alters some subset of pins in a GPIO port.
-    pub fn set_reset(
-        &self,
-        port: Port,
-        set_pins: u16,
-        reset_pins: u16,
-    ) -> Result<(), GpioError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct SetResetRequest {
-            port: u8,
-            set_pins: U16<LittleEndian>,
-            reset_pins: U16<LittleEndian>,
-        }
-
-        impl hl::Call for SetResetRequest {
-            const OP: u16 = Op::SetReset as u16;
-            type Response = ();
-            type Err = GpioError;
-        }
-
-        hl::send_with_retry(
-            &self.0,
-            &SetResetRequest {
-                port: port as u8,
-                set_pins: U16::new(set_pins),
-                reset_pins: U16::new(reset_pins),
-            },
-        )
-    }
-
     /// Sets some pins high.
     pub fn set(&self, pinset: PinSet) -> Result<(), GpioError> {
         self.set_reset(pinset.port, pinset.pin_mask, 0)
@@ -330,46 +261,9 @@ impl Gpio {
         )
     }
 
-    /// Reads the status of the input pins on a port.
-    pub fn read_input(&self, port: Port) -> Result<u16, GpioError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct ReadInputRequest(u8);
-
-        impl hl::Call for ReadInputRequest {
-            const OP: u16 = Op::ReadInput as u16;
-            type Response = u16;
-            type Err = GpioError;
-        }
-
-        hl::send_with_retry(&self.0, &ReadInputRequest(port as u8))
-    }
-
     pub fn read(&self, pinset: PinSet) -> Result<u16, GpioError> {
         Ok(self.read_input(pinset.port)? & pinset.pin_mask)
     }
-
-    /// Toggles some subset of pins in a GPIO port.
-    pub fn toggle(&self, port: Port, pins: u16) -> Result<(), GpioError> {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct ToggleRequest {
-            port: u8,
-            pins: U16<LittleEndian>,
-        }
-
-        impl hl::Call for ToggleRequest {
-            const OP: u16 = Op::Toggle as u16;
-            type Response = ();
-            type Err = GpioError;
-        }
-
-        hl::send_with_retry(
-            &self.0,
-            &ToggleRequest {
-                port: port as u8,
-                pins: U16::new(pins),
-            },
-        )
-    }
 }
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
