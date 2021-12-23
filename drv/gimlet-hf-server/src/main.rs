@@ -411,17 +411,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
 
         let rv = match state {
-            HfMuxState::SP => {
-                gpio_driver.reset(self.select_pin)
-            }
-            HfMuxState::HostCPU => {
-                gpio_driver.set(self.select_pin)
-            }
+            HfMuxState::SP => gpio_driver.reset(self.select_pin),
+            HfMuxState::HostCPU => gpio_driver.set(self.select_pin),
         };
 
         match rv {
             Err(_) => Err(HfError::MuxFailed.into()),
-            Ok(_)  => {
+            Ok(_) => {
                 self.mux_state = state;
                 Ok(())
             }
