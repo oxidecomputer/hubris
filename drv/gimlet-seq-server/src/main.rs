@@ -14,9 +14,11 @@ mod seq_spi;
 use ringbuf::*;
 use userlib::*;
 
+use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
+use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use seq_spi::Addr;
 
 task_slot!(GPIO, gpio_driver);
@@ -24,6 +26,8 @@ task_slot!(SPI, spi_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    Ice40Rails(bool, bool),
+    Reprogram(bool),
     Programmed,
     Programming,
     Ice40PowerGoodV1P2(bool),
@@ -36,6 +40,8 @@ enum Trace {
     A0Power(u8),
     RailsOn,
     Done,
+    GetState,
+    SetState(PowerState, PowerState),
     None,
 }
 
@@ -90,6 +96,12 @@ fn main() -> ! {
     // crate handles the CRESETB and CDONE signals, and takes care not to
     // generate surprise resets.
     ice40::configure_pins(&gpio, &ICE40_CONFIG);
+
+    let pg = gpio.read_input(PGS_PORT).unwrap();
+    let v1p2 = pg & PG_V1P2_MASK != 0;
+    let v3p3 = pg & PG_V3P3_MASK != 0;
+
+    ringbuf_entry!(Trace::Ice40Rails(v1p2, v3p3));
 
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
@@ -205,11 +217,10 @@ fn main() -> ! {
     // If the sequencer is already loaded and operational, the design loaded
     // into it should be willing to talk to us over SPI, and should be able to
     // serve up a recognizable ident code.
-    //
-    // TODO except for now we're going to skip the version check and
-    // unconditionally reprogram it because the SPI communication code ain't
-    // written, and also yolo. Replace this with a check.
-    let reprogram = true;
+    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+
+    let reprogram = if seq.valid_ident() { false } else { true };
+    ringbuf_entry!(Trace::Reprogram(reprogram));
 
     // We only want to reset and reprogram the FPGA when absolutely required.
     if reprogram {
@@ -246,9 +257,8 @@ fn main() -> ! {
         }
     }
 
-    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
-
     ringbuf_entry!(Trace::Programmed);
+
     vcore_soc_off();
     ringbuf_entry!(Trace::RailsOff);
 
@@ -270,50 +280,98 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::A2);
 
-    //
-    // We know that we're in A2 -- send us to A1 and A0.
-    //
-    let a1a0 = 0x3u8;
-    seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
-
-    loop {
-        let mut power = [0u8, 0u8];
-
-        seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
-        ringbuf_entry!(Trace::A1Power(power[0], power[1]));
-
-        if power[1] == 0x7 {
-            break;
-        }
-
-        hl::sleep_for(1);
-    }
-
-    //
-    // And power up!
-    //
-    vcore_soc_on();
-    ringbuf_entry!(Trace::RailsOn);
-
-    //
-    // Now wait for the end of Group C.
-    //
-    loop {
-        let mut power = [0u8];
-
-        seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
-        ringbuf_entry!(Trace::A0Power(power[0]));
-
-        if power[0] == 0xc {
-            break;
-        }
-
-        hl::sleep_for(1);
-    }
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    let mut server = ServerImpl {
+        state: PowerState::A2,
+        seq,
+    };
 
     loop {
         ringbuf_entry!(Trace::Done);
-        hl::sleep_for(10);
+        idol_runtime::dispatch(&mut buffer, &mut server);
+    }
+}
+
+struct ServerImpl {
+    state: PowerState,
+    seq: seq_spi::SequencerFpga,
+}
+
+impl idl::InOrderSequencerImpl for ServerImpl {
+    fn get_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerState, RequestError<SeqError>> {
+        ringbuf_entry!(Trace::GetState);
+        Ok(self.state)
+    }
+
+    fn set_state(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::SetState(self.state, state));
+
+        match (self.state, state) {
+            (PowerState::A2, PowerState::A0) => {
+                //
+                // We are going to pass through A1 on the way to A0.
+                //
+                let a1a0 = 0x3u8;
+                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+
+                loop {
+                    let mut power = [0u8, 0u8];
+
+                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
+                    ringbuf_entry!(Trace::A1Power(power[0], power[1]));
+
+                    if power[1] == 0x7 {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                //
+                // And power up!
+                //
+                vcore_soc_on();
+                ringbuf_entry!(Trace::RailsOn);
+
+                //
+                // Now wait for the end of Group C.
+                //
+                loop {
+                    let mut power = [0u8];
+
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
+                    ringbuf_entry!(Trace::A0Power(power[0]));
+
+                    if power[0] == 0xc {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                self.state = PowerState::A0;
+                Ok(())
+            }
+
+            (PowerState::A0, PowerState::A2) => {
+                let a1a0 = 0x0u8;
+                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+                vcore_soc_off();
+
+                self.state = PowerState::A2;
+                ringbuf_entry!(Trace::A2);
+                Ok(())
+            }
+
+            _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
+        }
     }
 }
 
@@ -473,4 +531,10 @@ cfg_if::cfg_if! {
     } else {
         compiler_error!("unsupported target board");
     }
+}
+
+mod idl {
+    use super::{PowerState, SeqError};
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

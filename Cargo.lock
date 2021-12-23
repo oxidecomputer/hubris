@@ -554,6 +554,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimlet-seq-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
@@ -562,6 +573,7 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "drv-ice40-spi-program",
@@ -570,6 +582,8 @@ dependencies = [
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
  "gnarle",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "serde",

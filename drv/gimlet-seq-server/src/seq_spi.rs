@@ -37,6 +37,15 @@ impl SequencerFpga {
         Ok(ident)
     }
 
+    /// Check for a valid identifier, deliberately eating any SPI errors.
+    pub fn valid_ident(&self) -> bool {
+        if let Ok(ident) = self.read_ident() {
+            ident == EXPECTED_IDENT
+        } else {
+            false
+        }
+    }
+
     /// Performs the READ command against `addr`. This can read as many bytes as
     /// you like into `data_out`.
     pub fn read_bytes(

@@ -31,6 +31,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(out.join("gimlet_regs.rs"), regs()?)?;
     println!("cargo:rerun-if-changed=fpga.bin");
 
+    idol::server::build_server_support(
+        "../../idl/gimlet-seq.idol",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
+    )?;
+
     Ok(())
 }
 
