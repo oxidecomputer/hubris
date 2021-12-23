@@ -49,6 +49,7 @@ pub(crate) fn sleep(
 ///
 /// Function to send an arbitrary message to an arbitrary task.
 ///
+/// arg2+n+1: Number of reply bytes
 /// arg2+n: Number of bytes
 /// arg2: Argument bytes
 /// arg1: Operation
@@ -57,28 +58,39 @@ pub(crate) fn sleep(
 pub(crate) fn send(
     stack: &[Option<u32>],
     _data: &[u8],
-    _rval: &mut [u8],
+    rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let mut payload = [0u8; 32];
 
-    if stack.len() < 3 {
+    if stack.len() < 4 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
     let sp = stack.len();
 
-    let nbytes = match stack[sp - 1] {
+    let nreply = match stack[sp - 1] {
+        Some(nreply) => nreply as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(4)));
+        }
+    };
+
+    if nreply > rval.len() {
+        return Err(Failure::Fault(Fault::ReturnStackOverflow));
+    }
+
+    let nbytes = match stack[sp - 2] {
         Some(nbytes) => nbytes as usize,
         None => {
             return Err(Failure::Fault(Fault::EmptyParameter(3)));
         }
     };
 
-    if stack.len() < nbytes + 3 {
+    if stack.len() < nbytes + 4 {
         return Err(Failure::Fault(Fault::StackUnderflow));
     }
 
-    let fp = sp - (nbytes + 3);
+    let fp = sp - (nbytes + 4);
 
     let task = match stack[fp + 0] {
         Some(task) => {
@@ -133,19 +145,17 @@ pub(crate) fn send(
         };
     }
 
-    let mut response = 0_usize;
-
     //
     // We have it all! Time to send.
     //
     let (code, _) =
-        sys_send(task, op, &payload[0..nbytes], response.as_bytes_mut(), &[]);
+        sys_send(task, op, &payload[0..nbytes], &mut rval[0..nreply], &[]);
 
     if code != 0 {
         return Err(Failure::FunctionError(code));
     }
 
-    Ok(0)
+    Ok(nreply)
 }
 
 #[cfg(feature = "spi")]
