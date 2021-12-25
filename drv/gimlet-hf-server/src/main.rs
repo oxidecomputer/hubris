@@ -146,6 +146,7 @@ fn main() -> ! {
                 gpio_api::Pull::None,
             ).unwrap();
 
+            let select_pin = gpio_api::Port::F.pin(5);
             let reset_pin = gpio_api::Port::F.pin(4);
 
         } else if #[cfg(target_board = "gemini-bu-1")] {
@@ -193,8 +194,8 @@ fn main() -> ! {
                 gpio_api::Speed::High,
                 gpio_api::Pull::None,
             ).unwrap();
+            let select_pin = gpio_api::Port::F.pin(4);
             let reset_pin = gpio_api::Port::F.pin(5);
-            let _host_access = gpio_api::Port::F.pin(4);
 
         } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // Nucleo-h743zi2/h753zi pin mappings
@@ -275,8 +276,10 @@ fn main() -> ! {
                 gpio_api::Pull::None,
             ).unwrap();
 
+            let select_pin = gpio_api::Port::F.pin(5);
             let reset_pin = gpio_api::Port::F.pin(4);
         } else if #[cfg(feature = "standalone")] {
+            let select_pin = gpio_api::Port::B.pin(2);
             let reset_pin = gpio_api::Port::B.pin(2);
         } else {
             compile_error!("unsupported board");
