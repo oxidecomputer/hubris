@@ -921,9 +921,20 @@ cfg_if::cfg_if! {
                 SpiMuxOption {
                     outputs: &[
                         (
+                            //
+                            // It may seem reasonable -- especially given the
+                            // groupings and silkscreen on CN7 -- to use PB3
+                            // for SPI3_SCK. However, this pin is TRACESWO on
+                            // AF0:  if we configure this pin for SPI, ITM
+                            // will no longer work (and with a failure mode
+                            // that can be difficult to debug).  We instead
+                            // opt to use PC10 for SPI3_SCK, which is also
+                            // easily accessible:  it's pin 1 on CN11 and pin
+                            // 6 on CN8.
+                            //
                             PinSet {
-                                port: gpio_api::Port::B,
-                                pin_mask: 1 << 3,
+                                port: gpio_api::Port::C,
+                                pin_mask: 1 << 10,
                             },
                             gpio_api::Alternate::AF6,
                         ),
