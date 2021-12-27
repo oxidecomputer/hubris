@@ -486,14 +486,15 @@ pub fn package(
     let mut gdb_script = File::create(out.join("script.gdb"))?;
     writeln!(
         gdb_script,
-        "add-symbol-file {}",
+        "symbol-file {}",
         out.join("kernel").to_slash().unwrap()
     )?;
     for name in toml.tasks.keys() {
         writeln!(
             gdb_script,
-            "add-symbol-file {}",
-            out.join(name).to_slash().unwrap()
+            "add-symbol-file {} {}",
+            out.join(name).to_slash().unwrap(),
+            allocs.tasks.get(name).unwrap().get("flash").unwrap().start
         )?;
     }
     if let Some(bootloader) = toml.bootloader.as_ref() {
