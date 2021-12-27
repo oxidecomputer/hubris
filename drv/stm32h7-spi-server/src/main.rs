@@ -38,6 +38,7 @@ enum Trace {
     Start(SpiOperation, (u16, u16)),
     Tx(u16, u8),
     Rx(u16, u8),
+    WaitISR(u32),
     None,
 }
 
@@ -251,6 +252,7 @@ impl ServerImpl {
         data_dest: Option<LenLimit<Leased<W, [u8]>, 65535>>,
     ) -> Result<(), RequestError<SpiError>> {
         let device_index = usize::from(device_index);
+        let mut rval = Ok(());
 
         // If we are locked, check that the caller isn't mistakenly
         // addressing the wrong device.
@@ -381,21 +383,22 @@ impl ServerImpl {
                     *tx_pos += 1;
                     made_progress = true;
 
-                    // If we have _just_ finished...
                     if *tx_pos == overall_len {
-                        // We will finish transmitting well before
-                        // we're done receiving, so stop getting
-                        // interrupt notifications for transmit
-                        // space available during that time.
-                        self.spi.disable_can_tx_interrupt();
+                        // We continue to transmit beyond our src_len
+                        // (transmitting dummy bytes, above), but once we
+                        // hit overall_len we are done transmitting.
                         tx = None;
                         break;
                     }
                 }
             }
 
+            // Just as we keep transmitting until the TX FIFO is filled, we
+            // keep receiving now until the RX FIFO is empty, assuring that
+            // we are (roughly) balanced with respect to TX and RX and reducing
+            // our chances of hitting an overrun.
             if let Some((rx_data, rx_pos)) = &mut rx {
-                if self.spi.can_rx_byte() {
+                while self.spi.can_rx_byte() {
                     // Transfer byte from RX FIFO to caller.
                     let b = self.spi.recv8();
                     rx_data
@@ -406,6 +409,7 @@ impl ServerImpl {
 
                     if *rx_pos == dest_len {
                         rx = None;
+                        break;
                     }
 
                     made_progress = true;
@@ -413,6 +417,19 @@ impl ServerImpl {
             }
 
             if !made_progress {
+                ringbuf_entry!(Trace::WaitISR(self.spi.read_status()));
+
+                if self.spi.check_overrun() {
+                    // If we've had an overrun, there's little to be done other
+                    // than cleanup and return a failure to our caller.
+                    rval = Err(SpiError::DataOverrun.into());
+                    break;
+                }
+
+                if self.spi.check_eot() {
+                    break;
+                }
+
                 // Allow the controller interrupt to post to our
                 // notification set.
                 sys_irq_control(IRQ_MASK, true);
@@ -446,7 +463,7 @@ impl ServerImpl {
                 .unwrap();
         }
 
-        Ok(())
+        rval
     }
 }
 
@@ -929,8 +946,7 @@ cfg_if::cfg_if! {
                             // will no longer work (and with a failure mode
                             // that can be difficult to debug).  We instead
                             // opt to use PC10 for SPI3_SCK, which is also
-                            // easily accessible:  it's pin 1 on CN11 and pin
-                            // 6 on CN8.
+                            // easily accessible:  it's pin 6 on CN8.
                             //
                             PinSet {
                                 port: gpio_api::Port::C,
