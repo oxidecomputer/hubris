@@ -25,6 +25,9 @@ pub enum SpiError {
     ///
     /// This is almost certainly a programming error on the client side.
     BadDevice = 4,
+
+    /// Data was received before it could be read
+    DataOverrun = 5,
 }
 
 impl From<SpiError> for u16 {
