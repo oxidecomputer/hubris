@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-default = []
 panic-messages = []
 log-itm = []
 log-semihosting = []
@@ -25,10 +24,6 @@ num-traits = { version = "0.2.12", default-features = false }
 # which passes "full" through to syn.
 #
 num-derive = { version = "0.3.0", features = [ "full-syntax" ] }
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 [lib]
 test = false

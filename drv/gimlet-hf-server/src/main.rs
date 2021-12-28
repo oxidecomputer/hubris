@@ -278,9 +278,6 @@ fn main() -> ! {
 
             let select_pin = gpio_api::Port::F.pin(5);
             let reset_pin = gpio_api::Port::F.pin(4);
-        } else if #[cfg(feature = "standalone")] {
-            let select_pin = gpio_api::Port::B.pin(2);
-            let reset_pin = gpio_api::Port::B.pin(2);
         } else {
             compile_error!("unsupported board");
         }

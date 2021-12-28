@@ -979,17 +979,6 @@ cfg_if::cfg_if! {
                 },
             ],
         };
-    //
-    // Standalone build
-    //
-    } else if #[cfg(feature = "standalone")] {
-        // whatever - nobody gonna run it
-        const CONFIG: ServerConfig = ServerConfig {
-            registers: device::SPI1::ptr(),
-            peripheral: rcc_api::Peripheral::Spi1,
-            mux_options: &[],
-            devices: &[],
-        };
     } else {
         compile_error!("unsupported board-controller combination");
     }

@@ -23,16 +23,10 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-default = ["standalone"]
-standalone = [ "h753", "itm" ]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32h7-rcc-api/h743", "build-i2c/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32h7-rcc-api/h753", "build-i2c/h753"]
 h7b3 = ["stm32h7/stm32h7b3", "drv-stm32h7-i2c/h7b3", "drv-stm32h7-rcc-api/h7b3", "build-i2c/h7b3"]
 itm = [ "userlib/log-itm" ]
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

@@ -11,13 +11,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api"}
 
 [features]
-default = ["standalone"]
-standalone = []
 uart = []
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 [[bin]]
 name = "task-ping"

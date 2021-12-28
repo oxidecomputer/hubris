@@ -11,7 +11,6 @@ use serde::Deserialize;
 
 use indexmap::IndexMap;
 
-mod check;
 mod clippy;
 mod dist;
 mod elf;
@@ -100,23 +99,6 @@ enum Xtask {
         /// Request verbosity from tools we shell out to.
         #[structopt(short)]
         verbose: bool,
-    },
-
-    /// Runs `cargo check` on a specific task
-    Check {
-        /// the target to build for, uses [package.metadata.build.target] if not
-        /// passed
-        #[structopt(long)]
-        target: Option<String>,
-
-        /// the package you're trying to build, uses current directory if not
-        /// passed
-        #[structopt(short)]
-        package: Option<String>,
-
-        /// check all packages, not only one
-        #[structopt(long)]
-        all: bool,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -422,14 +404,6 @@ fn main() -> Result<()> {
             }
 
             test::run(verbose, &cfg)?;
-        }
-        Xtask::Check {
-            package,
-            target,
-            all,
-        } => {
-            let requested = RequestedPackages::new(package, target, all);
-            run_for_packages(requested, check::run)?;
         }
         Xtask::Clippy {
             package,

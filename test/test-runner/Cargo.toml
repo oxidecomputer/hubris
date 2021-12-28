@@ -12,13 +12,7 @@ zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 
 [features]
-default = ["standalone", "itm"]
-standalone = []
 itm = [ "userlib/log-itm" ]
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
 
 [[bin]]
 name = "test-runner"
