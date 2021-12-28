@@ -5,8 +5,6 @@ name = "gimlet-rot"
 version = "0.1.0"
 
 [features]
-default = ["standalone"]
-standalone = ["itm"]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 plls = []
@@ -23,10 +21,6 @@ cfg-if = "0.1.10"
 [dependencies.kern]
 path = "../../sys/kern"
 default-features = false
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
 
 # this lets you use `cargo fix`!
 [[bin]]

@@ -9,12 +9,3 @@ zerocopy = "0.6.1"
 lpc55-pac = "0.3.0"
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 num-traits = { version = "0.2.12", default-features = false }
-
-[features]
-default = ["standalone"]
-standalone = []
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
-

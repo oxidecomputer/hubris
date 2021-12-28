@@ -19,9 +19,9 @@
 //! consequences.  First, the task that executes HIF needs to be the lowest
 //! priority task in the system to allow it to call other, high priority tasks
 //! (thereby avoiding inversion) -- but by dint of being the lowest priority,
-//! it can be starved by essntially every other task.  This becomes
+//! it can be starved by essentially every other task.  This becomes
 //! problematic when a high priority task is in a fault loop, as it becomes
-//! impossible for the HIF execution engine to actually become schedule to
+//! impossible for the HIF execution engine to actually get scheduled to
 //! tell Jefe to stop restarting the faulting task.  This is frustrating for
 //! the user:  they are (correctly) trying to tell Jefe to hold the faulting
 //! task, and they will be greeted with nothing but execution timeouts.
@@ -36,7 +36,7 @@
 //! system is wedged:  the HIF task cannot execute (it is reply-blocked) to
 //! tell Jefe to restart the faulted task.
 //!
-//! These problems were a clear message from the gods:  we were being punished
+//! These problems were a clear message from the gods: we were being punished
 //! for the hubris of a meaningless elegance.  Seeing the folly of our mortal
 //! ways, we restored the logic you see before you -- but added this
 //! additional warning, surely fated to become half sunk in the lone and level

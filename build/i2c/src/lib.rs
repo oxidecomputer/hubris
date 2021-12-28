@@ -125,15 +125,6 @@ struct I2cPmbus {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-pub enum Artifact {
-    /// part of a complete distribution of an application
-    Dist,
-
-    /// standalone build of a single task
-    Standalone,
-}
-
-#[derive(Copy, Clone, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -152,9 +143,6 @@ struct ConfigGenerator {
     /// disposition of this configuration: target v. initiator v. devices
     disposition: Disposition,
 
-    /// artifact that we're creating: standalone v. dist
-    artifact: Artifact,
-
     /// all controllers
     controllers: Vec<I2cController>,
 
@@ -172,18 +160,12 @@ struct ConfigGenerator {
 }
 
 impl ConfigGenerator {
-    fn new(disposition: Disposition, artifact: Artifact) -> Self {
-        let i2c = match artifact {
-            Artifact::Standalone => I2cConfig {
-                controllers: vec![],
-                devices: None,
-            },
-            Artifact::Dist => match build_util::config::<Config>() {
-                Ok(config) => config.i2c,
-                Err(err) => {
-                    panic!("malformed config.i2c: {:?}", err);
-                }
-            },
+    fn new(disposition: Disposition) -> Self {
+        let i2c = match build_util::config::<Config>() {
+            Ok(config) => config.i2c,
+            Err(err) => {
+                panic!("malformed config.i2c: {:?}", err);
+            }
         };
 
         let mut controllers = vec![];
@@ -253,7 +235,6 @@ impl ConfigGenerator {
         Self {
             output: String::new(),
             disposition: disposition,
-            artifact: artifact,
             controllers: controllers,
             buses: buses,
             ports: ports,
@@ -585,26 +566,6 @@ impl ConfigGenerator {
     }
 
     pub fn generate_devices(&mut self) -> Result<()> {
-        if self.artifact == Artifact::Standalone {
-            //
-            // For the standalone build, we generate a single, mock
-            // device.
-            //
-            writeln!(
-                &mut self.output,
-                r##"
-    pub mod devices {{
-        use drv_i2c_api::I2cDevice;
-        use userlib::TaskId;
-
-        pub fn mock(task: TaskId) -> I2cDevice {{
-            I2cDevice::mock(task)
-        }}
-    }}"##
-            )?;
-            return Ok(());
-        }
-
         //
         // Throw all devices into a MultiMap based on device.
         //
@@ -714,10 +675,6 @@ impl ConfigGenerator {
     }
 
     pub fn generate_pmbus(&mut self) -> Result<()> {
-        if self.artifact == Artifact::Standalone {
-            return Ok(());
-        }
-
         let mut byrail = HashMap::new();
 
         for d in &self.devices {
@@ -769,20 +726,6 @@ impl ConfigGenerator {
     pub mod ports {{"##
         )?;
 
-        if self.artifact == Artifact::Standalone {
-            //
-            // For the standalone build, we generate a mock port.
-            //
-            writeln!(
-                &mut self.output,
-                r##"
-        #[allow(dead_code)]
-        pub const fn i2c_mock() -> drv_i2c_api::PortIndex {{
-            drv_i2c_api::PortIndex(0)
-        }}"##
-            )?;
-        }
-
         for ((controller, port), index) in &self.ports {
             writeln!(
                 &mut self.output,
@@ -802,14 +745,14 @@ impl ConfigGenerator {
     }
 }
 
-pub fn codegen(disposition: Disposition, artifact: Artifact) -> Result<()> {
+pub fn codegen(disposition: Disposition) -> Result<()> {
     use std::io::Write;
 
     let out_dir = env::var("OUT_DIR")?;
     let dest_path = Path::new(&out_dir).join("i2c_config.rs");
     let mut file = File::create(&dest_path)?;
 
-    let mut g = ConfigGenerator::new(disposition, artifact);
+    let mut g = ConfigGenerator::new(disposition);
 
     g.generate_header()?;
 
@@ -817,7 +760,7 @@ pub fn codegen(disposition: Disposition, artifact: Artifact) -> Result<()> {
         Disposition::Target => {
             let n = g.ncontrollers();
 
-            if n != 1 && artifact == Artifact::Dist {
+            if n != 1 {
                 //
                 // If we have the disposition of a target, we expect exactly one
                 // controller to be configured as a target; if none have been

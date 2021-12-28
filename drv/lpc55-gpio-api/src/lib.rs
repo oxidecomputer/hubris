@@ -14,7 +14,7 @@ use zerocopy::{AsBytes, FromBytes};
 // These are encoded so port 0 goes from 0 - 31 and port 1
 // goes 0 - 64
 cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "lpcxpresso55s69", feature = "standalone"))] {
+    if #[cfg(any(target_board = "lpcxpresso55s69"))] {
         #[derive(Copy, Clone, Debug, FromPrimitive)]
         #[repr(u32)]
         pub enum Pin {

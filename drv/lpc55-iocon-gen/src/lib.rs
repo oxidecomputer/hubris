@@ -40,10 +40,10 @@ pub fn gen_iocon_table(_item: TokenStream) -> TokenStream {
 
     // Would love a way to avoid having this here eventually
     cfg_if::cfg_if! {
-        if #[cfg(any(target_board = "lpcxpresso55s69", feature = "standalone"))] {
-        let max_pins = 64;
+        if #[cfg(any(target_board = "lpcxpresso55s69"))] {
+            let max_pins = 64;
         } else {
-        let max_pins = 36;
+            let max_pins = 36;
         }
     }
 

@@ -14,13 +14,5 @@ proc-macro2 = "1.0.9"
 [build-dependencies]
 build-util = {path = "../../build/util"}
 
-[features]
-default = ["standalone"]
-standalone = []
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
-
 [lib]
 proc-macro = true

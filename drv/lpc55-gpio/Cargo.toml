@@ -11,14 +11,6 @@ drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 lpc55-iocon-gen = {path = "../lpc55-iocon-gen"}
 
-[features]
-default = ["standalone"]
-standalone = []
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv8m.main-none-eabihf"
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
