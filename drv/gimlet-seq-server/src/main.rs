@@ -3,8 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Server for managing the Gimlet sequencing process.
-//!
-//!
 
 #![no_std]
 #![no_main]
@@ -14,6 +12,7 @@ mod seq_spi;
 use ringbuf::*;
 use userlib::*;
 
+use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
@@ -23,6 +22,7 @@ use seq_spi::Addr;
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
+task_slot!(HF, hf);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -51,6 +51,7 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let spi = spi_api::Spi::from(SPI.get_task_id());
     let gpio = gpio_api::Gpio::from(GPIO.get_task_id());
+    let hf = hf_api::HostFlash::from(HF.get_task_id());
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -316,6 +317,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         match (self.state, state) {
             (PowerState::A2, PowerState::A0) => {
                 //
+                // First, set our mux state to be the HostCPU
+                //
+                let hf = hf_api::HostFlash::from(HF.get_task_id());
+
+                if let Err(_) = hf.set_mux(hf_api::HfMuxState::HostCPU) {
+                    return Err(SeqError::MuxToHostCPUFailed.into());
+                }
+
+                //
                 // We are going to pass through A1 on the way to A0.
                 //
                 let a1a0 = 0x3u8;
@@ -361,9 +371,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             }
 
             (PowerState::A0, PowerState::A2) => {
+                let hf = hf_api::HostFlash::from(HF.get_task_id());
                 let a1a0 = 0x0u8;
+
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
+
+                if let Err(_) = hf.set_mux(hf_api::HfMuxState::SP) {
+                    return Err(SeqError::MuxToSPFailed.into());
+                }
 
                 self.state = PowerState::A2;
                 ringbuf_entry!(Trace::A2);

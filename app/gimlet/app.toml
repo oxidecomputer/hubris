@@ -148,7 +148,7 @@ priority = 3
 requires = {flash = 65536, ram = 8192 }
 stacksize = 1024
 start = true
-task-slots = ["gpio_driver", "i2c_driver", {spi_driver = "spi2_driver"}]
+task-slots = ["gpio_driver", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"

@@ -573,6 +573,7 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",

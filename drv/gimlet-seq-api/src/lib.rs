@@ -12,6 +12,8 @@ use zerocopy::AsBytes;
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum SeqError {
     IllegalTransition = 1,
+    MuxToHostCPUFailed = 2,
+    MuxToSPFailed = 3,
 }
 
 impl From<SeqError> for u16 {
