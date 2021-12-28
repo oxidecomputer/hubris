@@ -17,13 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let disposition = build_i2c::Disposition::Devices;
 
-    #[cfg(feature = "standalone")]
-    let artifact = build_i2c::Artifact::Standalone;
-
-    #[cfg(not(feature = "standalone"))]
-    let artifact = build_i2c::Artifact::Dist;
-
-    if let Err(e) = build_i2c::codegen(disposition, artifact) {
+    if let Err(e) = build_i2c::codegen(disposition) {
         println!("code generation failed: {}", e);
         std::process::exit(1);
     }

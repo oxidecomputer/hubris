@@ -148,8 +148,6 @@ fn main() -> ! {
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-1")] {
             let fctrl = Max31790::new(&devices::max31790(task)[0]);
-        } else if #[cfg(feature = "standalone")] {
-            let fctrl = Max31790::new(&devices::mock(task));
         } else {
             compile_error!("unknown board");
         }
