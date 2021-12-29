@@ -34,6 +34,16 @@ pub enum Error {
     BadTempRead { code: ResponseCode },
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadValidate { code } => code,
+            Error::BadTempRead { code } => code,
+            _ => panic!(),
+        }
+    }
+}
+
 pub struct Adt7420 {
     device: I2cDevice,
 }

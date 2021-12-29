@@ -456,6 +456,7 @@ address = 0x48
 device = "tmp117"
 name = "zone1"
 description = "Rear temperature sensor (zone 1)"
+thermal = { zone = [ "North", "East" ] }
 removable = true
 
 [[config.i2c.devices]]
@@ -464,6 +465,7 @@ address = 0x49
 device = "tmp117"
 name = "zone2"
 description = "Rear temperature sensor (zone 2)"
+thermal = { zone = [ "North", "Central" ] }
 removable = true
 
 [[config.i2c.devices]]
@@ -472,12 +474,14 @@ address = 0x4a
 device = "tmp117"
 name = "zone3"
 description = "Rear temperature sensor (zone 3)"
+thermal = { zone = [ "North", "West" ] }
 removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x4c
 device = "tmp451"
+thermal = { zone = [ "North", "Central" ] }
 description = "T6 temperature sensor"
 
 [[config.i2c.devices]]

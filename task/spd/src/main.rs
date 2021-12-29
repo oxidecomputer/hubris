@@ -88,43 +88,6 @@ fn read_spd_data(
     present: &mut [bool],
     spd_data: &mut [u8],
 ) -> usize {
-    let controller = &i2c_config::controllers()[0];
-    let pins = i2c_config::pins();
-    use i2c_config::ports::*;
-
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "gemini-bu-1")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C4, i2c4_d(), None),
-                (Controller::I2C4, i2c4_f(), Some((Mux::M1, Segment::S4))),
-            ];
-        } else if #[cfg(target_board = "gimletlet-2")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_c(), None),
-                (Controller::I2C4, i2c4_f(), None),
-            ];
-        } else if #[cfg(target_board = "gimlet-1")] {
-            //
-            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
-            //
-            // - ABCD DIMMs are on the mid bus (I2C3, port H)
-            // - EFGH DIMMS are on the read bus (I2C4, port F)
-            //
-            // It should go without saying that the ordering here is essential
-            // to assure that the SPD data that we return for a DIMM corresponds
-            // to the correct DIMM from the SoC's perspective.
-            //
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_h(), None),
-                (Controller::I2C4, i2c4_f(), None),
-            ];
-        } else {
-            compile_error!("I2C target unsupported for this board");
-        }
-    }
-
     let i2c_task = I2C.get_task_id();
     let mut npresent = 0;
 

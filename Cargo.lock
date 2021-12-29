@@ -2469,7 +2469,22 @@ dependencies = [
  "drv-i2c-devices",
  "drv-onewire",
  "drv-onewire-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
  "ringbuf",
+ "task-thermal-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-thermal-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]

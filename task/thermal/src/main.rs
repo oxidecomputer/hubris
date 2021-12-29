@@ -12,10 +12,13 @@
 #![no_std]
 #![no_main]
 
+use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp116::*;
 use drv_i2c_devices::TempSensor;
+use idol_runtime::{NotificationHandler, RequestError};
+use task_thermal_api::ThermalError;
 use userlib::units::*;
 use userlib::*;
 
@@ -35,56 +38,35 @@ enum Sensor {
     CPU(SbTsi),
 }
 
-fn temp_read<E: core::fmt::Debug, T: TempSensor<E> + core::fmt::Display>(
-    device: &T,
-) -> Option<Celsius> {
+fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ThermalError>
+where
+    ResponseCode: From<E>,
+{
     match device.read_temperature() {
-        Ok(reading) => Some(reading),
-
+        Ok(reading) => Ok(reading),
         Err(err) => {
-            sys_log!("{}: failed to read temp: {:?}", device, err);
-            None
-        }
-    }
-}
+            let err: ResponseCode = err.into();
 
-impl core::fmt::Display for Sensor {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Sensor::North(zone, _) => match zone {
-                    Zone::East => "northeast",
-                    Zone::Central => "north",
-                    Zone::West => "northwest",
-                },
-                Sensor::South(zone, _) => match zone {
-                    Zone::East => "southeast",
-                    Zone::Central => "south",
-                    Zone::West => "southwest",
-                },
-                Sensor::CPU(_) => "sbtsi",
-            }
-        )
+            let e = match err {
+                ResponseCode::NoDevice => ThermalError::SensorNotPresent,
+                ResponseCode::NoRegister => ThermalError::SensorUnavailable,
+                ResponseCode::BusLocked
+                | ResponseCode::BusLockedMux
+                | ResponseCode::ControllerLocked => ThermalError::SensorTimeout,
+                _ => ThermalError::SensorError,
+            };
+
+            Err(e)
+        }
     }
 }
 
 impl Sensor {
-    fn read_temp(&self) -> Option<Celsius> {
+    fn read_temp(&self) -> Result<Celsius, ThermalError> {
         match self {
             Sensor::North(_, dev) | Sensor::South(_, dev) => temp_read(dev),
             Sensor::CPU(dev) => temp_read(dev),
         }
-    }
-
-    fn log(&self, temp: Celsius) {
-        sys_log!(
-            "{}: {}.{:03}C",
-            self,
-            temp.0 as i32,
-            (((temp.0 + 0.0005) * 1000.0) as i32) % 1000,
-        )
     }
 }
 
@@ -108,7 +90,9 @@ fn read_fans(fctrl: &Max31790) {
     }
 }
 
-fn sensors() -> [Sensor; 7] {
+const NUM_SENSORS: usize = 7;
+
+fn sensors() -> [Sensor; NUM_SENSORS] {
     let task = I2C.get_task_id();
 
     [
@@ -140,9 +124,53 @@ fn sensors() -> [Sensor; 7] {
     ]
 }
 
+struct ServerImpl {
+    sensors: [Sensor; NUM_SENSORS],
+    data: [Option<Result<f32, ThermalError>>; NUM_SENSORS],
+    deadline: u64,
+}
+
+const TIMER_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 1000;
+
+impl idl::InOrderThermalImpl for ServerImpl {
+    fn read_sensor(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+    ) -> Result<f32, RequestError<ThermalError>> {
+        if index < NUM_SENSORS {
+            match self.data[index] {
+                Some(Err(err)) => Err(err.into()),
+                Some(Ok(reading)) => Ok(reading),
+                None => Err(ThermalError::NoReading.into()),
+            }
+        } else {
+            Err(ThermalError::InvalidSensor.into())
+        }
+    }
+}
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        self.deadline += TIMER_INTERVAL;
+        sys_set_timer(Some(self.deadline), TIMER_MASK);
+
+        for (index, sensor) in self.sensors.iter().enumerate() {
+            self.data[index] = match sensor.read_temp() {
+                Ok(reading) => Some(Ok(reading.0)),
+                Err(e) => Some(Err(e)),
+            };
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
-    let sensors = sensors();
     let task = I2C.get_task_id();
 
     cfg_if::cfg_if! {
@@ -166,15 +194,28 @@ fn main() -> ! {
         }
     }
 
+    let deadline = sys_get_timer().now;
+
+    //
+    // This will put our timer in the past, and should immediately kick us.
+    //
+    sys_set_timer(Some(deadline), TIMER_MASK);
+
+    let mut server = ServerImpl {
+        sensors: sensors(),
+        data: [None; NUM_SENSORS],
+        deadline,
+    };
+
+    let mut buffer = [0; idl::INCOMING_SIZE];
+
     loop {
-        for s in &sensors {
-            if let Some(temp) = s.read_temp() {
-                s.log(temp);
-            }
-        }
-
-        read_fans(&fctrl);
-
-        hl::sleep_for(1000);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
+}
+
+mod idl {
+    use super::ThermalError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

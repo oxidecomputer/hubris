@@ -89,7 +89,7 @@ macro_rules! pmbus_write {
     }};
 }
 
-pub trait TempSensor<T> {
+pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
 }
 

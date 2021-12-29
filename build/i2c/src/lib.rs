@@ -85,6 +85,9 @@ struct I2cDevice {
     /// PMBus information, if any
     pmbus: Option<I2cPmbus>,
 
+    /// thermal information, if any
+    thermal: Option<I2cThermal>,
+
     /// device is removable
     #[serde(default)]
     removable: bool,
@@ -122,6 +125,13 @@ struct I2cMux {
 #[allow(dead_code)]
 struct I2cPmbus {
     rails: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+struct I2cThermal {
+    zone: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, PartialEq)]

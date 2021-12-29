@@ -24,6 +24,14 @@ pub enum Error {
     BadTempRead { code: ResponseCode },
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadTempRead { code } => code,
+        }
+    }
+}
+
 pub struct Mcp9808 {
     device: I2cDevice,
 }

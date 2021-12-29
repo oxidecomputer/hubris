@@ -51,7 +51,6 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let spi = spi_api::Spi::from(SPI.get_task_id());
     let gpio = gpio_api::Gpio::from(GPIO.get_task_id());
-    let hf = hf_api::HostFlash::from(HF.get_task_id());
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -417,36 +416,7 @@ static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimletlet-2")] {
-        const ICE40_SPI_DEVICE: u8 = 0;
-        const SEQ_SPI_DEVICE: u8 = 0;
-
-        const ICE40_CONFIG: ice40::Config = ice40::Config {
-            creset_port: gpio_api::Port::B,
-            creset_pin_mask: 1 << 10,
-            cdone_port: gpio_api::Port::E,
-            cdone_pin_mask: 1 << 15,
-        };
-
-        const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = None;
-
-        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = None;
-
-        // On Gimletlet we bring the extra GPIOs out to the uncommitted GPIO
-        // headers.
-        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::E;
-        const ENABLE_V1P2_MASK: u16 = 1 << 2; // J17 pin 2
-        const ENABLE_V3P3_MASK: u16 = 1 << 3; // J17 pin 3
-
-        const PGS_PORT: gpio_api::Port = gpio_api::Port::B;
-        const PG_V1P2_MASK: u16 = 1 << 14; // J16 pin 2
-        const PG_V3P3_MASK: u16 = 1 << 15; // J16 pin 3
-        // Gimletlet has no actual regulators onboard, so we pull down to
-        // simulate "power not good" until the person hacking on the board
-        // installs a jumper or whatever.
-        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
-
-    } else if #[cfg(target_board = "gimlet-1")] {
+    if #[cfg(target_board = "gimlet-1")] {
         const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
@@ -487,7 +457,6 @@ cfg_if::cfg_if! {
         task_slot!(I2C, i2c_driver);
         include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-        #[allow(dead_code)]
         fn vcore_soc_off() {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();
@@ -502,7 +471,6 @@ cfg_if::cfg_if! {
             vddcr_soc.turn_off().unwrap();
         }
 
-        #[allow(dead_code)]
         fn vcore_soc_on() {
             use drv_i2c_devices::raa229618::Raa229618;
             let i2c = I2C.get_task_id();

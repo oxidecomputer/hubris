@@ -28,6 +28,14 @@ pub enum Error {
     BadRegisterRead { reg: Register, code: ResponseCode },
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRegisterRead { code, .. } => code,
+        }
+    }
+}
+
 pub struct Tmp116 {
     device: I2cDevice,
 }

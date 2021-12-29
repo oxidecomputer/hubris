@@ -4,8 +4,7 @@
 
 use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
-use userlib::{sys_refresh_task_id, Generation, TaskId, sys_send};
-use zerocopy::AsBytes;
+use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
 
 /// We allow dead code on this because the functions below are optional.
 ///
