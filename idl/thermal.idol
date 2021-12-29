@@ -1,0 +1,16 @@
+// Thermal API
+
+Interface(
+    name: "Thermal",
+    ops: {
+        "read_sensor": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "f32",
+                err: CLike("ThermalError"),
+            ),
+        ),
+    },
+)
