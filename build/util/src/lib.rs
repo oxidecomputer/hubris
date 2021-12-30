@@ -9,12 +9,15 @@ use std::env;
 /// Exposes the CPU's M-profile architecture version. This isn't available in
 /// rustc's standard environment.
 ///
-/// This will set either `cfg(armv7m)` or `cfg(armv8m)` depending on the value
-/// of the `TARGET` environment variable.
+/// This will set one of `cfg(armv6m`), `cfg(armv7m)`, or `cfg(armv8m)`
+/// depending on the value of the `TARGET` environment variable.
 pub fn expose_m_profile() {
     let target = env::var("TARGET").unwrap();
 
-    if target.starts_with("thumbv7m") || target.starts_with("thumbv7em") {
+    if target.starts_with("thumbv6m") {
+        println!("cargo:rustc-cfg=armv6m");
+    } else if target.starts_with("thumbv7m") || target.starts_with("thumbv7em")
+    {
         println!("cargo:rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
         println!("cargo:rustc-cfg=armv8m");
