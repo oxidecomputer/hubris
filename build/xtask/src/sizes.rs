@@ -13,9 +13,10 @@ use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
-fn armv7m_suggest(size: u64) -> u64 {
+fn pow2_suggest(size: u64) -> u64 {
     size.next_power_of_two()
 }
+
 fn armv8m_suggest(size: u64) -> u64 {
     // Nearest chunk of 32
     ((size + 31) / 32) * 32
@@ -63,8 +64,10 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
             .map(|(name, _)| name.as_str())
     };
 
-    let suggest = if toml.target.starts_with("thumbv7") {
-        armv7m_suggest
+    let suggest = if toml.target.starts_with("thumbv7")
+        || toml.target.starts_with("thumbv6m")
+    {
+        pow2_suggest
     } else if toml.target.starts_with("thumbv8m") {
         armv8m_suggest
     } else {
