@@ -1351,6 +1351,7 @@ fn make_descriptors(
     let power_of_two_required = match target {
         "thumbv8m.main-none-eabihf" => false,
         "thumbv7em-none-eabihf" => true,
+        "thumbv6m-none-eabi" => true,
         t => panic!("Unknown mpu requirements for target '{}'", t),
     };
 
