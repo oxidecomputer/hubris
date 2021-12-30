@@ -96,9 +96,11 @@ fn sensors() -> [Sensor; NUM_SENSORS] {
     let task = I2C.get_task_id();
 
     [
+        // North and south zones are inverted with respect to one another;
+        // see Gimlet issue #1302 for details.
         Sensor::North(
             Zone::East,
-            Tmp116::new(&devices::tmp117_rear_zone1(task)),
+            Tmp116::new(&devices::tmp117_rear_zone3(task)),
         ),
         Sensor::North(
             Zone::Central,
@@ -106,7 +108,7 @@ fn sensors() -> [Sensor; NUM_SENSORS] {
         ),
         Sensor::North(
             Zone::West,
-            Tmp116::new(&devices::tmp117_rear_zone3(task)),
+            Tmp116::new(&devices::tmp117_rear_zone1(task)),
         ),
         Sensor::South(
             Zone::East,
