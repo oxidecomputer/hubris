@@ -477,6 +477,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-stm32g0-nucleo"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32g0",
+]
+
+[[package]]
 name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 dependencies = [
@@ -827,6 +842,67 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32g0-gpio"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "cortex-m",
+ "drv-stm32g0-rcc-api",
+ "num-traits",
+ "stm32g0",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32g0-gpio-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32g0-rcc"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32g0",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32g0-rcc-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32g0-usart"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-semihosting",
+ "drv-stm32g0-gpio-api",
+ "drv-stm32g0-rcc-api",
+ "num-traits",
+ "stm32g0",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
@@ -996,6 +1072,7 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
+ "drv-stm32g0-gpio-api",
  "drv-stm32h7-gpio-api",
  "idol",
  "idol-runtime",
@@ -2370,6 +2447,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da3d56009c8f32e4f208dbea17df72484154d1040a8969b75d8c73eb7b18fe8f"
 dependencies = [
  "bare-metal 0.2.5",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
+name = "stm32g0"
+version = "0.14.0"
+source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-initial-support#19280bfc90cce3020482abc1d0c57d7d2a3bf162"
+dependencies = [
+ "bare-metal 1.0.0",
  "cortex-m",
  "cortex-m-rt",
  "vcell",
