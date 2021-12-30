@@ -17,6 +17,7 @@ ssmarshal = { version = "1.0.0", default-features = false }
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
+cfg-if = "0.1.10"
 
 #
 # In order to use macros as discriminants in enums that make use of derive
@@ -25,6 +26,9 @@ unwrap-lite = { path = "../../lib/unwrap-lite" }
 # which passes "full" through to syn.
 #
 num-derive = { version = "0.3.0", features = [ "full-syntax" ] }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
 
 [lib]
 test = false
