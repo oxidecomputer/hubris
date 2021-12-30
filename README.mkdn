@@ -79,6 +79,7 @@ You will need:
 
 - The appropriate Rust toolchain target installed (note: this should happen
   automatically):
+  - `rustup target add thumbv6m-none-eabi` (for STM32G0xx with Cortex-M0+)
   - `rustup target add thumbv7em-none-eabihf` (for the STM32)
   - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
@@ -143,6 +144,9 @@ custom build commands.
   - `cargo xtask dist app/demo-stm32f4-discovery/app.toml` - stm32f4-discovery
   - `cargo xtask dist app/demo-stm32f4-discovery/app-f3.toml` - stm32f3-discovery
   - `cargo xtask dist app/lpc55xpresso/app.toml` - lpcxpresso55s69
+  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g031.toml` - stm32g031
+  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g070.toml` - stm32g070
+  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g0b1.toml` - stm32g0b1
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk

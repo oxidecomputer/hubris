@@ -1,0 +1,119 @@
+name = "demo-stm32g070-nucleo"
+target = "thumbv6m-none-eabi"
+board = "stm32g070"
+stacksize = 1024
+
+[kernel]
+path = "."
+name = "demo-stm32g0-nucleo"
+requires = {flash = 32768, ram = 4096}
+features = ["g070", "semihosting"]
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 16384, ram = 2048}
+start = true
+features = ["semihosting"]
+stacksize = 1536
+
+[tasks.rcc_driver]
+path = "../../drv/stm32g0-rcc"
+name = "drv-stm32g0-rcc"
+features = ["g070"]
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc"]
+start = true
+
+[tasks.gpio_driver]
+path = "../../drv/stm32g0-gpio"
+name = "drv-stm32g0-gpio"
+features = ["g070"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpio"]
+start = true
+task-slots = ["rcc_driver"]
+
+[tasks.usart_driver]
+path = "../../drv/stm32g0-usart"
+name = "drv-stm32g0-usart"
+features = ["g070", "semihosting"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["usart1"]
+start = true
+interrupts = {27 = 1}
+task-slots = ["gpio_driver", "rcc_driver"]
+
+[tasks.user_leds]
+path = "../../drv/user-leds"
+name = "drv-user-leds"
+features = ["stm32g0"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["gpio_driver"]
+
+[tasks.pong]
+path = "../../task/pong"
+name = "task-pong"
+priority = 3
+requires = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["user_leds"]
+
+[tasks.ping]
+path = "../../task/ping"
+name = "task-ping"
+features = ["uart"]
+priority = 4
+requires = {flash = 8192, ram = 512}
+stacksize = 512
+start = true
+task-slots = [{peer = "pong"}, "usart_driver"]
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+priority = 3
+requires = {flash = 32768, ram = 16384 }
+start = true
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+[peripherals.rcc]
+address = 0x40021000
+size = 1024
+
+[peripherals.gpio]
+address = 0x50000000
+size = 0x2000
+
+[peripherals.usart1]
+address = 0x40013800
+size = 1024
