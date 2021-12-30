@@ -46,6 +46,26 @@
 use crate::Disposition;
 use core::sync::atomic::{AtomicU32, Ordering};
 
+#[cfg(armv6m)]
+trait AtomicU32Ext {
+    fn swap(&self, val: u32, order: Ordering) -> u32;
+    fn fetch_add(&self, val: u32, order: Ordering) -> u32;
+}
+
+#[cfg(armv6m)]
+impl AtomicU32Ext for AtomicU32 {
+    fn swap(&self, val: u32, order: Ordering) -> u32 {
+        let rv = self.load(order);
+        self.store(val, order);
+        rv
+    }
+    fn fetch_add(&self, val: u32, order: Ordering) -> u32 {
+        let rv = self.load(order);
+        self.store(rv + val, order);
+        rv
+    }
+}
+
 use ringbuf::*;
 use userlib::*;
 
