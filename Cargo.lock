@@ -2501,6 +2501,7 @@ dependencies = [
  "armv6m-atomic-hack",
  "build-util",
  "cortex-m",
+ "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
