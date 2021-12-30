@@ -11,10 +11,14 @@ ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-semihosting = { version = "0.3.7", features = ["inline-asm"], optional = true }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
 
 [features]
 itm = [ "userlib/log-itm" ]
-semihosting = [ "userlib/log-semihosting" ]
+semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
