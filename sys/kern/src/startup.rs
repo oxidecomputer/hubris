@@ -52,7 +52,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
         // Check for suspicious use of reserved word
         uassert_eq!(region.reserved_zero, 0);
 
-        #[cfg(armv7m)]
+        #[cfg(any(armv6m, armv7m))]
         uassert!(region.size.is_power_of_two());
     }
 

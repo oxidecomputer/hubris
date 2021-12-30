@@ -5,6 +5,21 @@
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, Ordering};
 
+#[cfg(armv6m)]
+trait AtomicBoolExt {
+    fn swap(&self, val: bool, order: Ordering) -> bool;
+}
+
+#[cfg(armv6m)]
+impl AtomicBoolExt for AtomicBool {
+    fn swap(&self, val: bool, order: Ordering) -> bool {
+        // This is correct _only_ because we know we're single threaded.
+        let rv = self.load(order);
+        self.store(val, order);
+        rv
+    }
+}
+
 /// A RefCell-style container that can be used in a static for cases where only
 /// a single borrow needs to happen at any given time.
 ///
