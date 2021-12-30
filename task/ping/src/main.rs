@@ -20,6 +20,8 @@ fn nullread() {
     }
 }
 
+// Only ARMv7-M and newer have hardware divide instructions
+#[cfg(any(armv7m, armv8m))]
 #[inline(never)]
 fn divzero() {
     unsafe {
@@ -37,6 +39,9 @@ fn main() -> ! {
     const PING_OP: u16 = 1;
     const FAULT_EVERY: u32 = 100;
 
+    #[cfg(armv6m)]
+    let faultme = [nullread];
+    #[cfg(any(armv7m, armv8m))]
     let faultme = [nullread, divzero];
 
     let mut response = [0; 16];
