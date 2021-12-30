@@ -5,6 +5,8 @@
 use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    build_util::expose_m_profile();
+
     // Do an architecture check.
     if env::var("CARGO_CFG_TARGET_OS").unwrap() != "none" {
         eprintln!("***********************************************");
