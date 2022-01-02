@@ -312,6 +312,7 @@ address = 0x48
 device = "tmp117"
 name = "zone1"
 description = "Front temperature sensor (zone 1)"
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
@@ -320,6 +321,7 @@ address = 0x49
 device = "tmp117"
 name = "zone2"
 description = "Front temperature sensor (zone 2)"
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
@@ -328,6 +330,7 @@ address = 0x4a
 device = "tmp117"
 name = "zone3"
 description = "Front temperature sensor (zone 3)"
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
@@ -388,7 +391,9 @@ description = "M.2 hot plug controller"
 bus = "mid"
 address = 0x4c
 device = "sbtsi"
+name = "cpu"
 description = "CPU temperature sensor"
+sensors = { temperature = 1 }
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -402,6 +407,7 @@ address = 0x5a
 device = "raa229618"
 description = "CPU power controller"
 pmbus = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ] }
+sensors = { temperature = 1, power = 2, voltage = 2, current = 2 }
 refdes = "U350"
 
 [[config.i2c.devices]]
@@ -410,6 +416,7 @@ address = 0x5b
 device = "raa229618"
 description = "SoC power controller"
 pmbus = { rails = [ "VDDCR_SOC", "VDD_MEM_EFGH" ] }
+sensors = { temperature = 1, power = 2, voltage = 2, current = 2 }
 refdes = "U351"
 
 [[config.i2c.devices]]
@@ -449,6 +456,7 @@ bus = "rear"
 address = 0x20
 device = "max31790"
 description = "Fan controller"
+sensors = { speed = 6 }
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -456,7 +464,7 @@ address = 0x48
 device = "tmp117"
 name = "zone1"
 description = "Rear temperature sensor (zone 1)"
-thermal = { zone = [ "North", "East" ] }
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
@@ -465,7 +473,7 @@ address = 0x49
 device = "tmp117"
 name = "zone2"
 description = "Rear temperature sensor (zone 2)"
-thermal = { zone = [ "North", "Central" ] }
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
@@ -474,14 +482,14 @@ address = 0x4a
 device = "tmp117"
 name = "zone3"
 description = "Rear temperature sensor (zone 3)"
-thermal = { zone = [ "North", "West" ] }
+sensors = { temperature = 1 }
 removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x4c
 device = "tmp451"
-thermal = { zone = [ "North", "Central" ] }
+sensors = { temperature = 1 }
 description = "T6 temperature sensor"
 
 [[config.i2c.devices]]
@@ -498,5 +506,6 @@ address = 0x67
 device = "bmr491"
 description = "IBC"
 pmbus = { rails = [ "V12_SYS_A2" ] }
+sensors = { temperature = 1 }
 refdes = "U431"
 

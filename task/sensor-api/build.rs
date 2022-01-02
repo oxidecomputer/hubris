@@ -4,9 +4,8 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     idol::client::build_client_stub(
-        "../../idl/thermal.idol",
+        "../../idl/sensor.idol",
         "client_stub.rs",
     )?;
     Ok(())
 }
-

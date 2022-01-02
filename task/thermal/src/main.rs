@@ -18,6 +18,7 @@ use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp116::*;
 use drv_i2c_devices::TempSensor;
 use idol_runtime::{NotificationHandler, RequestError};
+use task_sensor_api::SensorId;
 use task_thermal_api::ThermalError;
 use userlib::units::*;
 use userlib::*;
@@ -25,6 +26,7 @@ use userlib::*;
 task_slot!(I2C, i2c_driver);
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
+use i2c_config::sensors;
 
 enum Zone {
     East,
@@ -32,10 +34,15 @@ enum Zone {
     West,
 }
 
-enum Sensor {
+enum Device {
     North(Zone, Tmp116),
     South(Zone, Tmp116),
     CPU(SbTsi),
+}
+
+struct Sensor {
+    device: Device,
+    id: SensorId,
 }
 
 fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ThermalError>
@@ -63,9 +70,9 @@ where
 
 impl Sensor {
     fn read_temp(&self) -> Result<Celsius, ThermalError> {
-        match self {
-            Sensor::North(_, dev) | Sensor::South(_, dev) => temp_read(dev),
-            Sensor::CPU(dev) => temp_read(dev),
+        match &self.device {
+            Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
+            Device::CPU(dev) => temp_read(dev),
         }
     }
 }
@@ -90,45 +97,67 @@ fn read_fans(fctrl: &Max31790) {
     }
 }
 
-const NUM_SENSORS: usize = 7;
+const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS
+    + sensors::NUM_SBTSI_TEMPERATURE_SENSORS;
 
-fn sensors() -> [Sensor; NUM_SENSORS] {
+fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
     let task = I2C.get_task_id();
 
     [
         // North and south zones are inverted with respect to one another;
         // see Gimlet issue #1302 for details.
-        Sensor::North(
-            Zone::East,
-            Tmp116::new(&devices::tmp117_rear_zone3(task)),
-        ),
-        Sensor::North(
-            Zone::Central,
-            Tmp116::new(&devices::tmp117_rear_zone2(task)),
-        ),
-        Sensor::North(
-            Zone::West,
-            Tmp116::new(&devices::tmp117_rear_zone1(task)),
-        ),
-        Sensor::South(
-            Zone::East,
-            Tmp116::new(&devices::tmp117_front_zone1(task)),
-        ),
-        Sensor::South(
-            Zone::Central,
-            Tmp116::new(&devices::tmp117_front_zone2(task)),
-        ),
-        Sensor::South(
-            Zone::West,
-            Tmp116::new(&devices::tmp117_front_zone3(task)),
-        ),
-        Sensor::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
+        Sensor {
+            device: Device::North(
+                Zone::East,
+                Tmp116::new(&devices::tmp117_rear_zone3(task)),
+            ),
+            id: sensors::TMP117_REAR_ZONE3_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::North(
+                Zone::Central,
+                Tmp116::new(&devices::tmp117_rear_zone2(task)),
+            ),
+            id: sensors::TMP117_REAR_ZONE2_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::North(
+                Zone::West,
+                Tmp116::new(&devices::tmp117_rear_zone1(task)),
+            ),
+            id: sensors::TMP117_REAR_ZONE1_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::South(
+                Zone::East,
+                Tmp116::new(&devices::tmp117_front_zone1(task)),
+            ),
+            id: sensors::TMP117_FRONT_ZONE1_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::South(
+                Zone::Central,
+                Tmp116::new(&devices::tmp117_front_zone2(task)),
+            ),
+            id: sensors::TMP117_FRONT_ZONE2_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::South(
+                Zone::West,
+                Tmp116::new(&devices::tmp117_front_zone3(task)),
+            ),
+            id: sensors::TMP117_FRONT_ZONE3_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
+            id: sensors::SBTSI_TEMPERATURE_SENSOR,
+        },
     ]
 }
 
 struct ServerImpl {
-    sensors: [Sensor; NUM_SENSORS],
-    data: [Option<Result<f32, ThermalError>>; NUM_SENSORS],
+    sensors: [Sensor; NUM_TEMPERATURE_SENSORS],
+    data: [Option<Result<f32, ThermalError>>; NUM_TEMPERATURE_SENSORS],
     deadline: u64,
 }
 
@@ -141,7 +170,7 @@ impl idl::InOrderThermalImpl for ServerImpl {
         _: &RecvMessage,
         index: usize,
     ) -> Result<f32, RequestError<ThermalError>> {
-        if index < NUM_SENSORS {
+        if index < NUM_TEMPERATURE_SENSORS {
             match self.data[index] {
                 Some(Err(err)) => Err(err.into()),
                 Some(Ok(reading)) => Ok(reading),
@@ -204,8 +233,8 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     let mut server = ServerImpl {
-        sensors: sensors(),
-        data: [None; NUM_SENSORS],
+        sensors: temperature_sensors(),
+        data: [None; NUM_TEMPERATURE_SENSORS],
         deadline,
     };
 

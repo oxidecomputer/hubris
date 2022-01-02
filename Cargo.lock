@@ -2430,6 +2430,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-sensor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-sensor-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-spd"
 version = "0.1.0"
 dependencies = [
@@ -2473,6 +2504,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "task-sensor-api",
  "task-thermal-api",
  "userlib",
  "zerocopy",

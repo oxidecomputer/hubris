@@ -1,0 +1,19 @@
+[package]
+name = "task-sensor-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+abi = {path = "../../sys/abi"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
