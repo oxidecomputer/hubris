@@ -36,68 +36,11 @@ impl<'a> Bsp<'a> {
         }
         out
     }
-    fn init_inner(&self) -> Result<(), VscError> {
-        // We assume that the only person running on a gemini-bu-1 is Matt, who is
-        // talking to a VSC7448 dev kit on his desk.  In this case, we want to
-        // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
-        // GPIO_56-59 to Overlaid Function 1
-        self.vsc7448.write(
-            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0),
-            0xF000000.into(),
-        )?;
 
-        // Based on `jr2_init_conf_set`
-        self.vsc7448.modify(
-            Vsc7448::ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(),
-            |r| r.set_reset(1),
-        )?;
-        self.vsc7448.modify(Vsc7448::ASM().CFG().STAT_CFG(), |r| {
-            r.set_stat_cnt_clr_shot(1)
-        })?;
-        self.vsc7448
-            .modify(Vsc7448::QSYS().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-        self.vsc7448
-            .modify(Vsc7448::REW().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-        // The VOP isn't in the datasheet, but it's in the SDK
-        self.vsc7448
-            .modify(Vsc7448::VOP().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-        self.vsc7448
-            .modify(Vsc7448::ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-        self.vsc7448
-            .modify(Vsc7448::ASM().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-        self.vsc7448
-            .modify(Vsc7448::DSM().RAM_CTRL().RAM_INIT(), |r| {
-                r.set_ram_init(1);
-                r.set_ram_ena(1);
-            })?;
-
-        hl::sleep_for(1);
-        // TODO: read back all of those autoclear bits and make sure they cleared
-
-        // Enable the queue system
-        self.vsc7448
-            .write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
-                r.set_core_ena(1)
-            })?;
-
+    /// Initializes four ports on front panel RJ45 connectors
+    fn init_rj45(&self) -> Result<(), VscError> {
         // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
         // Each PHYs on the same MIIM bus is strapped to different ports.
-        hl::sleep_for(105); // Minimum time between reset and SMI access
         for miim in [1, 2] {
             self.vsc7448.modify(
                 Vsc7448::DEVCPU_GCB().MIIM(miim as u32).MII_CFG(),
@@ -310,7 +253,118 @@ impl<'a> Bsp<'a> {
                 },
             )?;
         }
+        Ok(())
+    }
 
+    /// Initializes two ports on front panel SFP+ connectors
+    fn init_sfp(&self) -> Result<(), VscError> {
+        //  Now, let's bring up two SFP+ ports
+        //  SFP ports A and B are connected to S33/34 using SFI.  That's
+        //  the easy part.  The hard part is that they use serial GPIO (i.e.
+        //  a GPIO pin that goes to a series-to-parallel shift register) to
+        //  control lots of other SFP functions, e.g. RATESEL, LOS, TXDISABLE,
+        //  and more!
+        //
+        //  We'll start by just seeing if we can _talk_ to an SFP chip using
+        //  I2C.
+        //
+        //  I2C_SDA = GPIO15_TWI_SDA on the VSC7448 (alt "01")
+        self.vsc7448.write(
+            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT(0),
+            0x00008000.into(),
+        )?;
+
+        //  I2C_SCL = GPIO17_SI_nCS3 (for port A)
+        //            GPIO18_SI_nCS3 (for port B)
+        //            (both alt "10")
+        self.vsc7448.write(
+            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT(1),
+            0x00060000.into(),
+        )?;
+
+        // Now, how do we set up the ports themselves?
+        // S33 is connectec to Port 49, which is a 10G port used in SFI mode
+        // using SERDES10G_0 / DEV10G_0.
+
+        // HW_CFG is already set up for 10G on all four DEV10G
+        //
+        //  We need to configure the SERDES in 10G mode, based on
+        //      jr2_sd10g_xfi_mode
+        //      jr2_sd10g_cfg
+        self.vsc7448.modify(
+            Vsc7448::XGXFI(0).XFI_CONTROL().XFI_MODE(),
+            |r| {
+                r.set_sw_rst(0);
+                r.set_endian(1);
+                r.set_sw_ena(1);
+            },
+        )?;
+
+        Ok(())
+    }
+
+    fn init_inner(&self) -> Result<(), VscError> {
+        // We assume that the only person running on a gemini-bu-1 is Matt, who is
+        // talking to a VSC7448 dev kit on his desk.  In this case, we want to
+        // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
+        // GPIO_56-59 to Overlaid Function 1
+        self.vsc7448.write(
+            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0),
+            0xF000000.into(),
+        )?;
+
+        // Based on `jr2_init_conf_set`
+        self.vsc7448.modify(
+            Vsc7448::ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(),
+            |r| r.set_reset(1),
+        )?;
+        self.vsc7448.modify(Vsc7448::ASM().CFG().STAT_CFG(), |r| {
+            r.set_stat_cnt_clr_shot(1)
+        })?;
+        self.vsc7448
+            .modify(Vsc7448::QSYS().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::REW().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        // The VOP isn't in the datasheet, but it's in the SDK
+        self.vsc7448
+            .modify(Vsc7448::VOP().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::ASM().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+        self.vsc7448
+            .modify(Vsc7448::DSM().RAM_CTRL().RAM_INIT(), |r| {
+                r.set_ram_init(1);
+                r.set_ram_ena(1);
+            })?;
+
+        hl::sleep_for(1);
+        // TODO: read back all of those autoclear bits and make sure they cleared
+
+        hl::sleep_for(105); // Minimum time between reset and SMI access
+        self.init_rj45()?;
+        self.init_sfp()?;
+
+        // Enable the queue system
+        self.vsc7448
+            .write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
+                r.set_core_ena(1)
+            })?;
         Ok(())
     }
 

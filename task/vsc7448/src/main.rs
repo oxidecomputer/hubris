@@ -2,6 +2,7 @@
 #![no_main]
 
 mod bsp;
+mod serdes10g;
 mod vsc7448_spi;
 
 use drv_spi_api::{Spi, SpiError};
@@ -44,6 +45,12 @@ pub enum VscError {
         port: u8,
     },
     AnaCfgTimeout,
+    SerdesFrequencyTooLow(u64),
+    SerdesFrequencyTooHigh(u64),
+    TriDecFailed(u16),
+    BiDecFailed(u16),
+    LtDecFailed(u16),
+    LsDecFailed(u16),
 }
 
 impl From<SpiError> for VscError {
