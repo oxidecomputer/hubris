@@ -1,0 +1,48 @@
+// Sensor API
+
+Interface(
+    name: "Sensor",
+    ops: {
+        "get": (
+            args: {
+                "id": (
+                    type: "SensorId",
+                    recv: From("usize", None),
+                )
+            },
+            reply: Result(
+                ok: "f32",
+                err: CLike("SensorError"),
+            ),
+        ),
+        "post": (
+            args: {
+                "id": (
+                    type: "SensorId",
+                    recv: From("usize", None),
+                ),
+                "value": "f32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SensorError"),
+            ),
+        ),
+        "nodata": (
+            args: {
+                "id": (
+                    type: "SensorId",
+                    recv: From("usize", None),
+                ),
+                "nodata": (
+                    type: "NoData",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SensorError"),
+            ),
+        ),
+    },
+)

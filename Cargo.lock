@@ -2422,9 +2422,11 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
  "ringbuf",
+ "task-sensor-api",
  "userlib",
  "zerocopy",
 ]

@@ -5,7 +5,7 @@
 fn main() {
     build_util::expose_target_board();
 
-    let disposition = build_i2c::Disposition::Devices;
+    let disposition = build_i2c::Disposition::Sensors;
 
     if let Err(e) = build_i2c::codegen(disposition) {
         println!("code generation failed: {}", e);

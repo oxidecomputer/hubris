@@ -10,72 +10,140 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_devices::isl68224::*;
+use drv_gimlet_seq_api as seq_api;
+use drv_i2c_devices::bmr491::*;
+use drv_i2c_devices::raa229618::*;
 use ringbuf::*;
+use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
 
+use drv_i2c_api::ResponseCode;
+use drv_i2c_devices::TempSensor;
+
+use sensor_api::{NoData, SensorId};
+use seq_api::PowerState;
+
 task_slot!(I2C, i2c_driver);
+task_slot!(SENSOR, sensor);
+task_slot!(SEQUENCER, gimlet_seq);
+
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-#[derive(Copy, Clone, PartialEq)]
-#[allow(dead_code)]
-enum Device {
-    Adm1272,
-    Tps546b24a,
-    Isl68224,
-}
+use i2c_config::devices;
+use i2c_config::sensors;
 
-#[derive(Copy, Clone, PartialEq)]
-#[allow(dead_code)]
-enum Command {
-    VIn(Volts),
-    VOut(Volts),
-    IOut(Amperes),
-    PeakIOut(Amperes),
+enum Device {
+    IBC(Bmr491),
+    Core(Raa229618),
 }
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Datum(Device, Command),
+    State(seq_api::PowerState),
+    Temperature(SensorId, Result<Celsius, ResponseCode>),
     None,
+}
+
+struct PowerController {
+    state: seq_api::PowerState,
+    device: Device,
+    voltage: SensorId,
+    current: SensorId,
+    power: SensorId,
+    temperature: Option<SensorId>,
 }
 
 ringbuf!(Trace, 16, Trace::None);
 
-fn trace(dev: Device, cmd: Command) {
-    ringbuf_entry!(Trace::Datum(dev, cmd));
+fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ResponseCode>
+where
+    ResponseCode: From<E>,
+{
+    match device.read_temperature() {
+        Ok(reading) => Ok(reading),
+        Err(err) => {
+            let err: ResponseCode = err.into();
+            Err(err)
+        }
+    }
+}
+
+impl PowerController {
+    fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
+        match &self.device {
+            Device::IBC(dev) => temp_read(dev),
+            Device::Core(dev) => temp_read(dev),
+        }
+    }
+}
+
+fn controllers() -> [PowerController; 2] {
+    let task = I2C.get_task_id();
+
+    [
+        PowerController {
+            state: seq_api::PowerState::A2,
+            device: Device::IBC(Bmr491::new(&devices::bmr491(task)[0])),
+            voltage: sensors::BMR491_VOLTAGE_SENSOR,
+            current: sensors::BMR491_CURRENT_SENSOR,
+            power: sensors::BMR491_POWER_SENSOR,
+            temperature: Some(sensors::BMR491_TEMPERATURE_SENSOR),
+        },
+        PowerController {
+            state: seq_api::PowerState::A0,
+            device: Device::Core({
+                let (device, rail) = i2c_config::pmbus::vdd_vcore(task);
+                Raa229618::new(&device, rail)
+            }),
+            voltage: sensors::RAA229618_VDD_VCORE_VOLTAGE_SENSOR,
+            current: sensors::RAA229618_VDD_VCORE_CURRENT_SENSOR,
+            power: sensors::RAA229618_VDD_VCORE_POWER_SENSOR,
+            temperature: Some(sensors::RAA229618_VDD_VCORE_TEMPERATURE_SENSOR),
+        },
+    ]
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = I2C.get_task_id();
+    let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
+    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
 
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "gemini-bu-1")] {
-            let (device, rail) = i2c_config::pmbus::isl_evl_vout0(task);
-            let mut isl0 = Isl68224::new(&device, rail);
-
-            let (device, rail) = i2c_config::pmbus::isl_evl_vout1(task);
-            let mut isl1 = Isl68224::new(&device, rail);
-        } else {
-            compile_error!("unknown board");
-        }
-    }
+    let controllers = controllers();
 
     loop {
-        isl0.turn_off().unwrap();
-        isl1.turn_on().unwrap();
         hl::sleep_for(1000);
 
-        isl0.turn_on().unwrap();
-        isl1.turn_off().unwrap();
-        hl::sleep_for(1000);
+        let state = sequencer.get_state().unwrap();
+        ringbuf_entry!(Trace::State(state));
 
-        let vout = isl0.read_vout().unwrap();
-        trace(Device::Isl68224, Command::VOut(vout));
+        for controller in &controllers {
+            if controller.state == PowerState::A0 && state != PowerState::A0 {
+                sensor
+                    .nodata(controller.voltage, NoData::DeviceOff)
+                    .unwrap();
+                sensor.nodata(controller.power, NoData::DeviceOff).unwrap();
+                sensor
+                    .nodata(controller.current, NoData::DeviceOff)
+                    .unwrap();
 
-        let vout = isl1.read_vout().unwrap();
-        trace(Device::Isl68224, Command::VOut(vout));
+                if let Some(id) = controller.temperature {
+                    sensor.nodata(id, NoData::DeviceOff).unwrap();
+                }
+
+                continue;
+            }
+
+            if let Some(id) = controller.temperature {
+                match controller.read_temperature() {
+                    Ok(reading) => {
+                        sensor.post(id, reading.0).unwrap();
+                    }
+                    Err(_) => {
+                        sensor.nodata(id, NoData::DeviceError).unwrap();
+                    }
+                }
+            }
+        }
     }
 }

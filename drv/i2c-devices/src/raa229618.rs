@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::TempSensor;
 use drv_i2c_api::*;
 use pmbus::commands::raa229618::*;
 use pmbus::*;
@@ -15,7 +16,7 @@ pub struct Raa229618 {
 
 impl core::fmt::Display for Raa229618 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "isl68224: {}", &self.device)
+        write!(f, "raa229618: {}", &self.device)
     }
 }
 
@@ -25,6 +26,16 @@ pub enum Error {
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
     InvalidData { err: pmbus::Error },
+}
+
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            _ => panic!(),
+        }
+    }
 }
 
 impl From<pmbus::Error> for Error {
@@ -53,7 +64,7 @@ impl Raa229618 {
         })
     }
 
-    fn set_rail(&mut self) -> Result<(), Error> {
+    fn set_rail(&self) -> Result<(), Error> {
         let page = PAGE::CommandData(self.rail);
         pmbus_write!(self.device, PAGE, page)
     }
@@ -82,5 +93,13 @@ impl Raa229618 {
         self.set_rail()?;
         let iout = pmbus_read!(self.device, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
+    }
+}
+
+impl TempSensor<Error> for Raa229618 {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
+        self.set_rail()?;
+        let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
+        Ok(Celsius(temp.get()?.0))
     }
 }

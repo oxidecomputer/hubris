@@ -7,9 +7,8 @@
 #![no_std]
 
 use userlib::*;
-use zerocopy::AsBytes;
 
-#[derive(zerocopy::AsBytes)]
+#[derive(zerocopy::AsBytes, Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct SensorId(pub usize);
 
@@ -26,11 +25,18 @@ impl From<SensorId> for usize {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum SensorReading {
+pub enum Reading {
     None,
     Value(f32),
+    NoData(NoData),
+}
+
+#[derive(zerocopy::AsBytes, Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[repr(u8)]
+pub enum NoData {
+    DeviceOff,
     DeviceError,
-    NotPresent,
+    DeviceNotPresent,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]

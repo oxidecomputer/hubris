@@ -17,7 +17,7 @@ use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::RequestError;
 use seq_spi::Addr;
 
 task_slot!(GPIO, gpio_driver);
@@ -387,6 +387,26 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
             _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
         }
+    }
+
+    fn fans_on(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        let on = 0x7;
+        self.seq.write_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
+        Ok(())
+    }
+
+    fn fans_off(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        let off = 0x6;
+        self.seq
+            .write_bytes(Addr::EARLY_POWER_CTRL, &[off])
+            .unwrap();
+        Ok(())
     }
 }
 

@@ -26,5 +26,19 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "fans_on": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "fans_off": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

@@ -8,8 +8,7 @@
 #![no_main]
 
 use idol_runtime::{NotificationHandler, RequestError};
-use task_sensor_api::{SensorError, SensorId, SensorReading};
-use userlib::units::*;
+use task_sensor_api::{NoData, Reading, SensorError, SensorId};
 use userlib::*;
 
 // This is only included to determine the number of sensors
@@ -19,7 +18,7 @@ use i2c_config::sensors;
 use sensors::NUM_SENSORS;
 
 struct ServerImpl {
-    data: [SensorReading; NUM_SENSORS],
+    data: [Reading; NUM_SENSORS],
     deadline: u64,
 }
 
@@ -36,14 +35,15 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
         if index < NUM_SENSORS {
             match self.data[index] {
-                SensorReading::NotPresent => {
+                Reading::NoData(NoData::DeviceNotPresent)
+                | Reading::NoData(NoData::DeviceOff) => {
                     Err(SensorError::NotPresent.into())
                 }
-                SensorReading::DeviceError => {
+                Reading::NoData(NoData::DeviceError) => {
                     Err(SensorError::DeviceError.into())
                 }
-                SensorReading::Value(reading) => Ok(reading),
-                SensorReading::None => Err(SensorError::NoReading.into()),
+                Reading::Value(reading) => Ok(reading),
+                Reading::None => Err(SensorError::NoReading.into()),
             }
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -59,7 +59,23 @@ impl idl::InOrderSensorImpl for ServerImpl {
         let index = id.0;
 
         if index < NUM_SENSORS {
-            self.data[index] = SensorReading::Value(value);
+            self.data[index] = Reading::Value(value);
+            Ok(())
+        } else {
+            Err(SensorError::InvalidSensor.into())
+        }
+    }
+
+    fn nodata(
+        &mut self,
+        _: &RecvMessage,
+        id: SensorId,
+        nodata: NoData,
+    ) -> Result<(), RequestError<SensorError>> {
+        let index = id.0;
+
+        if index < NUM_SENSORS {
+            self.data[index] = Reading::NoData(nodata);
             Ok(())
         } else {
             Err(SensorError::InvalidSensor.into())
@@ -88,7 +104,7 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     let mut server = ServerImpl {
-        data: [SensorReading::None; NUM_SENSORS],
+        data: [Reading::None; NUM_SENSORS],
         deadline,
     };
 
@@ -100,7 +116,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{SensorError, SensorId};
+    use super::{NoData, SensorError, SensorId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

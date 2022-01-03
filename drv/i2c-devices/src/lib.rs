@@ -93,8 +93,21 @@ pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
 }
 
+pub trait PowerSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_power(&self) -> Result<userlib::units::Watts, T>;
+}
+
+pub trait CurrentSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_current(&self) -> Result<userlib::units::Amperes, T>;
+}
+
+pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_voltage(&self) -> Result<userlib::units::Volts, T>;
+}
+
 pub mod adm1272;
 pub mod adt7420;
+pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
 pub mod max31790;

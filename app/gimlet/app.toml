@@ -129,7 +129,17 @@ priority = 3
 requires = {flash = 65536, ram = 8192 }
 stacksize = 2048
 start = true
-task-slots = ["i2c_driver"]
+task-slots = ["i2c_driver", "sensor"]
+
+[tasks.power]
+path = "../../task/power"
+name = "task-power"
+features = ["itm", "h753"]
+priority = 3
+requires = {flash = 8192, ram = 2048 }
+stacksize = 1200
+start = true
+task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -161,6 +171,15 @@ start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
 task-slots = ["gpio_driver", "rcc_driver"]
+
+[tasks.sensor]
+path = "../../task/sensor"
+name = "task-sensor"
+features = ["itm"]
+priority = 3
+requires = {flash = 16384, ram = 2048 }
+stacksize = 2000
+start = true
 
 [tasks.idle]
 path = "../../task/idle"
@@ -306,11 +325,15 @@ name = "rear"
 description = "Rear bus"
 pins = [ { pins = [ 14, 15 ], af = 4 } ]
 
+#
+# Note that the north and south temperature boards are inverted with respect
+# to one another; see Gimlet issue #1302 for details
+#
 [[config.i2c.devices]]
 bus = "front"
 address = 0x48
 device = "tmp117"
-name = "zone1"
+name = "Southwest"
 description = "Front temperature sensor (zone 1)"
 sensors = { temperature = 1 }
 removable = true
@@ -319,7 +342,7 @@ removable = true
 bus = "front"
 address = 0x49
 device = "tmp117"
-name = "zone2"
+name = "South"
 description = "Front temperature sensor (zone 2)"
 sensors = { temperature = 1 }
 removable = true
@@ -328,7 +351,7 @@ removable = true
 bus = "front"
 address = 0x4a
 device = "tmp117"
-name = "zone3"
+name = "Southeast"
 description = "Front temperature sensor (zone 3)"
 sensors = { temperature = 1 }
 removable = true
@@ -391,7 +414,7 @@ description = "M.2 hot plug controller"
 bus = "mid"
 address = 0x4c
 device = "sbtsi"
-name = "cpu"
+name = "CPU"
 description = "CPU temperature sensor"
 sensors = { temperature = 1 }
 
@@ -407,7 +430,7 @@ address = 0x5a
 device = "raa229618"
 description = "CPU power controller"
 pmbus = { rails = [ "VDD_VCORE", "VDD_MEM_ABCD" ] }
-sensors = { temperature = 1, power = 2, voltage = 2, current = 2 }
+sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
 refdes = "U350"
 
 [[config.i2c.devices]]
@@ -416,7 +439,7 @@ address = 0x5b
 device = "raa229618"
 description = "SoC power controller"
 pmbus = { rails = [ "VDDCR_SOC", "VDD_MEM_EFGH" ] }
-sensors = { temperature = 1, power = 2, voltage = 2, current = 2 }
+sensors = { temperature = 2, power = 2, voltage = 2, current = 2 }
 refdes = "U351"
 
 [[config.i2c.devices]]
@@ -462,7 +485,7 @@ sensors = { speed = 6 }
 bus = "rear"
 address = 0x48
 device = "tmp117"
-name = "zone1"
+name = "Northeast"
 description = "Rear temperature sensor (zone 1)"
 sensors = { temperature = 1 }
 removable = true
@@ -471,7 +494,7 @@ removable = true
 bus = "rear"
 address = 0x49
 device = "tmp117"
-name = "zone2"
+name = "North"
 description = "Rear temperature sensor (zone 2)"
 sensors = { temperature = 1 }
 removable = true
@@ -480,7 +503,7 @@ removable = true
 bus = "rear"
 address = 0x4a
 device = "tmp117"
-name = "zone3"
+name = "Northwest"
 description = "Rear temperature sensor (zone 3)"
 sensors = { temperature = 1 }
 removable = true
@@ -504,8 +527,9 @@ refdes = "U357"
 bus = "rear"
 address = 0x67
 device = "bmr491"
-description = "IBC"
+name = "IBC"
+description = "Intermediate bus converter"
 pmbus = { rails = [ "V12_SYS_A2" ] }
-sensors = { temperature = 1 }
+sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
 refdes = "U431"
 

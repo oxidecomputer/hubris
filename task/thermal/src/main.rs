@@ -18,12 +18,16 @@ use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp116::*;
 use drv_i2c_devices::TempSensor;
 use idol_runtime::{NotificationHandler, RequestError};
-use task_sensor_api::SensorId;
+use task_sensor_api as sensor_api;
 use task_thermal_api::ThermalError;
 use userlib::units::*;
 use userlib::*;
 
+use sensor_api::{NoData, SensorId};
+
 task_slot!(I2C, i2c_driver);
+task_slot!(SENSOR, sensor);
+
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
@@ -109,44 +113,44 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
         Sensor {
             device: Device::North(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_rear_zone3(task)),
+                Tmp116::new(&devices::tmp117_northeast(task)),
             ),
-            id: sensors::TMP117_REAR_ZONE3_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_rear_zone2(task)),
+                Tmp116::new(&devices::tmp117_north(task)),
             ),
-            id: sensors::TMP117_REAR_ZONE2_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_rear_zone1(task)),
+                Tmp116::new(&devices::tmp117_northwest(task)),
             ),
-            id: sensors::TMP117_REAR_ZONE1_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_front_zone1(task)),
+                Tmp116::new(&devices::tmp117_southeast(task)),
             ),
-            id: sensors::TMP117_FRONT_ZONE1_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_front_zone2(task)),
+                Tmp116::new(&devices::tmp117_south(task)),
             ),
-            id: sensors::TMP117_FRONT_ZONE2_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_front_zone3(task)),
+                Tmp116::new(&devices::tmp117_southwest(task)),
             ),
-            id: sensors::TMP117_FRONT_ZONE3_TEMPERATURE_SENSOR,
+            id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
@@ -156,6 +160,7 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
 }
 
 struct ServerImpl {
+    sensor: sensor_api::Sensor,
     sensors: [Sensor; NUM_TEMPERATURE_SENSORS],
     data: [Option<Result<f32, ThermalError>>; NUM_TEMPERATURE_SENSORS],
     deadline: u64,
@@ -193,8 +198,24 @@ impl NotificationHandler for ServerImpl {
 
         for (index, sensor) in self.sensors.iter().enumerate() {
             self.data[index] = match sensor.read_temp() {
-                Ok(reading) => Some(Ok(reading.0)),
-                Err(e) => Some(Err(e)),
+                Ok(reading) => {
+                    self.sensor.post(sensor.id, reading.0).unwrap();
+                    Some(Ok(reading.0))
+                }
+                Err(e) => {
+                    self.sensor
+                        .nodata(
+                            sensor.id,
+                            match e {
+                                ThermalError::SensorNotPresent => {
+                                    NoData::DeviceNotPresent
+                                }
+                                _ => NoData::DeviceError,
+                            },
+                        )
+                        .unwrap();
+                    Some(Err(e))
+                }
             };
         }
     }
@@ -233,6 +254,7 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     let mut server = ServerImpl {
+        sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         sensors: temperature_sensors(),
         data: [None; NUM_TEMPERATURE_SENSORS],
         deadline,

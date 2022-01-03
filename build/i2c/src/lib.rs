@@ -631,18 +631,11 @@ impl ConfigGenerator {
 
             if let Some(bus) = &d.bus {
                 bybus.insert((&d.device, bus), d);
+            }
 
-                if let Some(name) = &d.name {
-                    if byname.insert((&d.device, bus, name), d).is_some() {
-                        panic!(
-                            "duplicate name {} for device {} on bus {}",
-                            name, d.device, bus
-                        )
-                    }
-                }
-            } else {
-                if let Some(name) = &d.name {
-                    panic!("named device {} is on unnamed bus", name);
+            if let Some(name) = &d.name {
+                if byname.insert((&d.device, name), d).is_some() {
+                    panic!("duplicate name {} for device {}", name, d.device)
                 }
             }
         }
@@ -704,13 +697,14 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, bus, name), d) in &byname {
+        for ((device, name), d) in &byname {
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {}_{}_{}(task: TaskId) -> I2cDevice {{"##,
-                device, bus, name
+        pub fn {}_{}(task: TaskId) -> I2cDevice {{"##,
+                device,
+                name.to_lowercase()
             )?;
 
             let out = self.generate_device(d);
@@ -828,20 +822,37 @@ impl ConfigGenerator {
 
         let mut sensors = vec![];
 
-        let mut add_sensor = |kind, d: &I2cDevice| {
+        let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
             let id = sensors.len();
             sensors.push(kind);
+
+            let name: Option<String> = if let Some(pmbus) = &d.pmbus {
+                if let Some(rails) = &pmbus.rails {
+                    if idx < rails.len() {
+                        Some(rails[idx].clone())
+                    } else {
+                        panic!("sensor count exceeds rails for {:?}", d);
+                    }
+                } else {
+                    d.name.clone()
+                }
+            } else {
+                d.name.clone()
+            };
 
             if let Some(bus) = &d.bus {
                 bybus.insert((d.device.clone(), bus.clone(), kind), id);
 
-                if let Some(name) = &d.name {
-                    byname.insert((d.device.clone(), name.clone(), kind), id);
+                if let Some(ref name) = name {
                     bybusname.insert(
                         (d.device.clone(), bus.clone(), name.clone(), kind),
                         id,
                     );
                 }
+            }
+
+            if let Some(name) = name {
+                byname.insert((d.device.clone(), name, kind), id);
             }
 
             bydevice.insert((d.device.clone(), kind), id);
@@ -850,24 +861,24 @@ impl ConfigGenerator {
 
         for d in &self.devices {
             if let Some(s) = &d.sensors {
-                for _i in 0..s.temperature {
-                    add_sensor(Sensor::Temperature, &d);
+                for i in 0..s.temperature {
+                    add_sensor(Sensor::Temperature, &d, i);
                 }
 
-                for _i in 0..s.power {
-                    add_sensor(Sensor::Power, &d);
+                for i in 0..s.power {
+                    add_sensor(Sensor::Power, &d, i);
                 }
 
-                for _i in 0..s.current {
-                    add_sensor(Sensor::Current, &d);
+                for i in 0..s.current {
+                    add_sensor(Sensor::Current, &d, i);
                 }
 
-                for _i in 0..s.voltage {
-                    add_sensor(Sensor::Voltage, &d);
+                for i in 0..s.voltage {
+                    add_sensor(Sensor::Voltage, &d, i);
                 }
 
-                for _i in 0..s.speed {
-                    add_sensor(Sensor::Speed, &d);
+                for i in 0..s.speed {
+                    add_sensor(Sensor::Speed, &d, i);
                 }
             }
         }
@@ -878,6 +889,7 @@ impl ConfigGenerator {
     pub mod sensors {{
         use task_sensor_api::SensorId;
 
+        #[allow(dead_code)]
         pub const NUM_SENSORS: usize = {};
 "##,
             sensors.len()

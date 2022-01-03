@@ -25,3 +25,7 @@ pub struct Amperes(pub f32);
 /// Ohms of resistence
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Ohms(pub f32);
+
+/// Watts of power
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Watts(pub f32);

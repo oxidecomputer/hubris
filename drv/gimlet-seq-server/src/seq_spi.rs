@@ -5,7 +5,6 @@
 use zerocopy::{AsBytes, Unaligned, U16};
 
 use drv_spi_api as spi_api;
-use drv_stm32h7_gpio_api as gpio_api;
 
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
