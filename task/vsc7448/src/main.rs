@@ -51,8 +51,10 @@ pub enum VscError {
     BiDecFailed(u16),
     LtDecFailed(u16),
     LsDecFailed(u16),
-    PllLockFailed,
-    PllFsmFailed,
+    TxPllLockFailed,
+    TxPllFsmFailed,
+    RxPllLockFailed,
+    RxPllFsmFailed,
 }
 
 impl From<SpiError> for VscError {
