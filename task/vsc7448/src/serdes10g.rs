@@ -3,27 +3,30 @@ use crate::{Vsc7448Spi, VscError};
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
-pub struct SetupTx {
+pub struct SerdesConfig {
     f_pll: FrequencySetup,
 
     mult: SynthMultCalc,
+    preset: SerdesRxPreset,
 
-    tx_synth_hrate_ena: bool,
+    half_rate_mode: bool,
     tx_synth_off_comp_ena: u32,
     pll_lpf_cur: u32,
     pll_lpf_res: u32,
     pllf_ref_cnt_end: u32,
+
+    ib_bias_adj: u32,
 }
 
-impl SetupTx {
-    /// `vtss_calc_sd10g65_setup_tx`
+impl SerdesConfig {
     pub fn new() -> Result<Self, VscError> {
+        // `vtss_calc_sd10g65_setup_tx`
         let mut f_pll = get_frequency_setup(SerdesMode::Lan10g);
         let mut f_pll_khz_plain =
             ((f_pll.f_pll_khz as u64 * f_pll.ratio_num as u64)
                 / (f_pll.ratio_den as u64)) as u32;
 
-        let tx_synth_hrate_ena = if f_pll_khz_plain < 2_500_000 {
+        let half_rate_mode = if f_pll_khz_plain < 2_500_000 {
             f_pll_khz_plain *= 2;
             f_pll.f_pll_khz *= 2;
             true
@@ -45,39 +48,51 @@ impl SetupTx {
         };
 
         let if_width = 32;
-        let pllf_ref_cnt_end = if tx_synth_hrate_ena {
+        let pllf_ref_cnt_end = if half_rate_mode {
             (if_width * 64 * 1000000) / (f_pll_khz_plain >> 1)
         } else {
             (if_width * 64 * 1000000) / f_pll_khz_plain
         };
 
-        // ... AND MORE
+        ////////////////////////////////////////////////////////////////////////
+        // `vtss_calc_sd10g65_setup_rx
+        let ib_bias_adj = 31; // This can change depending on cable type!
+        let preset = SerdesRxPreset::new(SerdesPresetType::DacHw);
+
         Ok(Self {
             f_pll,
             mult,
-            tx_synth_hrate_ena,
+            preset,
+            half_rate_mode,
+
             tx_synth_off_comp_ena,
             pll_lpf_cur,
             pll_lpf_res,
             pllf_ref_cnt_end,
+
+            ib_bias_adj,
         })
     }
-    /// Based on `jaguar2c_sd10g_tx_register_cfg`, but turning variables
-    /// which never change into direct register assignments (rather than
-    /// assigning them and passing them around in the config struct)
+    /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
+    /// changed are converted into direct register assignments (rather than
+    /// passing them around in the config struct).
     pub fn apply(
         &self,
         index: u32,
         v: &mut Vsc7448Spi,
     ) -> Result<(), VscError> {
         let dev = Vsc7448::XGANA(index);
+
+        ////////////////////////////////////////////////////////////////////////
+        //  `jaguar2c_sd10g_tx_register_cfg`
         let tx_synth = dev.SD10G65_TX_SYNTH();
         let ob = dev.SD10G65_OB();
-        v.modify(ob.SD10G65_SBUS_TX_CFG(), |r| r.set_sbus_bias_en(1))?;
-        v.modify(dev.SD10G65_IB().SD10G65_SBUS_RX_CFG(), |r| {
-            r.set_sbus_bias_en(1)
+        v.modify(ob.SD10G65_SBUS_TX_CFG(), |r| {
+            r.set_sbus_bias_en(1);
         })?;
-        v.modify(dev.SD10G65_OB().SD10G65_OB_CFG0(), |r| r.set_en_ob(1))?;
+        v.modify(dev.SD10G65_OB().SD10G65_OB_CFG0(), |r| {
+            r.set_en_ob(1);
+        })?;
         v.modify(dev.SD10G65_TX_RCPLL().SD10G65_TX_RCPLL_CFG2(), |r| {
             r.set_pll_ena(1)
         })?;
@@ -106,7 +121,7 @@ impl SetupTx {
         v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_ls_speed(self.mult.tx_ls_speed.into());
             r.set_synth_cs_speed(self.mult.tx_cs_speed.into());
-            r.set_synth_hrate_ena(self.tx_synth_hrate_ena.into());
+            r.set_synth_hrate_ena(self.half_rate_mode.into());
             // These aren't in the datasheet, but are copied from the SDK
             r.set_synth_ena_sync_unit(1);
             r.set_synth_conv_ena(1);
@@ -118,7 +133,7 @@ impl SetupTx {
         v.modify(tx_synth.SD10G65_SSC_CFG1(), |r| {
             r.set_sync_ctrl_fsel(35);
         })?;
-        // TODO: check ob.SD10G65_OB_CFG0/2 to make sure they're defaults
+        // TODO: check ob.SD10G65_OB_CFG0/2 on a running device to make sure they're defaults
 
         let tx_rcpll = dev.SD10G65_TX_RCPLL();
         v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG2(), |r| {
@@ -150,14 +165,334 @@ impl SetupTx {
 
         let stat0 = v.read(tx_rcpll.SD10G65_TX_RCPLL_STAT0())?;
         if stat0.pllf_lock_stat() != 1 {
-            return Err(VscError::PllLockFailed);
+            return Err(VscError::TxPllLockFailed);
         }
         let stat1 = v.read(tx_rcpll.SD10G65_TX_RCPLL_STAT1())?;
         if stat1.pllf_fsm_stat() != 13 {
-            return Err(VscError::PllFsmFailed);
+            return Err(VscError::TxPllFsmFailed);
         }
 
+        ////////////////////////////////////////////////////////////////////////
+        //  `jaguar2c_sd10g_rx_register_cfg`
+        let ib = dev.SD10G65_IB();
+        v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
+            r.set_sbus_spare_pool(0);
+            r.set_sbus_bias_en(1);
+        })?;
+
+        let rx_rcpll = dev.SD10G65_RX_RCPLL();
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
+            r.set_pll_ena(1);
+        })?;
+
+        let rx_synth = dev.SD10G65_RX_SYNTH();
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_ena(1);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
+            r.set_synth_aux_ena(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG0(), |r| {
+            r.set_ib_clkdiv_ena(1);
+            r.set_ib_vbulk_sel(1);
+            r.set_ib_sam_ena(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG8(), |r| {
+            r.set_ib_bias_mode(1);
+            r.set_ib_cml_curr(0);
+
+            r.set_ib_bias_adj(self.ib_bias_adj);
+        })?;
+        // TODO: can we consolidate these write operations?
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_spare_pool(7);
+            r.set_synth_off_comp_ena(15);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_speed_sel(self.mult.speed_sel.into());
+            r.set_synth_fbdiv_sel(self.mult.fbdiv_sel.into());
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG3(), |r| {
+            r.set_synth_freqm_0((self.mult.settings.freqm & 0xFFFFFFFF) as u32);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG4(), |r| {
+            r.set_synth_freqn_0((self.mult.settings.freqn & 0xFFFFFFFF) as u32);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG1(), |r| {
+            r.set_synth_freq_mult_byp(1);
+            r.set_synth_freq_mult(self.mult.freq_mult_byp.freq_mult.into());
+            r.set_synth_freq_mult_hi(
+                self.mult.freq_mult_byp.freq_mult_hi as u32,
+            );
+            r.set_synth_freqm_1((self.mult.settings.freqm >> 32) as u32);
+            r.set_synth_freqn_1((self.mult.settings.freqn >> 32) as u32);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_fb_step(self.mult.rx_fb_step.into());
+            r.set_synth_i2_step(self.mult.rx_i2_step.into());
+            // TODO: check FB_STEP and I2_STEP values against running system
+        })?;
+
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_hrate_ena(self.half_rate_mode.into());
+            r.set_synth_i2_ena(1);
+            r.set_synth_conv_ena(1);
+        })?;
+
+        v.modify(rx_synth.SD10G65_RX_SYNTH_SYNC_CTRL(), |r| {
+            r.set_synth_sc_sync_timer_sel(0);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
+            r.set_synth_phase_data(self.preset.synth_phase_data.into());
+            r.set_synth_cpmd_dig_ena(0); // Not in MODE_FX100
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
+            r.set_synth_p_step(1);
+            r.set_synth_i1_step(1);
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
+            // This intentionally assigns the same value to both I1E and I1M,
+            // based on the preset configuration.
+            r.set_synth_dv_ctrl_i1e(self.preset.synth_dv_ctrl_i1e.into());
+            r.set_synth_dv_ctrl_i1m(self.preset.synth_dv_ctrl_i1e.into());
+        })?;
+        v.modify(rx_synth.SD10G65_RX_SYNTH_CDRLF(), |r| {
+            r.set_synth_integ1_max1(10);
+            r.set_synth_integ1_max0(10);
+            r.set_synth_integ1_lim(10);
+            // Values from `vtss_sd10g65_setup_rx_args_init`
+            r.set_synth_integ1_fsel(10);
+            r.set_synth_integ2_fsel(35);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG0(), |r| {
+            r.set_ib_rib_adj(self.preset.ib_rib_adj.into());
+            r.set_ib_eqz_ena(1);
+            r.set_ib_dfe_ena(1);
+            r.set_ib_ld_ena(1);
+            r.set_ib_ia_ena(1);
+            r.set_ib_ia_sdet_ena(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG3(), |r| {
+            r.set_ib_eq_ld1_offset(self.preset.ib_eq_ld1_offset.into());
+            r.set_ib_ldsd_divsel(0);
+            r.set_ib_ia_sdet_level(2);
+            r.set_ib_sdet_sel(0);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG5(), |r| {
+            r.set_ib_offs_value(31);
+            r.set_ib_calmux_ena(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG6(), |r| {
+            r.set_ib_sam_offs_adj(self.preset.ib_sam_offs_adj.into());
+
+            // Depends on chip family; our chip is a JAGUAR2C
+            r.set_ib_auto_agc_adj(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG7(), |r| {
+            r.set_ib_dfe_gain_adj_s(1);
+            r.set_ib_dfe_gain_adj(self.preset.ib_dfe_gain_adj.into());
+            r.set_ib_dfe_offset_h(
+                (4 + 19 * self.preset.ib_vscope_hl_offs as u32) / 8,
+            );
+        })?;
+
+        // In the SDK, this set-then-clear operation is called if skip_cal = 0
+        // Based on the datasheet, this resets the latches.
+        v.modify(ib.SD10G65_IB_CFG8(), |r| {
+            r.set_ib_lat_neutral(1);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG8(), |r| {
+            r.set_ib_lat_neutral(0);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG4(), |r| {
+            // This deliberately applies the same value across all adjustments
+            r.set_ib_eqz_c_adj_ib(self.preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es0(self.preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es1(self.preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es2(self.preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_mode(self.preset.ib_eqz_c_mode.into());
+            r.set_ib_eqz_l_mode(self.preset.ib_eqz_l_mode.into());
+            r.set_ib_vscope_h_thres(
+                (32 + self.preset.ib_vscope_hl_offs).into(),
+            );
+            r.set_ib_vscope_l_thres(
+                (31 - self.preset.ib_vscope_hl_offs).into(),
+            );
+            r.set_ib_main_thres((32 + self.preset.ib_vscope_hl_offs).into());
+        })?;
+        v.modify(ib.SD10G65_IB_CFG11(), |r| {
+            r.set_ib_ena_400_inp(self.preset.ib_ena_400_inp.into());
+            r.set_ib_tc_dfe(self.preset.ib_tc_dfe.into());
+            r.set_ib_tc_eq(self.preset.ib_tc_eq.into());
+        })?;
+
+        let des = dev.SD10G65_DES();
+        // Leave CFG0 untouched from defaults (TODO: check)
+
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
+            r.set_pll_vco_cur(7);
+            r.set_pll_vreg18(10);
+            r.set_pll_lpf_cur(self.pll_lpf_cur);
+            r.set_pll_lpf_res(self.pll_lpf_res);
+        })?;
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG0(), |r| {
+            r.set_pllf_start_cnt(2);
+            r.set_pllf_syn_clk_ena(0);
+            r.set_pllf_loop_ctrl_ena(0);
+            r.set_pllf_loop_ena(0);
+            r.set_pllf_ena(0);
+        })?;
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG1(), |r| {
+            r.set_pllf_ref_cnt_end(self.pllf_ref_cnt_end);
+        })?;
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG0(), |r| {
+            r.set_pllf_oor_recal_ena(1);
+        })?;
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG0(), |r| {
+            r.set_pllf_ena(1);
+        })?;
+        v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG0(), |r| {
+            r.set_pllf_oor_recal_ena(0);
+        })?;
+
+        hl::sleep_for(2);
+        let stat0 = v.read(rx_rcpll.SD10G65_RX_RCPLL_STAT0())?;
+        if stat0.pllf_lock_stat() != 1 {
+            return Err(VscError::RxPllLockFailed);
+        }
+        let stat1 = v.read(rx_rcpll.SD10G65_RX_RCPLL_STAT1())?;
+        if stat1.pllf_fsm_stat() != 13 {
+            return Err(VscError::RxPllFsmFailed);
+        }
+
+        ////////////////////////////////////////////////////////////////////////
+        // jaguar2c_apc10g_register_cfg
+        let dev_dig = Vsc7448::XGDIG(index);
+        let apc = dev_dig.SD10G65_APC();
+        v.modify(apc.APC_COMMON_CFG0(), |r| {
+            r.set_apc_fsm_recover_mode(1);
+            r.set_skip_cal(0);
+            r.set_reset_apc(1);
+            r.set_apc_direct_ena(1);
+        })?;
+        v.modify(apc.APC_LD_CAL_CFG(), |r| {
+            r.set_cal_clk_div(3);
+        })?;
+
         Ok(())
+    }
+}
+
+/// Equivalent to `vtss_sd10g65_preset_t`
+enum SerdesPresetType {
+    DacHw,
+}
+
+/// Equivalent to `vtss_sd10g65_preset_struct_t`
+struct SerdesRxPreset {
+    synth_phase_data: u8,
+    ib_main_thres_offs: u8,
+    ib_vscope_hl_offs: u8,
+    ib_bias_adj: u8,
+    ib_sam_offs_adj: u8,
+    ib_tc_dfe: u8,
+    ib_tc_eq: u8,
+    ib_ena_400_inp: u8,
+    ib_eqz_l_mode: u8,
+    ib_eqz_c_mode: u8,
+    ib_dfe_gain_adj: u8,
+    ib_rib_adj: u8,
+    ib_eq_ld1_offset: u8,
+    pll_vreg18: u8,
+    pll_vco_cur: u8,
+    ib_sig_sel: u8,
+    ib_eqz_c_adj: u8,
+    synth_dv_ctrl_i1e: u8,
+}
+
+impl SerdesRxPreset {
+    fn new(t: SerdesPresetType) -> Self {
+        // Based on `vtss_sd10g65_set_default_preset_values` and code in
+        // `vtss_calc_sd10g65_setup_rx`.
+        match t {
+            SerdesPresetType::DacHw => Self {
+                synth_phase_data: 54,
+                ib_main_thres_offs: 0,
+                ib_vscope_hl_offs: 10,
+                ib_bias_adj: 31,
+                ib_sam_offs_adj: 16,
+                ib_eq_ld1_offset: 20,
+                ib_eqz_l_mode: 0,
+                ib_eqz_c_mode: 0,
+                ib_dfe_gain_adj: 63,
+                ib_rib_adj: 8,
+                ib_tc_eq: 0,
+                ib_tc_dfe: 0,
+                ib_ena_400_inp: 1,
+                pll_vreg18: 10,
+                pll_vco_cur: 7,
+                ib_sig_sel: 0,
+                ib_eqz_c_adj: 0,
+                synth_dv_ctrl_i1e: 0,
+            },
+        }
+    }
+}
+
+struct SerdesApcPreset {
+    ld_lev_ini: u8,
+    range_sel: u8,
+    dfe1_min: u8,
+    dfe1_max: u8,
+    gain_ini: u16,
+    gain_adj_ini: u8,
+    gain_chg_mode: u8,
+    c_min: u8,
+    c_max: u8,
+    c_ini: u8,
+    c_rs_offs: u8,
+    c_chg_mode: u8,
+    l_min: u8,
+    l_max: u8,
+    l_ini: u8,
+    l_rs_offs: u8,
+    l_chg_mode: u8,
+    agc_min: u8,
+    agc_max: u8,
+    agc_ini: u8,
+    lc_smartctrl: u8,
+}
+
+/// Presets for Automatic Pararameter Control configuration
+impl SerdesApcPreset {
+    /// Based on `vtss_sd10g65_apc_set_default_preset_values` and
+    /// `vtss_calc_sd10g65_setup_apc`
+    fn new(t: SerdesPresetType) -> Self {
+        match t {
+            SerdesPresetType::DacHw => Self {
+                ld_lev_ini: 4,
+                range_sel: 20,
+                dfe1_min: 0,
+                dfe1_max: 127,
+                gain_ini: 0,
+                gain_adj_ini: 0,
+                gain_chg_mode: 0,
+                c_min: 4,
+                c_max: 31,
+                c_ini: 25,
+                c_rs_offs: 3,
+                c_chg_mode: 0,
+                l_min: 8,
+                l_max: 62,
+                l_ini: 50,
+                l_rs_offs: 2,
+                l_chg_mode: 0,
+                agc_min: 0,
+                agc_max: 216,
+                agc_ini: 168,
+                lc_smartctrl: 0,
+            },
+        }
     }
 }
 
