@@ -44,7 +44,7 @@ enum Trace {
 // Flags to tune ringbuf output while developing
 const DEBUG_TRACE_SPI: u8 = 1 << 0;
 const DEBUG_TRACE_MIIM: u8 = 1 << 1;
-const DEBUG_MASK: u8 = 0;
+const DEBUG_MASK: u8 = DEBUG_TRACE_SPI;
 
 /// Writes the given value to the ringbuf if allowed by the global `DEBUG_MASK`
 macro_rules! ringbuf_entry_masked {

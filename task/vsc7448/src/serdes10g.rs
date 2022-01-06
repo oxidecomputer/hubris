@@ -4,18 +4,19 @@ use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
 pub struct SerdesConfig {
-    f_pll: FrequencySetup,
+    f_pll_khz_plain: u32,
 
     mult: SynthMultCalc,
-    preset: SerdesRxPreset,
+    rx_preset: SerdesRxPreset,
+    apc_preset: SerdesApcPreset,
 
     half_rate_mode: bool,
+    high_data_rate: bool,
+    optimize_for_1g: bool,
     tx_synth_off_comp_ena: u32,
     pll_lpf_cur: u32,
     pll_lpf_res: u32,
     pllf_ref_cnt_end: u32,
-
-    ib_bias_adj: u32,
 }
 
 impl SerdesConfig {
@@ -33,6 +34,13 @@ impl SerdesConfig {
         } else {
             false
         };
+
+        // XXX: should this check the scaled or unscaled f_pll_khz?
+        let optimize_for_1g = f_pll.f_pll_khz < 2_500_000;
+
+        // XXX: What happens if this is exactly 2_500_000?  Then half_rate_mode
+        // will be false and high_data_rate will also be false.
+        let high_data_rate = f_pll_khz_plain > 2_500_000;
 
         let mult = SynthMultCalc::new(&f_pll)?;
 
@@ -56,31 +64,29 @@ impl SerdesConfig {
 
         ////////////////////////////////////////////////////////////////////////
         // `vtss_calc_sd10g65_setup_rx
-        let ib_bias_adj = 31; // This can change depending on cable type!
-        let preset = SerdesRxPreset::new(SerdesPresetType::DacHw);
+        let preset_type = SerdesPresetType::DacHw;
+        let rx_preset = SerdesRxPreset::new(preset_type);
+        let apc_preset = SerdesApcPreset::new(preset_type, optimize_for_1g);
 
         Ok(Self {
-            f_pll,
+            f_pll_khz_plain,
             mult,
-            preset,
+            rx_preset,
+            apc_preset,
             half_rate_mode,
+            high_data_rate,
+            optimize_for_1g,
 
             tx_synth_off_comp_ena,
             pll_lpf_cur,
             pll_lpf_res,
             pllf_ref_cnt_end,
-
-            ib_bias_adj,
         })
     }
     /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
     /// changed are converted into direct register assignments (rather than
     /// passing them around in the config struct).
-    pub fn apply(
-        &self,
-        index: u32,
-        v: &mut Vsc7448Spi,
-    ) -> Result<(), VscError> {
+    pub fn apply(&self, index: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
         let dev = Vsc7448::XGANA(index);
 
         ////////////////////////////////////////////////////////////////////////
@@ -201,7 +207,7 @@ impl SerdesConfig {
             r.set_ib_bias_mode(1);
             r.set_ib_cml_curr(0);
 
-            r.set_ib_bias_adj(self.ib_bias_adj);
+            r.set_ib_bias_adj(self.rx_preset.ib_bias_adj.into());
         })?;
         // TODO: can we consolidate these write operations?
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
@@ -243,7 +249,7 @@ impl SerdesConfig {
             r.set_synth_sc_sync_timer_sel(0);
         })?;
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
-            r.set_synth_phase_data(self.preset.synth_phase_data.into());
+            r.set_synth_phase_data(self.rx_preset.synth_phase_data.into());
             r.set_synth_cpmd_dig_ena(0); // Not in MODE_FX100
         })?;
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
@@ -253,8 +259,8 @@ impl SerdesConfig {
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
             // This intentionally assigns the same value to both I1E and I1M,
             // based on the preset configuration.
-            r.set_synth_dv_ctrl_i1e(self.preset.synth_dv_ctrl_i1e.into());
-            r.set_synth_dv_ctrl_i1m(self.preset.synth_dv_ctrl_i1e.into());
+            r.set_synth_dv_ctrl_i1e(self.rx_preset.synth_dv_ctrl_i1e.into());
+            r.set_synth_dv_ctrl_i1m(self.rx_preset.synth_dv_ctrl_i1e.into());
         })?;
         v.modify(rx_synth.SD10G65_RX_SYNTH_CDRLF(), |r| {
             r.set_synth_integ1_max1(10);
@@ -265,7 +271,7 @@ impl SerdesConfig {
             r.set_synth_integ2_fsel(35);
         })?;
         v.modify(ib.SD10G65_IB_CFG0(), |r| {
-            r.set_ib_rib_adj(self.preset.ib_rib_adj.into());
+            r.set_ib_rib_adj(self.rx_preset.ib_rib_adj.into());
             r.set_ib_eqz_ena(1);
             r.set_ib_dfe_ena(1);
             r.set_ib_ld_ena(1);
@@ -273,7 +279,7 @@ impl SerdesConfig {
             r.set_ib_ia_sdet_ena(1);
         })?;
         v.modify(ib.SD10G65_IB_CFG3(), |r| {
-            r.set_ib_eq_ld1_offset(self.preset.ib_eq_ld1_offset.into());
+            r.set_ib_eq_ld1_offset(self.rx_preset.ib_eq_ld1_offset.into());
             r.set_ib_ldsd_divsel(0);
             r.set_ib_ia_sdet_level(2);
             r.set_ib_sdet_sel(0);
@@ -283,16 +289,16 @@ impl SerdesConfig {
             r.set_ib_calmux_ena(1);
         })?;
         v.modify(ib.SD10G65_IB_CFG6(), |r| {
-            r.set_ib_sam_offs_adj(self.preset.ib_sam_offs_adj.into());
+            r.set_ib_sam_offs_adj(self.rx_preset.ib_sam_offs_adj.into());
 
             // Depends on chip family; our chip is a JAGUAR2C
             r.set_ib_auto_agc_adj(1);
         })?;
         v.modify(ib.SD10G65_IB_CFG7(), |r| {
             r.set_ib_dfe_gain_adj_s(1);
-            r.set_ib_dfe_gain_adj(self.preset.ib_dfe_gain_adj.into());
+            r.set_ib_dfe_gain_adj(self.rx_preset.ib_dfe_gain_adj.into());
             r.set_ib_dfe_offset_h(
-                (4 + 19 * self.preset.ib_vscope_hl_offs as u32) / 8,
+                (4 + 19 * self.rx_preset.ib_vscope_hl_offs as u32) / 8,
             );
         })?;
 
@@ -306,28 +312,29 @@ impl SerdesConfig {
         })?;
         v.modify(ib.SD10G65_IB_CFG4(), |r| {
             // This deliberately applies the same value across all adjustments
-            r.set_ib_eqz_c_adj_ib(self.preset.ib_eqz_c_adj.into());
-            r.set_ib_eqz_c_adj_es0(self.preset.ib_eqz_c_adj.into());
-            r.set_ib_eqz_c_adj_es1(self.preset.ib_eqz_c_adj.into());
-            r.set_ib_eqz_c_adj_es2(self.preset.ib_eqz_c_adj.into());
-            r.set_ib_eqz_c_mode(self.preset.ib_eqz_c_mode.into());
-            r.set_ib_eqz_l_mode(self.preset.ib_eqz_l_mode.into());
+            r.set_ib_eqz_c_adj_ib(self.rx_preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es0(self.rx_preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es1(self.rx_preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_adj_es2(self.rx_preset.ib_eqz_c_adj.into());
+            r.set_ib_eqz_c_mode(self.rx_preset.ib_eqz_c_mode.into());
+            r.set_ib_eqz_l_mode(self.rx_preset.ib_eqz_l_mode.into());
             r.set_ib_vscope_h_thres(
-                (32 + self.preset.ib_vscope_hl_offs).into(),
+                (32 + self.rx_preset.ib_vscope_hl_offs).into(),
             );
             r.set_ib_vscope_l_thres(
-                (31 - self.preset.ib_vscope_hl_offs).into(),
+                (31 - self.rx_preset.ib_vscope_hl_offs).into(),
             );
-            r.set_ib_main_thres((32 + self.preset.ib_vscope_hl_offs).into());
+            r.set_ib_main_thres(
+                (32 + self.rx_preset.ib_main_thres_offs).into(),
+            );
         })?;
         v.modify(ib.SD10G65_IB_CFG11(), |r| {
-            r.set_ib_ena_400_inp(self.preset.ib_ena_400_inp.into());
-            r.set_ib_tc_dfe(self.preset.ib_tc_dfe.into());
-            r.set_ib_tc_eq(self.preset.ib_tc_eq.into());
+            r.set_ib_ena_400_inp(self.rx_preset.ib_ena_400_inp.into());
+            r.set_ib_tc_dfe(self.rx_preset.ib_tc_dfe.into());
+            r.set_ib_tc_eq(self.rx_preset.ib_tc_eq.into());
         })?;
 
-        let des = dev.SD10G65_DES();
-        // Leave CFG0 untouched from defaults (TODO: check)
+        // Leave SD10G65_DES:CFG0 untouched from defaults (TODO: check)
 
         v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
@@ -378,12 +385,190 @@ impl SerdesConfig {
         v.modify(apc.APC_LD_CAL_CFG(), |r| {
             r.set_cal_clk_div(3);
         })?;
+        v.modify(apc.APC_IS_CAL_CFG1(), |r| {
+            r.set_par_data_num_ones_thres(32 / 4); // TODO: check
+            r.set_cal_num_iterations(1);
+        })?;
+        v.modify(apc.APC_EQZ_COMMON_CFG(), |r| {
+            r.set_eqz_gain_auto_restart(0);
+        })?;
+        v.modify(apc.APC_PARCTRL_FSM1_TIMER_CFG(), |r| {
+            r.set_fsm1_op_time(50000);
+        })?;
+        v.modify(apc.APC_PARCTRL_SYNC_CFG(), |r| {
+            r.set_fsm1_op_mode(1); // one-time operation
+        })?;
+        v.modify(apc.APC_EQZ_LD_CTRL(), |r| {
+            r.set_ld_lev_ini(self.apc_preset.ld_lev_ini.into());
+        })?;
+        v.modify(apc.APC_EQZ_LD_CTRL_CFG0(), |r| {
+            r.set_ld_t_deadtime_wrk(65535);
+            r.set_ld_t_timeout_wrk(1000);
+        })?;
+        v.modify(apc.APC_EQZ_LD_CTRL_CFG1(), |r| {
+            r.set_ld_t_deadtime_cal(65535);
+            r.set_ld_t_timeout_cal(1000);
+        })?;
+        v.modify(apc.APC_EQZ_PAT_MATCH_CFG0(), |r| {
+            r.set_eqz_c_pat_mask(15);
+            r.set_eqz_c_pat_match(5);
+            r.set_eqz_l_pat_mask(15);
+            r.set_eqz_l_pat_match(5);
+        })?;
+        v.modify(apc.APC_EQZ_PAT_MATCH_CFG1(), |r| {
+            r.set_eqz_offs_pat_mask(7);
+            r.set_eqz_offs_pat_match(2);
+            r.set_eqz_agc_pat_mask(15);
+            r.set_eqz_agc_pat_match(5);
+        })?;
+        v.modify(apc.APC_EQZ_OFFS_PAR_CFG(), |r| {
+            r.set_eqz_offs_chg_mode(0);
+            r.set_eqz_offs_range_sel(self.apc_preset.range_sel.into());
+            r.set_eqz_offs_max(0xA0);
+            r.set_eqz_offs_min(0x80);
+            r.set_eqz_offs_ini(0x60);
+        })?;
+        v.modify(apc.APC_EQZ_OFFS_CTRL(), |r| {
+            r.set_eqz_offs_sync_mode(1);
+        })?;
+        v.modify(apc.APC_EQZ_AGC_PAR_CFG(), |r| {
+            r.set_eqz_agc_chg_mode(0);
+            r.set_eqz_agc_range_sel(self.apc_preset.range_sel.into());
+            r.set_eqz_agc_min(self.apc_preset.agc_min.into());
+            r.set_eqz_agc_max(self.apc_preset.agc_max.into());
+            r.set_eqz_agc_ini(self.apc_preset.agc_ini.into());
+        })?;
+        v.modify(apc.APC_EQZ_AGC_CTRL(), |r| {
+            r.set_eqz_agc_sync_mode(1);
+        })?;
+        v.modify(apc.APC_EQZ_OFFS_PAR_CFG(), |r| {
+            r.set_eqz_offs_dir_sel(0); // TODO: check for defaults
+        })?;
+
+        let mut eqz_l_par_cfg = v.read(apc.APC_EQZ_L_PAR_CFG())?;
+        let mut eqz_c_par_cfg = v.read(apc.APC_EQZ_C_PAR_CFG())?;
+        if self.high_data_rate {
+            eqz_l_par_cfg.set_eqz_l_range_sel(
+                (self.apc_preset.range_sel + self.apc_preset.l_rs_offs).into(),
+            );
+            eqz_l_par_cfg.set_eqz_l_max(self.apc_preset.l_max.into());
+            eqz_l_par_cfg.set_eqz_l_min(self.apc_preset.l_min.into());
+            eqz_l_par_cfg.set_eqz_l_ini(self.apc_preset.l_ini.into());
+
+            eqz_c_par_cfg.set_eqz_c_chg_mode(1);
+            eqz_c_par_cfg.set_eqz_c_range_sel(
+                (self.apc_preset.range_sel + self.apc_preset.c_rs_offs).into(),
+            );
+            eqz_c_par_cfg.set_eqz_c_max(self.apc_preset.c_max.into());
+            eqz_c_par_cfg.set_eqz_c_min(self.apc_preset.c_min.into());
+            eqz_c_par_cfg.set_eqz_c_ini(self.apc_preset.c_ini.into());
+        } else {
+            eqz_l_par_cfg.set_eqz_l_ini(0);
+            eqz_c_par_cfg.set_eqz_c_ini(0);
+        }
+        eqz_l_par_cfg.set_eqz_l_chg_mode(1);
+        eqz_c_par_cfg.set_eqz_c_chg_mode(1);
+
+        v.write(apc.APC_EQZ_L_PAR_CFG(), eqz_l_par_cfg)?;
+        v.write(apc.APC_EQZ_C_PAR_CFG(), eqz_c_par_cfg)?;
+        v.modify(apc.APC_EQZ_L_CTRL(), |r| {
+            r.set_eqz_l_sync_mode(0);
+        })?;
+        v.modify(apc.APC_EQZ_C_CTRL(), |r| {
+            r.set_eqz_c_sync_mode(0);
+        })?;
+
+        v.modify(apc.APC_DFE1_PAR_CFG(), |r| {
+            r.set_dfe1_chg_mode(0);
+            r.set_dfe1_range_sel(self.apc_preset.range_sel.into());
+            r.set_dfe1_max(self.apc_preset.dfe1_max.into());
+            r.set_dfe1_min(self.apc_preset.dfe1_min.into());
+            r.set_dfe1_ini(64);
+        })?;
+        v.modify(apc.APC_DFE1_CTRL(), |r| {
+            r.set_dfe1_sync_mode(1);
+        })?;
+        v.modify(apc.APC_DFE2_PAR_CFG(), |r| {
+            r.set_dfe2_chg_mode(0);
+            r.set_dfe2_range_sel(self.apc_preset.range_sel.into());
+            r.set_dfe2_max(if self.optimize_for_1g { 36 } else { 48 });
+            r.set_dfe2_ini(32);
+            r.set_dfe2_min(0);
+        })?;
+        v.modify(apc.APC_DFE2_CTRL(), |r| {
+            r.set_dfe2_sync_mode(1);
+        })?;
+        v.modify(apc.APC_DFE3_PAR_CFG(), |r| {
+            r.set_dfe3_chg_mode(0);
+            r.set_dfe3_range_sel(self.apc_preset.range_sel.into());
+            r.set_dfe3_max(if self.optimize_for_1g { 20 } else { 31 });
+            r.set_dfe3_ini(16);
+            r.set_dfe3_min(0);
+        })?;
+        v.modify(apc.APC_DFE3_CTRL(), |r| {
+            r.set_dfe3_sync_mode(1);
+        })?;
+        v.modify(apc.APC_DFE4_PAR_CFG(), |r| {
+            r.set_dfe4_chg_mode(0);
+            r.set_dfe4_range_sel(self.apc_preset.range_sel.into());
+            r.set_dfe4_max(if self.optimize_for_1g { 20 } else { 31 });
+            r.set_dfe4_ini(16);
+            r.set_dfe4_min(0);
+        })?;
+        v.modify(apc.APC_DFE4_CTRL(), |r| {
+            r.set_dfe4_sync_mode(1);
+        })?;
+
+        // Input calibration?
+        v.modify(ib.SD10G65_IB_CFG6(), |r| {
+            r.set_ib_sam_offs_adj(31);
+        })?;
+        v.modify(ib.SD10G65_IB_CFG0(), |r| {
+            r.set_ib_dfe_ena(0);
+        })?;
+        v.modify(apc.APC_COMMON_CFG0(), |r| {
+            r.set_apc_mode(1); // "manual mode for manual ib_cal"
+        })?;
+        v.modify(apc.APC_COMMON_CFG0(), |r| {
+            r.set_reset_apc(0); // Release reset
+        })?;
+        hl::sleep_for(1);
+        v.modify(apc.APC_IS_CAL_CFG1(), |r| {
+            r.set_start_offscal(1);
+        })?;
+
+        {
+            // This is the calculation for `calibration_time_ms[1]` in the SDK
+            let cal_clk_div = 3;
+            let cal_num_iterations = 1;
+            let if_width = 32;
+            hl::sleep_for(
+                ((1u64 << (2 * cal_clk_div))
+                    * (cal_num_iterations + 1)
+                    * 156500
+                    * if_width
+                    + (self.f_pll_khz_plain as u64 - 1))
+                    / (self.f_pll_khz_plain as u64),
+            );
+        }
+        let cfg1 = v.read(apc.APC_IS_CAL_CFG1())?;
+        if cfg1.offscal_done() != 1 {
+            return Err(VscError::OffsetCalFailed);
+        }
+        v.modify(apc.APC_IS_CAL_CFG1(), |r| {
+            r.set_start_offscal(0);
+        })?;
+
+        v.modify(ib.SD10G65_IB_CFG0(), |r| {
+            r.set_ib_dfe_ena(1);
+        })?;
 
         Ok(())
     }
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`
+#[derive(Copy, Clone)]
 enum SerdesPresetType {
     DacHw,
 }
@@ -403,9 +588,6 @@ struct SerdesRxPreset {
     ib_dfe_gain_adj: u8,
     ib_rib_adj: u8,
     ib_eq_ld1_offset: u8,
-    pll_vreg18: u8,
-    pll_vco_cur: u8,
-    ib_sig_sel: u8,
     ib_eqz_c_adj: u8,
     synth_dv_ctrl_i1e: u8,
 }
@@ -429,9 +611,6 @@ impl SerdesRxPreset {
                 ib_tc_eq: 0,
                 ib_tc_dfe: 0,
                 ib_ena_400_inp: 1,
-                pll_vreg18: 10,
-                pll_vco_cur: 7,
-                ib_sig_sel: 0,
                 ib_eqz_c_adj: 0,
                 synth_dv_ctrl_i1e: 0,
             },
@@ -444,53 +623,41 @@ struct SerdesApcPreset {
     range_sel: u8,
     dfe1_min: u8,
     dfe1_max: u8,
-    gain_ini: u16,
-    gain_adj_ini: u8,
-    gain_chg_mode: u8,
     c_min: u8,
     c_max: u8,
     c_ini: u8,
     c_rs_offs: u8,
-    c_chg_mode: u8,
     l_min: u8,
     l_max: u8,
     l_ini: u8,
     l_rs_offs: u8,
-    l_chg_mode: u8,
     agc_min: u8,
     agc_max: u8,
     agc_ini: u8,
-    lc_smartctrl: u8,
 }
 
 /// Presets for Automatic Pararameter Control configuration
 impl SerdesApcPreset {
     /// Based on `vtss_sd10g65_apc_set_default_preset_values` and
     /// `vtss_calc_sd10g65_setup_apc`
-    fn new(t: SerdesPresetType) -> Self {
+    fn new(t: SerdesPresetType, optimize_for_1g: bool) -> Self {
         match t {
             SerdesPresetType::DacHw => Self {
                 ld_lev_ini: 4,
                 range_sel: 20,
                 dfe1_min: 0,
-                dfe1_max: 127,
-                gain_ini: 0,
-                gain_adj_ini: 0,
-                gain_chg_mode: 0,
+                dfe1_max: if optimize_for_1g { 68 } else { 127 },
                 c_min: 4,
                 c_max: 31,
                 c_ini: 25,
                 c_rs_offs: 3,
-                c_chg_mode: 0,
                 l_min: 8,
                 l_max: 62,
                 l_ini: 50,
                 l_rs_offs: 2,
-                l_chg_mode: 0,
                 agc_min: 0,
                 agc_max: 216,
                 agc_ini: 168,
-                lc_smartctrl: 0,
             },
         }
     }

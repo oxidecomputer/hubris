@@ -55,6 +55,7 @@ pub enum VscError {
     TxPllFsmFailed,
     RxPllLockFailed,
     RxPllFsmFailed,
+    OffsetCalFailed,
 }
 
 impl From<SpiError> for VscError {
