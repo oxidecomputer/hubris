@@ -393,8 +393,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        let on = 0x7;
-        self.seq.write_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
+        let on = 0x1;
+        self.seq.set_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
         Ok(())
     }
 
@@ -402,9 +402,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        let off = 0x6;
+        let off = 0x1;
         self.seq
-            .write_bytes(Addr::EARLY_POWER_CTRL, &[off])
+            .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
             .unwrap();
         Ok(())
     }

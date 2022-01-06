@@ -35,15 +35,12 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
         if index < NUM_SENSORS {
             match self.data[index] {
-                Reading::NoData(NoData::DeviceNotPresent)
-                | Reading::NoData(NoData::DeviceOff) => {
-                    Err(SensorError::NotPresent.into())
-                }
-                Reading::NoData(NoData::DeviceError) => {
-                    Err(SensorError::DeviceError.into())
+                Reading::None => Err(SensorError::NoReading.into()),
+                Reading::NoData(nodata) => {
+                    let err: SensorError = nodata.into();
+                    Err(err.into())
                 }
                 Reading::Value(reading) => Ok(reading),
-                Reading::None => Err(SensorError::NoReading.into()),
             }
         } else {
             Err(SensorError::InvalidSensor.into())

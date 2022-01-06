@@ -10,12 +10,9 @@ use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum ThermalError {
-    InvalidSensor = 1,
-    SensorNotPresent = 2,
-    SensorTimeout = 3,
-    SensorError = 4,
-    SensorUnavailable = 5,
-    NoReading = 6,
+    InvalidFan = 1,
+    InvalidPWM = 2,
+    DeviceError = 3,
 }
 
 impl From<ThermalError> for u16 {

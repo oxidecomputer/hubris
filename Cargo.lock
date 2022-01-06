@@ -2456,6 +2456,7 @@ name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "drv-i2c-api",
  "idol",
  "num-traits",
  "userlib",

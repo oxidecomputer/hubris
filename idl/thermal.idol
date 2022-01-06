@@ -3,12 +3,13 @@
 Interface(
     name: "Thermal",
     ops: {
-        "read_sensor": (
+        "set_fan_pwm": (
             args: {
-                "index": "usize",
+                "index": "u8",
+                "pwm": "u8",
             },
             reply: Result(
-                ok: "f32",
+                ok: "()",
                 err: CLike("ThermalError"),
             ),
         ),

@@ -23,7 +23,7 @@ use task_thermal_api::ThermalError;
 use userlib::units::*;
 use userlib::*;
 
-use sensor_api::{NoData, SensorId};
+use sensor_api::SensorId;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -49,7 +49,7 @@ struct Sensor {
     id: SensorId,
 }
 
-fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ThermalError>
+fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ResponseCode>
 where
     ResponseCode: From<E>,
 {
@@ -57,47 +57,17 @@ where
         Ok(reading) => Ok(reading),
         Err(err) => {
             let err: ResponseCode = err.into();
-
-            let e = match err {
-                ResponseCode::NoDevice => ThermalError::SensorNotPresent,
-                ResponseCode::NoRegister => ThermalError::SensorUnavailable,
-                ResponseCode::BusLocked
-                | ResponseCode::BusLockedMux
-                | ResponseCode::ControllerLocked => ThermalError::SensorTimeout,
-                _ => ThermalError::SensorError,
-            };
-
-            Err(e)
+            Err(err)
         }
     }
 }
 
 impl Sensor {
-    fn read_temp(&self) -> Result<Celsius, ThermalError> {
+    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
         match &self.device {
             Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
             Device::CPU(dev) => temp_read(dev),
         }
-    }
-}
-
-fn read_fans(fctrl: &Max31790) {
-    let mut ndx = 0;
-
-    for fan in 0..MAX_FANS {
-        let fan = Fan::new(fan).unwrap();
-
-        match fctrl.fan_rpm(fan) {
-            Ok(rval) if rval.0 != 0 => {
-                sys_log!("{}: {}: RPM={}", fctrl, fan, rval.0);
-            }
-            Ok(_) => {}
-            Err(err) => {
-                sys_log!("{}: {}: failed: {:?}", fctrl, fan, err);
-            }
-        }
-
-        ndx = ndx + 1;
     }
 }
 
@@ -162,27 +132,54 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
 struct ServerImpl {
     sensor: sensor_api::Sensor,
     sensors: [Sensor; NUM_TEMPERATURE_SENSORS],
-    data: [Option<Result<f32, ThermalError>>; NUM_TEMPERATURE_SENSORS],
+    fctrl: Max31790,
     deadline: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
+impl ServerImpl {
+    fn read_fans(&self) {
+        let ids = &sensors::MAX31790_SPEED_SENSORS;
+
+        for ndx in 0..MAX_FANS {
+            let fan = Fan::from(ndx);
+
+            match self.fctrl.fan_rpm(fan) {
+                Ok(reading) => {
+                    self.sensor
+                        .post(ids[ndx as usize], reading.0.into())
+                        .unwrap();
+                }
+                Err(e) => {
+                    self.sensor.nodata(ids[ndx as usize], e.into()).unwrap()
+                }
+            }
+        }
+    }
+}
+
 impl idl::InOrderThermalImpl for ServerImpl {
-    fn read_sensor(
+    fn set_fan_pwm(
         &mut self,
         _: &RecvMessage,
-        index: usize,
-    ) -> Result<f32, RequestError<ThermalError>> {
-        if index < NUM_TEMPERATURE_SENSORS {
-            match self.data[index] {
-                Some(Err(err)) => Err(err.into()),
-                Some(Ok(reading)) => Ok(reading),
-                None => Err(ThermalError::NoReading.into()),
+        index: u8,
+        pwm: u8,
+    ) -> Result<(), RequestError<ThermalError>> {
+        if index < MAX_FANS {
+            let fan = Fan::from(index);
+
+            if pwm <= 100 {
+                match self.fctrl.set_pwm(fan, PWMDuty(pwm)) {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(ThermalError::DeviceError.into()),
+                }
+            } else {
+                Err(ThermalError::InvalidPWM.into())
             }
         } else {
-            Err(ThermalError::InvalidSensor.into())
+            Err(ThermalError::InvalidFan.into())
         }
     }
 }
@@ -196,26 +193,14 @@ impl NotificationHandler for ServerImpl {
         self.deadline += TIMER_INTERVAL;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
 
-        for (index, sensor) in self.sensors.iter().enumerate() {
-            self.data[index] = match sensor.read_temp() {
+        self.read_fans();
+
+        for s in &self.sensors {
+            match s.read_temp() {
                 Ok(reading) => {
-                    self.sensor.post(sensor.id, reading.0).unwrap();
-                    Some(Ok(reading.0))
+                    self.sensor.post(s.id, reading.0).unwrap();
                 }
-                Err(e) => {
-                    self.sensor
-                        .nodata(
-                            sensor.id,
-                            match e {
-                                ThermalError::SensorNotPresent => {
-                                    NoData::DeviceNotPresent
-                                }
-                                _ => NoData::DeviceError,
-                            },
-                        )
-                        .unwrap();
-                    Some(Err(e))
-                }
+                Err(e) => self.sensor.nodata(s.id, e.into()).unwrap(),
             };
         }
     }
@@ -233,18 +218,7 @@ fn main() -> ! {
         }
     }
 
-    loop {
-        match fctrl.initialize() {
-            Ok(_) => {
-                sys_log!("{}: initialization successful", fctrl);
-                break;
-            }
-            Err(err) => {
-                sys_log!("{}: initialization failed: {:?}", fctrl, err);
-                hl::sleep_for(1000);
-            }
-        }
-    }
+    fctrl.initialize().unwrap();
 
     let deadline = sys_get_timer().now;
 
@@ -256,7 +230,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
         sensors: temperature_sensors(),
-        data: [None; NUM_TEMPERATURE_SENSORS],
+        fctrl: fctrl,
         deadline,
     };
 
