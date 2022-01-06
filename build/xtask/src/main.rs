@@ -17,7 +17,6 @@ mod elf;
 mod flash;
 mod gdb;
 mod humility;
-mod license;
 mod task_slot;
 mod test;
 
@@ -123,9 +122,6 @@ enum Xtask {
         /// Path to task executable
         task_bin: PathBuf,
     },
-
-    /// Check that all .rs files have the MPL header
-    LicenseCheck,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -415,11 +411,6 @@ fn main() -> Result<()> {
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
-        }
-        Xtask::LicenseCheck => {
-            if !license::check()? {
-                std::process::exit(1);
-            }
         }
     }
 
