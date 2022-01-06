@@ -1,4 +1,4 @@
-use crate::{vsc7448_spi::Vsc7448Spi, VscError};
+use crate::{serdes10g::SerdesConfig, vsc7448_spi::Vsc7448Spi, VscError};
 use ringbuf::*;
 use userlib::*;
 use vsc7448_pac::{phy, Vsc7448};
@@ -299,6 +299,8 @@ impl<'a> Bsp<'a> {
                 r.set_sw_ena(1);
             },
         )?;
+        let serdes_cfg = SerdesConfig::new()?;
+        serdes_cfg.apply(0, self.vsc7448)?;
 
         Ok(())
     }
