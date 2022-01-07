@@ -2,6 +2,7 @@ cargo-features = ["resolver"]
 
 [workspace]
 members = [
+    "build/call_rustfmt",
     "build/i2c",
     "build/util",
     "build/xtask",
