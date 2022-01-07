@@ -395,15 +395,16 @@ impl<'a> Bsp<'a> {
         hl::sleep_for(1);
         // TODO: read back all of those autoclear bits and make sure they cleared
 
-        hl::sleep_for(105); // Minimum time between reset and SMI access
-        self.init_rj45()?;
-        self.init_sfp()?;
-
         // Enable the queue system
         self.vsc7448
             .write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
                 r.set_core_ena(1)
             })?;
+
+        hl::sleep_for(105); // Minimum time between reset and SMI access
+        self.init_rj45()?;
+        self.init_sfp()?;
+
         Ok(())
     }
 
