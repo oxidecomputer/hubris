@@ -112,6 +112,9 @@ interrupts = {51 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
+[tasks.spi_driver.config.spi]
+global_config = "spi3"
+
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
@@ -237,3 +240,17 @@ af = 4
 # driver = "ltc4306"
 # address = 0b1001_010
 
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_b]
+outputs = [
+    {port = "B", pins = [3], af = 6},
+    {port = "B", pins = [5], af = 7},
+]
+input = {port = "B", pin = 4, af = 6}
+
+[config.spi.spi3.devices.pins]
+mux = "port_b"
+cs = {port = "A", pin = 4}

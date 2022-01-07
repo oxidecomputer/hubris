@@ -127,6 +127,9 @@ interrupts = {84 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
+[tasks.spi_driver.config.spi]
+global_config = "spi4"
+
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
@@ -274,3 +277,45 @@ controller = 4
 [[config.i2c.controllers.ports.F.pins]]
 pins = [ 14, 15 ]
 af = 4
+
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.spi3_header]
+mux = "port_c"
+cs = {port = "A", pin = 15}
+
+
+[config.spi.spi4]
+controller = 4
+
+[config.spi.spi4.mux_options.port_e]
+outputs = [
+    {port = "E", pins = [12, 13], af = 5},
+]
+input = {port = "E", pin = 14, af = 5}
+
+[config.spi.spi4.devices.spi4_header]
+mux = "port_e"
+cs = {port = "E", pin = 11}
+
+
+[config.spi.spi6]
+controller = 6
+
+[config.spi.spi6.mux_options.port_g]
+outputs = [
+    {port = "G", pins = [13, 14], af = 5},
+]
+input = {port = "E", pin = 12, af = 5}
+
+[config.spi.spi6.devices.spi6_header]
+mux = "port_g"
+cs = {port = "G", pin = 8}

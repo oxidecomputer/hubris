@@ -20,6 +20,11 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 [build-dependencies]
 build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+serde = "1"
+quote = "1"
+call_rustfmt = {path = "../../build/call_rustfmt"}
+syn = {version = "1", features = ["parsing"]}
+proc-macro2 = "1"
 
 [features]
 spi1 = []

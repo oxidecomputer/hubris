@@ -929,6 +929,7 @@ name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "call_rustfmt",
  "cfg-if 0.1.10",
  "cortex-m",
  "drv-spi-api",
@@ -938,8 +939,12 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "ringbuf",
+ "serde",
  "stm32h7",
+ "syn",
  "userlib",
  "zerocopy",
 ]
