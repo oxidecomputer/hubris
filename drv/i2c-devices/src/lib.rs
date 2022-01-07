@@ -98,11 +98,11 @@ pub trait PowerSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
 }
 
 pub trait CurrentSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_current(&self) -> Result<userlib::units::Amperes, T>;
+    fn read_iout(&self) -> Result<userlib::units::Amperes, T>;
 }
 
 pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_voltage(&self) -> Result<userlib::units::Volts, T>;
+    fn read_vout(&self) -> Result<userlib::units::Volts, T>;
 }
 
 pub mod adm1272;

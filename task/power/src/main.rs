@@ -19,7 +19,7 @@ use userlib::units::*;
 use userlib::*;
 
 use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::TempSensor;
+use drv_i2c_devices::{CurrentSensor, TempSensor};
 
 use sensor_api::{NoData, SensorId};
 use seq_api::PowerState;
@@ -56,7 +56,9 @@ struct PowerController {
 
 ringbuf!(Trace, 16, Trace::None);
 
-fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ResponseCode>
+fn read_temperature<E, T: TempSensor<E>>(
+    device: &T,
+) -> Result<Celsius, ResponseCode>
 where
     ResponseCode: From<E>,
 {
@@ -69,11 +71,33 @@ where
     }
 }
 
+fn read_current<E, T: CurrentSensor<E>>(
+    device: &T,
+) -> Result<Amperes, ResponseCode>
+where
+    ResponseCode: From<E>,
+{
+    match device.read_iout() {
+        Ok(reading) => Ok(reading),
+        Err(err) => {
+            let err: ResponseCode = err.into();
+            Err(err)
+        }
+    }
+}
+
 impl PowerController {
     fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
         match &self.device {
-            Device::IBC(dev) => temp_read(dev),
-            Device::Core(dev) => temp_read(dev),
+            Device::IBC(dev) => read_temperature(dev),
+            Device::Core(dev) => read_temperature(dev),
+        }
+    }
+
+    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
+        match &self.device {
+            Device::IBC(dev) => read_current(dev),
+            Device::Core(dev) => read_current(dev),
         }
     }
 }
@@ -142,6 +166,17 @@ fn main() -> ! {
                     Err(_) => {
                         sensor.nodata(id, NoData::DeviceError).unwrap();
                     }
+                }
+            }
+
+            let id = controller.current;
+
+            match controller.read_iout() {
+                Ok(reading) => {
+                    sensor.post(id, reading.0).unwrap();
+                }
+                Err(_) => {
+                    sensor.nodata(id, NoData::DeviceError).unwrap();
                 }
             }
         }

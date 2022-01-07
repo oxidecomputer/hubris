@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::TempSensor;
+use crate::{CurrentSensor, TempSensor};
 use drv_i2c_api::*;
 use pmbus::commands::raa229618::*;
 use pmbus::*;
@@ -88,12 +88,6 @@ impl Raa229618 {
         let vout = pmbus_read!(self.device, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
-
-    pub fn read_iout(&mut self) -> Result<Amperes, Error> {
-        self.set_rail()?;
-        let iout = pmbus_read!(self.device, READ_IOUT)?;
-        Ok(Amperes(iout.get()?.0))
-    }
 }
 
 impl TempSensor<Error> for Raa229618 {
@@ -101,5 +95,13 @@ impl TempSensor<Error> for Raa229618 {
         self.set_rail()?;
         let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
+    }
+}
+
+impl CurrentSensor<Error> for Raa229618 {
+    fn read_iout(&self) -> Result<Amperes, Error> {
+        self.set_rail()?;
+        let iout = pmbus_read!(self.device, READ_IOUT)?;
+        Ok(Amperes(iout.get()?.0))
     }
 }
