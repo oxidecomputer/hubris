@@ -258,16 +258,16 @@ impl<'a> Bsp<'a> {
 
     /// Initializes two ports on front panel SFP+ connectors
     fn init_sfp(&self) -> Result<(), VscError> {
-        //  Now, let's bring up two SFP+ ports
-        //  SFP ports A and B are connected to S33/34 using SFI.  That's
-        //  the easy part.  The hard part is that they use serial GPIO (i.e.
-        //  a GPIO pin that goes to a series-to-parallel shift register) to
-        //  control lots of other SFP functions, e.g. RATESEL, LOS, TXDISABLE,
-        //  and more!
+        //  Now, let's bring up one SFP+ port
         //
-        //  We'll start by just seeing if we can _talk_ to an SFP chip using
-        //  I2C.
+        //  SFP ports A and B are connected to S33/34 using SFI.  We need to
+        //  bring up 10G SERDES then enable the ports
         //
+        //  If we want to actually read from the SFI EEPROMs, we'd do that
+        //  over I2C.  There's also serial GPIO for various other SFP
+        //  functions, e.g. RATESEL, LOS, TXDISABLE, and more!  For now, let's
+        //  see if we can bring up the port without doing any of that.
+
         //  I2C_SDA = GPIO15_TWI_SDA on the VSC7448 (alt "01")
         self.vsc7448.write(
             Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT(0),
@@ -282,25 +282,62 @@ impl<'a> Bsp<'a> {
             0x00060000.into(),
         )?;
 
-        // Now, how do we set up the ports themselves?
-        // S33 is connectec to Port 49, which is a 10G port used in SFI mode
-        // using SERDES10G_0 / DEV10G_0.
-
         // HW_CFG is already set up for 10G on all four DEV10G
-        //
-        //  We need to configure the SERDES in 10G mode, based on
-        //      jr2_sd10g_xfi_mode
-        //      jr2_sd10g_cfg
-        self.vsc7448.modify(
-            Vsc7448::XGXFI(0).XFI_CONTROL().XFI_MODE(),
-            |r| {
-                r.set_sw_rst(0);
-                r.set_endian(1);
-                r.set_sw_ena(1);
-            },
-        )?;
+
         let serdes_cfg = SerdesConfig::new()?;
-        serdes_cfg.apply(0, self.vsc7448)?;
+        for (port, dev) in [(49, 0), (50, 1)] {
+            // jr2_sd10g_xfi_mode
+            self.vsc7448.modify(
+                Vsc7448::XGXFI(dev).XFI_CONTROL().XFI_MODE(),
+                |r| {
+                    r.set_sw_rst(0);
+                    r.set_endian(1);
+                    r.set_sw_ena(1);
+                },
+            )?;
+
+            // jr2_sd10g_cfg, moved into a separate function because bringing
+            // up a 10G SERDES is _hard_
+            serdes_cfg.apply(dev, self.vsc7448)?;
+            self.port10g_flush(dev as u8, port)?;
+
+            // Remaining logic is from `jr2_port_conf_10g_set`
+            // Handle signal detect
+            let dev = Vsc7448::DEV10G(dev);
+            self.vsc7448.modify(
+                dev.PCS_XAUI_CONFIGURATION().PCS_XAUI_SD_CFG(),
+                |r| {
+                    r.set_sd_ena(0);
+                },
+            )?;
+            // Enable SFI PCS
+            self.vsc7448.modify(
+                dev.PCS_XAUI_CONFIGURATION().PCS_XAUI_CFG(),
+                |r| {
+                    r.set_pcs_ena(1);
+                },
+            )?;
+            self.vsc7448
+                .modify(dev.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
+                    r.set_rx_ena(1);
+                    r.set_tx_ena(1);
+                })?;
+            self.vsc7448
+                .modify(dev.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+                    r.set_pcs_rx_rst(0);
+                    r.set_pcs_tx_rst(0);
+                    r.set_mac_rx_rst(0);
+                    r.set_mac_tx_rst(0);
+                    r.set_speed_sel(7); // SFI
+                })?;
+            self.vsc7448.modify(
+                Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port.into()),
+                |r| {
+                    r.set_port_ena(1);
+                    r.set_port_ena(9);
+                },
+            )?;
+        }
 
         Ok(())
     }
@@ -384,50 +421,7 @@ impl<'a> Bsp<'a> {
         self.vsc7448
             .modify(dev.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| r.set_rx_ena(0))?;
 
-        // 3: Disable traffic being sent to or from switch port
-        self.vsc7448.modify(
-            Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port as u32),
-            |r| r.set_port_ena(0),
-        )?;
-
-        // 4: Disable dequeuing from the egress queues
-        self.vsc7448.modify(
-            Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port as u32),
-            |r| r.set_dequeue_dis(1),
-        )?;
-
-        // 5: Disable Flowcontrol
-        self.vsc7448.modify(
-            Vsc7448::QSYS().PAUSE_CFG().PAUSE_CFG(port as u32),
-            |r| r.set_pause_ena(0),
-        )?;
-
-        // 5.1: Disable PFC
-        self.vsc7448.modify(
-            Vsc7448::QRES().RES_QOS_ADV().PFC_CFG(port as u32),
-            |r| r.set_tx_pfc_ena(0),
-        )?;
-
-        // 6: Wait a worst case time 8ms (jumbo/10Mbit)
-        hl::sleep_for(8);
-
-        // 7: Flush the queues accociated with the port
-        self.vsc7448
-            .modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
-                r.set_flush_port(port as u32);
-                r.set_flush_dst(1);
-                r.set_flush_src(1);
-                r.set_flush_ena(1);
-            })?;
-
-        // 8: Enable dequeuing from the egress queues
-        self.vsc7448.modify(
-            Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port as u32),
-            |r| r.set_dequeue_dis(0),
-        )?;
-
-        // 9: Wait until flushing is complete
-        self.port_flush_wait(port)?;
+        self.port_flush_inner(port.into())?;
 
         // 10: Reset the MAC clock domain
         self.vsc7448
@@ -447,9 +441,119 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
+    /// Flushes a particular 10G port.  This is equivalent to `jr2_port_flush`
+    /// in the MESA toolkit.  Unfortunately, it's mostly a copy-pasta from
+    /// [port_1g_flush], because the registers have similar fields but are
+    /// different types in our PAC crate.
+    ///
+    /// `dev` is the 10G device (0-4); `port` is the equivalent port
+    fn port10g_flush(&self, dev: u8, port: u8) -> Result<(), VscError> {
+        // 1: Reset the PCS Rx clock domain
+        let dev10g = Vsc7448::DEV10G(dev.into());
+        self.vsc7448
+            .modify(dev10g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+                r.set_pcs_rx_rst(1)
+            })?;
+
+        // 2: Reset the PCS Rx clock domain
+        self.vsc7448
+            .modify(dev10g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
+                r.set_rx_ena(0)
+            })?;
+
+        self.port_flush_inner(port.into())?;
+
+        // 10: Reset the MAC clock domain
+        self.vsc7448
+            .modify(dev10g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+                r.set_pcs_tx_rst(1);
+                r.set_mac_rx_rst(1);
+                r.set_mac_tx_rst(1);
+                r.set_speed_sel(6);
+            })?;
+
+        // 11: Clear flushing
+        self.vsc7448
+            .modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+                r.set_flush_ena(0);
+            })?;
+
+        // Bonus for 10G ports: disable XAUI, RXAUI, SFI PCS
+        self.vsc7448.modify(
+            dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_CFG(),
+            |r| {
+                r.set_pcs_ena(0);
+            },
+        )?;
+        self.vsc7448.modify(
+            dev10g.PCS2X6G_CONFIGURATION().PCS2X6G_CFG(),
+            |r| {
+                r.set_pcs_ena(0);
+            },
+        )?;
+        self.vsc7448.modify(
+            Vsc7448::PCS10G_BR(dev.into()).PCS_10GBR_CFG().PCS_CFG(),
+            |r| {
+                r.set_pcs_ena(0);
+            },
+        )?;
+
+        Ok(())
+    }
+
+    /// Shared logic between 1G and 10G port flushing
+    fn port_flush_inner(&self, port: u32) -> Result<(), VscError> {
+        // 3: Disable traffic being sent to or from switch port
+        self.vsc7448
+            .modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
+                r.set_port_ena(0)
+            })?;
+
+        // 4: Disable dequeuing from the egress queues
+        self.vsc7448
+            .modify(Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port), |r| {
+                r.set_dequeue_dis(1)
+            })?;
+
+        // 5: Disable Flowcontrol
+        self.vsc7448
+            .modify(Vsc7448::QSYS().PAUSE_CFG().PAUSE_CFG(port), |r| {
+                r.set_pause_ena(0)
+            })?;
+
+        // 5.1: Disable PFC
+        self.vsc7448
+            .modify(Vsc7448::QRES().RES_QOS_ADV().PFC_CFG(port), |r| {
+                r.set_tx_pfc_ena(0)
+            })?;
+
+        // 6: Wait a worst case time 8ms (jumbo/10Mbit)
+        hl::sleep_for(8);
+
+        // 7: Flush the queues accociated with the port
+        self.vsc7448
+            .modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+                r.set_flush_port(port);
+                r.set_flush_dst(1);
+                r.set_flush_src(1);
+                r.set_flush_ena(1);
+            })?;
+
+        // 8: Enable dequeuing from the egress queues
+        self.vsc7448
+            .modify(Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port), |r| {
+                r.set_dequeue_dis(0)
+            })?;
+
+        // 9: Wait until flushing is complete
+        self.port_flush_wait(port)?;
+
+        Ok(())
+    }
+
     /// Waits for a port flush to finish.  This is based on
     /// `jr2_port_flush_poll` in the MESA SDK
-    fn port_flush_wait(&self, port: u8) -> Result<(), VscError> {
+    fn port_flush_wait(&self, port: u32) -> Result<(), VscError> {
         for _ in 0..32 {
             let mut empty = true;
             // DST-MEM and SRC-MEM
@@ -457,7 +561,7 @@ impl<'a> Bsp<'a> {
                 for prio in 0..8 {
                     let value = self.vsc7448.read(
                         Vsc7448::QRES()
-                            .RES_CTRL(base + 8 * port as u32 + prio)
+                            .RES_CTRL(base + 8 * port + prio)
                             .RES_STAT(),
                     )?;
                     empty &= value.maxuse() == 0;
@@ -471,7 +575,7 @@ impl<'a> Bsp<'a> {
             }
             hl::sleep_for(1);
         }
-        return Err(VscError::PortFlushTimeout { port });
+        return Err(VscError::PortFlushTimeout { port: port as u8 });
     }
 
     /// Reads from a specific SERDES6G instance, which is done by writing its
