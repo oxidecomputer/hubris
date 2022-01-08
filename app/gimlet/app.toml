@@ -73,7 +73,7 @@ requires = {flash = 16384, ram = 4096}
 features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
-interrupts = {84 = 1}
+interrupts = {"spi4.irq" = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
@@ -219,6 +219,7 @@ size = 1024
 [peripherals.spi4]
 address = 0x40013400
 size = 1024
+interrupts = { irq = 84 }
 
 [peripherals.usart3]
 address = 0x40004800
