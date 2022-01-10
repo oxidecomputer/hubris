@@ -94,20 +94,6 @@ task-slots = ["gpio_driver", "rcc_driver"]
 95 = 0b0000_1000        # I2C4 event
 96 = 0b0000_1000        # I2C4 error
 
-[tasks.spd]
-path = "../../task/spd"
-name = "task-spd"
-features = ["h753", "itm"]
-priority = 2
-requires = {flash = 16384, ram = 16384 }
-uses = ["i2c2"]
-start = true
-task-slots = ["gpio_driver", "i2c_driver", "rcc_driver"]
-
-[tasks.spd.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
-
 #
 # SPI interrupts:
 #   spi1 = 35
@@ -157,26 +143,6 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
-
-[tasks.thermal]
-path = "../../task/thermal"
-name = "task-thermal"
-features = ["itm"]
-priority = 3
-requires = {flash = 65536, ram = 8192 }
-stacksize = 2048
-start = true
-task-slots = ["i2c_driver"]
-
-[tasks.power]
-path = "../../task/power"
-name = "task-power"
-features = ["itm"]
-priority = 3
-requires = {flash = 65536, ram = 8192 }
-stacksize = 2048
-start = true
-task-slots = ["i2c_driver"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
