@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", branch = "pac" }
