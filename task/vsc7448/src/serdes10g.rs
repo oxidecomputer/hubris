@@ -115,6 +115,8 @@ impl SerdesConfig {
         let tx_synth = dev.SD10G65_TX_SYNTH();
         let tx_rcpll = dev.SD10G65_TX_RCPLL();
         let ob = dev.SD10G65_OB();
+        let ib = dev.SD10G65_IB();
+
         v.modify(ob.SD10G65_SBUS_TX_CFG(), |r| {
             r.set_sbus_bias_en(1);
 
@@ -123,6 +125,18 @@ impl SerdesConfig {
             // set it here.
             r.set_sbus_bias_speed_sel(3);
         })?;
+
+        // Quoth the datasheet, "Note: SBUS configuration applies for RX/TX
+        // aggregates only, any configuration applied to SBUS_TX_CFG (output
+        // buffer cfg space) will be ignored."
+        //
+        // I think this means we need to configure both SD10G65_SBUS_TX_CFG and
+        // SD10G65_SBUS_RX_CFG here; otherwise, the Tx PLL won't lock.
+        v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
+            r.set_sbus_spare_pool(0);
+            r.set_sbus_bias_en(1);
+        })?;
+
         v.modify(ob.SD10G65_OB_CFG0(), |r| {
             r.set_en_ob(1);
         })?;
@@ -176,7 +190,6 @@ impl SerdesConfig {
         v.modify(tx_synth.SD10G65_SSC_CFG1(), |r| {
             r.set_sync_ctrl_fsel(35);
         })?;
-        // TODO: check ob.SD10G65_OB_CFG0/2 on a running device to make sure they're defaults
 
         v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
@@ -218,11 +231,6 @@ impl SerdesConfig {
 
         ////////////////////////////////////////////////////////////////////////
         //  `jaguar2c_sd10g_rx_register_cfg`
-        let ib = dev.SD10G65_IB();
-        v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
-            r.set_sbus_spare_pool(0);
-            r.set_sbus_bias_en(1);
-        })?;
 
         let rx_rcpll = dev.SD10G65_RX_RCPLL();
         v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
@@ -247,7 +255,6 @@ impl SerdesConfig {
 
             r.set_ib_bias_adj(self.rx_preset.ib_bias_adj.into());
         })?;
-        // TODO: can we consolidate these write operations?
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
             r.set_synth_spare_pool(7);
             r.set_synth_off_comp_ena(15);
@@ -372,8 +379,6 @@ impl SerdesConfig {
             r.set_ib_tc_eq(self.rx_preset.ib_tc_eq.into());
         })?;
 
-        // Leave SD10G65_DES:CFG0 untouched from defaults (TODO: check)
-
         v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
             r.set_pll_vreg18(10);
@@ -424,7 +429,7 @@ impl SerdesConfig {
             r.set_cal_clk_div(3);
         })?;
         v.modify(apc.APC_IS_CAL_CFG1(), |r| {
-            r.set_par_data_num_ones_thres(32 / 4); // TODO: check
+            r.set_par_data_num_ones_thres(32 / 4);
             r.set_cal_num_iterations(1);
         })?;
         v.modify(apc.APC_EQZ_COMMON_CFG(), |r| {
@@ -480,7 +485,7 @@ impl SerdesConfig {
             r.set_eqz_agc_sync_mode(1);
         })?;
         v.modify(apc.APC_EQZ_OFFS_PAR_CFG(), |r| {
-            r.set_eqz_offs_dir_sel(0); // TODO: check for defaults
+            r.set_eqz_offs_dir_sel(0);
         })?;
 
         let mut eqz_l_par_cfg = v.read(apc.APC_EQZ_L_PAR_CFG())?;
