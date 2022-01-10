@@ -4,6 +4,7 @@
 
 //! Driver for the TPS546B24A buck converter
 
+use crate::{CurrentSensor, TempSensor, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::*;
 use userlib::units::*;
@@ -11,12 +12,6 @@ use userlib::units::*;
 pub struct Tps546b24a {
     device: I2cDevice,
     mode: Option<pmbus::VOutModeCommandData>,
-}
-
-impl core::fmt::Display for Tps546b24a {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tps546b24a: {}", &self.device)
-    }
 }
 
 #[derive(Debug)]
@@ -33,8 +28,18 @@ impl From<pmbus::Error> for Error {
     }
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            _ => panic!(),
+        }
+    }
+}
+
 impl Tps546b24a {
-    pub fn new(device: &I2cDevice) -> Self {
+    pub fn new(device: &I2cDevice, _rail: u8) -> Self {
         Tps546b24a {
             device: *device,
             mode: None,
@@ -51,14 +56,25 @@ impl Tps546b24a {
             Some(mode) => mode,
         })
     }
+}
 
-    pub fn read_vout(&mut self) -> Result<Volts, Error> {
-        let vout = pmbus_read!(self.device, tps546b24a::READ_VOUT)?;
-        Ok(Volts(vout.get(self.read_mode()?)?.0))
+impl TempSensor<Error> for Tps546b24a {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+        let temp = pmbus_read!(self.device, tps546b24a::READ_TEMPERATURE_1)?;
+        Ok(Celsius(temp.get()?.0))
     }
+}
 
-    pub fn read_iout(&mut self) -> Result<Amperes, Error> {
+impl CurrentSensor<Error> for Tps546b24a {
+    fn read_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, tps546b24a::READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
+    }
+}
+
+impl VoltageSensor<Error> for Tps546b24a {
+    fn read_vout(&mut self) -> Result<Volts, Error> {
+        let vout = pmbus_read!(self.device, tps546b24a::READ_VOUT)?;
+        Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }

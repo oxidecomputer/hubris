@@ -136,8 +136,8 @@ path = "../../task/power"
 name = "task-power"
 features = ["itm", "h753"]
 priority = 3
-requires = {flash = 16384, ram = 2048 }
-stacksize = 1200
+requires = {flash = 16384, ram = 4096 }
+stacksize = 2048
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 
@@ -386,6 +386,7 @@ address = 0x24
 device = "tps546b24a"
 description = "A2 3.3V rail"
 pmbus = { rails = [ "V3P3_SP_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U522"
 
 [[config.i2c.devices]]
@@ -394,6 +395,7 @@ address = 0x27
 device = "tps546b24a"
 description = "A2 1.8V rail"
 pmbus = { rails = [ "V1P8_SP3" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U523"
 
 [[config.i2c.devices]]
@@ -402,6 +404,7 @@ address = 0x29
 device = "tps546b24a"
 description = "A2 5V rail"
 pmbus = { rails = [ "V5_SYS_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U524"
 
 [[config.i2c.devices]]
@@ -448,6 +451,7 @@ address = 0x5c
 device = "isl68224"
 description = "DIMM ABCD power controller"
 pmbus = { rails = [ "VPP_ABCD", "V3P3_SYS", "" ] }
+sensors = { voltage = 2, current = 2 }
 refdes = "U352"
 
 [[config.i2c.devices]]
@@ -456,6 +460,7 @@ address = 0x5d
 device = "isl68224"
 description = "DIMM EFGH power controller"
 pmbus = { rails = [ "VPP_EFGH", "", "" ] }
+sensors = { voltage = 1, current = 1 }
 refdes = "U418"
 
 [[config.i2c.devices]]
@@ -464,6 +469,7 @@ address = 0x10
 device = "adm1272"
 description = "Fan hot swap controller"
 pmbus = { rails = [ "V54_FAN" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U419"
 
 [[config.i2c.devices]]
@@ -472,6 +478,7 @@ address = 0x14
 device = "adm1272"
 description = "Sled hot swap controller"
 pmbus = { rails = [ "V54_HS_OUTPUT" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U452"
 
 [[config.i2c.devices]]

@@ -49,7 +49,9 @@ struct Sensor {
     id: SensorId,
 }
 
-fn temp_read<E, T: TempSensor<E>>(device: &T) -> Result<Celsius, ResponseCode>
+fn temp_read<E, T: TempSensor<E>>(
+    device: &mut T,
+) -> Result<Celsius, ResponseCode>
 where
     ResponseCode: From<E>,
 {
@@ -63,8 +65,8 @@ where
 }
 
 impl Sensor {
-    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
-        match &self.device {
+    fn read_temp(&mut self) -> Result<Celsius, ResponseCode> {
+        match &mut self.device {
             Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
             Device::CPU(dev) => temp_read(dev),
         }
@@ -195,7 +197,7 @@ impl NotificationHandler for ServerImpl {
 
         self.read_fans();
 
-        for s in &self.sensors {
+        for s in &mut self.sensors {
             match s.read_temp() {
                 Ok(reading) => {
                     self.sensor.post(s.id, reading.0).unwrap();

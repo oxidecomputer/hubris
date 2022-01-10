@@ -4,6 +4,7 @@
 
 //! Driver for the ADM1272 hot-swap controller
 
+use crate::{CurrentSensor, TempSensor, VoltageSensor};
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
@@ -22,6 +23,16 @@ pub enum Error {
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
         Error::InvalidData { err: err }
+    }
+}
+
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            _ => panic!(),
+        }
     }
 }
 
@@ -209,25 +220,51 @@ impl Adm1272 {
         }
     }
 
+    fn enable_temp1_sampling(&mut self) -> Result<(), Error> {
+        use adm1272::PMON_CONFIG::*;
+        let mut config = self.read_config()?;
+
+        match config.get_temp_1_enable() {
+            None => Err(Error::InvalidConfig),
+            Some(Temp1Enable::Disabled) => {
+                config.set_temp_1_enable(Temp1Enable::Enabled);
+                self.write_config(config)
+            }
+            _ => Ok(()),
+        }
+    }
+
     pub fn read_vin(&mut self) -> Result<Volts, Error> {
         self.enable_vin_sampling()?;
         let vin = pmbus_read!(self.device, adm1272::READ_VIN)?;
         Ok(Volts(vin.get(&self.load_coefficients()?.voltage)?.0))
     }
 
-    pub fn read_vout(&mut self) -> Result<Volts, Error> {
-        self.enable_vout_sampling()?;
-        let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
-        Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))
-    }
-
-    pub fn read_iout(&mut self) -> Result<Amperes, Error> {
-        let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
-        Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
-    }
-
     pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
+    }
+}
+
+impl TempSensor<Error> for Adm1272 {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+        self.enable_temp1_sampling()?;
+        let temp = pmbus_read!(self.device, adm1272::READ_TEMPERATURE_1)?;
+        Ok(Celsius(temp.get()?.0))
+    }
+}
+
+impl CurrentSensor<Error> for Adm1272 {
+    fn read_iout(&mut self) -> Result<Amperes, Error> {
+        let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
+        Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
+    }
+}
+
+impl VoltageSensor<Error> for Adm1272 {
+    fn read_vout(&mut self) -> Result<Volts, Error> {
+        self.enable_vout_sampling()?;
+        let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
+        Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))
     }
 }

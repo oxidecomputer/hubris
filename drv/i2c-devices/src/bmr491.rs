@@ -4,7 +4,7 @@
 
 //! Driver for the BMR491 IBC
 
-use crate::{CurrentSensor, TempSensor};
+use crate::{CurrentSensor, TempSensor, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::*;
 use userlib::units::*;
@@ -39,7 +39,7 @@ impl From<Error> for ResponseCode {
 }
 
 impl Bmr491 {
-    pub fn new(device: &I2cDevice) -> Self {
+    pub fn new(device: &I2cDevice, _rail: u8) -> Self {
         Bmr491 {
             device: *device,
             mode: None,
@@ -64,15 +64,22 @@ impl Bmr491 {
 }
 
 impl TempSensor<Error> for Bmr491 {
-    fn read_temperature(&self) -> Result<Celsius, Error> {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
         let temp = pmbus_read!(self.device, bmr491::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
 impl CurrentSensor<Error> for Bmr491 {
-    fn read_iout(&self) -> Result<Amperes, Error> {
+    fn read_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, bmr491::READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
+    }
+}
+
+impl VoltageSensor<Error> for Bmr491 {
+    fn read_vout(&mut self) -> Result<Volts, Error> {
+        let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
+        Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
 }

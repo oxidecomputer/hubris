@@ -67,7 +67,7 @@ impl Tmp116 {
 }
 
 impl TempSensor<Error> for Tmp116 {
-    fn read_temperature(&self) -> Result<Celsius, Error> {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
         Ok(convert(self.read_reg(Register::TempResult)?))
     }
 }

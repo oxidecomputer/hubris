@@ -90,19 +90,19 @@ macro_rules! pmbus_write {
 }
 
 pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
+    fn read_temperature(&mut self) -> Result<userlib::units::Celsius, T>;
 }
 
 pub trait PowerSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_power(&self) -> Result<userlib::units::Watts, T>;
+    fn read_power(&mut self) -> Result<userlib::units::Watts, T>;
 }
 
 pub trait CurrentSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_iout(&self) -> Result<userlib::units::Amperes, T>;
+    fn read_iout(&mut self) -> Result<userlib::units::Amperes, T>;
 }
 
 pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_vout(&self) -> Result<userlib::units::Volts, T>;
+    fn read_vout(&mut self) -> Result<userlib::units::Volts, T>;
 }
 
 pub mod adm1272;

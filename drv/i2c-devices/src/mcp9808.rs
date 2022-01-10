@@ -55,7 +55,7 @@ impl Mcp9808 {
 }
 
 impl TempSensor<Error> for Mcp9808 {
-    fn read_temperature(&self) -> Result<Celsius, Error> {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
         match self
             .device
             .read_reg::<u8, [u8; 2]>(Register::Temperature as u8)
