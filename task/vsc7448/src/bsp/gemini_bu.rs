@@ -334,7 +334,7 @@ impl<'a> Bsp<'a> {
                 Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port.into()),
                 |r| {
                     r.set_port_ena(1);
-                    r.set_port_ena(9);
+                    r.set_fwd_urgency(9);
                 },
             )?;
         }
