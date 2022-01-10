@@ -1,5 +1,6 @@
 /// Tools for working with the 10G SERDES (sd10g65 in the SDK)
 use crate::{Vsc7448Spi, VscError};
+use ringbuf::*;
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
@@ -19,13 +20,29 @@ pub struct SerdesConfig {
     pllf_ref_cnt_end: u32,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Fpll(FrequencySetup),
+    FpllKhzPlain(u32),
+    HalfRateMode(bool),
+    OptimizeFor1g(bool),
+    HighDataRate(bool),
+    SynthSettings(SynthSettingsCalc),
+    Mult(SynthMultCalc),
+}
+ringbuf!(Trace, 16, Trace::None);
+
 impl SerdesConfig {
     pub fn new() -> Result<Self, VscError> {
         // `vtss_calc_sd10g65_setup_tx`
         let mut f_pll = get_frequency_setup(SerdesMode::Lan10g);
+        ringbuf_entry!(Trace::Fpll(f_pll));
+
         let mut f_pll_khz_plain =
             ((f_pll.f_pll_khz as u64 * f_pll.ratio_num as u64)
                 / (f_pll.ratio_den as u64)) as u32;
+        ringbuf_entry!(Trace::FpllKhzPlain(f_pll_khz_plain));
 
         let half_rate_mode = if f_pll_khz_plain < 2_500_000 {
             f_pll_khz_plain *= 2;
@@ -34,15 +51,19 @@ impl SerdesConfig {
         } else {
             false
         };
+        ringbuf_entry!(Trace::HalfRateMode(half_rate_mode));
 
         // XXX: should this check the scaled or unscaled f_pll_khz?
         let optimize_for_1g = f_pll.f_pll_khz < 2_500_000;
+        ringbuf_entry!(Trace::OptimizeFor1g(optimize_for_1g));
 
         // XXX: What happens if this is exactly 2_500_000?  Then half_rate_mode
         // will be false and high_data_rate will also be false.
         let high_data_rate = f_pll_khz_plain > 2_500_000;
+        ringbuf_entry!(Trace::HighDataRate(high_data_rate));
 
         let mult = SynthMultCalc::new(&f_pll)?;
+        ringbuf_entry!(Trace::Mult(mult));
 
         let tx_synth_off_comp_ena =
             if f_pll_khz_plain > 10_312_500 { 31 } else { 23 };
@@ -92,23 +113,37 @@ impl SerdesConfig {
         ////////////////////////////////////////////////////////////////////////
         //  `jaguar2c_sd10g_tx_register_cfg`
         let tx_synth = dev.SD10G65_TX_SYNTH();
+        let tx_rcpll = dev.SD10G65_TX_RCPLL();
         let ob = dev.SD10G65_OB();
         v.modify(ob.SD10G65_SBUS_TX_CFG(), |r| {
             r.set_sbus_bias_en(1);
+
+            // This is theoretically the default value, but experimentally the
+            // chip comes out of reset with SBUS_BIAS_SPEED_SEL = 0, so we
+            // set it here.
+            r.set_sbus_bias_speed_sel(3);
         })?;
-        v.modify(dev.SD10G65_OB().SD10G65_OB_CFG0(), |r| {
+        v.modify(ob.SD10G65_OB_CFG0(), |r| {
             r.set_en_ob(1);
         })?;
-        v.modify(dev.SD10G65_TX_RCPLL().SD10G65_TX_RCPLL_CFG2(), |r| {
-            r.set_pll_ena(1)
+        v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG2(), |r| {
+            r.set_pll_ena(1);
         })?;
+
+        // These need to be separate read-modify-write operations, despite
+        // touching the same register; otherwise, it doesn't work.
         v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_ena(1);
+        })?;
+        v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_spare_pool(7);
             r.set_synth_off_comp_ena(self.tx_synth_off_comp_ena);
+        })?;
+        v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_speed_sel(self.mult.speed_sel.into());
             r.set_synth_fbdiv_sel(self.mult.fbdiv_sel.into());
         })?;
+
         v.modify(tx_synth.SD10G65_TX_SYNTH_CFG3(), |r| {
             r.set_synth_freqm_0((self.mult.settings.freqm & 0xFFFFFFFF) as u32);
         })?;
@@ -127,6 +162,8 @@ impl SerdesConfig {
         v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_ls_speed(self.mult.tx_ls_speed.into());
             r.set_synth_cs_speed(self.mult.tx_cs_speed.into());
+        })?;
+        v.modify(tx_synth.SD10G65_TX_SYNTH_CFG0(), |r| {
             r.set_synth_hrate_ena(self.half_rate_mode.into());
             // These aren't in the datasheet, but are copied from the SDK
             r.set_synth_ena_sync_unit(1);
@@ -134,14 +171,13 @@ impl SerdesConfig {
             r.set_synth_ds_dir(0);
             r.set_synth_ds_speed(0);
             r.set_synth_ls_dir(0);
-            r.set_synth_ls_ena(0); // TODO: CHECK THIS
+            r.set_synth_ls_ena(0);
         })?;
         v.modify(tx_synth.SD10G65_SSC_CFG1(), |r| {
             r.set_sync_ctrl_fsel(35);
         })?;
         // TODO: check ob.SD10G65_OB_CFG0/2 on a running device to make sure they're defaults
 
-        let tx_rcpll = dev.SD10G65_TX_RCPLL();
         v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
             r.set_pll_vreg18(10);
@@ -164,6 +200,8 @@ impl SerdesConfig {
         hl::sleep_for(10);
         v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG0(), |r| {
             r.set_pllf_ena(1);
+        })?;
+        v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG0(), |r| {
             r.set_pllf_oor_recal_ena(0);
         })?;
 
@@ -568,7 +606,7 @@ impl SerdesConfig {
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum SerdesPresetType {
     DacHw,
 }
@@ -663,11 +701,38 @@ impl SerdesApcPreset {
     }
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 struct SynthSettingsCalc {
     freq_mult: u16,
     freqm: u64,
     freqn: u64,
+}
+impl SynthSettingsCalc {
+    /// `sd10g65_synth_settings_calc`
+    fn new(num_in: u64, div_in: u64) -> SynthSettingsCalc {
+        let freq_mult = ((8192u64 * num_in) / div_in) as u16;
+        let numerator = (8192u64 * num_in) - (freq_mult as u64 * div_in);
+
+        let (freqm, freqn) = if numerator == 0 {
+            (0, 1u64 << 35)
+        } else {
+            let gcd = calc_gcd(numerator, div_in);
+            let mut freqm = numerator / gcd;
+            let mut freqn = numerator / gcd;
+
+            // "Choose largest possible values to keep adaption time low"
+            while freqn < (1u64 << 35) {
+                freqm <<= 1;
+                freqn <<= 1;
+            }
+            (freqm, freqn)
+        };
+        SynthSettingsCalc {
+            freq_mult,
+            freqm,
+            freqn,
+        }
+    }
 }
 
 /// `sd10g65_calc_gcd`
@@ -681,36 +746,11 @@ fn calc_gcd(num_in: u64, mut div: u64) -> u64 {
     div
 }
 
-/// `sd10g65_synth_settings_calc`
-fn synth_settings_calc(num_in: u64, div_in: u64) -> SynthSettingsCalc {
-    let freq_mult = ((8192u64 * num_in) / div_in) as u16;
-    let numerator = (8192u64 * num_in) - (freq_mult as u64 * div_in);
-
-    let (freqm, freqn) = if numerator == 0 {
-        (0, 1u64 << 35)
-    } else {
-        let gcd = calc_gcd(numerator, div_in);
-        let mut freqm = numerator / gcd;
-        let mut freqn = numerator / gcd;
-
-        // "Choose largest possible values to keep adaption time low"
-        while freqn < (1u64 << 35) {
-            freqm <<= 1;
-            freqn <<= 1;
-        }
-        (freqm, freqn)
-    };
-    SynthSettingsCalc {
-        freq_mult,
-        freqm,
-        freqn,
-    }
-}
-
 enum SerdesMode {
     Lan10g,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FrequencySetup {
     f_pll_khz: u32,
     ratio_num: u32,
@@ -728,7 +768,7 @@ fn get_frequency_setup(mode: SerdesMode) -> FrequencySetup {
 }
 
 /// Roughly based on `vtss_sd10g65_synth_mult_calc_rslt_t`
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 struct SynthMultCalc {
     speed_sel: bool, // SYNTH_SPEED_SEL
     fbdiv_sel: u8,   // SYNTH_FBDIV_SEL
@@ -744,34 +784,37 @@ impl SynthMultCalc {
     /// sd10g65_synth_mult_calc
     fn new(f_pll_in: &FrequencySetup) -> Result<SynthMultCalc, VscError> {
         let num_in_tmp =
-            (f_pll_in.f_pll_khz as u64) / (f_pll_in.ratio_num as u64);
+            (f_pll_in.f_pll_khz as u64) * (f_pll_in.ratio_num as u64);
         let div_in_tmp = (f_pll_in.ratio_den as u64) * 2_500_000;
         let dr_khz = num_in_tmp / (f_pll_in.ratio_den as u64); // = f_pll_khz_plain?
 
         let mut out = SynthMultCalc::default();
 
-        out.settings = match dr_khz {
+        let div_in_tmp = match dr_khz {
             0..=1_666_666 => {
-                return Err(VscError::SerdesFrequencyTooLow(dr_khz))
+                return Err(VscError::SerdesFrequencyTooLow(dr_khz));
             }
             1_666_667..=3_333_333 => {
                 out.rx_fb_step = 3;
-                synth_settings_calc(num_in_tmp, div_in_tmp)
+                div_in_tmp
             }
             3_333_334..=6_666_666 => {
                 out.fbdiv_sel = 1;
                 out.tx_cs_speed = 1;
                 out.rx_fb_step = 2;
-                synth_settings_calc(num_in_tmp, 2 * div_in_tmp)
+                2 * div_in_tmp
             }
             6_666_667..=13_333_333 => {
                 out.fbdiv_sel = 2;
                 out.tx_ls_speed = 1;
                 out.tx_cs_speed = 1;
-                synth_settings_calc(num_in_tmp, 4 * div_in_tmp)
+                4 * div_in_tmp
             }
             _ => return Err(VscError::SerdesFrequencyTooHigh(dr_khz)),
         };
+        out.settings = SynthSettingsCalc::new(num_in_tmp, div_in_tmp);
+        ringbuf_entry!(Trace::SynthSettings(out.settings));
+
         out.speed_sel = if dr_khz < 5_000_000 { true } else { false };
         out.freq_mult_byp =
             FrequencyDecoderBypass::new(out.settings.freq_mult)?;
@@ -780,7 +823,7 @@ impl SynthMultCalc {
     }
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 struct FrequencyDecoderBypass {
     freq_mult: u16,
     freq_mult_hi: u8,
@@ -799,12 +842,14 @@ impl FrequencyDecoderBypass {
         // around a Verilog bug, so I don't expect to understand what's
         // going on here.
 
-        let tri_2g5 = Self::tri_dec(((freq_abs - 684) >> 10) & 0x3)?;
-        let tri_625m = Self::tri_dec(((freq_abs - 172) >> 8) & 0x3)?;
-        let tri_156m = Self::tri_dec(((freq_abs - 44) >> 6) & 0x3)?;
-        let bi_39m = Self::bi_dec(((freq_abs - 12) >> 5) & 0x1)?;
-        let tri_20m = Self::lt_dec(((freq_abs + 4) >> 3) & 0x3)?;
-        let ls_5m = Self::ls_dec(((freq_abs - 0) >> 0) & 0x7)?;
+        // This ends up wrapping in the original SDK, so we use wrapping_sub
+        // here to avoid Panicking! At the Arithmetic Underflow
+        let tri_2g5 = Self::tri_dec((freq_abs.wrapping_sub(684) >> 10) & 0x3)?;
+        let tri_625m = Self::tri_dec((freq_abs.wrapping_sub(172) >> 8) & 0x3)?;
+        let tri_156m = Self::tri_dec((freq_abs.wrapping_sub(44) >> 6) & 0x3)?;
+        let bi_39m = Self::bi_dec((freq_abs.wrapping_sub(12) >> 5) & 0x1)?;
+        let tri_20m = Self::lt_dec((freq_abs.wrapping_add(4) >> 3) & 0x3)?;
+        let ls_5m = Self::ls_dec((freq_abs.wrapping_sub(0) >> 0) & 0x7)?;
 
         let ena_2g5_dec = (tri_2g5 >> 2) & 1;
         let dir_2g5_dec = ((tri_2g5 >> 1) ^ !freq_sign) & 1;
