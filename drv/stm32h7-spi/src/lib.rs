@@ -257,4 +257,12 @@ impl Spi {
     pub fn clear_eot(&mut self) {
         self.reg.ifcr.write(|w| w.eotc().set_bit());
     }
+
+    pub fn read_status(&self) -> u32 {
+        self.reg.sr.read().bits()
+    }
+
+    pub fn check_overrun(&self) -> bool {
+        self.reg.sr.read().ovr().is_overrun()
+    }
 }
