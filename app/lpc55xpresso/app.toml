@@ -148,11 +148,12 @@ start = true
 stacksize = 1000
 task-slots = ["syscon_driver"]
 
-[tasks.spi_driver]
+[tasks.spi0_driver]
 path = "../../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 16384, ram = 2048}
+features = ["spi0"]
 uses = ["flexcomm8"]
 start = true
 interrupts = {59 = 1}

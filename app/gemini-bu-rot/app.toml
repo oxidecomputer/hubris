@@ -125,7 +125,7 @@ task-slots = ["syscon_driver"]
 path = "../../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 16384, ram = 2048}
 features = ["spi0"]
 uses = ["flexcomm3", "flexcomm8"]
 start = true
@@ -159,6 +159,15 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver"]
+
+[tasks.spi_loopback]
+path = "../../task/spi-loopback"
+name = "task-spi-loopback"
+priority = 2
+requires = {flash = 8192, ram = 2048}
+start = true
+stacksize = 1000
+task-slots = ["spi0_driver"]
 
 [peripherals.syscon]
 address = 0x40000000
