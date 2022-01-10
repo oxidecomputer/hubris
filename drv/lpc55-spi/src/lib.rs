@@ -114,7 +114,14 @@ impl Spi {
         });
     }
 
+    pub fn drain(&mut self) {
+        self.reg
+            .fifocfg
+            .modify(|_, w| w.emptytx().set_bit().emptyrx().set_bit());
+    }
+
     pub fn enable(&mut self) {
+        self.drain();
         self.reg
             .fifocfg
             .modify(|_, w| w.enabletx().enabled().enablerx().enabled());
