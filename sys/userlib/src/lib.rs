@@ -863,9 +863,27 @@ pub unsafe extern "C" fn _start() -> ! {
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::fmt::Write;
 
-    // Burn some stack to try to get at least the prefix of the panic info
-    // recorded.
-    struct PrefixWrite([u8; 128], usize);
+    // This is the "we want panic messages" panic handler. It is written in a
+    // slightly tortured fashion, but for good reason. The goals here are:
+    //
+    // 1. Put the panic message _somewhere._
+    // 2. Don't permanently reserve the RAM for that "somewhere" in all tasks at
+    //    all times.
+    // 3. Don't panic recursively. This is very important.
+    //
+    // We need to set aside RAM to achieve #1, but per #2 it isn't a static.
+    // Instead, we allocate a BUFSIZE-byte buffer on the panicking task's stack.
+    // This is not _ideal_ as it runs the risk of turning a panic into a stack
+    // overflow (TODO).
+    const BUFSIZE: usize = 128;
+
+    // If the panic message is longer than BUFSIZE, we'll throw away remaining
+    // bytes. So we need to implement `core::fmt::Write` (how panic messages get
+    // generated) in a way that will only record a maximum-length _prefix_ of
+    // the output.
+    //
+    // To do that we have this custom type:
+    struct PrefixWrite([u8; BUFSIZE], usize);
 
     impl Write for PrefixWrite {
         fn write_str(&mut self, s: &str) -> core::fmt::Result {
@@ -874,18 +892,28 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 let strbytes = s.as_bytes();
                 let to_write = remaining.len().min(strbytes.len());
                 remaining[..to_write].copy_from_slice(&strbytes[..to_write]);
+                // Wrapping add here because (1) we're confident that adding
+                // to_write won't cause wrap because of our `min` above, and (2)
+                // we want to avoid writing code that implies an integer
+                // overflow check.
                 self.1 = self.1.wrapping_add(to_write);
             }
             Ok(())
         }
     }
 
-    let mut pw = PrefixWrite([0; 128], 0);
+    // Okay. Now we start the actual panicking process. Allocate buffer:
+    let mut pw = PrefixWrite([0; BUFSIZE], 0);
+    // Generate message:
     write!(pw, "{}", info).ok();
+    // Pass it to kernel. We are using split-at rather than `&pw.0[..pw.1]`
+    // because the latter generates more checks that can lead to a recursive
+    // panic.
     sys_panic(if pw.1 < pw.0.len() {
         pw.0.split_at(pw.1).0
     } else {
-        &[]
+        // Try the first BUFSIZE bytes then.
+        &pw.0
     });
 }
 
