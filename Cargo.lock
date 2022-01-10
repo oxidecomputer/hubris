@@ -670,6 +670,7 @@ dependencies = [
  "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
+ "ringbuf",
  "userlib",
  "zerocopy",
 ]
@@ -2424,6 +2425,15 @@ dependencies = [
  "ringbuf",
  "spd",
  "stm32h7",
+ "userlib",
+]
+
+[[package]]
+name = "task-spi-loopback"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "ringbuf",
  "userlib",
 ]
 
