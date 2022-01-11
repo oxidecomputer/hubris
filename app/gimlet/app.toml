@@ -527,7 +527,7 @@ bus = "rear"
 address = 0x5f
 device = "isl68224"
 description = "T6 power controller"
-pmbus = { rails = [ "V0P96_NIC_VDD" ] }
+pmbus = { rails = [ "V0P96_NIC_VDD", "V1P8_NIC_A0HP" ] }
 refdes = "U357"
 
 [[config.i2c.devices]]
