@@ -26,7 +26,7 @@ pub enum SpiError {
     /// This is almost certainly a programming error on the client side.
     BadDevice = 4,
 
-    /// Data was received before it could be read
+    /// Receive FIFO overflow
     DataOverrun = 5,
 }
 

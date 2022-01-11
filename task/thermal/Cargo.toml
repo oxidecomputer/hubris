@@ -3,9 +3,6 @@ name = "task-thermal"
 version = "0.1.0"
 edition = "2018"
 
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
