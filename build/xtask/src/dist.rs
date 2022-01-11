@@ -141,6 +141,39 @@ pub fn package(
     std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
     let mut shared_syms: Option<&[String]> = None;
 
+    // Panic messages in crates have a long prefix; we'll shorten it using
+    // the --remap-path-prefix argument to reduce message size.  We'll remap
+    // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
+    // dependencies to /git
+    let remap_paths = {
+        let mut remap_paths = HashMap::new();
+
+        let cargo_home = fs::canonicalize(std::env::var("CARGO_HOME")?)?;
+        let mut cargo_git = cargo_home.clone();
+        cargo_git.push("git");
+        cargo_git.push("checkouts");
+        remap_paths.insert(cargo_git, "/git");
+
+        // This hash is canonical-ish: Cargo tries hard not to change it
+        // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
+        //
+        // It depends on system architecture, so this won't work on (for example)
+        // a Raspberry Pi, but the only downside is that panic messages will
+        // be longer.
+        let mut cargo_registry = cargo_home;
+        cargo_registry.push("registry");
+        cargo_registry.push("src");
+        cargo_registry.push("github.com-1ecc6299db9ec823");
+        remap_paths.insert(cargo_registry, "/crates.io");
+
+        let mut hubris_dir =
+            fs::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
+        hubris_dir.pop(); // Remove "build/xtask"
+        hubris_dir.pop();
+        remap_paths.insert(hubris_dir, "/hubris");
+        remap_paths
+    };
+
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
     if let Some(bootloader) = toml.bootloader.as_ref() {
@@ -207,6 +240,7 @@ pub fn package(
             verbose,
             edges,
             &task_names,
+            &remap_paths,
             &None,
             &shared_syms,
             &None,
@@ -291,6 +325,7 @@ pub fn package(
             verbose,
             edges,
             &task_names,
+            &remap_paths,
             &toml.secure,
             &shared_syms,
             &task_toml.config,
@@ -358,6 +393,7 @@ pub fn package(
         verbose,
         edges,
         "",
+        &remap_paths,
         &toml.secure,
         &None,
         &None,
@@ -501,6 +537,14 @@ pub fn package(
             gdb_script,
             "add-symbol-file {}",
             out.join(&bootloader.name).to_slash().unwrap()
+        )?;
+    }
+    for (path, remap) in &remap_paths {
+        writeln!(
+            gdb_script,
+            "set substitute-path {} {}",
+            path.display(),
+            remap
         )?;
     }
     drop(gdb_script);
@@ -871,6 +915,7 @@ fn build(
     verbose: bool,
     edges: bool,
     task_names: &str,
+    remap_paths: &HashMap<PathBuf, &str>,
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
     config: &Option<toml::Value>,
@@ -913,17 +958,10 @@ fn build(
     // rebuilds. by canonicalizing it, you get foo/target for every one.
     let canonical_cargo_out_dir = fs::canonicalize(&cargo_out)?;
 
-    // Panic messages in crates have a long prefix; we'll shorten it using
-    // the --remap-path-prefix argument to reduce message size.
-    let mut cargo_git = fs::canonicalize(std::env::var("CARGO_HOME")?)?;
-    cargo_git.push("git");
-    cargo_git.push("checkouts");
-
-    let mut hubris_dir =
-        fs::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
-    hubris_dir.pop(); // Remove "build/xtask"
-    hubris_dir.pop();
-
+    let remap_path_prefix: String = remap_paths
+        .iter()
+        .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
+        .collect();
     cmd.current_dir(path);
     cmd.env(
         "RUSTFLAGS",
@@ -934,12 +972,10 @@ fn build(
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -C overflow-checks=y \
-             --remap-path-prefix={}=git
-             --remap-path-prefix={}=hubris
+             {}
              ",
             canonical_cargo_out_dir.display(),
-            cargo_git.display(),
-            hubris_dir.display(),
+            remap_path_prefix,
         ),
     );
 
