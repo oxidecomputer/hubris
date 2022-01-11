@@ -913,6 +913,17 @@ fn build(
     // rebuilds. by canonicalizing it, you get foo/target for every one.
     let canonical_cargo_out_dir = fs::canonicalize(&cargo_out)?;
 
+    // Panic messages in crates have a long prefix; we'll shorten it using
+    // the --remap-path-prefix argument to reduce message size.
+    let mut cargo_git = fs::canonicalize(std::env::var("CARGO_HOME")?)?;
+    cargo_git.push("git");
+    cargo_git.push("checkouts");
+
+    let mut hubris_dir =
+        fs::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
+    hubris_dir.pop(); // Remove "build/xtask"
+    hubris_dir.pop();
+
     cmd.current_dir(path);
     cmd.env(
         "RUSTFLAGS",
@@ -922,8 +933,13 @@ fn build(
              -C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
-             -C overflow-checks=y",
-            canonical_cargo_out_dir.display()
+             -C overflow-checks=y \
+             --remap-path-prefix={}=git
+             --remap-path-prefix={}=hubris
+             ",
+            canonical_cargo_out_dir.display(),
+            cargo_git.display(),
+            hubris_dir.display(),
         ),
     );
 
