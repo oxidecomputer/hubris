@@ -543,8 +543,8 @@ pub fn package(
         writeln!(
             gdb_script,
             "set substitute-path {} {}",
-            path.display(),
-            remap
+            remap,
+            path.display()
         )?;
     }
     drop(gdb_script);
