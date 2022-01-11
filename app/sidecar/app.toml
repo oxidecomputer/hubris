@@ -277,7 +277,7 @@ pins = [ { pins = [ 12, 13 ], af = 4 } ]
 
 [[config.i2c.devices]]
 bus = "northeast0"
-address = 0b0001_000
+address = 0b0010_000
 device = "adm1272"
 description = "Fan 1 hot swap controller"
 pmbus = { rails = [ "V54_FAN1" ] }
@@ -417,7 +417,7 @@ refdes = "U8"
 
 [[config.i2c.devices]]
 bus = "northwest1"
-address = 0b0001_000
+address = 0b0010_000
 device = "adm1272"
 description = "Fan 3 hot swap controller"
 pmbus = { rails = [ "V54_FAN3" ] }
