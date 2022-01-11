@@ -148,7 +148,11 @@ pub fn package(
     let remap_paths = {
         let mut remap_paths = HashMap::new();
 
-        let cargo_home = fs::canonicalize(std::env::var("CARGO_HOME")?)?;
+        // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
+        // beginning with "\\hostname\".  However, rustc expects a non-UNC
+        // path for its --remap-path-prefix argument, so we use
+        // `dunce::canonicalize` instead
+        let cargo_home = dunce::canonicalize(std::env::var("CARGO_HOME")?)?;
         let mut cargo_git = cargo_home.clone();
         cargo_git.push("git");
         cargo_git.push("checkouts");
@@ -167,7 +171,7 @@ pub fn package(
         remap_paths.insert(cargo_registry, "/crates.io");
 
         let mut hubris_dir =
-            fs::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
+            dunce::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
         hubris_dir.pop(); // Remove "build/xtask"
         hubris_dir.pop();
         remap_paths.insert(hubris_dir, "/hubris");
@@ -540,12 +544,17 @@ pub fn package(
         )?;
     }
     for (path, remap) in &remap_paths {
-        writeln!(
-            gdb_script,
-            "set substitute-path {} {}",
-            remap,
-            path.display()
-        )?;
+        let mut path_str = path
+            .to_str()
+            .ok_or(anyhow!("Could not convert path{:?} to str", path))?
+            .to_string();
+
+        // Even on Windows, GDB expects path components to be separated by '/',
+        // so we tweak the path here so that remapping works.
+        if cfg!(windows) {
+            path_str = path_str.replace("\\", "/");
+        }
+        writeln!(gdb_script, "set substitute-path {} {}", remap, path_str)?;
     }
     drop(gdb_script);
 
