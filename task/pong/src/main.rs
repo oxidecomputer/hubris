@@ -45,9 +45,6 @@ pub fn main() -> ! {
                     Err(drv_user_leds_api::LedError::NotPresent) => {
                         current = 0;
                     }
-                    _ => {
-                        panic!("unhandled Led error");
-                    }
                 };
             }
         }

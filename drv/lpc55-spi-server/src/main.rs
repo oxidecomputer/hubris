@@ -28,10 +28,22 @@ use drv_lpc55_gpio_api::*;
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
+use ringbuf::*;
 use userlib::*;
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Start(Op),
+    Tx(u8),
+    Rx(u8),
+    IRQ,
+    None,
+}
+
+ringbuf!(Trace, 64, Trace::None);
 
 #[repr(u32)]
 enum ResponseCode {
@@ -40,7 +52,7 @@ enum ResponseCode {
 }
 
 // Read/Write is defined from the perspective of the SPI device
-#[derive(FromPrimitive, PartialEq)]
+#[derive(FromPrimitive, Copy, Clone, PartialEq)]
 enum Op {
     Read = 1,
     Write = 2,
@@ -99,7 +111,7 @@ fn main() -> ! {
         device::spi0::cfg::LSBF_A::STANDARD, // MSB First
         device::spi0::cfg::CPHA_A::CHANGE,
         device::spi0::cfg::CPOL_A::LOW,
-        spi_core::TxLvl::TxEmpty,
+        spi_core::TxLvl::Tx7Items,
         spi_core::RxLvl::Rx1Item,
     );
 
@@ -122,6 +134,7 @@ fn main() -> ! {
             &mut dat,
             |datref, bits| {
                 if bits & 1 != 0 {
+                    ringbuf_entry!(Trace::IRQ);
                     if datref.spi.can_tx() {
                         write_byte(datref.spi, &mut datref.dat);
                     }
@@ -163,6 +176,11 @@ fn main() -> ! {
                         return Err(ResponseCode::BadArg);
                     }
 
+                    // Keep a minimum size to go with the FIFO settings
+                    if borrow_info.len < 8 {
+                        return Err(ResponseCode::BadArg);
+                    }
+
                     datref.dat = Some(Transmit {
                         task: caller,
                         rpos: borrow_info.len,
@@ -173,8 +191,10 @@ fn main() -> ! {
                         wlease_num: 0,
                     });
 
+                    datref.spi.drain();
                     datref.spi.enable_tx();
 
+                    ringbuf_entry!(Trace::Start(Op::Write));
                     Ok(())
                 }
                 Op::Read => {
@@ -206,9 +226,11 @@ fn main() -> ! {
                     // Turning off receive without send is difficult (requires a
                     // 16 bit write to a particular register) so just send some
                     // bogus data for now
+                    datref.spi.drain();
                     datref.spi.enable_tx();
                     datref.spi.enable_rx();
 
+                    ringbuf_entry!(Trace::Start(Op::Read));
                     Ok(())
                 }
                 Op::Exchange => {
@@ -223,6 +245,11 @@ fn main() -> ! {
                     let send_info =
                         borrow_send.info().ok_or(ResponseCode::BadArg)?;
                     if !send_info.attributes.contains(LeaseAttributes::READ) {
+                        return Err(ResponseCode::BadArg);
+                    }
+
+                    // Keep a minimum size to go with the FIFO settings
+                    if send_info.len < 8 {
                         return Err(ResponseCode::BadArg);
                     }
 
@@ -247,9 +274,11 @@ fn main() -> ! {
                         op: Op::Exchange,
                     });
 
+                    datref.spi.drain();
                     datref.spi.enable_tx();
                     datref.spi.enable_rx();
 
+                    ringbuf_entry!(Trace::Start(Op::Exchange));
                     Ok(())
                 }
             },
@@ -350,6 +379,7 @@ fn write_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
     if let Some(byte) = txs.task.borrow(txs.rlease_num).read_at::<u8>(txs.rpos)
     {
         txs.rpos += 1;
+        ringbuf_entry!(Trace::Tx(byte));
         spi.send_u8(byte);
         if txs.rpos == txs.len {
             spi.disable_tx();
@@ -374,6 +404,7 @@ fn read_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
     }
 
     let byte = spi.read_u8();
+    ringbuf_entry!(Trace::Rx(byte));
 
     let borrow = txs.task.borrow(txs.wlease_num);
 
