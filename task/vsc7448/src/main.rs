@@ -10,11 +10,13 @@ use userlib::*;
 use vsc7448_pac::Vsc7448;
 use vsc7448_spi::Vsc7448Spi;
 
-#[cfg(target_board = "gemini-bu-1")]
-use bsp::gemini_bu::Bsp;
-
-#[cfg(not(target_board = "gemini-bu-1"))]
-use bsp::empty::Bsp;
+cfg_if::cfg_if! {
+    if #[cfg(target_board = "gemini-bu-1")] {
+        use bsp::gemini_bu::Bsp;
+    } else {
+        use bsp::empty::Bsp;
+    }
+}
 
 task_slot!(SPI, spi_driver);
 const VSC7448_SPI_DEVICE: u8 = 0;

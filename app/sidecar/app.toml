@@ -86,6 +86,15 @@ task-slots = ["sys"]
 [tasks.spi5_driver.config.spi]
 global_config = "spi5"
 
+[tasks.vsc7448]
+path = "../../task/vsc7448"
+name = "task-vsc7448"
+priority = 3
+requires = {flash = 65536, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = [{ spi_driver = "spi2_driver" }]
+
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
@@ -173,7 +182,7 @@ pins = [ { gpio_port = "B", pins = [ 8, 9 ], af = 4 } ]
 # I2C2: Front I/O
 #
 [[config.i2c.controllers]]
-controller = 2 
+controller = 2
 
 #
 # I2C_FRONT_IO0_SCL
