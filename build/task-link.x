@@ -72,11 +72,9 @@ SECTIONS
     . = ALIGN(4);
     *(.uninit .uninit.*);
     . = ALIGN(4);
+    /* Place the heap right after `.uninit` */
+    __sheap = .;
   } > RAM
-
-  /* Place the heap right after `.uninit` */
-  . = ALIGN(4);
-  __sheap = .;
 
   /* ## .got */
   /* Dynamic relocations are unsupported. This section is only used to detect relocatable code in
