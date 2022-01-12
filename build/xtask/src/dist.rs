@@ -146,7 +146,7 @@ pub fn package(
     // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
     // dependencies to /git
     let remap_paths = {
-        let mut remap_paths = HashMap::new();
+        let mut remap_paths = BTreeMap::new();
 
         // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
         // beginning with "\\hostname\".  However, rustc expects a non-UNC
@@ -924,7 +924,7 @@ fn build(
     verbose: bool,
     edges: bool,
     task_names: &str,
-    remap_paths: &HashMap<PathBuf, &str>,
+    remap_paths: &BTreeMap<PathBuf, &str>,
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
     config: &Option<toml::Value>,
