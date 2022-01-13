@@ -1,10 +1,14 @@
 /// Tools for working with the 10G SERDES (sd10g65 in the SDK)
 use crate::{Vsc7448Spi, VscError};
-use ringbuf::*;
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
-pub struct SerdesConfig {
+pub enum Mode {
+    Lan10g,
+    Sgmii,
+}
+
+pub struct Config {
     f_pll_khz_plain: u32,
 
     mult: SynthMultCalc,
@@ -20,29 +24,19 @@ pub struct SerdesConfig {
     pllf_ref_cnt_end: u32,
 }
 
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    None,
-    Fpll(FrequencySetup),
-    FpllKhzPlain(u32),
-    HalfRateMode(bool),
-    OptimizeFor1g(bool),
-    HighDataRate(bool),
-    SynthSettings(SynthSettingsCalc),
-    Mult(SynthMultCalc),
-}
-ringbuf!(Trace, 16, Trace::None);
+impl Config {
+    pub fn new(mode: Mode) -> Result<Self, VscError> {
+        if matches!(mode, Mode::Sgmii) {
+            // TODO
+            panic!("Haven't implemented SGMII mode yet");
+        }
 
-impl SerdesConfig {
-    pub fn new() -> Result<Self, VscError> {
         // `vtss_calc_sd10g65_setup_tx`
-        let mut f_pll = get_frequency_setup(SerdesMode::Lan10g);
-        ringbuf_entry!(Trace::Fpll(f_pll));
+        let mut f_pll = FrequencySetup::new(mode);
 
         let mut f_pll_khz_plain =
             ((f_pll.f_pll_khz as u64 * f_pll.ratio_num as u64)
                 / (f_pll.ratio_den as u64)) as u32;
-        ringbuf_entry!(Trace::FpllKhzPlain(f_pll_khz_plain));
 
         let half_rate_mode = if f_pll_khz_plain < 2_500_000 {
             f_pll_khz_plain *= 2;
@@ -51,19 +45,15 @@ impl SerdesConfig {
         } else {
             false
         };
-        ringbuf_entry!(Trace::HalfRateMode(half_rate_mode));
 
         // XXX: should this check the scaled or unscaled f_pll_khz?
         let optimize_for_1g = f_pll.f_pll_khz < 2_500_000;
-        ringbuf_entry!(Trace::OptimizeFor1g(optimize_for_1g));
 
         // XXX: What happens if this is exactly 2_500_000?  Then half_rate_mode
         // will be false and high_data_rate will also be false.
         let high_data_rate = f_pll_khz_plain > 2_500_000;
-        ringbuf_entry!(Trace::HighDataRate(high_data_rate));
 
         let mult = SynthMultCalc::new(&f_pll)?;
-        ringbuf_entry!(Trace::Mult(mult));
 
         let tx_synth_off_comp_ena =
             if f_pll_khz_plain > 10_312_500 { 31 } else { 23 };
@@ -751,24 +741,23 @@ fn calc_gcd(num_in: u64, mut div: u64) -> u64 {
     div
 }
 
-enum SerdesMode {
-    Lan10g,
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct FrequencySetup {
     f_pll_khz: u32,
     ratio_num: u32,
     ratio_den: u32,
 }
-fn get_frequency_setup(mode: SerdesMode) -> FrequencySetup {
-    match mode {
-        SerdesMode::Lan10g => FrequencySetup {
-            f_pll_khz: 10_000_000,
-            ratio_num: 66, // 10.3125Gbps
-            ratio_den: 64,
-        },
-        // Other modes aren't supported!
+impl FrequencySetup {
+    pub fn new(mode: Mode) -> Self {
+        match mode {
+            Mode::Lan10g => FrequencySetup {
+                f_pll_khz: 10_000_000,
+                ratio_num: 66, // 10.3125Gbps
+                ratio_den: 64,
+            },
+            // TODO
+            _ => panic!("Can't support mode"),
+        }
     }
 }
 
@@ -818,7 +807,6 @@ impl SynthMultCalc {
             _ => return Err(VscError::SerdesFrequencyTooHigh(dr_khz)),
         };
         out.settings = SynthSettingsCalc::new(num_in_tmp, div_in_tmp);
-        ringbuf_entry!(Trace::SynthSettings(out.settings));
 
         out.speed_sel = if dr_khz < 5_000_000 { true } else { false };
         out.freq_mult_byp =
