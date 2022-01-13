@@ -1,4 +1,4 @@
-use crate::{Vsc7448Spi, VscError};
+use crate::{spi::Vsc7448Spi, VscError};
 use vsc7448_pac::{phy, Vsc7448};
 
 /// Initializes one or more VSC8522 PHYs connected over MIIM

@@ -4,7 +4,8 @@
 
 use crate::{
     dev::{dev10g_to_port, dev1g_to_port},
-    Vsc7448Spi, VscError,
+    spi::Vsc7448Spi,
+    VscError,
 };
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
