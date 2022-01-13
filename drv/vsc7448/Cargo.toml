@@ -1,0 +1,16 @@
+[package]
+name = "vsc7448"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib" }
+ringbuf = {path = "../../lib/ringbuf" }
+drv-spi-api = {path = "../../drv/spi-api"}
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false

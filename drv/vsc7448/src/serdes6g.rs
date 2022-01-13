@@ -1,4 +1,4 @@
-use crate::{Vsc7448Spi, VscError};
+use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 

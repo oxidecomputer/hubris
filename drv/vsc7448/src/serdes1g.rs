@@ -1,4 +1,4 @@
-use crate::{Vsc7448Spi, VscError};
+use crate::{spi::Vsc7448Spi, VscError};
 
 pub enum Mode {
     Sgmii,
