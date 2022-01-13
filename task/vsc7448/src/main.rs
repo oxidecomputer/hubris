@@ -2,7 +2,12 @@
 #![no_main]
 
 mod bsp;
+mod dev;
+mod phy;
+mod port;
 mod serdes10g;
+mod serdes1g;
+mod serdes6g;
 mod vsc7448_spi;
 
 use drv_spi_api::{Spi, SpiError};
@@ -13,8 +18,10 @@ use vsc7448_spi::Vsc7448Spi;
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gemini-bu-1")] {
         use bsp::gemini_bu::Bsp;
+    } else if #[cfg(target_board = "sidecar-1")] {
+        use bsp::sidecar::Bsp;
     } else {
-        use bsp::empty::Bsp;
+        compile_error!("No BSP available for this board");
     }
 }
 
@@ -38,13 +45,13 @@ pub enum VscError {
     MiimIdleTimeout,
     MiimReadTimeout,
     Serdes6gReadTimeout {
-        instance: u16,
+        instance: u32,
     },
     Serdes6gWriteTimeout {
-        instance: u16,
+        instance: u32,
     },
     PortFlushTimeout {
-        port: u8,
+        port: u32,
     },
     AnaCfgTimeout,
     SerdesFrequencyTooLow(u64),
@@ -96,6 +103,51 @@ fn init(vsc7448: &Vsc7448Spi) -> Result<Bsp, VscError> {
     {
         return Err(VscError::BadChipId(chip_id.into()));
     }
+
+    // Core chip bringup, bringing all of the main subsystems out of reset
+    // (based on `jr2_init_conf_set` in the SDK)
+    vsc7448
+        .modify(Vsc7448::ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(), |r| {
+            r.set_reset(1)
+        })?;
+    vsc7448.modify(Vsc7448::ASM().CFG().STAT_CFG(), |r| {
+        r.set_stat_cnt_clr_shot(1)
+    })?;
+    vsc7448.modify(Vsc7448::QSYS().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+    vsc7448.modify(Vsc7448::REW().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+    // The VOP isn't in the datasheet, but it's in the SDK
+    vsc7448.modify(Vsc7448::VOP().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+    vsc7448.modify(Vsc7448::ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+    vsc7448.modify(Vsc7448::ASM().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+    vsc7448.modify(Vsc7448::DSM().RAM_CTRL().RAM_INIT(), |r| {
+        r.set_ram_init(1);
+        r.set_ram_ena(1);
+    })?;
+
+    hl::sleep_for(1);
+    // TODO: read back all of those autoclear bits and make sure they cleared
+
+    // Enable the queue system
+    vsc7448.write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| {
+        r.set_core_ena(1)
+    })?;
+
+    hl::sleep_for(105); // Minimum time between reset and SMI access
 
     Bsp::new(vsc7448)
 }

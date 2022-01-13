@@ -378,4 +378,40 @@ impl Vsc7448Spi {
         f(&mut data);
         self.phy_write(miim, phy, reg, data)
     }
+
+    /// Reads from a specific SERDES6G instance, which is done by writing its
+    /// value (as a bitmask) to a particular register with a read flag set,
+    /// then waiting for the flag to autoclear.
+    pub fn serdes6g_read(&self, instance: u32) -> Result<(), VscError> {
+        let mut reg: vsc7448_pac::hsio::mcb_serdes6g_cfg::MCB_SERDES6G_ADDR_CFG =
+            0.into();
+        reg.set_serdes6g_rd_one_shot(1);
+        reg.set_serdes6g_addr(1 << instance);
+        let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+        self.write(addr, reg)?;
+        for _ in 0..32 {
+            if self.read(addr)?.serdes6g_rd_one_shot() != 1 {
+                return Ok(());
+            }
+        }
+        return Err(VscError::Serdes6gReadTimeout { instance });
+    }
+
+    /// Reads from a specific SERDES6G instance, which is done by writing its
+    /// value (as a bitmask) to a particular register with a read flag set,
+    /// then waiting for the flag to autoclear.
+    pub fn serdes6g_write(&self, instance: u32) -> Result<(), VscError> {
+        let mut reg: vsc7448_pac::hsio::mcb_serdes6g_cfg::MCB_SERDES6G_ADDR_CFG =
+            0.into();
+        reg.set_serdes6g_wr_one_shot(1);
+        reg.set_serdes6g_addr(1 << instance);
+        let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+        self.write(addr, reg)?;
+        for _ in 0..32 {
+            if self.read(addr)?.serdes6g_wr_one_shot() != 1 {
+                return Ok(());
+            }
+        }
+        return Err(VscError::Serdes6gWriteTimeout { instance });
+    }
 }
