@@ -7,7 +7,7 @@ use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fmt::Write;
 use std::fs::File;
@@ -29,11 +29,25 @@ struct I2cConfig {
     devices: Option<Vec<I2cDevice>>,
 }
 
+//
+// Note that [`ports`] is a `BTreeMap` (rather than, say, an `IndexMap`).
+// This is load-bearing!  It is essential that deserialization of our
+// application TOML have the same ordering for the ports, as the index is used
+// by the debugger to denote a desired port.  One might think that an
+// `IndexMap` would assure this, but because our configuration is reserialized
+// as part of the build process (with the re-serialized TOML being stuffed
+// into an environment variable), and because TOML is not stable with respect
+// to the ordering of a table (both in terms of the specification -- see e.g.
+// https://github.com/toml-lang/toml/issues/162 -- and in terms of the toml-rs
+// implementation which, by default, uses a `BTreeMap` rather than an
+// `IndexMap` for tables), we must be sure to impose our own (absolute)
+// ordering.
+//
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct I2cController {
     controller: u8,
-    ports: IndexMap<String, I2cPort>,
+    ports: BTreeMap<String, I2cPort>,
     #[serde(default)]
     target: bool,
 }
