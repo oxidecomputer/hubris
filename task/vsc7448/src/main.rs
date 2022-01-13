@@ -2,18 +2,11 @@
 #![no_main]
 
 mod bsp;
-mod dev;
-mod phy;
-mod port;
-mod serdes10g;
-mod serdes1g;
-mod serdes6g;
-mod vsc7448_spi;
 
-use drv_spi_api::{Spi, SpiError};
+use drv_spi_api::Spi;
 use userlib::*;
+use vsc7448::{spi::Vsc7448Spi, VscError};
 use vsc7448_pac::Vsc7448;
-use vsc7448_spi::Vsc7448Spi;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gemini-bu-1")] {
@@ -29,49 +22,6 @@ task_slot!(SPI, spi_driver);
 const VSC7448_SPI_DEVICE: u8 = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum VscError {
-    SpiError(SpiError),
-    BadChipId(u32),
-    MiimReadErr {
-        miim: u8,
-        phy: u8,
-        page: u16,
-        addr: u8,
-    },
-    BadPhyId1(u16),
-    BadPhyId2(u16),
-    MiimIdleTimeout,
-    MiimReadTimeout,
-    Serdes6gReadTimeout {
-        instance: u32,
-    },
-    Serdes6gWriteTimeout {
-        instance: u32,
-    },
-    PortFlushTimeout {
-        port: u32,
-    },
-    AnaCfgTimeout,
-    SerdesFrequencyTooLow(u64),
-    SerdesFrequencyTooHigh(u64),
-    TriDecFailed(u16),
-    BiDecFailed(u16),
-    LtDecFailed(u16),
-    LsDecFailed(u16),
-    TxPllLockFailed,
-    TxPllFsmFailed,
-    RxPllLockFailed,
-    RxPllFsmFailed,
-    OffsetCalFailed,
-}
-
-impl From<SpiError> for VscError {
-    fn from(s: SpiError) -> Self {
-        Self::SpiError(s)
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 

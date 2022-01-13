@@ -1,6 +1,8 @@
 use crate::{
     port::{port10g_flush, port1g_flush},
-    serdes10g, Vsc7448Spi, VscError,
+    serdes10g,
+    spi::Vsc7448Spi,
+    VscError,
 };
 use vsc7448_pac::Vsc7448;
 
