@@ -1,10 +1,10 @@
-use userlib::*;
-use vsc7448::{
+use crate::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii},
     serdes10g, serdes1g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
 };
+use userlib::*;
 use vsc7448_pac::Vsc7448;
 
 pub struct Bsp<'a> {
@@ -13,11 +13,6 @@ pub struct Bsp<'a> {
 
 impl<'a> Bsp<'a> {
     /// Constructs and initializes a new BSP handle
-    ///
-    /// This is marked with `#[allow(dead_code)]` because we build all BSPs
-    /// all the time (to prevent code from breaking), but only instantiate one
-    /// at a time (based on board type).
-    #[allow(dead_code)]
     pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
         let out = Bsp { vsc7448 };
         out.init()?;
@@ -92,7 +87,6 @@ impl<'a> Bsp<'a> {
         unimplemented!()
     }
 
-    #[allow(dead_code)]
     pub fn run(&self) -> ! {
         loop {
             hl::sleep_for(100);
