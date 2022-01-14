@@ -1,8 +1,9 @@
 use crate::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii},
-    phy::init_miim_phy,
+    phy::{init_miim_phy, PhyRw},
     serdes10g, serdes6g,
     spi::Vsc7448Spi,
+    spi_phy::Vsc7448SpiPhy,
     VscError,
 };
 use ringbuf::*;
@@ -14,8 +15,8 @@ enum Trace {
     None,
     Initialized(u64),
     FailedToInitialize(VscError),
-    PhyScanError { miim: u8, phy: u8, err: VscError },
-    PhyLinkChanged { port: u8, status: u16 },
+    PhyScanError { miim: u32, phy: u8, err: VscError },
+    PhyLinkChanged { port: u32, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -48,10 +49,15 @@ impl<'a> Bsp<'a> {
         // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
         // Each PHYs on the same MIIM bus is strapped to different ports.
         for miim in [1, 2] {
+            self.vsc7448
+                .modify(Vsc7448::DEVCPU_GCB().MIIM(miim).MII_CFG(), |cfg| {
+                    cfg.set_miim_cfg_prescale(0xFF)
+                })?;
             // We only need to check this on one PHY port per physical PHY
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
-            init_miim_phy(miim, &[0, 12], &self.vsc7448)?;
+            let p = Vsc7448SpiPhy::new(self.vsc7448, miim);
+            init_miim_phy(&[0, 12], p)?;
         }
 
         // I want to configure ports 0-3 (or 1-4, depending on numbering) on
@@ -147,18 +153,15 @@ impl<'a> Bsp<'a> {
         loop {
             hl::sleep_for(100);
             for miim in [1, 2] {
+                let p = Vsc7448SpiPhy::new(self.vsc7448, miim);
                 for phy in 0..24 {
-                    match self.vsc7448.phy_read(
-                        miim,
-                        phy,
-                        phy::STANDARD::MODE_STATUS(),
-                    ) {
+                    match p.read(phy, phy::STANDARD::MODE_STATUS()) {
                         Ok(status) => {
                             let up = (status.0 & (1 << 5)) != 0;
                             if up != link_up[miim as usize - 1][phy as usize] {
                                 link_up[miim as usize - 1][phy as usize] = up;
                                 ringbuf_entry!(Trace::PhyLinkChanged {
-                                    port: (miim - 1) * 24 + phy,
+                                    port: (miim - 1) * 24 + phy as u32,
                                     status: status.0,
                                 });
                             }

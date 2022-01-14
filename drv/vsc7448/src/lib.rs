@@ -9,6 +9,7 @@ mod port;
 mod serdes10g;
 mod serdes1g;
 mod serdes6g;
+mod spi_phy;
 
 use drv_spi_api::SpiError;
 use userlib::hl::sleep_for;
@@ -19,7 +20,7 @@ pub enum VscError {
     SpiError(SpiError),
     BadChipId(u32),
     MiimReadErr {
-        miim: u8,
+        miim: u32,
         phy: u8,
         page: u16,
         addr: u8,
