@@ -50,6 +50,26 @@ impl<'a> Bsp<'a> {
 
         ////////////////////////////////////////////////////////////////////////
         // PSC0/1, Technician 0/1, a few unused ports
+        // These go over 2x QSGMII links:
+        // - Ports 16-19 go through SERDES6G_14 to an on-board VSC8504 PHY
+        //   (PHY4, U40), which is configured over MIIM from the SP
+        // - Ports 20-23 go through SERDES6G_15 to the front panel board
+
+        // Let's configure the on-board PHY first
+        // Relevant pins are
+        // - MIIM_SP_TO_PHY_MDC_2V5
+        // - MIIM_SP_TO_PHY_MDIO_2V5
+        // - MIIM_SP_TO_PHY_MDINT_2V5_L
+        // - SP_TO_PHY4_COMA_MODE_2V5
+        // - SP_TO_PHY4_RESET_2V5_L
+        //
+        // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
+        // on the board)
+        // TODO
+
+        // Now that the PHY is configured, we can bring up the VSC7448.  This
+        // is very similar to how we bring up QSGMII in the dev kit BSP
+        // (bsp/gemini_bu.rs)
         self.vsc7448
             .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
                 // Enable QSGMII mode for DEV1G_16-23 via SerDes6G_14/15
