@@ -6,30 +6,95 @@ use crate::{
 };
 use vsc7448_pac::Vsc7448;
 
-/// Converts from a DEV10G index to a port index
-pub fn dev10g_to_port(d: u32) -> u32 {
-    assert!(d < 4);
-    d + 49
+/// DEV1G and DEV2G5 share the same register layout, so we can write functions
+/// that use either one.
+#[derive(Copy, Clone)]
+pub enum DevGeneric {
+    Dev1g(u32),
+    Dev2g5(u32),
 }
 
-/// Converts from a DEV1G index to a port index
-pub fn dev1g_to_port(d: u32) -> u32 {
-    assert!(d < 24);
-    if d < 8 {
-        d
-    } else {
-        d + 24
+impl DevGeneric {
+    pub fn new_1g(d: u32) -> Self {
+        assert!(d < 24);
+        DevGeneric::Dev1g(d)
+    }
+    pub fn new_2g5(d: u32) -> Self {
+        assert!(d < 29);
+        DevGeneric::Dev2g5(d)
+    }
+    pub fn port(&self) -> u32 {
+        match *self {
+            DevGeneric::Dev1g(d) => {
+                if d < 8 {
+                    d
+                } else {
+                    d + 24
+                }
+            }
+            DevGeneric::Dev2g5(d) => {
+                if d <= 24 {
+                    d + 8
+                } else {
+                    d + 24
+                }
+            }
+        }
+    }
+    pub fn regs(&self) -> vsc7448_pac::DEV1G {
+        match *self {
+            DevGeneric::Dev1g(d) => Vsc7448::DEV1G(d),
+            DevGeneric::Dev2g5(d) =>
+            // We know that d is < 29 based on the check in the constructor.
+            // DEV1G and DEV2G5 register blocks are identical in layout and
+            // tightly packed, and there are 28 DEV2G5 register blocks, so
+            // this should be a safe trick.
+            {
+                vsc7448_pac::DEV1G::from_raw_unchecked_address(
+                    vsc7448_pac::DEV2G5::BASE + d * vsc7448_pac::DEV1G::SIZE,
+                )
+            }
+        }
+    }
+    pub fn index(&self) -> u32 {
+        match *self {
+            DevGeneric::Dev1g(d) | DevGeneric::Dev2g5(d) => d,
+        }
     }
 }
 
-pub fn dev1g_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
-    let port = dev1g_to_port(dev); // Port and port module numbering are the same for DEV1G
+/// Wrapper struct for a DEV10G index, which is analogous to `DevGeneric`.
+/// The DEV10G target registers aren't identical to the DEV1G, so we need
+/// to handle it differently.
+#[derive(Copy, Clone)]
+pub struct Dev10g(u32);
+impl Dev10g {
+    pub fn new(d: u32) -> Self {
+        assert!(d < 4);
+        Self(d)
+    }
+    /// Converts from a DEV10G index to a port index
+    pub fn port(&self) -> u32 {
+        self.0 + 49
+    }
+    pub fn regs(&self) -> vsc7448_pac::DEV10G {
+        Vsc7448::DEV10G(self.0)
+    }
+    pub fn index(&self) -> u32 {
+        self.0
+    }
+}
 
+/// Based on `vtss_jr2_conf_1g_set` in the SDK
+pub fn dev1g_init_sgmii(
+    dev: DevGeneric,
+    v: &Vsc7448Spi,
+) -> Result<(), VscError> {
     // Flush the port before doing anything else
-    port1g_flush(port, v)?;
+    port1g_flush(dev, v)?;
 
     // Enable full duplex mode and GIGA SPEED
-    let dev1g = Vsc7448::DEV1G(dev);
+    let dev1g = dev.regs();
     v.modify(dev1g.MAC_CFG_STATUS().MAC_MODE_CFG(), |r| {
         r.set_fdx_ena(1);
         r.set_giga_mode_ena(1);
@@ -88,6 +153,7 @@ pub fn dev1g_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
         r.set_speed_sel(2)
     })?;
 
+    let port = dev.port();
     v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
         r.set_port_ena(1);
         r.set_fwd_urgency(104); // This is different based on speed
@@ -96,17 +162,13 @@ pub fn dev1g_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
     Ok(())
 }
 
-pub fn dev2g5_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
-    unimplemented!()
-}
-
 pub fn dev10g_init_sfi(
-    dev: u32,
+    dev: Dev10g,
     serdes_cfg: &serdes10g::Config,
     v: &Vsc7448Spi,
 ) -> Result<(), VscError> {
     // jr2_sd10g_xfi_mode
-    v.modify(Vsc7448::XGXFI(dev).XFI_CONTROL().XFI_MODE(), |r| {
+    v.modify(Vsc7448::XGXFI(dev.index()).XFI_CONTROL().XFI_MODE(), |r| {
         r.set_sw_rst(0);
         r.set_endian(1);
         r.set_sw_ena(1);
@@ -114,12 +176,13 @@ pub fn dev10g_init_sfi(
 
     // jr2_sd10g_cfg, moved into a separate function because bringing
     // up a 10G SERDES is _hard_
-    serdes_cfg.apply(dev, v)?;
+    let serdes_index = dev.index();
+    serdes_cfg.apply(serdes_index, v)?;
     port10g_flush(dev, v)?;
 
     // Remaining logic is from `jr2_port_conf_10g_set`
     // Handle signal detect
-    let dev10g = Vsc7448::DEV10G(dev);
+    let dev10g = dev.regs();
     v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_SD_CFG(), |r| {
         r.set_sd_ena(0);
     })?;
@@ -138,15 +201,10 @@ pub fn dev10g_init_sfi(
         r.set_mac_tx_rst(0);
         r.set_speed_sel(7); // SFI
     })?;
-    v.modify(
-        Vsc7448::QFWD()
-            .SYSTEM()
-            .SWITCH_PORT_MODE(dev10g_to_port(dev)),
-        |r| {
-            r.set_port_ena(1);
-            r.set_fwd_urgency(9);
-        },
-    )?;
+    v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(dev.port()), |r| {
+        r.set_port_ena(1);
+        r.set_fwd_urgency(9);
+    })?;
 
     Ok(())
 }
