@@ -8,6 +8,7 @@ userlib = {path = "../../sys/userlib" }
 ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", default-features = false}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

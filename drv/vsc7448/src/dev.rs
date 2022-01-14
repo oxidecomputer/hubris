@@ -96,6 +96,10 @@ pub fn dev1g_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
     Ok(())
 }
 
+pub fn dev2g5_init_sgmii(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+    unimplemented!()
+}
+
 pub fn dev10g_init_sfi(
     dev: u32,
     serdes_cfg: &serdes10g::Config,

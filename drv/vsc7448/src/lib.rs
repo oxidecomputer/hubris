@@ -27,6 +27,7 @@ pub enum VscError {
     },
     BadPhyId1(u16),
     BadPhyId2(u16),
+    PhyInitTimeout,
     MiimIdleTimeout,
     MiimReadTimeout,
     Serdes6gReadTimeout {
