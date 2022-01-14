@@ -1,14 +1,41 @@
 use crate::{
-    dev::{dev10g_init_sfi, dev1g_init_sgmii},
+    dev::{dev10g_init_sfi, dev1g_init_sgmii, dev2g5_init_sgmii},
+    phy::PhyRw,
     serdes10g, serdes1g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
 };
-use userlib::*;
-use vsc7448_pac::Vsc7448;
+use drv_stm32h7_gpio_api as gpio_api;
+use userlib::{hl::sleep_for, task_slot};
+use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
+
+task_slot!(GPIO, gpio_driver);
 
 pub struct Bsp<'a> {
     vsc7448: &'a Vsc7448Spi,
+}
+
+impl<'a> PhyRw for Bsp<'a> {
+    fn read_raw<T: From<u16>>(
+        &self,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+    ) -> Result<T, VscError> {
+        unimplemented!();
+    }
+
+    fn write_raw<T>(
+        &self,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+    where
+        u16: From<T>,
+        T: From<u16> + Clone,
+    {
+        unimplemented!();
+    }
 }
 
 impl<'a> Bsp<'a> {
@@ -21,6 +48,7 @@ impl<'a> Bsp<'a> {
 
     pub fn init(&self) -> Result<(), VscError> {
         // See RFD144 for a detailed look at the design
+        let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
 
         // Cubbies 0 through 7
         let serdes1g_cfg_sgmii = serdes1g::Config::new(serdes1g::Mode::Sgmii);
@@ -32,11 +60,13 @@ impl<'a> Bsp<'a> {
         // Cubbies 8 through 21
         let serdes6g_cfg_sgmii = serdes6g::Config::new(serdes6g::Mode::Sgmii);
         for dev in 0..=13 {
+            dev2g5_init_sgmii(dev, &self.vsc7448)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
         // Cubbies 22 through 29
         for dev in 16..=23 {
+            dev2g5_init_sgmii(dev, &self.vsc7448)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
@@ -44,6 +74,7 @@ impl<'a> Bsp<'a> {
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
         for dev in [27, 28] {
+            dev2g5_init_sgmii(dev, &self.vsc7448)?;
             serdes10g_cfg_sgmii.apply(dev - 25, &self.vsc7448)?;
             // DEV2G5[dev], SERDES10G[dev - 25], S[dev + 8], SGMII
         }
@@ -60,12 +91,44 @@ impl<'a> Bsp<'a> {
         // - MIIM_SP_TO_PHY_MDC_2V5
         // - MIIM_SP_TO_PHY_MDIO_2V5
         // - MIIM_SP_TO_PHY_MDINT_2V5_L
-        // - SP_TO_PHY4_COMA_MODE_2V5
-        // - SP_TO_PHY4_RESET_2V5_L
+        // - SP_TO_PHY4_COMA_MODE (PI10, internal pull-up)
+        // - SP_TO_PHY4_RESET_L (PI9)
         //
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board)
-        // TODO
+
+        // The PHY must be powered and RefClk must be up at this point
+        //
+        // Jiggle reset line, then wait 120 ms
+        let coma_mode = gpio_api::Port::I.pin(10);
+        gpio_driver.set(coma_mode).unwrap();
+        gpio_driver
+            .configure_output(
+                coma_mode,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::Low,
+                gpio_api::Pull::None,
+            )
+            .unwrap();
+
+        // Make NRST low then switch it to output mode
+        let nrst = gpio_api::Port::I.pin(9);
+        gpio_driver.reset(nrst).unwrap();
+        gpio_driver
+            .configure_output(
+                nrst,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::Low,
+                gpio_api::Pull::None,
+            )
+            .unwrap();
+        sleep_for(10);
+        gpio_driver.set(nrst).unwrap();
+        sleep_for(120); // Wait for the chip to come out of reset
+
+        // Initialize the PHY, then disable COMA_MODE
+        crate::phy::init_vsc8504_phy(0, self)?;
+        gpio_driver.reset(coma_mode).unwrap();
 
         // Now that the PHY is configured, we can bring up the VSC7448.  This
         // is very similar to how we bring up QSGMII in the dev kit BSP
@@ -104,12 +167,12 @@ impl<'a> Bsp<'a> {
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         dev10g_init_sfi(0, &serdes_cfg, &self.vsc7448)?;
 
-        unimplemented!()
+        Ok(())
     }
 
     pub fn run(&self) -> ! {
         loop {
-            hl::sleep_for(100);
+            sleep_for(100);
         }
     }
 }

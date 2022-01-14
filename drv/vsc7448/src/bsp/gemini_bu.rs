@@ -1,6 +1,6 @@
 use crate::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii},
-    phy::{init_miim_phy, PhyRw},
+    phy::{init_vsc8522_phy, PhyRw},
     serdes10g, serdes6g,
     spi::Vsc7448Spi,
     spi_phy::Vsc7448SpiPhy,
@@ -57,7 +57,9 @@ impl<'a> Bsp<'a> {
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
             let p = Vsc7448SpiPhy::new(self.vsc7448, miim);
-            init_miim_phy(&[0, 12], p)?;
+            for phy in [0, 12] {
+                init_vsc8522_phy(phy, &p)?;
+            }
         }
 
         // I want to configure ports 0-3 (or 1-4, depending on numbering) on

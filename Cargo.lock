@@ -3068,6 +3068,7 @@ name = "vsc7448"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "drv-stm32h7-gpio-api",
  "ringbuf",
  "userlib",
  "vsc7448-pac",
