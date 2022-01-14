@@ -3,7 +3,7 @@
 // configured from reset)
 
 use crate::{
-    dev::{dev10g_to_port, dev1g_to_port},
+    dev::{Dev10g, DevGeneric},
     spi::Vsc7448Spi,
     VscError,
 };
@@ -12,11 +12,11 @@ use vsc7448_pac::Vsc7448;
 
 /// Flushes a particular 1G port.  This is equivalent to `jr2_port_flush`
 /// in the MESA toolkit.
-pub fn port1g_flush(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
-    let port = dev1g_to_port(dev);
+pub fn port1g_flush(dev: DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
+    let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
-    let dev1g = Vsc7448::DEV1G(dev);
+    let dev1g = dev.regs();
     v.modify(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
         r.set_pcs_rx_rst(1)
     })?;
@@ -24,7 +24,7 @@ pub fn port1g_flush(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
     // 2: Reset the PCS Rx clock domain
     v.modify(dev1g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| r.set_rx_ena(0))?;
 
-    port_flush_inner(port.into(), v)?;
+    port_flush_inner(port, v)?;
 
     // 10: Reset the MAC clock domain
     v.modify(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
@@ -48,11 +48,11 @@ pub fn port1g_flush(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
 /// different types in our PAC crate.
 ///
 /// `dev` is the 10G device (0-4)
-pub fn port10g_flush(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
-    let port = dev10g_to_port(dev);
+pub fn port10g_flush(dev: Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
+    let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
-    let dev10g = Vsc7448::DEV10G(dev);
+    let dev10g = dev.regs();
     v.modify(dev10g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
         r.set_pcs_rx_rst(1)
     })?;
@@ -83,7 +83,7 @@ pub fn port10g_flush(dev: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
         r.set_pcs_ena(0);
     })?;
     v.modify(
-        Vsc7448::PCS10G_BR(dev.into()).PCS_10GBR_CFG().PCS_CFG(),
+        Vsc7448::PCS10G_BR(dev.index()).PCS_10GBR_CFG().PCS_CFG(),
         |r| {
             r.set_pcs_ena(0);
         },

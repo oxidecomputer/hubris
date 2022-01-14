@@ -1,5 +1,5 @@
 use crate::{
-    dev::{dev10g_init_sfi, dev1g_init_sgmii},
+    dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
     phy::{init_vsc8522_phy, PhyRw},
     serdes10g, serdes6g,
     spi::Vsc7448Spi,
@@ -92,7 +92,7 @@ impl<'a> Bsp<'a> {
             .apply(4, &self.vsc7448)?;
 
         for port in 0..4 {
-            dev1g_init_sgmii(port, &self.vsc7448)?;
+            dev1g_init_sgmii(DevGeneric::new_1g(port), &self.vsc7448)?;
         }
         Ok(())
     }
@@ -108,7 +108,7 @@ impl<'a> Bsp<'a> {
 
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         for dev in [0, 1] {
-            dev10g_init_sfi(dev, &serdes_cfg, &self.vsc7448)?;
+            dev10g_init_sfi(Dev10g::new(dev), &serdes_cfg, &self.vsc7448)?;
         }
 
         Ok(())
