@@ -1,6 +1,8 @@
 use crate::VscError;
+use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 
+/// Trait implementing communication with an ethernet PHY.
 pub trait PhyRw {
     /// Reads a register from the PHY without changing the page.  This should
     /// never be called directly, because the page could be incorrect, but
@@ -78,27 +80,71 @@ pub trait PhyRw {
     }
 }
 
-/// Initializes one or more VSC8522 PHYs connected over MIIM
-pub fn init_miim_phy<P: PhyRw>(ports: &[u8], v: P) -> Result<(), VscError> {
-    for &port in ports {
-        // Do a self-reset on the PHY
-        v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
-        let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
-        if id1 != 0x7 {
-            return Err(VscError::BadPhyId1(id1));
-        }
-        let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
-        if id2 != 0x6f3 {
-            return Err(VscError::BadPhyId2(id2));
-        }
-
-        // Disable COMA MODE, which keeps the chip holding itself in reset
-        v.modify(port, phy::GPIO::GPIO_CONTROL_2(), |g| {
-            g.set_coma_mode_output_enable(0)
-        })?;
-
-        // Configure the PHY in QSGMII + 12 port mode
-        v.write(port, phy::GPIO::MICRO_PAGE(), 0x80A0.into())?;
+/// Initializes a VSC8522 PHY using QSGMII
+pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+    // Do a self-reset on the PHY
+    v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
+    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
     }
+    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    if id2 != 0x6f3 {
+        return Err(VscError::BadPhyId2(id2));
+    }
+
+    // Disable COMA MODE, which keeps the chip holding itself in reset
+    v.modify(port, phy::GPIO::GPIO_CONTROL_2(), |g| {
+        g.set_coma_mode_output_enable(0)
+    })?;
+
+    // Configure the PHY in QSGMII + 12 port mode
+    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80A0.into())?;
+    Ok(())
+}
+
+/// Initializes a VSC8504 PHY using QSGMII
+pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+    // Must wait 120 ms after reset, but that should be handled out of band,
+    // since this is called once per phy (4x)
+
+    // TODO: the datasheet says "Apply patch from PHY_API" (??)
+    // Also, unclear if this needs to be done once per port or just once
+    // for the whole chip?
+
+    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
+    }
+    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    if id2 != 0x4c2 {
+        return Err(VscError::BadPhyId2(id2));
+    }
+
+    v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+        r.0 |= 0b01 << 14; // QSGMII
+    })?;
+
+    // Enable 4 port MAC QSGMII
+    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80E0.into())?;
+
+    // Wait for the PHY to be ready
+    let mut ready = false;
+    for _ in 0..32 {
+        if (v.read(port, phy::GPIO::MICRO_PAGE())?.0 & (1 << 15)) != 0 {
+            ready = true;
+            break;
+        }
+        sleep_for(1);
+    }
+    if !ready {
+        return Err(VscError::PhyInitTimeout);
+    }
+
+    // The PHY is already configured for copper in register 23
+    //
+    // The datasheet says to reset the PHY here, but that doesn't make sense,
+    // because setting QSGMII in MAC_MODE_AND_FAST_LINK isn't sticky.
+
     Ok(())
 }
