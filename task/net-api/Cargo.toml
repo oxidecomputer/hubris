@@ -1,0 +1,27 @@
+[package]
+name = "task-net-api"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+use-smoltcp = ["smoltcp"]
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+num-traits = {version = "0.2", default-features = false}
+
+[dependencies.smoltcp]
+version = "0.8.0"
+optional = true
+default-features = false
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false

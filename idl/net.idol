@@ -1,0 +1,36 @@
+// Netstack IPC interface
+
+Interface(
+    name: "Net",
+    ops: {
+        "recv_packet": (
+            encoding: Ssmarshal,
+            doc: "Unqueues an incoming packet from a socket.",
+            args: {
+                "socket_index": "u32",
+            },
+            leases: {
+                "payload": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "UdpMetadata",
+                err: CLike("NetError"),
+            ),
+        ),
+        "send_packet": (
+            encoding: Ssmarshal,
+            doc: "Queues an outgoing packet into a socket.",
+            args: {
+                "socket_index": "u32",
+                "metadata": "UdpMetadata",
+            },
+            leases: {
+                "payload": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
+    },
+)

@@ -1,0 +1,50 @@
+[package]
+name = "task-net"
+version = "0.1.0"
+authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
+edition = "2021"
+
+[dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+stm32h7 = {version = "0.13", features = ["stm32h743"]}
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+num-traits = {version = "0.2.12", default-features = false}
+
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
+drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6", "h743"]}
+drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api"}
+drv-stm32h7-rcc-api = {path = "../../drv/stm32h7-rcc-api"}
+ringbuf = {path = "../../lib/ringbuf"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
+
+[dependencies.smoltcp]
+version = "0.8.0"
+default-features = false
+features = [
+    "proto-ipv6",
+    "medium-ethernet",
+    "socket-udp",
+    "async",
+]
+
+[features]
+default = ["standalone"]
+standalone = []
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+serde = "1"
+quote = "1"
+syn = {version = "1", features = ["parsing"]}
+proc-macro2 = "1"
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-net"
+test = false
+bench = false

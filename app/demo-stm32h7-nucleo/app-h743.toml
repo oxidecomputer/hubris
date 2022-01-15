@@ -38,6 +38,16 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
+
+
 [tasks.jefe]
 path = "../../task/jefe"
 name = "task-jefe"
@@ -115,6 +125,18 @@ task-slots = ["gpio_driver", "rcc_driver"]
 [tasks.spi_driver.config.spi]
 global_config = "spi3"
 
+[tasks.net]
+path = "../../task/net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+requires = {flash = 131072, ram = 8192, sram1 = 32768}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma"]
+start = true
+interrupts = {61 = 0b1}
+task-slots = ["gpio_driver", "rcc_driver"]
+
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
@@ -141,6 +163,15 @@ priority = 3
 requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
+
+[tasks.udpecho]
+path = "../../task/udpecho"
+name = "task-udpecho"
+priority = 3
+requires = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -224,6 +255,14 @@ size = 1024
 address = 0x52005000
 size = 4096
 
+[peripherals.eth]
+address = 0x40028000
+size = 0x1000
+
+[peripherals.eth_dma]
+address = 0x40029000
+size = 0x400
+
 [config]
 
 [[config.i2c.controllers]]
@@ -240,7 +279,6 @@ af = 4
 # driver = "ltc4306"
 # address = 0b1001_010
 
-
 [config.spi.spi3]
 controller = 3
 
@@ -254,3 +292,13 @@ input = {port = "B", pin = 4, af = 6}
 [config.spi.spi3.devices.pins]
 mux = "port_b"
 cs = {port = "A", pin = 4}
+
+
+[config.net]
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

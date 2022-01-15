@@ -820,6 +820,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-eth"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "smoltcp",
+ "stm32h7",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32h7-gpio"
 version = "0.1.0"
 dependencies = [
@@ -1485,6 +1495,12 @@ dependencies = [
  "panic-itm",
  "panic-semihosting",
 ]
+
+[[package]]
+name = "managed"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ca88d725a0a943b096803bd34e73a4437208b6077654cc4ecb2947a5f91618d"
 
 [[package]]
 name = "memchr"
@@ -2233,6 +2249,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
+name = "smoltcp"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2308a1657c8db1f5b4993bab4e620bdbe5623bd81f254cf60326767bb243237"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "managed",
+]
+
+[[package]]
 name = "spd"
 version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
@@ -2460,6 +2487,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-net"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "drv-stm32h7-eth",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "hubris-num-tasks",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "proc-macro2",
+ "quote",
+ "ringbuf",
+ "serde",
+ "smoltcp",
+ "ssmarshal",
+ "stm32h7",
+ "syn",
+ "task-net-api",
+ "userlib",
+]
+
+[[package]]
+name = "task-net-api"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "num-traits",
+ "serde",
+ "smoltcp",
+ "ssmarshal",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
@@ -2596,6 +2660,17 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "task-udpecho"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
 ]
 
 [[package]]
