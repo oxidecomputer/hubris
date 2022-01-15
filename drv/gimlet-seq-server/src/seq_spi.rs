@@ -8,12 +8,11 @@ use drv_spi_api as spi_api;
 
 #[derive(AsBytes, Unaligned)]
 #[repr(u8)]
-enum Cmd {
+pub enum Cmd {
     Write = 0,
     Read = 1,
     BitSet = 2,
     BitClear = 3,
-    //Identify = 4, // proposed in RFD; implemented?
 }
 
 include!(concat!(env!("OUT_DIR"), "/gimlet_regs.rs"));
