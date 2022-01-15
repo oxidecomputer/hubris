@@ -221,9 +221,8 @@ impl<'a> I2cController<'a> {
                     .sdadel().bits(0)
                 });
 
-                if #[cfg(feature = "amd_erratum_1394")] {
-                    compile_error!("no support for amd_erratum_1394 on h7b3");
-                }
+                #[cfg(feature = "amd_erratum_1394")]
+                compile_error!("no support for amd_erratum_1394 on h7b3");
             } else if #[cfg(any(feature = "h743", feature = "h753"))] {
                 cfg_if::cfg_if! {
                     // Due to AMD Milan erratum 1394, the processor needs an
