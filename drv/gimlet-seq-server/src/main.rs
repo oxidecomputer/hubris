@@ -18,7 +18,7 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
 use idol_runtime::RequestError;
-use seq_spi::Addr;
+use seq_spi::{Addr, Reg};
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
@@ -327,7 +327,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 // We are going to pass through A1 on the way to A0.
                 //
-                let a1a0 = 0x3u8;
+                let a1a0 = Reg::PWRCTRL::A1PWREN | Reg::PWRCTRL::A0A_EN;
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
 
                 loop {
@@ -371,7 +371,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
             (PowerState::A0, PowerState::A2) => {
                 let hf = hf_api::HostFlash::from(HF.get_task_id());
-                let a1a0 = 0x0u8;
+                let a1a0 = Reg::PWRCTRL::A0C_DIS;
 
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
@@ -393,7 +393,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        let on = 0x1;
+        let on = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq.set_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
         Ok(())
     }
@@ -402,7 +402,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        let off = 0x1;
+        let off = Reg::EARLY_POWER_CTRL::FANPWREN;
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
             .unwrap();
