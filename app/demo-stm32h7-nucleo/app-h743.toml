@@ -139,16 +139,6 @@ requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
-[tasks.ping]
-path = "../../task/ping"
-name = "task-ping"
-features = ["uart"]
-priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
-start = true
-task-slots = [{peer = "pong"}, "usart_driver"]
-
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
