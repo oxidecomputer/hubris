@@ -31,7 +31,6 @@ task_slot!(SEQUENCER, gimlet_seq);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-use i2c_config::devices;
 use i2c_config::sensors;
 
 enum Device {
