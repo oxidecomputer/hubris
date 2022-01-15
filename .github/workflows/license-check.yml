@@ -1,0 +1,9 @@
+name: license-check
+on: pull_request
+jobs:
+  license:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Check License Header
+      uses: apache/skywalking-eyes@main  

@@ -1,24 +1,16 @@
 [package]
-name = "drv-lpc55-spi-server"
+name = "task-spi-loopback"
 version = "0.1.0"
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-zerocopy = "0.6.1"
-lpc55-pac = "0.3.0"
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-drv-lpc55-spi = {path = "../lpc55-spi"}
-num-traits = { version = "0.2.12", default-features = false }
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
+drv-spi-api = {path = "../../drv/spi-api"}
 ringbuf = {path = "../../lib/ringbuf"}
-
-[features]
-spi0 = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-lpc55-spi-server"
+name = "task-spi-loopback"
 test = false
 bench = false
