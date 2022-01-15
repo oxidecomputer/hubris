@@ -90,7 +90,7 @@ pub fn package(
         }
     }
     for (name, range) in &memories {
-        println!("{} = {:x?}", name, range);
+        println!("{:<5} = 0x{:0>8x}..0x{:0>8x}", name, range.start, range.end);
     }
     let starting_memories = memories.clone();
 
@@ -100,7 +100,9 @@ pub fn package(
     println!("Used:");
     for (name, new_range) in &memories {
         let orig_range = &starting_memories[name];
-        println!("{}: 0x{:x}", name, new_range.start - orig_range.start);
+        let size = new_range.start - orig_range.start;
+        let percent = size * 100 / (orig_range.end - orig_range.start);
+        println!("  {:<6} 0x{:x} ({}%)", format!("{}:", name), size, percent);
     }
 
     let mut infofile = File::create(out.join("allocations.txt"))?;
