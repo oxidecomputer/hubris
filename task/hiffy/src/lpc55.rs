@@ -7,7 +7,6 @@ use crate::common::{spi_read, spi_write};
 use byteorder::ByteOrder;
 use drv_lpc55_gpio_api::*;
 use hif::*;
-#[cfg(feature = "spi")]
 use hubris_num_tasks::Task;
 use ringbuf::*;
 use userlib::*;
@@ -25,11 +24,15 @@ enum Trace {
 
 ringbuf!(Trace, 64, Trace::None);
 
-/*
- * The ordering here MUST match the ordering in the function table below!
- */
+pub struct Buffer(u8);
+
+//
+// The order in this enum must match the order in the functions array that
+// is passed to execute.
+//
 pub enum Functions {
     Sleep(u16, u32),
+    Send((Task, u16, Buffer, usize), u32),
     #[cfg(feature = "gpio")]
     GpioInput(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
     #[cfg(feature = "gpio")]
@@ -258,6 +261,7 @@ fn gpio_reset(
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
+    crate::common::send,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]
