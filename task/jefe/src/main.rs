@@ -83,6 +83,14 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
         abi::FaultInfo::Injected(who) => {
             sys_log!("Task #{} Fault injected by task #{}", t, who.index());
         }
+        abi::FaultInfo::FromServer(who, what) => {
+            sys_log!(
+                "Task #{} Fault from server #{}: {:?}",
+                t,
+                who.index(),
+                what
+            );
+        }
     }
 }
 

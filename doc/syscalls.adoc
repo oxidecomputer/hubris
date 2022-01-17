@@ -624,3 +624,40 @@ to wake, control will immediately transfer to the higher priority task. This
 will be returned as "`success`" to the caller, because the notification was
 successfully delivered, even if the higher priority task subsequently crashes
 before the caller gets another chance to run.
+
+
+=== `REPLY_FAULT` (12)
+
+Like `REPLY`, this resumes a task that is blocked waiting for a reply from the
+invoking task. Unlike `REPLY`, this does not set the task runnable, and instead
+marks it as faulted by a recognizable code.
+
+==== Arguments
+
+- 0: task ID (in low 16 bits)
+- 1: `ReplyFaultReason` value (see `abi` crate)
+
+==== Return values
+
+`REPLY_FAULT` doesn't return anything, but should be treated as clobbering
+return registers 0 and 1 for future compatibility.
+
+==== Faults
+
+|===
+| Condition | Fault taken
+
+| Designated task index greater than the (static) number of tasks in the entire
+  system.
+| `TaskOutOfRange`
+
+| `ReplyFaultReason` value undefined in `abi` enum.
+| `BadReplyFaultReason`
+
+|===
+
+==== Notes
+
+Like `REPLY`, this syscall just silently ignores replies to the wrong
+generation, under the assumption that the task got restarted for some reason
+while we were processing its request. (It can happen.)
