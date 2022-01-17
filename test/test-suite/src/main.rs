@@ -39,6 +39,7 @@ macro_rules! test_cases {
 test_cases! {
     test_send,
     test_recv_reply,
+    test_recv_reply_fault,
     test_floating_point_lowregs,
     test_floating_point_highregs,
     test_floating_point_fault,
@@ -168,6 +169,51 @@ fn test_recv_reply() {
     assert_eq!(rc, 0);
     assert_eq!(len, 4);
     assert_eq!(response, reply_token);
+}
+
+/// Tests that we can receive a message from the assistant and then fault it.
+fn test_recv_reply_fault() {
+    let assist = assist_task_id();
+
+    // Ask the assistant to send us a message containing this challenge value.
+    let challenge = 0xCAFE_F00Du32;
+    let mut response = 0_u32;
+    let (rc, len) = sys_send(
+        assist,
+        AssistOp::SendBack as u16,
+        &challenge.to_le_bytes(),
+        response.as_bytes_mut(),
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 4);
+
+    // Now take the message. This is necessary to be able to fault the task.
+    let _rm = sys_recv_open(response.as_bytes_mut(), 0);
+
+    // We don't validate the message itself because the test_recv_reply above
+    // covers that. We're specifically interested in what happens if we...
+    sys_reply_fault(assist, ReplyFaultReason::AccessViolation);
+
+    // Ask the kernel to report the assistant's state.
+    let status = kipc::read_task_status(ASSIST.get_task_index().into());
+    let this_task = TaskId::for_index_and_gen(1, Generation::default());
+    let this_task = sys_refresh_task_id(this_task);
+
+    match status {
+        TaskState::Faulted { fault, .. } => {
+            assert_eq!(
+                fault,
+                FaultInfo::FromServer(
+                    this_task,
+                    ReplyFaultReason::AccessViolation
+                )
+            );
+        }
+        _ => {
+            panic!("expected fault");
+        }
+    }
 }
 
 /// Helper routine to send a message to the assistant telling it to fault,

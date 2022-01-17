@@ -4,11 +4,12 @@
 
 //! Implementation of tasks.
 
+use core::convert::TryFrom;
 use core::sync::atomic::{AtomicU32, Ordering};
 
 use abi::{
-    FaultInfo, FaultSource, Generation, Priority, SchedState, TaskId,
-    TaskState, UsageError,
+    FaultInfo, FaultSource, Generation, Priority, ReplyFaultReason, SchedState,
+    TaskId, TaskState, UsageError,
 };
 use zerocopy::FromBytes;
 
@@ -412,6 +413,12 @@ pub trait ArchState: Default {
     }
 
     /// Returns a proxied reference that assigns names and types to the syscall
+    /// arguments for `REPLY_FAULT`.
+    fn as_reply_fault_args(&self) -> AsReplyFaultArgs<&Self> {
+        AsReplyFaultArgs(self)
+    }
+
+    /// Returns a proxied reference that assigns names and types to the syscall
     /// arguments for SET_TIMER.
     fn as_set_timer_args(&self) -> AsSetTimerArgs<&Self> {
         AsSetTimerArgs(self)
@@ -601,6 +608,22 @@ impl<'a, T: ArchState> AsReplyArgs<&'a T> {
     /// returns `Err`.
     pub fn message(&self) -> Result<USlice<u8>, UsageError> {
         USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
+    }
+}
+
+/// Reference proxy for `REPLY_FAULT` argument registers.
+pub struct AsReplyFaultArgs<T>(T);
+
+impl<'a, T: ArchState> AsReplyFaultArgs<&'a T> {
+    /// Extracts the task ID the caller wishes to reply to.
+    pub fn callee(&self) -> TaskId {
+        TaskId(self.0.arg0() as u16)
+    }
+
+    /// Extracts the reason cited.
+    pub fn reason(&self) -> Result<ReplyFaultReason, UsageError> {
+        ReplyFaultReason::try_from(self.0.arg1())
+            .map_err(|_| UsageError::BadReplyFaultReason)
     }
 }
 
