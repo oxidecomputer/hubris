@@ -27,7 +27,7 @@ impl From<SensorId> for usize {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Reading {
-    None,
+    Absent,
     Value(f32),
     NoData(NoData),
 }

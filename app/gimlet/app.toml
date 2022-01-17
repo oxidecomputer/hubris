@@ -178,7 +178,7 @@ name = "task-sensor"
 features = ["itm"]
 priority = 3
 requires = {flash = 16384, ram = 2048 }
-stacksize = 2000
+stacksize = 2000        # Sensor data is stored on the stack
 start = true
 
 [tasks.idle]

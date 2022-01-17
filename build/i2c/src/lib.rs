@@ -325,8 +325,13 @@ impl ConfigGenerator {
     pub fn generate_controllers(&mut self) -> Result<()> {
         let mut s = &mut self.output;
 
-        assert!(self.disposition != Disposition::Devices);
-        assert!(self.disposition != Disposition::Sensors);
+        match self.disposition {
+            Disposition::Devices | Disposition::Sensors => {
+                panic!("illegal disposition for controller generation");
+            }
+
+            Disposition::Initiator | Disposition::Target => {}
+        }
 
         writeln!(
             &mut s,
@@ -389,8 +394,13 @@ impl ConfigGenerator {
         let mut s = &mut self.output;
         let mut len = 0;
 
-        assert!(self.disposition != Disposition::Devices);
-        assert!(self.disposition != Disposition::Sensors);
+        match self.disposition {
+            Disposition::Devices | Disposition::Sensors => {
+                panic!("illegal disposition for pin generation");
+            }
+
+            Disposition::Initiator | Disposition::Target => {}
+        }
 
         for c in &self.controllers {
             for (_, port) in &c.ports {
@@ -784,7 +794,7 @@ impl ConfigGenerator {
         &mut self,
         device: &str,
         label: &str,
-        ids: &Vec<usize>,
+        ids: &[usize],
     ) -> Result<()> {
         writeln!(
             &mut self.output,

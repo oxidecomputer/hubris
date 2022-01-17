@@ -35,7 +35,7 @@ impl idl::InOrderSensorImpl for ServerImpl {
 
         if index < NUM_SENSORS {
             match self.data[index] {
-                Reading::None => Err(SensorError::NoReading.into()),
+                Reading::Absent => Err(SensorError::NoReading.into()),
                 Reading::NoData(nodata) => {
                     let err: SensorError = nodata.into();
                     Err(err.into())
@@ -101,7 +101,7 @@ fn main() -> ! {
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     let mut server = ServerImpl {
-        data: [Reading::None; NUM_SENSORS],
+        data: [Reading::Absent; NUM_SENSORS],
         deadline,
     };
 

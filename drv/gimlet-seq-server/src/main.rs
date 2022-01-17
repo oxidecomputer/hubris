@@ -219,7 +219,7 @@ fn main() -> ! {
     // serve up a recognizable ident code.
     let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
 
-    let reprogram = if seq.valid_ident() { false } else { true };
+    let reprogram = !seq.valid_ident();
     ringbuf_entry!(Trace::Reprogram(reprogram));
 
     // We only want to reset and reprogram the FPGA when absolutely required.

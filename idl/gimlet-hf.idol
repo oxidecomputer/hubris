@@ -57,7 +57,7 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
-	"get_mux": (
+        "get_mux": (
             doc: "Return the state of the mux",
             reply: Result(
                 ok: (
@@ -67,7 +67,7 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
-	"set_mux": (
+        "set_mux": (
             doc: "Set the state of the mux",
             args: {
                 "state": (

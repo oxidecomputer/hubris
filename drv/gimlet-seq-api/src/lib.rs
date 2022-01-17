@@ -22,12 +22,6 @@ impl From<SeqError> for u16 {
     }
 }
 
-impl From<SeqError> for u32 {
-    fn from(rc: SeqError) -> Self {
-        rc as u32
-    }
-}
-
 impl core::convert::TryFrom<u32> for SeqError {
     type Error = ();
     fn try_from(rc: u32) -> Result<Self, Self::Error> {

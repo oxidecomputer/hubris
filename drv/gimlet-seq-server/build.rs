@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     fs::write(out.join("fpga.bin.rle"), compressed)?;
+    println!("cargo:rerun-if-changed=fpga.bin");
 
     let disposition = build_i2c::Disposition::Devices;
 
@@ -23,7 +24,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     fs::write(out.join("gimlet_regs.rs"), regs()?)?;
-    println!("cargo:rerun-if-changed=fpga.bin");
 
     idol::server::build_server_support(
         "../../idl/gimlet-seq.idol",
@@ -85,7 +85,6 @@ pub enum Addr {{"##
         }
     }
 
-    println!("cargo:rerun-if-changed=gimlet_regs.json");
     writeln!(&mut output, "}}")?;
 
     writeln!(
