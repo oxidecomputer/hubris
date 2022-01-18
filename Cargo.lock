@@ -748,6 +748,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sidecar-seq-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-sidecar-seq-server"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "build-util",
+ "byteorder",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "drv-sidecar-seq-api",
+ "drv-spi-api",
+ "drv-stm32h7-gpio-api",
+ "drv-stm32h7-rcc-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
