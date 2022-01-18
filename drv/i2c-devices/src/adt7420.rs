@@ -34,6 +34,16 @@ pub enum Error {
     BadTempRead { code: ResponseCode },
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadValidate { code } => code,
+            Error::BadTempRead { code } => code,
+            _ => panic!(),
+        }
+    }
+}
+
 pub struct Adt7420 {
     device: I2cDevice,
 }
@@ -71,7 +81,7 @@ impl Adt7420 {
 }
 
 impl TempSensor<Error> for Adt7420 {
-    fn read_temperature(&self) -> Result<Celsius, Error> {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
         match self.device.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
             Err(code) => Err(Error::BadTempRead { code: code }),

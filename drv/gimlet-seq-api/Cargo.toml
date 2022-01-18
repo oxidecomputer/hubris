@@ -1,0 +1,20 @@
+[package]
+name = "drv-gimlet-seq-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+abi = {path = "../../sys/abi"}
+num-traits = { version = "0.2.12", default-features = false }
+zerocopy = "0.6.1"
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[features]
+standalone = []
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

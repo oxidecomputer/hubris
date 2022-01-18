@@ -3,20 +3,49 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Server for managing the Gimlet sequencing process.
-//!
-//!
 
 #![no_std]
 #![no_main]
 
+mod seq_spi;
+
+use ringbuf::*;
 use userlib::*;
 
+use drv_gimlet_hf_api as hf_api;
+use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
+use idol_runtime::RequestError;
+use seq_spi::{Addr, Reg};
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
+task_slot!(HF, hf);
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Ice40Rails(bool, bool),
+    Reprogram(bool),
+    Programmed,
+    Programming,
+    Ice40PowerGoodV1P2(bool),
+    Ice40PowerGoodV3P3(bool),
+    RailsOff,
+    Ident(u32),
+    A1Status(u8),
+    A2,
+    A1Power(u8, u8),
+    A0Power(u8),
+    RailsOn,
+    Done,
+    GetState,
+    SetState(PowerState, PowerState),
+    None,
+}
+
+ringbuf!(Trace, 64, Trace::None);
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -68,6 +97,12 @@ fn main() -> ! {
     // generate surprise resets.
     ice40::configure_pins(&gpio, &ICE40_CONFIG);
 
+    let pg = gpio.read_input(PGS_PORT).unwrap();
+    let v1p2 = pg & PG_V1P2_MASK != 0;
+    let v3p3 = pg & PG_V3P3_MASK != 0;
+
+    ringbuf_entry!(Trace::Ice40Rails(v1p2, v3p3));
+
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
     // Flash. TODO: this may cause trouble with hot restarts, test.
@@ -96,6 +131,7 @@ fn main() -> ! {
     loop {
         // active high
         let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V1P2_MASK != 0;
+        ringbuf_entry!(Trace::Ice40PowerGoodV1P2(pg));
         if pg {
             break;
         }
@@ -116,6 +152,7 @@ fn main() -> ! {
     loop {
         // active high
         let pg = gpio.read_input(PGS_PORT).unwrap() & PG_V3P3_MASK != 0;
+        ringbuf_entry!(Trace::Ice40PowerGoodV3P3(pg));
         if pg {
             break;
         }
@@ -180,11 +217,10 @@ fn main() -> ! {
     // If the sequencer is already loaded and operational, the design loaded
     // into it should be willing to talk to us over SPI, and should be able to
     // serve up a recognizable ident code.
-    //
-    // TODO except for now we're going to skip the version check and
-    // unconditionally reprogram it because the SPI communication code ain't
-    // written, and also yolo. Replace this with a check.
-    let reprogram = true;
+    let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
+
+    let reprogram = !seq.valid_ident();
+    ringbuf_entry!(Trace::Reprogram(reprogram));
 
     // We only want to reset and reprogram the FPGA when absolutely required.
     if reprogram {
@@ -198,6 +234,7 @@ fn main() -> ! {
         // Reprogramming will continue until morale improves.
         loop {
             let prog = spi.device(ICE40_SPI_DEVICE);
+            ringbuf_entry!(Trace::Programming);
             match reprogram_fpga(&prog, &gpio, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
@@ -220,10 +257,156 @@ fn main() -> ! {
         }
     }
 
-    // FPGA should now be programmed with the right bitstream.
+    ringbuf_entry!(Trace::Programmed);
+
+    vcore_soc_off();
+    ringbuf_entry!(Trace::RailsOff);
+
+    let ident = seq.read_ident().unwrap();
+    ringbuf_entry!(Trace::Ident(ident));
+
     loop {
-        // TODO this is where, like, sequencer stuff goes
-        hl::sleep_for(10);
+        let mut status = [0u8];
+
+        seq.read_bytes(Addr::PWRCTRL, &mut status).unwrap();
+        ringbuf_entry!(Trace::A1Status(status[0]));
+
+        if status[0] == 0 {
+            break;
+        }
+
+        hl::sleep_for(1);
+    }
+
+    ringbuf_entry!(Trace::A2);
+
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    let mut server = ServerImpl {
+        state: PowerState::A2,
+        seq,
+    };
+
+    loop {
+        ringbuf_entry!(Trace::Done);
+        idol_runtime::dispatch(&mut buffer, &mut server);
+    }
+}
+
+struct ServerImpl {
+    state: PowerState,
+    seq: seq_spi::SequencerFpga,
+}
+
+impl idl::InOrderSequencerImpl for ServerImpl {
+    fn get_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<PowerState, RequestError<SeqError>> {
+        ringbuf_entry!(Trace::GetState);
+        Ok(self.state)
+    }
+
+    fn set_state(
+        &mut self,
+        _: &RecvMessage,
+        state: PowerState,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::SetState(self.state, state));
+
+        match (self.state, state) {
+            (PowerState::A2, PowerState::A0) => {
+                //
+                // First, set our mux state to be the HostCPU
+                //
+                let hf = hf_api::HostFlash::from(HF.get_task_id());
+
+                if let Err(_) = hf.set_mux(hf_api::HfMuxState::HostCPU) {
+                    return Err(SeqError::MuxToHostCPUFailed.into());
+                }
+
+                //
+                // We are going to pass through A1 on the way to A0.
+                //
+                let a1a0 = Reg::PWRCTRL::A1PWREN | Reg::PWRCTRL::A0A_EN;
+                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+
+                loop {
+                    let mut power = [0u8, 0u8];
+
+                    self.seq.read_bytes(Addr::A1SMSTATUS, &mut power).unwrap();
+                    ringbuf_entry!(Trace::A1Power(power[0], power[1]));
+
+                    if power[1] == 0x7 {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                //
+                // And power up!
+                //
+                vcore_soc_on();
+                ringbuf_entry!(Trace::RailsOn);
+
+                //
+                // Now wait for the end of Group C.
+                //
+                loop {
+                    let mut power = [0u8];
+
+                    self.seq.read_bytes(Addr::A0SMSTATUS, &mut power).unwrap();
+                    ringbuf_entry!(Trace::A0Power(power[0]));
+
+                    if power[0] == 0xc {
+                        break;
+                    }
+
+                    hl::sleep_for(1);
+                }
+
+                self.state = PowerState::A0;
+                Ok(())
+            }
+
+            (PowerState::A0, PowerState::A2) => {
+                let hf = hf_api::HostFlash::from(HF.get_task_id());
+                let a1a0 = Reg::PWRCTRL::A0C_DIS;
+
+                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+                vcore_soc_off();
+
+                if let Err(_) = hf.set_mux(hf_api::HfMuxState::SP) {
+                    return Err(SeqError::MuxToSPFailed.into());
+                }
+
+                self.state = PowerState::A2;
+                ringbuf_entry!(Trace::A2);
+                Ok(())
+            }
+
+            _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
+        }
+    }
+
+    fn fans_on(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        let on = Reg::EARLY_POWER_CTRL::FANPWREN;
+        self.seq.set_bytes(Addr::EARLY_POWER_CTRL, &[on]).unwrap();
+        Ok(())
+    }
+
+    fn fans_off(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        let off = Reg::EARLY_POWER_CTRL::FANPWREN;
+        self.seq
+            .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
+            .unwrap();
+        Ok(())
     }
 }
 
@@ -253,34 +436,8 @@ static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimletlet-2")] {
-        const ICE40_SPI_DEVICE: u8 = 0;
-
-        const ICE40_CONFIG: ice40::Config = ice40::Config {
-            creset_port: gpio_api::Port::B,
-            creset_pin_mask: 1 << 10,
-            cdone_port: gpio_api::Port::E,
-            cdone_pin_mask: 1 << 15,
-        };
-
-        const GLOBAL_RESET: Option<(gpio_api::Port, u16)> = None;
-
-        const FPGA_HACK_PINS: Option<&[(gpio_api::Port, u16, bool)]> = None;
-
-        // On Gimletlet we bring the extra GPIOs out to the uncommitted GPIO
-        // headers.
-        const ENABLES_PORT: gpio_api::Port = gpio_api::Port::E;
-        const ENABLE_V1P2_MASK: u16 = 1 << 2; // J17 pin 2
-        const ENABLE_V3P3_MASK: u16 = 1 << 3; // J17 pin 3
-
-        const PGS_PORT: gpio_api::Port = gpio_api::Port::B;
-        const PG_V1P2_MASK: u16 = 1 << 14; // J16 pin 2
-        const PG_V3P3_MASK: u16 = 1 << 15; // J16 pin 3
-        // Gimletlet has no actual regulators onboard, so we pull down to
-        // simulate "power not good" until the person hacking on the board
-        // installs a jumper or whatever.
-        const PGS_PULL: gpio_api::Pull = gpio_api::Pull::Down;
-    } else if #[cfg(target_board = "gimlet-1")] {
+    if #[cfg(target_board = "gimlet-1")] {
+        const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
@@ -316,7 +473,44 @@ cfg_if::cfg_if! {
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
+
+        task_slot!(I2C, i2c_driver);
+        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+        fn vcore_soc_off() {
+            use drv_i2c_devices::raa229618::Raa229618;
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let mut vdd_vcore = Raa229618::new(&device, rail);
+
+            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let mut vddcr_soc = Raa229618::new(&device, rail);
+
+            vdd_vcore.turn_off().unwrap();
+            vddcr_soc.turn_off().unwrap();
+        }
+
+        fn vcore_soc_on() {
+            use drv_i2c_devices::raa229618::Raa229618;
+            let i2c = I2C.get_task_id();
+
+            let (device, rail) = i2c_config::pmbus::vdd_vcore(i2c);
+            let mut vdd_vcore = Raa229618::new(&device, rail);
+
+            let (device, rail) = i2c_config::pmbus::vddcr_soc(i2c);
+            let mut vddcr_soc = Raa229618::new(&device, rail);
+
+            vdd_vcore.turn_on().unwrap();
+            vddcr_soc.turn_on().unwrap();
+        }
     } else {
         compiler_error!("unsupported target board");
     }
+}
+
+mod idl {
+    use super::{PowerState, SeqError};
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

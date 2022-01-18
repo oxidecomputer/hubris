@@ -57,5 +57,28 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "get_mux": (
+            doc: "Return the state of the mux",
+            reply: Result(
+                ok: (
+                    type: "HfMuxState",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("HfError"),
+            ),
+        ),
+        "set_mux": (
+            doc: "Set the state of the mux",
+            args: {
+                "state": (
+                    type: "HfMuxState",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
     },
 )

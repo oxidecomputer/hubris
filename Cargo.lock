@@ -554,19 +554,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-gimlet-seq-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
+ "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-gimlet-hf-api",
+ "drv-gimlet-seq-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-ice40-spi-program",
  "drv-spi-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "drv-stm32h7-spi",
  "gnarle",
+ "idol",
+ "idol-runtime",
  "num-traits",
+ "ringbuf",
+ "serde",
+ "serde_json",
  "userlib",
  "zerocopy",
 ]
@@ -1253,7 +1275,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#6d18e14c952f6f351c8ce07a1611dd3e4b5a9012"
+source = "git+https://github.com/oxidecomputer/idolatry.git#2b5b5bb91588f561d4726e600dcf4361d6fe02f4"
 dependencies = [
  "indexmap",
  "quote",
@@ -1265,7 +1287,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#6d18e14c952f6f351c8ce07a1611dd3e4b5a9012"
+source = "git+https://github.com/oxidecomputer/idolatry.git#2b5b5bb91588f561d4726e600dcf4361d6fe02f4"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -1633,9 +1655,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.5"
+version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
+checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
 
 [[package]]
 name = "path-slash"
@@ -2407,9 +2429,44 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "paste",
  "ringbuf",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-sensor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-sensor-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "drv-i2c-api",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
@@ -2463,7 +2520,23 @@ dependencies = [
  "drv-i2c-devices",
  "drv-onewire",
  "drv-onewire-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
  "ringbuf",
+ "task-sensor-api",
+ "task-thermal-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-thermal-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]

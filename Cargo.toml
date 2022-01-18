@@ -34,9 +34,12 @@ members = [
     "task/idle",
     "task/hiffy",
     "task/power",
+    "task/sensor",
+    "task/sensor-api",
     "task/spd",
-    "task/thermal",
     "task/spi-loopback",
+    "task/thermal",
+    "task/thermal-api",
 
     "drv/stm32fx-rcc",
     "drv/stm32fx-usart",

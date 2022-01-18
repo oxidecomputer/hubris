@@ -28,6 +28,14 @@ pub enum Error {
     BadRegisterRead { reg: Register, code: ResponseCode },
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRegisterRead { code, .. } => code,
+        }
+    }
+}
+
 pub struct Tmp116 {
     device: I2cDevice,
 }
@@ -59,7 +67,7 @@ impl Tmp116 {
 }
 
 impl TempSensor<Error> for Tmp116 {
-    fn read_temperature(&self) -> Result<Celsius, Error> {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
         Ok(convert(self.read_reg(Register::TempResult)?))
     }
 }

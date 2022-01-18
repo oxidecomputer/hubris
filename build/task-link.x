@@ -94,6 +94,12 @@ SECTIONS
     KEEP(*(.task_slot_table));
   }
 
+  /* ## .idolatry */
+  .idolatry (INFO) : {
+    . = .;
+    KEEP(*(.idolatry));
+  }
+
   /* ## Discarded sections */
   /DISCARD/ :
   {

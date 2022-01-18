@@ -25,7 +25,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-use drv_gimlet_hf_api::HfError;
+use drv_gimlet_hf_api::{HfError, HfMuxState};
 
 task_slot!(RCC, rcc_driver);
 task_slot!(GPIO, gpio_driver);
@@ -94,6 +94,7 @@ fn main() -> ! {
                 gpio_api::Pull::None,
             ).unwrap();
 
+            let select_pin = gpio_api::Port::B.pin(1);
             let reset_pin = gpio_api::Port::B.pin(2);
         } else if #[cfg(target_board = "gimletlet-2")] {
             qspi.configure(
@@ -145,6 +146,7 @@ fn main() -> ! {
                 gpio_api::Pull::None,
             ).unwrap();
 
+            let select_pin = gpio_api::Port::F.pin(5);
             let reset_pin = gpio_api::Port::F.pin(4);
 
         } else if #[cfg(target_board = "gemini-bu-1")] {
@@ -192,8 +194,8 @@ fn main() -> ! {
                 gpio_api::Speed::High,
                 gpio_api::Pull::None,
             ).unwrap();
+            let select_pin = gpio_api::Port::F.pin(4);
             let reset_pin = gpio_api::Port::F.pin(5);
-            let _host_access = gpio_api::Port::F.pin(4);
 
         } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // Nucleo-h743zi2/h753zi pin mappings
@@ -274,6 +276,7 @@ fn main() -> ! {
                 gpio_api::Pull::None,
             ).unwrap();
 
+            let select_pin = gpio_api::Port::F.pin(5);
             let reset_pin = gpio_api::Port::F.pin(4);
         } else {
             compile_error!("unsupported board");
@@ -307,6 +310,8 @@ fn main() -> ! {
     let mut server = ServerImpl {
         qspi,
         block: [0; 256],
+        mux_state: HfMuxState::SP,
+        select_pin,
     };
 
     loop {
@@ -317,6 +322,8 @@ fn main() -> ! {
 struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
+    mux_state: HfMuxState,
+    select_pin: drv_stm32h7_gpio_api::PinSet,
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -388,6 +395,34 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         poll_for_write_complete(&self.qspi);
         Ok(())
     }
+
+    fn get_mux(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfMuxState, RequestError<HfError>> {
+        Ok(self.mux_state)
+    }
+
+    fn set_mux(
+        &mut self,
+        _: &RecvMessage,
+        state: HfMuxState,
+    ) -> Result<(), RequestError<HfError>> {
+        let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
+
+        let rv = match state {
+            HfMuxState::SP => gpio_driver.reset(self.select_pin),
+            HfMuxState::HostCPU => gpio_driver.set(self.select_pin),
+        };
+
+        match rv {
+            Err(_) => Err(HfError::MuxFailed.into()),
+            Ok(_) => {
+                self.mux_state = state;
+                Ok(())
+            }
+        }
+    }
 }
 
 fn set_and_check_write_enable(
@@ -414,7 +449,7 @@ fn poll_for_write_complete(qspi: &Qspi) {
 }
 
 mod idl {
-    use super::HfError;
+    use super::{HfError, HfMuxState};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

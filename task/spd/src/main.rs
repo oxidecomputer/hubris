@@ -63,7 +63,8 @@ type Bank = (Controller, drv_i2c_api::PortIndex, Option<(Mux, Segment)>);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Ready,
+    Found(usize),
+    Ready(u32),
     Initiate(u8, bool),
     Rx(u8, u8),
     Tx(u8, Option<u8>),
@@ -82,62 +83,20 @@ ringbuf!(Trace, 16, Trace::None);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
-#[export_name = "main"]
-fn main() -> ! {
-    let controller = &i2c_config::controllers()[0];
-    let pins = i2c_config::pins();
-    use i2c_config::ports::*;
-
-    cfg_if::cfg_if! {
-        if #[cfg(target_board = "gemini-bu-1")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C4, i2c4_d(), None),
-                (Controller::I2C4, i2c4_f(), Some((Mux::M1, Segment::S4))),
-            ];
-        } else if #[cfg(target_board = "gimletlet-2")] {
-            // These should be whatever ports the dimmlets are plugged into
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_c(), None),
-                (Controller::I2C4, i2c4_f(), None),
-            ];
-        } else if #[cfg(target_board = "gimlet-1")] {
-            //
-            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
-            //
-            // - ABCD DIMMs are on the mid bus (I2C3, port H)
-            // - EFGH DIMMS are on the read bus (I2C4, port F)
-            //
-            // It should go without saying that the ordering here is essential
-            // to assure that the SPD data that we return for a DIMM corresponds
-            // to the correct DIMM from the SoC's perspective.
-            //
-            const BANKS: [Bank; 2] = [
-                (Controller::I2C3, i2c3_h(), None),
-                (Controller::I2C4, i2c4_f(), None),
-            ];
-        } else {
-            compile_error!("I2C target unsupported for this board");
-        }
-    }
-
+fn read_spd_data(
+    banks: &[Bank],
+    present: &mut [bool],
+    spd_data: &mut [u8],
+) -> usize {
     let i2c_task = I2C.get_task_id();
-
-    // Boolean indicating that the bank is present
-    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
-
-    // Virtual offset, per virtual DIMM
-    let mut voffs = [0u8; BANKS.len() * spd::MAX_DEVICES as usize];
-
-    // The actual SPD data itself
-    let spd_data = unsafe { &mut SPD_DATA };
+    let mut npresent = 0;
 
     //
     // For each bank, we're going to iterate over each device, reading all 512
     // bytes of SPD data from each.
     //
-    for nbank in 0..BANKS.len() as u8 {
-        let (controller, port, mux) = BANKS[nbank as usize];
+    for nbank in 0..banks.len() as u8 {
+        let (controller, port, mux) = banks[nbank as usize];
 
         let addr = spd::Function::PageAddress(spd::Page(0))
             .to_device_code()
@@ -167,6 +126,7 @@ fn main() -> ! {
                 Ok(val) => {
                     ringbuf_entry!(Trace::Present(nbank, i, ndx));
                     present[ndx] = true;
+                    npresent += 1;
                     val
                 }
                 Err(_) => {
@@ -230,6 +190,76 @@ fn main() -> ! {
         }
     }
 
+    npresent
+}
+
+#[export_name = "main"]
+fn main() -> ! {
+    let controller = &i2c_config::controllers()[0];
+    let pins = i2c_config::pins();
+    use i2c_config::ports::*;
+
+    cfg_if::cfg_if! {
+        if #[cfg(target_board = "gemini-bu-1")] {
+            // These should be whatever ports the dimmlets are plugged into
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C4, i2c4_d(), None),
+                (Controller::I2C4, i2c4_f(), Some((Mux::M1, Segment::S4))),
+            ];
+        } else if #[cfg(target_board = "gimletlet-2")] {
+            // These should be whatever ports the dimmlets are plugged into
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C3, i2c3_c(), None),
+                (Controller::I2C4, i2c4_f(), None),
+            ];
+        } else if #[cfg(target_board = "gimlet-1")] {
+            //
+            // On Gimlet, we have two banks of up to 8 DIMMs apiece:
+            //
+            // - ABCD DIMMs are on the mid bus (I2C3, port H)
+            // - EFGH DIMMS are on the read bus (I2C4, port F)
+            //
+            // It should go without saying that the ordering here is essential
+            // to assure that the SPD data that we return for a DIMM corresponds
+            // to the correct DIMM from the SoC's perspective.
+            //
+            const BANKS: [Bank; 2] = [
+                (Controller::I2C3, i2c3_h(), None),
+                (Controller::I2C4, i2c4_f(), None),
+            ];
+        } else {
+            compile_error!("I2C target unsupported for this board");
+        }
+    }
+
+    // Boolean indicating that the bank is present
+    let mut present = [false; BANKS.len() * spd::MAX_DEVICES as usize];
+
+    // Virtual offset, per virtual DIMM
+    let mut voffs = [0u8; BANKS.len() * spd::MAX_DEVICES as usize];
+
+    // The actual SPD data itself
+    let spd_data = unsafe { &mut SPD_DATA };
+    let mut ndelay = 0;
+
+    //
+    // It's conceivable that we are racing the sequencer and that DIMMs may
+    // not be immediately visible; until we have a better way of synchronously
+    // waiting on the sequencer, loop until we have found DIMMs.
+    //
+    loop {
+        let ndimms = read_spd_data(&BANKS, &mut present, &mut spd_data[..]);
+
+        ringbuf_entry!(Trace::Found(ndimms));
+
+        if ndimms != 0 {
+            break;
+        }
+
+        ndelay += 1;
+        hl::sleep_for(10);
+    }
+
     // Enable the controller
     let rcc_driver = Rcc::from(RCC.get_task_id());
 
@@ -238,7 +268,7 @@ fn main() -> ! {
     // Configure our pins
     configure_pins(&pins);
 
-    ringbuf_entry!(Trace::Ready);
+    ringbuf_entry!(Trace::Ready(ndelay));
 
     //
     // Initialize our virtual state.  Note that we initialize with bank 0

@@ -154,16 +154,6 @@ stacksize = 2048
 start = true
 task-slots = ["hf", "gpio_driver", "i2c_driver", "user_leds"]
 
-[tasks.gimlet_seq]
-path = "../../drv/gimlet-seq-server"
-name = "drv-gimlet-seq-server"
-features = ["h753"]
-priority = 3
-requires = {flash = 32768, ram = 1024 }
-stacksize = 1024
-start = true
-task-slots = ["gpio_driver", "spi_driver"]
-
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"

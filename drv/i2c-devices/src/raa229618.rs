@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::{CurrentSensor, TempSensor, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::raa229618::*;
 use pmbus::*;
@@ -15,7 +16,7 @@ pub struct Raa229618 {
 
 impl core::fmt::Display for Raa229618 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "isl68224: {}", &self.device)
+        write!(f, "raa229618: {}", &self.device)
     }
 }
 
@@ -25,6 +26,16 @@ pub enum Error {
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
     InvalidData { err: pmbus::Error },
+}
+
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            _ => panic!(),
+        }
+    }
 }
 
 impl From<pmbus::Error> for Error {
@@ -53,7 +64,7 @@ impl Raa229618 {
         })
     }
 
-    fn set_rail(&mut self) -> Result<(), Error> {
+    fn set_rail(&self) -> Result<(), Error> {
         let page = PAGE::CommandData(self.rail);
         pmbus_write!(self.device, PAGE, page)
     }
@@ -71,14 +82,26 @@ impl Raa229618 {
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
     }
+}
 
-    pub fn read_vout(&mut self) -> Result<Volts, Error> {
+impl VoltageSensor<Error> for Raa229618 {
+    fn read_vout(&mut self) -> Result<Volts, Error> {
         self.set_rail()?;
         let vout = pmbus_read!(self.device, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
+}
 
-    pub fn read_iout(&mut self) -> Result<Amperes, Error> {
+impl TempSensor<Error> for Raa229618 {
+    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+        self.set_rail()?;
+        let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
+        Ok(Celsius(temp.get()?.0))
+    }
+}
+
+impl CurrentSensor<Error> for Raa229618 {
+    fn read_iout(&mut self) -> Result<Amperes, Error> {
         self.set_rail()?;
         let iout = pmbus_read!(self.device, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))

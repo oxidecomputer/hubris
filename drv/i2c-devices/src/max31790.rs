@@ -6,7 +6,6 @@
 
 use bitfield::bitfield;
 use drv_i2c_api::*;
-use ringbuf::*;
 use userlib::units::*;
 use userlib::*;
 
@@ -168,22 +167,8 @@ pub enum Register {
     UserByte14 = 0x67,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum Error {
-    BadRead8 { reg: Register, code: ResponseCode },
-    BadRead16 { reg: Register, code: ResponseCode },
-    BadWrite { reg: Register, code: ResponseCode },
-    IllegalFan,
-}
-
 pub struct Max31790 {
     pub device: I2cDevice,
-}
-
-impl core::fmt::Display for Max31790 {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "max31790: {}", &self.device)
-    }
 }
 
 pub const MAX_FANS: u8 = 6;
@@ -191,27 +176,22 @@ pub const MAX_FANS: u8 = 6;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Fan(u8);
 
-// The MAX31790 numbers its fans from 1 rather than 0; to make our display
-// consistent with the datasheet, we follow this convention when displaying
-// the fan number, prefixing it with an octothorp to hopefully minimize any
-// confusion.
-impl core::fmt::Display for Fan {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "fan #{}", self.0 + 1)
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct PWMDuty(pub u8);
+
+impl From<u8> for Fan {
+    /// Fans are based on a 0-based index. This should *not* be the number
+    /// of the fan (the fan numbers have a 1-based index)
+    fn from(index: u8) -> Self {
+        if index >= MAX_FANS {
+            panic!();
+        } else {
+            Self(index)
+        }
     }
 }
 
 impl Fan {
-    /// Creates a new fan based on a 0-based index. This should *not*
-    /// be the number of the fan (the fan numbers have a 1-based index)
-    pub fn new(index: u8) -> Result<Self, Error> {
-        if index >= MAX_FANS {
-            Err(Error::IllegalFan)
-        } else {
-            Ok(Self(index))
-        }
-    }
-
     fn register(&self, base: Register, shift: u8) -> Register {
         let addend = self.0 << shift;
         Register::from_u8((base as u8) + addend).unwrap()
@@ -230,79 +210,34 @@ impl Fan {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
-enum Trace {
-    Read(Register, u8),
-    Read16(Register, [u8; 2]),
-    ReadError(Register, ResponseCode),
-    Write(Register, u8),
-    WriteError(Register, u8, ResponseCode),
-    None,
-}
-
-ringbuf!(Trace, 32, Trace::None);
-
-fn read_reg8(device: &I2cDevice, register: Register) -> Result<u8, Error> {
-    let rval = device.read_reg::<u8, u8>(register as u8);
-
-    match rval {
-        Ok(val) => {
-            ringbuf_entry!(Trace::Read(register, val));
-            Ok(val)
-        }
-
-        Err(code) => {
-            ringbuf_entry!(Trace::ReadError(register, code));
-            Err(Error::BadRead8 {
-                reg: register,
-                code: code,
-            })
-        }
-    }
+fn read_reg8(
+    device: &I2cDevice,
+    register: Register,
+) -> Result<u8, ResponseCode> {
+    device.read_reg::<u8, u8>(register as u8)
 }
 
 fn read_reg16(
     device: &I2cDevice,
     register: Register,
-) -> Result<[u8; 2], Error> {
-    let rval = device.read_reg::<u8, [u8; 2]>(register as u8);
-
-    match rval {
-        Ok(val) => {
-            ringbuf_entry!(Trace::Read16(register, val));
-            Ok(val)
-        }
-
-        Err(code) => {
-            ringbuf_entry!(Trace::ReadError(register, code));
-            Err(Error::BadRead16 {
-                reg: register,
-                code: code,
-            })
-        }
-    }
+) -> Result<[u8; 2], ResponseCode> {
+    device.read_reg::<u8, [u8; 2]>(register as u8)
 }
 
-fn write_reg(
+fn write_reg8(
     device: &I2cDevice,
     register: Register,
     val: u8,
-) -> Result<(), Error> {
-    let rval = device.write(&[register as u8, val]);
+) -> Result<(), ResponseCode> {
+    device.write(&[register as u8, val])
+}
 
-    match rval {
-        Ok(_) => {
-            ringbuf_entry!(Trace::Write(register, val));
-            Ok(())
-        }
-        Err(code) => {
-            ringbuf_entry!(Trace::WriteError(register, val, code));
-            Err(Error::BadWrite {
-                reg: register,
-                code: code,
-            })
-        }
-    }
+fn write_reg16(
+    device: &I2cDevice,
+    register: Register,
+    val: u16,
+) -> Result<(), ResponseCode> {
+    device.write(&[register as u8, (val >> 8) as u8, (val & 0xff) as u8])
 }
 
 impl Max31790 {
@@ -310,7 +245,7 @@ impl Max31790 {
         Self { device: *device }
     }
 
-    pub fn initialize(&self) -> Result<(), Error> {
+    pub fn initialize(&self) -> Result<(), ResponseCode> {
         let device = &self.device;
 
         let _config = GlobalConfiguration(read_reg8(
@@ -319,21 +254,21 @@ impl Max31790 {
         )?);
 
         for fan in 0..MAX_FANS {
-            let fan = Fan::new(fan).unwrap();
+            let fan = Fan::from(fan);
             let reg = fan.configuration();
 
             let mut config = FanConfiguration(read_reg8(device, reg)?);
             config.set_tach_input_enable(true);
 
-            write_reg(device, reg, config.0)?;
-            write_reg(device, fan.pwm_target(), 0)?;
+            write_reg8(device, reg, config.0)?;
+            write_reg8(device, fan.pwm_target(), 0)?;
         }
 
         Ok(())
     }
 
     /// Determines the rotations per minute based on the tach count
-    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, Error> {
+    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
         let val = read_reg16(&self.device, fan.tach_count())?;
 
         //
@@ -370,5 +305,13 @@ impl Max31790 {
             let rpm = (60 * FREQ * SR) / (count * NP);
             Ok(Rpm(rpm as u16))
         }
+    }
+
+    /// Set the PWM duty cycle for a fan
+    pub fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+        let perc = core::cmp::min(pwm.0, 100) as f32;
+
+        let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
+        write_reg16(&self.device, fan.pwm_target(), val << 7)
     }
 }

@@ -7,6 +7,7 @@
 #![no_std]
 
 use userlib::*;
+use zerocopy::AsBytes;
 
 /// Errors that can be produced from the host flash server API.
 ///
@@ -16,6 +17,7 @@ use userlib::*;
 pub enum HfError {
     WriteEnableFailed = 1,
     ServerRestarted = 2,
+    MuxFailed = 3,
 }
 
 impl From<HfError> for u16 {
@@ -35,6 +37,13 @@ impl core::convert::TryFrom<u32> for HfError {
     fn try_from(rc: u32) -> Result<Self, Self::Error> {
         Self::from_u32(rc).ok_or(())
     }
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[repr(u8)]
+pub enum HfMuxState {
+    SP = 1,
+    HostCPU = 2,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

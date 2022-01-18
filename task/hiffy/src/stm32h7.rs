@@ -5,7 +5,6 @@
 #[cfg(feature = "spi")]
 use crate::common::{spi_read, spi_write};
 use hif::*;
-#[cfg(feature = "spi")]
 use hubris_num_tasks::Task;
 use ringbuf::*;
 #[cfg(any(feature = "spi", feature = "gpio", feature = "i2c"))]
@@ -51,6 +50,7 @@ pub struct Buffer(u8);
 //
 pub enum Functions {
     Sleep(u16, u32),
+    Send((Task, u16, Buffer, usize), u32),
     #[cfg(feature = "i2c")]
     I2cRead(
         (Controller, PortIndex, Mux, Segment, u8, u8, usize),
@@ -529,6 +529,7 @@ fn gpio_configure(
 
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
+    crate::common::send,
     #[cfg(feature = "i2c")]
     i2c_read,
     #[cfg(feature = "i2c")]

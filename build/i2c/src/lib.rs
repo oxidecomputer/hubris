@@ -7,7 +7,7 @@ use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fmt::Write;
 use std::fs::File;
@@ -29,11 +29,25 @@ struct I2cConfig {
     devices: Option<Vec<I2cDevice>>,
 }
 
+//
+// Note that [`ports`] is a `BTreeMap` (rather than, say, an `IndexMap`).
+// This is load-bearing!  It is essential that deserialization of our
+// application TOML have the same ordering for the ports, as the index is used
+// by the debugger to denote a desired port.  One might think that an
+// `IndexMap` would assure this, but because our configuration is reserialized
+// as part of the build process (with the re-serialized TOML being stuffed
+// into an environment variable), and because TOML is not stable with respect
+// to the ordering of a table (both in terms of the specification -- see e.g.
+// https://github.com/toml-lang/toml/issues/162 -- and in terms of the toml-rs
+// implementation which, by default, uses a `BTreeMap` rather than an
+// `IndexMap` for tables), we must be sure to impose our own (absolute)
+// ordering.
+//
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct I2cController {
     controller: u8,
-    ports: IndexMap<String, I2cPort>,
+    ports: BTreeMap<String, I2cPort>,
     #[serde(default)]
     target: bool,
 }
@@ -85,6 +99,9 @@ struct I2cDevice {
     /// PMBus information, if any
     pmbus: Option<I2cPmbus>,
 
+    /// sensor information, if any
+    sensors: Option<I2cSensors>,
+
     /// device is removable
     #[serde(default)]
     removable: bool,
@@ -124,6 +141,26 @@ struct I2cPmbus {
     rails: Option<Vec<String>>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(dead_code)]
+struct I2cSensors {
+    #[serde(default)]
+    temperature: usize,
+
+    #[serde(default)]
+    power: usize,
+
+    #[serde(default)]
+    current: usize,
+
+    #[serde(default)]
+    voltage: usize,
+
+    #[serde(default)]
+    speed: usize,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
@@ -132,8 +169,36 @@ pub enum Disposition {
     /// controller is a target
     Target,
 
-    /// only devices are used (i.e., controller is not used)
+    /// devices are used (i.e., controller is not used), but not as sensors
     Devices,
+
+    /// devices are used, with some used as sensors
+    Sensors,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+enum Sensor {
+    Temperature,
+    Power,
+    Current,
+    Voltage,
+    Speed,
+}
+
+impl std::fmt::Display for Sensor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Sensor::Temperature => "TEMPERATURE",
+                Sensor::Power => "POWER",
+                Sensor::Current => "CURRENT",
+                Sensor::Voltage => "VOLTAGE",
+                Sensor::Speed => "SPEED",
+            }
+        )
+    }
 }
 
 struct ConfigGenerator {
@@ -260,7 +325,13 @@ impl ConfigGenerator {
     pub fn generate_controllers(&mut self) -> Result<()> {
         let mut s = &mut self.output;
 
-        assert!(self.disposition != Disposition::Devices);
+        match self.disposition {
+            Disposition::Devices | Disposition::Sensors => {
+                panic!("illegal disposition for controller generation");
+            }
+
+            Disposition::Initiator | Disposition::Target => {}
+        }
 
         writeln!(
             &mut s,
@@ -323,7 +394,13 @@ impl ConfigGenerator {
         let mut s = &mut self.output;
         let mut len = 0;
 
-        assert!(self.disposition != Disposition::Devices);
+        match self.disposition {
+            Disposition::Devices | Disposition::Sensors => {
+                panic!("illegal disposition for pin generation");
+            }
+
+            Disposition::Initiator | Disposition::Target => {}
+        }
 
         for c in &self.controllers {
             for (_, port) in &c.ports {
@@ -578,18 +655,11 @@ impl ConfigGenerator {
 
             if let Some(bus) = &d.bus {
                 bybus.insert((&d.device, bus), d);
+            }
 
-                if let Some(name) = &d.name {
-                    if byname.insert((&d.device, bus, name), d).is_some() {
-                        panic!(
-                            "duplicate name {} for device {} on bus {}",
-                            name, d.device, bus
-                        )
-                    }
-                }
-            } else {
-                if let Some(name) = &d.name {
-                    panic!("named device {} is on unnamed bus", name);
+            if let Some(name) = &d.name {
+                if byname.insert((&d.device, name), d).is_some() {
+                    panic!("duplicate name {} for device {}", name, d.device)
                 }
             }
         }
@@ -651,13 +721,14 @@ impl ConfigGenerator {
             )?;
         }
 
-        for ((device, bus, name), d) in &byname {
+        for ((device, name), d) in &byname {
             write!(
                 &mut self.output,
                 r##"
         #[allow(dead_code)]
-        pub fn {}_{}_{}(task: TaskId) -> I2cDevice {{"##,
-                device, bus, name
+        pub fn {}_{}(task: TaskId) -> I2cDevice {{"##,
+                device,
+                name.to_lowercase()
             )?;
 
             let out = self.generate_device(d);
@@ -716,6 +787,163 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+        Ok(())
+    }
+
+    fn emit_sensor(
+        &mut self,
+        device: &str,
+        label: &str,
+        ids: &[usize],
+    ) -> Result<()> {
+        writeln!(
+            &mut self.output,
+            r##"
+        #[allow(dead_code)]
+        pub const NUM_{}_{}_SENSORS: usize = {};"##,
+            device.to_uppercase(),
+            label,
+            ids.len(),
+        )?;
+
+        if ids.len() == 1 {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const {}_{}_SENSOR: SensorId = SensorId({});"##,
+                device.to_uppercase(),
+                label,
+                ids[0]
+            )?;
+        } else {
+            writeln!(
+                &mut self.output,
+                r##"
+        #[allow(dead_code)]
+        pub const {}_{}_SENSORS: [SensorId; {}] = [ "##,
+                device.to_uppercase(),
+                label,
+                ids.len(),
+            )?;
+
+            for id in ids {
+                writeln!(&mut self.output, "            SensorId({}), ", id)?;
+            }
+
+            writeln!(&mut self.output, "        ];")?;
+        }
+
+        Ok(())
+    }
+
+    pub fn generate_sensors(&mut self) -> Result<()> {
+        let mut bydevice = MultiMap::new();
+        let mut byname = MultiMap::new();
+        let mut bybus = MultiMap::new();
+        let mut bybusname = MultiMap::new();
+        let mut bykind = MultiMap::new();
+
+        let mut sensors = vec![];
+
+        let mut add_sensor = |kind, d: &I2cDevice, idx: usize| {
+            let id = sensors.len();
+            sensors.push(kind);
+
+            let name: Option<String> = if let Some(pmbus) = &d.pmbus {
+                if let Some(rails) = &pmbus.rails {
+                    if idx < rails.len() {
+                        Some(rails[idx].clone())
+                    } else {
+                        panic!("sensor count exceeds rails for {:?}", d);
+                    }
+                } else {
+                    d.name.clone()
+                }
+            } else {
+                d.name.clone()
+            };
+
+            if let Some(bus) = &d.bus {
+                bybus.insert((d.device.clone(), bus.clone(), kind), id);
+
+                if let Some(ref name) = name {
+                    bybusname.insert(
+                        (d.device.clone(), bus.clone(), name.clone(), kind),
+                        id,
+                    );
+                }
+            }
+
+            if let Some(name) = name {
+                byname.insert((d.device.clone(), name, kind), id);
+            }
+
+            bydevice.insert((d.device.clone(), kind), id);
+            bykind.insert(kind, id);
+        };
+
+        for d in &self.devices {
+            if let Some(s) = &d.sensors {
+                for i in 0..s.temperature {
+                    add_sensor(Sensor::Temperature, &d, i);
+                }
+
+                for i in 0..s.power {
+                    add_sensor(Sensor::Power, &d, i);
+                }
+
+                for i in 0..s.current {
+                    add_sensor(Sensor::Current, &d, i);
+                }
+
+                for i in 0..s.voltage {
+                    add_sensor(Sensor::Voltage, &d, i);
+                }
+
+                for i in 0..s.speed {
+                    add_sensor(Sensor::Speed, &d, i);
+                }
+            }
+        }
+
+        write!(
+            &mut self.output,
+            r##"
+    pub mod sensors {{
+        use task_sensor_api::SensorId;
+
+        #[allow(dead_code)]
+        pub const NUM_SENSORS: usize = {};
+"##,
+            sensors.len()
+        )?;
+
+        for ((device, kind), ids) in bydevice.iter_all() {
+            self.emit_sensor(device, &format!("{}", kind), ids)?;
+        }
+
+        for ((device, name, kind), ids) in byname.iter_all() {
+            let label = format!("{}_{}", name.to_uppercase(), kind);
+            self.emit_sensor(device, &label, ids)?;
+        }
+
+        for ((device, bus, kind), ids) in bybus.iter_all() {
+            let label = format!("{}_{}", bus.to_uppercase(), kind);
+            self.emit_sensor(device, &label, ids)?;
+        }
+
+        for ((device, bus, name, kind), ids) in bybusname.iter_all() {
+            let label = format!(
+                "{}_{}_{}",
+                bus.to_uppercase(),
+                name.to_uppercase(),
+                kind
+            );
+            self.emit_sensor(device, &label, ids)?;
+        }
+
+        writeln!(&mut self.output, "\n    }}")?;
         Ok(())
     }
 
@@ -784,6 +1012,12 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
         Disposition::Devices => {
             g.generate_devices()?;
             g.generate_pmbus()?;
+        }
+
+        Disposition::Sensors => {
+            g.generate_devices()?;
+            g.generate_pmbus()?;
+            g.generate_sensors()?;
         }
     }
 

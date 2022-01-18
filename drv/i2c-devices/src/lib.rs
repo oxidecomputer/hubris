@@ -15,6 +15,7 @@
 //! - [`mcp9808`]: MCP9808 temperature sensor
 //! - [`pct2075`]: PCT2075 temperature sensor
 //! - [`raa229618`]: RAA229618 power controller
+//! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
 
@@ -88,12 +89,25 @@ macro_rules! pmbus_write {
     }};
 }
 
-pub trait TempSensor<T> {
-    fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
+pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_temperature(&mut self) -> Result<userlib::units::Celsius, T>;
+}
+
+pub trait PowerSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_power(&mut self) -> Result<userlib::units::Watts, T>;
+}
+
+pub trait CurrentSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_iout(&mut self) -> Result<userlib::units::Amperes, T>;
+}
+
+pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn read_vout(&mut self) -> Result<userlib::units::Volts, T>;
 }
 
 pub mod adm1272;
 pub mod adt7420;
+pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
 pub mod max31790;
@@ -101,5 +115,6 @@ pub mod max6634;
 pub mod mcp9808;
 pub mod pct2075;
 pub mod raa229618;
+pub mod sbtsi;
 pub mod tmp116;
 pub mod tps546b24a;

@@ -1,0 +1,17 @@
+// Thermal API
+
+Interface(
+    name: "Thermal",
+    ops: {
+        "set_fan_pwm": (
+            args: {
+                "index": "u8",
+                "pwm": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+    },
+)
