@@ -25,8 +25,12 @@ pub enum VscError {
         page: u16,
         addr: u8,
     },
+    /// Mismatch in the `IDENTIFIER_1` PHY register
     BadPhyId1(u16),
+    /// Mismatch in the `IDENTIFIER_2` PHY register
     BadPhyId2(u16),
+    /// Indicates that the VSC8504 is not Tesla E silicon
+    BadPhyRev,
     PhyInitTimeout,
     MiimIdleTimeout,
     MiimReadTimeout,
