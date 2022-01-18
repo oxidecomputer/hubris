@@ -103,14 +103,12 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
     Ok(())
 }
 
-/// Initializes a VSC8504 PHY using QSGMII
+/// Initializes a VSC8504 PHY using QSGMII, based on the "Configuration"
+/// guide in the datasheet (section 3.19).
 pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
-    // Must wait 120 ms after reset, but that should be handled out of band,
-    // since this is called once per phy (4x)
+    // The caller should toggle the reset pin and wait 120 ms
 
-    // TODO: the datasheet says "Apply patch from PHY_API" (??)
-    // Also, unclear if this needs to be done once per port or just once
-    // for the whole chip?
+    // TODO: apply PHY_API patch
 
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
@@ -142,9 +140,20 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
     }
 
     // The PHY is already configured for copper in register 23
-    //
-    // The datasheet says to reset the PHY here, but that doesn't make sense,
-    // because setting QSGMII in MAC_MODE_AND_FAST_LINK isn't sticky.
+    // TODO: check that this is correct
+
+    // Now, we reset the PHY and wait for the bit to clear
+    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+        r.set_sw_reset(1);
+    })?;
+    let mut ready = false;
+    for _ in 0..32 {
+        if v.read(port, phy::STANDARD::MODE_CONTROL())?.sw_reset() != 1 {
+            ready = true;
+            break;
+        }
+        sleep_for(1);
+    }
 
     Ok(())
 }
