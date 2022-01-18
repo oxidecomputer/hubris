@@ -341,7 +341,7 @@ pub fn package(
             edges,
             &task_names,
             &remap_paths,
-            &toml.secure,
+            &toml.secure_separation,
             &shared_syms,
             &task_toml.config,
             &toml.config,
@@ -410,7 +410,7 @@ pub fn package(
         edges,
         "",
         &remap_paths,
-        &toml.secure,
+        &toml.secure_separation,
         &None,
         &None,
         &toml.config,
@@ -957,7 +957,7 @@ fn build(
     edges: bool,
     task_names: &str,
     remap_paths: &BTreeMap<PathBuf, &str>,
-    secure: &Option<bool>,
+    secure_separation: &Option<bool>,
     shared_syms: &Option<&[String]>,
     config: &Option<ordered_toml::Value>,
     app_config: &Option<ordered_toml::Value>,
@@ -1026,12 +1026,19 @@ fn build(
         }
     }
 
-    if let Some(s) = secure {
+    // secure_separation indicates that we have TrustZone enabled.
+    // When TrustZone is enabled, the bootloader is secure and hubris is
+    // not secure.
+    // When TrustZone is not enabled, both the bootloader and Hubris are
+    // secure.
+    if let Some(s) = secure_separation {
         if *s {
-            cmd.env("HUBRIS_SECURE", "1");
-        } else {
             cmd.env("HUBRIS_SECURE", "0");
+        } else {
+            cmd.env("HUBRIS_SECURE", "1");
         }
+    } else {
+        cmd.env("HUBRIS_SECURE", "1");
     }
 
     //
