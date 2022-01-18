@@ -82,12 +82,11 @@ fn main() -> ! {
 
     use smoltcp::iface::Neighbor;
     use smoltcp::socket::UdpSocket;
-    use smoltcp::wire::{EthernetAddress, IpAddress, Ipv6Address};
+    use smoltcp::wire::{EthernetAddress, IpAddress};
 
     let mac = EthernetAddress::from_bytes(&FAKE_MAC);
 
-    let ipv6_addr =
-        Ipv6Address::new(0xfe80, 0, 0, 0, 0x0004, 0x06ff, 0xfe08, 0x0a0c);
+    let ipv6_addr = link_local_iface_addr(mac);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
 
     let mut ip_addrs = [ipv6_net];
@@ -186,6 +185,39 @@ fn main() -> ! {
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }
+}
+
+/// We can map an Ethernet MAC address into the IPv6 space as follows.
+///
+/// - The top 64 bits are `fe80::`, putting it in the link-local (non-routable)
+///   address space.
+/// - The bottom 64 bits are the Interface ID, which we generate with the EUI-64
+///   method.
+///
+/// The EUI-64 transform for a MAC address is given in RFC4291 section 2.5.1,
+/// and can be summarized as follows.
+///
+/// - Insert the bytes `FF FE` in the middle to extend the MAC address to 8
+///   bytes.
+/// - Flip bit 1 in the first byte, to translate the OUI universal/local bit
+///   into the IPv6 universal/local bit.
+fn link_local_iface_addr(
+    mac: smoltcp::wire::EthernetAddress,
+) -> smoltcp::wire::Ipv6Address {
+    let mut bytes = [0; 16];
+    // Link-local address block.
+    bytes[0..2].copy_from_slice(&[0xFE, 0x80]);
+    // Bytes 2..8 are all zero.
+    // Top three bytes of MAC address...
+    bytes[8..11].copy_from_slice(&mac.0[0..3]);
+    // ...with administration scope bit flipped.
+    bytes[8] ^= 0b0000_0010;
+    // Inserted FF FE from EUI64 transform.
+    bytes[11..13].copy_from_slice(&[0xFF, 0xFE]);
+    // Bottom three bytes of MAC address.
+    bytes[13..16].copy_from_slice(&mac.0[3..6]);
+
+    smoltcp::wire::Ipv6Address(bytes)
 }
 
 fn configure_ethernet_pins() {
