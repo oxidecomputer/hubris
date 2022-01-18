@@ -5,6 +5,7 @@ edition = "2018"
 
 [features]
 0A-hardware = ["lpc55_romapi/0A-hardware"]
+tz_support = []
 
 [dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
