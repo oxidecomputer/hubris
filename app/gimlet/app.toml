@@ -163,7 +163,7 @@ path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
-requires = {flash = 8192, ram = 2048 }
+requires = {flash = 16384, ram = 2048 }
 stacksize = 1920
 start = true
 uses = ["quadspi"]

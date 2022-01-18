@@ -1,4 +1,4 @@
-cargo-features = ["resolver"]
+cargo-features = ["resolver", "named-profiles"]
 
 [workspace]
 members = [
@@ -67,6 +67,7 @@ members = [
     "drv/stm32h7-usart",
     "drv/stm32h7-i2c-server",
     "drv/stm32h7-qspi",
+    "drv/stm32h7-hash",
 
     "drv/lpc55-romapi",
     "drv/lpc55-syscon",
@@ -89,6 +90,8 @@ members = [
     "drv/vsc7448",
     "drv/vsc85xx",
     "drv/vsc-err",
+    "drv/hash-api",
+    "drv/stm32h7-hash-server",
 
     "drv/sidecar-seq-server",
 

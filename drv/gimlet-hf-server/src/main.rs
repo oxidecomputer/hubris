@@ -16,17 +16,24 @@ use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 
-// Note: h7b3 has QUADSPI but has not been used in this project.
-
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
+// hash_api is optional, but idl files don't have support for optional APIs.
+// So, always include and return a "not implemented" error if the
+// feature is absent.
+#[cfg(feature = "hash")]
+use drv_hash_api as hash_api;
+use drv_hash_api::SHA256_SZ;
+
 use drv_gimlet_hf_api::{HfError, HfMuxState};
 
 task_slot!(SYS, sys);
+#[cfg(feature = "hash")]
+task_slot!(HASH, hash_driver);
 
 const QSPI_IRQ: u32 = 1;
 
@@ -42,11 +49,11 @@ fn main() -> ! {
     // Board specific goo
     cfg_if::cfg_if! {
         if #[cfg(target_board = "gimlet-1")] {
+            let clock = 5; // 200MHz kernel / 5 = 40MHz clock
             qspi.configure(
-                5, // 200MHz kernel / 5 = 40MHz clock
+                clock,
                 25, // 2**25 = 32MiB = 256Mib
             );
-
             // Gimlet pin mapping
             // PF6 SP_QSPI1_IO3
             // PF7 SP_QSPI1_IO2
@@ -94,8 +101,9 @@ fn main() -> ! {
             let select_pin = sys_api::Port::B.pin(1);
             let reset_pin = sys_api::Port::B.pin(2);
         } else if #[cfg(target_board = "gimletlet-2")] {
+            let clock = 5; // 200MHz kernel / 5 = 40MHz clock
             qspi.configure(
-                5, // 200MHz kernel / 5 = 40MHz clock
+                clock,
                 25, // 2**25 = 32MiB = 256Mib
             );
             // Gimletlet pin mapping
@@ -145,7 +153,6 @@ fn main() -> ! {
 
             let select_pin = sys_api::Port::F.pin(5);
             let reset_pin = sys_api::Port::F.pin(4);
-
         } else if #[cfg(target_board = "gemini-bu-1")] {
             // PF4 HOST_ACCESS
             // PF5 RESET
@@ -155,29 +162,29 @@ fn main() -> ! {
             // PF9:AF10 IO1
             // PF10:AF9 CLK
             // PB6:AF10 CS
+            let clock = 200 / 25; // 200MHz kernel clock / $x MHz SPI clock = divisor
             qspi.configure(
-                // Adjust this as needed for the SI and Logic Analyzer BW available
-                200 / 25, // 200MHz kernel clock / $x MHz SPI clock = divisor
+                clock,
                 25, // 2**25 = 32MiB = 256Mib
             );
             sys.gpio_configure_alternate(
                 sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF9,
             ).unwrap();
             sys.gpio_configure_alternate(
                 sys_api::Port::F.pin(8).and_pin(9),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF10,
             ).unwrap();
             sys.gpio_configure_alternate(
                 sys_api::Port::B.pin(6),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF10,
             ).unwrap();
@@ -188,12 +195,11 @@ fn main() -> ! {
             sys.gpio_configure_output(
                 sys_api::Port::F.pin(4).and_pin(5),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             ).unwrap();
             let select_pin = sys_api::Port::F.pin(4);
             let reset_pin = sys_api::Port::F.pin(5);
-
         } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // Nucleo-h743zi2/h753zi pin mappings
             // These development boards are often wired by hand.
@@ -221,8 +227,9 @@ fn main() -> ! {
             // 10-33 PE0,  ---           nc,
             //
             // 08-07 3V3,  2,            Vcc,     100nF to GND
+            let clock = 8; // 200MHz kernel / 8 = 25MHz clock
             qspi.configure(
-                50, // 200MHz kernel / 5 = 4MHz clock
+                clock,
                 25, // 2**25 = 32MiB = 256Mib
             );
             // Nucleo-144 pin mapping
@@ -237,28 +244,28 @@ fn main() -> ! {
             sys.gpio_configure_alternate(
                 sys_api::Port::B.pin(2),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF9,
             ).unwrap();
             sys.gpio_configure_alternate(
                 sys_api::Port::D.pin(11).and_pin(12).and_pin(13),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF9,
             ).unwrap();
             sys.gpio_configure_alternate(
                 sys_api::Port::E.pin(2),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF9,
             ).unwrap();
             sys.gpio_configure_alternate(
                 sys_api::Port::G.pin(6),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
                 sys_api::Alternate::AF10,
             ).unwrap();
@@ -269,7 +276,7 @@ fn main() -> ! {
             sys.gpio_configure_output(
                 sys_api::Port::F.pin(4).and_pin(5),
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             ).unwrap();
 
@@ -280,6 +287,9 @@ fn main() -> ! {
         }
     }
 
+    // TODO: The best clock frequency to use can vary based on the flash
+    // part, the command used, and signal integrity limits of the board.
+
     // Ensure hold time for reset in case we just restarted.
     // TODO look up actual hold time requirement
     hl::sleep_for(1);
@@ -289,19 +299,44 @@ fn main() -> ! {
     hl::sleep_for(10);
 
     // Check the ID.
-    {
+    // TODO: If different flash parts are used on the same board name,
+    // then hard-coding commands, capacity, and clocks will get us into
+    // trouble. Someday we will need more flexability here.
+    let capacity = {
         let mut idbuf = [0; 20];
         qspi.read_id(&mut idbuf);
 
-        if idbuf[0] == 0x20 && matches!(idbuf[1], 0xBA | 0xBB) {
-            // ok, I believe you
-        } else {
-            loop {
-                // We are dead now.
-                hl::sleep_for(1000);
+        match idbuf[0] {
+            0x00 => None, // Invalid
+            0xef => {
+                // Winbond
+                if idbuf[1] != 0x40 {
+                    None
+                } else {
+                    Some(idbuf[2])
+                }
             }
+            0x20 => {
+                if !matches!(idbuf[1], 0xBA | 0xBB) {
+                    // 1.8v or 3.3v
+                    None
+                } else {
+                    // TODO: Stash, or read on demand, Micron Unique ID for measurement?
+                    Some(idbuf[2])
+                }
+            }
+            _ => None, // Unknown
+        }
+    };
+
+    if capacity.is_none() {
+        loop {
+            // We are dead now.
+            hl::sleep_for(1000);
         }
     }
+    let capacity = capacity.unwrap();
+    qspi.configure(clock, capacity);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
@@ -417,6 +452,66 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
             Ok(_) => {
                 self.mux_state = state;
                 Ok(())
+            }
+        }
+    }
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "hash")] {
+            fn hash(
+                &mut self,
+                _: &RecvMessage,
+                addr: u32,
+                len: u32,
+            ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+                let hash_driver = hash_api::Hash::from(HASH.get_task_id());
+                if let Err(_) = hash_driver.init_sha256() {
+                    return Err(HfError::HashError.into());
+                }
+                let begin = addr as usize;
+                // TODO: Begin may be an address beyond physical end of
+                // flash part and may wrap around.
+                let end = match begin.checked_add(len as usize) {
+                    Some(end) => {
+                        // Check end > maximum 4-byte address.
+                        // TODO: End may be beyond physical end of flash part.
+                        //       Use that limit rather than maximum 4-byte address.
+                        if end > u32::MAX as usize {
+                            return Err(HfError::HashBadRange.into());
+                        } else {
+                            end
+                        }
+                    },
+                    None => {
+                        return Err(HfError::HashBadRange.into());
+                    },
+                };
+                // If we knew the flash part size, we'd check against those limits.
+                for addr in (begin..end).step_by(self.block.len()) {
+                    let size = if self.block.len() < (end - addr) {
+                        self.block.len()
+                    } else {
+                        end - addr
+                    };
+                    self.qspi.read_memory(addr as u32, &mut self.block[..size]);
+                    if let Err(_) = hash_driver.update(
+                        size as u32, &self.block[..size]) {
+                        return Err(HfError::HashError.into());
+                    }
+                }
+                match hash_driver.finalize_sha256() {
+                    Ok(sum) => Ok(sum),
+                    Err(_) => Err(HfError::HashError.into()),   // XXX losing info
+                }
+            }
+        } else {
+            fn hash(
+                &mut self,
+                _: &RecvMessage,
+                _addr: u32,
+                _len: u32,
+            ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+                Err(HfError::HashNotConfigured.into())
             }
         }
     }

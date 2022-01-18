@@ -574,6 +574,7 @@ name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "drv-hash-api",
  "idol",
  "num-traits",
  "userlib",
@@ -588,6 +589,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "drv-gimlet-hf-api",
+ "drv-hash-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
  "idol",
@@ -633,6 +635,17 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-hash-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
@@ -879,6 +892,35 @@ dependencies = [
  "smoltcp",
  "stm32h7 0.13.0",
  "userlib",
+]
+
+[[package]]
+name = "drv-stm32h7-hash"
+version = "0.1.0"
+dependencies = [
+ "drv-hash-api",
+ "stm32h7 0.13.0",
+ "userlib",
+ "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-hash-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "drv-hash-api",
+ "drv-stm32h7-hash",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7 0.13.0",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -2550,6 +2592,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "drv-gimlet-hf-api",
+ "drv-hash-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-spi-api",

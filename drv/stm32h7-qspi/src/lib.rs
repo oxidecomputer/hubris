@@ -32,7 +32,11 @@ enum Command {
     PageProgram = 0x12,
     Read = 0x13,
 
-    ReadId = 0x9E,
+    // Note, There are multiple ReadId commands.
+    // Gimlet and Gemini's flash parts both respond to 0x9F.
+    // Gemini's does not respond to 0x9E (returns all zeros).
+    // TODO: Proper flash chip quirk support.
+    ReadId = 0x9F,
 
     BulkErase = 0xC7,
     SectorErase = 0xDC,

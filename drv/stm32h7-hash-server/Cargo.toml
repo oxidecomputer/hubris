@@ -1,5 +1,5 @@
 [package]
-name = "drv-gimlet-hf-server"
+name = "drv-stm32h7-hash-server"
 version = "0.1.0"
 edition = "2018"
 
@@ -9,10 +9,9 @@ edition = "2018"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 stm32h7 = { version = "0.13.0", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
+drv-stm32h7-hash = {path = "../stm32h7-hash", default-features = false, optional = true}
 cfg-if = "0.1.10"
 num-traits = { version = "0.2.12", default-features = false }
-drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
 drv-hash-api = {path = "../hash-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
@@ -23,7 +22,4 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-host_access = []
-hash = []
-h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-qspi/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-hash/h753"]
