@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // The following code is based on port_setup in the MESA SDK, but extracted
 // and trimmed down to the bare necessacities (e.g. assuming the chip is
 // configured from reset)
