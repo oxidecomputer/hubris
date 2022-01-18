@@ -953,7 +953,7 @@ pub unsafe extern "C" fn DefaultHandler() {
         // 13 is currently reserved
         // 14=PendSV is handled above by its own handler
         // 15=SysTick is handled above by its own handler
-        x if x > 16 => {
+        x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
             let switch = with_task_table(|tasks| {
