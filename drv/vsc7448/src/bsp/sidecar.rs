@@ -92,11 +92,27 @@ impl<'a> Bsp<'a> {
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
+
+        ////////////////////////////////////////////////////////////////////////
         // Cubbies 30 and 31
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
+        // "Configure the 10G Mux mode to DEV2G5"
+        self.vsc7448
+            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+                r.set_dev10g_2_mode(3);
+                r.set_dev10g_3_mode(3);
+            })?;
         for dev in [27, 28] {
-            dev1g_init_sgmii(DevGeneric::new_2g5(dev), &self.vsc7448)?;
+            let dev_2g5 = DevGeneric::new_2g5(dev);
+            // This bit must be set when a 10G port runs below 10G speed
+            self.vsc7448.modify(
+                Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
+                |r| {
+                    r.set_dev10g_shadow_ena(1);
+                },
+            )?;
+            dev1g_init_sgmii(dev_2g5, &self.vsc7448)?;
             serdes10g_cfg_sgmii.apply(dev - 25, &self.vsc7448)?;
             // DEV2G5[dev], SERDES10G[dev - 25], S[dev + 8], SGMII
         }
