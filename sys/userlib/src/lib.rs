@@ -891,7 +891,13 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 let (_, remaining) = self.0.split_at_mut(self.1);
                 let strbytes = s.as_bytes();
                 let to_write = remaining.len().min(strbytes.len());
-                remaining[..to_write].copy_from_slice(&strbytes[..to_write]);
+                unsafe {
+                    core::ptr::copy_nonoverlapping(
+                        strbytes.as_ptr(),
+                        remaining.as_mut_ptr(),
+                        to_write,
+                    );
+                }
                 // Wrapping add here because (1) we're confident that adding
                 // to_write won't cause wrap because of our `min` above, and (2)
                 // we want to avoid writing code that implies an integer

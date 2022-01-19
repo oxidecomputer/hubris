@@ -1,0 +1,59 @@
+// Netstack IPC interface
+
+Interface(
+    name: "Net",
+    ops: {
+        "recv_packet": (
+            encoding: Ssmarshal,
+            doc: "Unqueues an incoming packet from a socket.",
+            args: {
+                "socket_index": "u32",
+            },
+            leases: {
+                "payload": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "UdpMetadata",
+                err: CLike("NetError"),
+            ),
+        ),
+        "send_packet": (
+            encoding: Ssmarshal,
+            doc: "Queues an outgoing packet into a socket.",
+            args: {
+                "socket_index": "u32",
+                "metadata": "UdpMetadata",
+            },
+            leases: {
+                "payload": (type: "[u8]", read: true),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
+        "smi_read": (
+            doc: "Reads a register from a SMI-attached device.",
+            args: {
+                "phy": "u8",
+                "register": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("NetError"),
+            ),
+        ),
+        "smi_write": (
+            doc: "Reads a register from a SMI-attached device.",
+            args: {
+                "phy": "u8",
+                "register": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
+    },
+)
