@@ -95,6 +95,7 @@ members = [
     "drv/vsc-err",
     "drv/hash-api",
     "drv/stm32h7-hash-server",
+    "drv/rng-api",
 
     "drv/sidecar-seq-server",
 
