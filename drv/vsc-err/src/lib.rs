@@ -1,3 +1,12 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! This crate provides an error type that is used by our PHYs and switches.
+//! It is factored into its own crate so that it can be used by both
+//! `drv/vsc7448` and `drv/vsc85xx` without introducing any unneeded
+//! dependencies in each case.
+
 #![no_std]
 
 use drv_spi_api::SpiError;
