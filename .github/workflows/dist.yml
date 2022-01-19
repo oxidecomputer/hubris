@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h7b3, stm32h743, stm32h753, gemini, gemini-rot, gimlet]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet]
         include:
           - build: stm32f3
             app_name: demo-stm32f3-discovery
@@ -30,10 +30,6 @@ jobs:
           - build: stm32f4
             app_name: demo-stm32f4-discovery
             app_toml: app/demo-stm32f4-discovery/app.toml
-            target: thumbv7em-none-eabihf
-          - build: stm32h7b3
-            app_name: demo-stm32h7b3-nucleo
-            app_toml: app/demo-stm32h7-nucleo/app-h7b3.toml
             target: thumbv7em-none-eabihf
           - build: lpc55
             app_name: lpc55xpresso
