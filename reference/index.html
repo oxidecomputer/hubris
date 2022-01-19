@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.16">
+<meta name="generator" content="Asciidoctor 2.0.17">
 <title>Hubris Reference</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700">
 <style>
@@ -193,7 +193,8 @@ body.toc2.toc-right{padding-left:0;padding-right:20em}}
 #content h1>a.link:hover,h2>a.link:hover,h3>a.link:hover,#toctitle>a.link:hover,.sidebarblock>.content>.title>a.link:hover,h4>a.link:hover,h5>a.link:hover,h6>a.link:hover{color:#a53221}
 details,.audioblock,.imageblock,.literalblock,.listingblock,.stemblock,.videoblock{margin-bottom:1.25em}
 details{margin-left:1.25rem}
-details>summary{cursor:pointer;display:block;position:relative;line-height:1.6;margin-bottom:.625rem;-webkit-tap-highlight-color:transparent}
+details>summary{cursor:pointer;display:block;position:relative;line-height:1.6;margin-bottom:.625rem;outline:none;-webkit-tap-highlight-color:transparent}
+details>summary::-webkit-details-marker{display:none}
 details>summary::before{content:"";border:solid transparent;border-left:solid;border-width:.3em 0 .3em .5em;position:absolute;top:.5em;left:-1.25rem;transform:translateX(15%)}
 details[open]>summary::before{border:solid transparent;border-top:solid;border-width:.5em .3em 0;transform:translateY(15%)}
 details>summary::after{content:"";width:1.25rem;height:1em;position:absolute;top:.3em;left:-1.25rem}
@@ -235,9 +236,8 @@ pre.prettyprint li:not(:first-child) code[data-lang]::before{display:none}
 table.linenotable{border-collapse:separate;border:0;margin-bottom:0;background:none}
 table.linenotable td[class]{color:inherit;vertical-align:top;padding:0;line-height:inherit;white-space:normal}
 table.linenotable td.code{padding-left:.75em}
-table.linenotable td.linenos{border-right:1px solid;opacity:.35;padding-right:.5em}
-pre.pygments .lineno{border-right:1px solid;opacity:.35;display:inline-block;margin-right:.75em}
-pre.pygments .lineno::before{content:"";margin-right:-.125em}
+table.linenotable td.linenos,pre.pygments .linenos{border-right:1px solid;opacity:.35;padding-right:.5em;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
+pre.pygments span.linenos{display:inline-block;margin-right:.75em}
 .quoteblock{margin:0 1em 1.25em 1.5em;display:table}
 .quoteblock:not(.excerpt)>.title{margin-left:-1.5em;margin-bottom:.75em}
 .quoteblock blockquote,.quoteblock p{color:rgba(0,0,0,.85);font-size:1.15rem;line-height:1.75;word-spacing:.1em;letter-spacing:0;font-style:italic;text-align:justify}
@@ -274,7 +274,7 @@ table.frame-none>colgroup+*>:first-child>*,table.frame-sides>colgroup+*>:first-c
 table.frame-none>:last-child>:last-child>*,table.frame-sides>:last-child>:last-child>*{border-bottom-width:0}
 table.frame-none>*>tr>:first-child,table.frame-ends>*>tr>:first-child{border-left-width:0}
 table.frame-none>*>tr>:last-child,table.frame-ends>*>tr>:last-child{border-right-width:0}
-table.stripes-all tr,table.stripes-odd tr:nth-of-type(odd),table.stripes-even tr:nth-of-type(even),table.stripes-hover tr:hover{background:#f8f8f7}
+table.stripes-all>*>tr,table.stripes-odd>*>tr:nth-of-type(odd),table.stripes-even>*>tr:nth-of-type(even),table.stripes-hover>*>tr:hover{background:#f8f8f7}
 th.halign-left,td.halign-left{text-align:left}
 th.halign-right,td.halign-right{text-align:right}
 th.halign-center,td.halign-center{text-align:center}
@@ -290,10 +290,11 @@ ol{margin-left:1.75em}
 ul li ol{margin-left:1.5em}
 dl dd{margin-left:1.125em}
 dl dd:last-child,dl dd:last-child>:last-child{margin-bottom:0}
-ol>li p,ul>li p,ul dd,ol dd,.olist .olist,.ulist .ulist,.ulist .olist,.olist .ulist{margin-bottom:.625em}
+li p,ul dd,ol dd,.olist .olist,.ulist .ulist,.ulist .olist,.olist .ulist{margin-bottom:.625em}
 ul.checklist,ul.none,ol.none,ul.no-bullet,ol.no-bullet,ol.unnumbered,ul.unstyled,ol.unstyled{list-style-type:none}
 ul.no-bullet,ol.no-bullet,ol.unnumbered{margin-left:.625em}
 ul.unstyled,ol.unstyled{margin-left:0}
+li>p:empty:only-child::before{content:"";display:inline-block}
 ul.checklist>li>p:first-child{margin-left:-1em}
 ul.checklist>li>p:first-child>.fa-square-o:first-child,ul.checklist>li>p:first-child>.fa-check-square-o:first-child{width:1.25em;font-size:.8em;position:relative;bottom:.125em}
 ul.checklist>li>p:first-child>input[type=checkbox]:first-child{margin-right:.25em}
@@ -336,8 +337,6 @@ sup.footnote a:active,sup.footnoteref a:active{text-decoration:underline}
 #footnotes .footnote a:first-of-type{font-weight:bold;text-decoration:none;margin-left:-1.05em}
 #footnotes .footnote:last-of-type{margin-bottom:0}
 #content #footnotes{margin-top:-.625em;margin-bottom:0;padding:.75em 0}
-.gist .file-data>table{border:0;background:#fff;width:100%;margin-bottom:0}
-.gist .file-data>table td.line-data{width:99%}
 div.unbreakable{page-break-inside:avoid}
 .big{font-size:larger}
 .small{font-size:smaller}
@@ -760,6 +759,7 @@ pre.rouge {
 <li><a href="#sys_get_timer">7.2.10. <code>GET_TIMER</code> (9)</a></li>
 <li><a href="#_refresh_task_id_10">7.2.11. <code>REFRESH_TASK_ID</code> (10)</a></li>
 <li><a href="#_post_11">7.2.12. <code>POST</code> (11)</a></li>
+<li><a href="#_reply_fault_12">7.2.13. <code>REPLY_FAULT</code> (12)</a></li>
 </ul>
 </li>
 </ul>
@@ -1747,8 +1747,8 @@ streaming data access protocol consisting of two functions (written as in Rust):
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="k">fn</span> <span class="nf">read</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="k">fn</span> <span class="nf">write</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span><span class="p">;</span>
+<pre class="rouge highlight"><code data-lang="rust"><span class="k">fn</span> <span class="nf">read</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">fn</span> <span class="nf">write</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span><span class="p">;</span>
 
 <span class="k">enum</span> <span class="n">IoError</span> <span class="p">{</span>
     <span class="n">Eof</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
@@ -1833,7 +1833,7 @@ changing the <code>IoError</code> type in Rust to have data fields.
     <span class="n">ContainedBobcat</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="k">fn</span> <span class="nf">read</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="n">TaskId</span><span class="p">,</span> <span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span> <span class="p">{</span>
+<span class="k">fn</span> <span class="nf">read</span><span class="p">(</span><span class="n">task</span><span class="p">:</span> <span class="n">TaskId</span><span class="p">,</span> <span class="n">fd</span><span class="p">:</span> <span class="nb">u32</span><span class="p">,</span> <span class="n">buffer</span><span class="p">:</span> <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[</span><span class="nb">u8</span><span class="p">])</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="nb">usize</span><span class="p">,</span> <span class="n">IoError</span><span class="o">&gt;</span> <span class="p">{</span>
     <span class="k">let</span> <span class="k">mut</span> <span class="n">response</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">;</span> <span class="mi">4</span><span class="p">];</span>
     <span class="k">let</span> <span class="p">(</span><span class="n">rc</span><span class="p">,</span> <span class="n">len</span><span class="p">)</span> <span class="o">=</span> <span class="nf">sys_send</span><span class="p">(</span>
         <span class="n">task</span><span class="p">,</span>
@@ -2371,16 +2371,16 @@ like this:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="c">// This task only uses notification bit 0 for interrupts.</span>
+<pre class="rouge highlight"><code data-lang="rust"><span class="c1">// This task only uses notification bit 0 for interrupts.</span>
 <span class="k">const</span> <span class="n">MY_INTERRUPT</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 
-<span class="c">// We're willing to accept interrupts.</span>
+<span class="c1">// We're willing to accept interrupts.</span>
 <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
 
 <span class="k">loop</span> <span class="p">{</span>
 
-    <span class="c">// Receive a message -- in this case, we're only</span>
-    <span class="c">// expecting notifications.</span>
+    <span class="c1">// Receive a message -- in this case, we're only</span>
+    <span class="c1">// expecting notifications.</span>
     <span class="k">let</span> <span class="n">result</span> <span class="o">=</span> <span class="nf">sys_recv_closed</span><span class="p">(</span>
         <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[],</span>
         <span class="n">MY_INTERRUPT</span><span class="p">,</span>
@@ -2389,7 +2389,7 @@ like this:</p>
 
     <span class="k">if</span> <span class="n">result</span><span class="py">.operation</span> <span class="o">&amp;</span> <span class="n">MY_INTERRUPTS</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
         <span class="nf">do_interrupt_stuff</span><span class="p">();</span>
-        <span class="c">// Unmask that interrupt so it can fire again.</span>
+        <span class="c1">// Unmask that interrupt so it can fire again.</span>
         <span class="nf">sys_irq_control</span><span class="p">(</span><span class="n">MY_INTERRUPT</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span></code></pre>
@@ -3876,6 +3876,68 @@ before the caller gets another chance to run.</p>
 </div>
 </div>
 </div>
+<div class="sect3">
+<h4 id="_reply_fault_12">7.2.13. <code>REPLY_FAULT</code> (12)</h4>
+<div class="paragraph">
+<p>Like <code>REPLY</code>, this resumes a task that is blocked waiting for a reply from the
+invoking task. Unlike <code>REPLY</code>, this does not set the task runnable, and instead
+marks it as faulted by a recognizable code.</p>
+</div>
+<div class="sect4">
+<h5 id="_arguments_13">Arguments</h5>
+<div class="ulist">
+<ul>
+<li>
+<p>0: task ID (in low 16 bits)</p>
+</li>
+<li>
+<p>1: <code>ReplyFaultReason</code> value (see <code>abi</code> crate)</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_return_values_13">Return values</h5>
+<div class="paragraph">
+<p><code>REPLY_FAULT</code> doesn&#8217;t return anything, but should be treated as clobbering
+return registers 0 and 1 for future compatibility.</p>
+</div>
+</div>
+<div class="sect4">
+<h5 id="_faults_12">Faults</h5>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Condition</th>
+<th class="tableblock halign-left valign-top">Fault taken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Designated task index greater than the (static) number of tasks in the entire
+  system.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>TaskOutOfRange</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReplyFaultReason</code> value undefined in <code>abi</code> enum.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BadReplyFaultReason</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect4">
+<h5 id="_notes_11">Notes</h5>
+<div class="paragraph">
+<p>Like <code>REPLY</code>, this syscall just silently ignores replies to the wrong
+generation, under the assumption that the task got restarted for some reason
+while we were processing its request. (It can happen.)</p>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
@@ -3980,7 +4042,7 @@ generation numbers right.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_11">Notes</h5>
+<h5 id="_notes_12">Notes</h5>
 <div class="paragraph">
 <p>See the <code>abi</code> crate for the definition of <code>TaskState</code> that matches your kernel.
 Here is a representative example at the time of this writing:</p>
@@ -3988,36 +4050,36 @@ Here is a representative example at the time of this writing:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="rust"><span class="k">pub</span> <span class="k">enum</span> <span class="n">TaskState</span> <span class="p">{</span>
-    <span class="c">/// Task is healthy and can be scheduled subject to the `SchedState`</span>
-    <span class="c">/// requirements.</span>
+    <span class="cd">/// Task is healthy and can be scheduled subject to the `SchedState`</span>
+    <span class="cd">/// requirements.</span>
     <span class="nf">Healthy</span><span class="p">(</span><span class="n">SchedState</span><span class="p">),</span>
-    <span class="c">/// Task has been stopped by a fault and must not be scheduled without</span>
-    <span class="c">/// intervention.</span>
+    <span class="cd">/// Task has been stopped by a fault and must not be scheduled without</span>
+    <span class="cd">/// intervention.</span>
     <span class="n">Faulted</span> <span class="p">{</span>
-        <span class="c">/// Information about the fault.</span>
+        <span class="cd">/// Information about the fault.</span>
         <span class="n">fault</span><span class="p">:</span> <span class="n">FaultInfo</span><span class="p">,</span>
-        <span class="c">/// Record of the previous healthy state at the time the fault was</span>
-        <span class="c">/// taken.</span>
+        <span class="cd">/// Record of the previous healthy state at the time the fault was</span>
+        <span class="cd">/// taken.</span>
         <span class="n">original_state</span><span class="p">:</span> <span class="n">SchedState</span><span class="p">,</span>
     <span class="p">},</span>
 <span class="p">}</span>
 
 <span class="k">pub</span> <span class="k">enum</span> <span class="n">FaultInfo</span> <span class="p">{</span>
     <span class="n">StackOverflow</span> <span class="p">{</span> <span class="n">address</span><span class="p">:</span> <span class="nb">u32</span> <span class="p">},</span>
-    <span class="c">// other fault cases go here</span>
+    <span class="c1">// other fault cases go here</span>
 <span class="p">}</span>
 
 <span class="k">pub</span> <span class="k">enum</span> <span class="n">SchedState</span> <span class="p">{</span>
-    <span class="c">/// This task is ignored for scheduling purposes.</span>
+    <span class="cd">/// This task is ignored for scheduling purposes.</span>
     <span class="n">Stopped</span><span class="p">,</span>
-    <span class="c">/// This task could be scheduled on the CPU.</span>
+    <span class="cd">/// This task could be scheduled on the CPU.</span>
     <span class="n">Runnable</span><span class="p">,</span>
-    <span class="c">/// This task is blocked waiting to deliver a message to the given task.</span>
+    <span class="cd">/// This task is blocked waiting to deliver a message to the given task.</span>
     <span class="nf">InSend</span><span class="p">(</span><span class="n">TaskId</span><span class="p">),</span>
-    <span class="c">/// This task is blocked waiting for a reply from the given task.</span>
+    <span class="cd">/// This task is blocked waiting for a reply from the given task.</span>
     <span class="nf">InReply</span><span class="p">(</span><span class="n">TaskId</span><span class="p">),</span>
-    <span class="c">/// This task is blocked waiting for messages, either from any source</span>
-    <span class="c">/// (`None`) or from a particular sender only.</span>
+    <span class="cd">/// This task is blocked waiting for messages, either from any source</span>
+    <span class="cd">/// (`None`) or from a particular sender only.</span>
     <span class="nf">InRecv</span><span class="p">(</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">TaskId</span><span class="o">&gt;</span><span class="p">),</span>
 <span class="p">}</span></code></pre>
 </div>
@@ -4087,7 +4149,7 @@ that the IPC will never complete.</p>
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_12">Notes</h5>
+<h5 id="_notes_13">Notes</h5>
 <div class="paragraph">
 <p>If a task asks to reinit <em>itself,</em> the kernel mumbles &#8220;alright, your funeral&#8221;
 and reinits the caller. Given that <code>reinit_task</code> is intended to be restricted to
@@ -4140,7 +4202,7 @@ and given a <a href="#death">dead code</a> to indicate that the IPC will never c
 </div>
 </div>
 <div class="sect4">
-<h5 id="_notes_13">Notes</h5>
+<h5 id="_notes_14">Notes</h5>
 <div class="paragraph">
 <p>As with <code>reinit_task</code>, it is possible for a task to use <code>fault_task</code> to fault
 <em>itself.</em> This is an odd thing to do.</p>
@@ -4358,9 +4420,9 @@ another four-byte little-endian integer.</p>
 
         <span class="k">match</span> <span class="n">msginfo</span><span class="py">.operation</span> <span class="p">{</span> <i class="conum" data-value="4"></i><b>(4)</b>
             <span class="mi">0</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                <span class="c">// Add</span>
+                <span class="c1">// Add</span>
                 <span class="k">if</span> <span class="n">msginfo</span><span class="py">.message_len</span> <span class="o">==</span> <span class="mi">4</span> <span class="p">{</span> <i class="conum" data-value="5"></i><b>(5)</b>
-                    <span class="c">// yay!</span>
+                    <span class="c1">// yay!</span>
                     <span class="n">the_integer</span> <span class="o">=</span> <span class="n">the_integer</span><span class="nf">.wrapping_add</span><span class="p">(</span>
                         <span class="nn">u32</span><span class="p">::</span><span class="nf">from_le_bytes</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
                     <span class="p">);</span>
@@ -4370,9 +4432,9 @@ another four-byte little-endian integer.</p>
                 <span class="p">}</span>
             <span class="p">}</span>
             <span class="mi">1</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                <span class="c">// Subtract</span>
+                <span class="c1">// Subtract</span>
                 <span class="k">if</span> <span class="n">msginfo</span><span class="py">.message_len</span> <span class="o">==</span> <span class="mi">4</span> <span class="p">{</span>
-                    <span class="c">// yay!</span>
+                    <span class="c1">// yay!</span>
                     <span class="n">the_integer</span> <span class="o">=</span> <span class="n">the_integer</span><span class="nf">.wrapping_sub</span><span class="p">(</span>
                         <span class="nn">u32</span><span class="p">::</span><span class="nf">from_le_bytes</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
                     <span class="p">);</span>
@@ -4381,8 +4443,8 @@ another four-byte little-endian integer.</p>
                     <span class="nf">sys_reply</span><span class="p">(</span><span class="n">msginfo</span><span class="py">.sender</span><span class="p">,</span> <span class="nn">Errs</span><span class="p">::</span><span class="n">BadMsg</span> <span class="k">as</span> <span class="nb">u32</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">[]);</span>
                 <span class="p">}</span>
             <span class="p">}</span>
-            <span class="mi">_</span> <span class="k">=&gt;</span> <span class="p">{</span> <i class="conum" data-value="6"></i><b>(6)</b>
-                <span class="c">// Unknown operation</span>
+            <span class="n">_</span> <span class="k">=&gt;</span> <span class="p">{</span> <i class="conum" data-value="6"></i><b>(6)</b>
+                <span class="c1">// Unknown operation</span>
                 <span class="nf">sys_reply</span><span class="p">(</span><span class="n">msginfo</span><span class="py">.sender</span><span class="p">,</span> <span class="nn">Errs</span><span class="p">::</span><span class="n">BadMsg</span> <span class="k">as</span> <span class="nb">u32</span><span class="p">,</span> <span class="o">&amp;</span><span class="p">[]);</span>
             <span class="p">}</span>
         <span class="p">}</span>
@@ -4450,12 +4512,12 @@ the <code>hl</code> conveniences.</p>
 <span class="p">}</span>
 
 <span class="k">enum</span> <span class="n">ResponseCode</span> <span class="p">{</span> <i class="conum" data-value="3"></i><b>(3)</b>
-    <span class="c">// Note: code 1 is produced by hl</span>
+    <span class="c1">// Note: code 1 is produced by hl</span>
     <span class="n">BadArg</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="k">impl</span> <span class="n">From</span><span class="o">&lt;</span><span class="n">ResponseCode</span><span class="o">&gt;</span> <span class="k">for</span> <span class="nb">u32</span> <span class="p">{</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">rc</span><span class="p">:</span> <span class="n">ResponseCode</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Self</span> <span class="p">{</span>
+<span class="k">impl</span> <span class="nb">From</span><span class="o">&lt;</span><span class="n">ResponseCode</span><span class="o">&gt;</span> <span class="k">for</span> <span class="nb">u32</span> <span class="p">{</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="k">fn</span> <span class="nf">from</span><span class="p">(</span><span class="n">rc</span><span class="p">:</span> <span class="n">ResponseCode</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="k">Self</span> <span class="p">{</span>
         <span class="n">rc</span> <span class="k">as</span> <span class="nb">u32</span>
     <span class="p">}</span>
 <span class="p">}</span>
@@ -4469,7 +4531,7 @@ the <code>hl</code> conveniences.</p>
     <span class="k">loop</span> <span class="p">{</span>
         <span class="nn">hl</span><span class="p">::</span><span class="nf">recv_without_notification</span><span class="p">(</span> <i class="conum" data-value="7"></i><b>(7)</b>
             <span class="n">argument</span><span class="nf">.as_bytes_mut</span><span class="p">(),</span> <i class="conum" data-value="8"></i><b>(8)</b>
-            <span class="p">|</span><span class="n">op</span><span class="p">,</span> <span class="n">msg</span><span class="p">|</span> <span class="k">-&gt;</span> <span class="n">Result</span><span class="o">&lt;</span><span class="p">(),</span> <span class="n">ResponseCode</span><span class="o">&gt;</span> <span class="p">{</span> <i class="conum" data-value="9"></i><b>(9)</b>
+            <span class="p">|</span><span class="n">op</span><span class="p">,</span> <span class="n">msg</span><span class="p">|</span> <span class="k">-&gt;</span> <span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span> <span class="n">ResponseCode</span><span class="o">&gt;</span> <span class="p">{</span> <i class="conum" data-value="9"></i><b>(9)</b>
                 <span class="k">let</span> <span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">caller</span><span class="p">)</span> <span class="o">=</span> <span class="n">msg</span><span class="py">.fixed</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">u32</span><span class="p">,</span> <span class="nb">u32</span><span class="o">&gt;</span><span class="p">()</span> <i class="conum" data-value="10"></i><b>(10)</b>
                     <span class="nf">.ok_or</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">BadArg</span><span class="p">)</span><span class="o">?</span><span class="p">;</span> <i class="conum" data-value="11"></i><b>(11)</b>
 
@@ -4636,24 +4698,24 @@ want to retry on server restart:</p>
 <span class="k">pub</span> <span class="k">struct</span> <span class="nf">IntServer</span><span class="p">(</span><span class="n">Cell</span><span class="o">&lt;</span><span class="n">TaskId</span><span class="o">&gt;</span><span class="p">);</span> <i class="conum" data-value="2"></i><b>(2)</b>
 
 <span class="k">impl</span> <span class="n">IntServer</span> <span class="p">{</span>
-    <span class="k">pub</span> <span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">tid</span><span class="p">:</span> <span class="n">TaskId</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="n">Self</span> <span class="p">{</span>
-        <span class="nf">Self</span><span class="p">(</span><span class="nn">Cell</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">tid</span><span class="p">))</span>
+    <span class="k">pub</span> <span class="k">fn</span> <span class="nf">new</span><span class="p">(</span><span class="n">tid</span><span class="p">:</span> <span class="n">TaskId</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="k">Self</span> <span class="p">{</span>
+        <span class="k">Self</span><span class="p">(</span><span class="nn">Cell</span><span class="p">::</span><span class="nf">new</span><span class="p">(</span><span class="n">tid</span><span class="p">))</span>
     <span class="p">}</span>
 
-    <span class="c">/// Adds `value` to the server's integer, returning the new</span>
-    <span class="c">/// integer.</span>
+    <span class="cd">/// Adds `value` to the server's integer, returning the new</span>
+    <span class="cd">/// integer.</span>
     <span class="k">pub</span> <span class="k">fn</span> <span class="nf">add</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">u32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">u32</span> <span class="p">{</span>
         <span class="k">self</span><span class="nf">.send</span><span class="p">(</span><span class="nn">Op</span><span class="p">::</span><span class="nb">Add</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
     <span class="p">}</span>
 
-    <span class="c">/// Subtracts `value` to the server's integer, returning the</span>
-    <span class="c">/// new integer.</span>
+    <span class="cd">/// Subtracts `value` to the server's integer, returning the</span>
+    <span class="cd">/// new integer.</span>
     <span class="k">pub</span> <span class="k">fn</span> <span class="nf">sub</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">u32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">u32</span> <span class="p">{</span>
         <span class="k">self</span><span class="nf">.send</span><span class="p">(</span><span class="nn">Op</span><span class="p">::</span><span class="nb">Sub</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
     <span class="p">}</span>
 
-    <span class="c">// Common implementation bit of add and sub, which</span>
-    <span class="c">// differ only in Op</span>
+    <span class="c1">// Common implementation bit of add and sub, which</span>
+    <span class="c1">// differ only in Op</span>
     <span class="k">fn</span> <span class="nf">send</span><span class="p">(</span><span class="o">&amp;</span><span class="k">self</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Op</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">u32</span><span class="p">)</span> <span class="k">-&gt;</span> <span class="nb">u32</span> <span class="p">{</span>
         <span class="k">let</span> <span class="k">mut</span> <span class="n">response</span> <span class="o">=</span> <span class="mi">0u32</span><span class="p">;</span>
         <span class="k">loop</span> <span class="p">{</span> <i class="conum" data-value="3"></i><b>(3)</b>
@@ -4664,7 +4726,7 @@ want to retry on server restart:</p>
             <span class="k">if</span> <span class="n">code</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">response_len</span> <span class="o">==</span> <span class="mi">4</span> <span class="p">{</span>
                 <span class="k">return</span> <span class="n">response</span><span class="p">;</span> <i class="conum" data-value="5"></i><b>(5)</b>
             <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="nf">Some</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">=</span> <span class="nn">abi</span><span class="p">::</span><span class="nf">extract_new_generation</span><span class="p">(</span><span class="n">code</span><span class="p">)</span> <span class="p">{</span>
-                <span class="c">// The int server has crashed, let's just retry. </span><i class="conum" data-value="6"></i><b>(6)</b>
+                <span class="c1">// The int server has crashed, let's just retry. </span><i class="conum" data-value="6"></i><b>(6)</b>
                 <span class="k">self</span><span class="na">.0</span><span class="nf">.set</span><span class="p">(</span> <i class="conum" data-value="7"></i><b>(7)</b>
                     <span class="nn">TaskId</span><span class="p">::</span><span class="nf">for_index_and_gen</span><span class="p">(</span><span class="n">target</span><span class="nf">.index</span><span class="p">(),</span> <span class="n">g</span><span class="p">)</span>
                 <span class="p">);</span>
@@ -4880,26 +4942,26 @@ crash(es) from the kernel via IPC.
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="c">// Value chosen in app.toml.</span>
+<pre class="rouge highlight"><code data-lang="rust"><span class="c1">// Value chosen in app.toml.</span>
 <span class="k">const</span> <span class="n">CRASH_NOTIFICATION</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 
 <span class="k">loop</span> <span class="p">{</span>
-    <span class="c">// Closed receive will only accept notifications.</span>
+    <span class="c1">// Closed receive will only accept notifications.</span>
     <span class="k">let</span> <span class="n">msg</span> <span class="o">=</span> <span class="nf">sys_recv_closed</span><span class="p">(</span>
         <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[],</span>
         <span class="n">CRASH_NOTIFICATION</span><span class="p">,</span>
         <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span><span class="p">,</span>
     <span class="p">);</span>
 
-    <span class="c">// This case is so simple that we don't need to inspect</span>
-    <span class="c">// the message to distinguish different sources. See</span>
-    <span class="c">// below for a more complex example.</span>
+    <span class="c1">// This case is so simple that we don't need to inspect</span>
+    <span class="c1">// the message to distinguish different sources. See</span>
+    <span class="c1">// below for a more complex example.</span>
 
-    <span class="c">// Scan tasks. Skip ourselves at index 0.</span>
+    <span class="c1">// Scan tasks. Skip ourselves at index 0.</span>
     <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">hubris_num_tasks</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
         <span class="k">match</span> <span class="nn">userlib</span><span class="p">::</span><span class="nn">kipc</span><span class="p">::</span><span class="nf">read_task_status</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
             <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                <span class="c">// Record any observed faults and restart.</span>
+                <span class="c1">// Record any observed faults and restart.</span>
                 <span class="k">log</span><span class="p">(</span><span class="n">fault</span><span class="p">);</span>
                 <span class="nn">kipc</span><span class="p">::</span><span class="nf">restart_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
             <span class="p">}</span>
@@ -4944,10 +5006,10 @@ follows:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="c">// Value chosen in app.toml.</span>
+<pre class="rouge highlight"><code data-lang="rust"><span class="c1">// Value chosen in app.toml.</span>
 <span class="k">const</span> <span class="n">CRASH_NOTIFICATION</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 
-<span class="c">// However large our biggest incoming message will be.</span>
+<span class="c1">// However large our biggest incoming message will be.</span>
 <span class="k">const</span> <span class="n">MAX_MSG</span><span class="p">:</span> <span class="nb">usize</span> <span class="o">=</span> <span class="mi">16</span><span class="p">;</span>
 
 <span class="k">loop</span> <span class="p">{</span>
@@ -4958,18 +5020,18 @@ follows:</p>
     <span class="p">);</span>
 
     <span class="k">if</span> <span class="n">msg</span><span class="py">.sender</span> <span class="o">==</span> <span class="nn">TaskId</span><span class="p">::</span><span class="n">KERNEL</span> <span class="p">{</span> <i class="conum" data-value="3"></i><b>(3)</b>
-        <span class="c">// Scan tasks. Skip ourselves at index 0.</span>
+        <span class="c1">// Scan tasks. Skip ourselves at index 0.</span>
         <span class="k">for</span> <span class="n">i</span> <span class="n">in</span> <span class="mi">1</span><span class="o">..</span><span class="nn">hubris_num_tasks</span><span class="p">::</span><span class="n">NUM_TASKS</span> <span class="p">{</span>
             <span class="k">match</span> <span class="nn">userlib</span><span class="p">::</span><span class="nn">kipc</span><span class="p">::</span><span class="nf">read_task_status</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
                 <span class="nn">abi</span><span class="p">::</span><span class="nn">TaskState</span><span class="p">::</span><span class="n">Faulted</span> <span class="p">{</span> <span class="n">fault</span><span class="p">,</span> <span class="o">..</span> <span class="p">}</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                    <span class="c">// Record any observed faults and restart.</span>
+                    <span class="c1">// Record any observed faults and restart.</span>
                     <span class="k">log</span><span class="p">(</span><span class="n">fault</span><span class="p">);</span>
                     <span class="nn">kipc</span><span class="p">::</span><span class="nf">restart_task</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
                 <span class="p">}</span>
             <span class="p">}</span>
         <span class="p">}</span>
     <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-        <span class="c">// This is a message from a task</span>
+        <span class="c1">// This is a message from a task</span>
         <span class="k">match</span> <span class="n">msg</span><span class="py">.operation</span> <span class="p">{</span> <i class="conum" data-value="4"></i><b>(4)</b>
             <span class="o">...</span>
         <span class="p">}</span>
@@ -5129,7 +5191,7 @@ the chapter on servers.)</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="rust"><span class="c">// Notification mask for interrupts from app.toml</span>
+<pre class="rouge highlight"><code data-lang="rust"><span class="c1">// Notification mask for interrupts from app.toml</span>
 <span class="k">const</span> <span class="n">INTERRUPT</span><span class="p">:</span> <span class="nb">u32</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 
 <span class="k">fn</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
@@ -5138,79 +5200,79 @@ the chapter on servers.)</p>
 
     <span class="n">B</span><span class="py">.clk</span><span class="nf">.write</span><span class="p">(|</span><span class="n">w</span><span class="p">|</span> <span class="n">w</span><span class="py">.clock</span><span class="nf">.very_fast</span><span class="p">());</span>
 
-    <span class="n">B</span><span class="py">.cfg</span><span class="nf">.modify</span><span class="p">(|</span><span class="mi">_</span><span class="p">,</span> <span class="n">w</span><span class="p">|</span> <span class="n">w</span><span class="py">.foo</span><span class="nf">.disable</span><span class="p">()</span><span class="py">.
+    <span class="n">B</span><span class="py">.cfg</span><span class="nf">.modify</span><span class="p">(|</span><span class="n">_</span><span class="p">,</span> <span class="n">w</span><span class="p">|</span> <span class="n">w</span><span class="py">.foo</span><span class="nf">.disable</span><span class="p">()</span><span class="py">.
                 enabled</span><span class="nf">.set</span><span class="p">());</span>
 
-    <span class="c">// Type used to record the state of an ongoing operation.</span>
-    <span class="c">// This is handwavey but is similar to most block transfer</span>
-    <span class="c">// implementations, which track a position and length.</span>
+    <span class="c1">// Type used to record the state of an ongoing operation.</span>
+    <span class="c1">// This is handwavey but is similar to most block transfer</span>
+    <span class="c1">// implementations, which track a position and length.</span>
     <span class="k">struct</span> <span class="n">MyData</span> <span class="p">{</span>
         <span class="n">caller</span><span class="p">:</span> <span class="nn">hl</span><span class="p">::</span><span class="n">Caller</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">,</span>
         <span class="n">pos</span><span class="p">:</span> <span class="nb">usize</span><span class="p">,</span>
         <span class="n">len</span><span class="p">:</span> <span class="nb">usize</span><span class="p">,</span>
     <span class="p">}</span>
-    <span class="c">// State of an ongoing operation; None indicates no</span>
-    <span class="c">// operation</span>
+    <span class="c1">// State of an ongoing operation; None indicates no</span>
+    <span class="c1">// operation</span>
     <span class="k">let</span> <span class="k">mut</span> <span class="n">data</span><span class="p">:</span> <span class="nb">Option</span><span class="o">&lt;</span><span class="n">MyData</span><span class="o">&gt;</span> <span class="o">=</span> <span class="nb">None</span><span class="p">;</span>
 
     <span class="k">loop</span> <span class="p">{</span>
-        <span class="c">// This receives with notification, the alternate</span>
-        <span class="c">// version is hl::recv_without_notification</span>
+        <span class="c1">// This receives with notification, the alternate</span>
+        <span class="c1">// version is hl::recv_without_notification</span>
         <span class="nn">hl</span><span class="p">::</span><span class="nf">recv</span><span class="p">(</span>
-            <span class="c">// all our messages are zero length.</span>
+            <span class="c1">// all our messages are zero length.</span>
             <span class="o">&amp;</span><span class="k">mut</span> <span class="p">[],</span>
-            <span class="c">// notification mask</span>
+            <span class="c1">// notification mask</span>
             <span class="n">INTERRUPT</span><span class="p">,</span>
-            <span class="c">// state shared by notification and message handlers</span>
+            <span class="c1">// state shared by notification and message handlers</span>
             <span class="o">&amp;</span><span class="k">mut</span> <span class="n">data</span><span class="p">,</span>
-            <span class="c">// Notification handler</span>
+            <span class="c1">// Notification handler</span>
             <span class="p">|</span><span class="n">dataref</span><span class="p">,</span> <span class="n">bits</span><span class="p">|</span> <span class="p">{</span>
                 <span class="k">if</span> <span class="n">bits</span> <span class="o">&amp;</span> <span class="n">INTERRUPT</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">{</span>
-                    <span class="c">// Matches our notification for an</span>
-                    <span class="c">// interrupt, do something</span>
+                    <span class="c1">// Matches our notification for an</span>
+                    <span class="c1">// interrupt, do something</span>
                     <span class="n">B</span><span class="py">.fifowr</span><span class="nf">.write</span><span class="p">(|</span><span class="n">w</span><span class="p">|</span> <span class="n">w</span><span class="py">.out</span><span class="nf">.bits</span><span class="p">(</span><span class="n">buffer</span><span class="p">));</span>
 
                     <span class="k">if</span> <span class="k">let</span> <span class="nf">Some</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="o">=</span> <span class="n">dataref</span> <span class="p">{</span>
                         <span class="k">if</span> <span class="n">B</span><span class="py">.sr</span><span class="nf">.read</span><span class="p">()</span><span class="nf">.is_done</span><span class="p">()</span> <span class="p">{</span>
-                            <span class="c">// Resume the caller we were servicing.</span>
+                            <span class="c1">// Resume the caller we were servicing.</span>
                             <span class="n">state</span><span class="py">.caller</span><span class="nf">.reply</span><span class="p">(());</span>
-                            <span class="c">// Clear the state machine to accept</span>
-                            <span class="c">// more messages.</span>
+                            <span class="c1">// Clear the state machine to accept</span>
+                            <span class="c1">// more messages.</span>
                             <span class="o">*</span><span class="n">dataref</span> <span class="o">=</span> <span class="nb">None</span><span class="p">;</span>
                         <span class="p">}</span>
                     <span class="p">}</span>
                 <span class="p">}</span>
             <span class="p">},</span>
-            <span class="c">// Message handler</span>
+            <span class="c1">// Message handler</span>
             <span class="p">|</span><span class="n">dataref</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">msg</span><span class="p">|</span> <span class="k">match</span> <span class="n">op</span> <span class="p">{</span>
                 <span class="nn">Op</span><span class="p">::</span><span class="n">Write</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                    <span class="c">// We expect a caller with one lease</span>
+                    <span class="c1">// We expect a caller with one lease</span>
                     <span class="k">let</span> <span class="p">((),</span> <span class="n">caller</span><span class="p">)</span> <span class="o">=</span> <span class="n">msg</span>
                         <span class="nf">.fixed_with_leases</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
                         <span class="nf">.ok_or</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">BadArg</span><span class="p">)</span><span class="o">?</span>
 
-                    <span class="c">// Deny incoming writes if we're</span>
-                    <span class="c">// already running one.</span>
+                    <span class="c1">// Deny incoming writes if we're</span>
+                    <span class="c1">// already running one.</span>
                     <span class="k">if</span> <span class="n">dataref</span><span class="nf">.is_some</span><span class="p">()</span> <span class="p">{</span>
                         <span class="k">return</span> <span class="nf">Err</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">Busy</span><span class="p">);</span>
                     <span class="p">}</span>
 
-                    <span class="c">// Our lease #0 is what is being sent to</span>
-                    <span class="c">// the hardware</span>
+                    <span class="c1">// Our lease #0 is what is being sent to</span>
+                    <span class="c1">// the hardware</span>
                     <span class="k">let</span> <span class="n">borrow</span> <span class="o">=</span> <span class="n">caller</span><span class="nf">.borrow</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
                     <span class="k">let</span> <span class="n">info</span> <span class="o">=</span> <span class="n">borrow</span><span class="nf">.info</span><span class="p">()</span>
                         <span class="nf">.ok_or</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">BadArg</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-                    <span class="c">// Provide feedback to callers if they</span>
-                    <span class="c">// fail to provide a readable lease</span>
-                    <span class="c">// (otherwise we'd fail accessing the</span>
-                    <span class="c">// borrow later, which is a defection</span>
-                    <span class="c">// case and we won't reply at all).</span>
+                    <span class="c1">// Provide feedback to callers if they</span>
+                    <span class="c1">// fail to provide a readable lease</span>
+                    <span class="c1">// (otherwise we'd fail accessing the</span>
+                    <span class="c1">// borrow later, which is a defection</span>
+                    <span class="c1">// case and we won't reply at all).</span>
                     <span class="k">if</span> <span class="o">!</span><span class="n">info</span><span class="py">.attributes</span><span class="nf">.contains</span><span class="p">(</span><span class="nn">LeaseAttributes</span><span class="p">::</span><span class="n">READ</span><span class="p">)</span> <span class="p">{</span>
                         <span class="k">return</span> <span class="nf">Err</span><span class="p">(</span><span class="nn">ResponseCode</span><span class="p">::</span><span class="n">BadArg</span><span class="p">);</span>
                     <span class="p">}</span>
 
-                    <span class="c">// Set our state machine, including saving the</span>
-                    <span class="c">// caller.</span>
+                    <span class="c1">// Set our state machine, including saving the</span>
+                    <span class="c1">// caller.</span>
                     <span class="o">*</span><span class="n">dataref</span> <span class="o">=</span> <span class="nf">Some</span><span class="p">(</span><span class="n">MyData</span> <span class="p">{</span>
                         <span class="n">task</span><span class="p">:</span> <span class="n">caller</span><span class="p">,</span>
                         <span class="n">pos</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
@@ -5221,9 +5283,9 @@ the chapter on servers.)</p>
                     <span class="nf">Ok</span><span class="p">(())</span>
                 <span class="p">}</span>
                 <span class="nn">Op</span><span class="p">::</span><span class="n">Read</span> <span class="k">=&gt;</span> <span class="p">{</span>
-                    <span class="c">// Looks almost identical to Write except</span>
-                    <span class="c">// We check the borrow against</span>
-                    <span class="c">// LeaseAttributes::WRITE</span>
+                    <span class="c1">// Looks almost identical to Write except</span>
+                    <span class="c1">// We check the borrow against</span>
+                    <span class="c1">// LeaseAttributes::WRITE</span>
                 <span class="p">}</span>
             <span class="p">},</span>
         <span class="p">);</span>
@@ -5259,7 +5321,7 @@ normally use the <code>userlib::hl</code> module under the hood to generate IPC.
     <span class="n">Foxtrot</span>
 <span class="p">}</span>
 
-<span class="c">// This serves as a handle for the server.</span>
+<span class="c1">// This serves as a handle for the server.</span>
 <span class="k">pub</span> <span class="k">struct</span> <span class="nf">Data</span><span class="p">(</span><span class="n">TaskId</span><span class="p">);</span>
 
 <span class="k">impl</span> <span class="n">Data</span> <span class="p">{</span>
@@ -5268,9 +5330,9 @@ normally use the <code>userlib::hl</code> module under the hood to generate IPC.
 
         <span class="k">impl</span> <span class="nn">hl</span><span class="p">::</span><span class="n">Call</span> <span class="k">for</span> <span class="n">WriteData</span> <span class="p">{</span>
             <span class="k">const</span> <span class="n">OP</span><span class="p">:</span> <span class="nb">u16</span> <span class="o">=</span> <span class="nn">Op</span><span class="p">::</span><span class="n">Write</span> <span class="k">as</span> <span class="nb">u16</span><span class="p">;</span>
-            <span class="c">// We don't expect a meaningful response.</span>
+            <span class="c1">// We don't expect a meaningful response.</span>
             <span class="k">type</span> <span class="n">Response</span> <span class="o">=</span> <span class="p">();</span>
-            <span class="c">// Error is just an int</span>
+            <span class="c1">// Error is just an int</span>
             <span class="k">type</span> <span class="nb">Err</span> <span class="o">=</span> <span class="nb">u32</span><span class="p">;</span>
         <span class="p">}</span>
 
@@ -5314,7 +5376,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2021-12-14 04:14:12 UTC
+Last updated 2022-01-19 20:36:23 UTC
 </div>
 </div>
 </body>
