@@ -91,6 +91,9 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
         Ok(Sysnum::GetTimer) => Ok(get_timer(&mut tasks[current], arch::now())),
         Ok(Sysnum::RefreshTaskId) => refresh_task_id(tasks, current),
         Ok(Sysnum::Post) => post(tasks, current),
+        Ok(Sysnum::ReplyFault) => {
+            reply_fault(tasks, current).map_err(UserError::from)
+        }
         Err(_) => {
             // Bogus syscall number! That's a fault.
             Err(FaultInfo::SyscallUsage(UsageError::BadSyscallNumber).into())
@@ -781,4 +784,55 @@ fn post(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     } else {
         Ok(NextTask::Same)
     }
+}
+
+/// Implementation of the `REPLY_FAULT` IPC primitive.
+///
+/// `caller` is a valid task index (i.e. not directly from user code).
+///
+/// # Panics
+///
+/// If `caller` is out of range for `tasks`.
+fn reply_fault(
+    tasks: &mut [Task],
+    caller: usize,
+) -> Result<NextTask, FaultInfo> {
+    let caller_id = current_id(tasks, caller);
+
+    // Extract the target of the reply and the cited reason. This also validates
+    // the syscall parameters before doing other validation.
+    let args = tasks[caller].save().as_reply_fault_args();
+    let callee = args.callee();
+    let reason = args.reason()?;
+
+    // Validate task ID. We tolerate stale IDs here (it's not the callee's fault
+    // if the caller crashed before receiving its reply) but we treat invalid
+    // indices that could never have been received as a malfunction.
+    let callee = match task::check_task_id_against_table(tasks, callee) {
+        Err(UserError::Recoverable(_, hint)) => return Ok(hint),
+        Err(UserError::Unrecoverable(f)) => return Err(f),
+        Ok(x) => x,
+    };
+
+    if tasks[callee].state()
+        != &TaskState::Healthy(SchedState::InReply(caller_id))
+    {
+        // Huh. The target task is off doing something else. This can happen if
+        // application-specific supervisory logic unblocks it before we've had a
+        // chance to reply (e.g. to implement timeouts).
+        return Ok(NextTask::Same);
+    }
+
+    // Check and deliver the fault. We explicitly discard its scheduling hint,
+    // because the caller is lower priority than we are.
+    let _hint = task::force_fault(
+        tasks,
+        callee,
+        FaultInfo::FromServer(caller_id, reason),
+    );
+
+    // KEY ASSUMPTION: sends go from less important tasks to more important
+    // tasks. As a result, Reply doesn't have scheduling implications unless
+    // the task using it faults.
+    return Ok(NextTask::Same);
 }

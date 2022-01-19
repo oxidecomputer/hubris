@@ -45,8 +45,19 @@ pub fn expose_target_board() {
 /// reflect that by having its member (or members) be an `Option` type.
 ///
 pub fn config<T: DeserializeOwned>() -> Result<T> {
-    let config = env::var("HUBRIS_APP_CONFIG")?;
+    toml_from_env("HUBRIS_APP_CONFIG")
+}
+
+/// Pulls the task configuration. See `config` for more details.
+pub fn task_config<T: DeserializeOwned>() -> Result<T> {
+    toml_from_env("HUBRIS_TASK_CONFIG")
+}
+
+fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<T> {
+    let config = env::var(var)?;
+    println!("--- toml for ${} ---", var);
+    println!("{}", config);
     let rval = toml::from_slice(config.as_bytes())?;
-    println!("cargo:rerun-if-env-changed=HUBRIS_APP_CONFIG");
+    println!("cargo:rerun-if-env-changed={}", var);
     Ok(rval)
 }
