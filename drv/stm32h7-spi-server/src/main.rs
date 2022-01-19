@@ -1055,10 +1055,10 @@ cfg_if::cfg_if! {
 
             devices: &[
                 // Device 0 is the sequencer FPGA (U43)
-                // PJ6: SPI_SP_TO_FPGA_CS1_L
+                // PK1: SPI_SP_TO_FPGA_CS0_L
                 DeviceDescriptor {
                     mux_index: 0,
-                    cs: PinSet { port: gpio_api::Port::J, pin_mask: 6 << 0 },
+                    cs: PinSet { port: gpio_api::Port::K, pin_mask: 1 << 1 },
                 },
             ],
         };
