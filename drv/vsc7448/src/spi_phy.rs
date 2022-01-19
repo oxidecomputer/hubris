@@ -2,8 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{phy::PhyRw, spi::Vsc7448Spi, VscError};
+use crate::{spi::Vsc7448Spi, VscError};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
+use vsc85xx::PhyRw;
 
 pub struct Vsc7448SpiPhy<'a> {
     vsc7448: &'a Vsc7448Spi,

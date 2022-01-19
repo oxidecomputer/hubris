@@ -3064,6 +3064,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "vsc-err"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+]
+
+[[package]]
 name = "vsc7448"
 version = "0.1.0"
 dependencies = [
@@ -3071,7 +3078,9 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "ringbuf",
  "userlib",
+ "vsc-err",
  "vsc7448-pac",
+ "vsc85xx",
 ]
 
 [[package]]
@@ -3080,6 +3089,16 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/vsc7448#53df569510ca73e36ef7b2896b7c8fd090ed5f00"
 dependencies = [
  "derive_more",
+]
+
+[[package]]
+name = "vsc85xx"
+version = "0.1.0"
+dependencies = [
+ "ringbuf",
+ "userlib",
+ "vsc-err",
+ "vsc7448-pac",
 ]
 
 [[package]]

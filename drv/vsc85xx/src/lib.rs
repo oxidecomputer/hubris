@@ -2,9 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::VscError;
+#![no_std]
+
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
+pub use vsc_err::VscError;
 
 /// Trait implementing communication with an ethernet PHY.
 pub trait PhyRw {
@@ -101,7 +103,7 @@ pub trait PhyRw {
             }
             sleep_for(1)
         }
-        Err(VscError::PhyInitTimeout)
+        Err(VscError::InitTimeout)
     }
 }
 
@@ -111,11 +113,11 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
+        return Err(VscError::BadId1(id1));
     }
     let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
     if id2 != 0x6f3 {
-        return Err(VscError::BadPhyId2(id2));
+        return Err(VscError::BadId2(id2));
     }
 
     // Disable COMA MODE, which keeps the chip holding itself in reset
@@ -138,15 +140,15 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
 
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
+        return Err(VscError::BadId1(id1));
     }
     let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
     if id2 != 0x4c2 {
-        return Err(VscError::BadPhyId2(id2));
+        return Err(VscError::BadId2(id2));
     }
     let rev = v.read(port, phy::GPIO::EXTENDED_REVISION())?;
     if rev.tesla_e() != 0x01 {
-        return Err(VscError::BadPhyRev);
+        return Err(VscError::BadRev);
     }
 
     v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
