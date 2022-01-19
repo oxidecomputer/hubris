@@ -89,7 +89,7 @@ impl Dev10g {
     }
 }
 
-/// Based on `vtss_jr2_conf_1g_set` in the SDK
+/// Based on `jr2_port_conf_1g_set` in the SDK
 pub fn dev1g_init_sgmii(
     dev: DevGeneric,
     v: &Vsc7448Spi,
