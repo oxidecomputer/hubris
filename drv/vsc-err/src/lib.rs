@@ -15,6 +15,12 @@ use drv_spi_api::SpiError;
 pub enum VscError {
     SpiError(SpiError),
     BadChipId(u32),
+    Serdes1gReadTimeout {
+        instance: u32,
+    },
+    Serdes1gWriteTimeout {
+        instance: u32,
+    },
     Serdes6gReadTimeout {
         instance: u32,
     },
