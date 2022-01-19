@@ -623,6 +623,9 @@ impl Config {
                     + (self.f_pll_khz_plain as u64 - 1))
                     / (self.f_pll_khz_plain as u64),
             );
+            // TODO: why is this needed?  It's not in the SDK, but the system
+            // doesn't configure without this pause.
+            hl::sleep_for(100);
         }
         let cfg1 = v.read(apc.APC_IS_CAL_CFG1())?;
         if cfg1.offscal_done() != 1 {
