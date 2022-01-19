@@ -66,9 +66,9 @@ pub fn idt8a3xxxx_payload<E>(
         0x00, 0x00, 0x00, 0x00,
     ])?;
 
-    // SYS_DPLL_XO.XO_FREQ = [0, 90, d0, 3, 0, 0, 5]
+    // SYS_DPLL_XO.XO_FREQ = [80, 96, 98, 0, 0, 0, 0]
     func(&[
-        0x94, 0x00, 0x90, 0xd0, 0x03, 0x00, 0x00, 0x05,
+        0x94, 0x80, 0x96, 0x98, 0x00, 0x00, 0x00, 0x00,
     ])?;
 
     // SYS_DPLL_XO.XO_FREQ+0x7 = [0]
@@ -2069,10 +2069,10 @@ pub fn idt8a3xxxx_payload<E>(
     // GPIO[0].GPIO_SLAVE = [0]
     // GPIO[0].GPIO_ALERT_OUT_CFG = [0]
     // GPIO[0].GPIO_TOD_NOTIFICATION_CFG = [0]
-    // GPIO[0].GPIO_CTRL = [91]
+    // GPIO[0].GPIO_CTRL = [90]
     func(&[
         0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x91,
+        0x00, 0x00, 0x00, 0x00, 0x90,
     ])?;
 
     // GPIO[1].GPIO_DCO_INC_DEC = [0]
@@ -2434,11 +2434,11 @@ pub fn idt8a3xxxx_payload<E>(
     // OUT_DIV_MUX.OUT_DIV11_MUX = [1]
     // OUTPUT[0].OUT_DIV = [4, 0, 0, 0]
     // OUTPUT[0].OUT_DUTY_CYCLE_HIGH = [0, 0, 0, 0]
-    // OUTPUT[0].OUT_CTRL_0 = [19]
+    // OUTPUT[0].OUT_CTRL_0 = [41]
     // OUTPUT[0].OUT_CTRL_1 = [20]
     func(&[
         0x12, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x19, 0x20,
+        0x00, 0x00, 0x00, 0x41, 0x20,
     ])?;
 
     // OUTPUT[0].OUT_PHASE_ADJ = [0, 0]
@@ -2730,10 +2730,10 @@ pub fn idt8a3xxxx_payload<E>(
         0xd7, 0x00,
     ])?;
 
-    // OUTPUT[11].OUT_CTRL_0 = [41]
-    // OUTPUT[11].OUT_CTRL_1 = [20]
+    // OUTPUT[11].OUT_CTRL_0 = [3]
+    // OUTPUT[11].OUT_CTRL_1 = [22]
     func(&[
-        0xd8, 0x41, 0x20,
+        0xd8, 0x03, 0x22,
     ])?;
 
     // OUTPUT[11].OUT_PHASE_ADJ = [0, 0, 0]
