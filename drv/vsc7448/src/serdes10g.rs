@@ -441,7 +441,7 @@ impl Config {
             r.set_cal_clk_div(3);
         })?;
         v.modify(apc.APC_IS_CAL_CFG1(), |r| {
-            r.set_par_data_num_ones_thres(32 / 4);
+            r.set_par_data_num_ones_thres(self.if_width / 4);
             r.set_cal_num_iterations(1);
         })?;
         v.modify(apc.APC_EQZ_COMMON_CFG(), |r| {
