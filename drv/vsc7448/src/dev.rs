@@ -166,22 +166,7 @@ pub fn dev1g_init_sgmii(
     Ok(())
 }
 
-pub fn dev10g_init_sfi(
-    dev: Dev10g,
-    serdes_cfg: &serdes10g::Config,
-    v: &Vsc7448Spi,
-) -> Result<(), VscError> {
-    // jr2_sd10g_xfi_mode
-    v.modify(Vsc7448::XGXFI(dev.index()).XFI_CONTROL().XFI_MODE(), |r| {
-        r.set_sw_rst(0);
-        r.set_endian(1);
-        r.set_sw_ena(1);
-    })?;
-
-    // jr2_sd10g_cfg, moved into a separate function because bringing
-    // up a 10G SERDES is _hard_
-    let serdes_index = dev.index();
-    serdes_cfg.apply(serdes_index, v)?;
+pub fn dev10g_init_sfi(dev: Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
     port10g_flush(dev, v)?;
 
     // Remaining logic is from `jr2_port_conf_10g_set`

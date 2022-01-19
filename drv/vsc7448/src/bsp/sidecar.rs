@@ -202,8 +202,11 @@ impl<'a> Bsp<'a> {
 
         ////////////////////////////////////////////////////////////////////////
         // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
-        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
-        dev10g_init_sfi(Dev10g::new(0), &serdes_cfg, &self.vsc7448)?;
+        let serdes10g_cfg_sfi =
+            serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
+        let dev = Dev10g::new(0);
+        dev10g_init_sfi(dev, &self.vsc7448)?;
+        serdes10g_cfg_sfi.apply(dev.index(), &self.vsc7448)?;
 
         Ok(())
     }
