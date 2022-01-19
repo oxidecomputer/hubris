@@ -473,6 +473,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -940,6 +941,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-startup"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "stm32h7",
+]
+
+[[package]]
 name = "drv-stm32h7-usart"
 version = "0.1.0"
 dependencies = [
@@ -1089,6 +1099,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1139,6 +1150,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1168,6 +1180,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -2186,6 +2199,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",

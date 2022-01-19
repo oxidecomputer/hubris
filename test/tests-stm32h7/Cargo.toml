@@ -9,7 +9,6 @@ itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
-h7b3 = ["stm32h7/stm32h7b3"]
 
 [dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
