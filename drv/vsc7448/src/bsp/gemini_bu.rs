@@ -112,7 +112,9 @@ impl<'a> Bsp<'a> {
 
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         for dev in [0, 1] {
-            dev10g_init_sfi(Dev10g::new(dev), &serdes_cfg, &self.vsc7448)?;
+            let dev = Dev10g::new(dev);
+            dev10g_init_sfi(dev, &self.vsc7448)?;
+            serdes_cfg.apply(dev.index(), &self.vsc7448)?;
         }
 
         Ok(())

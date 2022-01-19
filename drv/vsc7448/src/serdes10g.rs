@@ -76,6 +76,8 @@ impl Config {
 
         let mult = SynthMultCalc::new(&f_pll)?;
 
+        let ob_cfg2_d_filter = if if_width > 10 { 0x7DF820 } else { 0x820820 };
+
         let tx_synth_off_comp_ena =
             if f_pll_khz_plain > 10_312_500 { 31 } else { 23 };
 
@@ -93,8 +95,6 @@ impl Config {
             (if_width * 64 * 1000000) / f_pll_khz_plain
         };
 
-        let ob_cfg2_d_filter = if if_width > 10 { 0x7DF820 } else { 0x820820 };
-
         ////////////////////////////////////////////////////////////////////////
         // `vtss_calc_sd10g65_setup_rx`
         let preset_type = SerdesPresetType::DacHw;
@@ -111,7 +111,6 @@ impl Config {
             half_rate_mode,
             high_data_rate,
             optimize_for_1g,
-
             tx_synth_off_comp_ena,
             pll_lpf_cur,
             pll_lpf_res,
@@ -123,6 +122,13 @@ impl Config {
     /// changed are converted into direct register assignments (rather than
     /// passing them around in the config struct).
     pub fn apply(&self, index: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+        // jr2_sd10g_xfi_mode
+        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+            r.set_sw_rst(0);
+            r.set_endian(1);
+            r.set_sw_ena(1);
+        })?;
+
         let dev = Vsc7448::XGANA(index);
 
         ////////////////////////////////////////////////////////////////////////
