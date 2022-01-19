@@ -4,7 +4,6 @@
 
 use crate::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
-    phy::PhyRw,
     serdes10g, serdes1g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
@@ -12,6 +11,7 @@ use crate::{
 use drv_stm32h7_gpio_api as gpio_api;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
+use vsc85xx::{init_vsc8504_phy, PhyRw};
 
 task_slot!(GPIO, gpio_driver);
 
@@ -131,7 +131,7 @@ impl<'a> Bsp<'a> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        crate::phy::init_vsc8504_phy(0, self)?;
+        init_vsc8504_phy(0, self)?;
         gpio_driver.reset(coma_mode).unwrap();
 
         // Now that the PHY is configured, we can bring up the VSC7448.  This
