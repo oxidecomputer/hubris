@@ -199,6 +199,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "call_rustfmt"
+version = "0.1.0"
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -473,6 +477,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -924,6 +929,7 @@ name = "drv-stm32h7-spi-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "call_rustfmt",
  "cfg-if 0.1.10",
  "cortex-m",
  "drv-spi-api",
@@ -933,10 +939,23 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "proc-macro2",
+ "quote",
  "ringbuf",
+ "serde",
  "stm32h7",
+ "syn",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-startup"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1089,6 +1108,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1139,6 +1159,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -1168,6 +1189,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",
@@ -2186,6 +2208,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
+ "drv-stm32h7-startup",
  "kern",
  "panic-halt",
  "panic-itm",

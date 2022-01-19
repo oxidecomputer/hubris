@@ -1,0 +1,13 @@
+[package]
+name = "drv-stm32h7-startup"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+stm32h7 = { version = "0.13.0", default-features = false, features = ["rt"] }
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+cortex-m-rt = "0.6.12"
+
+[features]
+h743 = ["stm32h7/stm32h743"]
+h753 = ["stm32h7/stm32h753"]

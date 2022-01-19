@@ -409,6 +409,27 @@ pub enum FaultInfo {
     Panic,
     /// A fault has been injected into this task by another task
     Injected(TaskId),
+    /// A fault has been delivered by a server task.
+    FromServer(TaskId, ReplyFaultReason),
+}
+
+/// We're using an explicit `TryFrom` impl for `Sysnum` instead of
+/// `FromPrimitive` because the kernel doesn't currently depend on `num-traits`
+/// and this seems okay.
+impl core::convert::TryFrom<u32> for ReplyFaultReason {
+    type Error = ();
+
+    fn try_from(x: u32) -> Result<Self, Self::Error> {
+        match x {
+            0 => Ok(Self::UndefinedOperation),
+            1 => Ok(Self::BadMessageSize),
+            2 => Ok(Self::BadMessageContents),
+            3 => Ok(Self::BadLeases),
+            4 => Ok(Self::ReplyBufferTooSmall),
+            5 => Ok(Self::AccessViolation),
+            _ => Err(()),
+        }
+    }
 }
 
 impl From<UsageError> for FaultInfo {
@@ -438,6 +459,7 @@ pub enum UsageError {
     OffsetOutOfRange,
     NoIrq,
     BadKernelMessage,
+    BadReplyFaultReason,
 }
 
 /// Origin of a fault.
@@ -447,6 +469,36 @@ pub enum FaultSource {
     User,
     /// User code asked the kernel to do something bad on its behalf.
     Kernel,
+}
+
+/// Reasons a server might cite when using the `REPLY_FAULT` syscall.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub enum ReplyFaultReason {
+    /// The message indicated some operation number that is unknown to the
+    /// server -- which almost certainly indicates that the client intended the
+    /// message for a different kind of server.
+    UndefinedOperation = 0,
+    /// The message sent by the client had the wrong size to even attempt
+    /// parsing by the server -- either too short or too long. (Because most
+    /// messages are fixed size, it currently doesn't seem useful to distinguish
+    /// between too-short and too-long.)
+    BadMessageSize = 1,
+    /// The server attempted to parse the message, and couldn't. This may
+    /// indicate an enum with an illegal value, or a more nuanced error on
+    /// operations that use serde encoding.
+    BadMessageContents = 2,
+    /// The client did not provide the leases required for the operation, or
+    /// provided them with the wrong attributes.
+    BadLeases = 3,
+    /// The client did not provide a reply buffer large enough to receive the
+    /// server's reply, despite this information being implied by the IPC
+    /// protocol.
+    ReplyBufferTooSmall = 4,
+
+    /// Application-defined: The client attempted to operate on a resource that
+    /// is not available to them due to mandatory access control or other type
+    /// of access validation.
+    AccessViolation = 5,
 }
 
 /// Enumeration of syscall numbers.
@@ -464,6 +516,7 @@ pub enum Sysnum {
     GetTimer = 9,
     RefreshTaskId = 10,
     Post = 11,
+    ReplyFault = 12,
 }
 
 /// We're using an explicit `TryFrom` impl for `Sysnum` instead of
@@ -486,6 +539,7 @@ impl core::convert::TryFrom<u32> for Sysnum {
             9 => Ok(Self::GetTimer),
             10 => Ok(Self::RefreshTaskId),
             11 => Ok(Self::Post),
+            12 => Ok(Self::ReplyFault),
             _ => Err(()),
         }
     }

@@ -77,6 +77,9 @@ interrupts = {36 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
+[tasks.spi2_driver.config.spi]
+global_config = "spi2"
+
 [tasks.spi5_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -88,6 +91,9 @@ start = true
 interrupts = {85 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
+
+[tasks.spi5_driver.config.spi]
+global_config = "spi5"
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -589,3 +595,32 @@ refdes = "U65"
 # bus = "ECP5->S?"
 # address = 0b1011_011
 # description = ""
+
+
+[config.spi.spi2]
+controller = 2
+
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5}
+
+[config.spi.spi2.devices.ethernet_switch]
+mux = "port_i"
+cs = {port = "I", pin = 0}
+
+
+[config.spi.spi5]
+controller = 5
+
+[config.spi.spi2.mux_options.port_jk]
+outputs = [
+    {port = "J", pins = [10], af = 5},
+    {port = "K", pins = [0], af = 5},
+]
+input = {port = "J", pin = 11, af = 5}
+
+[config.spi.spi5.devices.seq_fpga]
+mux = "port_jk"
+cs = {port = "K", pin = 1}

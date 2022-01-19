@@ -2,6 +2,7 @@ cargo-features = ["resolver"]
 
 [workspace]
 members = [
+    "build/call_rustfmt",
     "build/i2c",
     "build/util",
     "build/xtask",
@@ -50,6 +51,7 @@ members = [
     "drv/stm32h7-rcc-api",
     "drv/stm32h7-spi",
     "drv/stm32h7-spi-server",
+    "drv/stm32h7-startup",
     "drv/stm32h7-usart",
     "drv/stm32h7-i2c-server",
     "drv/stm32h7-qspi",
