@@ -86,6 +86,8 @@ members = [
     "drv/gimlet-hf-server",
     "drv/gimlet-hf-api",
     "drv/vsc7448",
+    "drv/vsc85xx",
+    "drv/vsc-err",
 
     "drv/sidecar-seq-server",
 

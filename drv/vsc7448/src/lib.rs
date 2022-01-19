@@ -8,64 +8,15 @@ pub mod bsp;
 pub mod spi;
 
 mod dev;
-mod phy;
 mod port;
 mod serdes10g;
 mod serdes1g;
 mod serdes6g;
 mod spi_phy;
 
-use drv_spi_api::SpiError;
 use userlib::hl::sleep_for;
 use vsc7448_pac::Vsc7448;
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum VscError {
-    SpiError(SpiError),
-    BadChipId(u32),
-    MiimReadErr {
-        miim: u32,
-        phy: u8,
-        page: u16,
-        addr: u8,
-    },
-    /// Mismatch in the `IDENTIFIER_1` PHY register
-    BadPhyId1(u16),
-    /// Mismatch in the `IDENTIFIER_2` PHY register
-    BadPhyId2(u16),
-    /// Indicates that the VSC8504 is not Tesla E silicon
-    BadPhyRev,
-    PhyInitTimeout,
-    MiimIdleTimeout,
-    MiimReadTimeout,
-    Serdes6gReadTimeout {
-        instance: u32,
-    },
-    Serdes6gWriteTimeout {
-        instance: u32,
-    },
-    PortFlushTimeout {
-        port: u32,
-    },
-    AnaCfgTimeout,
-    SerdesFrequencyTooLow(u64),
-    SerdesFrequencyTooHigh(u64),
-    TriDecFailed(u16),
-    BiDecFailed(u16),
-    LtDecFailed(u16),
-    LsDecFailed(u16),
-    TxPllLockFailed,
-    TxPllFsmFailed,
-    RxPllLockFailed,
-    RxPllFsmFailed,
-    OffsetCalFailed,
-}
-
-impl From<SpiError> for VscError {
-    fn from(s: SpiError) -> Self {
-        Self::SpiError(s)
-    }
-}
+pub use vsc_err::VscError;
 
 /// Performs initial configuration (endianness, soft reset, read padding) of
 /// the VSC7448, checks that its chip ID is correct, and brings core systems

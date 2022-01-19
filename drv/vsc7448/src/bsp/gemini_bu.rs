@@ -4,7 +4,6 @@
 
 use crate::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
-    phy::{init_vsc8522_phy, PhyRw},
     serdes10g, serdes6g,
     spi::Vsc7448Spi,
     spi_phy::Vsc7448SpiPhy,
@@ -13,6 +12,7 @@ use crate::{
 use ringbuf::*;
 use userlib::*;
 use vsc7448_pac::{phy, Vsc7448};
+use vsc85xx::{init_vsc8522_phy, PhyRw};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
