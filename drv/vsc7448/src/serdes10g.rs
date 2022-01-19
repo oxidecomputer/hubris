@@ -21,6 +21,7 @@ pub struct Config {
     apc_preset: SerdesApcPreset,
     if_width: u32,
     if_mode_sel: u32,
+    ob_cfg2_d_filter: u32,
 
     half_rate_mode: bool,
     high_data_rate: bool,
@@ -55,6 +56,15 @@ impl Config {
             ((f_pll.f_pll_khz as u64 * f_pll.ratio_num as u64)
                 / (f_pll.ratio_den as u64)) as u32;
 
+        // These two values are set in `vtss_jaguar2c_apc10g_setup`, so I think
+        // they're using the unscaled values (i.e. the half_rate_mode adjustment
+        // isn't applied to them)
+        let optimize_for_1g = f_pll.f_pll_khz <= 2_500_000;
+
+        // XXX: What happens if this is exactly 2_500_000?  Then half_rate_mode
+        // will be false and high_data_rate will also be false.
+        let high_data_rate = f_pll_khz_plain > 2_500_000;
+
         let half_rate_mode = if f_pll_khz_plain < 2_500_000 {
             f_pll_khz_plain *= 2;
             f_pll.f_pll_khz *= 2;
@@ -63,21 +73,14 @@ impl Config {
             false
         };
 
-        // XXX: should this check the scaled or unscaled f_pll_khz?
-        let optimize_for_1g = f_pll.f_pll_khz < 2_500_000;
-
-        // XXX: What happens if this is exactly 2_500_000?  Then half_rate_mode
-        // will be false and high_data_rate will also be false.
-        let high_data_rate = f_pll_khz_plain > 2_500_000;
-
         let mult = SynthMultCalc::new(&f_pll)?;
 
         let tx_synth_off_comp_ena =
             if f_pll_khz_plain > 10_312_500 { 31 } else { 23 };
 
-        let (pll_lpf_cur, pll_lpf_res) = if f_pll_khz_plain > 7000000 {
+        let (pll_lpf_cur, pll_lpf_res) = if f_pll_khz_plain > 7_000_000 {
             (3, 10)
-        } else if f_pll_khz_plain > 3000000 {
+        } else if f_pll_khz_plain > 3_000_000 {
             (2, 15)
         } else {
             (0, 10)
@@ -89,8 +92,10 @@ impl Config {
             (if_width * 64 * 1000000) / f_pll_khz_plain
         };
 
+        let ob_cfg2_d_filter = if if_width > 10 { 0x7DF820 } else { 0x820820 };
+
         ////////////////////////////////////////////////////////////////////////
-        // `vtss_calc_sd10g65_setup_rx
+        // `vtss_calc_sd10g65_setup_rx`
         let preset_type = SerdesPresetType::DacHw;
         let rx_preset = SerdesRxPreset::new(preset_type);
         let apc_preset = SerdesApcPreset::new(preset_type, optimize_for_1g);
@@ -142,7 +147,6 @@ impl Config {
         // I think this means we need to configure both SD10G65_SBUS_TX_CFG and
         // SD10G65_SBUS_RX_CFG here; otherwise, the Tx PLL won't lock.
         v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
-            r.set_sbus_spare_pool(0);
             r.set_sbus_bias_en(1);
         })?;
 
@@ -199,6 +203,9 @@ impl Config {
         v.modify(tx_synth.SD10G65_SSC_CFG1(), |r| {
             r.set_sync_ctrl_fsel(35);
         })?;
+        v.modify(ob.SD10G65_OB_CFG2(), |r| {
+            r.set_d_filter(self.ob_cfg2_d_filter);
+        })?;
 
         v.modify(tx_rcpll.SD10G65_TX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
@@ -249,6 +256,10 @@ impl Config {
         let rx_synth = dev.SD10G65_RX_SYNTH();
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
             r.set_synth_ena(1);
+        })?;
+        v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
+            r.set_sbus_bias_en(1);
+            r.set_sbus_spare_pool(0);
         })?;
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG2(), |r| {
             r.set_synth_aux_ena(1);
@@ -772,12 +783,14 @@ impl FrequencySetup {
     pub fn new(mode: Mode) -> Self {
         match mode {
             Mode::Lan10g => FrequencySetup {
+                // 10.3125Gbps
                 f_pll_khz: 10_000_000,
-                ratio_num: 66, // 10.3125Gbps
+                ratio_num: 66,
                 ratio_den: 64,
             },
             Mode::Sgmii => FrequencySetup {
-                f_pll_khz: 1000000,
+                // ~1.25Gbps
+                f_pll_khz: 1_000_000,
                 ratio_num: 10,
                 ratio_den: 8,
             },
@@ -799,7 +812,7 @@ struct SynthMultCalc {
 }
 
 impl SynthMultCalc {
-    /// sd10g65_synth_mult_calc
+    /// `sd10g65_synth_mult_calc`
     fn new(f_pll_in: &FrequencySetup) -> Result<SynthMultCalc, VscError> {
         let num_in_tmp =
             (f_pll_in.f_pll_khz as u64) * (f_pll_in.ratio_num as u64);
