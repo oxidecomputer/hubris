@@ -63,17 +63,41 @@ fn main() -> ! {
         hl::recv_without_notification(
             buffer.as_bytes_mut(),
             |_op: u16, msg| -> Result<(), ResponseCode> {
-                let (_msg, caller) =
-                    msg.fixed::<(), u32>().ok_or(ResponseCode::BadArg)?;
+                let (_msg, caller) = msg
+                    .fixed_with_leases::<(), usize>(1)
+                    .ok_or(ResponseCode::BadArg)?;
 
                 // if the oscilator is powered off, we won't get good RNG.
                 if pmc.pdruncfg0.read().pden_rng().is_poweredoff() {
                     return Err(ResponseCode::PoweredOff);
                 }
 
-                let number = rng.random_number.read().bits();
+                let borrow = caller.borrow(0);
+                let borrow_info = borrow.info().ok_or(ResponseCode::BadArg)?;
 
-                caller.reply(number);
+                if !borrow_info.attributes.contains(LeaseAttributes::WRITE) {
+                    return Err(ResponseCode::BadArg);
+                }
+
+                let mut cnt = 0;
+                const STEP: usize = 4; // sizeof(u32)
+                for i in 0..(borrow_info.len / STEP) {
+                    let number = rng.random_number.read().bits();
+                    borrow.write_at(i * STEP, number);
+                    cnt += STEP;
+                }
+
+                let remain = borrow_info.len % STEP;
+                if remain > 0 {
+                    let ent = rng.random_number.read().bits().to_ne_bytes();
+                    borrow.write_fully_at(
+                        borrow_info.len - remain,
+                        &ent[0..remain],
+                    );
+                    cnt += remain;
+                }
+
+                caller.reply(cnt);
 
                 Ok(())
             },
