@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet, sidecar]
         include:
           - build: stm32f3
             app_name: demo-stm32f3-discovery
@@ -54,6 +54,10 @@ jobs:
           - build: gimlet
             app_name: gimlet
             app_toml: app/gimlet/app.toml
+            target: thumbv7em-none-eabihf
+          - build: sidecar
+            app_name: sidecar
+            app_toml: app/sidecar/app.toml
             target: thumbv7em-none-eabihf
 
           - os: ubuntu-latest
