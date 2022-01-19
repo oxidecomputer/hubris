@@ -317,6 +317,14 @@ pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
     IRQ_TABLE_SIZE = irqs.len();
 }
 
+// Because debuggers need to know the clock frequency to set the SWO clock
+// scaler that enables ITM, and because ITM is particularly useful when
+// debugging boot failures, this should be set as early in boot as it can
+// be.
+pub unsafe fn set_clock_freq(tick_divisor: u32) {
+    CLOCK_FREQ_KHZ = tick_divisor;
+}
+
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
     let initial_stack = task.descriptor().initial_stack;
@@ -657,7 +665,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     }
 
     unsafe {
-        CLOCK_FREQ_KHZ = tick_divisor;
         CURRENT_TASK_PTR = Some(NonNull::from(task));
     }
 
