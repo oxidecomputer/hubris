@@ -2,6 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! This crate provides functions for working with VSC85xx PHYs
+//! (in particular, the VSC8522, VSC8504, and VSC8552)
+//!
+//! It relies heavily on the trait [PhyRw], which callers must implement.  This
+//! trait is an abstraction over reading and writing raw PHY registers.
 #![no_std]
 
 use userlib::hl::sleep_for;
