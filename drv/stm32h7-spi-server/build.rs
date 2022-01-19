@@ -77,6 +77,8 @@ enum ConfigPort {
     G,
     H,
     I,
+    J,
+    K,
 }
 
 #[derive(Deserialize)]
