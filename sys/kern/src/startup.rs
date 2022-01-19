@@ -38,6 +38,9 @@ pub unsafe fn start_kernel(
 ) -> ! {
     klog!("starting: laziness");
 
+    // Set our clock frequency so debuggers can find it as needed
+    crate::arch::set_clock_freq(tick_divisor);
+
     // Create our simple allocator.
     let alloc = BumpPointer(core::slice::from_raw_parts_mut(
         scratch_ram,
