@@ -9,6 +9,12 @@ zerocopy = "0.6.1"
 lpc55-pac = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+drv-rng-api = {path = "../rng-api"}
+rand_core = { version = "0.6" }
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

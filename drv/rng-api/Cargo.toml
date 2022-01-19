@@ -1,0 +1,24 @@
+[package]
+name = "drv-rng-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+abi = { path = "../../sys/abi" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+num = { version = "0.4", default-features = false }
+num-traits = { version = "0.2.12", default-features = false }
+getrandom = { version = "0.2", default-features = false, optional = true}
+rand_core = { version = "0.6" }
+zerocopy = "0.6.1"
+
+[features]
+custom-getrandom = ["getrandom/custom"]
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[lib]
+name = "drv_rng_api"
+test = false
+bench = false

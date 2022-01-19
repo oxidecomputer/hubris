@@ -89,6 +89,7 @@ members = [
     "drv/vsc7448",
     "drv/vsc85xx",
     "drv/vsc-err",
+    "drv/rng-api",
 
     "drv/sidecar-seq-server",
 
