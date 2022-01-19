@@ -153,6 +153,27 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
             }
         }
     }
+
+    fn smi_read(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        phy: u8,
+        register: u8,
+    ) -> Result<u16, RequestError<NetError>> {
+        // TODO: this should not be open to all callers!
+        Ok(self.eth.device_mut().smi_read(phy, register))
+    }
+
+    fn smi_write(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        phy: u8,
+        register: u8,
+        value: u16,
+    ) -> Result<(), RequestError<NetError>> {
+        // TODO: this should not be open to all callers!
+        Ok(self.eth.device_mut().smi_write(phy, register, value))
+    }
 }
 
 impl NotificationHandler for ServerImpl<'_> {

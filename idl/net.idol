@@ -32,5 +32,28 @@ Interface(
                 err: CLike("NetError"),
             ),
         ),
+        "smi_read": (
+            doc: "Reads a register from a SMI-attached device.",
+            args: {
+                "phy": "u8",
+                "register": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("NetError"),
+            ),
+        ),
+        "smi_write": (
+            doc: "Reads a register from a SMI-attached device.",
+            args: {
+                "phy": "u8",
+                "register": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
     },
 )

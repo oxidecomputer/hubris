@@ -10,6 +10,7 @@ stm32h7 = {version = "0.13", features = ["stm32h743"]}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 num-traits = {version = "0.2.12", default-features = false}
+zerocopy = "0.6"
 
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}

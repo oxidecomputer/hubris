@@ -11,6 +11,7 @@ userlib = {path = "../../sys/userlib"}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 num-traits = {version = "0.2", default-features = false}
+zerocopy = "0.6"
 
 [dependencies.smoltcp]
 version = "0.8.0"
