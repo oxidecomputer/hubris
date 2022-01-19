@@ -7,6 +7,7 @@ use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
+#[derive(Copy, Clone, Debug)]
 pub enum Mode {
     Lan10g,
     Sgmii,
@@ -18,6 +19,8 @@ pub struct Config {
     mult: SynthMultCalc,
     rx_preset: SerdesRxPreset,
     apc_preset: SerdesApcPreset,
+    if_width: u32,
+    if_mode_sel: u32,
 
     half_rate_mode: bool,
     high_data_rate: bool,
@@ -30,14 +33,24 @@ pub struct Config {
 
 impl Config {
     pub fn new(mode: Mode) -> Result<Self, VscError> {
-        if matches!(mode, Mode::Sgmii) {
-            // TODO
-            panic!("Haven't implemented SGMII mode yet");
-        }
+        let mut f_pll = FrequencySetup::new(mode);
+        let if_width = match mode {
+            Mode::Lan10g => 32,
+            Mode::Sgmii => 10,
+        };
+
+        // `sd10g65_get_iw_setting`
+        let if_mode_sel = match if_width {
+            8 => 0,
+            10 => 1,
+            16 => 2,
+            20 => 3,
+            32 => 4,
+            40 => 5,
+            _ => panic!("Invalid if_width {}", if_width),
+        };
 
         // `vtss_calc_sd10g65_setup_tx`
-        let mut f_pll = FrequencySetup::new(mode);
-
         let mut f_pll_khz_plain =
             ((f_pll.f_pll_khz as u64 * f_pll.ratio_num as u64)
                 / (f_pll.ratio_den as u64)) as u32;
@@ -70,7 +83,6 @@ impl Config {
             (0, 10)
         };
 
-        let if_width = 32;
         let pllf_ref_cnt_end = if half_rate_mode {
             (if_width * 64 * 1000000) / (f_pll_khz_plain >> 1)
         } else {
@@ -88,6 +100,8 @@ impl Config {
             mult,
             rx_preset,
             apc_preset,
+            if_width,
+            if_mode_sel,
             half_rate_mode,
             high_data_rate,
             optimize_for_1g,
@@ -110,6 +124,7 @@ impl Config {
         let tx_rcpll = dev.SD10G65_TX_RCPLL();
         let ob = dev.SD10G65_OB();
         let ib = dev.SD10G65_IB();
+        let des = dev.SD10G65_DES();
 
         v.modify(ob.SD10G65_SBUS_TX_CFG(), |r| {
             r.set_sbus_bias_en(1);
@@ -372,6 +387,9 @@ impl Config {
             r.set_ib_tc_dfe(self.rx_preset.ib_tc_dfe.into());
             r.set_ib_tc_eq(self.rx_preset.ib_tc_eq.into());
         })?;
+        v.modify(des.SD10G65_DES_CFG0(), |r| {
+            r.set_des_if_mode_sel(self.if_mode_sel);
+        })?;
 
         v.modify(rx_rcpll.SD10G65_RX_RCPLL_CFG2(), |r| {
             r.set_pll_vco_cur(7);
@@ -578,12 +596,11 @@ impl Config {
             // This is the calculation for `calibration_time_ms[1]` in the SDK
             let cal_clk_div = 3;
             let cal_num_iterations = 1;
-            let if_width = 32;
             hl::sleep_for(
                 ((1u64 << (2 * cal_clk_div))
                     * (cal_num_iterations + 1)
                     * 156500
-                    * if_width
+                    * self.if_width as u64
                     + (self.f_pll_khz_plain as u64 - 1))
                     / (self.f_pll_khz_plain as u64),
             );
@@ -759,8 +776,11 @@ impl FrequencySetup {
                 ratio_num: 66, // 10.3125Gbps
                 ratio_den: 64,
             },
-            // TODO
-            _ => panic!("Can't support mode"),
+            Mode::Sgmii => FrequencySetup {
+                f_pll_khz: 1000000,
+                ratio_num: 10,
+                ratio_den: 8,
+            },
         }
     }
 }
