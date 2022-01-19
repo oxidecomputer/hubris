@@ -7,14 +7,8 @@ version = "0.1.0"
 [features]
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "kern/klog-semihosting"]
-h743 = ["stm32h7/stm32h743"]
-h753 = ["stm32h7/stm32h753"]
-h7b3 = ["stm32h7/stm32h7b3"]
-# Available but unused:
-# h743v = ["stm32h7/stm32h743v"]
-# h747cm4 = ["stm32h7/stm32h747cm4"]
-# h747cm7 = ["stm32h7/stm32h747cm7"]
-# h753v = ["stm32h7/stm32h753v"]
+h743 = ["stm32h7/stm32h743", "drv-stm32h7-startup/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32h7-startup/h753"]
 
 [dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
@@ -24,6 +18,7 @@ panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
 cfg-if = "0.1.10"
 stm32h7 = { version = "0.13.0", default-features = false, features = ["rt"] }
+drv-stm32h7-startup = {path = "../../drv/stm32h7-startup"}
 
 [dependencies.kern]
 path = "../../sys/kern"
