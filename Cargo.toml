@@ -73,6 +73,8 @@ members = [
     "drv/gimlet-hf-server",
     "drv/gimlet-hf-api",
 
+    "drv/sidecar-seq-server",
+
     "test/tests-gemini-bu",
     "test/tests-gemini-bu-rot",
     "test/tests-stm32fx",
