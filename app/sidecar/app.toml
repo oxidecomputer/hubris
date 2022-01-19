@@ -65,6 +65,30 @@ uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 task-slots = ["rcc_driver"]
 
+[tasks.spi2_driver]
+path = "../../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["h753", "spi2"]
+uses = ["spi2"]
+start = true
+interrupts = {36 = 1}
+stacksize = 1000
+task-slots = ["gpio_driver", "rcc_driver"]
+
+[tasks.spi5_driver]
+path = "../../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["h753", "spi5"]
+uses = ["spi5"]
+start = true
+interrupts = {85 = 1}
+stacksize = 1000
+task-slots = ["gpio_driver", "rcc_driver"]
+
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
@@ -143,6 +167,10 @@ size = 1024
 
 [peripherals.spi4]
 address = 0x40013400
+size = 1024
+
+[peripherals.spi5]
+address = 0x40015000
 size = 1024
 
 [peripherals.usart3]
