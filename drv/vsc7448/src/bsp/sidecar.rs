@@ -9,11 +9,20 @@ use crate::{
     VscError,
 };
 use drv_stm32h7_gpio_api as gpio_api;
-use userlib::{hl::sleep_for, task_slot};
+use ringbuf::*;
+use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8504_phy, PhyRw};
 
 task_slot!(GPIO, gpio_driver);
+
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    None,
+    Initialized(u64),
+    FailedToInitialize(VscError),
+}
+ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a> {
     vsc7448: &'a Vsc7448Spi,
@@ -51,6 +60,15 @@ impl<'a> Bsp<'a> {
     }
 
     pub fn init(&self) -> Result<(), VscError> {
+        let out = self.init_inner();
+        match out {
+            Err(e) => ringbuf_entry!(Trace::FailedToInitialize(e)),
+            Ok(_) => ringbuf_entry!(Trace::Initialized(sys_get_timer().now)),
+        }
+        out
+    }
+
+    fn init_inner(&self) -> Result<(), VscError> {
         // See RFD144 for a detailed look at the design
         let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
 
