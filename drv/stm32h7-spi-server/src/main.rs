@@ -979,6 +979,89 @@ cfg_if::cfg_if! {
                 },
             ],
         };
+    } else if #[cfg(all(target_board = "sidecar-1", feature = "spi2"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI2::ptr(),
+            peripheral: rcc_api::Peripheral::Spi2,
+            mux_options: &[
+                // Mux option 0 is on port I3:0.
+                SpiMuxOption {
+                    outputs: &[
+                        (
+                            PinSet {
+                                port: gpio_api::Port::I,
+                                pin_mask: (1 << 1) | (1 << 3),
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::I,
+                            pin_mask: 1 << 2,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
+                    swap_data: false,
+                },
+                // There may be other mux options, but we're not using any
+                // at the moment.
+            ],
+            devices: &[
+                // Device 0 is the VSC7448 ethernet switch IC
+                // CS is SPI_SP_TO_MGMT_CS_L.
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::I, pin_mask: 1 << 0 },
+                },
+            ],
+        };
+    } else if #[cfg(all(target_board = "sidecar-1", feature = "spi5"))] {
+        const CONFIG: ServerConfig = ServerConfig {
+            registers: device::SPI5::ptr(),
+            peripheral: rcc_api::Peripheral::Spi5,
+            mux_options: &[
+                SpiMuxOption {
+                    outputs: &[
+                        // MOSI: PJ10
+                        (
+                            PinSet {
+                                port: gpio_api::Port::J,
+                                pin_mask: 1 << 10,
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                        // SCK: PK0
+                        (
+                            PinSet {
+                                port: gpio_api::Port::K,
+                                pin_mask: 1 << 0,
+                            },
+                            gpio_api::Alternate::AF5,
+                        ),
+                    ],
+
+                    // MISO: PJ11
+                    input: (
+                        PinSet {
+                            port: gpio_api::Port::J,
+                            pin_mask: 1 << 11,
+                        },
+                        gpio_api::Alternate::AF5,
+                    ),
+                    swap_data: false,
+                },
+            ],
+
+            devices: &[
+                // Device 0 is the sequencer FPGA (U43)
+                // PK1: SPI_SP_TO_FPGA_CS0_L
+                DeviceDescriptor {
+                    mux_index: 0,
+                    cs: PinSet { port: gpio_api::Port::K, pin_mask: 1 << 1 },
+                },
+            ],
+        };
     } else {
         compile_error!("unsupported board-controller combination");
     }
