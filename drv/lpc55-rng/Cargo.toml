@@ -9,6 +9,7 @@ zerocopy = "0.6.1"
 lpc55-pac = "0.3.0"
 num-traits = { version = "0.2.12", default-features = false }
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+drv-rng-api = {path = "../rng-api"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

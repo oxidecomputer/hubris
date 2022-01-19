@@ -28,24 +28,13 @@
 #![no_main]
 
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
+use drv_rng_api::RngError;
 use userlib::*;
 use zerocopy::AsBytes;
 
 use lpc55_pac as device;
 
 task_slot!(SYSCON, syscon_driver);
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 1,
-    PoweredOff = 2,
-}
-
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
-}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -62,21 +51,21 @@ fn main() -> ! {
     loop {
         hl::recv_without_notification(
             buffer.as_bytes_mut(),
-            |_op: u16, msg| -> Result<(), ResponseCode> {
+            |_op: u16, msg| -> Result<(), RngError> {
                 let (_msg, caller) = msg
                     .fixed_with_leases::<(), usize>(1)
-                    .ok_or(ResponseCode::BadArg)?;
+                    .ok_or(RngError::BadArg)?;
 
                 // if the oscilator is powered off, we won't get good RNG.
                 if pmc.pdruncfg0.read().pden_rng().is_poweredoff() {
-                    return Err(ResponseCode::PoweredOff);
+                    return Err(RngError::PoweredOff);
                 }
 
                 let borrow = caller.borrow(0);
-                let borrow_info = borrow.info().ok_or(ResponseCode::BadArg)?;
+                let borrow_info = borrow.info().ok_or(RngError::BadArg)?;
 
                 if !borrow_info.attributes.contains(LeaseAttributes::WRITE) {
-                    return Err(ResponseCode::BadArg);
+                    return Err(RngError::BadArg);
                 }
 
                 let mut cnt = 0;

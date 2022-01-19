@@ -78,6 +78,7 @@ members = [
     "drv/gimlet-seq-server",
     "drv/gimlet-hf-server",
     "drv/gimlet-hf-api",
+    "drv/rng-api",
 
     "drv/sidecar-seq-server",
 

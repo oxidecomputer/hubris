@@ -1,0 +1,18 @@
+[package]
+name = "drv-rng-api"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+abi = { path = "../../sys/abi" }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+num-traits = { version = "0.2.12", default-features = false }
+getrandom = { version = "0.2", default-features = false, optional = true}
+
+[features]
+custom-getrandom = ["getrandom/custom"]
+
+[lib]
+name = "drv_rng_api"
+test = false
+bench = false
