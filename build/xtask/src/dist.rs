@@ -844,7 +844,7 @@ fn generate_task_linker_script(
             writeln!(linkscr, "    *(.{} .{}.*);", section, section)?;
             writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())?;
         }
-        writeln!(linkscr, "}} INSERT BEFORE .got")?;
+        writeln!(linkscr, "}} INSERT AFTER .uninit")?;
     }
 
     Ok(())
