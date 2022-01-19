@@ -13,6 +13,7 @@ pub enum Mode {
     Sgmii,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Config {
     f_pll_khz_plain: u32,
 
@@ -115,6 +116,7 @@ impl Config {
             pll_lpf_cur,
             pll_lpf_res,
             pllf_ref_cnt_end,
+            ob_cfg2_d_filter,
         })
     }
     /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
@@ -639,6 +641,7 @@ enum SerdesPresetType {
 }
 
 /// Equivalent to `vtss_sd10g65_preset_struct_t`
+#[derive(Copy, Clone, Debug, PartialEq)]
 struct SerdesRxPreset {
     synth_phase_data: u8,
     ib_main_thres_offs: u8,
@@ -683,6 +686,7 @@ impl SerdesRxPreset {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 struct SerdesApcPreset {
     ld_lev_ini: u8,
     range_sel: u8,
