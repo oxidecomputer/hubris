@@ -1661,12 +1661,25 @@ fn load_elf(
         // Check for address overlap
         let range = addr..addr + size as u32;
         if let Some(overlap) = output.range(range.clone()).next() {
-            bail!(
-                "{}: record address range {:x?} overlaps {:x}",
-                input.display(),
-                range,
-                overlap.0
-            );
+            if overlap.1.source_file != input {
+                bail!(
+                    "{}: address range {:x?} overlaps {:x} \
+                    (from {}); does {} have an insufficient amount of flash?",
+                    input.display(),
+                    range,
+                    overlap.0,
+                    overlap.1.source_file.display(),
+                    input.display(),
+                );
+            } else {
+                bail!(
+                    "{}: ELF file internally inconsistent: \
+                    address range {:x?} overlaps {:x}",
+                    input.display(),
+                    range,
+                    overlap.0,
+                );
+            }
         }
         output.insert(
             addr,
