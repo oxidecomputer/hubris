@@ -12,7 +12,7 @@ use drv_stm32h7_gpio_api as gpio_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
-use vsc85xx::{init_vsc8504_phy, PhyRw};
+use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
 task_slot!(GPIO, gpio_driver);
 
@@ -165,7 +165,7 @@ impl<'a> Bsp<'a> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        init_vsc8504_phy(0, self)?;
+        init_vsc8504_phy(&mut Phy { port: 0, rw: self })?;
         gpio_driver.reset(coma_mode).unwrap();
 
         // Now that the PHY is configured, we can bring up the VSC7448.  This
