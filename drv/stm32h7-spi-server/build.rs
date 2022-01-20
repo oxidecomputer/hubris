@@ -109,7 +109,29 @@ struct Af(usize);
 #[derive(Clone, Debug, Deserialize)]
 struct DeviceDescriptorConfig {
     mux: String,
+    #[serde(default)]
+    clock_divider: ClockDivider,
     cs: GpioPinConfig,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+enum ClockDivider {
+    DIV2,
+    DIV4,
+    DIV8,
+    DIV16,
+    DIV32,
+    DIV64,
+    DIV128,
+    DIV256,
+}
+
+impl Default for ClockDivider {
+    fn default() -> ClockDivider {
+        // When this config mechanism was introduced, we had everything set at
+        // DIV64 for a ~1.5625 MHz SCK rate.
+        Self::DIV64
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -160,26 +182,30 @@ impl ToTokens for SpiConfig {
             .map(|(i, k)| (k, i))
             .collect();
 
-        // We don't derive ToTokens for DeviceDescriptorConfig because it needs
-        // extra knowledge (the mux_indices map) to do the conversion. Instead,
-        // convert it here:
-        let device_code = self.devices.values().map(|dev| {
-            let mux_index = mux_indices[&dev.mux];
-            let cs = &dev.cs;
-            quote::quote! {
-                DeviceDescriptor {
-                    mux_index: #mux_index,
-                    cs: #cs,
-                }
-            }
-        });
-
         // The svd2rust PAC can't decide whether acronyms are words, so we get
         // to produce both identifiers.
         let devname: syn::Ident =
             syn::parse_str(&format!("SPI{}", self.controller)).unwrap();
         let pname: syn::Ident =
             syn::parse_str(&format!("Spi{}", self.controller)).unwrap();
+
+        // We don't derive ToTokens for DeviceDescriptorConfig because it needs
+        // extra knowledge (the mux_indices map) to do the conversion. Instead,
+        // convert it here:
+        let device_code = self.devices.values().map(|dev| {
+            let mux_index = mux_indices[&dev.mux];
+            let cs = &dev.cs;
+            let div: syn::Ident =
+                syn::parse_str(&format!("{:?}", dev.clock_divider)).unwrap();
+            quote::quote! {
+                DeviceDescriptor {
+                    mux_index: #mux_index,
+                    cs: #cs,
+                    // `spi1` here is _not_ a typo/oversight.
+                    clock_divider: device::spi1::cfg1::MBR_A::#div,
+                }
+            }
+        });
 
         let muxes = self.mux_options.values();
 
