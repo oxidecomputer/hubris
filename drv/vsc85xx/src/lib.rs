@@ -141,8 +141,6 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
 pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
-    vsc85xx_patch(port, v)?;
-
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
         return Err(VscError::BadId1(id1));
@@ -156,6 +154,8 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
         return Err(VscError::BadRev);
     }
 
+    vsc85xx_patch(port, v)?;
+
     v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
         r.0 |= 0b01 << 14; // QSGMII
     })?;
@@ -168,6 +168,58 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 
     // The PHY is already configured for copper in register 23
     // TODO: check that this is correct
+
+    // Now, we reset the PHY and wait for the bit to clear
+    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+        r.set_sw_reset(1);
+    })?;
+    v.wait_timeout(port, phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
+
+    Ok(())
+}
+
+/// Initializes a VSC8552 PHY using SGMII based on the "Configuration"
+/// guide in the datasheet (section 3.1.7).  This should be called _after_
+/// the PHY is reset (i.e. the reset pin is toggled and then the caller
+/// waits for 120 ms).  The caller is also responsible for handling the
+/// `COMA_MODE` pin.
+pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    if id1 != 0x7 {
+        return Err(VscError::BadId1(id1));
+    }
+    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    if id2 != 0x4e2 {
+        return Err(VscError::BadId2(id2));
+    }
+    let rev = v.read(port, phy::GPIO::EXTENDED_REVISION())?;
+    if rev.tesla_e() != 0x01 {
+        return Err(VscError::BadRev);
+    }
+
+    vsc85xx_patch(port, v)?;
+
+    v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+        // MAC configuration = SGMII
+        r.0 &= !(0b11 << 14);
+    })?;
+    v.modify(port, phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+        r.set_mac_interface_mode(0); // SGMII
+    })?;
+
+    // TODO: what about Steps 11-13 in the Configuration section (3.17)
+
+    // Enable 2 port MAC SGMII, then wait for the command to finish
+    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80F0.into())?;
+    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+
+    v.modify(port, phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+        // SerDes fiber/SFP protocol transfer mode
+        r.set_media_operating_mode(0b001);
+    })?;
+    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+        r.set_auto_neg_ena(1);
+    })?;
 
     // Now, we reset the PHY and wait for the bit to clear
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
