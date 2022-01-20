@@ -929,8 +929,8 @@ fn build(
     remap_paths: &BTreeMap<PathBuf, &str>,
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
-    config: &Option<toml::Value>,
-    app_config: &Option<toml::Value>,
+    config: &Option<ordered_toml::Value>,
+    app_config: &Option<ordered_toml::Value>,
 ) -> Result<()> {
     println!("building path {}", path.display());
 

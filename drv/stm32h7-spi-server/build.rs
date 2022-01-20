@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use indexmap::IndexMap;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, TokenStreamExt};
 use serde::Deserialize;
@@ -55,7 +56,7 @@ struct GlobalConfig {
 struct SpiConfig {
     controller: usize,
     mux_options: BTreeMap<String, SpiMuxOptionConfig>,
-    devices: BTreeMap<String, DeviceDescriptorConfig>,
+    devices: IndexMap<String, DeviceDescriptorConfig>,
 }
 
 #[derive(Deserialize)]
@@ -95,7 +96,7 @@ struct AfPinConfig {
     af: Af,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct GpioPinConfig {
     port: ConfigPort,
     pin: usize,
@@ -105,7 +106,7 @@ struct GpioPinConfig {
 #[serde(transparent)]
 struct Af(usize);
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 struct DeviceDescriptorConfig {
     mux: String,
     cs: GpioPinConfig,
