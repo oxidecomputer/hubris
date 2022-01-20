@@ -54,4 +54,37 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     .unwrap();
 }
 
-pub fn configure_phy(_eth: &mut eth::Ethernet) {}
+use vsc7448_pac::types::PhyRegisterAddress;
+use vsc85xx::{PhyRw, VscError};
+
+/// Helper struct to implement the `PhyRw` trait using direct access through
+/// `eth`'s MIIM registers.
+struct MiimBridge<'a> {
+    eth: &'a mut eth::Ethernet,
+}
+impl PhyRw for MiimBridge<'_> {
+    fn read_raw<T: From<u16>>(
+        &mut self,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+    ) -> Result<T, VscError> {
+        Ok(self.eth.smi_read(phy, reg.addr).into())
+    }
+    fn write_raw<T>(
+        &mut self,
+        phy: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+    where
+        u16: From<T>,
+        T: From<u16> + Clone,
+    {
+        self.eth.smi_write(phy, reg.addr, value.into());
+        Ok(())
+    }
+}
+
+pub fn configure_phy(eth: &mut eth::Ethernet) {
+    let bridge = MiimBridge { eth };
+}
