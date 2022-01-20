@@ -56,7 +56,7 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 }
 
 use vsc7448_pac::types::PhyRegisterAddress;
-use vsc85xx::{PhyRw, VscError};
+use vsc85xx::{Phy, PhyRw, VscError};
 
 /// Helper struct to implement the `PhyRw` trait using direct access through
 /// `eth`'s MIIM registers.
@@ -132,8 +132,12 @@ pub fn configure_phy(eth: &mut eth::Ethernet) {
     sleep_for(120); // Wait for the chip to come out of reset
 
     // This PHY is on MIIM ports 0 and 1, based on resistor strapping
-    let mut bridge = MiimBridge { eth };
-    vsc85xx::init_vsc8552_phy(0, &mut bridge).unwrap();
+    let mut phy_rw = MiimBridge { eth };
+    let mut phy = Phy {
+        port: 0,
+        rw: &mut phy_rw,
+    };
+    vsc85xx::init_vsc8552_phy(&mut phy).unwrap();
 
     // Disable COMA_MODE
     gpio_driver.reset(coma_mode).unwrap();

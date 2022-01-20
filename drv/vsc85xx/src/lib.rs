@@ -47,27 +47,30 @@ pub trait PhyRw {
     where
         u16: From<T>,
         T: From<u16> + Clone;
+}
 
-    fn read<T>(
-        &mut self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError>
+/// Handle for interacting with a particular PHY port
+pub struct Phy<'a, P> {
+    pub port: u8,
+    pub rw: &'a mut P,
+}
+
+impl<P: PhyRw> Phy<'_, P> {
+    pub fn read<T>(&mut self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.write_raw::<phy::standard::PAGE>(
-            phy,
+        self.rw.write_raw::<phy::standard::PAGE>(
+            self.port,
             phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
-        self.read_raw(phy, reg)
+        self.rw.read_raw(self.port, reg)
     }
 
-    fn write<T>(
+    pub fn write<T>(
         &mut self,
-        phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
     ) -> Result<(), VscError>
@@ -75,19 +78,18 @@ pub trait PhyRw {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.write_raw::<phy::standard::PAGE>(
-            phy,
+        self.rw.write_raw::<phy::standard::PAGE>(
+            self.port,
             phy::STANDARD::PAGE(),
             reg.page.into(),
         )?;
-        self.write_raw(phy, reg, value)
+        self.rw.write_raw(self.port, reg, value)
     }
 
     /// Performs a read-modify-write operation on a PHY register connected
     /// to the VSC7448 via MIIM.
-    fn modify<T, F>(
+    pub fn modify<T, F>(
         &mut self,
-        phy: u8,
         reg: PhyRegisterAddress<T>,
         f: F,
     ) -> Result<(), VscError>
@@ -96,14 +98,13 @@ pub trait PhyRw {
         u16: From<T>,
         F: Fn(&mut T),
     {
-        let mut data = self.read(phy, reg)?;
+        let mut data = self.read(reg)?;
         f(&mut data);
-        self.write(phy, reg, data)
+        self.write(reg, data)
     }
 
-    fn wait_timeout<T, F>(
+    pub fn wait_timeout<T, F>(
         &mut self,
-        phy: u8,
         reg: PhyRegisterAddress<T>,
         f: F,
     ) -> Result<(), VscError>
@@ -113,37 +114,37 @@ pub trait PhyRw {
         F: Fn(T) -> bool,
     {
         for _ in 0..32 {
-            let r = self.read(phy, reg)?;
+            let r = self.read(reg)?;
             if f(r) {
                 return Ok(());
             }
             sleep_for(1)
         }
-        Err(VscError::InitTimeout)
+        Err(VscError::PhyInitTimeout)
     }
 }
 
 /// Initializes a VSC8522 PHY using QSGMII.
 /// This is the PHY on the VSC7448 dev kit.
-pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Do a self-reset on the PHY
-    v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
-    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    v.modify(phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
+    let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
-        return Err(VscError::BadId1(id1));
+        return Err(VscError::BadPhyId1(id1));
     }
-    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
     if id2 != 0x6f3 {
-        return Err(VscError::BadId2(id2));
+        return Err(VscError::BadPhyId2(id2));
     }
 
     // Disable COMA MODE, which keeps the chip holding itself in reset
-    v.modify(port, phy::GPIO::GPIO_CONTROL_2(), |g| {
+    v.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
         g.set_coma_mode_output_enable(0)
     })?;
 
     // Configure the PHY in QSGMII + 12 port mode
-    vsc85xx_cmd(port, v, 0x80A0)?;
+    vsc85xx_cmd(v, 0x80A0)?;
     Ok(())
 }
 
@@ -152,39 +153,39 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 /// the PHY is reset (i.e. the reset pin is toggled and then the caller
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
-pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8504Init);
 
-    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
-        return Err(VscError::BadId1(id1));
+        return Err(VscError::BadPhyId1(id1));
     }
-    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
     if id2 != 0x4c2 {
-        return Err(VscError::BadId2(id2));
+        return Err(VscError::BadPhyId2(id2));
     }
-    let rev = v.read(port, phy::GPIO::EXTENDED_REVISION())?;
+    let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
     if rev.tesla_e() != 0x01 {
-        return Err(VscError::BadRev);
+        return Err(VscError::BadPhyRev);
     }
 
-    vsc85xx_patch(port, v)?;
+    vsc85xx_patch(v)?;
 
-    v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+    v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
         r.0 |= 0b01 << 14; // QSGMII
     })?;
 
     // Enable 4 port MAC QSGMII
-    vsc85xx_cmd(port, v, 0x80E0)?;
+    vsc85xx_cmd(v, 0x80E0)?;
 
     // The PHY is already configured for copper in register 23
     // XXX: I don't think this is correct
 
     // Now, we reset the PHY and wait for the bit to clear
-    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+    v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
         r.set_sw_reset(1);
     })?;
-    v.wait_timeout(port, phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
+    v.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
 
     Ok(())
 }
@@ -193,51 +194,51 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 /// to 100BASE-FX SFP Fiber). This should be called _after_ the PHY is reset
 /// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
 /// The caller is also responsible for handling the `COMA_MODE` pin.
-pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+pub fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8552Init);
 
-    let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
+    let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
-        return Err(VscError::BadId1(id1));
+        return Err(VscError::BadPhyId1(id1));
     }
-    let id2 = v.read(port, phy::STANDARD::IDENTIFIER_2())?.0;
+    let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
     if id2 != 0x4e2 {
-        return Err(VscError::BadId2(id2));
+        return Err(VscError::BadPhyId2(id2));
     }
-    let rev = v.read(port, phy::GPIO::EXTENDED_REVISION())?;
+    let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
     if rev.tesla_e() != 0x01 {
-        return Err(VscError::BadRev);
+        return Err(VscError::BadPhyRev);
     }
 
-    vsc85xx_patch(port, v)?;
+    vsc85xx_patch(v)?;
 
-    v.modify(port, phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+    v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
         // MAC configuration = SGMII
         r.0 &= !(0b11 << 14);
     })?;
-    v.modify(port, phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+    v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
         r.set_mac_interface_mode(0); // SGMII
     })?;
 
     // Enable 2 port MAC SGMII, then wait for the command to finish
-    vsc85xx_cmd(port, v, 0x80F0)?;
+    vsc85xx_cmd(v, 0x80F0)?;
 
-    v.modify(port, phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+    v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
         // SerDes fiber/SFP protocol transfer mode
         r.set_media_operating_mode(0b011);
     })?;
-    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+    v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
         r.set_auto_neg_ena(0);
     })?;
 
     // Enable 2 ports Media 100BASE-FX
-    vsc85xx_cmd(port, v, 0x8FD1)?;
+    vsc85xx_cmd(v, 0x8FD1)?;
 
     // Now, we reset the PHY and wait for the bit to clear
-    v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
+    v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
         r.set_sw_reset(1);
     })?;
-    v.wait_timeout(port, phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
+    v.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
 
     Ok(())
 }
@@ -246,225 +247,221 @@ pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 /// register 19G.  This helper function sends a command then waits for it
 /// to finish, return [VscError::PhyInitTimeout] if it fails (or another
 /// [VscError] if communication to the PHY doesn't work)
-fn vsc85xx_cmd<P: PhyRw>(
-    port: u8,
-    v: &mut P,
-    command: u16,
-) -> Result<(), VscError> {
-    v.write(port, phy::GPIO::MICRO_PAGE(), command.into())?;
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 == 0)?;
+fn vsc85xx_cmd<P: PhyRw>(v: &mut Phy<P>, command: u16) -> Result<(), VscError> {
+    v.write(phy::GPIO::MICRO_PAGE(), command.into())?;
+    v.wait_timeout(phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 == 0)?;
     Ok(())
 }
 
-fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+fn vsc85xx_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Based on `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
 
     // Enable broadcast flag to configure all ports simultaneously
-    v.modify(port, phy::STANDARD::EXTENDED_CONTROL_AND_STATUS_20(), |r| {
+    v.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS_20(), |r| {
         r.0 |= 1; // SMI broadcast write
     })?;
 
-    v.write(port, phy::STANDARD::EXTENDED_PHY_CONTROL_2(), 0x0040.into())?;
-    v.write(port, phy::EXTENDED_2::CU_PMD_TX_CTRL(), 0x02be.into())?;
-    v.write(port, phy::TEST::TEST_PAGE_20(), 0x4320.into())?;
-    v.write(port, phy::TEST::TEST_PAGE_24(), 0x0c00.into())?;
-    v.write(port, phy::TEST::TEST_PAGE_9(), 0x18ca.into())?;
-    v.write(port, phy::TEST::TEST_PAGE_5(), 0x1b20.into())?;
+    v.write(phy::STANDARD::EXTENDED_PHY_CONTROL_2(), 0x0040.into())?;
+    v.write(phy::EXTENDED_2::CU_PMD_TX_CTRL(), 0x02be.into())?;
+    v.write(phy::TEST::TEST_PAGE_20(), 0x4320.into())?;
+    v.write(phy::TEST::TEST_PAGE_24(), 0x0c00.into())?;
+    v.write(phy::TEST::TEST_PAGE_9(), 0x18ca.into())?;
+    v.write(phy::TEST::TEST_PAGE_5(), 0x1b20.into())?;
 
     // "Enable token-ring during coma-mode"
-    v.modify(port, phy::TEST::TEST_PAGE_8(), |r| {
+    v.modify(phy::TEST::TEST_PAGE_8(), |r| {
         r.0 |= 0x8000;
     })?;
 
-    v.write(port, phy::TR::TR_18(), 0x0004.into())?;
-    v.write(port, phy::TR::TR_17(), 0x01bd.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fae.into())?;
-    v.write(port, phy::TR::TR_18(), 0x000f.into())?;
-    v.write(port, phy::TR::TR_17(), 0x000f.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fac.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00a0.into())?;
-    v.write(port, phy::TR::TR_17(), 0xf147.into())?;
-    v.write(port, phy::TR::TR_16(), 0x97a0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0005.into())?;
-    v.write(port, phy::TR::TR_17(), 0x2f54.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fe4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0027.into())?;
-    v.write(port, phy::TR::TR_17(), 0x303d.into())?;
-    v.write(port, phy::TR::TR_16(), 0x9792.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0704.into())?;
-    v.write(port, phy::TR::TR_16(), 0x87fe.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0006.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0150.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fe0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0012.into())?;
-    v.write(port, phy::TR::TR_17(), 0xb00a.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8f82.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0d74.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8f80.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0012.into())?;
-    v.write(port, phy::TR::TR_16(), 0x82e0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0005.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0208.into())?;
-    v.write(port, phy::TR::TR_16(), 0x83a2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x9186.into())?;
-    v.write(port, phy::TR::TR_16(), 0x83b2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x000e.into())?;
-    v.write(port, phy::TR::TR_17(), 0x3700.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fb0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0004.into())?;
-    v.write(port, phy::TR::TR_17(), 0x9f81.into())?;
-    v.write(port, phy::TR::TR_16(), 0x9688.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0xffff.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fd2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0003.into())?;
-    v.write(port, phy::TR::TR_17(), 0x9fa2.into())?;
-    v.write(port, phy::TR::TR_16(), 0x968a.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0020.into())?;
-    v.write(port, phy::TR::TR_17(), 0x640b.into())?;
-    v.write(port, phy::TR::TR_16(), 0x9690.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x2220.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8258.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x2a20.into())?;
-    v.write(port, phy::TR::TR_16(), 0x825a.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x3060.into())?;
-    v.write(port, phy::TR::TR_16(), 0x825c.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x3fa0.into())?;
-    v.write(port, phy::TR::TR_16(), 0x825e.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0xe0f0.into())?;
-    v.write(port, phy::TR::TR_16(), 0x83a6.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x1489.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8f92.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x7000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96a2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0007.into())?;
-    v.write(port, phy::TR::TR_17(), 0x1448.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96a6.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00ee.into())?;
-    v.write(port, phy::TR::TR_17(), 0xffdd.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96a0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0091.into())?;
-    v.write(port, phy::TR::TR_17(), 0xb06c.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fe8.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0004.into())?;
-    v.write(port, phy::TR::TR_17(), 0x1600.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fea.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00ee.into())?;
-    v.write(port, phy::TR::TR_17(), 0xff00.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96b0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x7000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96b2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0814.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96b4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0068.into())?;
-    v.write(port, phy::TR::TR_17(), 0x8980.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8f90.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0xd8f0.into())?;
-    v.write(port, phy::TR::TR_16(), 0x83a4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0400.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fc0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0050.into())?;
-    v.write(port, phy::TR::TR_17(), 0x100f.into())?;
-    v.write(port, phy::TR::TR_16(), 0x87fa.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0003.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8796.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00c3.into())?;
-    v.write(port, phy::TR::TR_17(), 0xff98.into())?;
-    v.write(port, phy::TR::TR_16(), 0x87f8.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0018.into())?;
-    v.write(port, phy::TR::TR_17(), 0x292a.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fa4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00d2.into())?;
-    v.write(port, phy::TR::TR_17(), 0xc46f.into())?;
-    v.write(port, phy::TR::TR_16(), 0x968c.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0620.into())?;
-    v.write(port, phy::TR::TR_16(), 0x97a2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0013.into())?;
-    v.write(port, phy::TR::TR_17(), 0x132f.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96a4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x96a8.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00c0.into())?;
-    v.write(port, phy::TR::TR_17(), 0xa028.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8ffc.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0090.into())?;
-    v.write(port, phy::TR::TR_17(), 0x1c09.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fec.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0004.into())?;
-    v.write(port, phy::TR::TR_17(), 0xa6a1.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8fee.into())?;
-    v.write(port, phy::TR::TR_18(), 0x00b0.into())?;
-    v.write(port, phy::TR::TR_17(), 0x1807.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8ffe.into())?;
+    v.write(phy::TR::TR_18(), 0x0004.into())?;
+    v.write(phy::TR::TR_17(), 0x01bd.into())?;
+    v.write(phy::TR::TR_16(), 0x8fae.into())?;
+    v.write(phy::TR::TR_18(), 0x000f.into())?;
+    v.write(phy::TR::TR_17(), 0x000f.into())?;
+    v.write(phy::TR::TR_16(), 0x8fac.into())?;
+    v.write(phy::TR::TR_18(), 0x00a0.into())?;
+    v.write(phy::TR::TR_17(), 0xf147.into())?;
+    v.write(phy::TR::TR_16(), 0x97a0.into())?;
+    v.write(phy::TR::TR_18(), 0x0005.into())?;
+    v.write(phy::TR::TR_17(), 0x2f54.into())?;
+    v.write(phy::TR::TR_16(), 0x8fe4.into())?;
+    v.write(phy::TR::TR_18(), 0x0027.into())?;
+    v.write(phy::TR::TR_17(), 0x303d.into())?;
+    v.write(phy::TR::TR_16(), 0x9792.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0704.into())?;
+    v.write(phy::TR::TR_16(), 0x87fe.into())?;
+    v.write(phy::TR::TR_18(), 0x0006.into())?;
+    v.write(phy::TR::TR_17(), 0x0150.into())?;
+    v.write(phy::TR::TR_16(), 0x8fe0.into())?;
+    v.write(phy::TR::TR_18(), 0x0012.into())?;
+    v.write(phy::TR::TR_17(), 0xb00a.into())?;
+    v.write(phy::TR::TR_16(), 0x8f82.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0d74.into())?;
+    v.write(phy::TR::TR_16(), 0x8f80.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0012.into())?;
+    v.write(phy::TR::TR_16(), 0x82e0.into())?;
+    v.write(phy::TR::TR_18(), 0x0005.into())?;
+    v.write(phy::TR::TR_17(), 0x0208.into())?;
+    v.write(phy::TR::TR_16(), 0x83a2.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x9186.into())?;
+    v.write(phy::TR::TR_16(), 0x83b2.into())?;
+    v.write(phy::TR::TR_18(), 0x000e.into())?;
+    v.write(phy::TR::TR_17(), 0x3700.into())?;
+    v.write(phy::TR::TR_16(), 0x8fb0.into())?;
+    v.write(phy::TR::TR_18(), 0x0004.into())?;
+    v.write(phy::TR::TR_17(), 0x9f81.into())?;
+    v.write(phy::TR::TR_16(), 0x9688.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0xffff.into())?;
+    v.write(phy::TR::TR_16(), 0x8fd2.into())?;
+    v.write(phy::TR::TR_18(), 0x0003.into())?;
+    v.write(phy::TR::TR_17(), 0x9fa2.into())?;
+    v.write(phy::TR::TR_16(), 0x968a.into())?;
+    v.write(phy::TR::TR_18(), 0x0020.into())?;
+    v.write(phy::TR::TR_17(), 0x640b.into())?;
+    v.write(phy::TR::TR_16(), 0x9690.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x2220.into())?;
+    v.write(phy::TR::TR_16(), 0x8258.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x2a20.into())?;
+    v.write(phy::TR::TR_16(), 0x825a.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x3060.into())?;
+    v.write(phy::TR::TR_16(), 0x825c.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x3fa0.into())?;
+    v.write(phy::TR::TR_16(), 0x825e.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0xe0f0.into())?;
+    v.write(phy::TR::TR_16(), 0x83a6.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x1489.into())?;
+    v.write(phy::TR::TR_16(), 0x8f92.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x7000.into())?;
+    v.write(phy::TR::TR_16(), 0x96a2.into())?;
+    v.write(phy::TR::TR_18(), 0x0007.into())?;
+    v.write(phy::TR::TR_17(), 0x1448.into())?;
+    v.write(phy::TR::TR_16(), 0x96a6.into())?;
+    v.write(phy::TR::TR_18(), 0x00ee.into())?;
+    v.write(phy::TR::TR_17(), 0xffdd.into())?;
+    v.write(phy::TR::TR_16(), 0x96a0.into())?;
+    v.write(phy::TR::TR_18(), 0x0091.into())?;
+    v.write(phy::TR::TR_17(), 0xb06c.into())?;
+    v.write(phy::TR::TR_16(), 0x8fe8.into())?;
+    v.write(phy::TR::TR_18(), 0x0004.into())?;
+    v.write(phy::TR::TR_17(), 0x1600.into())?;
+    v.write(phy::TR::TR_16(), 0x8fea.into())?;
+    v.write(phy::TR::TR_18(), 0x00ee.into())?;
+    v.write(phy::TR::TR_17(), 0xff00.into())?;
+    v.write(phy::TR::TR_16(), 0x96b0.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x7000.into())?;
+    v.write(phy::TR::TR_16(), 0x96b2.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0814.into())?;
+    v.write(phy::TR::TR_16(), 0x96b4.into())?;
+    v.write(phy::TR::TR_18(), 0x0068.into())?;
+    v.write(phy::TR::TR_17(), 0x8980.into())?;
+    v.write(phy::TR::TR_16(), 0x8f90.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0xd8f0.into())?;
+    v.write(phy::TR::TR_16(), 0x83a4.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0400.into())?;
+    v.write(phy::TR::TR_16(), 0x8fc0.into())?;
+    v.write(phy::TR::TR_18(), 0x0050.into())?;
+    v.write(phy::TR::TR_17(), 0x100f.into())?;
+    v.write(phy::TR::TR_16(), 0x87fa.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0003.into())?;
+    v.write(phy::TR::TR_16(), 0x8796.into())?;
+    v.write(phy::TR::TR_18(), 0x00c3.into())?;
+    v.write(phy::TR::TR_17(), 0xff98.into())?;
+    v.write(phy::TR::TR_16(), 0x87f8.into())?;
+    v.write(phy::TR::TR_18(), 0x0018.into())?;
+    v.write(phy::TR::TR_17(), 0x292a.into())?;
+    v.write(phy::TR::TR_16(), 0x8fa4.into())?;
+    v.write(phy::TR::TR_18(), 0x00d2.into())?;
+    v.write(phy::TR::TR_17(), 0xc46f.into())?;
+    v.write(phy::TR::TR_16(), 0x968c.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0620.into())?;
+    v.write(phy::TR::TR_16(), 0x97a2.into())?;
+    v.write(phy::TR::TR_18(), 0x0013.into())?;
+    v.write(phy::TR::TR_17(), 0x132f.into())?;
+    v.write(phy::TR::TR_16(), 0x96a4.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0000.into())?;
+    v.write(phy::TR::TR_16(), 0x96a8.into())?;
+    v.write(phy::TR::TR_18(), 0x00c0.into())?;
+    v.write(phy::TR::TR_17(), 0xa028.into())?;
+    v.write(phy::TR::TR_16(), 0x8ffc.into())?;
+    v.write(phy::TR::TR_18(), 0x0090.into())?;
+    v.write(phy::TR::TR_17(), 0x1c09.into())?;
+    v.write(phy::TR::TR_16(), 0x8fec.into())?;
+    v.write(phy::TR::TR_18(), 0x0004.into())?;
+    v.write(phy::TR::TR_17(), 0xa6a1.into())?;
+    v.write(phy::TR::TR_16(), 0x8fee.into())?;
+    v.write(phy::TR::TR_18(), 0x00b0.into())?;
+    v.write(phy::TR::TR_17(), 0x1807.into())?;
+    v.write(phy::TR::TR_16(), 0x8ffe.into())?;
 
     // We're not using 10BASE-TE, so this is the correct config block
-    v.write(port, phy::TR::TR_16(), 0x028e.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0008.into())?;
-    v.write(port, phy::TR::TR_17(), 0xa518.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8486.into())?;
-    v.write(port, phy::TR::TR_18(), 0x006d.into())?;
-    v.write(port, phy::TR::TR_17(), 0xc696.into())?;
-    v.write(port, phy::TR::TR_16(), 0x8488.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0912.into())?;
-    v.write(port, phy::TR::TR_16(), 0x848a.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0db6.into())?;
-    v.write(port, phy::TR::TR_16(), 0x848e.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0059.into())?;
-    v.write(port, phy::TR::TR_17(), 0x6596.into())?;
-    v.write(port, phy::TR::TR_16(), 0x849c.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0514.into())?;
-    v.write(port, phy::TR::TR_16(), 0x849e.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0041.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0280.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84a2.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84a4.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84a6.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84a8.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_17(), 0x0000.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84aa.into())?;
-    v.write(port, phy::TR::TR_18(), 0x007d.into())?;
-    v.write(port, phy::TR::TR_17(), 0xf7dd.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84ae.into())?;
-    v.write(port, phy::TR::TR_18(), 0x006d.into())?;
-    v.write(port, phy::TR::TR_17(), 0x95d4.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84b0.into())?;
-    v.write(port, phy::TR::TR_18(), 0x0049.into())?;
-    v.write(port, phy::TR::TR_17(), 0x2410.into())?;
-    v.write(port, phy::TR::TR_16(), 0x84b2.into())?;
+    v.write(phy::TR::TR_16(), 0x028e.into())?;
+    v.write(phy::TR::TR_18(), 0x0008.into())?;
+    v.write(phy::TR::TR_17(), 0xa518.into())?;
+    v.write(phy::TR::TR_16(), 0x8486.into())?;
+    v.write(phy::TR::TR_18(), 0x006d.into())?;
+    v.write(phy::TR::TR_17(), 0xc696.into())?;
+    v.write(phy::TR::TR_16(), 0x8488.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0912.into())?;
+    v.write(phy::TR::TR_16(), 0x848a.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0db6.into())?;
+    v.write(phy::TR::TR_16(), 0x848e.into())?;
+    v.write(phy::TR::TR_18(), 0x0059.into())?;
+    v.write(phy::TR::TR_17(), 0x6596.into())?;
+    v.write(phy::TR::TR_16(), 0x849c.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0514.into())?;
+    v.write(phy::TR::TR_16(), 0x849e.into())?;
+    v.write(phy::TR::TR_18(), 0x0041.into())?;
+    v.write(phy::TR::TR_17(), 0x0280.into())?;
+    v.write(phy::TR::TR_16(), 0x84a2.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0000.into())?;
+    v.write(phy::TR::TR_16(), 0x84a4.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0000.into())?;
+    v.write(phy::TR::TR_16(), 0x84a6.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0000.into())?;
+    v.write(phy::TR::TR_16(), 0x84a8.into())?;
+    v.write(phy::TR::TR_18(), 0x0000.into())?;
+    v.write(phy::TR::TR_17(), 0x0000.into())?;
+    v.write(phy::TR::TR_16(), 0x84aa.into())?;
+    v.write(phy::TR::TR_18(), 0x007d.into())?;
+    v.write(phy::TR::TR_17(), 0xf7dd.into())?;
+    v.write(phy::TR::TR_16(), 0x84ae.into())?;
+    v.write(phy::TR::TR_18(), 0x006d.into())?;
+    v.write(phy::TR::TR_17(), 0x95d4.into())?;
+    v.write(phy::TR::TR_16(), 0x84b0.into())?;
+    v.write(phy::TR::TR_18(), 0x0049.into())?;
+    v.write(phy::TR::TR_17(), 0x2410.into())?;
+    v.write(phy::TR::TR_16(), 0x84b2.into())?;
 
-    v.modify(port, phy::TEST::TEST_PAGE_8(), |r| {
+    v.modify(phy::TEST::TEST_PAGE_8(), |r| {
         r.0 &= !0x8000; // Disable token-ring mode
     })?;
 
-    v.modify(port, phy::STANDARD::EXTENDED_CONTROL_AND_STATUS_20(), |r| {
+    v.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS_20(), |r| {
         r.0 &= !1; // Disable broadcast write
     })?;
 
@@ -478,39 +475,36 @@ fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 
     // This patch can only be applied to Port 0 of the PHY, so we'll check
     // the address here.
-    let phy_port =
-        v.read(port, phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
-    assert_eq!(phy_port, port as u16);
-    let crc =
-        vsc85xx_read_8051_crc(port, v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+    let phy_port = v.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
+    assert_eq!(phy_port, v.port as u16);
+    let crc = vsc85xx_read_8051_crc(v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
     let skip_download = crc == EXPECTED_CRC;
     let patch_ok = skip_download
-        && v.read(port, phy::GPIO::GPIO_3())?.0 == 0x3eb7
-        && v.read(port, phy::GPIO::GPIO_4())?.0 == 0x4012
-        && v.read(port, phy::GPIO::GPIO_12())?.0 == 0x0100
-        && v.read(port, phy::GPIO::GPIO_0())?.0 == 0xc018;
+        && v.read(phy::GPIO::GPIO_3())?.0 == 0x3eb7
+        && v.read(phy::GPIO::GPIO_4())?.0 == 0x4012
+        && v.read(phy::GPIO::GPIO_12())?.0 == 0x0100
+        && v.read(phy::GPIO::GPIO_0())?.0 == 0xc018;
     ringbuf_entry!(Trace::PatchState {
         patch_ok,
         skip_download
     });
 
     if !skip_download || !patch_ok {
-        vsc85xx_micro_assert_reset(port, v)?;
+        vsc85xx_micro_assert_reset(v)?;
     }
     if !skip_download {
-        vsc85xx_download_patch(port, v)?;
+        vsc85xx_download_patch(v)?;
     }
     if !patch_ok {
         // Various CPU commands to enable the patch
-        v.write(port, phy::GPIO::GPIO_3(), 0x3eb7.into())?;
-        v.write(port, phy::GPIO::GPIO_4(), 0x4012.into())?;
-        v.write(port, phy::GPIO::GPIO_12(), 0x0100.into())?;
-        v.write(port, phy::GPIO::GPIO_0(), 0xc018.into())?;
+        v.write(phy::GPIO::GPIO_3(), 0x3eb7.into())?;
+        v.write(phy::GPIO::GPIO_4(), 0x4012.into())?;
+        v.write(phy::GPIO::GPIO_12(), 0x0100.into())?;
+        v.write(phy::GPIO::GPIO_0(), 0xc018.into())?;
     }
 
     if !skip_download {
-        let crc =
-            vsc85xx_read_8051_crc(port, v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+        let crc = vsc85xx_read_8051_crc(v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
         assert!(crc == EXPECTED_CRC);
     }
 
@@ -519,73 +513,68 @@ fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     //
     // "Pass the cmd to Micro to initialize all 1588 analyzer registers to
     //  default"
-    vsc85xx_cmd(port, v, 0x801A)?;
+    vsc85xx_cmd(v, 0x801A)?;
 
     Ok(())
 }
 
 /// Based on `download_8051_code`
-fn vsc85xx_download_patch<P: PhyRw>(
-    port: u8,
-    v: &mut P,
-) -> Result<(), VscError> {
+fn vsc85xx_download_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // "Hold 8051 in SW Reset, Enable auto incr address and patch clock,
     //  Disable the 8051 clock"
-    v.write(port, phy::GPIO::GPIO_0(), 0x7009.into())?;
+    v.write(phy::GPIO::GPIO_0(), 0x7009.into())?;
 
     // "write to addr 4000 = 02"
-    v.write(port, phy::GPIO::GPIO_12(), 0x5002.into())?;
+    v.write(phy::GPIO::GPIO_12(), 0x5002.into())?;
 
     // "write to address reg."
-    v.write(port, phy::GPIO::GPIO_11(), 0x0.into())?;
+    v.write(phy::GPIO::GPIO_11(), 0x0.into())?;
 
     for &p in &PATCH {
-        v.write(port, phy::GPIO::GPIO_12(), (0x5000 | p as u16).into())?;
+        v.write(phy::GPIO::GPIO_12(), (0x5000 | p as u16).into())?;
     }
 
     // "Clear internal memory access"
-    v.write(port, phy::GPIO::GPIO_12(), 0.into())?;
+    v.write(phy::GPIO::GPIO_12(), 0.into())?;
 
     Ok(())
 }
 
 /// Based on `vtss_phy_micro_assert_reset`
 fn vsc85xx_micro_assert_reset<P: PhyRw>(
-    port: u8,
-    v: &mut P,
+    v: &mut Phy<P>,
 ) -> Result<(), VscError> {
     // "Pass the NOP cmd to Micro to insure that any consumptive patch exits"
-    vsc85xx_cmd(port, v, 0x800F)?;
+    vsc85xx_cmd(v, 0x800F)?;
 
     // "force micro into a loop, preventing any SMI accesses"
-    v.modify(port, phy::GPIO::GPIO_12(), |r| r.0 &= !0x0800)?;
-    v.write(port, phy::GPIO::GPIO_9(), 0x005b.into())?;
-    v.write(port, phy::GPIO::GPIO_10(), 0x005b.into())?;
-    v.modify(port, phy::GPIO::GPIO_12(), |r| r.0 |= 0x0800)?;
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x800F.into())?;
+    v.modify(phy::GPIO::GPIO_12(), |r| r.0 &= !0x0800)?;
+    v.write(phy::GPIO::GPIO_9(), 0x005b.into())?;
+    v.write(phy::GPIO::GPIO_10(), 0x005b.into())?;
+    v.modify(phy::GPIO::GPIO_12(), |r| r.0 |= 0x0800)?;
+    v.write(phy::GPIO::MICRO_PAGE(), 0x800F.into())?;
 
     // "Assert reset after micro is trapped in a loop (averts micro-SMI access
     //  deadlock at reset)"
-    v.modify(port, phy::GPIO::GPIO_0(), |r| r.0 &= !0x8000)?;
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x0000.into())?;
-    v.modify(port, phy::GPIO::GPIO_12(), |r| r.0 &= !0x0800)?;
+    v.modify(phy::GPIO::GPIO_0(), |r| r.0 &= !0x8000)?;
+    v.write(phy::GPIO::MICRO_PAGE(), 0x0000.into())?;
+    v.modify(phy::GPIO::GPIO_12(), |r| r.0 &= !0x0800)?;
     Ok(())
 }
 
 /// Based on `vtss_phy_is_8051_crc_ok_private`
 fn vsc85xx_read_8051_crc<P: PhyRw>(
-    port: u8,
-    v: &mut P,
+    v: &mut Phy<P>,
     addr: u16,
     size: u16,
 ) -> Result<u16, VscError> {
-    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG2(), addr.into())?;
-    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG3(), size.into())?;
+    v.write(phy::EXTENDED::VERIPHY_CTRL_REG2(), addr.into())?;
+    v.write(phy::EXTENDED::VERIPHY_CTRL_REG3(), size.into())?;
 
     // Start CRC calculation and wait for it to finish
-    vsc85xx_cmd(port, v, 0x8008)?;
+    vsc85xx_cmd(v, 0x8008)?;
 
-    let crc: u16 = v.read(port, phy::EXTENDED::VERIPHY_CTRL_REG2())?.into();
+    let crc: u16 = v.read(phy::EXTENDED::VERIPHY_CTRL_REG2())?.into();
     ringbuf_entry!(Trace::GotCrc(crc));
     Ok(crc)
 }
