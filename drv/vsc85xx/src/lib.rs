@@ -9,9 +9,20 @@
 //! trait is an abstraction over reading and writing raw PHY registers.
 #![no_std]
 
+use ringbuf::*;
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 pub use vsc_err::VscError;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    Vsc8552Init,
+    Vsc8504Init,
+    PatchState { patch_ok: bool, skip_download: bool },
+    GotCrc(u16),
+}
+ringbuf!(Trace, 16, Trace::None);
 
 /// Trait implementing communication with an ethernet PHY.
 pub trait PhyRw {
@@ -112,7 +123,8 @@ pub trait PhyRw {
     }
 }
 
-/// Initializes a VSC8522 PHY using QSGMII
+/// Initializes a VSC8522 PHY using QSGMII.
+/// This is the PHY on the VSC7448 dev kit.
 pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     // Do a self-reset on the PHY
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
@@ -131,7 +143,7 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     })?;
 
     // Configure the PHY in QSGMII + 12 port mode
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80A0.into())?;
+    vsc85xx_cmd(port, v, 0x80A0)?;
     Ok(())
 }
 
@@ -141,6 +153,8 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
 pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+    ringbuf_entry!(Trace::Vsc8504Init);
+
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
         return Err(VscError::BadId1(id1));
@@ -161,13 +175,10 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     })?;
 
     // Enable 4 port MAC QSGMII
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80E0.into())?;
-
-    // Wait for the PHY to be ready
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+    vsc85xx_cmd(port, v, 0x80E0)?;
 
     // The PHY is already configured for copper in register 23
-    // TODO: check that this is correct
+    // XXX: I don't think this is correct
 
     // Now, we reset the PHY and wait for the bit to clear
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
@@ -178,12 +189,13 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     Ok(())
 }
 
-/// Initializes a VSC8552 PHY using SGMII based on the "Configuration"
-/// guide in the datasheet (section 3.1.7).  This should be called _after_
-/// the PHY is reset (i.e. the reset pin is toggled and then the caller
-/// waits for 120 ms).  The caller is also responsible for handling the
-/// `COMA_MODE` pin.
+/// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
+/// to 100BASE-FX SFP Fiber). This should be called _after_ the PHY is reset
+/// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
+/// The caller is also responsible for handling the `COMA_MODE` pin.
 pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
+    ringbuf_entry!(Trace::Vsc8552Init);
+
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
     if id1 != 0x7 {
         return Err(VscError::BadId1(id1));
@@ -207,19 +219,19 @@ pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
         r.set_mac_interface_mode(0); // SGMII
     })?;
 
-    // TODO: what about Steps 11-13 in the Configuration section (3.17)
-
     // Enable 2 port MAC SGMII, then wait for the command to finish
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x80F0.into())?;
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+    vsc85xx_cmd(port, v, 0x80F0)?;
 
     v.modify(port, phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
         // SerDes fiber/SFP protocol transfer mode
-        r.set_media_operating_mode(0b001);
+        r.set_media_operating_mode(0b011);
     })?;
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
-        r.set_auto_neg_ena(1);
+        r.set_auto_neg_ena(0);
     })?;
+
+    // Enable 2 ports Media 100BASE-FX
+    vsc85xx_cmd(port, v, 0x8FD1)?;
 
     // Now, we reset the PHY and wait for the bit to clear
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |r| {
@@ -227,6 +239,20 @@ pub fn init_vsc8552_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     })?;
     v.wait_timeout(port, phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
 
+    Ok(())
+}
+
+/// The VSC85xx family supports sending commands to the system by writing to
+/// register 19G.  This helper function sends a command then waits for it
+/// to finish, return [VscError::PhyInitTimeout] if it fails (or another
+/// [VscError] if communication to the PHY doesn't work)
+fn vsc85xx_cmd<P: PhyRw>(
+    port: u8,
+    v: &mut P,
+    command: u16,
+) -> Result<(), VscError> {
+    v.write(port, phy::GPIO::MICRO_PAGE(), command.into())?;
+    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 == 0)?;
     Ok(())
 }
 
@@ -446,19 +472,27 @@ fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     // Now we're going deep into the weeds.  This section is based on
     // `tesla_revB_8051_patch` in the SDK, which (as the name suggests), patches
     // the 8051 in the PHY.
+    const FIRMWARE_START_ADDR: u16 = 0x4000;
+    const PATCH_CRC_LEN: u16 = (PATCH.len() + 1) as u16;
+    const EXPECTED_CRC: u16 = 0x29E8;
 
     // This patch can only be applied to Port 0 of the PHY, so we'll check
     // the address here.
     let phy_port =
         v.read(port, phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
     assert_eq!(phy_port, port as u16);
-    let crc_ok = vsc85xx_check_8051_crc(port, v)?;
-    let skip_download = crc_ok;
+    let crc =
+        vsc85xx_read_8051_crc(port, v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+    let skip_download = crc == EXPECTED_CRC;
     let patch_ok = skip_download
         && v.read(port, phy::GPIO::GPIO_3())?.0 == 0x3eb7
         && v.read(port, phy::GPIO::GPIO_4())?.0 == 0x4012
         && v.read(port, phy::GPIO::GPIO_12())?.0 == 0x0100
         && v.read(port, phy::GPIO::GPIO_0())?.0 == 0xc018;
+    ringbuf_entry!(Trace::PatchState {
+        patch_ok,
+        skip_download
+    });
 
     if !skip_download || !patch_ok {
         vsc85xx_micro_assert_reset(port, v)?;
@@ -474,13 +508,18 @@ fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
         v.write(port, phy::GPIO::GPIO_0(), 0xc018.into())?;
     }
 
+    if !skip_download {
+        let crc =
+            vsc85xx_read_8051_crc(port, v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+        assert!(crc == EXPECTED_CRC);
+    }
+
     //////////////////////////////////////////////////////////////////////////
     // `vtss_phy_pre_init_tesla_revB_1588`
     //
     // "Pass the cmd to Micro to initialize all 1588 analyzer registers to
     //  default"
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x801A.into())?;
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+    vsc85xx_cmd(port, v, 0x801A)?;
 
     Ok(())
 }
@@ -516,8 +555,7 @@ fn vsc85xx_micro_assert_reset<P: PhyRw>(
     v: &mut P,
 ) -> Result<(), VscError> {
     // "Pass the NOP cmd to Micro to insure that any consumptive patch exits"
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x800F.into())?;
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+    vsc85xx_cmd(port, v, 0x800F)?;
 
     // "force micro into a loop, preventing any SMI accesses"
     v.modify(port, phy::GPIO::GPIO_12(), |r| r.0 &= !0x0800)?;
@@ -535,25 +573,24 @@ fn vsc85xx_micro_assert_reset<P: PhyRw>(
 }
 
 /// Based on `vtss_phy_is_8051_crc_ok_private`
-fn vsc85xx_check_8051_crc<P: PhyRw>(
+fn vsc85xx_read_8051_crc<P: PhyRw>(
     port: u8,
     v: &mut P,
-) -> Result<bool, VscError> {
-    let start_addr = 0xE800;
-    let patch_size = (PATCH.len() + 1) as u16;
-    let expected_crc = 0xfb48;
-    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG2(), start_addr.into())?;
-    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG3(), patch_size.into())?;
+    addr: u16,
+    size: u16,
+) -> Result<u16, VscError> {
+    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG2(), addr.into())?;
+    v.write(port, phy::EXTENDED::VERIPHY_CTRL_REG3(), size.into())?;
 
     // Start CRC calculation and wait for it to finish
-    v.write(port, phy::GPIO::MICRO_PAGE(), 0x8008.into())?;
-    v.wait_timeout(port, phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 != 0)?;
+    vsc85xx_cmd(port, v, 0x8008)?;
 
     let crc: u16 = v.read(port, phy::EXTENDED::VERIPHY_CTRL_REG2())?.into();
-
-    Ok(crc == expected_crc)
+    ringbuf_entry!(Trace::GotCrc(crc));
+    Ok(crc)
 }
 
+// From `tesla_revB_8051_patch`
 const PATCH: [u8; 1655] = [
     0x46, 0x4a, 0x02, 0x43, 0x37, 0x02, 0x46, 0x26, 0x02, 0x46, 0x77, 0x02,
     0x45, 0x60, 0x02, 0x45, 0xaf, 0xed, 0xff, 0xe5, 0xfc, 0x54, 0x38, 0x64,

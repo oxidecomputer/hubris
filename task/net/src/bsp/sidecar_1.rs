@@ -1,5 +1,6 @@
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use userlib::hl::sleep_for;
 
 pub fn configure_ethernet_pins(sys: &Sys) {
     // This board's mapping:
@@ -86,7 +87,54 @@ impl PhyRw for MiimBridge<'_> {
 }
 
 pub fn configure_phy(eth: &mut eth::Ethernet) {
+    let gpio_driver = GPIO.get_task_id();
+    let gpio_driver = Gpio::from(gpio_driver);
+
+    // SP_TO_LDO_PHY2_EN (PI11)
+    let phy2_pwr_en = gpio_api::Port::I.pin(11);
+    gpio_driver.reset(phy2_pwr_en).unwrap();
+    gpio_driver
+        .configure_output(
+            phy2_pwr_en,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::Low,
+            gpio_api::Pull::None,
+        )
+        .unwrap();
+    gpio_driver.set(phy2_pwr_en).unwrap();
+    sleep_for(10); // TODO: how long does this need to be?
+
+    // - SP_TO_PHY2_COMA_MODE (PI15, internal pull-up)
+    // - SP_TO_PHY2_RESET_3V3_L (PI14)
+    let coma_mode = gpio_api::Port::I.pin(15);
+    gpio_driver.set(coma_mode).unwrap();
+    gpio_driver
+        .configure_output(
+            coma_mode,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::Low,
+            gpio_api::Pull::None,
+        )
+        .unwrap();
+
+    let nrst = gpio_api::Port::I.pin(14);
+    gpio_driver.reset(nrst).unwrap();
+    gpio_driver
+        .configure_output(
+            nrst,
+            gpio_api::OutputType::PushPull,
+            gpio_api::Speed::Low,
+            gpio_api::Pull::None,
+        )
+        .unwrap();
+    sleep_for(10);
+    gpio_driver.set(nrst).unwrap();
+    sleep_for(120); // Wait for the chip to come out of reset
+
+    // This PHY is on MIIM ports 0 and 1, based on resistor strapping
     let mut bridge = MiimBridge { eth };
-    // TODO: this may not be on port 0
     vsc85xx::init_vsc8552_phy(0, &mut bridge).unwrap();
+
+    // Disable COMA_MODE
+    gpio_driver.reset(coma_mode).unwrap();
 }
