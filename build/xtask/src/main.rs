@@ -145,7 +145,7 @@ struct Config {
     extratext: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
     #[serde(default)]
-    config: Option<toml::Value>,
+    config: Option<ordered_toml::Value>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -226,7 +226,7 @@ struct Task {
     #[serde(default, deserialize_with = "deserialize_task_slot")]
     task_slots: IndexMap<String, String>,
     #[serde(default)]
-    config: Option<toml::Value>,
+    config: Option<ordered_toml::Value>,
 }
 
 /// In the common case, task slots map back to a task of the same name (e.g.

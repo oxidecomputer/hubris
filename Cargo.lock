@@ -948,6 +948,7 @@ dependencies = [
  "drv-stm32h7-spi",
  "idol",
  "idol-runtime",
+ "indexmap",
  "num-traits",
  "proc-macro2",
  "quote",
@@ -1666,6 +1667,15 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
+name = "ordered-toml"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/ordered-toml#3fdce7ade3610b84e2bbd0130442be76cb0f8210"
+dependencies = [
+ "indexmap",
+ "serde",
+]
 
 [[package]]
 name = "p256"
@@ -3005,6 +3015,7 @@ dependencies = [
  "goblin",
  "indexmap",
  "lpc55_sign",
+ "ordered-toml",
  "path-slash",
  "scroll",
  "serde",

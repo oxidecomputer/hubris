@@ -25,6 +25,7 @@ quote = "1"
 call_rustfmt = {path = "../../build/call_rustfmt"}
 syn = {version = "1", features = ["parsing"]}
 proc-macro2 = "1"
+indexmap = "1.7"
 
 [features]
 spi1 = []
