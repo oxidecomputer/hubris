@@ -2533,6 +2533,8 @@ dependencies = [
  "syn",
  "task-net-api",
  "userlib",
+ "vsc7448-pac",
+ "vsc85xx",
  "zerocopy",
 ]
 
