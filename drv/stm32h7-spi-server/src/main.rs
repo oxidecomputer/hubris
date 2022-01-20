@@ -319,7 +319,7 @@ impl ServerImpl {
         // limitation, maybe. Doing so would require managing data
         // in 64kiB chunks (because the peripheral is 16-bit) and
         // using the "reload" facility on the peripheral.
-        self.spi.enable(overall_len);
+        self.spi.enable(overall_len, device.clock_divider);
 
         // Load transfer count and start the state machine. At this
         // point we _have_ to move the specified number of bytes
@@ -592,6 +592,9 @@ struct DeviceDescriptor {
     /// Where the CS pin is. While this is a `PinSet`, it should only have one
     /// pin in it, and we check this at startup.
     cs: PinSet,
+    /// Clock divider to apply while speaking with this device. Yes, this says
+    /// spi1 no matter which SPI block we're in charge of.
+    clock_divider: device::spi1::cfg1::MBR_A,
 }
 
 /// Any impl of ServerConfig for Server has to pass these tests at startup.
