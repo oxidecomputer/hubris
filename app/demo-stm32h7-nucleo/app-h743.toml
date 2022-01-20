@@ -115,15 +115,15 @@ path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 4096}
-features = ["spi3", "h743"]
-uses = ["spi3"]
+features = ["spi1", "h743"]
+uses = ["spi1"]
 start = true
-interrupts = {51 = 1}
+interrupts = {35 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi_driver.config.spi]
-global_config = "spi3"
+global_config = "spi1"
 
 [tasks.net]
 path = "../../task/net"
@@ -279,19 +279,19 @@ af = 4
 # driver = "ltc4306"
 # address = 0b1001_010
 
-[config.spi.spi3]
-controller = 3
+[config.spi.spi1]
+controller = 1
 
-[config.spi.spi3.mux_options.port_b]
+[config.spi.spi1.mux_options.cn7_arduino]
 outputs = [
-    {port = "B", pins = [3], af = 6},
-    {port = "B", pins = [5], af = 7},
+    {port = "A", pins = [5], af = 5}, # sck
+    {port = "B", pins = [5], af = 5}, # mosi
 ]
-input = {port = "B", pin = 4, af = 6}
+input = {port = "A", pin = 6, af = 5} # miso
 
-[config.spi.spi3.devices.pins]
-mux = "port_b"
-cs = {port = "A", pin = 4}
+[config.spi.spi1.devices.pins]
+mux = "cn7_arduino"
+cs = {port = "D", pin = 14}
 
 
 [config.net]
