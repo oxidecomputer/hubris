@@ -59,11 +59,6 @@ impl DevGeneric {
             }
         }
     }
-    pub fn index(&self) -> u32 {
-        match *self {
-            DevGeneric::Dev1g(d) | DevGeneric::Dev2g5(d) => d,
-        }
-    }
 }
 
 /// Wrapper struct for a DEV10G index, which is analogous to `DevGeneric`.

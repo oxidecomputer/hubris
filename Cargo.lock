@@ -2516,6 +2516,7 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
@@ -2974,6 +2975,7 @@ name = "vsc-err"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "task-net-api",
 ]
 
 [[package]]
@@ -2985,6 +2987,7 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-gpio-api",
  "ringbuf",
+ "task-net-api",
  "userlib",
  "vsc-err",
  "vsc7448-pac",
