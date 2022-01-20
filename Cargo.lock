@@ -2514,6 +2514,7 @@ name = "task-net"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if 0.1.10",
  "cortex-m",
  "drv-stm32h7-eth",
  "drv-stm32h7-gpio-api",

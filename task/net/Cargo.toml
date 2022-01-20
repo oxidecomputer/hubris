@@ -5,11 +5,12 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2021"
 
 [dependencies]
+cfg-if = "0.1.10"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-stm32h7 = {version = "0.13", features = ["stm32h743"]}
+num-traits = {version = "0.2.12", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
-num-traits = {version = "0.2.12", default-features = false}
+stm32h7 = {version = "0.13", features = ["stm32h743"]}
 zerocopy = "0.6"
 
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}

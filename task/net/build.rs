@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let global_config = build_util::config::<GlobalConfig>()?;
 
     generate_net_config(&global_config.net)?;
+    build_util::expose_target_board();
 
     Ok(())
 }
