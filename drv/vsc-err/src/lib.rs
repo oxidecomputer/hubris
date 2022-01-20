@@ -44,12 +44,12 @@ pub enum VscError {
     OffsetCalFailed,
 
     /// Mismatch in the `IDENTIFIER_1` PHY register
-    BadId1(u16),
+    BadPhyId1(u16),
     /// Mismatch in the `IDENTIFIER_2` PHY register
-    BadId2(u16),
+    BadPhyId2(u16),
     /// Indicates that the VSC8504 is not Tesla E silicon
-    BadRev,
-    InitTimeout,
+    BadPhyRev,
+    PhyInitTimeout,
 
     MiimReadErr {
         miim: u32,

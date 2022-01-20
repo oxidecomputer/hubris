@@ -12,7 +12,7 @@ use crate::{
 use ringbuf::*;
 use userlib::*;
 use vsc7448_pac::{phy, Vsc7448};
-use vsc85xx::{init_vsc8522_phy, PhyRw};
+use vsc85xx::{init_vsc8522_phy, Phy};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -60,9 +60,13 @@ impl<'a> Bsp<'a> {
             // We only need to check this on one PHY port per physical PHY
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
-            let mut p = Vsc7448SpiPhy::new(self.vsc7448, miim);
-            for phy in [0, 12] {
-                init_vsc8522_phy(phy, &mut p)?;
+            let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
+            for port in [0, 12] {
+                let mut p = Phy {
+                    port,
+                    rw: &mut phy_rw,
+                };
+                init_vsc8522_phy(&mut p)?;
             }
         }
 
@@ -161,9 +165,14 @@ impl<'a> Bsp<'a> {
         loop {
             hl::sleep_for(100);
             for miim in [1, 2] {
-                let mut p = Vsc7448SpiPhy::new(self.vsc7448, miim);
+                let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
                 for phy in 0..24 {
-                    match p.read(phy, phy::STANDARD::MODE_STATUS()) {
+                    let mut p = Phy {
+                        port: phy,
+                        rw: &mut phy_rw,
+                    };
+
+                    match p.read(phy::STANDARD::MODE_STATUS()) {
                         Ok(status) => {
                             let up = (status.0 & (1 << 5)) != 0;
                             if up != link_up[miim as usize - 1][phy as usize] {
