@@ -2707,11 +2707,15 @@ name = "task-vsc7448"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if 0.1.10",
  "drv-spi-api",
+ "drv-stm32h7-gpio-api",
  "ringbuf",
+ "task-net-api",
  "userlib",
  "vsc7448",
  "vsc7448-pac",
+ "vsc85xx",
 ]
 
 [[package]]
@@ -2985,7 +2989,6 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "drv-spi-api",
- "drv-stm32h7-gpio-api",
  "ringbuf",
  "task-net-api",
  "userlib",

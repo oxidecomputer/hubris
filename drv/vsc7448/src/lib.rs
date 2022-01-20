@@ -4,15 +4,12 @@
 
 #![no_std]
 
-pub mod bsp;
-pub mod spi;
-
-mod dev;
+pub mod dev;
 mod port;
-mod serdes10g;
-mod serdes1g;
-mod serdes6g;
-mod spi_phy;
+pub mod serdes10g;
+pub mod serdes1g;
+pub mod serdes6g;
+pub mod spi;
 
 use userlib::hl::sleep_for;
 use vsc7448_pac::Vsc7448;

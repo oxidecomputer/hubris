@@ -5,9 +5,12 @@
 #![no_std]
 #![no_main]
 
+mod bsp;
+
+use bsp::Bsp;
 use drv_spi_api::Spi;
 use userlib::*;
-use vsc7448::{bsp::Bsp, spi::Vsc7448Spi};
+use vsc7448::spi::Vsc7448Spi;
 
 task_slot!(SPI, spi_driver);
 const VSC7448_SPI_DEVICE: u8 = 0;

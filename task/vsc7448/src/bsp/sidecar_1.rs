@@ -2,15 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{
+use drv_stm32h7_gpio_api as gpio_api;
+use ringbuf::*;
+use userlib::{hl::sleep_for, sys_get_timer, task_slot};
+use vsc7448::{
     dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
     serdes10g, serdes1g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
 };
-use drv_stm32h7_gpio_api as gpio_api;
-use ringbuf::*;
-use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
@@ -36,7 +36,8 @@ impl<'a> PhyRw for Bsp<'a> {
         port: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-        self.net.smi_read(port, reg.addr)
+        self.net
+            .smi_read(port, reg.addr)
             .map(|r| r.into())
             .map_err(|e| e.into())
     }
@@ -51,7 +52,8 @@ impl<'a> PhyRw for Bsp<'a> {
         u16: From<T>,
         T: From<u16> + Clone,
     {
-        self.net.smi_write(port, reg.addr, value.into())
+        self.net
+            .smi_write(port, reg.addr, value.into())
             .map_err(|e| e.into())
     }
 }
