@@ -87,5 +87,6 @@ impl PhyRw for MiimBridge<'_> {
 
 pub fn configure_phy(eth: &mut eth::Ethernet) {
     let mut bridge = MiimBridge { eth };
+    // TODO: this may not be on port 0
     vsc85xx::init_vsc8552_phy(0, &mut bridge).unwrap();
 }
