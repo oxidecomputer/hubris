@@ -28,12 +28,10 @@ fn main() -> ! {
     let spi = Spi::from(SPI.get_task_id()).device(VSC7448_SPI_DEVICE);
     let vsc7448 = Vsc7448Spi(spi);
 
-    loop {
-        // `init` does a full chip reset, so we can run it multiple times
-        // (although if it fails once, it's likely to fail repeatedly)
-        match vsc7448::init(&vsc7448).and_then(|_| Bsp::new(&vsc7448)) {
-            Ok(bsp) => bsp.run(), // Does not terminate
-            Err(_e) => hl::sleep_for(200),
-        }
+    // `init` does a full chip reset, so we can run it multiple times
+    // (although if it fails once, it's likely to fail repeatedly)
+    match vsc7448::init(&vsc7448).and_then(|_| Bsp::new(&vsc7448)) {
+        Ok(bsp) => bsp.run(), // Does not terminate
+        Err(e) => panic!("Could not initialize: {:?}", e),
     }
 }
