@@ -11,7 +11,7 @@
 
 use drv_spi_api::SpiError;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VscError {
     SpiError(SpiError),
     BadChipId(u32),
