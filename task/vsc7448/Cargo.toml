@@ -9,7 +9,6 @@ ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 vsc7448 = {path = "../../drv/vsc7448" }
-cfg-if = "0.1.10"
 
 [features]
 default = ["standalone"]

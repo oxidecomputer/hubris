@@ -7,18 +7,7 @@
 
 use drv_spi_api::Spi;
 use userlib::*;
-use vsc7448::spi::Vsc7448Spi;
-
-cfg_if::cfg_if! {
-    if #[cfg(target_board = "gemini-bu-1")] {
-        use vsc7448::bsp::gemini_bu::Bsp;
-    } else if #[cfg(target_board = "sidecar-1")] {
-        use vsc7448::bsp::sidecar::Bsp;
-    } else {
-        use vsc7448::bsp::sidecar::Bsp;
-//        compile_error!("No BSP available for this board");
-    }
-}
+use vsc7448::{bsp::Bsp, spi::Vsc7448Spi};
 
 task_slot!(SPI, spi_driver);
 const VSC7448_SPI_DEVICE: u8 = 0;

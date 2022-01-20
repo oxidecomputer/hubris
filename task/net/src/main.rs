@@ -58,7 +58,7 @@ fn main() -> ! {
     rcc.enter_reset(drv_stm32h7_rcc_api::Peripheral::Eth1Mac);
     rcc.leave_reset(drv_stm32h7_rcc_api::Peripheral::Eth1Mac);
 
-    bsp::configure_ethernet_pins();
+    bsp::Bsp::configure_ethernet_pins();
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -117,7 +117,7 @@ fn main() -> ! {
     }
 
     // Board-dependant!
-    bsp::configure_phy(eth.device_mut());
+    bsp::Bsp::configure_phy(eth.device_mut());
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
