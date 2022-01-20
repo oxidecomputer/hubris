@@ -614,7 +614,7 @@ cs = {port = "I", pin = 0}
 [config.spi.spi5]
 controller = 5
 
-[config.spi.spi2.mux_options.port_jk]
+[config.spi.spi5.mux_options.port_jk]
 outputs = [
     {port = "J", pins = [10], af = 5},
     {port = "K", pins = [0], af = 5},
