@@ -105,7 +105,8 @@ impl Spi {
         self.reg.i2scfgr.write(|w| w.i2smod().clear_bit());
     }
 
-    pub fn enable(&mut self, tsize: u16) {
+    pub fn enable(&mut self, tsize: u16, div: device::spi1::cfg1::MBR_A) {
+        self.reg.cfg1.modify(|_, w| w.mbr().variant(div));
         self.reg.cr2.modify(|_, w| w.tsize().bits(tsize));
         self.reg.cr1.modify(|_, w| w.spe().set_bit());
     }
