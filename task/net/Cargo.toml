@@ -20,6 +20,8 @@ drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["h743"]}
 ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
+vsc85xx = { path = "../../drv/vsc85xx", optional = true }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", optional = true}
 
 [dependencies.smoltcp]
 version = "0.8.0"
@@ -34,6 +36,7 @@ features = [
 [features]
 default = ["standalone"]
 standalone = []
+with_vsc85xx = ["vsc85xx", "vsc7448-pac"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

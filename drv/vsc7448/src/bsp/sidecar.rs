@@ -30,7 +30,7 @@ pub struct Bsp<'a> {
 
 impl<'a> PhyRw for Bsp<'a> {
     fn read_raw<T: From<u16>>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
@@ -38,7 +38,7 @@ impl<'a> PhyRw for Bsp<'a> {
     }
 
     fn write_raw<T>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
@@ -54,12 +54,12 @@ impl<'a> PhyRw for Bsp<'a> {
 impl<'a> Bsp<'a> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
-        let out = Bsp { vsc7448 };
+        let mut out = Bsp { vsc7448 };
         out.init()?;
         Ok(out)
     }
 
-    pub fn init(&self) -> Result<(), VscError> {
+    pub fn init(&mut self) -> Result<(), VscError> {
         let out = self.init_inner();
         match out {
             Err(e) => ringbuf_entry!(Trace::FailedToInitialize(e)),
@@ -68,7 +68,7 @@ impl<'a> Bsp<'a> {
         out
     }
 
-    fn init_inner(&self) -> Result<(), VscError> {
+    fn init_inner(&mut self) -> Result<(), VscError> {
         let sys = SYS.get_task_id();
         let sys = Sys::from(sys);
 

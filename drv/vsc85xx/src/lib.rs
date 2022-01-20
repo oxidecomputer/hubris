@@ -19,7 +19,7 @@ pub trait PhyRw {
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read`
     fn read_raw<T: From<u16>>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError>;
@@ -28,7 +28,7 @@ pub trait PhyRw {
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read` and `write`
     fn write_raw<T>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
@@ -38,7 +38,7 @@ pub trait PhyRw {
         T: From<u16> + Clone;
 
     fn read<T>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError>
@@ -55,7 +55,7 @@ pub trait PhyRw {
     }
 
     fn write<T>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
@@ -75,7 +75,7 @@ pub trait PhyRw {
     /// Performs a read-modify-write operation on a PHY register connected
     /// to the VSC7448 via MIIM.
     fn modify<T, F>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         f: F,
@@ -91,7 +91,7 @@ pub trait PhyRw {
     }
 
     fn wait_timeout<T, F>(
-        &self,
+        &mut self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         f: F,
@@ -113,7 +113,7 @@ pub trait PhyRw {
 }
 
 /// Initializes a VSC8522 PHY using QSGMII
-pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     // Do a self-reset on the PHY
     v.modify(port, phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
@@ -140,7 +140,7 @@ pub fn init_vsc8522_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
 /// the PHY is reset (i.e. the reset pin is toggled and then the caller
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
-pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     vsc85xx_patch(port, v)?;
 
     let id1 = v.read(port, phy::STANDARD::IDENTIFIER_1())?.0;
@@ -178,7 +178,7 @@ pub fn init_vsc8504_phy<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
     Ok(())
 }
 
-fn vsc85xx_patch<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+fn vsc85xx_patch<P: PhyRw>(port: u8, v: &mut P) -> Result<(), VscError> {
     // Based on `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
 
     // Enable broadcast flag to configure all ports simultaneously
@@ -434,7 +434,10 @@ fn vsc85xx_patch<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
 }
 
 /// Based on `download_8051_code`
-fn vsc85xx_download_patch<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
+fn vsc85xx_download_patch<P: PhyRw>(
+    port: u8,
+    v: &mut P,
+) -> Result<(), VscError> {
     // "Hold 8051 in SW Reset, Enable auto incr address and patch clock,
     //  Disable the 8051 clock"
     v.write(port, phy::GPIO::GPIO_0(), 0x7009.into())?;
@@ -458,7 +461,7 @@ fn vsc85xx_download_patch<P: PhyRw>(port: u8, v: &P) -> Result<(), VscError> {
 /// Based on `vtss_phy_micro_assert_reset`
 fn vsc85xx_micro_assert_reset<P: PhyRw>(
     port: u8,
-    v: &P,
+    v: &mut P,
 ) -> Result<(), VscError> {
     // "Pass the NOP cmd to Micro to insure that any consumptive patch exits"
     v.write(port, phy::GPIO::MICRO_PAGE(), 0x800F.into())?;
@@ -480,7 +483,10 @@ fn vsc85xx_micro_assert_reset<P: PhyRw>(
 }
 
 /// Based on `vtss_phy_is_8051_crc_ok_private`
-fn vsc85xx_check_8051_crc<P: PhyRw>(port: u8, v: &P) -> Result<bool, VscError> {
+fn vsc85xx_check_8051_crc<P: PhyRw>(
+    port: u8,
+    v: &mut P,
+) -> Result<bool, VscError> {
     let start_addr = 0xE800;
     let patch_size = (PATCH.len() + 1) as u16;
     let expected_crc = 0xfb48;

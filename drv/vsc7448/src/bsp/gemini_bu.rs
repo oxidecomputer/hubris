@@ -60,9 +60,9 @@ impl<'a> Bsp<'a> {
             // We only need to check this on one PHY port per physical PHY
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
-            let p = Vsc7448SpiPhy::new(self.vsc7448, miim);
+            let mut p = Vsc7448SpiPhy::new(self.vsc7448, miim);
             for phy in [0, 12] {
-                init_vsc8522_phy(phy, &p)?;
+                init_vsc8522_phy(phy, &mut p)?;
             }
         }
 
@@ -161,7 +161,7 @@ impl<'a> Bsp<'a> {
         loop {
             hl::sleep_for(100);
             for miim in [1, 2] {
-                let p = Vsc7448SpiPhy::new(self.vsc7448, miim);
+                let mut p = Vsc7448SpiPhy::new(self.vsc7448, miim);
                 for phy in 0..24 {
                     match p.read(phy, phy::STANDARD::MODE_STATUS()) {
                         Ok(status) => {
