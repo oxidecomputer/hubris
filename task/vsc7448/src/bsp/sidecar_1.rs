@@ -143,23 +143,7 @@ impl<'a> Bsp<'a> {
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board)
 
-        // The PHY must be powered and RefClk must be up at this point
-        //
-        // Jiggle reset line, then wait 120 ms
-        // SP_TO_LDO_PHY4_EN (PI6)
-        let phy4_pwr_en = gpio_api::Port::I.pin(6);
-        gpio_driver.reset(phy4_pwr_en).unwrap();
-        gpio_driver
-            .configure_output(
-                phy4_pwr_en,
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::Low,
-                gpio_api::Pull::None,
-            )
-            .unwrap();
-        gpio_driver.set(phy4_pwr_en).unwrap();
-        // TODO: sleep for PG lines going high here
-        sleep_for(10);
+        // TODO: wait for PLL lock to happen here
 
         let coma_mode = gpio_api::Port::I.pin(10);
         gpio_driver.set(coma_mode).unwrap();
@@ -171,6 +155,7 @@ impl<'a> Bsp<'a> {
                 gpio_api::Pull::None,
             )
             .unwrap();
+        gpio_driver.reset(coma_mode).unwrap();
 
         // Make NRST low then switch it to output mode
         let nrst = gpio_api::Port::I.pin(9);
@@ -183,7 +168,27 @@ impl<'a> Bsp<'a> {
                 gpio_api::Pull::None,
             )
             .unwrap();
+
+        // Jiggle reset line, then wait 120 ms
+        // SP_TO_LDO_PHY4_EN (PI6)
+        let phy4_pwr_en = gpio_api::Port::I.pin(6);
+        gpio_driver.reset(phy4_pwr_en).unwrap();
+        gpio_driver
+            .configure_output(
+                phy4_pwr_en,
+                gpio_api::OutputType::PushPull,
+                gpio_api::Speed::Low,
+                gpio_api::Pull::None,
+            )
+            .unwrap();
+        gpio_driver.reset(phy4_pwr_en).unwrap();
         sleep_for(10);
+
+        // Power on!
+        gpio_driver.set(phy4_pwr_en).unwrap();
+        sleep_for(4);
+        // TODO: sleep for PG lines going high here
+
         gpio_driver.set(nrst).unwrap();
         sleep_for(120); // Wait for the chip to come out of reset
 
@@ -221,7 +226,7 @@ impl<'a> Bsp<'a> {
         ////////////////////////////////////////////////////////////////////////
         // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP
         serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
-        dev1g_init_sgmii(DevGeneric::new_1g(24), &self.vsc7448)?;
+        dev1g_init_sgmii(DevGeneric::new_2g5(24), &self.vsc7448)?;
 
         ////////////////////////////////////////////////////////////////////////
         // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
