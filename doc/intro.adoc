@@ -83,7 +83,7 @@ through a combination of decisions.
 
 **More memory safety.** The bulk of both the Hubris kernel and our applications
 are written in safe Rust, with careful sprinklings of unsafe Rust where
-required. "`Unsafe`" Rust is still a much safer language than C or assembler and
+required. "`Unsafe`" Rust is still a much safer language than C or assembly and
 helps us avoid thinking about a bunch of potential bugs.
 
 **Fault isolation.** Tasks, including drivers, can crash independently. An
