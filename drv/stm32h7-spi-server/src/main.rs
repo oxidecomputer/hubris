@@ -17,7 +17,9 @@
 #![no_main]
 
 use drv_spi_api::*;
-use idol_runtime::{Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{
+    LeaseBufReader, LeaseBufWriter, Leased, LenLimit, RequestError, R, W,
+};
 use ringbuf::*;
 
 #[cfg(feature = "h7b3")]
@@ -41,8 +43,8 @@ task_slot!(GPIO, gpio_driver);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Start(SpiOperation, (u16, u16)),
-    Tx(u16, u8),
-    Rx(u16, u8),
+    Tx(u8),
+    Rx(u8),
     WaitISR(u32),
     None,
 }
@@ -257,7 +259,6 @@ impl ServerImpl {
         data_dest: Option<LenLimit<Leased<W, [u8]>, 65535>>,
     ) -> Result<(), RequestError<SpiError>> {
         let device_index = usize::from(device_index);
-        let mut rval = Ok(());
 
         // If we are locked, check that the caller isn't mistakenly
         // addressing the wrong device.
@@ -339,13 +340,16 @@ impl ServerImpl {
         //    unit contains FIFOs.
         //
         // 2. We're only keeping track of position in the buffers
-        //    we're using: both tx and rx are `Option<(Borrow,
-        //    u16)>`.
+        //    we're using: both tx and rx are `Option`.
+        //
+        // The BufReader/Writer types manage position tracking for us.
 
-        // Tack a position field onto whichever borrows actually
-        // exist.
-        let mut tx = data_src.map(|borrow| (borrow, 0));
-        let mut rx = data_dest.map(|borrow| (borrow, 0));
+        // Wrap a buffer reader/writer onto whichever borrows actually exist.
+        const BUFSIZ: usize = 32;
+        let mut tx: Option<LeaseBufReader<_, BUFSIZ>> =
+            data_src.map(|b| LeaseBufReader::from(b.into_inner()));
+        let mut rx: Option<LeaseBufWriter<_, BUFSIZ>> =
+            data_dest.map(|b| LeaseBufWriter::from(b.into_inner()));
 
         // Enable interrupt on the conditions we're interested in.
         self.spi.enable_transfer_interrupts();
@@ -360,9 +364,22 @@ impl ServerImpl {
                 .unwrap();
         }
 
+        // We use this to exert backpressure on the TX state machine as the RX
+        // FIFO fills. Its initial value is the minimum FIFO size across any
+        // implemented SPI block on the H7; it would be nice if we could read
+        // the configured FIFO size out of the block, but that does not appear
+        // to be possible. So, we are currently conservative.
+        //
+        // See reference manual table 409 for details.
+        let mut tx_permits = 16;
+
+        // We monitor our overall progress based on bytes _received,_ since
+        // every TX has a corresponding RX.
+        let mut rx_count = 0;
+
         // While work remains, we'll attempt to move up to one byte
         // in each direction, sleeping if we can do neither.
-        while tx.is_some() || rx.is_some() {
+        while rx_count != overall_len {
             // Entering RECV to check for interrupts is not free, so
             // we only do it if we've filled the TX FIFO and emptied
             // the RX and repeating this loop would just burn power
@@ -370,31 +387,19 @@ impl ServerImpl {
             // the loop immediately, we'll set this flag.
             let mut made_progress = false;
 
-            if let Some((tx_data, tx_pos)) = &mut tx {
-                while self.spi.can_tx_frame() {
-                    // If our position is less than our tx len,
-                    // transfer a byte from caller to TX FIFO --
-                    // otherwise put a dummy byte on the wire
-                    let byte: u8 = if *tx_pos < src_len {
-                        tx_data
-                            .read_at(usize::from(*tx_pos))
-                            .ok_or(RequestError::went_away())?
-                    } else {
-                        0u8
-                    };
+            // If there are things to transmit in the first place...
+            if let Some(tx_reader) = &mut tx {
+                // ...and if we're not going to blow either FIFO...
+                while tx_permits > 0 && self.spi.can_tx_frame() {
+                    // If we read off the end, or if the client goes away, we'll
+                    // substitute zero. This allows the TX to be shorter than RX
+                    // and get padded.
+                    let byte = tx_reader.read().unwrap_or(0);
 
-                    ringbuf_entry!(Trace::Tx(*tx_pos, byte));
+                    ringbuf_entry!(Trace::Tx(byte));
                     self.spi.send8(byte);
-                    *tx_pos += 1;
+                    tx_permits -= 1;
                     made_progress = true;
-
-                    if *tx_pos == overall_len {
-                        // We continue to transmit beyond our src_len
-                        // (transmitting dummy bytes, above), but once we
-                        // hit overall_len we are done transmitting.
-                        tx = None;
-                        break;
-                    }
                 }
             }
 
@@ -402,37 +407,30 @@ impl ServerImpl {
             // keep receiving now until the RX FIFO is empty, assuring that
             // we are (roughly) balanced with respect to TX and RX and reducing
             // our chances of hitting an overrun.
-            if let Some((rx_data, rx_pos)) = &mut rx {
+            if let Some(rx_reader) = &mut rx {
                 while self.spi.can_rx_byte() {
+                    if rx_count == overall_len {
+                        panic!()
+                    }
                     // Transfer byte from RX FIFO to caller.
                     let b = self.spi.recv8();
-                    rx_data
-                        .write_at(usize::from(*rx_pos), b)
-                        .map_err(|_| RequestError::went_away())?;
-                    ringbuf_entry!(Trace::Rx(*rx_pos, b));
-                    *rx_pos += 1;
-
-                    if *rx_pos == dest_len {
-                        rx = None;
-                        break;
-                    }
+                    rx_count += 1;
+                    // Allow another byte to be inserted in the TX FIFO.
+                    tx_permits += 1;
+                    // Deposit the byte; if we're off the end, we'll discard the
+                    // error so that it discards the byte.
+                    rx_reader.write(b).ok();
+                    ringbuf_entry!(Trace::Rx(b));
 
                     made_progress = true;
                 }
             }
 
-            if !made_progress {
+            if !made_progress && rx_count != overall_len {
                 ringbuf_entry!(Trace::WaitISR(self.spi.read_status()));
 
                 if self.spi.check_overrun() {
-                    // If we've had an overrun, there's little to be done other
-                    // than cleanup and return a failure to our caller.
-                    rval = Err(SpiError::DataOverrun.into());
-                    break;
-                }
-
-                if self.spi.check_eot() {
-                    break;
+                    panic!();
                 }
 
                 // Allow the controller interrupt to post to our
@@ -468,7 +466,7 @@ impl ServerImpl {
                 .unwrap();
         }
 
-        rval
+        Ok(())
     }
 }
 
