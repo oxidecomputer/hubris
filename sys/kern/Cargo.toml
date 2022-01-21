@@ -22,6 +22,9 @@ unwrap-lite = { path = "../../lib/unwrap-lite" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+serde = "1"
+ron = "0.7"
+abi = {path = "../abi"}
 
 [lib]
 test = false
