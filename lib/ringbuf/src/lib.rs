@@ -142,6 +142,14 @@
 /// macros is guaranteed to be able to find them.
 pub use userlib::util::StaticCell;
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(not(feature = "disabled"))]
+pub const DEFAULT_ENABLE: bool = true;
+
+#[cfg(feature = "disabled")]
+pub const DEFAULT_ENABLE: bool = false;
+
 /// Declares a ringbuffer in the current module or context.
 ///
 /// `ringbuf!(NAME, Type, N, expr)` makes a ringbuffer named `NAME`,
@@ -152,17 +160,17 @@ pub use userlib::util::StaticCell;
 /// you want your ringbuffer to be detected by Humility's automatic scan, its
 /// name should end in `RINGBUF`.
 ///
-/// The actual type of `name` will be `StaticCell<Ringbuf<T, N>>`.
+/// The actual type of `name` will be `StaticRingbuf<T, N>`.
 ///
 /// To support the common case of having one quickly-installed ringbuffer per
 /// module, if you omit the name, it will default to `__RINGBUF`.
-#[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf {
     ($name:ident, $t:ty, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::Ringbuf<$t, $n>> =
-            $crate::StaticCell::new($crate::Ringbuf {
+        static $name: $crate::StaticRingbuf<$t, $n> = $crate::StaticRingbuf {
+            enable: core::sync::atomic::AtomicBool::new($crate::DEFAULT_ENABLE),
+            ringbuf_cell: $crate::StaticCell::new($crate::Ringbuf {
                 last: None,
                 buffer: [$crate::RingbufEntry {
                     line: 0,
@@ -170,18 +178,12 @@ macro_rules! ringbuf {
                     count: 0,
                     payload: $init,
                 }; $n],
-            });
+            }),
+        };
     };
     ($t:ty, $n:expr, $init:expr) => {
         $crate::ringbuf!(__RINGBUF, $t, $n, $init);
     };
-}
-
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {};
-    ($t:ty, $n:expr, $init:expr) => {};
 }
 
 /// Inserts data into a named ringbuffer (which should have been declared with
@@ -192,33 +194,27 @@ macro_rules! ringbuf {
 ///
 /// If you declared your ringbuffer without a name, you can also use this
 /// without a name, and it will default to `__RINGBUF`.
-#[cfg(not(feature = "disabled"))]
 #[macro_export]
 macro_rules! ringbuf_entry {
     ($buf:expr, $payload:expr) => {{
-        // Evaluate both buf and payload, without letting them access each
-        // other, by evaluating them in a tuple where each cannot
-        // accidentally use the other's binding.
-        let (p, buf) = ($payload, &$buf);
-        // Invoke these functions using slightly weird syntax to avoid
-        // accidentally calling a _different_ routine called borrow_mut or
-        // entry.
-        $crate::Ringbuf::entry(
-            &mut *$crate::StaticCell::borrow_mut(buf),
-            line!() as u16,
-            p,
-        );
+        // Note: __buf has an ugly name to avoid it being in-scope when we
+        // evaluate $payload.
+        let __buf = &$buf;
+        if __buf.enable.load(core::sync::atomic::Ordering::Relaxed) {
+            let p = $payload;
+            // Invoke these functions using slightly weird syntax to avoid
+            // accidentally calling a _different_ routine called borrow_mut or
+            // entry.
+            $crate::Ringbuf::entry(
+                &mut *$crate::StaticCell::borrow_mut(&__buf.ringbuf_cell),
+                line!() as u16,
+                p,
+            );
+        }
     }};
     ($payload:expr) => {
         $crate::ringbuf_entry!(__RINGBUF, $payload);
     };
-}
-
-#[cfg(feature = "disabled")]
-#[macro_export]
-macro_rules! ringbuf_entry {
-    ($buf:expr, $payload:expr) => {};
-    ($payload:expr) => {};
 }
 
 ///
@@ -233,6 +229,24 @@ pub struct RingbufEntry<T: Copy + PartialEq> {
     pub generation: u16,
     pub count: u32,
     pub payload: T,
+}
+
+/// A container for a `Ringbuf` at static scope, which includes a `StaticCell`
+/// to access it safely, and an enable flag.
+pub struct StaticRingbuf<T: Copy + PartialEq, const N: usize> {
+    pub ringbuf_cell: StaticCell<Ringbuf<T, N>>,
+    pub enable: AtomicBool,
+}
+
+impl<T: Copy + PartialEq, const N: usize> StaticRingbuf<T, { N }> {
+    pub fn is_enabled(&self) -> bool {
+        self.enable.load(Ordering::Relaxed)
+    }
+
+    /// Programmatically enables or disables logging to a ringbuf.
+    pub fn set_enabled(&self, enable: bool) {
+        self.enable.store(enable, Ordering::Relaxed);
+    }
 }
 
 ///
