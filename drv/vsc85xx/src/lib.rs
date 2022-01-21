@@ -17,8 +17,8 @@ pub use vsc_err::VscError;
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    Vsc8552Init,
-    Vsc8504Init,
+    Vsc8552Init(u8),
+    Vsc8504Init(u8),
     PatchState { patch_ok: bool, skip_download: bool },
     GotCrc(u16),
 }
@@ -151,7 +151,7 @@ pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
 pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8504Init);
+    ringbuf_entry!(Trace::Vsc8504Init(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     assert_eq!(id1, 0x7);
@@ -186,7 +186,7 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 /// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
 /// The caller is also responsible for handling the `COMA_MODE` pin.
 pub fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8552Init);
+    ringbuf_entry!(Trace::Vsc8552Init(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     assert_eq!(id1, 0x7);
@@ -461,7 +461,7 @@ fn vsc85xx_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // This patch can only be applied to Port 0 of the PHY, so we'll check
     // the address here.
     let phy_port = v.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
-    assert_eq!(phy_port, v.port as u16);
+    assert_eq!(phy_port, 0);
     let crc = vsc85xx_read_8051_crc(v, FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
     let skip_download = crc == EXPECTED_CRC;
     let patch_ok = skip_download

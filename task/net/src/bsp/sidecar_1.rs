@@ -29,10 +29,8 @@ pub fn configure_ethernet_pins() {
     // This board's mapping:
     //
     // RMII REF CLK     PA1
-    // MDIO             PA2
     // RMII RX DV       PA7
     //
-    // MDC              PC1
     // RMII RXD0        PC4
     // RMII RXD1        PC5
     //
@@ -40,15 +38,23 @@ pub fn configure_ethernet_pins() {
     // RMII TXD1        PG12
     // RMII TXD0        PG13
     //
+    // MDIO             PA2
+    //
+    // MDC              PC1
+    //
     // (it's _almost_ identical to the STM32H7 Nucleo, except that
     //  TXD1 is on a different pin)
+    //
+    //  The MDIO/MDC lines run at Speed::Low because otherwise the VSC8504
+    //  refuses to talk.
     use gpio_api::*;
     let gpio = Gpio::from(GPIO.get_task_id());
     let eth_af = Alternate::AF11;
 
+    // RMII
     gpio.configure(
         Port::A,
-        (1 << 1) | (1 << 2) | (1 << 7),
+        (1 << 1) | (1 << 7),
         Mode::Alternate,
         OutputType::PushPull,
         Speed::VeryHigh,
@@ -58,7 +64,7 @@ pub fn configure_ethernet_pins() {
     .unwrap();
     gpio.configure(
         Port::C,
-        (1 << 1) | (1 << 4) | (1 << 5),
+        (1 << 4) | (1 << 5),
         Mode::Alternate,
         OutputType::PushPull,
         Speed::VeryHigh,
@@ -72,6 +78,28 @@ pub fn configure_ethernet_pins() {
         Mode::Alternate,
         OutputType::PushPull,
         Speed::VeryHigh,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+
+    // SMI (MDC and MDIO)
+    gpio.configure(
+        Port::A,
+        1 << 2,
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+    gpio.configure(
+        Port::C,
+        1 << 1,
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::Low,
         Pull::None,
         eth_af,
     )
@@ -155,7 +183,7 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     gpio_driver.reset(phy2_pwr_en).unwrap();
     sleep_for(10); // TODO: how long does this need to be?
 
-    // Power on
+    // Power on!
     gpio_driver.set(phy2_pwr_en).unwrap();
     sleep_for(4);
     // TODO: sleep for PG lines going high here

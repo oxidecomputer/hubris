@@ -2990,7 +2990,6 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-spi-api",
  "ringbuf",
- "task-net-api",
  "userlib",
  "vsc-err",
  "vsc7448-pac",
