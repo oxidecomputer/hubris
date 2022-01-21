@@ -14,6 +14,7 @@ use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
+use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32h7_gpio_api as gpio_api;
@@ -22,7 +23,12 @@ use seq_spi::{Addr, Reg};
 
 task_slot!(GPIO, gpio_driver);
 task_slot!(SPI, spi_driver);
+task_slot!(I2C, i2c_driver);
 task_slot!(HF, hf);
+
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+mod payload;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -42,6 +48,10 @@ enum Trace {
     Done,
     GetState,
     SetState(PowerState, PowerState),
+    LoadClockConfig,
+    ClockConfigWrite(usize),
+    ClockConfigSuccess(usize),
+    ClockConfigFailed(usize, ResponseCode),
     None,
 }
 
@@ -231,7 +241,9 @@ fn main() -> ! {
             gpio.set_reset(port, 0, pin_mask).unwrap();
         }
 
-        // Reprogramming will continue until morale improves.
+        let mut laps = 0;
+
+        // Reprogramming will continue until morale improves -- to a point.
         loop {
             let prog = spi.device(ICE40_SPI_DEVICE);
             ringbuf_entry!(Trace::Programming);
@@ -241,11 +253,22 @@ fn main() -> ! {
                     break;
                 }
                 Err(_) => {
-                    // Try and put state back to something reasonable.
-                    // We don't know if we're still locked, so ignore the complaint
-                    // if we're not.
+                    // Try and put state back to something reasonable.  We
+                    // don't know if we're still locked, so ignore the
+                    // complaint if we're not.
                     let _ = prog.release();
-                    // We're gonna try again.
+
+                    laps += 1;
+
+                    if laps >= 3 {
+                        panic!(
+                            "could not reprogram FPGA after {} \
+                            attempts; if CS has been reworked, \
+                            look for \
+                            \"ATTENTION REWORKED CS\" in app.toml",
+                            laps
+                        );
+                    }
                 }
             }
         }
@@ -283,6 +306,7 @@ fn main() -> ! {
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
+        clockgen: i2c_config::devices::idt8a34003(I2C.get_task_id())[0],
         seq,
     };
 
@@ -294,6 +318,7 @@ fn main() -> ! {
 
 struct ServerImpl {
     state: PowerState,
+    clockgen: I2cDevice,
     seq: seq_spi::SequencerFpga,
 }
 
@@ -408,6 +433,33 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .unwrap();
         Ok(())
     }
+
+    fn load_clock_config(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::LoadClockConfig);
+
+        let mut packet = 0;
+
+        payload::idt8a3xxxx_payload(|buf| {
+            ringbuf_entry!(Trace::ClockConfigWrite(packet));
+            match self.clockgen.write(buf) {
+                Err(err) => {
+                    ringbuf_entry!(Trace::ClockConfigFailed(packet, err));
+                    Err(SeqError::ClockConfigFailed)
+                }
+
+                Ok(_) => {
+                    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
+                    packet += 1;
+                    Ok(())
+                }
+            }
+        })?;
+
+        Ok(())
+    }
 }
 
 fn reprogram_fpga(
@@ -473,9 +525,6 @@ cfg_if::cfg_if! {
         const PG_V3P3_MASK: u16 = 1 << 6;
         // Gimlet provides external pullups.
         const PGS_PULL: gpio_api::Pull = gpio_api::Pull::None;
-
-        task_slot!(I2C, i2c_driver);
-        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
         fn vcore_soc_off() {
             use drv_i2c_devices::raa229618::Raa229618;
