@@ -6,6 +6,7 @@
 
 use crate::app;
 use crate::task::{self, Task};
+use core::mem::MaybeUninit;
 
 /// The main kernel entry point.
 ///
@@ -30,52 +31,15 @@ use crate::task::{self, Task};
 ///
 /// This can be called exactly once per boot, with valid pointers that don't
 /// alias any other structure or one another.
-pub unsafe fn start_kernel(
-    app_header_ptr: *const app::App,
-    scratch_ram: *mut u8,
-    scratch_ram_size: usize,
-    tick_divisor: u32,
-) -> ! {
+pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     klog!("starting: laziness");
 
     // Set our clock frequency so debuggers can find it as needed
     crate::arch::set_clock_freq(tick_divisor);
 
-    // Create our simple allocator.
-    let alloc = BumpPointer(core::slice::from_raw_parts_mut(
-        scratch_ram,
-        scratch_ram_size,
-    ));
-    // Validate the app header!
-    let app_header = &*app_header_ptr;
-    uassert_eq!(app_header.magic, app::CURRENT_APP_MAGIC);
-    // TODO task count less than some configured maximum
-
-    // We use 8-bit region numbers in task descriptions, so we have to limit the
-    // number of defined regions.
-    uassert!(app_header.region_count < 256);
-
-    // Check that no mysterious data appears in the reserved space.
-    uassert_eq!(app_header.zeroed_expansion_space, [0; 12]);
-
-    // Derive the addresses of the other regions from the app header.
-    // Regions come first.
-    let regions_ptr = app_header_ptr.offset(1) as *const app::RegionDesc;
-    let regions = core::slice::from_raw_parts(
-        regions_ptr,
-        app_header.region_count as usize,
-    );
-
-    let tasks_ptr = regions_ptr.offset(app_header.region_count as isize)
-        as *const app::TaskDesc;
-    let tasks =
-        core::slice::from_raw_parts(tasks_ptr, app_header.task_count as usize);
-
-    let interrupts = core::slice::from_raw_parts(
-        tasks_ptr.offset(app_header.task_count as isize)
-            as *const app::Interrupt,
-        app_header.irq_count as usize,
-    );
+    let regions = &HUBRIS_REGION_DESCS;
+    let tasks = &HUBRIS_TASK_DESCS;
+    let interrupts = &HUBRIS_INTERRUPTS;
 
     // Validate regions first, since tasks will use them.
     for region in regions {
@@ -99,7 +63,6 @@ pub unsafe fn start_kernel(
         let mut entry_pt_found = false;
         let mut stack_ptr_found = false;
         for &region_idx in &task.regions {
-            uassert!(region_idx < app_header.region_count as u8);
             let region = &regions[region_idx as usize];
             if task.entry_point.wrapping_sub(region.base) < region.size {
                 if region.attributes.contains(app::RegionAttributes::EXECUTE) {
@@ -128,23 +91,26 @@ pub unsafe fn start_kernel(
         uassert!(irq.task < tasks.len() as u32);
     }
 
-    // Okay, we're pretty sure this is all legitimate.
+    // Okay, we're pretty sure this is all legitimate. Grab the TCB RAM and
+    // start the safe code.
     safe_start_kernel(
-        app_header,
         tasks,
         regions,
         interrupts,
-        alloc,
+        &mut HUBRIS_TASK_TABLE_SPACE,
+        &mut HUBRIS_REGION_TABLE_SPACE,
         tick_divisor,
     )
 }
 
 fn safe_start_kernel(
-    app_header: &'static app::App,
     task_descs: &'static [app::TaskDesc],
     region_descs: &'static [app::RegionDesc],
     interrupts: &'static [app::Interrupt],
-    mut alloc: BumpPointer,
+    task_table: &'static mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>,
+    region_tables: &'static mut MaybeUninit<
+        [[&'static app::RegionDesc; app::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
+    >,
     tick_divisor: u32,
 ) -> ! {
     klog!("starting: impatience");
@@ -161,25 +127,40 @@ fn safe_start_kernel(
     // As a small optimization, we equip each task with an array of references
     // to RegionDecs, instead of looking them up by index each time. Generate
     // these.
-    let region_tables = alloc.gimme_n(app_header.task_count as usize, |i| {
-        let mut table = [&region_descs[0]; app::REGIONS_PER_TASK];
+
+    // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
+    let region_tables: &mut [[MaybeUninit<&'static app::RegionDesc>; app::REGIONS_PER_TASK];
+             HUBRIS_TASK_COUNT] =
+        unsafe { &mut *(region_tables as *mut _ as *mut _) };
+
+    for (i, table) in region_tables.iter_mut().enumerate() {
         for (slot, &index) in table.iter_mut().zip(&task_descs[i].regions) {
-            *slot = &region_descs[index as usize];
+            *slot = MaybeUninit::new(&region_descs[index as usize]);
         }
-        table
-    });
-    // We don't need further mut access
-    let region_tables = &region_tables[..];
+    }
+
+    // Safety: we have fully initialized this and can shed the uninit part.
+    // We're also dropping &mut.
+    let region_tables: &[[&'static app::RegionDesc; app::REGIONS_PER_TASK];
+         HUBRIS_TASK_COUNT] = unsafe { &*(region_tables as *mut _ as *mut _) };
 
     // Now, generate the task table.
-    let tasks = alloc.gimme_n(app_header.task_count as usize, |i| {
-        Task::from_descriptor(&task_descs[i], &region_tables[i])
-    });
+    // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
+    let task_table: &mut [MaybeUninit<Task>; HUBRIS_TASK_COUNT] =
+        unsafe { &mut *(task_table as *mut _ as *mut _) };
+    for (i, task) in task_table.iter_mut().enumerate() {
+        *task = MaybeUninit::new(Task::from_descriptor(
+            &task_descs[i],
+            &region_tables[i],
+        ));
+    }
 
-    uassert!(tasks.len() != 0); // tasks must exist for this to work.
+    // Safety: we have fully initialized this and can shed the uninit part.
+    let task_table: &mut [Task; HUBRIS_TASK_COUNT] =
+        unsafe { &mut *(task_table as *mut _ as *mut _) };
 
     // With that done, set up initial register state etc.
-    for task in tasks.iter_mut() {
+    for task in task_table.iter_mut() {
         crate::arch::reinitialize(task);
     }
 
@@ -193,79 +174,21 @@ fn safe_start_kernel(
     // after this point before switching to user, we can't alias, and we'll be
     // okay.
     unsafe {
-        crate::arch::set_task_table(tasks);
+        // TODO: these could be done by the linker...
+        crate::arch::set_task_table(task_table);
         crate::arch::set_irq_table(interrupts);
     }
-    task::set_fault_notification(app_header.fault_notification);
+    // TODO: this could be constant-folded now.
+    task::set_fault_notification(HUBRIS_FAULT_NOTIFICATION);
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
-    let first_task_index = crate::task::select(tasks.len() - 1, tasks);
+    let first_task_index =
+        crate::task::select(task_table.len() - 1, task_table);
 
-    crate::arch::apply_memory_protection(&tasks[first_task_index]);
+    crate::arch::apply_memory_protection(&task_table[first_task_index]);
     klog!("starting: hubris");
-    crate::arch::start_first_task(tick_divisor, &tasks[first_task_index])
+    crate::arch::start_first_task(tick_divisor, &task_table[first_task_index])
 }
 
-struct BumpPointer(&'static mut [u8]);
-
-impl BumpPointer {
-    pub fn gimme_n<T>(
-        &mut self,
-        n: usize,
-        mut init: impl FnMut(usize) -> T,
-    ) -> &'static mut [T] {
-        use core::mem::{align_of, size_of};
-
-        // Temporarily steal the entire allocation region from self. This helps
-        // with lifetime inference issues.
-        let free = core::mem::replace(&mut self.0, &mut []);
-
-        // Bump the pointer up to the required alignment for T.
-        let align_delta = free.as_ptr().align_offset(align_of::<T>());
-        let (_discarded, free) = free.split_at_mut(align_delta);
-        // Split off RAM for a T.
-        let (allocated, free) = free.split_at_mut(n * size_of::<T>());
-
-        // Put free memory back.
-        self.0 = free;
-
-        // `allocated` has the alignment and size of a `T`, so we can start
-        // treating it like one. However, we have to initialize it first --
-        // without dropping its current contents!
-        let allocated = allocated.as_mut_ptr() as *mut T;
-        for i in 0..n {
-            unsafe {
-                allocated.add(i).write(init(i));
-            }
-        }
-        unsafe { core::slice::from_raw_parts_mut(allocated, n) }
-    }
-
-    #[allow(dead_code)] // TODO: if we really don't need this, remove it
-    pub fn gimme<T>(&mut self, value: T) -> &'static mut T {
-        use core::mem::{align_of, size_of};
-
-        // Temporarily steal the entire allocation region from self. This helps
-        // with lifetime inference issues.
-        let free = core::mem::replace(&mut self.0, &mut []);
-
-        // Bump the pointer up to the required alignment for T.
-        let align_delta = free.as_ptr().align_offset(align_of::<T>());
-        let (_discarded, free) = free.split_at_mut(align_delta);
-        // Split off RAM for a T.
-        let (allocated, free) = free.split_at_mut(size_of::<T>());
-
-        // Put free memory back.
-        self.0 = free;
-
-        // `allocated` has the alignment and size of a `T`, so we can start
-        // treating it like one. However, we have to initialize it first --
-        // without dropping its current contents!
-        let allocated = allocated.as_mut_ptr() as *mut T;
-        unsafe {
-            allocated.write(value);
-            &mut *allocated
-        }
-    }
-}
+include!(concat!(env!("OUT_DIR"), "/kconfig.rs"));
