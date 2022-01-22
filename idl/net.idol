@@ -55,5 +55,13 @@ Interface(
                 err: CLike("NetError"),
             ),
         ),
+        "wake": (
+            doc: "Wakes up the task, then calls Bsp::wake()",
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
     },
 )

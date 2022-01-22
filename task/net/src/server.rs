@@ -16,6 +16,7 @@ use crate::ETH_IRQ;
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; generated::SOCKET_COUNT],
     eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+    bsp: crate::bsp::Bsp,
 }
 
 impl<'a> ServerImpl<'a> {
@@ -26,10 +27,12 @@ impl<'a> ServerImpl<'a> {
     pub fn new(
         socket_handles: [SocketHandle; generated::SOCKET_COUNT],
         eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+        bsp: crate::bsp::Bsp,
     ) -> Self {
         Self {
             socket_handles,
             eth,
+            bsp,
         }
     }
 
@@ -173,6 +176,14 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
     ) -> Result<(), RequestError<NetError>> {
         // TODO: this should not be open to all callers!
         Ok(self.eth.device_mut().smi_write(phy, register, value))
+    }
+
+    fn wake(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<NetError>> {
+        self.bsp.wake(self.eth.device_mut());
+        Ok(())
     }
 }
 
