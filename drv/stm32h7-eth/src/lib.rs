@@ -14,7 +14,11 @@
 
 use core::convert::TryFrom;
 
+#[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
 
 pub mod ring;
 
