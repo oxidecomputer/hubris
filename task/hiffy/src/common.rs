@@ -158,12 +158,22 @@ pub(crate) fn send(
 }
 
 #[cfg(feature = "spi")]
-fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
-    if stack.len() < 2 {
+struct SpiArgs {
+    task: TaskId,
+    device_index: u8,
+    offset: usize,
+    len: usize,
+}
+
+#[cfg(feature = "spi")]
+fn spi_args(stack: &[Option<u32>]) -> Result<SpiArgs, Failure> {
+    let nargs = 4;
+
+    if stack.len() < nargs {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
-    let fp = stack.len() - 2;
+    let fp = stack.len() - nargs;
 
     let task = match stack[fp + 0] {
         Some(task) => {
@@ -181,14 +191,36 @@ fn spi_args(stack: &[Option<u32>]) -> Result<(TaskId, usize), Failure> {
         }
     };
 
-    let len = match stack[fp + 1] {
-        Some(len) => len as usize,
+    let device_index = match stack[fp + 1] {
+        Some(i) if i <= u8::MAX.into() => i as u8,
+        Some(_) => {
+            return Err(Failure::Fault(Fault::BadParameter(1)));
+        }
         None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+            return Err(Failure::Fault(Fault::MissingParameters));
         }
     };
 
-    Ok((task, len))
+    let offset = match stack[fp + 2] {
+        Some(offset) => offset as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(2)));
+        }
+    };
+
+    let len = match stack[fp + 3] {
+        Some(len) => len as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(3)));
+        }
+    };
+
+    Ok(SpiArgs {
+        task,
+        device_index,
+        offset,
+        len,
+    })
 }
 
 #[cfg(feature = "spi")]
@@ -198,23 +230,26 @@ pub(crate) fn spi_read(
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
     //
-    // We have our task ID, our write size, and our read size
+    // We have our task ID, our write offset, our write size, and our read size
     //
-    if stack.len() < 3 {
+    let nargs = 5;
+    let rarg = nargs - 1;
+
+    if stack.len() < nargs {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
-    let fp = stack.len() - 3;
-    let (task, len) = spi_args(&stack[fp..fp + 2])?;
+    let fp = stack.len() - nargs;
+    let args = spi_args(&stack[fp..fp + rarg])?;
 
-    if len > data.len() {
+    if args.offset + args.len > data.len() {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
 
-    let rlen = match stack[fp + 2] {
+    let rlen = match stack[fp + rarg] {
         Some(rlen) => rlen as usize,
         None => {
-            return Err(Failure::Fault(Fault::EmptyParameter(2)));
+            return Err(Failure::Fault(Fault::EmptyParameter(rarg as u8)));
         }
     };
 
@@ -222,11 +257,14 @@ pub(crate) fn spi_read(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    let spi = drv_spi_api::Spi::from(task);
+    let spi = drv_spi_api::Spi::from(args.task);
 
-    // TODO: hiffy currently always issues SPI commands to device 0. It is worth
-    // changing this at some point.
-    func_err(spi.exchange(0, &data[0..len], &mut rval[0..rlen]))?;
+    func_err(spi.exchange(
+        args.device_index,
+        &data[args.offset..args.offset + args.len],
+        &mut rval[0..rlen],
+    ))?;
+
     Ok(rlen)
 }
 
@@ -236,17 +274,19 @@ pub(crate) fn spi_write(
     data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let (task, len) = spi_args(stack)?;
+    let args = spi_args(stack)?;
 
-    if len > data.len() {
+    if args.offset + args.len > data.len() {
         return Err(Failure::Fault(Fault::AccessOutOfBounds));
     }
 
-    let spi = drv_spi_api::Spi::from(task);
+    let spi = drv_spi_api::Spi::from(args.task);
 
-    // TODO: hiffy currently always issues SPI commands to device 0. It is worth
-    // changing this at some point.
-    func_err(spi.write(0, &data[0..len]))?;
+    func_err(spi.write(
+        args.device_index,
+        &data[args.offset..args.offset + args.len],
+    ))?;
+
     Ok(0)
 }
 
