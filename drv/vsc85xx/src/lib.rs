@@ -130,7 +130,7 @@ pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Do a self-reset on the PHY
     v.modify(phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    assert_eq!(id1, 0x6f3);
+    assert_eq!(id1, 0x7);
 
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
     assert_eq!(id2, 0x6f3);
