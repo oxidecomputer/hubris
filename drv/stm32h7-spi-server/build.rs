@@ -201,7 +201,8 @@ impl ToTokens for SpiConfig {
                 DeviceDescriptor {
                     mux_index: #mux_index,
                     cs: #cs,
-                    // `spi1` here is _not_ a typo/oversight.
+                    // `spi1` here is _not_ a typo/oversight, the PAC calls all
+                    // SPI types spi1.
                     clock_divider: device::spi1::cfg1::MBR_A::#div,
                 }
             }

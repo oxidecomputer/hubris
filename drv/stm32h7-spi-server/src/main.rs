@@ -7,6 +7,11 @@
 //! Currently this hardcodes the clock rate.
 //!
 //! See the `spi-api` crate for the protocol being implemented here.
+//!
+//! # Why is everything `spi1`
+//!
+//! As noted in the `stm32h7-spi` driver, the `stm32h7` PAC has decided that all
+//! SPI types should be called `spi1`.
 
 #![no_std]
 #![no_main]
