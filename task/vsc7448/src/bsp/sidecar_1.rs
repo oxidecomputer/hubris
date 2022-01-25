@@ -12,7 +12,7 @@ use vsc7448::{
     VscError,
 };
 use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
-use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
+use vsc85xx::{init_vsc8504_phy, Phy, PhyRw, PhyVsc85xx};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
@@ -59,6 +59,9 @@ impl<'a> PhyRw for Bsp<'a> {
             .map_err(|e| e.into())
     }
 }
+
+// We're talking to a VSC8504, which is compatible with the VSC85xx trait.
+impl PhyVsc85xx for Bsp<'_> {}
 
 impl<'a> Bsp<'a> {
     /// Constructs and initializes a new BSP handle
