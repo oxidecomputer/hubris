@@ -1118,12 +1118,6 @@ fn allocate_all(
     // The task map is: memory name -> allocation size -> queue of task name.
     // The kernel map is: memory name -> allocation size
     let kernel_requests = &kernel.requires;
-    for (name, &amt) in kernel_requests {
-        if !amt.is_power_of_two() {
-            bail!("kernel, memory region {}: requirement {} is not a power of two.",
-                name, amt);
-        }
-    }
 
     let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
         BTreeMap::new();
@@ -1175,10 +1169,9 @@ fn allocate_all(
 
             if let Some(&sz) = k_req.take() {
                 // The kernel wants in on this.
-                allocs.kernel.insert(
-                    region.to_string(),
-                    allocate_one(region, sz, avail)?,
-                );
+                allocs
+                    .kernel
+                    .insert(region.to_string(), allocate_k(region, sz, avail)?);
                 continue 'fitloop;
             }
 
@@ -1222,6 +1215,31 @@ fn allocate_all(
     }
 
     Ok(allocs)
+}
+
+fn allocate_k(
+    region: &str,
+    size: u32,
+    avail: &mut Range<u32>,
+) -> Result<Range<u32>> {
+    // Our base address will be larger than avail.start if it doesn't meet our
+    // minimum requirements. Round up.
+    let base = (avail.start + 15) & !15;
+
+    if !avail.contains(&(base + size - 1)) {
+        bail!(
+            "out of {}: can't allocate {} more after base {:x}",
+            region,
+            size,
+            base
+        )
+    }
+
+    let end = base + size;
+    // Update the available range to exclude what we've taken.
+    avail.start = end;
+
+    Ok(base..end)
 }
 
 fn allocate_one(
