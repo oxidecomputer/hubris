@@ -9,7 +9,7 @@ use drv_stm32h7_gpio_api as gpio_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot, FromPrimitive};
 use vsc7448_pac::types::PhyRegisterAddress;
-use vsc85xx::{Phy, PhyRw, VscError};
+use vsc85xx::{Phy, PhyRw, PhyVsc85xx, VscError};
 
 task_slot!(SPI, spi_driver);
 const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
@@ -175,6 +175,9 @@ impl PhyRw for MiimBridge<'_> {
         Ok(())
     }
 }
+
+// We're talking to a VSC8552, which is compatible with the VSC85xx trait.
+impl PhyVsc85xx for MiimBridge<'_> {}
 
 pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     use gpio_api::*;
