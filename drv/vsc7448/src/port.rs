@@ -16,7 +16,7 @@ use vsc7448_pac::Vsc7448;
 
 /// Flushes a particular 1G port.  This is equivalent to `jr2_port_flush`
 /// in the MESA toolkit.
-pub fn port1g_flush(dev: DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
+pub fn port1g_flush(dev: &DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
     let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
@@ -52,7 +52,7 @@ pub fn port1g_flush(dev: DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
 /// different types in our PAC crate.
 ///
 /// `dev` is the 10G device (0-4)
-pub fn port10g_flush(dev: Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
+pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
     let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
