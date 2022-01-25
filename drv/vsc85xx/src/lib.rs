@@ -248,9 +248,9 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         Ok(())
     }
 
+    /// Applies a patch to the 8051 microcode inside the PHY, based on
+    /// `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
     fn patch(&mut self) -> Result<(), VscError> {
-        // Based on `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
-
         // Enable broadcast flag to configure all ports simultaneously
         self.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS_20(), |r| {
             r.0 |= 1; // SMI broadcast write
@@ -465,7 +465,7 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         // `tesla_revB_8051_patch` in the SDK, which (as the name suggests), patches
         // the 8051 in the PHY.
         const FIRMWARE_START_ADDR: u16 = 0x4000;
-        const PATCH_CRC_LEN: u16 = (PATCH.len() + 1) as u16;
+        const PATCH_CRC_LEN: u16 = (VSC85XX_PATCH.len() + 1) as u16;
         const EXPECTED_CRC: u16 = 0x29E8;
 
         // This patch can only be applied to Port 0 of the PHY, so we'll check
@@ -514,7 +514,8 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         Ok(())
     }
 
-    /// Based on `download_8051_code`
+    /// Downloads a patch to the 8051 in the PHY, based on `download_8051_code`
+    /// from the SDK.
     fn download_patch(&mut self) -> Result<(), VscError> {
         // "Hold 8051 in SW Reset, Enable auto incr address and patch clock,
         //  Disable the 8051 clock"
@@ -526,7 +527,7 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         // "write to address reg."
         self.write(phy::GPIO::GPIO_11(), 0x0.into())?;
 
-        for &p in &PATCH {
+        for &p in &VSC85XX_PATCH {
             self.write(phy::GPIO::GPIO_12(), (0x5000 | p as u16).into())?;
         }
 
@@ -570,8 +571,8 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
     }
 }
 
-// From `tesla_revB_8051_patch`
-const PATCH: [u8; 1655] = [
+/// Raw patch for 8051 microcode, from `tesla_revB_8051_patch` in the SDK
+const VSC85XX_PATCH: [u8; 1655] = [
     0x46, 0x4a, 0x02, 0x43, 0x37, 0x02, 0x46, 0x26, 0x02, 0x46, 0x77, 0x02,
     0x45, 0x60, 0x02, 0x45, 0xaf, 0xed, 0xff, 0xe5, 0xfc, 0x54, 0x38, 0x64,
     0x20, 0x70, 0x08, 0x65, 0xff, 0x70, 0x04, 0xed, 0x44, 0x80, 0xff, 0x22,

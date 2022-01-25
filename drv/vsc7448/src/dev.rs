@@ -26,24 +26,36 @@ impl DevGeneric {
         assert!(d < 29);
         DevGeneric::Dev2g5(d)
     }
+    /// Convert from a DEV to a port number, based on Table 12 in the datasheet
     pub fn port(&self) -> u32 {
         match *self {
             DevGeneric::Dev1g(d) => {
                 if d < 8 {
                     d
                 } else {
+                    // DEV1G_8-23 are only available in QSGMII mode, where
+                    // they map to ports 32-47
                     d + 24
                 }
             }
             DevGeneric::Dev2g5(d) => {
-                if d <= 24 {
+                if d < 24 {
                     d + 8
+                } else if d == 24 {
+                    // DEV2G5_24 is the NPI port, configured through SERDES1G_0
+                    48
                 } else {
+                    // DEV2G5_25-28 are only available when running through
+                    // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
+                    // 49-52, using SERDES10G_0-3
                     d + 24
                 }
             }
         }
     }
+    /// Returns the register block for this device.  This is always a DEV1G
+    /// address, because the layout is identical between DEV1G and DEV2G5, so
+    /// this avoids duplication.
     pub fn regs(&self) -> vsc7448_pac::DEV1G {
         match *self {
             DevGeneric::Dev1g(d) => Vsc7448::DEV1G(d),
@@ -58,6 +70,82 @@ impl DevGeneric {
                 )
             }
         }
+    }
+
+    /// Based on `jr2_port_conf_1g_set` in the SDK
+    pub fn init_sgmii(&self, v: &Vsc7448Spi) -> Result<(), VscError> {
+        // Flush the port before doing anything else
+        port1g_flush(self, v)?;
+
+        // Enable full duplex mode and GIGA SPEED
+        let dev1g = self.regs();
+        v.modify(dev1g.MAC_CFG_STATUS().MAC_MODE_CFG(), |r| {
+            r.set_fdx_ena(1);
+            r.set_giga_mode_ena(1);
+        })?;
+
+        v.modify(dev1g.MAC_CFG_STATUS().MAC_IFG_CFG(), |r| {
+            // NOTE: these are speed-dependent options and aren't
+            // fully documented in the manual; this values are chosen
+            // based on the SDK for 1G, full duplex operation.
+            r.set_tx_ifg(4);
+            r.set_rx_ifg1(0);
+            r.set_rx_ifg2(0);
+        })?;
+
+        // The upcoming steps depend on how the port is talking to the
+        // outside world (100FX / SGMII / SERDES).  In this case, the port
+        // is talking over QSGMII, which is configured like SGMII then
+        // combined in the macro block (I may be butchering some details of
+        // terminology or architecture here).
+
+        // The device is configured to SGMII mode by default, so no
+        // changes are needed there.
+
+        // This bit isn't documented in the datasheet, but the SDK says it
+        // must be set in SGMII mode.  It allows a link to be set up by
+        // software, even if autonegotiation fails.
+        v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
+            r.set_sw_resolve_ena(1)
+        })?;
+
+        // Configure signal detect line with values from the dev kit
+        // This is dependent on the port setup.
+        v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_SD_CFG(), |r| {
+            r.set_sd_ena(0); // Ignored
+        })?;
+
+        // Enable the PCS!
+        v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_CFG(), |r| r.set_pcs_ena(1))?;
+
+        // The SDK configures MAC VLAN awareness here; let's not do that
+        // for the time being.
+
+        // The SDK also configures flow control (`jr2_port_fc_setup`)
+        // and policer flow control (`vtss_jr2_port_policer_fc_set`) around
+        // here, which we'll skip.
+
+        // Turn on the MAC!
+        v.write_with(dev1g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
+            r.set_tx_ena(1);
+            r.set_rx_ena(1);
+        })?;
+
+        // Take MAC, Port, Phy (intern), and PCS (SGMII) clocks out of
+        // reset, turning on a 1G port data rate.
+        v.write_with(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+            r.set_speed_sel(2)
+        })?;
+
+        v.modify(
+            Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()),
+            |r| {
+                r.set_port_ena(1);
+                r.set_fwd_urgency(104); // This is different based on speed
+            },
+        )?;
+
+        Ok(())
     }
 }
 
@@ -81,113 +169,38 @@ impl Dev10g {
     pub fn index(&self) -> u32 {
         self.0
     }
-}
+    pub fn init_sfi(&self, v: &Vsc7448Spi) -> Result<(), VscError> {
+        port10g_flush(self, v)?;
 
-/// Based on `jr2_port_conf_1g_set` in the SDK
-pub fn dev1g_init_sgmii(
-    dev: DevGeneric,
-    v: &Vsc7448Spi,
-) -> Result<(), VscError> {
-    // Flush the port before doing anything else
-    port1g_flush(dev, v)?;
+        // Remaining logic is from `jr2_port_conf_10g_set`
+        // Handle signal detect
+        let dev10g = self.regs();
+        v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_SD_CFG(), |r| {
+            r.set_sd_ena(0);
+        })?;
+        // Enable SFI PCS
+        v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_CFG(), |r| {
+            r.set_pcs_ena(1);
+        })?;
+        v.modify(dev10g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
+            r.set_rx_ena(1);
+            r.set_tx_ena(1);
+        })?;
+        v.modify(dev10g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+            r.set_pcs_rx_rst(0);
+            r.set_pcs_tx_rst(0);
+            r.set_mac_rx_rst(0);
+            r.set_mac_tx_rst(0);
+            r.set_speed_sel(7); // SFI
+        })?;
+        v.modify(
+            Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()),
+            |r| {
+                r.set_port_ena(1);
+                r.set_fwd_urgency(9);
+            },
+        )?;
 
-    // Enable full duplex mode and GIGA SPEED
-    let dev1g = dev.regs();
-    v.modify(dev1g.MAC_CFG_STATUS().MAC_MODE_CFG(), |r| {
-        r.set_fdx_ena(1);
-        r.set_giga_mode_ena(1);
-    })?;
-
-    v.modify(dev1g.MAC_CFG_STATUS().MAC_IFG_CFG(), |r| {
-        // NOTE: these are speed-dependent options and aren't
-        // fully documented in the manual; this values are chosen
-        // based on the SDK for 1G, full duplex operation.
-        r.set_tx_ifg(4);
-        r.set_rx_ifg1(0);
-        r.set_rx_ifg2(0);
-    })?;
-
-    // The upcoming steps depend on how the port is talking to the
-    // outside world (100FX / SGMII / SERDES).  In this case, the port
-    // is talking over QSGMII, which is configured like SGMII then
-    // combined in the macro block (I may be butchering some details of
-    // terminology or architecture here).
-
-    // The device is configured to SGMII mode by default, so no
-    // changes are needed there.
-
-    // This bit isn't documented in the datasheet, but the SDK says it
-    // must be set in SGMII mode.  It allows a link to be set up by
-    // software, even if autonegotiation fails.
-    v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
-        r.set_sw_resolve_ena(1)
-    })?;
-
-    // Configure signal detect line with values from the dev kit
-    // This is dependent on the port setup.
-    v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_SD_CFG(), |r| {
-        r.set_sd_ena(0); // Ignored
-    })?;
-
-    // Enable the PCS!
-    v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_CFG(), |r| r.set_pcs_ena(1))?;
-
-    // The SDK configures MAC VLAN awareness here; let's not do that
-    // for the time being.
-
-    // The SDK also configures flow control (`jr2_port_fc_setup`)
-    // and policer flow control (`vtss_jr2_port_policer_fc_set`) around
-    // here, which we'll skip.
-
-    // Turn on the MAC!
-    v.write_with(dev1g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
-        r.set_tx_ena(1);
-        r.set_rx_ena(1);
-    })?;
-
-    // Take MAC, Port, Phy (intern), and PCS (SGMII) clocks out of
-    // reset, turning on a 1G port data rate.
-    v.write_with(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
-        r.set_speed_sel(2)
-    })?;
-
-    let port = dev.port();
-    v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
-        r.set_port_ena(1);
-        r.set_fwd_urgency(104); // This is different based on speed
-    })?;
-
-    Ok(())
-}
-
-pub fn dev10g_init_sfi(dev: Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
-    port10g_flush(dev, v)?;
-
-    // Remaining logic is from `jr2_port_conf_10g_set`
-    // Handle signal detect
-    let dev10g = dev.regs();
-    v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_SD_CFG(), |r| {
-        r.set_sd_ena(0);
-    })?;
-    // Enable SFI PCS
-    v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_CFG(), |r| {
-        r.set_pcs_ena(1);
-    })?;
-    v.modify(dev10g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
-        r.set_rx_ena(1);
-        r.set_tx_ena(1);
-    })?;
-    v.modify(dev10g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
-        r.set_pcs_rx_rst(0);
-        r.set_pcs_tx_rst(0);
-        r.set_mac_rx_rst(0);
-        r.set_mac_tx_rst(0);
-        r.set_speed_sel(7); // SFI
-    })?;
-    v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(dev.port()), |r| {
-        r.set_port_ena(1);
-        r.set_fwd_urgency(9);
-    })?;
-
-    Ok(())
+        Ok(())
+    }
 }
