@@ -16,6 +16,7 @@ members = [
     "lib/gnarle",
     "lib/hypocalls",
     "lib/ringbuf",
+    "lib/unwrap-lite",
 
     "app/demo-stm32f4-discovery",
     "app/demo-stm32h7-nucleo",

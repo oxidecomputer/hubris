@@ -1390,6 +1390,7 @@ dependencies = [
  "cortex-m-semihosting",
  "serde",
  "ssmarshal",
+ "unwrap-lite",
  "zerocopy",
 ]
 
@@ -2881,6 +2882,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
+name = "unwrap-lite"
+version = "0.1.0"
+
+[[package]]
 name = "userlib"
 version = "0.1.0"
 dependencies = [
@@ -2891,6 +2896,7 @@ dependencies = [
  "paste",
  "serde",
  "ssmarshal",
+ "unwrap-lite",
  "zerocopy",
 ]
 
