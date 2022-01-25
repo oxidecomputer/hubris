@@ -18,6 +18,7 @@ mod elf;
 mod flash;
 mod gdb;
 mod humility;
+mod sizes;
 mod task_slot;
 mod test;
 
@@ -62,6 +63,15 @@ enum Xtask {
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
+    /// Runs `xtask dist` and reports the sizes of resulting tasks
+    Sizes {
         /// Request verbosity from tools we shell out to.
         #[structopt(short)]
         verbose: bool,
@@ -384,6 +394,10 @@ fn main() -> Result<()> {
         Xtask::Flash { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             flash::run(verbose, &cfg)?;
+        }
+        Xtask::Sizes { verbose, cfg } => {
+            dist::package(verbose, false, &cfg, None)?;
+            sizes::run(&cfg)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, false, &cfg, None)?;
