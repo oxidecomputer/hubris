@@ -11,7 +11,7 @@ use vsc7448::{
     VscError,
 };
 use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
-use vsc85xx::{init_vsc8522_phy, Phy, PhyRw};
+use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -326,3 +326,7 @@ impl PhyRw for Vsc7448SpiPhy<'_> {
             .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim as u32).MII_CMD(), v)
     }
 }
+
+// In this system, we're talking to a VSC8522, which is in the VSC85xx family
+// and compatible with its control and config functions.
+impl PhyVsc85xx for Vsc7448SpiPhy<'_> {}
