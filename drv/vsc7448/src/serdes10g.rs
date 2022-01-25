@@ -156,6 +156,7 @@ impl Config {
         // SD10G65_SBUS_RX_CFG here; otherwise, the Tx PLL won't lock.
         v.modify(ib.SD10G65_SBUS_RX_CFG(), |r| {
             r.set_sbus_bias_en(1);
+            r.set_sbus_bias_speed_sel(3);
         })?;
 
         v.modify(ob.SD10G65_OB_CFG0(), |r| {
@@ -211,6 +212,12 @@ impl Config {
         v.modify(tx_synth.SD10G65_SSC_CFG1(), |r| {
             r.set_sync_ctrl_fsel(35);
         })?;
+
+        v.modify(ob.SD10G65_OB_CFG0(), |r| {
+            r.set_sel_ifw(self.if_mode_sel);
+        })?;
+        // The SDK also writes to OB_CFG1, but only to set defaults
+
         v.modify(ob.SD10G65_OB_CFG2(), |r| {
             r.set_d_filter(self.ob_cfg2_d_filter);
         })?;
