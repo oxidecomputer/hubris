@@ -6,7 +6,7 @@ use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448::{
-    dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
+    dev::{Dev10g, DevGeneric},
     serdes10g, serdes1g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
@@ -88,20 +88,20 @@ impl<'a> Bsp<'a> {
         // Cubbies 0 through 7
         let serdes1g_cfg_sgmii = serdes1g::Config::new(serdes1g::Mode::Sgmii);
         for dev in 0..=7 {
-            dev1g_init_sgmii(DevGeneric::new_1g(dev), &self.vsc7448)?;
+            DevGeneric::new_1g(dev).init_sgmii(&self.vsc7448)?;
             serdes1g_cfg_sgmii.apply(dev + 1, &self.vsc7448)?;
             // DEV1G[dev], SERDES1G[dev + 1], S[port + 1], SGMII
         }
         // Cubbies 8 through 21
         let serdes6g_cfg_sgmii = serdes6g::Config::new(serdes6g::Mode::Sgmii);
         for dev in 0..=13 {
-            dev1g_init_sgmii(DevGeneric::new_2g5(dev), &self.vsc7448)?;
+            DevGeneric::new_2g5(dev).init_sgmii(&self.vsc7448)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
         // Cubbies 22 through 29
         for dev in 16..=23 {
-            dev1g_init_sgmii(DevGeneric::new_2g5(dev), &self.vsc7448)?;
+            DevGeneric::new_2g5(dev).init_sgmii(&self.vsc7448)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
@@ -125,7 +125,7 @@ impl<'a> Bsp<'a> {
                     r.set_dev10g_shadow_ena(1);
                 },
             )?;
-            dev1g_init_sgmii(dev_2g5, &self.vsc7448)?;
+            dev_2g5.init_sgmii(&self.vsc7448)?;
             serdes10g_cfg_sgmii.apply(dev - 25, &self.vsc7448)?;
             // DEV2G5[dev], SERDES10G[dev - 25], S[dev + 8], SGMII
         }
@@ -223,20 +223,20 @@ impl<'a> Bsp<'a> {
         serdes6g_cfg_qsgmii.apply(14, &self.vsc7448)?;
         serdes6g_cfg_qsgmii.apply(15, &self.vsc7448)?;
         for dev in 16..=23 {
-            dev1g_init_sgmii(DevGeneric::new_1g(dev), &self.vsc7448)?;
+            DevGeneric::new_1g(dev).init_sgmii(&self.vsc7448)?;
         }
 
         ////////////////////////////////////////////////////////////////////////
         // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP (via VSC8552)
         serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
-        dev1g_init_sgmii(DevGeneric::new_2g5(24), &self.vsc7448)?;
+        DevGeneric::new_2g5(24).init_sgmii(&self.vsc7448)?;
 
         ////////////////////////////////////////////////////////////////////////
         // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
         let serdes10g_cfg_sfi =
             serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         let dev = Dev10g::new(0);
-        dev10g_init_sfi(dev, &self.vsc7448)?;
+        dev.init_sfi(&self.vsc7448)?;
         serdes10g_cfg_sfi.apply(dev.index(), &self.vsc7448)?;
 
         Ok(())

@@ -5,7 +5,7 @@
 use ringbuf::*;
 use userlib::*;
 use vsc7448::{
-    dev::{dev10g_init_sfi, dev1g_init_sgmii, Dev10g, DevGeneric},
+    dev::{Dev10g, DevGeneric},
     serdes10g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
@@ -99,7 +99,7 @@ impl<'a> Bsp<'a> {
             .apply(4, &self.vsc7448)?;
 
         for port in 0..4 {
-            dev1g_init_sgmii(DevGeneric::new_1g(port), &self.vsc7448)?;
+            DevGeneric::new_1g(port).init_sgmii(&self.vsc7448)?;
         }
         Ok(())
     }
@@ -116,7 +116,7 @@ impl<'a> Bsp<'a> {
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         for dev in [0, 1] {
             let dev = Dev10g::new(dev);
-            dev10g_init_sfi(dev, &self.vsc7448)?;
+            dev.init_sfi(&self.vsc7448)?;
             serdes_cfg.apply(dev.index(), &self.vsc7448)?;
         }
 
@@ -143,7 +143,7 @@ impl<'a> Bsp<'a> {
                 r.set_dev10g_shadow_ena(1);
             },
         )?;
-        dev1g_init_sgmii(dev_2g5, &self.vsc7448)?;
+        dev_2g5.init_sgmii(&self.vsc7448)?;
         serdes10g_cfg_sgmii.apply(2, &self.vsc7448)?;
         Ok(())
     }
