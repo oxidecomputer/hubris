@@ -46,8 +46,6 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
             .map(|(name, _)| name.as_str())
     };
 
-    let mut first = false;
-
     struct Task<'a> {
         name: &'a str,
         stacksize: u32,
@@ -81,6 +79,7 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
     };
 
     let mut suggestions = Vec::new();
+    let mut first = false; // used to print a newline between tasks
     for task in tasks {
         if !first {
             first = true;
