@@ -151,7 +151,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
 
     check_task(
         "kernel",
-        toml.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &toml.kernel.requires,
     )?;
     for (name, task) in &toml.tasks {
