@@ -102,10 +102,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
                 writeln!(out, "{}", name)?;
             }
             let mut my_suggestions = Vec::new();
-            let mut has_asterisk = false;
             for (mem_name, used) in memory_sizes {
-                let asterisk = name == "kernel" && mem_name == "ram";
-                has_asterisk |= asterisk;
                 if let Some(&size) = requires.get(mem_name) {
                     let percent = used * 100 / size as u64;
                     if !only_suggest {
@@ -126,22 +123,15 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
                         out.set_color(&color)?;
                         write!(out, " ({}%)", percent,)?;
                         out.reset()?;
-                        writeln!(out, "{}", if asterisk { "*" } else { "" })?;
+                        writeln!(out)?;
                     }
                     let suggestion = suggest(used);
-                    if suggestion < size as u64 && !asterisk {
+                    if suggestion < size as u64 {
                         my_suggestions.push((mem_name, size, suggestion));
                     }
                 } else {
                     assert!(used == 0);
                 }
-            }
-            // TODO: remove this once PR #393 is merged
-            if has_asterisk && !only_suggest {
-                write!(out, "  *")?;
-                out.set_color(ColorSpec::new().set_dimmed(true))?;
-                writeln!(out, "kernel uses spare RAM for dynamic allocation")?;
-                out.reset()?;
             }
             if !my_suggestions.is_empty() {
                 suggestions.push((name.to_owned(), my_suggestions));
