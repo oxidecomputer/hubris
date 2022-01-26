@@ -6,7 +6,7 @@ stacksize = 1024
 [kernel]
 path = "."
 name = "gemini-bu-rot"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 21504, ram = 4096}
 features = ["itm"]
 
 [signing.combined]
