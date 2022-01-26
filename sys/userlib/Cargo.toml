@@ -18,6 +18,7 @@ zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
 cfg-if = "0.1.10"
+armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 
 #
 # In order to use macros as discriminants in enums that make use of derive
