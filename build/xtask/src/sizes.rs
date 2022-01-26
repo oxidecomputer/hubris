@@ -3,11 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::convert::TryInto;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 use goblin::Object;
 use indexmap::IndexMap;
+use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::Config;
 
@@ -19,7 +21,27 @@ fn armv8m_suggest(size: u64) -> u64 {
     ((size + 31) / 32) * 32
 }
 
-pub fn run(cfg: &Path) -> anyhow::Result<()> {
+/// When `only_suggest` is true, prints only the suggested improvements to
+/// stderr, rather than printing all sizes.  Suggestions are formatted to
+/// match compiler warnings.
+pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
+    let s = if only_suggest {
+        atty::Stream::Stderr
+    } else {
+        atty::Stream::Stdout
+    };
+    let color_choice = if atty::is(s) {
+        termcolor::ColorChoice::Auto
+    } else {
+        termcolor::ColorChoice::Never
+    };
+    let mut out_stream = match s {
+        atty::Stream::Stderr => termcolor::StandardStream::stderr,
+        atty::Stream::Stdout => termcolor::StandardStream::stdout,
+        _ => panic!("Invalid stream"),
+    }(color_choice);
+    let out = &mut out_stream;
+
     let cfg_contents = std::fs::read(&cfg)?;
     let toml: Config = toml::from_slice(&cfg_contents)?;
 
@@ -77,7 +99,9 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
             }
             *memory_sizes.entry("ram").or_default() += stacksize as u64;
 
-            println!("{}", name);
+            if !only_suggest {
+                writeln!(out, "{}", name)?;
+            }
             let mut my_suggestions = Vec::new();
             let mut has_asterisk = false;
             for (mem_name, used) in memory_sizes {
@@ -85,13 +109,26 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
                 has_asterisk |= asterisk;
                 if let Some(&size) = requires.get(mem_name) {
                     let percent = used * 100 / size as u64;
-                    println!(
-                        "  {:<6} {: >5} bytes ({}%){}",
-                        format!("{}:", mem_name),
-                        used,
-                        percent,
-                        if asterisk { "*" } else { "" },
-                    );
+                    if !only_suggest {
+                        write!(
+                            out,
+                            "  {:<6} {: >5} bytes",
+                            format!("{}:", mem_name),
+                            used,
+                        )?;
+                        let mut color = ColorSpec::new();
+                        color.set_fg(Some(if percent >= 50 {
+                            Color::Green
+                        } else if percent > 25 {
+                            Color::Yellow
+                        } else {
+                            Color::Red
+                        }));
+                        out.set_color(&color)?;
+                        write!(out, " ({}%)", percent,)?;
+                        out.reset()?;
+                        writeln!(out, "{}", if asterisk { "*" } else { "" })?;
+                    }
                     let suggestion = suggest(used);
                     if suggestion != size as u64 && !asterisk {
                         my_suggestions.push((mem_name, size, suggestion));
@@ -101,8 +138,11 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
                 }
             }
             // TODO: remove this once PR #393 is merged
-            if has_asterisk {
-                println!("  * kernel uses spare RAM for dynamic allocation");
+            if has_asterisk && !only_suggest {
+                write!(out, "  *")?;
+                out.set_color(ColorSpec::new().set_dimmed(true))?;
+                writeln!(out, "kernel uses spare RAM for dynamic allocation")?;
+                out.reset()?;
             }
             if !my_suggestions.is_empty() {
                 suggestions.push((name.to_owned(), my_suggestions));
@@ -112,7 +152,9 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
 
     check_task("kernel", toml.stacksize.unwrap(), &toml.kernel.requires)?;
     for (name, task) in &toml.tasks {
-        println!();
+        if !only_suggest {
+            println!();
+        }
         check_task(
             &name,
             task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap()),
@@ -122,22 +164,39 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
 
     if !suggestions.is_empty() {
         let mut savings: IndexMap<_, u64> = IndexMap::new();
-        println!("\n========== Suggested changes ==========");
+
+        if only_suggest {
+            out.set_color(
+                ColorSpec::new().set_bold(true).set_fg(Some(Color::Yellow)),
+            )?;
+            write!(out, "warning")?;
+            out.reset()?;
+            writeln!(out, ": memory allocation is sub-optimal")?;
+            out.set_color(ColorSpec::new().set_bold(true))?;
+            writeln!(out, "Suggested improvements:")?;
+            out.reset()?;
+        } else {
+            out.set_color(ColorSpec::new().set_bold(true))?;
+            writeln!(out, "\n========== Suggested changes ==========")?;
+            out.reset()?;
+        }
         for (name, list) in suggestions {
-            println!("{}:", name);
+            writeln!(out, "{}:", name)?;
             for (mem, prev, value) in list {
-                println!(
-                    "  {:<6} {} (from {})",
-                    format!("{}:", mem),
-                    value,
-                    prev
-                );
+                write!(out, "  {:<6} {: >5}", format!("{}:", mem), value)?;
+                out.set_color(ColorSpec::new().set_dimmed(true))?;
+                writeln!(out, " (currently {})", prev)?;
+                out.reset()?;
                 *savings.entry(mem).or_default() += prev as u64 - value;
             }
         }
-        println!("\n------------ Total savings ------------");
-        for (mem, savings) in &savings {
-            println!("  {:<6} {}", format!("{}:", mem), savings);
+        if !only_suggest {
+            out.set_color(ColorSpec::new().set_bold(true))?;
+            writeln!(out, "\n------------ Total savings ------------")?;
+            out.reset()?;
+            for (mem, savings) in &savings {
+                writeln!(out, "  {:<6} {}", format!("{}:", mem), savings)?;
+            }
         }
     }
 

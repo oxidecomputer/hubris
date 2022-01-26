@@ -2687,6 +2687,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "termcolor"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "test-api"
 version = "0.1.0"
 dependencies = [
@@ -3013,6 +3022,7 @@ version = "1.0.0"
 dependencies = [
  "abi",
  "anyhow",
+ "atty",
  "byteorder",
  "cargo_metadata",
  "ctrlc",
@@ -3028,6 +3038,7 @@ dependencies = [
  "serde_json",
  "srec",
  "structopt",
+ "termcolor",
  "toml",
  "walkdir",
  "zip",

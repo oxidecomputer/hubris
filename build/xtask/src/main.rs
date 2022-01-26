@@ -382,6 +382,7 @@ fn main() -> Result<()> {
             cfg,
         } => {
             dist::package(verbose, edges, &cfg, None)?;
+            sizes::run(&cfg, true)?;
         }
         Xtask::Build {
             verbose,
@@ -397,7 +398,7 @@ fn main() -> Result<()> {
         }
         Xtask::Sizes { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
-            sizes::run(&cfg)?;
+            sizes::run(&cfg, false)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, false, &cfg, None)?;
