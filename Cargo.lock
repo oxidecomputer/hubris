@@ -43,6 +43,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
+name = "armv6m-atomic-hack"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+]
+
+[[package]]
 name = "atomic-polyfill"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2456,6 +2463,7 @@ name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "armv6m-atomic-hack",
  "build-i2c",
  "build-util",
  "byteorder",
@@ -2490,6 +2498,7 @@ name = "task-jefe"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "armv6m-atomic-hack",
  "build-util",
  "cortex-m",
  "hubris-num-tasks",
@@ -2902,6 +2911,7 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "armv6m-atomic-hack",
  "bstringify",
  "build-util",
  "cfg-if 0.1.10",
