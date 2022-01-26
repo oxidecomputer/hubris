@@ -26,7 +26,7 @@ use lpc55_sign::{crc_image, sign_ecc, signed_image};
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
-const DEFAULT_KERNEL_STACK: u32 = 1024;
+pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
 pub fn package(
     verbose: bool,
