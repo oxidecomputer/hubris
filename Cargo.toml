@@ -12,6 +12,7 @@ members = [
     "sys/userlib",
     "sys/num-tasks",
 
+    "lib/armv6m-atomic-hack",
     "lib/fixedmap",
     "lib/gnarle",
     "lib/hypocalls",
