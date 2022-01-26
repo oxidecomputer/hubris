@@ -84,17 +84,16 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
 
             let mut memory_sizes = IndexMap::new();
             for phdr in &elf.program_headers {
-                // The PhysAddr is always a flash address, meaning we use the
-                // "on-disk" size of this section.
-                if let Some(region) = output_region(phdr.p_paddr) {
-                    *memory_sizes.entry(region).or_default() += phdr.p_filesz;
+                if let Some(vregion) = output_region(phdr.p_vaddr) {
+                    *memory_sizes.entry(vregion).or_default() += phdr.p_memsz;
                 }
                 // If the VirtAddr disagrees with the PhysAddr, then this is a
                 // section which is relocated into RAM, so we also accumulate
-                // its MemSiz.
-                if phdr.p_paddr != phdr.p_vaddr {
-                    let region = output_region(phdr.p_vaddr).unwrap();
-                    *memory_sizes.entry(region).or_default() += phdr.p_memsz;
+                // its FileSiz in the physical address (which is presumably
+                // flash).
+                if phdr.p_vaddr != phdr.p_paddr {
+                    let region = output_region(phdr.p_paddr).unwrap();
+                    *memory_sizes.entry(region).or_default() += phdr.p_filesz;
                 }
             }
             *memory_sizes.entry("ram").or_default() += stacksize as u64;
