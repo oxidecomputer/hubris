@@ -21,6 +21,7 @@ num-traits = { version = "0.2.12", default-features = false }
 hif = { git = "https://github.com/oxidecomputer/hif" }
 serde = { version = "1.0.114", default-features = false }
 byteorder = { version = "1.3.4", default-features = false }
+armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
