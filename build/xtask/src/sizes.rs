@@ -11,7 +11,7 @@ use goblin::Object;
 use indexmap::IndexMap;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-use crate::Config;
+use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
 fn armv7m_suggest(size: u64) -> u64 {
     size.next_power_of_two()
@@ -150,14 +150,18 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
             Ok(())
         };
 
-    check_task("kernel", toml.stacksize.unwrap(), &toml.kernel.requires)?;
+    check_task(
+        "kernel",
+        toml.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        &toml.kernel.requires,
+    )?;
     for (name, task) in &toml.tasks {
         if !only_suggest {
             println!();
         }
         check_task(
             &name,
-            task.stacksize.unwrap_or_else(|| toml.stacksize.unwrap()),
+            task.stacksize.or(toml.stacksize).unwrap(),
             &task.requires,
         )?;
     }
