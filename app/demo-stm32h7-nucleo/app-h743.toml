@@ -52,7 +52,7 @@ dma = true
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
@@ -114,7 +114,7 @@ task-slots = ["gpio_driver", "rcc_driver"]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 4096}
+requires = {flash = 16384, ram = 2048}
 features = ["spi3", "h743"]
 uses = ["spi3"]
 start = true
@@ -130,7 +130,7 @@ path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-requires = {flash = 131072, ram = 8192, sram1 = 32768}
+requires = {flash = 65536, ram = 8192, sram1 = 32768}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
@@ -168,7 +168,7 @@ task-slots = ["user_leds"]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -187,7 +187,7 @@ task-slots = ["gpio_driver", "i2c_driver"]
 path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 256, ram = 256}
+requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
