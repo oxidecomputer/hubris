@@ -130,7 +130,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
                         writeln!(out, "{}", if asterisk { "*" } else { "" })?;
                     }
                     let suggestion = suggest(used);
-                    if suggestion != size as u64 && !asterisk {
+                    if suggestion < size as u64 && !asterisk {
                         my_suggestions.push((mem_name, size, suggestion));
                     }
                 } else {
