@@ -763,19 +763,17 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
             unsafe {
                 asm!("
                     @ restore the callee-save registers
-                    ldm {task}!, {{r4-r7}}
-                    push {{r4-r7}}
-                    ldm {task}!, {{r4-r7}}
-                    mov r11, r7
-                    mov r10, r6
-                    mov r9, r5
-                    mov r8, r4
-                    pop {{r4-r7}}
+                    ldm r0!, {{r4-r7}}
+                    ldm r0, {{r0-r3}}
+                    mov r11, r3
+                    mov r10, r2
+                    mov r9, r1
+                    mov r8, r0
                     @ Trap into the kernel.
                     svc #0xFF
                     @ noreturn generates a UDF here in case that should return.
                     ",
-                    task = in(reg) &task.save().r4,
+                    in("r0") &task.save().r4,
                     options(noreturn),
                 )
             }
