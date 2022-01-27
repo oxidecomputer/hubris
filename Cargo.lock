@@ -3029,6 +3029,7 @@ dependencies = [
  "ctrlc",
  "dunce",
  "filetime",
+ "fnv",
  "goblin",
  "indexmap",
  "lpc55_sign",

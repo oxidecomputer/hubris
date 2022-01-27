@@ -56,6 +56,8 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
+    let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
+
     let kconfig: KernelConfig =
         ron::de::from_str(&env::var("HUBRIS_KCONFIG")?)?;
     println!("cargo:rerun-if-env-changed=HUBRIS_KCONFIG");
@@ -65,6 +67,8 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
 
     writeln!(file, "// See build.rs for details")?;
 
+    writeln!(file, "#[no_mangle]")?;
+    writeln!(file, "pub static HUBRIS_IMAGE_ID: u64 = {};", image_id)?;
     writeln!(
         file,
         "const HUBRIS_FAULT_NOTIFICATION: u32 = {};",

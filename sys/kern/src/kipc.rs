@@ -27,6 +27,7 @@ pub fn handle_kernel_message(
         1 => read_task_status(tasks, caller, maybe_message?, maybe_response?),
         2 => restart_task(tasks, caller, maybe_message?),
         3 => fault_task(tasks, caller, maybe_message?),
+        4 => read_image_id(tasks, caller, maybe_response?),
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
@@ -189,5 +190,19 @@ fn fault_task(
     let _ = crate::task::force_fault(tasks, index, FaultInfo::Injected(id));
     tasks[caller].save_mut().set_send_response_and_length(0, 0);
 
+    Ok(NextTask::Same)
+}
+
+fn read_image_id(
+    tasks: &mut [Task],
+    caller: usize,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    let id =
+        unsafe { core::ptr::read_volatile(&crate::startup::HUBRIS_IMAGE_ID) };
+    let response_len = serialize_response(&mut tasks[caller], response, &id)?;
+    tasks[caller]
+        .save_mut()
+        .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
 }
