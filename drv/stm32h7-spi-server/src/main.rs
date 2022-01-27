@@ -407,23 +407,22 @@ impl ServerImpl {
             // keep receiving now until the RX FIFO is empty, assuring that
             // we are (roughly) balanced with respect to TX and RX and reducing
             // our chances of hitting an overrun.
-            if let Some(rx_reader) = &mut rx {
-                while self.spi.can_rx_byte() {
-                    if rx_count == overall_len {
-                        panic!()
-                    }
-                    // Transfer byte from RX FIFO to caller.
-                    let b = self.spi.recv8();
-                    rx_count += 1;
-                    // Allow another byte to be inserted in the TX FIFO.
-                    tx_permits += 1;
-                    // Deposit the byte; if we're off the end, we'll discard the
-                    // error so that it discards the byte.
-                    rx_reader.write(b).ok();
-                    ringbuf_entry!(Trace::Rx(b));
-
-                    made_progress = true;
+            while self.spi.can_rx_byte() {
+                if rx_count == overall_len {
+                    panic!()
                 }
+                // Transfer byte from RX FIFO to caller.
+                let b = self.spi.recv8();
+                rx_count += 1;
+                // Allow another byte to be inserted in the TX FIFO.
+                tx_permits += 1;
+                // Deposit the byte; if we're off the end, we'll discard the
+                // error so that it discards the byte.
+                if let Some(rx_reader) = &mut rx {
+                    rx_reader.write(b).ok();
+                }
+                ringbuf_entry!(Trace::Rx(b));
+                made_progress = true;
             }
 
             if !made_progress && rx_count != overall_len {
