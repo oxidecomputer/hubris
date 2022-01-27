@@ -20,6 +20,7 @@ members = [
     "lib/unwrap-lite",
 
     "app/demo-stm32f4-discovery",
+    "app/demo-stm32l0538-disco",
     "app/demo-stm32g0-nucleo",
     "app/demo-stm32h7-nucleo",
     "app/gemini-bu",
@@ -50,6 +51,9 @@ members = [
 
     "drv/stm32fx-rcc",
     "drv/stm32fx-usart",
+
+    "drv/stm32l0-sys",
+    "drv/stm32l0-sys-api",
 
     "drv/stm32g0-sys",
     "drv/stm32g0-sys-api",

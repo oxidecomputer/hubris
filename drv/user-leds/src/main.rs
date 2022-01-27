@@ -347,6 +347,80 @@ fn led_toggle(led: Led) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// The STM32L0 specific bits.
+//
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "stm32l0")] {
+        task_slot!(SYS, sys);
+
+        const LEDS: &[(drv_stm32l0_sys_api::PinSet, bool)] = &[
+            (drv_stm32l0_sys_api::Port::A.pin(5), true),
+            (drv_stm32l0_sys_api::Port::B.pin(4), true),
+        ];
+    }
+}
+
+#[cfg(feature = "stm32l0")]
+fn enable_led_pins() {
+    use drv_stm32l0_sys_api::*;
+
+    let sys = Sys::from(SYS.get_task_id());
+
+    for &(pinset, active_low) in LEDS {
+        // Make sure LEDs are initially off.
+        sys.gpio_set_to(pinset, active_low).unwrap();
+        // Make them outputs.
+        sys.gpio_configure_output(
+            pinset,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+        )
+        .unwrap();
+    }
+}
+
+#[cfg(feature = "stm32l0")]
+fn led_info(led: Led) -> (drv_stm32l0_sys_api::PinSet, bool) {
+    match led {
+        Led::Zero => LEDS[0],
+        Led::One => LEDS[1],
+    }
+}
+
+#[cfg(feature = "stm32l0")]
+fn led_on(led: Led) {
+    use drv_stm32l0_sys_api::*;
+
+    let sys = Sys::from(SYS.get_task_id());
+
+    let (pinset, active_low) = led_info(led);
+    sys.gpio_set_to(pinset, !active_low).unwrap();
+}
+
+#[cfg(feature = "stm32l0")]
+fn led_off(led: Led) {
+    use drv_stm32l0_sys_api::*;
+
+    let sys = Sys::from(SYS.get_task_id());
+
+    let (pinset, active_low) = led_info(led);
+
+    sys.gpio_set_to(pinset, active_low).unwrap();
+}
+
+#[cfg(feature = "stm32l0")]
+fn led_toggle(led: Led) {
+    use drv_stm32l0_sys_api::*;
+
+    let sys = Sys::from(SYS.get_task_id());
+
+    let pinset = led_info(led).0;
+    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // The STM32H7 specific bits.
 //
 

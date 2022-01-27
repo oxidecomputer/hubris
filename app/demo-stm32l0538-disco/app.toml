@@ -1,0 +1,77 @@
+name = "demo-stm32l0538-disco"
+target = "thumbv6m-none-eabi"
+board = "stm32l0538-disco"
+stacksize = 936
+
+[kernel]
+path = "."
+name = "demo-stm32l0538-disco"
+requires = {flash = 11628, ram = 1720}
+features = ["panic-halt"]
+stacksize = 640
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x08000000
+size = 65536
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 8192
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 4096, ram = 1024}
+start = true
+features = ["log-null"]
+
+[tasks.sys]
+path = "../../drv/stm32l0-sys"
+name = "drv-stm32l0-sys"
+features = ["l0x3"]
+priority = 1
+requires = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpio"]
+start = true
+
+[tasks.user_leds]
+path = "../../drv/user-leds"
+name = "drv-user-leds"
+features = ["stm32l0"]
+priority = 2
+requires = {flash = 2048, ram = 1024}
+start = true
+task-slots = ["sys"]
+
+[tasks.pong]
+path = "../../task/pong"
+name = "task-pong"
+priority = 3
+requires = {flash = 1024, ram = 1024}
+start = true
+task-slots = ["user_leds"]
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 128, ram = 128}
+stacksize = 128
+start = true
+
+[peripherals.rcc]
+address = 0x40021000
+size = 1024
+
+[peripherals.gpio]
+address = 0x50000000
+size = 0x2000

@@ -508,6 +508,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-stm32l0538-disco"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "ringbuf",
+ "stm32l0",
+]
+
+[[package]]
 name = "der"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1043,6 +1059,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32l0-sys"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32l0-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32l0",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32l0-sys-api"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "idol",
+ "num-traits",
+ "unwrap-lite",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
@@ -1051,6 +1092,7 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-stm32g0-sys-api",
  "drv-stm32h7-gpio-api",
+ "drv-stm32l0-sys-api",
  "idol",
  "idol-runtime",
  "lpc55-pac",
@@ -2447,6 +2489,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b672c837e0ee8158ecc7fce0f9a948dd0693a9c588338e728d14b73307a0b7d"
 dependencies = [
  "bare-metal 0.2.5",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
+name = "stm32l0"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d09d4f5929d8c543821feb93b06f82874783d97183424b798526ef0b9c2d4b60"
+dependencies = [
+ "bare-metal 1.0.0",
  "cortex-m",
  "cortex-m-rt",
  "vcell",
