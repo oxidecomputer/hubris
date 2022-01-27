@@ -5,7 +5,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::{self, File};
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -364,6 +364,10 @@ pub fn package(
         return Ok(());
     }
 
+    let mut image_id = fnv::FnvHasher::default();
+    all_output_sections.hash(&mut image_id);
+    let image_id = image_id.finish();
+
     // Format the descriptors for the kernel build.
     let kconfig = make_descriptors(
         &toml.target,
@@ -403,7 +407,10 @@ pub fn package(
         &None,
         &None,
         &toml.config,
-        &[("HUBRIS_KCONFIG", &kconfig)],
+        &[
+            ("HUBRIS_KCONFIG", &kconfig),
+            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+        ],
     )?;
     let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::BTreeMap;
+use std::hash::Hash;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -297,6 +298,7 @@ struct Peripheral {
     interrupts: BTreeMap<String, u32>,
 }
 
+#[derive(Debug, Hash)]
 struct LoadSegment {
     source_file: PathBuf,
     data: Vec<u8>,
