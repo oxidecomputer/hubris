@@ -6,7 +6,7 @@ stacksize = 1024
 [kernel]
 path = "."
 name = "demo-stm32f4-discovery"
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 20000, ram = 3072}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -39,7 +39,7 @@ execute = true
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 32768, ram = 2048}
+requires = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
@@ -49,7 +49,7 @@ path = "../../drv/stm32fx-rcc"
 name = "drv-stm32fx-rcc"
 features = ["f4"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 4096, ram = 1024}
 uses = ["rcc"]
 start = true
 
@@ -58,7 +58,7 @@ path = "../../drv/stm32fx-usart"
 name = "drv-stm32fx-usart"
 features = ["stm32f4"]
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
 interrupts = {38 = 1}
@@ -69,7 +69,7 @@ path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32f4"]
 priority = 2
-requires = {flash = 16384, ram = 1024}
+requires = {flash = 8192, ram = 1024}
 uses = ["gpiod"]
 start = true
 task-slots = ["rcc_driver"]
@@ -96,7 +96,7 @@ task-slots = ["user_leds"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-requires = {flash = 32768, ram = 16384 }
+requires = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
 
@@ -104,7 +104,7 @@ start = true
 path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 256, ram = 256}
+requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 

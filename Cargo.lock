@@ -1388,8 +1388,10 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-semihosting",
+ "ron 0.7.0",
  "serde",
  "ssmarshal",
+ "unwrap-lite",
  "zerocopy",
 ]
 
@@ -2686,6 +2688,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "termcolor"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "test-api"
 version = "0.1.0"
 dependencies = [
@@ -2881,6 +2892,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
+name = "unwrap-lite"
+version = "0.1.0"
+
+[[package]]
 name = "userlib"
 version = "0.1.0"
 dependencies = [
@@ -2891,6 +2906,7 @@ dependencies = [
  "paste",
  "serde",
  "ssmarshal",
+ "unwrap-lite",
  "zerocopy",
 ]
 
@@ -3007,21 +3023,25 @@ version = "1.0.0"
 dependencies = [
  "abi",
  "anyhow",
+ "atty",
  "byteorder",
  "cargo_metadata",
  "ctrlc",
  "dunce",
  "filetime",
+ "fnv",
  "goblin",
  "indexmap",
  "lpc55_sign",
  "ordered-toml",
  "path-slash",
+ "ron 0.7.0",
  "scroll",
  "serde",
  "serde_json",
  "srec",
  "structopt",
+ "termcolor",
  "toml",
  "walkdir",
  "zip",

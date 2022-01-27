@@ -151,7 +151,7 @@ pub struct App {
 }
 
 /// Record describing a single task.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
 #[repr(C)]
 pub struct TaskDesc {
     /// Identifies memory regions this task has access to, by index in the
@@ -177,7 +177,7 @@ pub struct TaskDesc {
 }
 
 bitflags::bitflags! {
-    #[derive(FromBytes)]
+    #[derive(FromBytes, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct TaskFlags: u32 {
         const START_AT_BOOT = 1 << 0;
@@ -194,7 +194,7 @@ bitflags::bitflags! {
 /// Note that regions can overlap. This can be useful: for example, you can have
 /// two regions pointing to the same area of the address space, but one
 /// read-only and the other read-write.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
 #[repr(C)]
 pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
@@ -212,7 +212,7 @@ pub struct RegionDesc {
 }
 
 bitflags::bitflags! {
-    #[derive(FromBytes)]
+    #[derive(FromBytes, Serialize, Deserialize)]
     #[repr(transparent)]
     pub struct RegionAttributes: u32 {
         /// Region can be read by tasks that include it.
@@ -237,7 +237,7 @@ bitflags::bitflags! {
 }
 
 /// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes)]
+#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.

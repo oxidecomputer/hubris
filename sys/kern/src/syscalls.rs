@@ -33,6 +33,7 @@ use abi::{
     FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState,
     UsageError,
 };
+use unwrap_lite::UnwrapLite;
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
@@ -565,7 +566,7 @@ fn borrow_lease(
         // Attempt to offset the lease. Handle cases where the offset is bogus.
         // First, we must convert to u32, which _should be_ a no-op but we'll do
         // it the careful way:
-        let offset = u32::try_from(offset).unwrap();
+        let offset = u32::try_from(offset).unwrap_lite();
         // Now, proceed only if both neither the length nor address computation
         // wrap.
         if let (Some(off_len), Some(off_addr)) = (

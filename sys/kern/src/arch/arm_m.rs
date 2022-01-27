@@ -81,6 +81,7 @@ use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 use abi::{FaultInfo, FaultSource};
+use unwrap_lite::UnwrapLite;
 
 /// Log things from kernel context. This macro is made visible to the rest of
 /// the kernel by a chain of `#[macro_use]` attributes, but its implementation
@@ -343,7 +344,7 @@ pub fn reinitialize(task: &mut task::Task) {
     uassert!(initial_stack as usize >= frame_size);
     // Ok. Generate a uslice for the task's starting stack frame.
     let mut frame_uslice: USlice<ExtendedExceptionFrame> =
-        USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap();
+        USlice::from_raw(initial_stack as usize - frame_size, 1).unwrap_lite();
     // Before we set our frame, find the region that contains our initial stack
     // pointer, and zap the region from the base to the stack pointer with a
     // distinct (and storied) pattern.
@@ -360,16 +361,16 @@ pub fn reinitialize(task: &mut task::Task) {
             region.base as usize,
             (initial_stack as usize - frame_size - region.base as usize) >> 2,
         )
-        .unwrap();
+        .unwrap_lite();
 
-        let zap = task.try_write(&mut uslice).unwrap();
+        let zap = task.try_write(&mut uslice).unwrap_lite();
         for word in zap.iter_mut() {
             *word = 0xbaddcafe;
         }
     }
 
     let descriptor = task.descriptor();
-    let frame = &mut task.try_write(&mut frame_uslice).unwrap()[0];
+    let frame = &mut task.try_write(&mut frame_uslice).unwrap_lite()[0];
 
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();

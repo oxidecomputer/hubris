@@ -6,7 +6,7 @@ stacksize = 1024
 [kernel]
 path = "."
 name = "demo-stm32h7-nucleo"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 22000, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -41,7 +41,7 @@ execute = false  # let's assume XN until proven otherwise
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
@@ -103,16 +103,16 @@ task-slots = ["gpio_driver", "rcc_driver"]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 4096}
-features = ["spi3", "h753"]
-uses = ["spi3"]
+requires = {flash = 16384, ram = 2048}
+features = ["spi1", "h753"]
+uses = ["spi1"]
 start = true
-interrupts = {51 = 1}
+interrupts = {53 = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi_driver.config.spi]
-global_config = "spi3"
+global_config = "spi1"
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
@@ -156,7 +156,7 @@ path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
-requires = {flash = 16384, ram = 8192 }
+requires = {flash = 16384, ram = 2048 }
 stacksize = 2048
 start = true
 uses = ["quadspi"]
@@ -167,7 +167,7 @@ task-slots = ["gpio_driver", "rcc_driver"]
 path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 256, ram = 256}
+requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
@@ -264,16 +264,17 @@ af = 4
 # address = 0b1001_010
 
 
-[config.spi.spi3]
-controller = 3
+[config.spi.spi1]
+controller = 1
 
-[config.spi.spi3.mux_options.port_b]
+[config.spi.spi1.mux_options.cn7_arduino]
 outputs = [
-    {port = "B", pins = [3], af = 6},
-    {port = "B", pins = [5], af = 7},
+    {port = "A", pins = [3], af = 5},
+    {port = "B", pins = [5], af = 5},
 ]
-input = {port = "B", pin = 4, af = 6}
+input = {port = "A", pin = 6, af = 5}
 
-[config.spi.spi3.devices.pins]
-mux = "port_b"
-cs = {port = "A", pin = 4}
+[config.spi.spi1.devices.pins]
+mux = "cn7_arduino"
+cs = {port = "D", pin = 14}
+clock_divider = "DIV32"

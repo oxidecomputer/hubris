@@ -16,6 +16,7 @@ serde = { version = "1.0.114", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
+unwrap-lite = { path = "../../lib/unwrap-lite" }
 
 #
 # In order to use macros as discriminants in enums that make use of derive

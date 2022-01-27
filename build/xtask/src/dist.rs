@@ -5,7 +5,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::{self, File};
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
+use serde::Serialize;
 
 use crate::{
     elf, task_slot, Config, LoadSegment, Output, Peripheral, Signing,
@@ -26,7 +27,7 @@ use lpc55_sign::{crc_image, sign_ecc, signed_image};
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
-const DEFAULT_KERNEL_STACK: u32 = 1024;
+pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
 pub fn package(
     verbose: bool,
@@ -251,6 +252,7 @@ pub fn package(
             &shared_syms,
             &None,
             &toml.config,
+            &[],
         )?;
 
         // Need a bootloader binary for signing
@@ -336,6 +338,7 @@ pub fn package(
             &shared_syms,
             &task_toml.config,
             &toml.config,
+            &[],
         )
         .context(format!("failed to build {}", name))?;
 
@@ -361,9 +364,12 @@ pub fn package(
         return Ok(());
     }
 
+    let mut image_id = fnv::FnvHasher::default();
+    all_output_sections.hash(&mut image_id);
+    let image_id = image_id.finish();
+
     // Format the descriptors for the kernel build.
-    let mut descriptor_text = vec![];
-    for word in make_descriptors(
+    let kconfig = make_descriptors(
         &toml.target,
         &toml.tasks,
         &toml.peripherals,
@@ -373,16 +379,13 @@ pub fn package(
         &toml.outputs,
         &entry_points,
         &toml.extratext,
-    )? {
-        descriptor_text.push(format!("LONG(0x{:08x});", word));
-    }
-    let descriptor_text = descriptor_text.join("\n");
+    )?;
+    let kconfig = ron::ser::to_string(&kconfig)?;
 
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &descriptor_text,
     )?;
 
     // this one was for the tasks, but we don't want to use it for the kernel
@@ -404,6 +407,10 @@ pub fn package(
         &None,
         &None,
         &toml.config,
+        &[
+            ("HUBRIS_KCONFIG", &kconfig),
+            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+        ],
     )?;
     let (kentry, _) = load_elf(&out.join("kernel"), &mut all_output_sections)?;
 
@@ -854,7 +861,6 @@ fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
-    descriptor: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -906,12 +912,6 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_base = 0x{:08x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = 0x{:08x};", stack_start.unwrap())
         .unwrap();
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, "  .hubris_app_table : AT(__erodata) {{").unwrap();
-    writeln!(linkscr, "    hubris_app_table = .;").unwrap();
-    writeln!(linkscr, "{}", descriptor).unwrap();
-    writeln!(linkscr, "  }} > FLASH").unwrap();
-    writeln!(linkscr, "}} INSERT AFTER .data").unwrap();
 
     Ok(())
 }
@@ -931,6 +931,7 @@ fn build(
     shared_syms: &Option<&[String]>,
     config: &Option<ordered_toml::Value>,
     app_config: &Option<ordered_toml::Value>,
+    extra_env: &[(&str, &str)],
 ) -> Result<()> {
     println!("building path {}", path.display());
 
@@ -992,6 +993,10 @@ fn build(
 
     cmd.env("HUBRIS_TASKS", task_names);
     cmd.env("HUBRIS_BOARD", board_name);
+
+    for (var, value) in extra_env {
+        cmd.env(var, value);
+    }
 
     if let Some(s) = shared_syms {
         if !s.is_empty() {
@@ -1118,12 +1123,6 @@ fn allocate_all(
     // The task map is: memory name -> allocation size -> queue of task name.
     // The kernel map is: memory name -> allocation size
     let kernel_requests = &kernel.requires;
-    for (name, &amt) in kernel_requests {
-        if !amt.is_power_of_two() {
-            bail!("kernel, memory region {}: requirement {} is not a power of two.",
-                name, amt);
-        }
-    }
 
     let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
         BTreeMap::new();
@@ -1175,10 +1174,9 @@ fn allocate_all(
 
             if let Some(&sz) = k_req.take() {
                 // The kernel wants in on this.
-                allocs.kernel.insert(
-                    region.to_string(),
-                    allocate_one(region, sz, avail)?,
-                );
+                allocs
+                    .kernel
+                    .insert(region.to_string(), allocate_k(region, sz, avail)?);
                 continue 'fitloop;
             }
 
@@ -1222,6 +1220,31 @@ fn allocate_all(
     }
 
     Ok(allocs)
+}
+
+fn allocate_k(
+    region: &str,
+    size: u32,
+    avail: &mut Range<u32>,
+) -> Result<Range<u32>> {
+    // Our base address will be larger than avail.start if it doesn't meet our
+    // minimum requirements. Round up.
+    let base = (avail.start + 15) & !15;
+
+    if !avail.contains(&(base + size - 1)) {
+        bail!(
+            "out of {}: can't allocate {} more after base {:x}",
+            region,
+            size,
+            base
+        )
+    }
+
+    let end = base + size;
+    // Update the available range to exclude what we've taken.
+    avail.start = end;
+
+    Ok(base..end)
 }
 
 fn allocate_one(
@@ -1276,6 +1299,14 @@ fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
     Ok(PathBuf::from(meta["target_directory"].as_str().unwrap()))
 }
 
+#[derive(Serialize)]
+struct KernelConfig {
+    tasks: Vec<abi::TaskDesc>,
+    regions: Vec<abi::RegionDesc>,
+    irqs: Vec<abi::Interrupt>,
+    supervisor_notification: u32,
+}
+
 /// Generate the application descriptor table that the kernel uses to find and
 /// start tasks.
 ///
@@ -1295,9 +1326,8 @@ fn make_descriptors(
     outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
     extra_text: &IndexMap<String, Peripheral>,
-) -> Result<Vec<u32>> {
-    // Generate the three record sections concurrently, using three separate
-    // vecs that we'll later concatenate.
+) -> Result<KernelConfig> {
+    // Generate the three record sections concurrently.
     let mut regions = vec![];
     let mut task_descs = vec![];
     let mut irqs = vec![];
@@ -1530,58 +1560,18 @@ fn make_descriptors(
         }
     }
 
-    // Assemble everything into the final image.
-    let mut words = vec![];
-
-    // App header
-    words.push(0x1DE_fa7a1);
-    words.push(task_descs.len() as u32);
-    words.push(regions.len() as u32);
-    words.push(irqs.len() as u32);
-    if let Some(supervisor) = supervisor {
-        words.push(supervisor.notification);
-    }
-    // pad out to 32 bytes
-    words.resize(32 / 4, 0);
-
-    // Flatten region descriptors
-    for rdesc in regions {
-        words.push(rdesc.base);
-        words.push(rdesc.size);
-        words.push(rdesc.attributes.bits());
-        words.push(rdesc.reserved_zero);
-    }
-
-    // Flatten task descriptors
-    for tdesc in task_descs {
-        // Region table indices
-        words.push(
-            u32::from(tdesc.regions[0])
-                | u32::from(tdesc.regions[1]) << 8
-                | u32::from(tdesc.regions[2]) << 16
-                | u32::from(tdesc.regions[3]) << 24,
-        );
-        words.push(
-            u32::from(tdesc.regions[4])
-                | u32::from(tdesc.regions[5]) << 8
-                | u32::from(tdesc.regions[6]) << 16
-                | u32::from(tdesc.regions[7]) << 24,
-        );
-
-        words.push(tdesc.entry_point);
-        words.push(tdesc.initial_stack);
-        words.push(tdesc.priority);
-        words.push(tdesc.flags.bits());
-    }
-
-    // Flatten interrupt response records.
-    for idesc in irqs {
-        words.push(idesc.irq);
-        words.push(idesc.task);
-        words.push(idesc.notification);
-    }
-
-    Ok(words)
+    Ok(KernelConfig {
+        irqs,
+        tasks: task_descs,
+        regions,
+        supervisor_notification: if let Some(supervisor) = supervisor {
+            supervisor.notification
+        } else {
+            // TODO: this exists for back-compat with incredibly early Hubris,
+            // we can likely remove it.
+            0
+        },
+    })
 }
 
 /// Loads an SREC file into the same representation we use for ELF. This is

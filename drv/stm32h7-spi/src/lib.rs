@@ -28,6 +28,12 @@
 //! # Automagic CRC generation
 //!
 //! We do not currently support the hardware's automatic CRC features.
+//!
+//! # Why is everything `spi1`
+//!
+//! The `stm32h7` PAC crate we currently use has decided that all SPI types
+//! should be called `spi1`. This is despite significant hardware differences
+//! between SPI1-6. Our is not to question why.
 
 #![no_std]
 
@@ -42,9 +48,6 @@ pub struct Spi {
     ///
     /// This is not a `SPIx` type from the `stm32h7` crate because then we're
     /// generic for no good reason and type parameters multiply. Ew.
-    ///
-    /// Pay no heed to the 1 in `spi1` -- that's what the common module is
-    /// called.
     reg: &'static device::spi1::RegisterBlock,
 }
 
@@ -105,7 +108,8 @@ impl Spi {
         self.reg.i2scfgr.write(|w| w.i2smod().clear_bit());
     }
 
-    pub fn enable(&mut self, tsize: u16) {
+    pub fn enable(&mut self, tsize: u16, div: device::spi1::cfg1::MBR_A) {
+        self.reg.cfg1.modify(|_, w| w.mbr().variant(div));
         self.reg.cr2.modify(|_, w| w.tsize().bits(tsize));
         self.reg.cr1.modify(|_, w| w.spe().set_bit());
     }

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::BTreeMap;
+use std::hash::Hash;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -18,6 +19,7 @@ mod elf;
 mod flash;
 mod gdb;
 mod humility;
+mod sizes;
 mod task_slot;
 mod test;
 
@@ -62,6 +64,15 @@ enum Xtask {
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
+        /// Request verbosity from tools we shell out to.
+        #[structopt(short)]
+        verbose: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
+
+    /// Runs `xtask dist` and reports the sizes of resulting tasks
+    Sizes {
         /// Request verbosity from tools we shell out to.
         #[structopt(short)]
         verbose: bool,
@@ -287,6 +298,7 @@ struct Peripheral {
     interrupts: BTreeMap<String, u32>,
 }
 
+#[derive(Debug, Hash)]
 struct LoadSegment {
     source_file: PathBuf,
     data: Vec<u8>,
@@ -372,6 +384,7 @@ fn main() -> Result<()> {
             cfg,
         } => {
             dist::package(verbose, edges, &cfg, None)?;
+            sizes::run(&cfg, true)?;
         }
         Xtask::Build {
             verbose,
@@ -384,6 +397,10 @@ fn main() -> Result<()> {
         Xtask::Flash { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             flash::run(verbose, &cfg)?;
+        }
+        Xtask::Sizes { verbose, cfg } => {
+            dist::package(verbose, false, &cfg, None)?;
+            sizes::run(&cfg, false)?;
         }
         Xtask::Gdb { cfg, gdb_cfg } => {
             dist::package(false, false, &cfg, None)?;
