@@ -5,13 +5,14 @@
 name = "demo-stm32g031-nucleo"
 target = "thumbv6m-none-eabi"
 board = "stm32g031"
-stacksize = 1024
+stacksize = 944
 
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 32768, ram = 2048}
-features = ["g031", "semihosting"]
+requires = {flash = 11800, ram = 2048}
+features = ["g031", "panic-halt"]
+stacksize = 640
 
 [supervisor]
 notification = 1
@@ -33,16 +34,16 @@ execute = false  # let's assume XN until proven otherwise
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 8192, ram = 512}
+requires = {flash = 4096, ram = 512}
 start = true
-features = ["semihosting"]
-stacksize = 256
+features = ["log-null"]
+stacksize = 352
 
 [tasks.rcc_driver]
 path = "../../drv/stm32g0-rcc"
 name = "drv-stm32g0-rcc"
 priority = 1
-requires = {flash = 8192, ram = 512}
+requires = {flash = 1024, ram = 512}
 uses = ["rcc"]
 start = true
 features = ["g031"]
