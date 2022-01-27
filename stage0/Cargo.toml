@@ -13,13 +13,14 @@ cortex-m-rt = "0.6.12"
 panic-semihosting = "0.5.3"
 lpc55_romapi = { path = "../drv/lpc55-romapi" }
 panic-halt = "0.2.0"
-lpc55-pac = "0.3.0"
+lpc55-pac = {version = "0.3.0", features = ["rt"]}
 ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 hmac = { version = "0.10.1", default-features = false }
 sha2 = { version = "0.9.2", default-features = false }
 zerocopy = "0.6.1"
 cfg-if = "0.1.10"
+abi = { path = "../sys/abi" }
 
 [[bin]]
 name = "stage0"
