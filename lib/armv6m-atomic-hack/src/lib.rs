@@ -43,22 +43,25 @@ pub trait AtomicU32Ext {
 impl AtomicU32Ext for AtomicU32 {
     #[inline]
     fn swap(&self, val: u32, order: Ordering) -> u32 {
-        let rv = self.load(order);
-        self.store(val, order);
+        let (lo, so) = rmw_ordering(order);
+        let rv = self.load(lo);
+        self.store(val, so);
         rv
     }
 
     #[inline]
     fn fetch_add(&self, val: u32, order: Ordering) -> u32 {
-        let rv = self.load(order);
-        self.store(rv + val, order);
+        let (lo, so) = rmw_ordering(order);
+        let rv = self.load(lo);
+        self.store(rv.wrapping_add(val), so);
         rv
     }
 
     #[inline]
     fn fetch_sub(&self, val: u32, order: Ordering) -> u32 {
-        let rv = self.load(order);
-        self.store(rv - val, order);
+        let (lo, so) = rmw_ordering(order);
+        let rv = self.load(lo);
+        self.store(rv.wrapping_sub(val), so);
         rv
     }
 }
@@ -71,9 +74,22 @@ pub trait AtomicBoolExt {
 #[cfg(armv6m)]
 impl AtomicBoolExt for AtomicBool {
     #[inline]
-    fn swap(&self, val: bool, order: Ordering) -> bool {
-        let rv = self.load(order);
-        self.store(val, order);
-        rv
+    fn swap(&self, new: bool, order: Ordering) -> bool {
+        let (lo, so) = rmw_ordering(order);
+        let orig = self.load(lo);
+        self.store(new, so);
+        orig
+    }
+}
+
+#[cfg(armv6m)]
+fn rmw_ordering(o: Ordering) -> (Ordering, Ordering) {
+    match o {
+        Ordering::AcqRel => (Ordering::Acquire, Ordering::Release),
+        Ordering::Relaxed => (o, o),
+        Ordering::SeqCst => (o, o),
+        Ordering::Acquire => (Ordering::Acquire, Ordering::Relaxed),
+        Ordering::Release => (Ordering::Relaxed, Ordering::Release),
+        _ => panic!(),
     }
 }
