@@ -1215,6 +1215,7 @@ dependencies = [
 name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -1265,6 +1266,7 @@ dependencies = [
 name = "gimlet-rot"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -1545,6 +1547,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eee47591d506a22d56bc591abb955176b1ad3c22122c2395a69e426ea76e25ab"
 dependencies = [
  "cortex-m",
+ "cortex-m-rt",
  "vcell",
 ]
 
@@ -1582,6 +1585,7 @@ dependencies = [
 name = "lpc55xpresso"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -2437,6 +2441,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -3270,6 +3275,7 @@ dependencies = [
  "termcolor",
  "toml",
  "walkdir",
+ "zerocopy",
  "zip",
 ]
 

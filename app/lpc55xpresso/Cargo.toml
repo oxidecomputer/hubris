@@ -15,8 +15,9 @@ cortex-m-rt = "0.6.12"
 panic-itm = { version = "0.4.1", optional = true }
 panic-halt = { version = "0.2.0", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
-lpc55-pac = "0.3.0"
+lpc55-pac = {version = "0.3.0", features = ["rt"]}
 cfg-if = "0.1.10"
+abi = { path = "../../sys/abi"}
 
 [dependencies.kern]
 path = "../../sys/kern"
