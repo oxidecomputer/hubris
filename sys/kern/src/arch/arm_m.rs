@@ -80,7 +80,9 @@ use crate::app;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
-use abi::{FaultInfo, FaultSource};
+use abi::FaultInfo;
+#[cfg(any(armv7m, armv8m))]
+use abi::FaultSource;
 use unwrap_lite::UnwrapLite;
 
 /// Log things from kernel context. This macro is made visible to the rest of
@@ -1463,19 +1465,13 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     let from_thread_mode = (*task).save().exc_return & 0b1000 != 0;
 
     if !from_thread_mode {
-        // Uh. This fault originates from the kernel. Let's try to make the
-        // panic as clear and as information-rich as possible, while trying
-        // to not consume unnecessary program text (i.e., it isn't worth
-        // conditionally printing MMFAR or BFAR only on a MemoryManagement
-        // fault or a BusFault, respectively).  In that vein, note that we
-        // promote our fault type to a u32 to not pull in the Display trait
-        // for u8.
+        // Uh. This fault originates from the kernel. We don't get fault
+        // information on ARMv6M, so we're just printing:
         panic!("Kernel fault");
     }
 
-    // This is clearly bogus, but until we have the ability to figure out from a single HardFault
-    // what the actual problem was we need to just pick one...
-    let fault = FaultInfo::IllegalInstruction;
+    // ARMv6-M, to reduce complexity, does not distinguish fault causes.
+    let fault = FaultInfo::InvalidOperation(0);
 
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.
@@ -1521,7 +1517,7 @@ unsafe extern "C" fn handle_fault(
         // conditionally printing MMFAR or BFAR only on a MemoryManagement
         // fault or a BusFault, respectively).  In that vein, note that we
         // promote our fault type to a u32 to not pull in the Display trait
-        // for u8.
+        // for either FaultType or u8.
         panic!(
             "Kernel fault {}: \
             CFSR=0x{:08x}, MMFAR=0x{:08x}, BFAR=0x{:08x}",
