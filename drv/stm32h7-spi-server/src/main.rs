@@ -376,6 +376,9 @@ impl ServerImpl {
         // We monitor our overall progress based on bytes _received,_ since
         // every TX has a corresponding RX.
         let mut rx_count = 0;
+        // We also keep track of bytes TX'd, though, to make sure we let the TX
+        // FIFO empty at the end of transmission.
+        let mut tx_count = 0;
 
         // While work remains, we'll attempt to move up to one byte
         // in each direction, sleeping if we can do neither.
@@ -390,7 +393,10 @@ impl ServerImpl {
             // If there are things to transmit in the first place...
             if let Some(tx_reader) = &mut tx {
                 // ...and if we're not going to blow either FIFO...
-                while tx_permits > 0 && self.spi.can_tx_frame() {
+                while tx_count < overall_len
+                    && tx_permits > 0
+                    && self.spi.can_tx_frame()
+                {
                     // If we read off the end, or if the client goes away, we'll
                     // substitute zero. This allows the TX to be shorter than RX
                     // and get padded.
@@ -399,7 +405,13 @@ impl ServerImpl {
                     ringbuf_entry!(Trace::Tx(byte));
                     self.spi.send8(byte);
                     tx_permits -= 1;
+                    tx_count += 1;
                     made_progress = true;
+                }
+                if tx_count == overall_len {
+                    // Optimization: stop feeding the FIFO and don't repeat
+                    // the above tests every time.
+                    tx = None;
                 }
             }
 
