@@ -402,7 +402,14 @@ pub enum FaultInfo {
     IllegalText,
     /// Execution of an illegal instruction
     IllegalInstruction,
-    /// Other invalid operation, with 32-bit code
+    /// Other invalid operation, with 32-bit code. We use this for faults that
+    /// aren't general across architectures or may not have enough diagnosis
+    /// information. The code is architecture-specific.
+    ///
+    /// - ARMv7/8-M: used for faults not otherwise enumerated in this type; the
+    ///   code is the bits of the Configurable Fault Status Register.
+    /// - ARMv6-M: used for all faults, as v6 doesn't distinguish faults. The
+    ///   code is always 0.
     InvalidOperation(u32),
     /// Arguments passed to a syscall were invalid. TODO: this should become
     /// more descriptive, it's a placeholder.
