@@ -7,6 +7,7 @@ edition = "2018"
 panic-messages = []
 log-itm = []
 log-semihosting = []
+log-null = []
 
 [dependencies]
 abi = {path = "../abi"}
