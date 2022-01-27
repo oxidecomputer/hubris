@@ -411,6 +411,7 @@ impl ServerImpl {
                 if tx_count == overall_len {
                     // Optimization: stop feeding the FIFO and don't repeat
                     // the above tests every time.
+                    self.spi.disable_can_tx_interrupt();
                     tx = None;
                 }
             }
