@@ -6,7 +6,8 @@ version = "0.1.0"
 
 [features]
 itm = ["panic-itm", "kern/klog-itm"]
-semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+semihosting = ["panic-semihosting", "klog-semihosting"]
+klog-semihosting = ["kern/klog-semihosting"]
 g031 = ["stm32g0/stm32g031"]
 g070 = ["stm32g0/stm32g070"]
 g0b1 = ["stm32g0/stm32g0b1"]
