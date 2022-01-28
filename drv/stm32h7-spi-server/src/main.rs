@@ -409,9 +409,12 @@ impl ServerImpl {
                     made_progress = true;
                 }
                 if tx_count == overall_len {
+                    // Stop taking TX interrupts if we're no longer
+                    // transmitting. This reduces spurious interrupts during the
+                    // tail of the process.
+                    self.spi.disable_can_tx_interrupt();
                     // Optimization: stop feeding the FIFO and don't repeat
                     // the above tests every time.
-                    self.spi.disable_can_tx_interrupt();
                     tx = None;
                 }
             }
