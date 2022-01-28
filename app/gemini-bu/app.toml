@@ -182,6 +182,13 @@ requires = {flash = 256, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.spdm_responder]
+path = "../../task/spdm-responder"
+name = "task-spdm-responder"
+priority = 1
+requires = {flash = 32768, ram = 8192}
+start = true
+
 [peripherals.rcc]
 address = 0x58024400
 size = 1024

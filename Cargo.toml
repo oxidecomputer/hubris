@@ -40,6 +40,7 @@ members = [
     "task/sensor",
     "task/sensor-api",
     "task/spd",
+    "task/spdm-responder",
     "task/spi-loopback",
     "task/thermal",
     "task/thermal-api",
