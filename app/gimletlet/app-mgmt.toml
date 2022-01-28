@@ -1,0 +1,159 @@
+name = "gimletlet-mgmt"
+target = "thumbv7em-none-eabihf"
+board = "gimletlet-1"
+stacksize = 1024
+
+[kernel]
+path = "."
+name = "gimletlet"
+requires = {flash = 32768, ram = 4096}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["itm"]
+
+[supervisor]
+notification = 1
+
+# Flash sections are mapped into flash bank 1 (of 2).
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 8192, ram = 2048}
+start = true
+features = ["itm"]
+stacksize = 1536
+
+[tasks.rcc_driver]
+path = "../../drv/stm32h7-rcc"
+name = "drv-stm32h7-rcc"
+features = ["h753"]
+priority = 1
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc"]
+start = true
+
+[tasks.gpio_driver]
+path = "../../drv/stm32h7-gpio"
+name = "drv-stm32h7-gpio"
+features = ["h753"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpios1", "gpios2", "gpios3"]
+start = true
+task-slots = ["rcc_driver"]
+
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
+[tasks.spi_driver]
+path = "../../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 2048}
+features = ["spi2", "h753"]
+uses = ["spi2"]
+start = true
+interrupts = {"spi2.irq" = 1}
+stacksize = 1000
+task-slots = ["gpio_driver", "rcc_driver"]
+
+[tasks.spi_driver.config.spi]
+global_config = "spi2"
+
+[tasks.user_leds]
+path = "../../drv/user-leds"
+name = "drv-user-leds"
+features = ["stm32h7"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["gpio_driver"]
+
+[tasks.pong]
+path = "../../task/pong"
+name = "task-pong"
+priority = 3
+requires = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["user_leds"]
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "gpio", "spi"]
+priority = 3
+requires = {flash = 16384, ram = 16384 }
+stacksize = 2048
+start = true
+task-slots = ["gpio_driver", "user_leds"]
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 128, ram = 256}
+stacksize = 256
+start = true
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
+
+[peripherals.gpios1]
+address = 0x58020000
+size = 0x2000
+
+[peripherals.gpios2]
+address = 0x58022000
+size = 0x0800
+
+[peripherals.gpios3]
+address = 0x58022800
+size = 0x0400
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+interrupts = { irq = 36 }
+
+[config.spi.spi2]
+controller = 2
+
+[config.spi.spi2.mux_options.port_i]
+outputs = [
+    {port = "I", pins = [1, 3], af = 5},
+]
+input = {port = "I", pin = 2, af = 5}
+
+[config.spi.spi2.devices.spi2_header]
+mux = "port_i"
+cs = {port = "I", pin = 0}
