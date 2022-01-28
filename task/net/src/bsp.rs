@@ -6,9 +6,9 @@
 // but you should import Bsp instead, which is autoselected based on board.
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "nucleo-h743zi2")] {
-        pub mod nucleo_h743zi2;
-        pub use nucleo_h743zi2::Bsp as Bsp;
+    if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
+        pub mod nucleo_h7;
+        pub use nucleo_h7::Bsp as Bsp;
     } else if #[cfg(target_board = "sidecar-1")] {
         pub mod sidecar_1;
         pub use sidecar_1::Bsp as Bsp;

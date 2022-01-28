@@ -10,12 +10,12 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 num-traits = {version = "0.2.12", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
-stm32h7 = {version = "0.13", features = ["stm32h743"]}
+stm32h7 = {version = "0.13", default-features = false}
 zerocopy = "0.6"
 
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
-drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6", "h743"]}
+drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6"]}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["h743"]}
 ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
@@ -38,6 +38,8 @@ features = [
 default = ["standalone"]
 standalone = []
 mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api"]
+h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743"]
+h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

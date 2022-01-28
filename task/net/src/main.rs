@@ -10,7 +10,11 @@ mod buf;
 mod server;
 
 use core::sync::atomic::{AtomicU32, Ordering};
+
+#[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
+#[cfg(feature = "h753")]
+use stm32h7::stm32h753 as device;
 
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;

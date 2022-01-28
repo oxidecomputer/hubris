@@ -115,7 +115,7 @@ path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-features = ["mgmt"]
+features = ["mgmt", "h753"]
 requires = {flash = 131072, ram = 8192, sram1 = 32768}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
