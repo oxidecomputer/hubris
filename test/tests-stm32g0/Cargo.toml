@@ -1,0 +1,33 @@
+[package]
+edition = "2018"
+readme = "README.md"
+name = "tests-stm32g0"
+version = "0.1.0"
+
+[features]
+itm = ["panic-itm", "kern/klog-itm"]
+semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+g070 = ["stm32g0/stm32g070"]
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.6.12"
+panic-itm = { version = "0.4.1", optional = true }
+panic-halt = { version = "0.2.0", optional = true }
+panic-semihosting = { version = "0.5.3", optional = true }
+cfg-if = "0.1.10"
+stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-initial-support", default-features = false }
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "tests-stm32g0"
+path = "../../app/demo-stm32g0-nucleo/src/main.rs"
+test = false
+bench = false

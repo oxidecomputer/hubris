@@ -89,20 +89,37 @@ use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
 
-/// Helper macro for producing output on stimulus port 8.
-macro_rules! test_output {
-    ($s:expr) => {
-        unsafe {
-            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
-            cortex_m::iprintln!(stim, $s);
+#[cfg(armv6m)]
+use armv6m_atomic_hack::*;
+
+cfg_if::cfg_if! {
+    if #[cfg(armv6m)] {
+        /// Helper macro for producing output by semihosting :-(
+        macro_rules! test_output {
+            ($s:expr) => {
+                cortex_m_semihosting::hprintln!($s).unwrap();
+            };
+            ($s:expr, $($tt:tt)*) => {
+                cortex_m_semihosting::hprintln!($s, $($tt)*).unwrap();
+            };
         }
-    };
-    ($s:expr, $($tt:tt)*) => {
-        unsafe {
-            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
-            cortex_m::iprintln!(stim, $s, $($tt)*);
+    } else {
+        /// Helper macro for producing output on stimulus port 8.
+        macro_rules! test_output {
+            ($s:expr) => {
+                unsafe {
+                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    cortex_m::iprintln!(stim, $s);
+                }
+            };
+            ($s:expr, $($tt:tt)*) => {
+                unsafe {
+                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    cortex_m::iprintln!(stim, $s, $($tt)*);
+                }
+            };
         }
-    };
+    }
 }
 
 /// This runner is written such that the task under test must be task index 1.

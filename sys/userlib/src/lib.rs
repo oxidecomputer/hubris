@@ -743,7 +743,9 @@ unsafe extern "C" fn sys_borrow_write_stub(
                 adds r4, #{sysnum}
                 mov r11, r4
                 @ Move register arguments into place.
-                ldm r0!, {{r4-r8}}
+                ldm r0!, {{r4-r7}}
+                ldr r0, [r0]
+                mov r8, r0
 
                 @ To the kernel!
                 svc #0
@@ -1511,13 +1513,13 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
                 mov r4, r11
                 push {{r4}}
 
-                @ Move register arguments into place.
-                mov r4, r0
-                mov r5, r1
                 @ Load the constant syscall number.
                 movs r4, #0
                 adds r4, #{sysnum}
                 mov r11, r4
+                @ Move register arguments into place.
+                mov r4, r0
+                mov r5, r1
 
                 @ To the kernel!
                 svc #0
