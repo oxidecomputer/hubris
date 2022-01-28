@@ -2800,6 +2800,7 @@ dependencies = [
 name = "test-api"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "num-traits",
  "userlib",
 ]
@@ -2808,7 +2809,9 @@ dependencies = [
 name = "test-assist"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cortex-m",
+ "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
  "test-api",
@@ -2820,7 +2823,11 @@ dependencies = [
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
+ "armv6m-atomic-hack",
+ "build-util",
+ "cfg-if 0.1.10",
  "cortex-m",
+ "cortex-m-semihosting",
  "hubris-num-tasks",
  "num-traits",
  "test-api",
@@ -2832,6 +2839,8 @@ dependencies = [
 name = "test-suite"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
  "cortex-m",
  "hubris-num-tasks",
  "hypocalls",
@@ -2896,6 +2905,21 @@ dependencies = [
  "panic-semihosting",
  "stm32f3",
  "stm32f4",
+]
+
+[[package]]
+name = "tests-stm32g0"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32g0",
 ]
 
 [[package]]
