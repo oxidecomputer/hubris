@@ -271,7 +271,15 @@ cfg_if::cfg_if! {
         task_slot!(GPIO, gpio_driver);
 
         const LEDS: &[(drv_stm32g0_gpio_api::PinSet, bool)] = &[
-            (drv_stm32g0_gpio_api::Port::A.pin(5), true),
+        {
+            cfg_if::cfg_if! {
+                if #[cfg(target_board = "stm32g031")] {
+                    (drv_stm32g0_gpio_api::Port::C.pin(6), true)
+                } else {
+                    (drv_stm32g0_gpio_api::Port::A.pin(5), true)
+                }
+            }
+        },
         ];
     }
 }
