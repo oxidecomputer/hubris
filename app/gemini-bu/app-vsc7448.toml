@@ -1,4 +1,4 @@
-name = "gemini-bu"
+name = "gemini-bu-vsc7448"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
 stacksize = 1024
@@ -6,7 +6,7 @@ stacksize = 1024
 [kernel]
 path = "."
 name = "gemini-bu"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -181,6 +181,15 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.vsc7448]
+path = "../../task/vsc7448"
+name = "task-vsc7448"
+priority = 3
+requires = {flash = 65536, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = ["gpio_driver", { spi_driver = "spi2_driver" }]
 
 [peripherals.rcc]
 address = 0x58024400
@@ -367,7 +376,6 @@ input = {port = "I", pin = 2, af = 5}
 [config.spi.spi2.devices.header]
 mux = "port_i"
 cs = {port = "I", pin = 0}
-
 
 [config.spi.spi4]
 controller = 4
