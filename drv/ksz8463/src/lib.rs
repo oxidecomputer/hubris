@@ -54,11 +54,16 @@ pub enum Register {
 pub struct Ksz8463 {
     spi: SpiDevice,
     nrst: PinSet,
+    slow_reset: bool,
 }
 
 impl Ksz8463 {
-    pub fn new(spi: SpiDevice, nrst: PinSet) -> Self {
-        Self { spi, nrst }
+    pub fn new(spi: SpiDevice, nrst: PinSet, slow_reset: bool) -> Self {
+        Self {
+            spi,
+            nrst,
+            slow_reset,
+        }
     }
 
     pub fn read(&self, r: Register) -> Result<u16, SpiError> {
@@ -115,10 +120,17 @@ impl Ksz8463 {
             Pull::None,
         )
         .unwrap();
+
         // Toggle the reset line
         sleep_for(10); // Reset must be held low for 10 ms after power up
         sys.gpio_set(self.nrst).unwrap();
-        sleep_for(1); // You have to wait 1 µs, so this is overkill
+
+        // The datasheet recommends a particular combination of diodes and
+        // capacitors which dramatically slow down the rise of the reset
+        // line, meaning you have to wait for extra long here.
+        //
+        // Otherwise, the datasheet value is 1 µs, so 1 ms is fine.
+        sleep_for(if self.slow_reset { 150 } else { 1 });
 
         let id = self.read(Register::CIDER).unwrap();
         assert_eq!(id & !1, 0x8452);

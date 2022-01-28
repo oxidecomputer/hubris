@@ -131,7 +131,7 @@ name = "task-net"
 stacksize = 3800
 priority = 2
 features = ["mgmt", "h753"]
-requires = {flash = 131072, ram = 8192, sram1 = 32768}
+requires = {flash = 131072, ram = 8192, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
@@ -142,7 +142,7 @@ task-slots = ["gpio_driver", "rcc_driver", { spi_driver = "spi2_driver" }]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
