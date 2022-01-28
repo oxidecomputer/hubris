@@ -35,7 +35,11 @@ use userlib::*;
 
 cfg_if::cfg_if! {
     // Target boards with 4 leds
-    if #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))] {
+    if #[cfg(any(
+            target_board = "gemini-bu-1",
+            target_board = "gimletlet-1",
+            target_board = "gimletlet-2"
+        ))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -376,6 +380,14 @@ cfg_if::cfg_if! {
                     (drv_stm32xx_sys_api::Port::I.pin(10), false),
                     (drv_stm32xx_sys_api::Port::I.pin(11), false),
                 ];
+            } else if #[cfg(target_board = "gimletlet-1")] {
+                // Original Gimletlet: LEDs are on PI8-11
+                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
+                    (drv_stm32h7_gpio_api::Port::I.pin(8), false),
+                    (drv_stm32h7_gpio_api::Port::I.pin(9), false),
+                    (drv_stm32h7_gpio_api::Port::I.pin(10), false),
+                    (drv_stm32h7_gpio_api::Port::I.pin(11), false),
+                ];
             } else if #[cfg(target_board = "gimletlet-2")] {
                 // Glorified gimletlet SP: LEDs are on PG2-5
                 const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
@@ -419,12 +431,17 @@ fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
         Led::One => LEDS[1],
         #[cfg(any(
             target_board = "gemini-bu-1",
+            target_board = "gimletlet-1",
             target_board = "gimletlet-2",
             target_board = "nucleo-h753zi",
             target_board = "nucleo-h743zi2"
         ))]
         Led::Two => LEDS[2],
-        #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))]
+        #[cfg(any(
+            target_board = "gemini-bu-1",
+            target_board = "gimletlet-1",
+            target_board = "gimletlet-2"
+        ))]
         Led::Three => LEDS[3],
     }
 }
