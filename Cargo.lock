@@ -1437,6 +1437,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ksz8463"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "drv-stm32h7-gpio-api",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2592,6 +2602,7 @@ dependencies = [
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
+ "ksz8463",
  "num-traits",
  "proc-macro2",
  "quote",

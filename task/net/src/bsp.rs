@@ -12,6 +12,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "sidecar-1")] {
         pub mod sidecar_1;
         pub use sidecar_1::Bsp as Bsp;
+    } else if #[cfg(target_board = "gimletlet-1")] {
+        pub mod gimletlet_mgmt;
+        pub use gimletlet_mgmt::Bsp as Bsp;
     } else {
         compile_error!("Board is not supported by the task/net");
     }

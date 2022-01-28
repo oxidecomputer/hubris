@@ -37,6 +37,15 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
+
 [tasks.jefe]
 path = "../../task/jefe"
 name = "task-jefe"
@@ -74,7 +83,7 @@ task-slots = ["rcc_driver"]
 #   spi5 = 85
 #   spi6 = 86
 #
-[tasks.spi_driver]
+[tasks.spi2_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -86,7 +95,7 @@ interrupts = {"spi2.irq" = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "rcc_driver"]
 
-[tasks.spi_driver.config.spi]
+[tasks.spi2_driver.config.spi]
 global_config = "spi2"
 
 [tasks.user_leds]
@@ -115,6 +124,28 @@ requires = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "user_leds"]
+
+[tasks.net]
+path = "../../task/net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+features = ["mgmt", "h753"]
+requires = {flash = 131072, ram = 8192, sram1 = 32768}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma"]
+start = true
+interrupts = {61 = 0b1}
+task-slots = ["gpio_driver", "rcc_driver", { spi_driver = "spi2_driver" }]
+
+[tasks.udpecho]
+path = "../../task/udpecho"
+name = "task-udpecho"
+priority = 3
+requires = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -145,6 +176,14 @@ address = 0x40003800
 size = 1024
 interrupts = { irq = 36 }
 
+[peripherals.eth]
+address = 0x40028000
+size = 0x1000
+
+[peripherals.eth_dma]
+address = 0x40029000
+size = 0x400
+
 [config.spi.spi2]
 controller = 2
 
@@ -157,3 +196,12 @@ input = {port = "I", pin = 2, af = 5}
 [config.spi.spi2.devices.spi2_header]
 mux = "port_i"
 cs = {port = "I", pin = 0}
+
+[config.net]
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
