@@ -1,13 +1,12 @@
-name = "gemini-bu"
+name = "gemini-bu-vsc7448"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
-chip = "../../chips/stm32h7.toml"
-stacksize = 896
+stacksize = 1024
 
 [kernel]
 path = "."
 name = "gemini-bu"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -47,14 +46,24 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.sys]
-path = "../../drv/stm32xx-sys"
-name = "drv-stm32xx-sys"
+[tasks.rcc_driver]
+path = "../../drv/stm32h7-rcc"
+name = "drv-stm32h7-rcc"
 features = ["h753"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
-uses = ["rcc", "gpios1", "gpios2", "gpios3"]
+uses = ["rcc"]
 start = true
+
+[tasks.gpio_driver]
+path = "../../drv/stm32h7-gpio"
+name = "drv-stm32h7-gpio"
+features = ["h753"]
+priority = 2
+requires = {flash = 8192, ram = 1024}
+uses = ["gpios1", "gpios2", "gpios3"]
+start = true
+task-slots = ["rcc_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/stm32h7-usart"
@@ -64,8 +73,8 @@ priority = 2
 requires = { flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
-interrupts = {"usart3.irq" = 1}
-task-slots = ["sys"]
+interrupts = {39 = 1}
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -75,15 +84,15 @@ priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c3", "i2c4"]
 start = true
-task-slots = ["sys"]
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.i2c_driver.interrupts]
-"i2c1.event" = 0b0000_0001
-"i2c1.error" = 0b0000_0001
-"i2c3.event" = 0b0000_0100
-"i2c3.error" = 0b0000_0100
-"i2c4.event" = 0b0000_1000
-"i2c4.error" = 0b0000_1000
+31 = 0b0000_0001        # I2C1 event
+32 = 0b0000_0001        # I2C1 error
+72 = 0b0000_0100        # I2C3 event
+73 = 0b0000_0100        # I2C3 error
+95 = 0b0000_1000        # I2C4 event
+96 = 0b0000_1000        # I2C4 error
 
 [tasks.spd]
 path = "../../task/spd"
@@ -93,12 +102,21 @@ priority = 2
 requires = {flash = 16384, ram = 16384 }
 uses = ["i2c2"]
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["gpio_driver", "i2c_driver", "rcc_driver"]
 
 [tasks.spd.interrupts]
-"i2c2.event" = 0b0000_0010
-"i2c2.error" = 0b0000_0010
+33 = 0b0000_0010        # I2C2 event
+34 = 0b0000_0010        # I2C2 error
 
+#
+# SPI interrupts:
+#   spi1 = 35
+#   spi2 = 36
+#   spi3 = 51
+#   spi4 = 84
+#   spi5 = 85
+#   spi6 = 86
+#
 [tasks.spi2_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -107,9 +125,9 @@ requires = {flash = 16384, ram = 2048}
 features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
-interrupts = {"spi2.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
+interrupts = {36 = 1}
+stacksize = 1000
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
@@ -122,9 +140,9 @@ requires = {flash = 16384, ram = 2048}
 features = ["h753", "spi4"]
 uses = ["spi4"]
 start = true
-interrupts = {"spi4.irq" = 1}
-stacksize = 880
-task-slots = ["sys"]
+interrupts = {84 = 1}
+stacksize = 1000
+task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi4_driver.config.spi]
 global_config = "spi4"
@@ -136,7 +154,7 @@ features = ["stm32h7"]
 priority = 2
 requires = {flash = 8192, ram = 1024}
 start = true
-task-slots = ["sys"]
+task-slots = ["gpio_driver"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -154,7 +172,7 @@ priority = 3
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["gpio_driver", "i2c_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -171,7 +189,67 @@ priority = 3
 requires = {flash = 65536, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["sys", { spi_driver = "spi2_driver" }]
+task-slots = ["gpio_driver", { spi_driver = "spi2_driver" }]
+
+[peripherals.rcc]
+address = 0x58024400
+size = 1024
+
+[peripherals.gpios1]
+address = 0x58020000
+size = 0x2000
+
+[peripherals.gpios2]
+address = 0x58022000
+size = 0x0800
+
+[peripherals.gpios3]
+address = 0x58022800
+size = 0x0400
+
+[peripherals.spi1]
+address = 0x40013000
+size = 1024
+
+[peripherals.spi2]
+address = 0x40003800
+size = 1024
+
+[peripherals.spi3]
+address = 0x40003c00
+size = 1024
+
+[peripherals.spi4]
+address = 0x40013400
+size = 1024
+
+[peripherals.spi5]
+address = 0x40015000
+size = 1024
+
+[peripherals.spi6]
+address = 0x58001400
+size = 1024
+
+[peripherals.usart3]
+address = 0x40004800
+size = 1024
+
+[peripherals.i2c1]
+address = 0x40005400
+size = 1024
+
+[peripherals.i2c2]
+address = 0x40005800
+size = 1024
+
+[peripherals.i2c3]
+address = 0x40005c00
+size = 1024
+
+[peripherals.i2c4]
+address = 0x58001c00
+size = 1024
 
 [config]
 
@@ -298,7 +376,6 @@ input = {port = "I", pin = 2, af = 5}
 [config.spi.spi2.devices.header]
 mux = "port_i"
 cs = {port = "I", pin = 0}
-
 
 [config.spi.spi4]
 controller = 4
