@@ -180,8 +180,14 @@ macro_rules! ringbuf {
 #[cfg(feature = "disabled")]
 #[macro_export]
 macro_rules! ringbuf {
-    ($name:ident, $t:ty, $n:expr, $init:expr) => {};
-    ($t:ty, $n:expr, $init:expr) => {};
+    ($name:ident, $t:ty, $n:expr, $init:expr) => {
+        #[allow(dead_code)]
+        const _: $t = $init;
+    };
+    ($t:ty, $n:expr, $init:expr) => {
+        #[allow(dead_code)]
+        const _: $t = $init;
+    };
 }
 
 /// Inserts data into a named ringbuffer (which should have been declared with
@@ -217,8 +223,13 @@ macro_rules! ringbuf_entry {
 #[cfg(feature = "disabled")]
 #[macro_export]
 macro_rules! ringbuf_entry {
-    ($buf:expr, $payload:expr) => {};
-    ($payload:expr) => {};
+    ($buf:expr, $payload:expr) => {{
+        let _ = &$buf;
+        let _ = &$payload;
+    }};
+    ($payload:expr) => {{
+        let _ = &$payload;
+    }};
 }
 
 ///
