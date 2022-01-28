@@ -2324,6 +2324,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "spdm"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/spdm.git?branch=crypto-cfg#b933d93c6a964cabce9edf3b7d8a27e9fd21a77d"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "serde",
+ "serde_derive",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2692,6 +2705,16 @@ dependencies = [
  "ringbuf",
  "spd",
  "stm32h7 0.13.0",
+ "userlib",
+]
+
+[[package]]
+name = "task-spdm-responder"
+version = "0.1.0"
+dependencies = [
+ "idol-runtime",
+ "ringbuf",
+ "spdm",
  "userlib",
 ]
 
