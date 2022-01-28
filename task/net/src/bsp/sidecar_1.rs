@@ -5,8 +5,9 @@
 use drv_spi_api::{Spi, SpiDevice, SpiError};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use ksz8463::{Ksz8463, Register as KszRegister};
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot, FromPrimitive};
+use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::types::PhyRegisterAddress;
 use vsc85xx::{Phy, PhyRw, PhyVsc85xx, VscError};
 
@@ -16,9 +17,7 @@ const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    KszRead(KszRegister, u16),
-    KszWrite(KszRegister, u16),
-    KszId(u16),
+    Ksz8463Status { port: u8, status: u16 },
     Vsc8552Status { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -32,7 +31,7 @@ pub struct Bsp {
 impl Bsp {
     pub fn new() -> Self {
         let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(0))
+        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(0), false);
 
         Self { ksz }
     }
@@ -114,22 +113,38 @@ impl Bsp {
         .unwrap();
     }
 
+<<<<<<< HEAD
     pub fn configure_phy(&self, eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+=======
+    pub fn configure_phy(&self, eth: &mut eth::Ethernet) {
+>>>>>>> 784b5f4a (KSZ and VSC are both talking on mgmt dev kit)
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
         self.ksz.configure(sys);
 
         // The VSC8552 connects the KSZ switch to the management network
         // over SGMII
+<<<<<<< HEAD
         configure_vsc8552(eth, sys);
 
         Self { ksz }
+=======
+        configure_vsc8552(eth);
+>>>>>>> 784b5f4a (KSZ and VSC are both talking on mgmt dev kit)
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        // These log to the ringbuf automatically
-        self.ksz.read(KszRegister::P1MBSR).unwrap();
-        self.ksz.read(KszRegister::P2MBSR).unwrap();
+        let p1_sr = self.ksz.read(KszRegister::P1MBSR).unwrap();
+        ringbuf_entry!(Trace::Ksz8463Status {
+            port: 1,
+            status: p1_sr
+        });
+
+        let p2_sr = self.ksz.read(KszRegister::P2MBSR).unwrap();
+        ringbuf_entry!(Trace::Ksz8463Status {
+            port: 2,
+            status: p2_sr
+        });
 
         for port in [0, 1] {
             let status = eth.smi_read(port, eth::SmiClause22Register::Status);

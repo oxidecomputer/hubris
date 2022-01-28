@@ -31,7 +31,7 @@ pub struct Bsp {
 impl Bsp {
     pub fn new() -> Self {
         let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(9));
+        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(9), true);
 
         Self { ksz }
     }
@@ -193,7 +193,7 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     // This PHY is on MIIM ports 0 and 1, based on resistor strapping
     let mut phy_rw = MiimBridge { eth };
     let mut phy = Phy {
-        port: 0,
+        port: 0b11100,
         rw: &mut phy_rw,
     };
     vsc85xx::init_vsc8552_phy(&mut phy).unwrap();
