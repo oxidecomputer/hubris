@@ -1,0 +1,16 @@
+[package]
+name = "ksz8463"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib" }
+ringbuf = {path = "../../lib/ringbuf" }
+drv-spi-api = {path = "../../drv/spi-api"}
+drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false

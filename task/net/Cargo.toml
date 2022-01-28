@@ -21,6 +21,7 @@ ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 vsc85xx = { path = "../../drv/vsc85xx", optional = true }
+ksz8463 = { path = "../../drv/ksz8463", optional = true }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", optional = true}
 drv-spi-api = {path = "../../drv/spi-api", optional = true}
 
@@ -37,7 +38,7 @@ features = [
 [features]
 default = ["standalone"]
 standalone = []
-mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api"]
+mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api", "ksz8463"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743"]
 h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753"]
 
