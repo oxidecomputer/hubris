@@ -26,9 +26,10 @@ use zerocopy::AsBytes;
 
 /// Helper macro for building a list of functions with their names.
 macro_rules! test_cases {
-    ($($name:path,)*) => {
+    ($($(#[$attr:meta])* $name:path,)*) => {
         static TESTS: &[(&str, &(dyn Fn() + Send + Sync))] = &[
             $(
+                $(#[$attr])*
                 (stringify!($name), &$name)
             ),*
         ];
@@ -40,8 +41,11 @@ test_cases! {
     test_send,
     test_recv_reply,
     test_recv_reply_fault,
+    #[cfg(any(armv7m, armv8m))]
     test_floating_point_lowregs,
+    #[cfg(any(armv7m, armv8m))]
     test_floating_point_highregs,
+    #[cfg(any(armv7m, armv8m))]
     test_floating_point_fault,
     test_fault_badmem,
     test_fault_stackoverflow,
@@ -52,6 +56,7 @@ test_cases! {
     test_fault_stackoob,
     test_fault_buserror,
     test_fault_illinst,
+    #[cfg(any(armv7m, armv8m))]
     test_fault_divzero,
     test_fault_maxstatus,
     test_fault_badstatus,
@@ -251,19 +256,40 @@ fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
     }
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(armv6m)] {
+        macro_rules! assert_fault_eq {
+            ($name:expr, $expected:expr) => {
+                assert_eq!($name, FaultInfo::InvalidOperation(0));
+            };
+        }
+    } else {
+        macro_rules! assert_fault_eq {
+            ($name:expr, $expected:expr) => {
+                assert_eq!($name, $expected);
+            };
+        }
+    }
+}
+
 /// Tests a memory fault, which ensures that the address reporting is correct,
 /// and that the MPU is on.
 fn test_fault_badmem() {
     let bad_address = 5u32;
     let fault = test_fault(AssistOp::BadMemory, bad_address);
 
-    assert_eq!(
-        fault,
-        FaultInfo::MemoryAccess {
-            address: Some(bad_address),
-            source: FaultSource::User,
+    cfg_if::cfg_if! {
+        if #[cfg(armv6m)] {
+        } else {
+            assert_fault_eq!(
+                fault,
+                FaultInfo::MemoryAccess {
+                    address: Some(bad_address),
+                    source: FaultSource::User,
+                }
+            );
         }
-    );
+    }
 }
 
 fn test_fault_stackoverflow() {
@@ -271,6 +297,8 @@ fn test_fault_stackoverflow() {
 
     match fault {
         FaultInfo::StackOverflow { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
         _ => {
             panic!("expected StackOverflow; found {:?}", fault);
         }
@@ -278,7 +306,7 @@ fn test_fault_stackoverflow() {
 }
 
 fn test_fault_execdata() {
-    assert_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
+    assert_fault_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
 }
 
 fn test_fault_illop() {
@@ -286,6 +314,8 @@ fn test_fault_illop() {
 
     match fault {
         FaultInfo::InvalidOperation { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
         _ => {
             panic!("expected InvalidOperation; found {:?}", fault);
         }
@@ -293,7 +323,7 @@ fn test_fault_illop() {
 }
 
 fn test_fault_nullexec() {
-    assert_eq!(test_fault(AssistOp::BadExec, 0), FaultInfo::IllegalText);
+    assert_fault_eq!(test_fault(AssistOp::BadExec, 0), FaultInfo::IllegalText);
 }
 
 fn test_fault_textoob() {
@@ -301,6 +331,8 @@ fn test_fault_textoob() {
 
     match fault {
         FaultInfo::BusError { .. } | FaultInfo::MemoryAccess { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
         _ => {
             panic!("expected BusFault or MemoryAccess; found {:?}", fault);
         }
@@ -311,6 +343,8 @@ fn test_fault_stackoob() {
     let fault = test_fault(AssistOp::StackOutOfBounds, 0);
     match fault {
         FaultInfo::MemoryAccess { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
         _ => {
             panic!("expected MemoryAccess; found {:?}", fault);
         }
@@ -322,6 +356,8 @@ fn test_fault_buserror() {
 
     match fault {
         FaultInfo::BusError { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
         _ => {
             panic!("expected BusFault; found {:?}", fault);
         }
@@ -329,15 +365,16 @@ fn test_fault_buserror() {
 }
 
 fn test_fault_illinst() {
-    assert_eq!(
+    assert_fault_eq!(
         test_fault(AssistOp::IllegalInstruction, 0),
         FaultInfo::IllegalInstruction
     );
 }
 
 /// Tests that division-by-zero results in a DivideByZero fault
+#[cfg(any(armv7m, armv8m))]
 fn test_fault_divzero() {
-    assert_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
+    assert_fault_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
 }
 
 fn test_fault_badtaskop(op: AssistOp, id: usize) {
@@ -769,6 +806,7 @@ fn test_timer_notify_past() {
 }
 
 /// Tests that floating point registers are properly saved and restored
+#[cfg(any(armv7m, armv8m))]
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
         if !highregs {
@@ -820,14 +858,17 @@ fn test_floating_point(highregs: bool) {
     }
 }
 
+#[cfg(any(armv7m, armv8m))]
 fn test_floating_point_lowregs() {
     test_floating_point(false);
 }
 
+#[cfg(any(armv7m, armv8m))]
 fn test_floating_point_highregs() {
     test_floating_point(true);
 }
 
+#[cfg(any(armv7m, armv8m))]
 fn test_floating_point_fault() {
     test_fault(AssistOp::PiAndDie, 0);
 }

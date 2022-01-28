@@ -16,6 +16,7 @@ pub enum AssistOp {
     Panic = 4,
     Store = 5,
     SendBackWithLoans = 6,
+    #[cfg(any(armv7m, armv8m))]
     DivZero = 7,
     StackOverflow = 8,
     ExecData = 9,
@@ -25,7 +26,9 @@ pub enum AssistOp {
     StackOutOfBounds = 13,
     BusError = 14,
     IllegalInstruction = 15,
+    #[cfg(any(armv7m, armv7m))]
     EatSomePi = 16,
+    #[cfg(any(armv7m, armv7m))]
     PiAndDie = 17,
     ReadTaskStatus = 18,
     FaultTask = 19,
