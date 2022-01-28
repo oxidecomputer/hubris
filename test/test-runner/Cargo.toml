@@ -10,9 +10,16 @@ test-api = {path = "../test-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
+cortex-m-semihosting = { version = "0.3.7", features = ["inline-asm"], optional = true }
+armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+cfg-if = "0.1.10"
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
 
 [features]
 itm = [ "userlib/log-itm" ]
+semihosting = ["cortex-m-semihosting", "userlib/log-semihosting"]
 
 [[bin]]
 name = "test-runner"

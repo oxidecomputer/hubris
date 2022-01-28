@@ -1,0 +1,70 @@
+name = "tests-stm32g070"
+target = "thumbv6m-none-eabi"
+board = "stm32g070"
+stacksize = 2048
+
+[kernel]
+path = "../../app/demo-stm32g0-nucleo"
+name = "demo-stm32g0-nucleo"
+requires = {flash = 17148, ram = 2920}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["g070", "panic-semihosting"]
+stacksize = 2048
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x08000000
+size = 131072
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 36864
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.runner]
+path = "../test-runner"
+name = "test-runner"
+priority = 0
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["semihosting"]
+
+[tasks.suite]
+path = "../test-suite"
+name = "test-suite"
+priority = 2
+requires = {flash = 65536, ram = 2048}
+start = true
+features = ["semihosting"]
+task-slots = ["assist", "suite", "runner"]
+
+[tasks.assist]
+path = "../test-assist"
+name = "test-assist"
+priority = 1
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["semihosting"]
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 3
+requires = {flash = 128, ram = 256}
+stacksize = 256
+start = true

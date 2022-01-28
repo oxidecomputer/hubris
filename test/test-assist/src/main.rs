@@ -113,6 +113,7 @@ fn illinst(_arg: u32) {
 }
 
 #[inline(never)]
+#[cfg(any(armv7m, armv8m))]
 fn divzero(_arg: u32) {
     unsafe {
         // Divide by 0
@@ -124,6 +125,7 @@ fn divzero(_arg: u32) {
 }
 
 #[inline(never)]
+#[cfg(any(armv7m, armv8m))]
 fn eat_some_pi(highregs: bool) {
     let mut pi = [0x40490fdb; 16];
 
@@ -152,6 +154,7 @@ fn main() -> ! {
     let fatalops = [
         (AssistOp::BadMemory, badread as fn(u32)),
         (AssistOp::Panic, panic),
+        #[cfg(any(armv7m, armv8m))]
         (AssistOp::DivZero, divzero),
         (AssistOp::StackOverflow, stackblow),
         (AssistOp::ExecData, execdata),
@@ -226,10 +229,12 @@ fn main() -> ! {
                         );
                         // Ignore the result.
                     }
+                    #[cfg(any(armv7m, armv8m))]
                     AssistOp::EatSomePi => {
                         eat_some_pi(*msg > 0);
                         caller.reply(*msg);
                     }
+                    #[cfg(any(armv7m, armv8m))]
                     AssistOp::PiAndDie => {
                         eat_some_pi(false);
                         eat_some_pi(true);
