@@ -56,7 +56,7 @@ impl<'a> ServerImpl<'a> {
         self.socket_handles
             .get(index)
             .cloned()
-            .ok_or(RequestError::Fail(ClientError::BadMessage))
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))
     }
 
     /// Gets the socket `index`. If `index` is out of range, returns
