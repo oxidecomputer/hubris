@@ -842,34 +842,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32g0-gpio"
+name = "drv-stm32g0-sys"
 version = "0.1.0"
 dependencies = [
- "byteorder",
- "cortex-m",
- "drv-stm32g0-rcc-api",
- "num-traits",
- "stm32g0",
- "unwrap-lite",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "drv-stm32g0-gpio-api"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "idol",
- "num-traits",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "drv-stm32g0-rcc"
-version = "0.1.0"
-dependencies = [
+ "drv-stm32g0-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -879,7 +855,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32g0-rcc-api"
+name = "drv-stm32g0-sys-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
@@ -896,8 +872,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-semihosting",
- "drv-stm32g0-gpio-api",
- "drv-stm32g0-rcc-api",
+ "drv-stm32g0-sys-api",
  "num-traits",
  "stm32g0",
  "userlib",
@@ -1074,7 +1049,7 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
- "drv-stm32g0-gpio-api",
+ "drv-stm32g0-sys-api",
  "drv-stm32h7-gpio-api",
  "idol",
  "idol-runtime",
@@ -2563,7 +2538,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-spi-api",
- "drv-stm32g0-gpio-api",
+ "drv-stm32g0-sys-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",

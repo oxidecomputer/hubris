@@ -1,7 +1,7 @@
 [package]
-name = "drv-stm32g0-rcc"
+name = "drv-stm32g0-sys"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 userlib = {path = "../../sys/userlib"}
@@ -10,17 +10,19 @@ num-traits = { version = "0.2.12", default-features = false }
 stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-initial-support", default-features = false }
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
+drv-stm32g0-sys-api = {path = "../stm32g0-sys-api"}
+
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-g031 = ["stm32g0/stm32g031"]
-g070 = ["stm32g0/stm32g070"]
-g0b1 = ["stm32g0/stm32g0b1"]
+g031 = ["stm32g0/stm32g031", "drv-stm32g0-sys-api/g031"]
+g070 = ["stm32g0/stm32g070", "drv-stm32g0-sys-api/g070"]
+g0b1 = ["stm32g0/stm32g0b1", "drv-stm32g0-sys-api/g0b1"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-stm32g0-rcc"
+name = "drv-stm32g0-sys"
 test = false
 bench = false

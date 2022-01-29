@@ -268,15 +268,15 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32g0")] {
-        task_slot!(GPIO, gpio_driver);
+        task_slot!(SYS, sys);
 
-        const LEDS: &[(drv_stm32g0_gpio_api::PinSet, bool)] = &[
+        const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
         {
             cfg_if::cfg_if! {
                 if #[cfg(target_board = "stm32g031")] {
-                    (drv_stm32g0_gpio_api::Port::C.pin(6), true)
+                    (drv_stm32g0_sys_api::Port::C.pin(6), true)
                 } else {
-                    (drv_stm32g0_gpio_api::Port::A.pin(5), true)
+                    (drv_stm32g0_sys_api::Port::A.pin(5), true)
                 }
             }
         },
@@ -286,28 +286,27 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32g0")]
 fn enable_led_pins() {
-    use drv_stm32g0_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     for &(pinset, active_low) in LEDS {
         // Make sure LEDs are initially off.
-        gpio_driver.set_to(pinset, active_low).unwrap();
+        sys.gpio_set_to(pinset, active_low).unwrap();
         // Make them outputs.
-        gpio_driver
-            .configure_output(
-                pinset,
-                OutputType::PushPull,
-                Speed::High,
-                Pull::None,
-            )
-            .unwrap();
+        sys.gpio_configure_output(
+            pinset,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+        )
+        .unwrap();
     }
 }
 
 #[cfg(feature = "stm32g0")]
-fn led_info(led: Led) -> (drv_stm32g0_gpio_api::PinSet, bool) {
+fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
     }
@@ -315,36 +314,36 @@ fn led_info(led: Led) -> (drv_stm32g0_gpio_api::PinSet, bool) {
 
 #[cfg(feature = "stm32g0")]
 fn led_on(led: Led) {
-    use drv_stm32g0_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
-    gpio_driver.set_to(pinset, !active_low).unwrap();
+    sys.gpio_set_to(pinset, !active_low).unwrap();
 }
 
 #[cfg(feature = "stm32g0")]
 fn led_off(led: Led) {
-    use drv_stm32g0_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
 
-    gpio_driver.set_to(pinset, active_low).unwrap();
+    sys.gpio_set_to(pinset, active_low).unwrap();
 }
 
 #[cfg(feature = "stm32g0")]
 fn led_toggle(led: Led) {
-    use drv_stm32g0_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let pinset = led_info(led).0;
-    gpio_driver.toggle(pinset.port, pinset.pin_mask).unwrap();
+    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

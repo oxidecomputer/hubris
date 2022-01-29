@@ -24,8 +24,7 @@ use stm32g0::stm32g0b1 as device;
 
 use userlib::*;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
@@ -172,8 +171,8 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    use drv_stm32g0_rcc_api::{Peripheral, Rcc};
-    let rcc_driver = Rcc::from(RCC.get_task_id());
+    use drv_stm32g0_sys_api::{Peripheral, Sys};
+    let rcc_driver = Sys::from(SYS.get_task_id());
 
     const PORT: Peripheral = Peripheral::Usart1;
 
@@ -182,16 +181,16 @@ fn turn_on_usart() {
 }
 
 fn configure_pins() {
-    use drv_stm32g0_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let gpio_driver = SYS.get_task_id();
+    let gpio_driver = Sys::from(gpio_driver);
 
     // TODO these are really board configs, not SoC configs!
     const TX_RX_MASK: PinSet = Port::C.pin(4).and_pin(5);
 
     gpio_driver
-        .configure_alternate(
+        .gpio_configure_alternate(
             TX_RX_MASK,
             OutputType::PushPull,
             Speed::Low,
