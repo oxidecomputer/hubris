@@ -34,6 +34,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "stm32g0")] {
         pub mod stm32g0;
         use crate::stm32g0::*;
+    } else if #[cfg(feature = "stm32l0")] {
+        pub mod stm32l0;
+        use crate::stm32l0::*;
     } else {
         pub mod generic;
         use crate::generic::*;

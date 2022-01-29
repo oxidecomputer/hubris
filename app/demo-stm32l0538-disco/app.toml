@@ -6,7 +6,7 @@ stacksize = 936
 [kernel]
 path = "."
 name = "demo-stm32l0538-disco"
-requires = {flash = 11628, ram = 1720}
+requires = {flash = 12016, ram = 1928}
 features = ["panic-halt"]
 stacksize = 640
 
@@ -30,35 +30,49 @@ execute = false  # let's assume XN until proven otherwise
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 4096, ram = 1024}
+requires = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
+stacksize = 352
 
 [tasks.sys]
 path = "../../drv/stm32l0-sys"
 name = "drv-stm32l0-sys"
 features = ["l0x3"]
 priority = 1
-requires = {flash = 2048, ram = 1024}
+requires = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
+stacksize = 256
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32l0"]
 priority = 2
-requires = {flash = 2048, ram = 1024}
+requires = {flash = 2048, ram = 512}
 start = true
 task-slots = ["sys"]
+stacksize = 304
 
 [tasks.pong]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 1024, ram = 1024}
+requires = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
+stacksize = 256
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+priority = 4
+requires = {flash = 8192, ram = 2048}
+start = true
+task-slots = ["sys"]
+stacksize = 912
+features = ["stm32l0", "gpio", "micro"]
 
 [tasks.idle]
 path = "../../task/idle"

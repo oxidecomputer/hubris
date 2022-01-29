@@ -2596,6 +2596,7 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
  "drv-stm32h7-rcc-api",
+ "drv-stm32l0-sys-api",
  "hif",
  "hubris-num-tasks",
  "num-traits",
