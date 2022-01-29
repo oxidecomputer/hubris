@@ -159,16 +159,18 @@ eventually being able to use stable.
 Hubris-the-system primarily targets the ST STM32H74/5 and NXP LPC55S
 systems-on-chip, because we're using them for stuff. We have "second tier"
 support for STM32F3/4 and STM32H7B, because they're available on useful
-evaluation boards.
+evaluation boards. We also have very early Cortex-M0+ support, mostly focused on
+the STM32G0.
 
-Hubris-the-kernel is essentially device-independent and runs on any ARMv7E-M or
-ARMv8-M Main-profile processor with a floating point unit. (The FPU requirement
-comes from our context switch code, which currently unconditionally saves the
-floating point registers -- simply because we haven't had reason to make this
-conditional.)
+Hubris-the-kernel is essentially device-independent and runs on any ARMv6-M
+processor, or any ARMv7E-M or ARMv8-M Main-profile processor with a floating
+point unit. (The FPU requirement comes from our context switch code, which
+currently unconditionally saves the floating point registers on those
+architectures.)
 
-Porting the kernel to support Cortex-M3 or Cortex-M0+ would be straightforward
-and we'll probably do it eventually.
+Porting the kernel to support Cortex-M3 (ARMv7-M but without floating point)
+would be straightforward, and we may do it eventually depending on whether
+interesting M3 cores keep being released.
 
 ### Can Hubris run on an ARM Cortex part without a Memory Protection Unit (MPU)?
 
