@@ -280,6 +280,7 @@ af = 4
 
 [config.spi.spi1]
 controller = 1
+fifo_depth = 16
 
 [config.spi.spi1.mux_options.cn7_arduino]
 outputs = [

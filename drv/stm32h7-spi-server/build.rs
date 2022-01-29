@@ -55,6 +55,7 @@ struct GlobalConfig {
 #[derive(Deserialize)]
 struct SpiConfig {
     controller: usize,
+    fifo_depth: Option<usize>,
     mux_options: BTreeMap<String, SpiMuxOptionConfig>,
     devices: IndexMap<String, DeviceDescriptorConfig>,
 }
@@ -210,7 +211,12 @@ impl ToTokens for SpiConfig {
 
         let muxes = self.mux_options.values();
 
+        // If the user does not specify a fifo depth, we default to the
+        // _minimum_ on any SPI block on the STM32H7, which is 8.
+        let fifo_depth = self.fifo_depth.unwrap_or(8);
+
         tokens.append_all(quote::quote! {
+            const FIFO_DEPTH: usize = #fifo_depth;
             const CONFIG: ServerConfig = ServerConfig {
                 registers: device::#devname::ptr(),
                 peripheral: rcc_api::Peripheral::#pname,
