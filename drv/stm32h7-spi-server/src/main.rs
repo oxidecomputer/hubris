@@ -345,7 +345,11 @@ impl ServerImpl {
         // The BufReader/Writer types manage position tracking for us.
 
         // Wrap a buffer reader/writer onto whichever borrows actually exist.
-        const BUFSIZ: usize = 32;
+        // This lets us amortize the cost of the borrow syscalls for retrieving
+        // data from the caller. It doesn't appear to be useful to make this any
+        // larger than the FIFO depth; for simplicity we set:
+        const BUFSIZ: usize = 16;
+
         let mut tx: Option<LeaseBufReader<_, BUFSIZ>> =
             data_src.map(|b| LeaseBufReader::from(b.into_inner()));
         let mut rx: Option<LeaseBufWriter<_, BUFSIZ>> =
@@ -373,75 +377,111 @@ impl ServerImpl {
         // See reference manual table 409 for details.
         let mut tx_permits = 16;
 
-        // We monitor our overall progress based on bytes _received,_ since
-        // every TX has a corresponding RX.
-        let mut rx_count = 0;
-        // We also keep track of bytes TX'd, though, to make sure we let the TX
-        // FIFO empty at the end of transmission.
+        // Track number of bytes sent and received. Sent bytes will lead
+        // received bytes. Received bytes indicate overall progress and
+        // completion.
         let mut tx_count = 0;
+        let mut rx_count = 0;
 
-        // While work remains, we'll attempt to move up to one byte
-        // in each direction, sleeping if we can do neither.
-        while rx_count != overall_len {
-            // Entering RECV to check for interrupts is not free, so
-            // we only do it if we've filled the TX FIFO and emptied
-            // the RX and repeating this loop would just burn power
-            // and CPU. If there is any potential value to repeating
-            // the loop immediately, we'll set this flag.
-            let mut made_progress = false;
+        // The end of the exchange is signaled by rx_count reaching the
+        // overall_len. This is true even if the caller's rx lease is shorter or
+        // missing, because we have to pull bytes from the FIFO to avoid overrun
+        // conditions.
+        while rx_count < overall_len {
+            // At the end of this loop we're going to sleep if there's no
+            // obvious work to be done. Sleeping is not free, so, we only do it
+            // if this flag is set. (It defaults to set, we'll clear it if work
+            // appears below.)
+            let mut should_sleep = true;
 
-            // If there are things to transmit in the first place...
-            if let Some(tx_reader) = &mut tx {
-                // ...and if we're not going to blow either FIFO...
-                while tx_count < overall_len
-                    && tx_permits > 0
-                    && self.spi.can_tx_frame()
-                {
-                    // If we read off the end, or if the client goes away, we'll
-                    // substitute zero. This allows the TX to be shorter than RX
-                    // and get padded.
-                    let byte = tx_reader.read().unwrap_or(0);
+            // TX engine. We continue moving bytes while these three conditions
+            // hold:
+            // - More bytes need to be sent.
+            // - Permits are available.
+            // - The TX FIFO has space.
+            while tx_count < overall_len
+                && tx_permits > 0
+                && self.spi.can_tx_frame()
+            {
+                // The next byte to TX will come from the caller, if we haven't
+                // run off the end of their lease, or the fixed padding byte if
+                // we have.
+                let byte = if let Some(txbuf) = &mut tx {
+                    if let Some(b) = txbuf.read() {
+                        b
+                    } else {
+                        // We've hit the end of the lease. Stop checking.
+                        tx = None;
+                        0
+                    }
+                } else {
+                    0
+                };
 
-                    ringbuf_entry!(Trace::Tx(byte));
-                    self.spi.send8(byte);
-                    tx_permits -= 1;
-                    tx_count += 1;
-                    made_progress = true;
-                }
-                if tx_count == overall_len {
-                    // Stop taking TX interrupts if we're no longer
-                    // transmitting. This reduces spurious interrupts during the
-                    // tail of the process.
+                ringbuf_entry!(Trace::Tx(byte));
+                self.spi.send8(byte);
+                tx_count += 1;
+
+                // Consume one TX permit to make sure we don't overrun the RX
+                // fifo.
+                tx_permits -= 1;
+
+                if tx_permits == 0 || tx_count == overall_len {
+                    // We're either done, or we need to idle until the RX engine
+                    // catches up. Either way, stop generating interrupts.
                     self.spi.disable_can_tx_interrupt();
-                    // Optimization: stop feeding the FIFO and don't repeat
-                    // the above tests every time.
-                    tx = None;
                 }
+
+                // We don't adjust should_sleep in the TX engine because, if we
+                // leave this loop, we've done all the TX work we can -- and
+                // we're about to check for RX work unconditionally below. So,
+                // from the perspective of the TX engine, should_sleep is always
+                // true at this point, and the RX engine gets to make the final
+                // decision.
             }
 
-            // Just as we keep transmitting until the TX FIFO is filled, we
-            // keep receiving now until the RX FIFO is empty, assuring that
-            // we are (roughly) balanced with respect to TX and RX and reducing
-            // our chances of hitting an overrun.
+            // Drain bytes from the RX FIFO.
             while self.spi.can_rx_byte() {
-                if rx_count == overall_len {
-                    panic!()
+                // We didn't check rx_count < overall_len above because, if we
+                // got to that point, it would mean the SPI hardware gave us
+                // more bytes than we sent. This would be bad. And so, we'll
+                // detect that condition aggressively:
+                if rx_count >= overall_len {
+                    panic!();
                 }
-                // Transfer byte from RX FIFO to caller.
+
+                // Pull byte from RX FIFO.
                 let b = self.spi.recv8();
+                ringbuf_entry!(Trace::Rx(b));
                 rx_count += 1;
+
                 // Allow another byte to be inserted in the TX FIFO.
                 tx_permits += 1;
-                // Deposit the byte; if we're off the end, we'll discard the
-                // error so that it discards the byte.
+
+                // Deposit the byte if we're still within the bounds of the
+                // caller's incoming lease.
                 if let Some(rx_reader) = &mut rx {
-                    rx_reader.write(b).ok();
+                    if rx_reader.write(b).is_err() {
+                        // We're off the end. Stop checking.
+                        rx = None;
+                    }
                 }
-                ringbuf_entry!(Trace::Rx(b));
-                made_progress = true;
+
+                // By releasing a TX permit, we might have unblocked the TX
+                // engine. We can detect this when tx_permits goes 0->1. If this
+                // occurs, we should turn its interrupt back on, but only if
+                // it's still working.
+                if tx_permits == 1 && tx_count < overall_len {
+                    self.spi.enable_can_tx_interrupt();
+                }
+
+                // We've done some work, which means some time has elapsed,
+                // which means it's possible that room in the TX FIFO has opened
+                // up. So, let's not sleep.
+                should_sleep = false;
             }
 
-            if !made_progress && rx_count != overall_len {
+            if should_sleep {
                 ringbuf_entry!(Trace::WaitISR(self.spi.read_status()));
 
                 if self.spi.check_overrun() {
@@ -451,30 +491,25 @@ impl ServerImpl {
                 // Allow the controller interrupt to post to our
                 // notification set.
                 sys_irq_control(IRQ_MASK, true);
-                // Wait for our notification set to get, well, set.
-                sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
-                    .expect("kernel died?");
+                // Wait for our notification set to get, well, set. We ignore
+                // the result of this because an error would mean the kernel
+                // violated the ABI, which we can't usefully respond to.
+                let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
             }
         }
 
-        // Wait for the final EOT interrupt to ensure we're really
-        // done before returning to the client
-        loop {
-            sys_irq_control(IRQ_MASK, true);
-            sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL)
-                .expect("kernel died?");
-
-            if self.spi.check_eot() {
-                self.spi.clear_eot();
-                break;
-            }
+        // Because we've pulled all the bytes from the RX FIFO, we should be
+        // able to observe the EOT condition here.
+        if !self.spi.check_eot() {
+            panic!();
         }
+        self.spi.clear_eot();
 
         // Wrap up the transfer and restore things to a reasonable
         // state.
         self.spi.end();
 
-        // Deassert (set) CS.
+        // Deassert (set) CS, if we asserted it in the first place.
         if !cs_override {
             self.gpio_driver
                 .set_reset(device.cs.port, device.cs.pin_mask, 0)

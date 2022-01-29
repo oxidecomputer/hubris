@@ -253,6 +253,10 @@ impl Spi {
         self.reg.ier.modify(|_, w| w.txpie().clear_bit());
     }
 
+    pub fn enable_can_tx_interrupt(&mut self) {
+        self.reg.ier.modify(|_, w| w.txpie().set_bit());
+    }
+
     pub fn check_eot(&self) -> bool {
         self.reg.sr.read().eot().is_completed()
     }
