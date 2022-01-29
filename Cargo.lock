@@ -850,6 +850,7 @@ dependencies = [
  "drv-stm32g0-rcc-api",
  "num-traits",
  "stm32g0",
+ "unwrap-lite",
  "userlib",
  "zerocopy",
 ]
@@ -884,6 +885,7 @@ dependencies = [
  "byteorder",
  "idol",
  "num-traits",
+ "unwrap-lite",
  "userlib",
  "zerocopy",
 ]

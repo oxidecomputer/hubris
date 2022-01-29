@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use unwrap_lite::UnwrapLite;
 use userlib::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -35,7 +36,7 @@ impl Rcc {
     pub fn enable_clock(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
         // NoSuchPeripheral for a valid member of the Peripheral enum.
-        self.enable_clock_raw(peripheral as u32).unwrap()
+        self.enable_clock_raw(peripheral as u32).unwrap_lite()
     }
 
     /// Requests that the clock to a peripheral be turned off.
@@ -49,7 +50,7 @@ impl Rcc {
     pub fn disable_clock(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
         // NoSuchPeripheral for a valid member of the Peripheral enum.
-        self.disable_clock_raw(peripheral as u32).unwrap()
+        self.disable_clock_raw(peripheral as u32).unwrap_lite()
     }
 
     /// Requests that the reset line to a peripheral be asserted.
@@ -63,7 +64,7 @@ impl Rcc {
     pub fn enter_reset(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
         // NoSuchPeripheral for a valid member of the Peripheral enum.
-        self.enter_reset_raw(peripheral as u32).unwrap()
+        self.enter_reset_raw(peripheral as u32).unwrap_lite()
     }
 
     /// Requests that the reset line to a peripheral be deasserted.
@@ -77,7 +78,7 @@ impl Rcc {
     pub fn leave_reset(&self, peripheral: Peripheral) {
         // We are unwrapping here because the RCC server should not return
         // NoSuchPeripheral for a valid member of the Peripheral enum.
-        self.leave_reset_raw(peripheral as u32).unwrap()
+        self.leave_reset_raw(peripheral as u32).unwrap_lite()
     }
 }
 
