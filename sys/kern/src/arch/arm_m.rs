@@ -184,21 +184,39 @@ pub struct SavedState {
     r11: u32,
     psp: u32,
     exc_return: u32,
+
+    // gosh it would sure be nice if cfg_if were legal here
+    #[cfg(any(armv7m, armv8m))]
     s16: u32,
+    #[cfg(any(armv7m, armv8m))]
     s17: u32,
+    #[cfg(any(armv7m, armv8m))]
     s18: u32,
+    #[cfg(any(armv7m, armv8m))]
     s19: u32,
+    #[cfg(any(armv7m, armv8m))]
     s20: u32,
+    #[cfg(any(armv7m, armv8m))]
     s21: u32,
+    #[cfg(any(armv7m, armv8m))]
     s22: u32,
+    #[cfg(any(armv7m, armv8m))]
     s23: u32,
+    #[cfg(any(armv7m, armv8m))]
     s24: u32,
+    #[cfg(any(armv7m, armv8m))]
     s25: u32,
+    #[cfg(any(armv7m, armv8m))]
     s26: u32,
+    #[cfg(any(armv7m, armv8m))]
     s27: u32,
+    #[cfg(any(armv7m, armv8m))]
     s28: u32,
+    #[cfg(any(armv7m, armv8m))]
     s29: u32,
+    #[cfg(any(armv7m, armv8m))]
     s30: u32,
+    #[cfg(any(armv7m, armv8m))]
     s31: u32,
     // NOTE: the above fields must be kept contiguous!
 }
@@ -273,20 +291,34 @@ pub struct BaseExceptionFrame {
     xpsr: u32,
 }
 
-/// Extended version for FPU.
-#[derive(Debug, FromBytes, Default)]
-#[repr(C)]
-pub struct ExtendedExceptionFrame {
-    base: BaseExceptionFrame,
-    fpu_regs: [u32; 16],
-    fpscr: u32,
-    reserved: u32,
+cfg_if::cfg_if! {
+    if #[cfg(any(armv7m, armv8m))] {
+        /// Extended version for FPU.
+        #[derive(Debug, FromBytes, Default)]
+        #[repr(C)]
+        pub struct ExtendedExceptionFrame {
+            base: BaseExceptionFrame,
+            fpu_regs: [u32; 16],
+            fpscr: u32,
+            reserved: u32,
+        }
+    } else if #[cfg(armv6m)] {
+        /// Wee version for non-FPU.
+        #[derive(Debug, FromBytes, Default)]
+        #[repr(C)]
+        pub struct ExtendedExceptionFrame {
+            base: BaseExceptionFrame,
+        }
+    } else {
+        compiler_error!("unknown M-profile");
+    }
 }
 
 /// Initially we just set the Thumb Mode bit, the minimum required.
 const INITIAL_PSR: u32 = 1 << 24;
 
 /// We don't really care about the initial FPU mode; 0 is reasonable.
+#[cfg(any(armv7m, armv8m))]
 const INITIAL_FPSCR: u32 = 0;
 
 /// Records `tasks` as the system-wide task table.
@@ -332,7 +364,7 @@ pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
     let initial_stack = task.descriptor().initial_stack;
 
-    // Modern ARMv7-M machines require 8-byte stack alignment. Make sure that's
+    // Modern ARMvX-M machines require 8-byte stack alignment. Make sure that's
     // still true. Note that this carries the risk of panic on task re-init if
     // the task table is corrupted -- this is deliberate.
     uassert!(initial_stack & 0x7 == 0);
@@ -380,7 +412,10 @@ pub fn reinitialize(task: &mut task::Task) {
     frame.base.pc = descriptor.entry_point | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
-    frame.fpscr = INITIAL_FPSCR;
+    #[cfg(any(armv7m, armv8m))]
+    {
+        frame.fpscr = INITIAL_FPSCR;
+    }
 
     // Set the initial stack pointer, *not* to the stack top, but to the base of
     // this frame.
