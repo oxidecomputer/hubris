@@ -45,8 +45,16 @@ cfg_if::cfg_if! {
         target_board = "nucleo-h753zi"
     ))] {
         const HIFFY_DATA_SIZE: usize = 20_480;
+        const HIFFY_TEXT_SIZE: usize = 2048;
+        const HIFFY_RSTACK_SIZE: usize = 2048;
+    } else if #[cfg(feature = "micro")] {
+        const HIFFY_DATA_SIZE: usize = 256;
+        const HIFFY_TEXT_SIZE: usize = 256;
+        const HIFFY_RSTACK_SIZE: usize = 64;
     } else {
         const HIFFY_DATA_SIZE: usize = 2_048;
+        const HIFFY_TEXT_SIZE: usize = 2048;
+        const HIFFY_RSTACK_SIZE: usize = 2048;
     }
 }
 
@@ -64,9 +72,9 @@ cfg_if::cfg_if! {
 /// - [`HIFFY_READY`]      => Variable that will be non-zero iff the HIF
 ///                           execution engine is waiting to be kicked
 ///
-static mut HIFFY_TEXT: [u8; 2048] = [0; 2048];
+static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
 static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
-static mut HIFFY_RSTACK: [u8; 2048] = [0; 2048];
+static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);

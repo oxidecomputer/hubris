@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+userlib = {path = "../../sys/userlib"}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
@@ -35,12 +35,14 @@ semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
-stm32h7 = ["drv-stm32h7-gpio-api"]
-lpc55 = ["drv-lpc55-gpio-api"]
+stm32h7 = ["drv-stm32h7-gpio-api", "userlib/panic-messages"]
+lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]
 qspi = ["drv-gimlet-hf-api"]
 h743 = ["drv-stm32h7-rcc-api/h743", "drv-stm32h7-i2c/h743", "build-i2c/h743"]
 h753 = ["drv-stm32h7-rcc-api/h753", "drv-stm32h7-i2c/h753", "build-i2c/h753"]
 h7b3 = ["drv-stm32h7-rcc-api/h7b3", "drv-stm32h7-i2c/h7b3", "build-i2c/h7b3"]
+micro = ["userlib/log-null"]
+panic-messages = ["userlib/panic-messages"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
