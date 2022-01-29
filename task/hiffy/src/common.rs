@@ -54,6 +54,7 @@ pub(crate) fn sleep(
 /// arg1: Operation
 /// arg0: Task
 ///
+#[allow(dead_code)]
 pub(crate) fn send(
     stack: &[Option<u32>],
     _data: &[u8],

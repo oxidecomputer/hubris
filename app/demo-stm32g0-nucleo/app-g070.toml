@@ -35,25 +35,14 @@ start = true
 features = ["log-null"]
 stacksize = 352
 
-[tasks.rcc_driver]
-path = "../../drv/stm32g0-rcc"
-name = "drv-stm32g0-rcc"
+[tasks.sys]
+path = "../../drv/stm32g0-sys"
+name = "drv-stm32g0-sys"
 features = ["g070"]
 priority = 1
-requires = {flash = 1024, ram = 256}
-uses = ["rcc"]
+requires = {flash = 2048, ram = 256}
+uses = ["rcc", "gpio"]
 start = true
-stacksize = 256
-
-[tasks.gpio_driver]
-path = "../../drv/stm32g0-gpio"
-name = "drv-stm32g0-gpio"
-features = ["g070"]
-priority = 2
-requires = {flash = 4096, ram = 256}
-uses = ["gpio"]
-start = true
-task-slots = ["rcc_driver"]
 stacksize = 256
 
 [tasks.usart_driver]
@@ -61,11 +50,11 @@ path = "../../drv/stm32g0-usart"
 name = "drv-stm32g0-usart"
 features = ["g070"]
 priority = 2
-requires = {flash = 2048, ram = 256}
+requires = {flash = 4096, ram = 256}
 uses = ["usart1"]
 start = true
 interrupts = {27 = 1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 stacksize = 256
 
 [tasks.user_leds]
@@ -75,7 +64,7 @@ features = ["stm32g0"]
 priority = 2
 requires = {flash = 2048, ram = 256}
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["sys"]
 stacksize = 256
 
 [tasks.pong]
@@ -101,7 +90,7 @@ task-slots = [{peer = "pong"}, "usart_driver"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-requires = {flash = 16384, ram = 8192 }
+requires = {flash = 8192, ram = 8192 }
 start = true
 
 [tasks.idle]

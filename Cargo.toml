@@ -51,10 +51,8 @@ members = [
     "drv/stm32fx-rcc",
     "drv/stm32fx-usart",
 
-    "drv/stm32g0-rcc",
-    "drv/stm32g0-rcc-api",
-    "drv/stm32g0-gpio",
-    "drv/stm32g0-gpio-api",
+    "drv/stm32g0-sys",
+    "drv/stm32g0-sys-api",
     "drv/stm32g0-usart",
 
     "drv/stm32h7-eth",
