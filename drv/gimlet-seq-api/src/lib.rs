@@ -14,6 +14,7 @@ pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed = 2,
     MuxToSPFailed = 3,
+    ClockConfigFailed = 4,
 }
 
 impl From<SeqError> for u16 {
