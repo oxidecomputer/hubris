@@ -156,15 +156,34 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
             asm!("
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r7, lr}}
+                .cfi_def_cfa_offset 20
+                .cfi_offset lr, -4
+                .cfi_offset r7, -8
+                .cfi_offset r6, -12
+                .cfi_offset r5, -16
+                .cfi_offset r4, -20
+
                 mov r4, r8
+                .cfi_register r8, r4
                 mov r5, r9
+                .cfi_register r9, r5
                 mov r6, r10
+                .cfi_register r10, r6
                 mov r7, r11
+                .cfi_register r11, r7
+
                 push {{r4-r7}}
+                .cfi_adjust_cfa_offset 16
+                .cfi_offset r11, -4
+                .cfi_offset r10, -8
+                .cfi_offset r9, -12
+                .cfi_offset r8, -16
+
                 @ Load the constant syscall number.
                 eors r4, r4
                 adds r4, #{sysnum}
                 mov r11, r4
+
                 @ Load in args from the struct.
                 ldm r0!, {{r4-r7}}
                 ldm r0, {{r0-r2}}
@@ -178,8 +197,11 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
                 @ Move the two results back into their return positions.
                 mov r0, r4
                 mov r1, r5
+
                 @ Restore the registers we used.
                 pop {{r4-r7}}
+                .cfi_adjust_cfa_offset -16
+
                 mov r8, r4
                 mov r9, r5
                 mov r10, r6
@@ -1172,6 +1194,8 @@ pub unsafe extern "C" fn _start() -> ! {
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             asm!("
+                .cfi_undefined pc
+
                 @ Copy data initialization image into data section.
                 @ Note: this assumes that both source and destination are 32-bit
                 @ aligned and padded to 4-byte boundary.
