@@ -44,7 +44,7 @@ seven argument slots and eight return slots.
 
 We assume that all registers are 32 bits wide.
 
-=== ARMv7-M / ARMv8-M
+=== ARMv6-M / ARMv7-M / ARMv8-M
 
 Syscalls are invoked using the `SVC` instruction. The 8-bit immediate in the
 instruction is ignored, because reading it from user text is potentially
@@ -62,11 +62,14 @@ Return values from syscalls are returned in `r4` through `r11`.
 
 NOTE: You're probably wondering why we're using weird registers instead of the
 standard calling convention, which would pass things in `r0` through `r3`. It
-comes back to the point above about stack accesses. The ARMv-7M hardware stores
+comes back to the point above about stack accesses. The ARMvX-M hardware stores
 `r0` through `r3` _on the user stack_ on entry to a syscall, and we don't want
 to have to read it back from there. `r4` through `r11`, on the other hand, are
 treated as callee-save, and our syscall entry sequence saves them into the TCB,
 where we can refer to them as needed.
+
+NOTE: This calling convention is somewhat awkward on ARMv6-M, where the
+registers above `r7` are second-class. So it goes.
 
 === RISC-V
 
@@ -164,7 +167,7 @@ your task to be immediately faulted instead of returning a code.
 ==== Notes
 
 Target and operation are packed into a single word because we're out of useful
-registers on ARMv7-M. This currently limits operation codes to 16 bits. We might
+registers on ARM. This currently limits operation codes to 16 bits. We might
 revisit this later.
 
 For all slices (outgoing message, reply buffer, lease table), if the count is

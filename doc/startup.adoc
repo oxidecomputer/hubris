@@ -20,8 +20,8 @@ This means:
 
 - Jumping to `main`.
 
-On ARMv7-M this sequence is handled by the `cortex_m_rt` crate, which in turn
-uses the `r0` crate to set up Rust variables.
+On ARMv6-M, ARMv7-M, and ARMv8-M this sequence is handled by the `cortex_m_rt`
+crate, which in turn uses the `r0` crate to set up Rust variables.
 
 == `main`: bring your own
 
