@@ -1,12 +1,11 @@
 name = "tests-stm32g070"
 target = "thumbv6m-none-eabi"
 board = "stm32g070"
-stacksize = 2048
 
 [kernel]
 path = "../../app/demo-stm32g0-nucleo"
 name = "demo-stm32g0-nucleo"
-requires = {flash = 17148, ram = 2920}
+requires = {flash = 17148, ram = 2664}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -40,9 +39,10 @@ execute = false  # let's assume XN until proven otherwise
 path = "../test-runner"
 name = "test-runner"
 priority = 0
-requires = {flash = 16384, ram = 4096}
+requires = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
+stacksize = 2032
 
 [tasks.suite]
 path = "../test-suite"
@@ -52,19 +52,21 @@ requires = {flash = 65536, ram = 2048}
 start = true
 features = ["semihosting"]
 task-slots = ["assist", "suite", "runner"]
+stacksize = 1504
 
 [tasks.assist]
 path = "../test-assist"
 name = "test-assist"
 priority = 1
-requires = {flash = 16384, ram = 4096}
+requires = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
+stacksize = 1504
 
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
 priority = 3
-requires = {flash = 128, ram = 256}
-stacksize = 256
+requires = {flash = 128, ram = 64}
+stacksize = 64
 start = true
