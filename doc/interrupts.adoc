@@ -25,12 +25,12 @@ applications.
 == The Hubris interrupt model
 
 We assume an interrupt system with the following characteristics. This is based
-on the design of the ARMv7-M interrupt system, but is intended to be general.
+on the design of the ARMv6/7/8-M interrupt system, but is intended to be general.
 
 You can likely skip this section if you're not porting the kernel.
 
 - Interrupts can be numbered using small integers starting at zero. They may be
-  a subset of exception numbers at a fixed offset -- 16, on ARMv7-M -- and we'll
+  a subset of exception numbers at a fixed offset -- 16, on ARMvX-M -- and we'll
   subtract that offset when numbering interrupts.
 
 - Interrupts have a "`pending`" flag and an "`enable`" flag. The pending flag
