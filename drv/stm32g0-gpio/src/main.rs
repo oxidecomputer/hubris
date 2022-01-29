@@ -81,6 +81,7 @@
 
 use byteorder::LittleEndian;
 use drv_stm32g0_rcc_api::{Peripheral, Rcc};
+use unwrap_lite::UnwrapLite;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes, Unaligned, U16, U32};
 
@@ -405,8 +406,8 @@ fn turn_on_all_gpios() {
     // RCC_IOPRSTR so this is a convenient way to enable them all in one go.
     for port in 0..6 {
         let pnum = Peripheral::GpioA as u32 + port;
-        rcc_driver.enable_clock_raw(pnum).unwrap();
-        rcc_driver.leave_reset_raw(pnum).unwrap();
+        rcc_driver.enable_clock_raw(pnum).unwrap_lite();
+        rcc_driver.leave_reset_raw(pnum).unwrap_lite();
     }
 }
 
