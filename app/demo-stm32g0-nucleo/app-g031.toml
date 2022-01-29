@@ -5,7 +5,7 @@ board = "stm32g031"
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 11568, ram = 1544}
+requires = {flash = 11928, ram = 1992}
 features = ["g031", "panic-halt"]
 stacksize = 640
 
@@ -34,25 +34,14 @@ start = true
 features = ["log-null"]
 stacksize = 368
 
-[tasks.rcc_driver]
-path = "../../drv/stm32g0-rcc"
-name = "drv-stm32g0-rcc"
+[tasks.sys]
+path = "../../drv/stm32g0-sys"
+name = "drv-stm32g0-sys"
 priority = 1
-requires = {flash = 1024, ram = 256}
-uses = ["rcc"]
+requires = {flash = 2048, ram = 256}
+uses = ["rcc", "gpio"]
 start = true
 features = ["g031"]
-stacksize = 256
-
-[tasks.gpio_driver]
-path = "../../drv/stm32g0-gpio"
-name = "drv-stm32g0-gpio"
-features = ["g031"]
-priority = 2
-requires = {flash = 4096, ram = 256}
-uses = ["gpio"]
-start = true
-task-slots = ["rcc_driver"]
 stacksize = 256
 
 [tasks.pong]
@@ -71,8 +60,18 @@ features = ["stm32g0"]
 priority = 3
 requires = {flash = 2048, ram = 256}
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["sys"]
 stacksize = 256
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+priority = 4
+requires = {flash = 8192, ram = 2048}
+start = true
+task-slots = ["sys"]
+stacksize = 912
+features = ["stm32g0", "gpio", "micro"]
 
 [tasks.idle]
 path = "../../task/idle"
