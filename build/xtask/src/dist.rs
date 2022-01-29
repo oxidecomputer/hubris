@@ -1473,7 +1473,7 @@ fn make_descriptors(
             regions: task_regions,
             entry_point: entry_points[name],
             initial_stack: task_allocations[name]["ram"].start
-                + task.stacksize.unwrap_or(stacksize.unwrap()),
+                + task.stacksize.or(stacksize).unwrap(),
             priority: task.priority,
             flags,
         });
