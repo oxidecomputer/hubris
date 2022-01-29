@@ -6,8 +6,8 @@ stacksize = 944
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 32768, ram = 4096}
-features = ["g0b1", "semihosting"]
+requires = {flash = 17872, ram = 1984}
+features = ["g0b1", "panic-halt"]
 stacksize = 640
 
 [supervisor]
@@ -15,13 +15,13 @@ notification = 1
 
 [outputs.flash]
 address = 0x08000000
-size = 1048576
+size = 524288
 read = true
 execute = true
 
 [outputs.ram]
 address = 0x20000000
-size = 131072
+size = 147456
 read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
@@ -30,9 +30,9 @@ execute = false  # let's assume XN until proven otherwise
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 8192, ram = 512}
+requires = {flash = 4096, ram = 512}
 start = true
-features = ["semihosting"]
+features = ["log-null"]
 stacksize = 352
 
 [tasks.rcc_driver]
@@ -40,55 +40,60 @@ path = "../../drv/stm32g0-rcc"
 name = "drv-stm32g0-rcc"
 features = ["g0b1"]
 priority = 1
-requires = {flash = 1024, ram = 1024}
+requires = {flash = 1024, ram = 256}
 uses = ["rcc"]
 start = true
+stacksize = 256
 
 [tasks.gpio_driver]
 path = "../../drv/stm32g0-gpio"
 name = "drv-stm32g0-gpio"
 features = ["g0b1"]
 priority = 2
-requires = {flash = 4096, ram = 1024}
+requires = {flash = 4096, ram = 256}
 uses = ["gpio"]
 start = true
 task-slots = ["rcc_driver"]
+stacksize = 256
 
 [tasks.usart_driver]
 path = "../../drv/stm32g0-usart"
 name = "drv-stm32g0-usart"
-features = ["g0b1", "semihosting"]
+features = ["g0b1"]
 priority = 2
-requires = {flash = 2048, ram = 1024}
+requires = {flash = 2048, ram = 256}
 uses = ["usart1"]
 start = true
 interrupts = {27 = 1}
 task-slots = ["gpio_driver", "rcc_driver"]
+stacksize = 256
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32g0"]
 priority = 2
-requires = {flash = 2048, ram = 1024}
+requires = {flash = 2048, ram = 256}
 start = true
 task-slots = ["gpio_driver"]
+stacksize = 256
 
 [tasks.pong]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 1024, ram = 1024}
+requires = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
+stacksize = 256
 
 [tasks.ping]
 path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
+requires = {flash = 8192, ram = 256}
+stacksize = 256
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
@@ -103,8 +108,8 @@ start = true
 path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 128, ram = 128}
-stacksize = 128
+requires = {flash = 128, ram = 64}
+stacksize = 64
 start = true
 
 [peripherals.rcc]
