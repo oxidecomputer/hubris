@@ -12,3801 +12,3808 @@ pub fn idt8a3xxxx_payload<E>(
     mut func: impl FnMut(&[u8]) -> Result<(), E>
 ) -> Result<(), E> {
 
-    // PAGE_ADDR = 0xc000
-    func(&[
-        0xfc, 0x00, 0xc0, 0x10, 0x20,
-    ])?;
-
-    // PAGE_ADDR = 0x8100
-    func(&[
-        0xfc, 0x00, 0x81, 0x10, 0x20,
-    ])?;
-
-    // PAGE_ADDR = 0xc100
-    func(&[
-        0xfc, 0x00, 0xc1, 0x10, 0x20,
-    ])?;
-
-    // GPIO_USER_CONTROL.GPIO_USER_CONTROL_GPIO0_TO_7_OUT = [0]
-    // GPIO_USER_CONTROL.GPIO_USER_CONTROL_GPIO8_TO_15_OUT = [0]
-    func(&[
-        0x60, 0x00, 0x00,
-    ])?;
-
-    // STICKY_STATUS_CLEAR.IN0_TO_7_MON_STICKY_STATUS_CLEAR = [0]
-    // STICKY_STATUS_CLEAR.IN8_TO_15_MON_STICKY_STATUS_CLEAR = [0]
-    // STICKY_STATUS_CLEAR.DPLL_STICKY_STATUS_CLEAR = [0]
-    // STICKY_STATUS_CLEAR.DPLL_SYS_STICKY_STATUS_CLEAR = [0]
-    // STICKY_STATUS_CLEAR.SYS_APLL_STICKY_STATUS_CLEAR = [0]
-    // STICKY_STATUS_CLEAR.ALL_STICKY_STATUS_CLEAR = [0]
-    func(&[
-        0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // GPIO_TOD_NOTIFICATION_CLEAR.GPIO0_TO_7_CLEAR = [0]
-    // GPIO_TOD_NOTIFICATION_CLEAR.GPIO8_TO_15_CLEAR = [0]
-    func(&[
-        0x6c, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xc170
-    func(&[
-        0x70, 0x00,
-    ])?;
-
-    // Unknown write to 0xc171
-    func(&[
-        0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xc180
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00,
-    ])?;
-
-    // ALERT_CFG.SYS_ALERT_MASK = [0]
-    func(&[
-        0x92, 0x00,
-    ])?;
-
-    // SYS_DPLL_XO.XO_FREQ = [80, 96, 98, 0, 0, 0, 0]
-    func(&[
-        0x94, 0x80, 0x96, 0x98, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_XO.XO_FREQ+0x7 = [0]
-    // SYS_APLL.SYS_APLL_CP_SS_CURRENT_1 = [0]
-    // SYS_APLL.SYS_APLL_CP_SS_CURRENT_2 = [0]
-    // SYS_APLL.SYS_APLL_CFG_1 = [0]
-    // SYS_APLL.SYS_APLL_CFG_2 = [0]
-    // SYS_APLL.SYS_APLL_VREG_CTRL = [0]
-    // SYS_APLL.SYS_APLL_CP_CTRL_0 = [0]
-    // SYS_APLL.SYS_APLL_CP_CTRL_1 = [0]
-    // SYS_APLL.SYS_APLL_CP_CTRL_2 = [0]
-    // SYS_APLL.SYS_APLL_XTAL_FREQ = [0, 0, 12, fd, ed, 2, ff, ff]
-    // SYS_APLL.SYS_APLL_CTRL = [89]
-    func(&[
-        0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x12, 0xfd, 0xed, 0x02,
-        0xff, 0xff, 0x89,
-    ])?;
-
-    // SYS_APLL.SYS_APLL_CTRL+0x1 = [40]
-    func(&[
-        0xad, 0x40,
-    ])?;
-
-    // INPUT[0].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[0].IN_DIV = [0, 0]
-    // INPUT[0].IN_PHASE = [0, 0]
-    // INPUT[0].IN_SYNC = [0]
-    func(&[
-        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // INPUT[0].IN_MODE = [0]
-    func(&[
-        0xbd, 0x00,
-    ])?;
-
-    // INPUT[1].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[1].IN_DIV = [0, 0]
-    // INPUT[1].IN_PHASE = [0, 0]
-    // INPUT[1].IN_SYNC = [1]
-    func(&[
-        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-    ])?;
-
-    // INPUT[1].IN_MODE = [0]
-    func(&[
-        0xcd, 0x00,
-    ])?;
-
-    // INPUT[2].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[2].IN_DIV = [0, 0]
-    // INPUT[2].IN_PHASE = [0, 0]
-    // INPUT[2].IN_SYNC = [2]
-    func(&[
-        0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
-    ])?;
-
-    // INPUT[2].IN_MODE = [0]
-    func(&[
-        0xdd, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc200
-    func(&[
-        0xfc, 0x00, 0xc2, 0x10, 0x20,
-    ])?;
-
-    // INPUT[3].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[3].IN_DIV = [0, 0]
-    // INPUT[3].IN_PHASE = [0, 0]
-    // INPUT[3].IN_SYNC = [3]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
-    ])?;
-
-    // INPUT[3].IN_MODE = [0]
-    func(&[
-        0x0d, 0x00,
-    ])?;
-
-    // INPUT[4].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[4].IN_DIV = [0, 0]
-    // INPUT[4].IN_PHASE = [0, 0]
-    // INPUT[4].IN_SYNC = [4]
-    func(&[
-        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-    ])?;
-
-    // INPUT[4].IN_MODE = [0]
-    func(&[
-        0x1d, 0x00,
-    ])?;
-
-    // INPUT[5].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[5].IN_DIV = [0, 0]
-    // INPUT[5].IN_PHASE = [0, 0]
-    // INPUT[5].IN_SYNC = [5]
-    func(&[
-        0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x05,
-    ])?;
-
-    // INPUT[5].IN_MODE = [0]
-    func(&[
-        0x2d, 0x00,
-    ])?;
-
-    // INPUT[6].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[6].IN_DIV = [0, 0]
-    // INPUT[6].IN_PHASE = [0, 0]
-    // INPUT[6].IN_SYNC = [6]
-    func(&[
-        0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x06,
-    ])?;
-
-    // INPUT[6].IN_MODE = [0]
-    func(&[
-        0x3d, 0x00,
-    ])?;
-
-    // INPUT[7].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[7].IN_DIV = [0, 0]
-    // INPUT[7].IN_PHASE = [0, 0]
-    // INPUT[7].IN_SYNC = [7]
-    func(&[
-        0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x07,
-    ])?;
-
-    // INPUT[7].IN_MODE = [20]
-    func(&[
-        0x4d, 0x20,
-    ])?;
-
-    // INPUT[8].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[8].IN_DIV = [0, 0]
-    // INPUT[8].IN_PHASE = [0, 0]
-    // INPUT[8].IN_SYNC = [8]
-    func(&[
-        0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
-    ])?;
-
-    // INPUT[8].IN_MODE = [0]
-    func(&[
-        0x5d, 0x00,
-    ])?;
-
-    // INPUT[9].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[9].IN_DIV = [0, 0]
-    // INPUT[9].IN_PHASE = [0, 0]
-    // INPUT[9].IN_SYNC = [9]
-    func(&[
-        0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
-    ])?;
-
-    // INPUT[9].IN_MODE = [0]
-    func(&[
-        0x6d, 0x00,
-    ])?;
-
-    // INPUT[10].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[10].IN_DIV = [0, 0]
-    // INPUT[10].IN_PHASE = [0, 0]
-    // INPUT[10].IN_SYNC = [a]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0a,
-    ])?;
-
-    // INPUT[10].IN_MODE = [0]
-    func(&[
-        0x8d, 0x00,
-    ])?;
-
-    // INPUT[11].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[11].IN_DIV = [0, 0]
-    // INPUT[11].IN_PHASE = [0, 0]
-    // INPUT[11].IN_SYNC = [b]
-    func(&[
-        0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0b,
-    ])?;
-
-    // INPUT[11].IN_MODE = [0]
-    func(&[
-        0x9d, 0x00,
-    ])?;
-
-    // INPUT[12].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[12].IN_DIV = [0, 0]
-    // INPUT[12].IN_PHASE = [0, 0]
-    // INPUT[12].IN_SYNC = [c]
-    func(&[
-        0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0c,
-    ])?;
-
-    // INPUT[12].IN_MODE = [0]
-    func(&[
-        0xad, 0x00,
-    ])?;
-
-    // INPUT[13].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[13].IN_DIV = [0, 0]
-    // INPUT[13].IN_PHASE = [0, 0]
-    // INPUT[13].IN_SYNC = [d]
-    func(&[
-        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0d,
-    ])?;
-
-    // INPUT[13].IN_MODE = [0]
-    func(&[
-        0xbd, 0x00,
-    ])?;
-
-    // INPUT[14].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[14].IN_DIV = [0, 0]
-    // INPUT[14].IN_PHASE = [0, 0]
-    // INPUT[14].IN_SYNC = [e]
-    func(&[
-        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0e,
-    ])?;
-
-    // INPUT[14].IN_MODE = [0]
-    func(&[
-        0xcd, 0x00,
-    ])?;
-
-    // INPUT[15].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
-    // INPUT[15].IN_DIV = [0, 0]
-    // INPUT[15].IN_PHASE = [0, 0]
-    // INPUT[15].IN_SYNC = [f]
-    func(&[
-        0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0f,
-    ])?;
-
-    // INPUT[15].IN_MODE = [40]
-    func(&[
-        0xdd, 0x40,
-    ])?;
-
-    // REF_MON[0].IN_MON_FREQ_CFG = [0]
-    // REF_MON[0].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[0].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[0].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[0].IN_MON_ACT_CFG = [0]
-    func(&[
-        0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[0].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[0].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0xe8, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[0].IN_MON_CFG = [0]
-    // REF_MON[1].IN_MON_FREQ_CFG = [0]
-    // REF_MON[1].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[1].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[1].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[1].IN_MON_ACT_CFG = [0]
-    func(&[
-        0xeb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[1].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[1].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0xf4, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[1].IN_MON_CFG = [0]
-    func(&[
-        0xf7, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc300
-    func(&[
-        0xfc, 0x00, 0xc3, 0x10, 0x20,
-    ])?;
-
-    // REF_MON[2].IN_MON_FREQ_CFG = [0]
-    // REF_MON[2].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[2].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[2].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[2].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[2].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[2].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x08, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[2].IN_MON_CFG = [0]
-    // REF_MON[3].IN_MON_FREQ_CFG = [0]
-    // REF_MON[3].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[3].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[3].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[3].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[3].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[3].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x14, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[3].IN_MON_CFG = [0]
-    // REF_MON[4].IN_MON_FREQ_CFG = [0]
-    // REF_MON[4].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[4].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[4].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[4].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[4].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[4].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x20, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[4].IN_MON_CFG = [0]
-    // REF_MON[5].IN_MON_FREQ_CFG = [0]
-    // REF_MON[5].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[5].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[5].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[5].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[5].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[5].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x2c, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[5].IN_MON_CFG = [0]
-    // REF_MON[6].IN_MON_FREQ_CFG = [0]
-    // REF_MON[6].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[6].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[6].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[6].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[6].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[6].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x38, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[6].IN_MON_CFG = [0]
-    // REF_MON[7].IN_MON_FREQ_CFG = [0]
-    // REF_MON[7].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[7].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[7].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    func(&[
-        0x3b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[7].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x42, 0x00,
-    ])?;
-
-    // REF_MON[7].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[7].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x44, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[7].IN_MON_CFG = [0]
-    // REF_MON[8].IN_MON_FREQ_CFG = [0]
-    // REF_MON[8].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[8].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[8].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[8].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[8].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[8].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x50, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[8].IN_MON_CFG = [0]
-    // REF_MON[9].IN_MON_FREQ_CFG = [0]
-    // REF_MON[9].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[9].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[9].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[9].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[9].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[9].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x5c, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[9].IN_MON_CFG = [0]
-    // REF_MON[10].IN_MON_FREQ_CFG = [0]
-    // REF_MON[10].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[10].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[10].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[10].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[10].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[10].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x68, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[10].IN_MON_CFG = [0]
-    // REF_MON[11].IN_MON_FREQ_CFG = [0]
-    // REF_MON[11].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[11].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[11].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[11].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[11].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[11].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x74, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[11].IN_MON_CFG = [0]
-    func(&[
-        0x77, 0x00,
-    ])?;
-
-    // REF_MON[12].IN_MON_FREQ_CFG = [0]
-    // REF_MON[12].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[12].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[12].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[12].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[12].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[12].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x88, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[12].IN_MON_CFG = [0]
-    // REF_MON[13].IN_MON_FREQ_CFG = [0]
-    // REF_MON[13].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[13].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[13].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[13].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x8b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[13].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[13].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0x94, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[13].IN_MON_CFG = [0]
-    // REF_MON[14].IN_MON_FREQ_CFG = [0]
-    // REF_MON[14].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[14].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[14].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[14].IN_MON_ACT_CFG = [0]
-    func(&[
-        0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[14].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[14].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0xa0, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[14].IN_MON_CFG = [0]
-    // REF_MON[15].IN_MON_FREQ_CFG = [0]
-    // REF_MON[15].IN_MON_FREQ_VLD_INTV = [0]
-    // REF_MON[15].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
-    // REF_MON[15].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
-    // REF_MON[15].IN_MON_ACT_CFG = [0]
-    func(&[
-        0xa3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // REF_MON[15].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
-    // REF_MON[15].IN_MON_ACT_LOS_CFG = [0]
-    func(&[
-        0xac, 0x00, 0x00, 0x00,
-    ])?;
-
-    // REF_MON[15].IN_MON_CFG = [0]
-    // DPLL[0].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[0].DPLL_CTRL_0 = [0]
-    // DPLL[0].DPLL_CTRL_1 = [0]
-    // DPLL[0].DPLL_CTRL_2 = [0]
-    // DPLL[0].DPLL_UPDATE_RATE_CFG = [0]
-    func(&[
-        0xaf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[0].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[0].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[0].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[0].DPLL_HO_CFG = [0]
-    // DPLL[0].DPLL_LOCK_0 = [0]
-    // DPLL[0].DPLL_LOCK_1 = [0]
-    // DPLL[0].DPLL_LOCK_2 = [0]
-    // DPLL[0].DPLL_LOCK_3 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[0].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[0].DPLL_TRANS_CTRL = [0]
-    // DPLL[0].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[0].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[0].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[0].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0xb6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xc3db
-    func(&[
-        0xdb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x08, 0x08, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[0].DPLL_MODE = [30]
-    func(&[
-        0xe7, 0x30,
-    ])?;
-
-    // PAGE_ADDR = 0xc400
-    func(&[
-        0xfc, 0x00, 0xc4, 0x10, 0x20,
-    ])?;
-
-    // DPLL[1].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[1].DPLL_CTRL_0 = [0]
-    // DPLL[1].DPLL_CTRL_1 = [0]
-    // DPLL[1].DPLL_CTRL_2 = [0]
-    // DPLL[1].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[1].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[1].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[1].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[1].DPLL_HO_CFG = [0]
-    // DPLL[1].DPLL_LOCK_0 = [0]
-    // DPLL[1].DPLL_LOCK_1 = [0]
-    // DPLL[1].DPLL_LOCK_2 = [0]
-    // DPLL[1].DPLL_LOCK_3 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[1].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[1].DPLL_TRANS_CTRL = [0]
-    // DPLL[1].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[1].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[1].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[1].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[1].DPLL_MODE = [30]
-    // DPLL[2].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[2].DPLL_CTRL_0 = [0]
-    // DPLL[2].DPLL_CTRL_1 = [8]
-    // DPLL[2].DPLL_CTRL_2 = [0]
-    // DPLL[2].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[2].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[2].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[2].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[2].DPLL_HO_CFG = [0]
-    // DPLL[2].DPLL_LOCK_0 = [0]
-    // DPLL[2].DPLL_LOCK_1 = [0]
-    // DPLL[2].DPLL_LOCK_2 = [0]
-    // DPLL[2].DPLL_LOCK_3 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[2].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[2].DPLL_TRANS_CTRL = [0]
-    // DPLL[2].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[2].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[2].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[2].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x37, 0x30, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL[2].DPLL_MODE = [0]
-    func(&[
-        0x6f, 0x00,
-    ])?;
-
-    // DPLL[3].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[3].DPLL_CTRL_0 = [0]
-    // DPLL[3].DPLL_CTRL_1 = [0]
-    // DPLL[3].DPLL_CTRL_2 = [0]
-    // DPLL[3].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[3].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[3].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[3].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[3].DPLL_HO_CFG = [0]
-    // DPLL[3].DPLL_LOCK_0 = [0]
-    // DPLL[3].DPLL_LOCK_1 = [0]
-    // DPLL[3].DPLL_LOCK_2 = [0]
-    // DPLL[3].DPLL_LOCK_3 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[3].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[3].DPLL_TRANS_CTRL = [0]
-    // DPLL[3].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[3].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[3].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[3].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[3].DPLL_MODE = [30]
-    // DPLL[4].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[4].DPLL_CTRL_0 = [0]
-    // DPLL[4].DPLL_CTRL_1 = [4]
-    // DPLL[4].DPLL_CTRL_2 = [0]
-    // DPLL[4].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[4].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[4].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[4].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[4].DPLL_HO_CFG = [0]
-    // DPLL[4].DPLL_LOCK_0 = [a]
-    // DPLL[4].DPLL_LOCK_1 = [1]
-    // DPLL[4].DPLL_LOCK_2 = [0]
-    // DPLL[4].DPLL_LOCK_3 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[4].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[4].DPLL_TRANS_CTRL = [0]
-    // DPLL[4].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[4].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[4].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[4].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0xb7, 0x30, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL[4].DPLL_MODE = [0]
-    func(&[
-        0xef, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc500
-    func(&[
-        0xfc, 0x00, 0xc5, 0x10, 0x20,
-    ])?;
-
-    // DPLL[5].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[5].DPLL_CTRL_0 = [0]
-    // DPLL[5].DPLL_CTRL_1 = [4]
-    // DPLL[5].DPLL_CTRL_2 = [0]
-    // DPLL[5].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[5].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[5].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[5].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[5].DPLL_HO_CFG = [0]
-    // DPLL[5].DPLL_LOCK_0 = [a]
-    // DPLL[5].DPLL_LOCK_1 = [1]
-    // DPLL[5].DPLL_LOCK_2 = [0]
-    // DPLL[5].DPLL_LOCK_3 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[5].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[5].DPLL_TRANS_CTRL = [0]
-    // DPLL[5].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[5].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[5].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[5].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[5].DPLL_MODE = [0]
-    // DPLL[6].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[6].DPLL_CTRL_0 = [0]
-    // DPLL[6].DPLL_CTRL_1 = [4]
-    // DPLL[6].DPLL_CTRL_2 = [0]
-    // DPLL[6].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[6].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[6].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[6].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[6].DPLL_HO_CFG = [0]
-    // DPLL[6].DPLL_LOCK_0 = [a]
-    // DPLL[6].DPLL_LOCK_1 = [1]
-    // DPLL[6].DPLL_LOCK_2 = [0]
-    // DPLL[6].DPLL_LOCK_3 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[6].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[6].DPLL_TRANS_CTRL = [0]
-    // DPLL[6].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[6].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[6].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[6].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x37, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL[6].DPLL_MODE = [0]
-    func(&[
-        0x6f, 0x00,
-    ])?;
-
-    // DPLL[7].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-    // DPLL[7].DPLL_CTRL_0 = [0]
-    // DPLL[7].DPLL_CTRL_1 = [4]
-    // DPLL[7].DPLL_CTRL_2 = [0]
-    // DPLL[7].DPLL_UPDATE_RATE_CFG = [0]
-    // DPLL[7].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // DPLL[7].DPLL_HO_ADVCD_HISTORY = [0]
-    // DPLL[7].DPLL_HO_ADVCD_BW = [0, 0]
-    // DPLL[7].DPLL_HO_CFG = [0]
-    // DPLL[7].DPLL_LOCK_0 = [a]
-    // DPLL[7].DPLL_LOCK_1 = [1]
-    // DPLL[7].DPLL_LOCK_2 = [0]
-    // DPLL[7].DPLL_LOCK_3 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_0 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_1 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_2 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_3 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_4 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_5 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_6 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_7 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_8 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_9 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_10 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_11 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_12 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_13 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_14 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_15 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_16 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_17 = [0]
-    // DPLL[7].DPLL_REF_PRIORITY_18 = [0]
-    // DPLL[7].DPLL_TRANS_CTRL = [0]
-    // DPLL[7].DPLL_FASTLOCK_CFG_0 = [0]
-    // DPLL[7].DPLL_FASTLOCK_CFG_1 = [0]
-    // DPLL[7].DPLL_MAX_FREQ_OFFSET = [0]
-    // DPLL[7].DPLL_FASTLOCK_PSL = [0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL[7].DPLL_MODE = [0]
-    // SYS_DPLL.SYS_DPLL_CTRL_0 = [0]
-    // SYS_DPLL.SYS_DPLL_UPDATE_RATE_CFG = [0]
-    // SYS_DPLL.SYS_DPLL_FILTER_STATUS_UPDATE_CFG = [0]
-    // SYS_DPLL.SYS_DPLL_LOCK_0 = [a]
-    // SYS_DPLL.SYS_DPLL_LOCK_1 = [1]
-    // SYS_DPLL.SYS_DPLL_LOCK_2 = [0]
-    // SYS_DPLL.SYS_DPLL_LOCK_3 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_0 = [25]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_1 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_2 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_3 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_4 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_5 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_6 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_7 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_8 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_9 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_10 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_11 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_12 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_13 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_14 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_15 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_16 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_17 = [0]
-    // SYS_DPLL.SYS_DPLL_REF_PRIORITY_18 = [0]
-    func(&[
-        0xb7, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
-        0x00, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL.SYS_DPLL_MODE = [0]
-    func(&[
-        0xd4, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc600
-    func(&[
-        0xfc, 0x00, 0xc6, 0x10, 0x20,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[0].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[0].DPLL_DAMPING = [0]
-    // DPLL_CTRL[0].DPLL_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[0].DPLL_BW = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_BW+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PSL = [0]
-    func(&[
-        0x05, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[0].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[0].DPLL_PRED0_BW = [0]
-    func(&[
-        0x07, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x0b, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[0].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[0].DPLL_PRED1_BW = [0]
-    func(&[
-        0x0d, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x11, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x13, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[0].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[0].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x18, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_FOD_FREQ+0x7 = [0]
-    // DPLL_CTRL[0].DPLL_MASTER_DIV = [0, 0, 0]
-    func(&[
-        0x23, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[0].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0x2d, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[0].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0x35, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[0].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0x37, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[0].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[0].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[0].DPLL_FRAME_PULSE_SYNC = [0]
-    // DPLL_CTRL[1].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[1].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[1].DPLL_DAMPING = [0]
-    // DPLL_CTRL[1].DPLL_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[1].DPLL_BW = [0]
-    func(&[
-        0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_BW+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PSL = [0]
-    func(&[
-        0x41, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[1].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[1].DPLL_PRED0_BW = [0]
-    func(&[
-        0x43, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x47, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[1].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[1].DPLL_PRED1_BW = [0]
-    func(&[
-        0x49, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x4d, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x4f, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[1].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[1].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x54, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x57, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_FOD_FREQ+0x7 = [0]
-    // DPLL_CTRL[1].DPLL_MASTER_DIV = [0, 0, 0]
-    func(&[
-        0x5f, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[1].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0x69, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0x6c, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[1].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0x71, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[1].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0x73, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[1].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[1].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[1].DPLL_FRAME_PULSE_SYNC = [0]
-    func(&[
-        0x75, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[2].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[2].DPLL_DAMPING = [0]
-    // DPLL_CTRL[2].DPLL_DECIMATOR_BW_MULT = [4]
-    // DPLL_CTRL[2].DPLL_BW = [19]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x04, 0x19,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_BW+0x1 = [80]
-    // DPLL_CTRL[2].DPLL_PSL = [0]
-    func(&[
-        0x85, 0x80, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[2].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[2].DPLL_PRED0_BW = [0]
-    func(&[
-        0x87, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x8b, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[2].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[2].DPLL_PRED1_BW = [0]
-    func(&[
-        0x8d, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x91, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x93, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[2].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[2].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x98, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_FOD_FREQ+0x7 = [0]
-    // DPLL_CTRL[2].DPLL_MASTER_DIV = [0, 0, 0]
-    func(&[
-        0xa3, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[2].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0xad, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[2].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0xb5, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[2].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0xb7, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[2].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[2].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[2].DPLL_FRAME_PULSE_SYNC = [0]
-    // DPLL_CTRL[3].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[3].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[3].DPLL_DAMPING = [0]
-    // DPLL_CTRL[3].DPLL_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[3].DPLL_BW = [0]
-    func(&[
-        0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_BW+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PSL = [0]
-    func(&[
-        0xc1, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[3].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[3].DPLL_PRED0_BW = [0]
-    func(&[
-        0xc3, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PRED0_PSL = [0]
-    func(&[
-        0xc7, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[3].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[3].DPLL_PRED1_BW = [0]
-    func(&[
-        0xc9, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PRED1_PSL = [0]
-    func(&[
-        0xcd, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0xcf, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[3].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[3].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0xd4, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0xd7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_FOD_FREQ+0x7 = [0]
-    // DPLL_CTRL[3].DPLL_MASTER_DIV = [0, 0, 0]
-    func(&[
-        0xdf, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[3].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0xe3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0xe9, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0xec, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[3].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0xf1, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[3].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0xf3, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[3].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[3].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[3].DPLL_FRAME_PULSE_SYNC = [0]
-    func(&[
-        0xf5, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc700
-    func(&[
-        0xfc, 0x00, 0xc7, 0x10, 0x20,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[4].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[4].DPLL_DAMPING = [0]
-    // DPLL_CTRL[4].DPLL_DECIMATOR_BW_MULT = [4]
-    // DPLL_CTRL[4].DPLL_BW = [19]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x04, 0x19,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_BW+0x1 = [80]
-    // DPLL_CTRL[4].DPLL_PSL = [0]
-    func(&[
-        0x05, 0x80, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[4].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[4].DPLL_PRED0_BW = [0]
-    func(&[
-        0x07, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x0b, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[4].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[4].DPLL_PRED1_BW = [0]
-    func(&[
-        0x0d, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x11, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x13, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[4].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[4].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x18, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_FOD_FREQ+0x7 = [0]
-    // DPLL_CTRL[4].DPLL_MASTER_DIV = [0, 0, 0]
-    func(&[
-        0x23, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[4].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0x2d, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[4].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0x35, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[4].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0x37, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[4].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[4].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[4].DPLL_FRAME_PULSE_SYNC = [0]
-    // DPLL_CTRL[5].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[5].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[5].DPLL_DAMPING = [0]
-    // DPLL_CTRL[5].DPLL_DECIMATOR_BW_MULT = [4]
-    // DPLL_CTRL[5].DPLL_BW = [19]
-    func(&[
-        0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-        0x19,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_BW+0x1 = [80]
-    // DPLL_CTRL[5].DPLL_PSL = [0]
-    func(&[
-        0x41, 0x80, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[5].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[5].DPLL_PRED0_BW = [0]
-    func(&[
-        0x43, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x47, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[5].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[5].DPLL_PRED1_BW = [0]
-    func(&[
-        0x49, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x4d, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x4f, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[5].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[5].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x54, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_FOD_FREQ = [0, 9b, 32, 47, cd, 1d, ff]
-    func(&[
-        0x57, 0x00, 0x00, 0x9b, 0x32, 0x47, 0xcd, 0x1d,
-        0xff,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_FOD_FREQ+0x7 = [ff]
-    // DPLL_CTRL[5].DPLL_MASTER_DIV = [4, 0, 0]
-    func(&[
-        0x5f, 0xff, 0x04, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[5].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0x69, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0x6c, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[5].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0x71, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[5].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0x73, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[5].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[5].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[5].DPLL_FRAME_PULSE_SYNC = [0]
-    func(&[
-        0x75, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[6].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[6].DPLL_DAMPING = [0]
-    // DPLL_CTRL[6].DPLL_DECIMATOR_BW_MULT = [4]
-    // DPLL_CTRL[6].DPLL_BW = [19]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x04, 0x19,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_BW+0x1 = [80]
-    // DPLL_CTRL[6].DPLL_PSL = [0]
-    func(&[
-        0x85, 0x80, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[6].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[6].DPLL_PRED0_BW = [0]
-    func(&[
-        0x87, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_PRED0_PSL = [0]
-    func(&[
-        0x8b, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[6].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[6].DPLL_PRED1_BW = [0]
-    func(&[
-        0x8d, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_PRED1_PSL = [0]
-    func(&[
-        0x91, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0x93, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[6].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[6].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0x98, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_FOD_FREQ = [c0, 41, ff, 98, 40, 25, ff]
-    func(&[
-        0x9b, 0x00, 0xc0, 0x41, 0xff, 0x98, 0x40, 0x25,
-        0xff,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_FOD_FREQ+0x7 = [ff]
-    // DPLL_CTRL[6].DPLL_MASTER_DIV = [4, 0, 0]
-    func(&[
-        0xa3, 0xff, 0x04, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[6].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0xad, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[6].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0xb5, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[6].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0xb7, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[6].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[6].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[6].DPLL_FRAME_PULSE_SYNC = [0]
-    // DPLL_CTRL[7].DPLL_HS_TIE_RESET = [0]
-    // DPLL_CTRL[7].DPLL_MANU_REF_CFG = [0]
-    // DPLL_CTRL[7].DPLL_DAMPING = [0]
-    // DPLL_CTRL[7].DPLL_DECIMATOR_BW_MULT = [4]
-    // DPLL_CTRL[7].DPLL_BW = [19]
-    func(&[
-        0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-        0x19,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_BW+0x1 = [80]
-    // DPLL_CTRL[7].DPLL_PSL = [0]
-    func(&[
-        0xc1, 0x80, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PSL+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_PRED0_DAMPING = [0]
-    // DPLL_CTRL[7].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[7].DPLL_PRED0_BW = [0]
-    func(&[
-        0xc3, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PRED0_BW+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_PRED0_PSL = [0]
-    func(&[
-        0xc7, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PRED0_PSL+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_PRED1_DAMPING = [0]
-    // DPLL_CTRL[7].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // DPLL_CTRL[7].DPLL_PRED1_BW = [0]
-    func(&[
-        0xc9, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PRED1_BW+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_PRED1_PSL = [0]
-    func(&[
-        0xcd, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PRED1_PSL+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
-    func(&[
-        0xcf, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
-    // DPLL_CTRL[7].DPLL_HO_HISTORY_RESET = [0]
-    // DPLL_CTRL[7].DPLL_FINE_PHASE_ADV_CFG = [0]
-    func(&[
-        0xd4, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_FOD_FREQ = [0, 9b, 32, 47, cd, 1d, ff]
-    func(&[
-        0xd7, 0x00, 0x00, 0x9b, 0x32, 0x47, 0xcd, 0x1d,
-        0xff,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_FOD_FREQ+0x7 = [ff]
-    // DPLL_CTRL[7].DPLL_MASTER_DIV = [a, 0, 0]
-    func(&[
-        0xdf, 0xff, 0x0a, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_MASTER_DIV+0x3 = [0]
-    // DPLL_CTRL[7].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
-    func(&[
-        0xe3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
-    func(&[
-        0xe9, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
-    func(&[
-        0xec, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
-    // DPLL_CTRL[7].DPLL_DCD_FILTER_CNFG = [a1]
-    func(&[
-        0xf1, 0x00, 0xa1,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
-    // DPLL_CTRL[7].DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0xf3, 0x2a, 0x00,
-    ])?;
-
-    // DPLL_CTRL[7].DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // DPLL_CTRL[7].DPLL_COMBO_MASTER_CFG = [0]
-    // DPLL_CTRL[7].DPLL_FRAME_PULSE_SYNC = [0]
-    func(&[
-        0xf5, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc800
-    func(&[
-        0xfc, 0x00, 0xc8, 0x10, 0x20,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_MANU_REF_CFG = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_DAMPING = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_DECIMATOR_BW_MULT = [4]
-    func(&[
-        0x00, 0x00, 0x00, 0x04,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_BW = [64]
-    func(&[
-        0x04, 0x64,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_BW+0x1 = [80]
-    // SYS_DPLL_CTRL.SYS_DPLL_PSL = [0]
-    func(&[
-        0x05, 0x80, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_PSL+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_DAMPING = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_DECIMATOR_BW_MULT = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_BW = [0]
-    func(&[
-        0x07, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_BW+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_PSL = [0]
-    func(&[
-        0x0b, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED0_PSL+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_DAMPING = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_DECIMATOR_BW_MULT = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_BW = [0]
-    func(&[
-        0x0d, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_BW+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_PSL = [0]
-    func(&[
-        0x11, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_PRED1_PSL+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_BW = [0]
-    func(&[
-        0x13, 0x00, 0x00,
-    ])?;
-
-    // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_BW+0x1 = [0]
-    // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_CFG = [0]
-    func(&[
-        0x15, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[0].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x18, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[0].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[1].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x1b, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[1].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[2].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x1f, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[2].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[3].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x23, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[3].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[4].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x27, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[4].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[5].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x2b, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[5].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[6].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x2f, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[6].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_PHASE[7].DPLL_WRITE_PH = [0, 0, 0]
-    func(&[
-        0x33, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE[7].DPLL_WRITE_PH+0x3 = [0]
-    // DPLL_FREQ[0].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[0].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x3d, 0x00,
-    ])?;
-
-    // DPLL_FREQ[1].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[1].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x45, 0x00,
-    ])?;
-
-    // DPLL_FREQ[2].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x48, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[2].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x4d, 0x00,
-    ])?;
-
-    // DPLL_FREQ[3].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x50, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[3].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x55, 0x00,
-    ])?;
-
-    // DPLL_FREQ[4].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x58, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[4].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x5d, 0x00,
-    ])?;
-
-    // DPLL_FREQ[5].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x60, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[5].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x65, 0x00,
-    ])?;
-
-    // DPLL_FREQ[6].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x68, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[6].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x6d, 0x00,
-    ])?;
-
-    // DPLL_FREQ[7].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
-    func(&[
-        0x70, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_FREQ[7].DPLL_WR_FREQ+0x5 = [0]
-    func(&[
-        0x75, 0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0x8f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0x9f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0xaf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
-    // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
-    func(&[
-        0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_CTRL = [0]
-    // GPIO_CFG.GPIO_CFG_GBL = [1]
-    func(&[
-        0xbf, 0x00, 0x01,
-    ])?;
-
-    // GPIO[0].GPIO_DCO_INC_DEC = [2]
-    // GPIO[0].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[0].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[0].GPIO_TOD_TRIG = [0]
-    // GPIO[0].GPIO_DPLL_INDICATOR = [2]
-    func(&[
-        0xc2, 0x02, 0x00, 0x00, 0x00, 0x02,
-    ])?;
-
-    // GPIO[0].GPIO_LOS_INDICATOR = [0]
-    // GPIO[0].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[0].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[0].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[0].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[0].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[0].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[0].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[0].GPIO_SLAVE = [0]
-    // GPIO[0].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[0].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // GPIO[0].GPIO_CTRL = [0]
-    func(&[
-        0xd2, 0x00,
-    ])?;
-
-    // GPIO[1].GPIO_DCO_INC_DEC = [2]
-    // GPIO[1].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[1].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[1].GPIO_TOD_TRIG = [0]
-    // GPIO[1].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[1].GPIO_LOS_INDICATOR = [0]
-    // GPIO[1].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[1].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[1].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[1].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[1].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[1].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[1].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[1].GPIO_SLAVE = [0]
-    // GPIO[1].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[1].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xd4, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[1].GPIO_CTRL = [0]
-    func(&[
-        0xe4, 0x00,
-    ])?;
-
-    // GPIO[2].GPIO_DCO_INC_DEC = [2]
-    // GPIO[2].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[2].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[2].GPIO_TOD_TRIG = [0]
-    // GPIO[2].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[2].GPIO_LOS_INDICATOR = [0]
-    // GPIO[2].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[2].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[2].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[2].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[2].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[2].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[2].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[2].GPIO_SLAVE = [0]
-    // GPIO[2].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[2].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xe6, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[2].GPIO_CTRL = [0]
-    func(&[
-        0xf6, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xc900
-    func(&[
-        0xfc, 0x00, 0xc9, 0x10, 0x20,
-    ])?;
-
-    // GPIO[3].GPIO_DCO_INC_DEC = [2]
-    // GPIO[3].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[3].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[3].GPIO_TOD_TRIG = [0]
-    // GPIO[3].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[3].GPIO_LOS_INDICATOR = [0]
-    // GPIO[3].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[3].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[3].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[3].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[3].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[3].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[3].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[3].GPIO_SLAVE = [0]
-    // GPIO[3].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[3].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[3].GPIO_CTRL = [0]
-    func(&[
-        0x10, 0x00,
-    ])?;
-
-    // GPIO[4].GPIO_DCO_INC_DEC = [2]
-    // GPIO[4].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[4].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[4].GPIO_TOD_TRIG = [0]
-    // GPIO[4].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[4].GPIO_LOS_INDICATOR = [0]
-    // GPIO[4].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[4].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[4].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[4].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[4].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[4].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[4].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[4].GPIO_SLAVE = [0]
-    // GPIO[4].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[4].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x12, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[4].GPIO_CTRL = [0]
-    func(&[
-        0x22, 0x00,
-    ])?;
-
-    // GPIO[5].GPIO_DCO_INC_DEC = [2]
-    // GPIO[5].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[5].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[5].GPIO_TOD_TRIG = [0]
-    // GPIO[5].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[5].GPIO_LOS_INDICATOR = [0]
-    // GPIO[5].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[5].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[5].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[5].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[5].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[5].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[5].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[5].GPIO_SLAVE = [0]
-    // GPIO[5].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[5].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x24, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[5].GPIO_CTRL = [0]
-    func(&[
-        0x34, 0x00,
-    ])?;
-
-    // GPIO[6].GPIO_DCO_INC_DEC = [0]
-    // GPIO[6].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[6].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[6].GPIO_TOD_TRIG = [0]
-    // GPIO[6].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[6].GPIO_LOS_INDICATOR = [0]
-    // GPIO[6].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[6].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[6].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[6].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[6].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[6].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[6].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[6].GPIO_SLAVE = [0]
-    // GPIO[6].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[6].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x36, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[6].GPIO_CTRL = [0]
-    func(&[
-        0x46, 0x00,
-    ])?;
-
-    // GPIO[7].GPIO_DCO_INC_DEC = [0]
-    // GPIO[7].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[7].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[7].GPIO_TOD_TRIG = [0]
-    // GPIO[7].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[7].GPIO_LOS_INDICATOR = [0]
-    // GPIO[7].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[7].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[7].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[7].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[7].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[7].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[7].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[7].GPIO_SLAVE = [0]
-    // GPIO[7].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[7].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x48, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[7].GPIO_CTRL = [0]
-    func(&[
-        0x58, 0x00,
-    ])?;
-
-    // GPIO[8].GPIO_DCO_INC_DEC = [2]
-    // GPIO[8].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[8].GPIO_OUT_CTRL_1 = [4]
-    // GPIO[8].GPIO_TOD_TRIG = [0]
-    // GPIO[8].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[8].GPIO_LOS_INDICATOR = [0]
-    // GPIO[8].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[8].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[8].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[8].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[8].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[8].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[8].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[8].GPIO_SLAVE = [0]
-    // GPIO[8].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[8].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x5a, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[8].GPIO_CTRL = [91]
-    func(&[
-        0x6a, 0x91,
-    ])?;
-
-    // GPIO[9].GPIO_DCO_INC_DEC = [2]
-    // GPIO[9].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[9].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[9].GPIO_TOD_TRIG = [0]
-    // GPIO[9].GPIO_DPLL_INDICATOR = [2]
-    // GPIO[9].GPIO_LOS_INDICATOR = [0]
-    // GPIO[9].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[9].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[9].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[9].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[9].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[9].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[9].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[9].GPIO_SLAVE = [0]
-    // GPIO[9].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[9].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x80, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[9].GPIO_CTRL = [0]
-    func(&[
-        0x90, 0x00,
-    ])?;
-
-    // GPIO[10].GPIO_DCO_INC_DEC = [0]
-    // GPIO[10].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[10].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[10].GPIO_TOD_TRIG = [0]
-    // GPIO[10].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[10].GPIO_LOS_INDICATOR = [0]
-    // GPIO[10].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[10].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[10].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[10].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[10].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[10].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[10].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[10].GPIO_SLAVE = [0]
-    // GPIO[10].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[10].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x92, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[10].GPIO_CTRL = [0]
-    func(&[
-        0xa2, 0x00,
-    ])?;
-
-    // GPIO[11].GPIO_DCO_INC_DEC = [0]
-    // GPIO[11].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[11].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[11].GPIO_TOD_TRIG = [0]
-    // GPIO[11].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[11].GPIO_LOS_INDICATOR = [0]
-    // GPIO[11].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[11].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[11].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[11].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[11].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[11].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[11].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[11].GPIO_SLAVE = [0]
-    // GPIO[11].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[11].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xa4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[11].GPIO_CTRL = [0]
-    func(&[
-        0xb4, 0x00,
-    ])?;
-
-    // GPIO[12].GPIO_DCO_INC_DEC = [0]
-    // GPIO[12].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[12].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[12].GPIO_TOD_TRIG = [0]
-    // GPIO[12].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[12].GPIO_LOS_INDICATOR = [0]
-    // GPIO[12].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[12].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[12].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[12].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[12].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[12].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[12].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[12].GPIO_SLAVE = [0]
-    // GPIO[12].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[12].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xb6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[12].GPIO_CTRL = [0]
-    func(&[
-        0xc6, 0x00,
-    ])?;
-
-    // GPIO[13].GPIO_DCO_INC_DEC = [0]
-    // GPIO[13].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[13].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[13].GPIO_TOD_TRIG = [0]
-    // GPIO[13].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[13].GPIO_LOS_INDICATOR = [0]
-    // GPIO[13].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[13].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[13].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[13].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[13].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[13].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[13].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[13].GPIO_SLAVE = [0]
-    // GPIO[13].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[13].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xc8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[13].GPIO_CTRL = [0]
-    func(&[
-        0xd8, 0x00,
-    ])?;
-
-    // GPIO[14].GPIO_DCO_INC_DEC = [0]
-    // GPIO[14].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[14].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[14].GPIO_TOD_TRIG = [0]
-    // GPIO[14].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[14].GPIO_LOS_INDICATOR = [0]
-    // GPIO[14].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[14].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[14].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[14].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[14].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[14].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[14].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[14].GPIO_SLAVE = [0]
-    // GPIO[14].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[14].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0xda, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[14].GPIO_CTRL = [0]
-    func(&[
-        0xea, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xca00
-    func(&[
-        0xfc, 0x00, 0xca, 0x10, 0x20,
-    ])?;
-
-    // GPIO[15].GPIO_DCO_INC_DEC = [0]
-    // GPIO[15].GPIO_OUT_CTRL_0 = [0]
-    // GPIO[15].GPIO_OUT_CTRL_1 = [0]
-    // GPIO[15].GPIO_TOD_TRIG = [0]
-    // GPIO[15].GPIO_DPLL_INDICATOR = [0]
-    // GPIO[15].GPIO_LOS_INDICATOR = [0]
-    // GPIO[15].GPIO_REF_INPUT_DSQ_0 = [0]
-    // GPIO[15].GPIO_REF_INPUT_DSQ_1 = [0]
-    // GPIO[15].GPIO_REF_INPUT_DSQ_2 = [0]
-    // GPIO[15].GPIO_REF_INPUT_DSQ_3 = [0]
-    // GPIO[15].GPIO_MAN_CLK_SEL_0 = [0]
-    // GPIO[15].GPIO_MAN_CLK_SEL_1 = [0]
-    // GPIO[15].GPIO_MAN_CLK_SEL_2 = [0]
-    // GPIO[15].GPIO_SLAVE = [0]
-    // GPIO[15].GPIO_ALERT_OUT_CFG = [0]
-    // GPIO[15].GPIO_TOD_NOTIFICATION_CFG = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // GPIO[15].GPIO_CTRL = [0]
-    func(&[
-        0x10, 0x00,
-    ])?;
-
-    // OUT_DIV_MUX.OUT_DIV8_MUX = [1]
-    // OUT_DIV_MUX.OUT_DIV11_MUX = [0]
-    // OUTPUT[0].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x12, 0x01, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[0].OUT_DIV+0x3 = [0]
-    // OUTPUT[0].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x17, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[0].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[0].OUT_CTRL_0 = [0]
-    // OUTPUT[0].OUT_CTRL_1 = [0]
-    func(&[
-        0x1b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[0].OUT_PHASE_ADJ = [0, 0]
-    func(&[
-        0x20, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[0].OUT_PHASE_ADJ+0x2 = [0]
-    func(&[
-        0x22, 0x00,
-    ])?;
-
-    // OUTPUT[0].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[1].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x23, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[1].OUT_DIV+0x3 = [0]
-    // OUTPUT[1].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x27, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[1].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[1].OUT_CTRL_0 = [0]
-    // OUTPUT[1].OUT_CTRL_1 = [0]
-    func(&[
-        0x2b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[1].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x30, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[1].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[2].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x33, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[2].OUT_DIV+0x3 = [0]
-    // OUTPUT[2].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x37, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[2].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[2].OUT_CTRL_0 = [0]
-    // OUTPUT[2].OUT_CTRL_1 = [0]
-    func(&[
-        0x3b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[2].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x40, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[2].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[3].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x43, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[3].OUT_DIV+0x3 = [0]
-    // OUTPUT[3].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x47, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[3].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[3].OUT_CTRL_0 = [0]
-    // OUTPUT[3].OUT_CTRL_1 = [0]
-    func(&[
-        0x4b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[3].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x50, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[3].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[4].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x53, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[4].OUT_DIV+0x3 = [0]
-    // OUTPUT[4].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x57, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[4].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[4].OUT_CTRL_0 = [0]
-    // OUTPUT[4].OUT_CTRL_1 = [0]
-    func(&[
-        0x5b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[4].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x60, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[4].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[5].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x63, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[5].OUT_DIV+0x3 = [0]
-    // OUTPUT[5].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x67, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[5].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[5].OUT_CTRL_0 = [0]
-    // OUTPUT[5].OUT_CTRL_1 = [0]
-    func(&[
-        0x6b, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[5].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x70, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[5].OUT_PHASE_ADJ+0x3 = [0]
-    func(&[
-        0x73, 0x00,
-    ])?;
-
-    // OUTPUT[6].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[6].OUT_DIV+0x3 = [0]
-    // OUTPUT[6].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x83, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[6].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[6].OUT_CTRL_0 = [0]
-    // OUTPUT[6].OUT_CTRL_1 = [0]
-    func(&[
-        0x87, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[6].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x8c, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[6].OUT_PHASE_ADJ+0x3 = [0]
-    func(&[
-        0x8f, 0x00,
-    ])?;
-
-    // OUTPUT[7].OUT_DIV = [0, 0, 0]
-    func(&[
-        0x90, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[7].OUT_DIV+0x3 = [0]
-    // OUTPUT[7].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0x93, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[7].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[7].OUT_CTRL_0 = [0]
-    // OUTPUT[7].OUT_CTRL_1 = [0]
-    func(&[
-        0x97, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[7].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0x9c, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[7].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[8].OUT_DIV = [4, 0]
-    func(&[
-        0x9f, 0x00, 0x04, 0x00,
-    ])?;
-
-    // OUTPUT[8].OUT_DIV+0x2 = [0]
-    func(&[
-        0xa2, 0x00,
-    ])?;
-
-    // OUTPUT[8].OUT_DIV+0x3 = [0]
-    // OUTPUT[8].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0xa3, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[8].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[8].OUT_CTRL_0 = [41]
-    // OUTPUT[8].OUT_CTRL_1 = [24]
-    func(&[
-        0xa7, 0x00, 0x41, 0x24,
-    ])?;
-
-    // OUTPUT[8].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0xac, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[8].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[9].OUT_DIV = [4, 0, 0]
-    func(&[
-        0xaf, 0x00, 0x04, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[9].OUT_DIV+0x3 = [0]
-    func(&[
-        0xb3, 0x00,
-    ])?;
-
-    // OUTPUT[9].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0xb4, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[9].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[9].OUT_CTRL_0 = [41]
-    // OUTPUT[9].OUT_CTRL_1 = [24]
-    func(&[
-        0xb7, 0x00, 0x41, 0x24,
-    ])?;
-
-    // OUTPUT[9].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0xbc, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[9].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[10].OUT_DIV = [4, 0, 0]
-    func(&[
-        0xbf, 0x00, 0x04, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[10].OUT_DIV+0x3 = [0]
-    // OUTPUT[10].OUT_DUTY_CYCLE_HIGH = [0, 0]
-    func(&[
-        0xc3, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x2 = [0]
-    func(&[
-        0xc6, 0x00,
-    ])?;
-
-    // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    // OUTPUT[10].OUT_CTRL_0 = [11]
-    // OUTPUT[10].OUT_CTRL_1 = [24]
-    func(&[
-        0xc7, 0x00, 0x11, 0x24,
-    ])?;
-
-    // OUTPUT[10].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0xcc, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[10].OUT_PHASE_ADJ+0x3 = [0]
-    // OUTPUT[11].OUT_DIV = [a, 0, 0]
-    func(&[
-        0xcf, 0x00, 0x0a, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[11].OUT_DIV+0x3 = [0]
-    // OUTPUT[11].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-    func(&[
-        0xd3, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[11].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-    func(&[
-        0xd7, 0x00,
-    ])?;
-
-    // OUTPUT[11].OUT_CTRL_0 = [2]
-    // OUTPUT[11].OUT_CTRL_1 = [24]
-    func(&[
-        0xd8, 0x02, 0x24,
-    ])?;
-
-    // OUTPUT[11].OUT_PHASE_ADJ = [0, 0, 0]
-    func(&[
-        0xdc, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT[11].OUT_PHASE_ADJ+0x3 = [0]
-    // SERIAL.I2CM = [0]
-    func(&[
-        0xdf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00,
-    ])?;
-
-    // SERIAL.SER_APPLY_CONFIG = [0]
-    func(&[
-        0xe8, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xcb00
-    func(&[
-        0xfc, 0x00, 0xcb, 0x10, 0x20,
-    ])?;
-
-    // PWM_ENCODER[0].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[0].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[0].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x04, 0x00,
-    ])?;
-
-    // PWM_ENCODER[1].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[1].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x08, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[1].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x0c, 0x00,
-    ])?;
-
-    // PWM_ENCODER[2].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[2].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x10, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[2].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x14, 0x00,
-    ])?;
-
-    // PWM_ENCODER[3].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[3].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x18, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[3].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x1c, 0x00,
-    ])?;
-
-    // PWM_ENCODER[4].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[4].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x20, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[4].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x24, 0x00,
-    ])?;
-
-    // PWM_ENCODER[5].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[5].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x28, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[5].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x2c, 0x00,
-    ])?;
-
-    // PWM_ENCODER[6].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[6].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x30, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[6].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x34, 0x00,
-    ])?;
-
-    // PWM_ENCODER[7].PWM_ENCODER_ID = [0]
-    // PWM_ENCODER[7].PWM_ENCODER_CNFG = [0]
-    // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_0 = [0]
-    // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_1 = [0]
-    func(&[
-        0x38, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_ENCODER[7].PWM_ENCODER_CMD = [0]
-    func(&[
-        0x3c, 0x00,
-    ])?;
-
-    // PWM_DECODER[0].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[0].PWM_DECODER_CMD = [0]
-    func(&[
-        0x45, 0x00,
-    ])?;
-
-    // PWM_DECODER[1].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x48, 0x00,
-    ])?;
-
-    // Unknown write to 0xcb49
-    func(&[
-        0x49, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[1].PWM_DECODER_CMD = [0]
-    func(&[
-        0x4d, 0x00,
-    ])?;
-
-    // PWM_DECODER[2].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x50, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[2].PWM_DECODER_SIGNATURE_0 = [0]
-    // PWM_DECODER[2].PWM_DECODER_SIGNATURE_1 = [0]
-    func(&[
-        0x53, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[2].PWM_DECODER_CMD = [0]
-    func(&[
-        0x55, 0x00,
-    ])?;
-
-    // PWM_DECODER[3].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x58, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[3].PWM_DECODER_CMD = [0]
-    func(&[
-        0x5d, 0x00,
-    ])?;
-
-    // PWM_DECODER[4].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x60, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[4].PWM_DECODER_CMD = [0]
-    func(&[
-        0x65, 0x00,
-    ])?;
-
-    // PWM_DECODER[5].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x68, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[5].PWM_DECODER_CMD = [0]
-    func(&[
-        0x6d, 0x00,
-    ])?;
-
-    // PWM_DECODER[6].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x70, 0x00,
-    ])?;
-
-    // Unknown write to 0xcb71
-    func(&[
-        0x71, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[6].PWM_DECODER_CMD = [0]
-    func(&[
-        0x75, 0x00,
-    ])?;
-
-    // PWM_DECODER[7].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[7].PWM_DECODER_CMD = [0]
-    func(&[
-        0x85, 0x00,
-    ])?;
-
-    // PWM_DECODER[8].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x88, 0x00,
-    ])?;
-
-    // Unknown write to 0xcb89
-    func(&[
-        0x89, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[8].PWM_DECODER_CMD = [0]
-    func(&[
-        0x8d, 0x00,
-    ])?;
-
-    // PWM_DECODER[9].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x90, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[9].PWM_DECODER_SIGNATURE_0 = [0]
-    // PWM_DECODER[9].PWM_DECODER_SIGNATURE_1 = [0]
-    func(&[
-        0x93, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[9].PWM_DECODER_CMD = [0]
-    func(&[
-        0x95, 0x00,
-    ])?;
-
-    // PWM_DECODER[10].PWM_DECODER_CNFG = [0]
-    func(&[
-        0x98, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[10].PWM_DECODER_CMD = [0]
-    func(&[
-        0x9d, 0x00,
-    ])?;
-
-    // PWM_DECODER[11].PWM_DECODER_CNFG = [0]
-    func(&[
-        0xa0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[11].PWM_DECODER_CMD = [0]
-    func(&[
-        0xa5, 0x00,
-    ])?;
-
-    // PWM_DECODER[12].PWM_DECODER_CNFG = [0]
-    func(&[
-        0xa8, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[12].PWM_DECODER_CMD = [0]
-    func(&[
-        0xad, 0x00,
-    ])?;
-
-    // PWM_DECODER[13].PWM_DECODER_CNFG = [0]
-    func(&[
-        0xb0, 0x00,
-    ])?;
-
-    // Unknown write to 0xcbb1
-    func(&[
-        0xb1, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[13].PWM_DECODER_CMD = [0]
-    func(&[
-        0xb5, 0x00,
-    ])?;
-
-    // PWM_DECODER[14].PWM_DECODER_CNFG = [0]
-    func(&[
-        0xb8, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[14].PWM_DECODER_SIGNATURE_0 = [0]
-    // PWM_DECODER[14].PWM_DECODER_SIGNATURE_1 = [0]
-    func(&[
-        0xbb, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[14].PWM_DECODER_CMD = [0]
-    func(&[
-        0xbd, 0x00,
-    ])?;
-
-    // PWM_DECODER[15].PWM_DECODER_CNFG = [0]
-    func(&[
-        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_DECODER[15].PWM_DECODER_CMD = [0]
-    func(&[
-        0xc5, 0x00,
-    ])?;
-
-    // PWM_USER_DATA.PWM_SRC_ENCODER_ID = [0]
-    // PWM_USER_DATA.PWM_DST_DECODER_ID = [0]
-    // PWM_USER_DATA.PWM_USER_DATA_SIZE = [0]
-    func(&[
-        0xc8, 0x00, 0x00, 0x00,
-    ])?;
-
-    // PWM_USER_DATA.PWM_USER_DATA_CMD_STS = [0]
-    // TOD[0].TOD_CFG = [0]
-    func(&[
-        0xcb, 0x00, 0x00,
-    ])?;
-
-    // TOD[1].TOD_CFG = [0]
-    func(&[
-        0xce, 0x00,
-    ])?;
-
-    // TOD[2].TOD_CFG = [0]
-    func(&[
-        0xd0, 0x00,
-    ])?;
-
-    // TOD[3].TOD_CFG = [0]
-    func(&[
-        0xd2, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xcc00
-    func(&[
-        0xfc, 0x00, 0xcc, 0x10, 0x20,
-    ])?;
-
-    // TOD_WRITE[0].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_WRITE[0].TOD_WRITE_CMD = [0]
-    // TOD_WRITE[1].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // TOD_WRITE[1].TOD_WRITE_CMD = [0]
-    // TOD_WRITE[2].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // TOD_WRITE[2].TOD_WRITE_CMD = [0]
-    // TOD_WRITE[3].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    func(&[
-        0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00,
-    ])?;
-
-    // TOD_WRITE[3].TOD_WRITE_CMD = [0]
-    // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_COUNTER = [0]
-    // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
-    // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-    func(&[
-        0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_CMD = [0]
-    func(&[
-        0x4e, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_COUNTER = [0]
-    // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
-    // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-    func(&[
-        0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_CMD = [0]
-    func(&[
-        0x5e, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_COUNTER = [0]
-    // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
-    // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-    func(&[
-        0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_CMD = [0]
-    func(&[
-        0x6e, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_COUNTER = [0]
-    // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
-    // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-    func(&[
-        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_CMD = [0]
-    func(&[
-        0x8e, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_COUNTER = [0]
-    // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
-    // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-    func(&[
-        0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_CMD = [0]
-    func(&[
-        0x9e, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_COUNTER = [0]
-    // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
-    // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-    func(&[
-        0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_CMD = [0]
-    func(&[
-        0xae, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_COUNTER = [0]
-    // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
-    // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-    func(&[
-        0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_CMD = [0]
-    func(&[
-        0xbe, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_COUNTER = [0]
-    // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
-    // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-    func(&[
-        0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_CMD = [0]
-    func(&[
-        0xce, 0x00,
-    ])?;
-
-    // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_0 = [0, 0]
-    // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_1 = [0, 0]
-    func(&[
-        0xd0, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_2 = [0]
-    func(&[
-        0xd4, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xcd00
-    func(&[
-        0xfc, 0x00, 0xcd, 0x10, 0x20,
-    ])?;
-
-    // Unknown write to 0xcd00
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-    ])?;
-
-    // Unknown write to 0xcd06
-    func(&[
-        0x06, 0x00,
-    ])?;
-
-    // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_0 = [0, 0]
-    // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_1 = [0, 0]
-    // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_2 = [0]
-    // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_3 = [22]
-    func(&[
-        0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-    ])?;
-
-    // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_4 = [0]
-    func(&[
-        0x0e, 0x00,
-    ])?;
-
-    // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_0 = [0, 0]
-    // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_1 = [0, 0]
-    // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_2 = [0]
-    // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_3 = [22]
-    func(&[
-        0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-    ])?;
-
-    // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_4 = [0]
-    func(&[
-        0x16, 0x00,
-    ])?;
-
-    // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_0 = [0, 0]
-    // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_1 = [0, 0]
-    // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_2 = [0]
-    // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_3 = [22]
-    func(&[
-        0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-    ])?;
-
-    // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_4 = [0]
-    func(&[
-        0x1e, 0x00,
-    ])?;
-
-    // INPUT_TDC.INPUT_TDC_SDM_FRAC = [0, 0]
-    // INPUT_TDC.INPUT_TDC_SDM_MOD = [0, 0]
-    // INPUT_TDC.INPUT_TDC_FBD_CTRL = [0]
-    func(&[
-        0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // INPUT_TDC.INPUT_TDC_CTRL = [0]
-    func(&[
-        0x25, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd80
-    func(&[
-        0x80, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd82
-    func(&[
-        0x82, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd84
-    func(&[
-        0x84, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd86
-    func(&[
-        0x86, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd88
-    func(&[
-        0x88, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd8a
-    func(&[
-        0x8a, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd8c
-    func(&[
-        0x8c, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd8e
-    func(&[
-        0x8e, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd90
-    func(&[
-        0x90, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd92
-    func(&[
-        0x92, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd94
-    func(&[
-        0x94, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd96
-    func(&[
-        0x96, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd98
-    func(&[
-        0x98, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd9a
-    func(&[
-        0x9a, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd9c
-    func(&[
-        0x9c, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xcd9e
-    func(&[
-        0x9e, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xce00
-    func(&[
-        0xfc, 0x00, 0xce, 0x10, 0x20,
-    ])?;
-
-    // Unknown write to 0xce00
-    func(&[
-        0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce04
-    func(&[
-        0x04, 0x00,
-    ])?;
-
-    // Unknown write to 0xce06
-    func(&[
-        0x06, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce0a
-    func(&[
-        0x0a, 0x00,
-    ])?;
-
-    // Unknown write to 0xce0c
-    func(&[
-        0x0c, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce10
-    func(&[
-        0x10, 0x00,
-    ])?;
-
-    // Unknown write to 0xce12
-    func(&[
-        0x12, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce14
-    func(&[
-        0x14, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce16
-    func(&[
-        0x16, 0x00,
-    ])?;
-
-    // Unknown write to 0xce18
-    func(&[
-        0x18, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce1c
-    func(&[
-        0x1c, 0x00,
-    ])?;
-
-    // Unknown write to 0xce1e
-    func(&[
-        0x1e, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce22
-    func(&[
-        0x22, 0x00,
-    ])?;
-
-    // Unknown write to 0xce24
-    func(&[
-        0x24, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce28
-    func(&[
-        0x28, 0x00,
-    ])?;
-
-    // Unknown write to 0xce2a
-    func(&[
-        0x2a, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce2c
-    func(&[
-        0x2c, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce2e
-    func(&[
-        0x2e, 0x00,
-    ])?;
-
-    // Unknown write to 0xce30
-    func(&[
-        0x30, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce34
-    func(&[
-        0x34, 0x00,
-    ])?;
-
-    // Unknown write to 0xce36
-    func(&[
-        0x36, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce3a
-    func(&[
-        0x3a, 0x00,
-    ])?;
-
-    // Unknown write to 0xce3c
-    func(&[
-        0x3c, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce40
-    func(&[
-        0x40, 0x00,
-    ])?;
-
-    // Unknown write to 0xce42
-    func(&[
-        0x42, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce44
-    func(&[
-        0x44, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce46
-    func(&[
-        0x46, 0x00,
-    ])?;
-
-    // Unknown write to 0xce48
-    func(&[
-        0x48, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce4c
-    func(&[
-        0x4c, 0x00,
-    ])?;
-
-    // Unknown write to 0xce4e
-    func(&[
-        0x4e, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce52
-    func(&[
-        0x52, 0x00,
-    ])?;
-
-    // Unknown write to 0xce54
-    func(&[
-        0x54, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce58
-    func(&[
-        0x58, 0x00,
-    ])?;
-
-    // Unknown write to 0xce5a
-    func(&[
-        0x5a, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // Unknown write to 0xce5e
-    func(&[
-        0x5e, 0x00,
-    ])?;
-
-    // PAGE_ADDR = 0xcf00
-    func(&[
-        0xfc, 0x00, 0xcf, 0x10, 0x20,
-    ])?;
-
-    // Unknown write to 0xcf40
-    func(&[
-        0x40, 0x05, 0x35, 0x64, 0x00, 0x77, 0x00, 0x30,
-        0x60, 0x01, 0x35,
-    ])?;
-
-    // Unknown write to 0xcf4a
-    func(&[
-        0x4a, 0x05, 0x35, 0x64, 0x00,
-    ])?;
-
-    // Unknown write to 0xcf4e
-    func(&[
-        0x4e, 0x77,
-    ])?;
-
-    // SCRATCH.SCRATCH0 = [0, 0, 0, 0]
-    // SCRATCH.SCRATCH1 = [0, 0, 0, 0]
-    // SCRATCH.SCRATCH2 = [a, 0, 1]
-    func(&[
-        0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x0a, 0x00, 0x01,
-    ])?;
-
-    // SCRATCH.SCRATCH2+0x3 = [0]
-    // SCRATCH.SCRATCH3 = [0, 0, 0]
-    func(&[
-        0x5b, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // SCRATCH.SCRATCH3+0x3 = [0]
-    func(&[
-        0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x01,
-    ])?;
-
-    // Unknown write to 0xcf67
-    func(&[
-        0x67, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ])?;
-
-    // EEPROM.EEPROM_CMD+0x1 = [0]
-    func(&[
-        0x6d, 0x00,
-    ])?;
+    const PAYLOAD: &[&[u8]] = &[
+        // PAGE_ADDR = 0xc000
+        &[
+            0xfc, 0x00, 0xc0, 0x10, 0x20,
+        ],
+
+        // PAGE_ADDR = 0x8100
+        &[
+            0xfc, 0x00, 0x81, 0x10, 0x20,
+        ],
+
+        // PAGE_ADDR = 0xc100
+        &[
+            0xfc, 0x00, 0xc1, 0x10, 0x20,
+        ],
+
+        // GPIO_USER_CONTROL.GPIO_USER_CONTROL_GPIO0_TO_7_OUT = [0]
+        // GPIO_USER_CONTROL.GPIO_USER_CONTROL_GPIO8_TO_15_OUT = [0]
+        &[
+            0x60, 0x00, 0x00,
+        ],
+
+        // STICKY_STATUS_CLEAR.IN0_TO_7_MON_STICKY_STATUS_CLEAR = [0]
+        // STICKY_STATUS_CLEAR.IN8_TO_15_MON_STICKY_STATUS_CLEAR = [0]
+        // STICKY_STATUS_CLEAR.DPLL_STICKY_STATUS_CLEAR = [0]
+        // STICKY_STATUS_CLEAR.DPLL_SYS_STICKY_STATUS_CLEAR = [0]
+        // STICKY_STATUS_CLEAR.SYS_APLL_STICKY_STATUS_CLEAR = [0]
+        // STICKY_STATUS_CLEAR.ALL_STICKY_STATUS_CLEAR = [0]
+        &[
+            0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // GPIO_TOD_NOTIFICATION_CLEAR.GPIO0_TO_7_CLEAR = [0]
+        // GPIO_TOD_NOTIFICATION_CLEAR.GPIO8_TO_15_CLEAR = [0]
+        &[
+            0x6c, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xc170
+        &[
+            0x70, 0x00,
+        ],
+
+        // Unknown write to 0xc171
+        &[
+            0x71, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xc180
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00,
+        ],
+
+        // ALERT_CFG.SYS_ALERT_MASK = [0]
+        &[
+            0x92, 0x00,
+        ],
+
+        // SYS_DPLL_XO.XO_FREQ = [80, 96, 98, 0, 0, 0, 0]
+        &[
+            0x94, 0x80, 0x96, 0x98, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_XO.XO_FREQ+0x7 = [0]
+        // SYS_APLL.SYS_APLL_CP_SS_CURRENT_1 = [0]
+        // SYS_APLL.SYS_APLL_CP_SS_CURRENT_2 = [0]
+        // SYS_APLL.SYS_APLL_CFG_1 = [0]
+        // SYS_APLL.SYS_APLL_CFG_2 = [0]
+        // SYS_APLL.SYS_APLL_VREG_CTRL = [0]
+        // SYS_APLL.SYS_APLL_CP_CTRL_0 = [0]
+        // SYS_APLL.SYS_APLL_CP_CTRL_1 = [0]
+        // SYS_APLL.SYS_APLL_CP_CTRL_2 = [0]
+        // SYS_APLL.SYS_APLL_XTAL_FREQ = [0, 0, 12, fd, ed, 2, ff, ff]
+        // SYS_APLL.SYS_APLL_CTRL = [89]
+        &[
+            0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x12, 0xfd, 0xed, 0x02,
+            0xff, 0xff, 0x89,
+        ],
+
+        // SYS_APLL.SYS_APLL_CTRL+0x1 = [40]
+        &[
+            0xad, 0x40,
+        ],
+
+        // INPUT[0].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[0].IN_DIV = [0, 0]
+        // INPUT[0].IN_PHASE = [0, 0]
+        // INPUT[0].IN_SYNC = [0]
+        &[
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // INPUT[0].IN_MODE = [0]
+        &[
+            0xbd, 0x00,
+        ],
+
+        // INPUT[1].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[1].IN_DIV = [0, 0]
+        // INPUT[1].IN_PHASE = [0, 0]
+        // INPUT[1].IN_SYNC = [1]
+        &[
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        ],
+
+        // INPUT[1].IN_MODE = [0]
+        &[
+            0xcd, 0x00,
+        ],
+
+        // INPUT[2].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[2].IN_DIV = [0, 0]
+        // INPUT[2].IN_PHASE = [0, 0]
+        // INPUT[2].IN_SYNC = [2]
+        &[
+            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+        ],
+
+        // INPUT[2].IN_MODE = [0]
+        &[
+            0xdd, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc200
+        &[
+            0xfc, 0x00, 0xc2, 0x10, 0x20,
+        ],
+
+        // INPUT[3].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[3].IN_DIV = [0, 0]
+        // INPUT[3].IN_PHASE = [0, 0]
+        // INPUT[3].IN_SYNC = [3]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+        ],
+
+        // INPUT[3].IN_MODE = [0]
+        &[
+            0x0d, 0x00,
+        ],
+
+        // INPUT[4].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[4].IN_DIV = [0, 0]
+        // INPUT[4].IN_PHASE = [0, 0]
+        // INPUT[4].IN_SYNC = [4]
+        &[
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+        ],
+
+        // INPUT[4].IN_MODE = [0]
+        &[
+            0x1d, 0x00,
+        ],
+
+        // INPUT[5].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[5].IN_DIV = [0, 0]
+        // INPUT[5].IN_PHASE = [0, 0]
+        // INPUT[5].IN_SYNC = [5]
+        &[
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x05,
+        ],
+
+        // INPUT[5].IN_MODE = [0]
+        &[
+            0x2d, 0x00,
+        ],
+
+        // INPUT[6].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[6].IN_DIV = [0, 0]
+        // INPUT[6].IN_PHASE = [0, 0]
+        // INPUT[6].IN_SYNC = [6]
+        &[
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x06,
+        ],
+
+        // INPUT[6].IN_MODE = [0]
+        &[
+            0x3d, 0x00,
+        ],
+
+        // INPUT[7].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[7].IN_DIV = [0, 0]
+        // INPUT[7].IN_PHASE = [0, 0]
+        // INPUT[7].IN_SYNC = [7]
+        &[
+            0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x07,
+        ],
+
+        // INPUT[7].IN_MODE = [20]
+        &[
+            0x4d, 0x20,
+        ],
+
+        // INPUT[8].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[8].IN_DIV = [0, 0]
+        // INPUT[8].IN_PHASE = [0, 0]
+        // INPUT[8].IN_SYNC = [8]
+        &[
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+        ],
+
+        // INPUT[8].IN_MODE = [0]
+        &[
+            0x5d, 0x00,
+        ],
+
+        // INPUT[9].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[9].IN_DIV = [0, 0]
+        // INPUT[9].IN_PHASE = [0, 0]
+        // INPUT[9].IN_SYNC = [9]
+        &[
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
+        ],
+
+        // INPUT[9].IN_MODE = [0]
+        &[
+            0x6d, 0x00,
+        ],
+
+        // INPUT[10].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[10].IN_DIV = [0, 0]
+        // INPUT[10].IN_PHASE = [0, 0]
+        // INPUT[10].IN_SYNC = [a]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a,
+        ],
+
+        // INPUT[10].IN_MODE = [0]
+        &[
+            0x8d, 0x00,
+        ],
+
+        // INPUT[11].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[11].IN_DIV = [0, 0]
+        // INPUT[11].IN_PHASE = [0, 0]
+        // INPUT[11].IN_SYNC = [b]
+        &[
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0b,
+        ],
+
+        // INPUT[11].IN_MODE = [0]
+        &[
+            0x9d, 0x00,
+        ],
+
+        // INPUT[12].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[12].IN_DIV = [0, 0]
+        // INPUT[12].IN_PHASE = [0, 0]
+        // INPUT[12].IN_SYNC = [c]
+        &[
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0c,
+        ],
+
+        // INPUT[12].IN_MODE = [0]
+        &[
+            0xad, 0x00,
+        ],
+
+        // INPUT[13].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[13].IN_DIV = [0, 0]
+        // INPUT[13].IN_PHASE = [0, 0]
+        // INPUT[13].IN_SYNC = [d]
+        &[
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0d,
+        ],
+
+        // INPUT[13].IN_MODE = [0]
+        &[
+            0xbd, 0x00,
+        ],
+
+        // INPUT[14].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[14].IN_DIV = [0, 0]
+        // INPUT[14].IN_PHASE = [0, 0]
+        // INPUT[14].IN_SYNC = [e]
+        &[
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0e,
+        ],
+
+        // INPUT[14].IN_MODE = [0]
+        &[
+            0xcd, 0x00,
+        ],
+
+        // INPUT[15].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
+        // INPUT[15].IN_DIV = [0, 0]
+        // INPUT[15].IN_PHASE = [0, 0]
+        // INPUT[15].IN_SYNC = [f]
+        &[
+            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0f,
+        ],
+
+        // INPUT[15].IN_MODE = [40]
+        &[
+            0xdd, 0x40,
+        ],
+
+        // REF_MON[0].IN_MON_FREQ_CFG = [0]
+        // REF_MON[0].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[0].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[0].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[0].IN_MON_ACT_CFG = [0]
+        &[
+            0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[0].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[0].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0xe8, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[0].IN_MON_CFG = [0]
+        // REF_MON[1].IN_MON_FREQ_CFG = [0]
+        // REF_MON[1].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[1].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[1].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[1].IN_MON_ACT_CFG = [0]
+        &[
+            0xeb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[1].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[1].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0xf4, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[1].IN_MON_CFG = [0]
+        &[
+            0xf7, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc300
+        &[
+            0xfc, 0x00, 0xc3, 0x10, 0x20,
+        ],
+
+        // REF_MON[2].IN_MON_FREQ_CFG = [0]
+        // REF_MON[2].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[2].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[2].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[2].IN_MON_ACT_CFG = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[2].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[2].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x08, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[2].IN_MON_CFG = [0]
+        // REF_MON[3].IN_MON_FREQ_CFG = [0]
+        // REF_MON[3].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[3].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[3].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[3].IN_MON_ACT_CFG = [0]
+        &[
+            0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[3].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[3].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x14, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[3].IN_MON_CFG = [0]
+        // REF_MON[4].IN_MON_FREQ_CFG = [0]
+        // REF_MON[4].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[4].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[4].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[4].IN_MON_ACT_CFG = [0]
+        &[
+            0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[4].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[4].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x20, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[4].IN_MON_CFG = [0]
+        // REF_MON[5].IN_MON_FREQ_CFG = [0]
+        // REF_MON[5].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[5].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[5].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[5].IN_MON_ACT_CFG = [0]
+        &[
+            0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[5].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[5].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x2c, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[5].IN_MON_CFG = [0]
+        // REF_MON[6].IN_MON_FREQ_CFG = [0]
+        // REF_MON[6].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[6].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[6].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[6].IN_MON_ACT_CFG = [0]
+        &[
+            0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[6].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[6].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x38, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[6].IN_MON_CFG = [0]
+        // REF_MON[7].IN_MON_FREQ_CFG = [0]
+        // REF_MON[7].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[7].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[7].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        &[
+            0x3b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[7].IN_MON_ACT_CFG = [0]
+        &[
+            0x42, 0x00,
+        ],
+
+        // REF_MON[7].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[7].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x44, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[7].IN_MON_CFG = [0]
+        // REF_MON[8].IN_MON_FREQ_CFG = [0]
+        // REF_MON[8].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[8].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[8].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[8].IN_MON_ACT_CFG = [0]
+        &[
+            0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[8].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[8].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x50, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[8].IN_MON_CFG = [0]
+        // REF_MON[9].IN_MON_FREQ_CFG = [0]
+        // REF_MON[9].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[9].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[9].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[9].IN_MON_ACT_CFG = [0]
+        &[
+            0x53, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[9].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[9].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x5c, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[9].IN_MON_CFG = [0]
+        // REF_MON[10].IN_MON_FREQ_CFG = [0]
+        // REF_MON[10].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[10].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[10].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[10].IN_MON_ACT_CFG = [0]
+        &[
+            0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[10].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[10].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x68, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[10].IN_MON_CFG = [0]
+        // REF_MON[11].IN_MON_FREQ_CFG = [0]
+        // REF_MON[11].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[11].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[11].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[11].IN_MON_ACT_CFG = [0]
+        &[
+            0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[11].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[11].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x74, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[11].IN_MON_CFG = [0]
+        &[
+            0x77, 0x00,
+        ],
+
+        // REF_MON[12].IN_MON_FREQ_CFG = [0]
+        // REF_MON[12].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[12].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[12].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[12].IN_MON_ACT_CFG = [0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[12].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[12].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x88, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[12].IN_MON_CFG = [0]
+        // REF_MON[13].IN_MON_FREQ_CFG = [0]
+        // REF_MON[13].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[13].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[13].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[13].IN_MON_ACT_CFG = [0]
+        &[
+            0x8b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[13].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[13].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0x94, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[13].IN_MON_CFG = [0]
+        // REF_MON[14].IN_MON_FREQ_CFG = [0]
+        // REF_MON[14].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[14].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[14].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[14].IN_MON_ACT_CFG = [0]
+        &[
+            0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[14].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[14].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0xa0, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[14].IN_MON_CFG = [0]
+        // REF_MON[15].IN_MON_FREQ_CFG = [0]
+        // REF_MON[15].IN_MON_FREQ_VLD_INTV = [0]
+        // REF_MON[15].IN_MON_FREQ_TRANS_THRESHOLD = [0, 0]
+        // REF_MON[15].IN_MON_FREQ_TRANS_PERIOD = [0, 0]
+        // REF_MON[15].IN_MON_ACT_CFG = [0]
+        &[
+            0xa3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // REF_MON[15].IN_MON_ACT_LOS_TOLERANCE = [0, 0]
+        // REF_MON[15].IN_MON_ACT_LOS_CFG = [0]
+        &[
+            0xac, 0x00, 0x00, 0x00,
+        ],
+
+        // REF_MON[15].IN_MON_CFG = [0]
+        // DPLL[0].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[0].DPLL_CTRL_0 = [0]
+        // DPLL[0].DPLL_CTRL_1 = [0]
+        // DPLL[0].DPLL_CTRL_2 = [0]
+        // DPLL[0].DPLL_UPDATE_RATE_CFG = [0]
+        &[
+            0xaf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[0].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[0].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[0].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[0].DPLL_HO_CFG = [0]
+        // DPLL[0].DPLL_LOCK_0 = [0]
+        // DPLL[0].DPLL_LOCK_1 = [0]
+        // DPLL[0].DPLL_LOCK_2 = [0]
+        // DPLL[0].DPLL_LOCK_3 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[0].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[0].DPLL_TRANS_CTRL = [0]
+        // DPLL[0].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[0].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[0].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[0].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0xb6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xc3db
+        &[
+            0xdb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x08, 0x08, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[0].DPLL_MODE = [30]
+        &[
+            0xe7, 0x30,
+        ],
+
+        // PAGE_ADDR = 0xc400
+        &[
+            0xfc, 0x00, 0xc4, 0x10, 0x20,
+        ],
+
+        // DPLL[1].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[1].DPLL_CTRL_0 = [0]
+        // DPLL[1].DPLL_CTRL_1 = [0]
+        // DPLL[1].DPLL_CTRL_2 = [0]
+        // DPLL[1].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[1].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[1].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[1].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[1].DPLL_HO_CFG = [0]
+        // DPLL[1].DPLL_LOCK_0 = [0]
+        // DPLL[1].DPLL_LOCK_1 = [0]
+        // DPLL[1].DPLL_LOCK_2 = [0]
+        // DPLL[1].DPLL_LOCK_3 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[1].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[1].DPLL_TRANS_CTRL = [0]
+        // DPLL[1].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[1].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[1].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[1].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[1].DPLL_MODE = [30]
+        // DPLL[2].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[2].DPLL_CTRL_0 = [0]
+        // DPLL[2].DPLL_CTRL_1 = [8]
+        // DPLL[2].DPLL_CTRL_2 = [0]
+        // DPLL[2].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[2].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[2].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[2].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[2].DPLL_HO_CFG = [0]
+        // DPLL[2].DPLL_LOCK_0 = [0]
+        // DPLL[2].DPLL_LOCK_1 = [0]
+        // DPLL[2].DPLL_LOCK_2 = [0]
+        // DPLL[2].DPLL_LOCK_3 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[2].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[2].DPLL_TRANS_CTRL = [0]
+        // DPLL[2].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[2].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[2].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[2].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x37, 0x30, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL[2].DPLL_MODE = [0]
+        &[
+            0x6f, 0x00,
+        ],
+
+        // DPLL[3].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[3].DPLL_CTRL_0 = [0]
+        // DPLL[3].DPLL_CTRL_1 = [0]
+        // DPLL[3].DPLL_CTRL_2 = [0]
+        // DPLL[3].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[3].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[3].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[3].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[3].DPLL_HO_CFG = [0]
+        // DPLL[3].DPLL_LOCK_0 = [0]
+        // DPLL[3].DPLL_LOCK_1 = [0]
+        // DPLL[3].DPLL_LOCK_2 = [0]
+        // DPLL[3].DPLL_LOCK_3 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[3].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[3].DPLL_TRANS_CTRL = [0]
+        // DPLL[3].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[3].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[3].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[3].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[3].DPLL_MODE = [30]
+        // DPLL[4].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[4].DPLL_CTRL_0 = [0]
+        // DPLL[4].DPLL_CTRL_1 = [4]
+        // DPLL[4].DPLL_CTRL_2 = [0]
+        // DPLL[4].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[4].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[4].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[4].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[4].DPLL_HO_CFG = [0]
+        // DPLL[4].DPLL_LOCK_0 = [a]
+        // DPLL[4].DPLL_LOCK_1 = [1]
+        // DPLL[4].DPLL_LOCK_2 = [0]
+        // DPLL[4].DPLL_LOCK_3 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[4].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[4].DPLL_TRANS_CTRL = [0]
+        // DPLL[4].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[4].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[4].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[4].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0xb7, 0x30, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL[4].DPLL_MODE = [0]
+        &[
+            0xef, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc500
+        &[
+            0xfc, 0x00, 0xc5, 0x10, 0x20,
+        ],
+
+        // DPLL[5].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[5].DPLL_CTRL_0 = [0]
+        // DPLL[5].DPLL_CTRL_1 = [4]
+        // DPLL[5].DPLL_CTRL_2 = [0]
+        // DPLL[5].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[5].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[5].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[5].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[5].DPLL_HO_CFG = [0]
+        // DPLL[5].DPLL_LOCK_0 = [a]
+        // DPLL[5].DPLL_LOCK_1 = [1]
+        // DPLL[5].DPLL_LOCK_2 = [0]
+        // DPLL[5].DPLL_LOCK_3 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[5].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[5].DPLL_TRANS_CTRL = [0]
+        // DPLL[5].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[5].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[5].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[5].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[5].DPLL_MODE = [0]
+        // DPLL[6].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[6].DPLL_CTRL_0 = [0]
+        // DPLL[6].DPLL_CTRL_1 = [4]
+        // DPLL[6].DPLL_CTRL_2 = [0]
+        // DPLL[6].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[6].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[6].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[6].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[6].DPLL_HO_CFG = [0]
+        // DPLL[6].DPLL_LOCK_0 = [a]
+        // DPLL[6].DPLL_LOCK_1 = [1]
+        // DPLL[6].DPLL_LOCK_2 = [0]
+        // DPLL[6].DPLL_LOCK_3 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[6].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[6].DPLL_TRANS_CTRL = [0]
+        // DPLL[6].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[6].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[6].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[6].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x37, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL[6].DPLL_MODE = [0]
+        &[
+            0x6f, 0x00,
+        ],
+
+        // DPLL[7].DPLL_DCO_INC_DEC_SIZE = [0, 0]
+        // DPLL[7].DPLL_CTRL_0 = [0]
+        // DPLL[7].DPLL_CTRL_1 = [4]
+        // DPLL[7].DPLL_CTRL_2 = [0]
+        // DPLL[7].DPLL_UPDATE_RATE_CFG = [0]
+        // DPLL[7].DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // DPLL[7].DPLL_HO_ADVCD_HISTORY = [0]
+        // DPLL[7].DPLL_HO_ADVCD_BW = [0, 0]
+        // DPLL[7].DPLL_HO_CFG = [0]
+        // DPLL[7].DPLL_LOCK_0 = [a]
+        // DPLL[7].DPLL_LOCK_1 = [1]
+        // DPLL[7].DPLL_LOCK_2 = [0]
+        // DPLL[7].DPLL_LOCK_3 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_0 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_1 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_2 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_3 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_4 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_5 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_6 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_7 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_8 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_9 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_10 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_11 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_12 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_13 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_14 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_15 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_16 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_17 = [0]
+        // DPLL[7].DPLL_REF_PRIORITY_18 = [0]
+        // DPLL[7].DPLL_TRANS_CTRL = [0]
+        // DPLL[7].DPLL_FASTLOCK_CFG_0 = [0]
+        // DPLL[7].DPLL_FASTLOCK_CFG_1 = [0]
+        // DPLL[7].DPLL_MAX_FREQ_OFFSET = [0]
+        // DPLL[7].DPLL_FASTLOCK_PSL = [0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL[7].DPLL_MODE = [0]
+        // SYS_DPLL.SYS_DPLL_CTRL_0 = [0]
+        // SYS_DPLL.SYS_DPLL_UPDATE_RATE_CFG = [0]
+        // SYS_DPLL.SYS_DPLL_FILTER_STATUS_UPDATE_CFG = [0]
+        // SYS_DPLL.SYS_DPLL_LOCK_0 = [a]
+        // SYS_DPLL.SYS_DPLL_LOCK_1 = [1]
+        // SYS_DPLL.SYS_DPLL_LOCK_2 = [0]
+        // SYS_DPLL.SYS_DPLL_LOCK_3 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_0 = [25]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_1 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_2 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_3 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_4 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_5 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_6 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_7 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_8 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_9 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_10 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_11 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_12 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_13 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_14 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_15 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_16 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_17 = [0]
+        // SYS_DPLL.SYS_DPLL_REF_PRIORITY_18 = [0]
+        &[
+            0xb7, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
+            0x00, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL.SYS_DPLL_MODE = [0]
+        &[
+            0xd4, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc600
+        &[
+            0xfc, 0x00, 0xc6, 0x10, 0x20,
+        ],
+
+        // DPLL_CTRL[0].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[0].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[0].DPLL_DAMPING = [0]
+        // DPLL_CTRL[0].DPLL_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[0].DPLL_BW = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_BW+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PSL = [0]
+        &[
+            0x05, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[0].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[0].DPLL_PRED0_BW = [0]
+        &[
+            0x07, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PRED0_PSL = [0]
+        &[
+            0x0b, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[0].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[0].DPLL_PRED1_BW = [0]
+        &[
+            0x0d, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PRED1_PSL = [0]
+        &[
+            0x11, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x13, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[0].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[0].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x18, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_FOD_FREQ+0x7 = [0]
+        // DPLL_CTRL[0].DPLL_MASTER_DIV = [0, 0, 0]
+        &[
+            0x23, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[0].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0x2d, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[0].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0x35, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[0].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[0].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0x37, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[0].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[0].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[0].DPLL_FRAME_PULSE_SYNC = [0]
+        // DPLL_CTRL[1].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[1].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[1].DPLL_DAMPING = [0]
+        // DPLL_CTRL[1].DPLL_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[1].DPLL_BW = [0]
+        &[
+            0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_BW+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PSL = [0]
+        &[
+            0x41, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[1].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[1].DPLL_PRED0_BW = [0]
+        &[
+            0x43, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PRED0_PSL = [0]
+        &[
+            0x47, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[1].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[1].DPLL_PRED1_BW = [0]
+        &[
+            0x49, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PRED1_PSL = [0]
+        &[
+            0x4d, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x4f, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[1].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[1].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x54, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x57, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_FOD_FREQ+0x7 = [0]
+        // DPLL_CTRL[1].DPLL_MASTER_DIV = [0, 0, 0]
+        &[
+            0x5f, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[1].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0x69, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0x6c, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[1].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0x71, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[1].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[1].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0x73, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[1].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[1].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[1].DPLL_FRAME_PULSE_SYNC = [0]
+        &[
+            0x75, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[2].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[2].DPLL_DAMPING = [0]
+        // DPLL_CTRL[2].DPLL_DECIMATOR_BW_MULT = [4]
+        // DPLL_CTRL[2].DPLL_BW = [19]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x04, 0x19,
+        ],
+
+        // DPLL_CTRL[2].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[2].DPLL_PSL = [0]
+        &[
+            0x85, 0x80, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[2].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[2].DPLL_PRED0_BW = [0]
+        &[
+            0x87, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_PRED0_PSL = [0]
+        &[
+            0x8b, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[2].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[2].DPLL_PRED1_BW = [0]
+        &[
+            0x8d, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_PRED1_PSL = [0]
+        &[
+            0x91, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x93, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[2].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[2].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x98, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_FOD_FREQ+0x7 = [0]
+        // DPLL_CTRL[2].DPLL_MASTER_DIV = [0, 0, 0]
+        &[
+            0xa3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[2].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0xad, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[2].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0xb5, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[2].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[2].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0xb7, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[2].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[2].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[2].DPLL_FRAME_PULSE_SYNC = [0]
+        // DPLL_CTRL[3].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[3].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[3].DPLL_DAMPING = [0]
+        // DPLL_CTRL[3].DPLL_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[3].DPLL_BW = [0]
+        &[
+            0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_BW+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PSL = [0]
+        &[
+            0xc1, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[3].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[3].DPLL_PRED0_BW = [0]
+        &[
+            0xc3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PRED0_PSL = [0]
+        &[
+            0xc7, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[3].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[3].DPLL_PRED1_BW = [0]
+        &[
+            0xc9, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PRED1_PSL = [0]
+        &[
+            0xcd, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0xcf, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[3].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[3].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0xd4, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
+        &[
+            0xd7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_FOD_FREQ+0x7 = [0]
+        // DPLL_CTRL[3].DPLL_MASTER_DIV = [0, 0, 0]
+        &[
+            0xdf, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[3].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0xe3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0xe9, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0xec, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[3].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0xf1, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[3].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[3].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0xf3, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[3].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[3].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[3].DPLL_FRAME_PULSE_SYNC = [0]
+        &[
+            0xf5, 0x00, 0x00, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc700
+        &[
+            0xfc, 0x00, 0xc7, 0x10, 0x20,
+        ],
+
+        // DPLL_CTRL[4].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[4].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[4].DPLL_DAMPING = [0]
+        // DPLL_CTRL[4].DPLL_DECIMATOR_BW_MULT = [4]
+        // DPLL_CTRL[4].DPLL_BW = [19]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x04, 0x19,
+        ],
+
+        // DPLL_CTRL[4].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[4].DPLL_PSL = [0]
+        &[
+            0x05, 0x80, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[4].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[4].DPLL_PRED0_BW = [0]
+        &[
+            0x07, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_PRED0_PSL = [0]
+        &[
+            0x0b, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[4].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[4].DPLL_PRED1_BW = [0]
+        &[
+            0x0d, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_PRED1_PSL = [0]
+        &[
+            0x11, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x13, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[4].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[4].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x18, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_FOD_FREQ = [0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_FOD_FREQ+0x7 = [0]
+        // DPLL_CTRL[4].DPLL_MASTER_DIV = [0, 0, 0]
+        &[
+            0x23, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[4].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0x2d, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[4].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0x35, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[4].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[4].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0x37, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[4].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[4].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[4].DPLL_FRAME_PULSE_SYNC = [0]
+        // DPLL_CTRL[5].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[5].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[5].DPLL_DAMPING = [0]
+        // DPLL_CTRL[5].DPLL_DECIMATOR_BW_MULT = [4]
+        // DPLL_CTRL[5].DPLL_BW = [19]
+        &[
+            0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+            0x19,
+        ],
+
+        // DPLL_CTRL[5].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[5].DPLL_PSL = [0]
+        &[
+            0x41, 0x80, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[5].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[5].DPLL_PRED0_BW = [0]
+        &[
+            0x43, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_PRED0_PSL = [0]
+        &[
+            0x47, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[5].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[5].DPLL_PRED1_BW = [0]
+        &[
+            0x49, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_PRED1_PSL = [0]
+        &[
+            0x4d, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x4f, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[5].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[5].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x54, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_FOD_FREQ = [0, 9b, 32, 47, cd, 1d, ff]
+        &[
+            0x57, 0x00, 0x00, 0x9b, 0x32, 0x47, 0xcd, 0x1d,
+            0xff,
+        ],
+
+        // DPLL_CTRL[5].DPLL_FOD_FREQ+0x7 = [ff]
+        // DPLL_CTRL[5].DPLL_MASTER_DIV = [4, 0, 0]
+        &[
+            0x5f, 0xff, 0x04, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[5].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0x63, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0x69, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0x6c, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[5].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0x71, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[5].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[5].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0x73, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[5].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[5].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[5].DPLL_FRAME_PULSE_SYNC = [0]
+        &[
+            0x75, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[6].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[6].DPLL_DAMPING = [0]
+        // DPLL_CTRL[6].DPLL_DECIMATOR_BW_MULT = [4]
+        // DPLL_CTRL[6].DPLL_BW = [19]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x04, 0x19,
+        ],
+
+        // DPLL_CTRL[6].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[6].DPLL_PSL = [0]
+        &[
+            0x85, 0x80, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[6].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[6].DPLL_PRED0_BW = [0]
+        &[
+            0x87, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_PRED0_PSL = [0]
+        &[
+            0x8b, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[6].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[6].DPLL_PRED1_BW = [0]
+        &[
+            0x8d, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_PRED1_PSL = [0]
+        &[
+            0x91, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0x93, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[6].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[6].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0x98, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_FOD_FREQ = [c0, 41, ff, 98, 40, 25, ff]
+        &[
+            0x9b, 0x00, 0xc0, 0x41, 0xff, 0x98, 0x40, 0x25,
+            0xff,
+        ],
+
+        // DPLL_CTRL[6].DPLL_FOD_FREQ+0x7 = [ff]
+        // DPLL_CTRL[6].DPLL_MASTER_DIV = [4, 0, 0]
+        &[
+            0xa3, 0xff, 0x04, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[6].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0xad, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[6].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0xb5, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[6].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[6].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0xb7, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[6].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[6].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[6].DPLL_FRAME_PULSE_SYNC = [0]
+        // DPLL_CTRL[7].DPLL_HS_TIE_RESET = [0]
+        // DPLL_CTRL[7].DPLL_MANU_REF_CFG = [0]
+        // DPLL_CTRL[7].DPLL_DAMPING = [0]
+        // DPLL_CTRL[7].DPLL_DECIMATOR_BW_MULT = [4]
+        // DPLL_CTRL[7].DPLL_BW = [19]
+        &[
+            0xb9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+            0x19,
+        ],
+
+        // DPLL_CTRL[7].DPLL_BW+0x1 = [80]
+        // DPLL_CTRL[7].DPLL_PSL = [0]
+        &[
+            0xc1, 0x80, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PSL+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_PRED0_DAMPING = [0]
+        // DPLL_CTRL[7].DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[7].DPLL_PRED0_BW = [0]
+        &[
+            0xc3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PRED0_BW+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_PRED0_PSL = [0]
+        &[
+            0xc7, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PRED0_PSL+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_PRED1_DAMPING = [0]
+        // DPLL_CTRL[7].DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // DPLL_CTRL[7].DPLL_PRED1_BW = [0]
+        &[
+            0xc9, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PRED1_BW+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_PRED1_PSL = [0]
+        &[
+            0xcd, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PRED1_PSL+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_PHASE_OFFSET_CFG = [0, 0, 0, 0]
+        &[
+            0xcf, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_PHASE_OFFSET_CFG+0x4 = [0]
+        // DPLL_CTRL[7].DPLL_HO_HISTORY_RESET = [0]
+        // DPLL_CTRL[7].DPLL_FINE_PHASE_ADV_CFG = [0]
+        &[
+            0xd4, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_FINE_PHASE_ADV_CFG+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_FOD_FREQ = [0, 9b, 32, 47, cd, 1d, ff]
+        &[
+            0xd7, 0x00, 0x00, 0x9b, 0x32, 0x47, 0xcd, 0x1d,
+            0xff,
+        ],
+
+        // DPLL_CTRL[7].DPLL_FOD_FREQ+0x7 = [ff]
+        // DPLL_CTRL[7].DPLL_MASTER_DIV = [a, 0, 0]
+        &[
+            0xdf, 0xff, 0x0a, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_MASTER_DIV+0x3 = [0]
+        // DPLL_CTRL[7].DPLL_COMBO_SW_VALUE_CNFG = [0, 0, 0, 0, 0]
+        &[
+            0xe3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_COMBO_SW_VALUE_CNFG+0x5 = [0]
+        &[
+            0xe9, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_MANUAL_HOLDOVER_VALUE = [0, 0, 0, 0, 0]
+        &[
+            0xec, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_MANUAL_HOLDOVER_VALUE+0x5 = [0]
+        // DPLL_CTRL[7].DPLL_DCD_FILTER_CNFG = [a1]
+        &[
+            0xf1, 0x00, 0xa1,
+        ],
+
+        // DPLL_CTRL[7].DPLL_DCD_FILTER_CNFG+0x1 = [2a]
+        // DPLL_CTRL[7].DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0xf3, 0x2a, 0x00,
+        ],
+
+        // DPLL_CTRL[7].DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // DPLL_CTRL[7].DPLL_COMBO_MASTER_CFG = [0]
+        // DPLL_CTRL[7].DPLL_FRAME_PULSE_SYNC = [0]
+        &[
+            0xf5, 0x00, 0x00, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc800
+        &[
+            0xfc, 0x00, 0xc8, 0x10, 0x20,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_MANU_REF_CFG = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_DAMPING = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_DECIMATOR_BW_MULT = [4]
+        &[
+            0x00, 0x00, 0x00, 0x04,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_BW = [64]
+        &[
+            0x04, 0x64,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_BW+0x1 = [80]
+        // SYS_DPLL_CTRL.SYS_DPLL_PSL = [0]
+        &[
+            0x05, 0x80, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_PSL+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_DAMPING = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_DECIMATOR_BW_MULT = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_BW = [0]
+        &[
+            0x07, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_BW+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_PSL = [0]
+        &[
+            0x0b, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED0_PSL+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_DAMPING = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_DECIMATOR_BW_MULT = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_BW = [0]
+        &[
+            0x0d, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_BW+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_PSL = [0]
+        &[
+            0x11, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_PRED1_PSL+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_BW = [0]
+        &[
+            0x13, 0x00, 0x00,
+        ],
+
+        // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_BW+0x1 = [0]
+        // SYS_DPLL_CTRL.SYS_DPLL_COMBO_MASTER_CFG = [0]
+        &[
+            0x15, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[0].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x18, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[0].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[1].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x1b, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[1].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[2].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x1f, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[2].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[3].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x23, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[3].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[4].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x27, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[4].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[5].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x2b, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[5].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[6].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x2f, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[6].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_PHASE[7].DPLL_WRITE_PH = [0, 0, 0]
+        &[
+            0x33, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE[7].DPLL_WRITE_PH+0x3 = [0]
+        // DPLL_FREQ[0].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[0].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x3d, 0x00,
+        ],
+
+        // DPLL_FREQ[1].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[1].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x45, 0x00,
+        ],
+
+        // DPLL_FREQ[2].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x48, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[2].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x4d, 0x00,
+        ],
+
+        // DPLL_FREQ[3].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[3].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x55, 0x00,
+        ],
+
+        // DPLL_FREQ[4].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x58, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[4].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x5d, 0x00,
+        ],
+
+        // DPLL_FREQ[5].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[5].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x65, 0x00,
+        ],
+
+        // DPLL_FREQ[6].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x68, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[6].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x6d, 0x00,
+        ],
+
+        // DPLL_FREQ[7].DPLL_WR_FREQ = [0, 0, 0, 0, 0]
+        &[
+            0x70, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_FREQ[7].DPLL_WR_FREQ+0x5 = [0]
+        &[
+            0x75, 0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[0].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[1].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0x8f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[2].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0x97, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[3].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0x9f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[4].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[5].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0xaf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[6].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_OFFSET = [0, 0, 0, 0]
+        // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_SLOPE_LIMIT = [0, 0, 0]
+        &[
+            0xb7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_CTRL = [0]
+        // GPIO_CFG.GPIO_CFG_GBL = [1]
+        &[
+            0xbf, 0x00, 0x01,
+        ],
+
+        // GPIO[0].GPIO_DCO_INC_DEC = [2]
+        // GPIO[0].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[0].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[0].GPIO_TOD_TRIG = [0]
+        // GPIO[0].GPIO_DPLL_INDICATOR = [2]
+        &[
+            0xc2, 0x02, 0x00, 0x00, 0x00, 0x02,
+        ],
+
+        // GPIO[0].GPIO_LOS_INDICATOR = [0]
+        // GPIO[0].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[0].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[0].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[0].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[0].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[0].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[0].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[0].GPIO_SLAVE = [0]
+        // GPIO[0].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[0].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // GPIO[0].GPIO_CTRL = [0]
+        &[
+            0xd2, 0x00,
+        ],
+
+        // GPIO[1].GPIO_DCO_INC_DEC = [2]
+        // GPIO[1].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[1].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[1].GPIO_TOD_TRIG = [0]
+        // GPIO[1].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[1].GPIO_LOS_INDICATOR = [0]
+        // GPIO[1].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[1].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[1].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[1].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[1].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[1].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[1].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[1].GPIO_SLAVE = [0]
+        // GPIO[1].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[1].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xd4, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[1].GPIO_CTRL = [0]
+        &[
+            0xe4, 0x00,
+        ],
+
+        // GPIO[2].GPIO_DCO_INC_DEC = [2]
+        // GPIO[2].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[2].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[2].GPIO_TOD_TRIG = [0]
+        // GPIO[2].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[2].GPIO_LOS_INDICATOR = [0]
+        // GPIO[2].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[2].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[2].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[2].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[2].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[2].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[2].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[2].GPIO_SLAVE = [0]
+        // GPIO[2].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[2].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xe6, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[2].GPIO_CTRL = [0]
+        &[
+            0xf6, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xc900
+        &[
+            0xfc, 0x00, 0xc9, 0x10, 0x20,
+        ],
+
+        // GPIO[3].GPIO_DCO_INC_DEC = [2]
+        // GPIO[3].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[3].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[3].GPIO_TOD_TRIG = [0]
+        // GPIO[3].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[3].GPIO_LOS_INDICATOR = [0]
+        // GPIO[3].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[3].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[3].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[3].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[3].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[3].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[3].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[3].GPIO_SLAVE = [0]
+        // GPIO[3].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[3].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[3].GPIO_CTRL = [0]
+        &[
+            0x10, 0x00,
+        ],
+
+        // GPIO[4].GPIO_DCO_INC_DEC = [2]
+        // GPIO[4].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[4].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[4].GPIO_TOD_TRIG = [0]
+        // GPIO[4].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[4].GPIO_LOS_INDICATOR = [0]
+        // GPIO[4].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[4].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[4].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[4].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[4].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[4].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[4].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[4].GPIO_SLAVE = [0]
+        // GPIO[4].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[4].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x12, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[4].GPIO_CTRL = [0]
+        &[
+            0x22, 0x00,
+        ],
+
+        // GPIO[5].GPIO_DCO_INC_DEC = [2]
+        // GPIO[5].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[5].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[5].GPIO_TOD_TRIG = [0]
+        // GPIO[5].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[5].GPIO_LOS_INDICATOR = [0]
+        // GPIO[5].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[5].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[5].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[5].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[5].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[5].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[5].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[5].GPIO_SLAVE = [0]
+        // GPIO[5].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[5].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x24, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[5].GPIO_CTRL = [0]
+        &[
+            0x34, 0x00,
+        ],
+
+        // GPIO[6].GPIO_DCO_INC_DEC = [0]
+        // GPIO[6].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[6].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[6].GPIO_TOD_TRIG = [0]
+        // GPIO[6].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[6].GPIO_LOS_INDICATOR = [0]
+        // GPIO[6].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[6].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[6].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[6].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[6].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[6].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[6].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[6].GPIO_SLAVE = [0]
+        // GPIO[6].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[6].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x36, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[6].GPIO_CTRL = [0]
+        &[
+            0x46, 0x00,
+        ],
+
+        // GPIO[7].GPIO_DCO_INC_DEC = [0]
+        // GPIO[7].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[7].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[7].GPIO_TOD_TRIG = [0]
+        // GPIO[7].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[7].GPIO_LOS_INDICATOR = [0]
+        // GPIO[7].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[7].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[7].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[7].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[7].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[7].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[7].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[7].GPIO_SLAVE = [0]
+        // GPIO[7].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[7].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x48, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[7].GPIO_CTRL = [0]
+        &[
+            0x58, 0x00,
+        ],
+
+        // GPIO[8].GPIO_DCO_INC_DEC = [2]
+        // GPIO[8].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[8].GPIO_OUT_CTRL_1 = [4]
+        // GPIO[8].GPIO_TOD_TRIG = [0]
+        // GPIO[8].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[8].GPIO_LOS_INDICATOR = [0]
+        // GPIO[8].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[8].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[8].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[8].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[8].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[8].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[8].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[8].GPIO_SLAVE = [0]
+        // GPIO[8].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[8].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x5a, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[8].GPIO_CTRL = [91]
+        &[
+            0x6a, 0x91,
+        ],
+
+        // GPIO[9].GPIO_DCO_INC_DEC = [2]
+        // GPIO[9].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[9].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[9].GPIO_TOD_TRIG = [0]
+        // GPIO[9].GPIO_DPLL_INDICATOR = [2]
+        // GPIO[9].GPIO_LOS_INDICATOR = [0]
+        // GPIO[9].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[9].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[9].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[9].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[9].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[9].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[9].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[9].GPIO_SLAVE = [0]
+        // GPIO[9].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[9].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x80, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[9].GPIO_CTRL = [0]
+        &[
+            0x90, 0x00,
+        ],
+
+        // GPIO[10].GPIO_DCO_INC_DEC = [0]
+        // GPIO[10].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[10].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[10].GPIO_TOD_TRIG = [0]
+        // GPIO[10].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[10].GPIO_LOS_INDICATOR = [0]
+        // GPIO[10].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[10].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[10].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[10].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[10].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[10].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[10].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[10].GPIO_SLAVE = [0]
+        // GPIO[10].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[10].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x92, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[10].GPIO_CTRL = [0]
+        &[
+            0xa2, 0x00,
+        ],
+
+        // GPIO[11].GPIO_DCO_INC_DEC = [0]
+        // GPIO[11].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[11].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[11].GPIO_TOD_TRIG = [0]
+        // GPIO[11].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[11].GPIO_LOS_INDICATOR = [0]
+        // GPIO[11].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[11].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[11].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[11].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[11].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[11].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[11].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[11].GPIO_SLAVE = [0]
+        // GPIO[11].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[11].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xa4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[11].GPIO_CTRL = [0]
+        &[
+            0xb4, 0x00,
+        ],
+
+        // GPIO[12].GPIO_DCO_INC_DEC = [0]
+        // GPIO[12].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[12].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[12].GPIO_TOD_TRIG = [0]
+        // GPIO[12].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[12].GPIO_LOS_INDICATOR = [0]
+        // GPIO[12].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[12].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[12].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[12].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[12].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[12].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[12].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[12].GPIO_SLAVE = [0]
+        // GPIO[12].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[12].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xb6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[12].GPIO_CTRL = [0]
+        &[
+            0xc6, 0x00,
+        ],
+
+        // GPIO[13].GPIO_DCO_INC_DEC = [0]
+        // GPIO[13].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[13].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[13].GPIO_TOD_TRIG = [0]
+        // GPIO[13].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[13].GPIO_LOS_INDICATOR = [0]
+        // GPIO[13].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[13].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[13].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[13].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[13].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[13].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[13].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[13].GPIO_SLAVE = [0]
+        // GPIO[13].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[13].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xc8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[13].GPIO_CTRL = [0]
+        &[
+            0xd8, 0x00,
+        ],
+
+        // GPIO[14].GPIO_DCO_INC_DEC = [0]
+        // GPIO[14].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[14].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[14].GPIO_TOD_TRIG = [0]
+        // GPIO[14].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[14].GPIO_LOS_INDICATOR = [0]
+        // GPIO[14].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[14].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[14].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[14].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[14].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[14].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[14].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[14].GPIO_SLAVE = [0]
+        // GPIO[14].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[14].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0xda, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[14].GPIO_CTRL = [0]
+        &[
+            0xea, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xca00
+        &[
+            0xfc, 0x00, 0xca, 0x10, 0x20,
+        ],
+
+        // GPIO[15].GPIO_DCO_INC_DEC = [0]
+        // GPIO[15].GPIO_OUT_CTRL_0 = [0]
+        // GPIO[15].GPIO_OUT_CTRL_1 = [0]
+        // GPIO[15].GPIO_TOD_TRIG = [0]
+        // GPIO[15].GPIO_DPLL_INDICATOR = [0]
+        // GPIO[15].GPIO_LOS_INDICATOR = [0]
+        // GPIO[15].GPIO_REF_INPUT_DSQ_0 = [0]
+        // GPIO[15].GPIO_REF_INPUT_DSQ_1 = [0]
+        // GPIO[15].GPIO_REF_INPUT_DSQ_2 = [0]
+        // GPIO[15].GPIO_REF_INPUT_DSQ_3 = [0]
+        // GPIO[15].GPIO_MAN_CLK_SEL_0 = [0]
+        // GPIO[15].GPIO_MAN_CLK_SEL_1 = [0]
+        // GPIO[15].GPIO_MAN_CLK_SEL_2 = [0]
+        // GPIO[15].GPIO_SLAVE = [0]
+        // GPIO[15].GPIO_ALERT_OUT_CFG = [0]
+        // GPIO[15].GPIO_TOD_NOTIFICATION_CFG = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // GPIO[15].GPIO_CTRL = [0]
+        &[
+            0x10, 0x00,
+        ],
+
+        // OUT_DIV_MUX.OUT_DIV8_MUX = [1]
+        // OUT_DIV_MUX.OUT_DIV11_MUX = [0]
+        // OUTPUT[0].OUT_DIV = [0, 0, 0]
+        &[
+            0x12, 0x01, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[0].OUT_DIV+0x3 = [0]
+        // OUTPUT[0].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x17, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[0].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[0].OUT_CTRL_0 = [0]
+        // OUTPUT[0].OUT_CTRL_1 = [0]
+        &[
+            0x1b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[0].OUT_PHASE_ADJ = [0, 0]
+        &[
+            0x20, 0x00, 0x00,
+        ],
+
+        // OUTPUT[0].OUT_PHASE_ADJ+0x2 = [0]
+        &[
+            0x22, 0x00,
+        ],
+
+        // OUTPUT[0].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[1].OUT_DIV = [0, 0, 0]
+        &[
+            0x23, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[1].OUT_DIV+0x3 = [0]
+        // OUTPUT[1].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x27, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[1].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[1].OUT_CTRL_0 = [0]
+        // OUTPUT[1].OUT_CTRL_1 = [0]
+        &[
+            0x2b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[1].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x30, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[1].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[2].OUT_DIV = [0, 0, 0]
+        &[
+            0x33, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[2].OUT_DIV+0x3 = [0]
+        // OUTPUT[2].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x37, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[2].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[2].OUT_CTRL_0 = [0]
+        // OUTPUT[2].OUT_CTRL_1 = [0]
+        &[
+            0x3b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[2].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x40, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[2].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[3].OUT_DIV = [0, 0, 0]
+        &[
+            0x43, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[3].OUT_DIV+0x3 = [0]
+        // OUTPUT[3].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x47, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[3].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[3].OUT_CTRL_0 = [0]
+        // OUTPUT[3].OUT_CTRL_1 = [0]
+        &[
+            0x4b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[3].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x50, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[3].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[4].OUT_DIV = [0, 0, 0]
+        &[
+            0x53, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[4].OUT_DIV+0x3 = [0]
+        // OUTPUT[4].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x57, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[4].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[4].OUT_CTRL_0 = [0]
+        // OUTPUT[4].OUT_CTRL_1 = [0]
+        &[
+            0x5b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[4].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x60, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[4].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[5].OUT_DIV = [0, 0, 0]
+        &[
+            0x63, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[5].OUT_DIV+0x3 = [0]
+        // OUTPUT[5].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x67, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[5].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[5].OUT_CTRL_0 = [0]
+        // OUTPUT[5].OUT_CTRL_1 = [0]
+        &[
+            0x6b, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[5].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x70, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[5].OUT_PHASE_ADJ+0x3 = [0]
+        &[
+            0x73, 0x00,
+        ],
+
+        // OUTPUT[6].OUT_DIV = [0, 0, 0]
+        &[
+            0x80, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[6].OUT_DIV+0x3 = [0]
+        // OUTPUT[6].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x83, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[6].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[6].OUT_CTRL_0 = [0]
+        // OUTPUT[6].OUT_CTRL_1 = [0]
+        &[
+            0x87, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[6].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x8c, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[6].OUT_PHASE_ADJ+0x3 = [0]
+        &[
+            0x8f, 0x00,
+        ],
+
+        // OUTPUT[7].OUT_DIV = [0, 0, 0]
+        &[
+            0x90, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[7].OUT_DIV+0x3 = [0]
+        // OUTPUT[7].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0x93, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[7].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[7].OUT_CTRL_0 = [0]
+        // OUTPUT[7].OUT_CTRL_1 = [0]
+        &[
+            0x97, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[7].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0x9c, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[7].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[8].OUT_DIV = [4, 0]
+        &[
+            0x9f, 0x00, 0x04, 0x00,
+        ],
+
+        // OUTPUT[8].OUT_DIV+0x2 = [0]
+        &[
+            0xa2, 0x00,
+        ],
+
+        // OUTPUT[8].OUT_DIV+0x3 = [0]
+        // OUTPUT[8].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0xa3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[8].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[8].OUT_CTRL_0 = [41]
+        // OUTPUT[8].OUT_CTRL_1 = [24]
+        &[
+            0xa7, 0x00, 0x41, 0x24,
+        ],
+
+        // OUTPUT[8].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0xac, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[8].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[9].OUT_DIV = [4, 0, 0]
+        &[
+            0xaf, 0x00, 0x04, 0x00, 0x00,
+        ],
+
+        // OUTPUT[9].OUT_DIV+0x3 = [0]
+        &[
+            0xb3, 0x00,
+        ],
+
+        // OUTPUT[9].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0xb4, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[9].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[9].OUT_CTRL_0 = [41]
+        // OUTPUT[9].OUT_CTRL_1 = [24]
+        &[
+            0xb7, 0x00, 0x41, 0x24,
+        ],
+
+        // OUTPUT[9].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0xbc, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[9].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[10].OUT_DIV = [4, 0, 0]
+        &[
+            0xbf, 0x00, 0x04, 0x00, 0x00,
+        ],
+
+        // OUTPUT[10].OUT_DIV+0x3 = [0]
+        // OUTPUT[10].OUT_DUTY_CYCLE_HIGH = [0, 0]
+        &[
+            0xc3, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x2 = [0]
+        &[
+            0xc6, 0x00,
+        ],
+
+        // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[10].OUT_CTRL_0 = [11]
+        // OUTPUT[10].OUT_CTRL_1 = [24]
+        &[
+            0xc7, 0x00, 0x11, 0x24,
+        ],
+
+        // OUTPUT[10].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0xcc, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[10].OUT_PHASE_ADJ+0x3 = [0]
+        // OUTPUT[11].OUT_DIV = [a, 0, 0]
+        &[
+            0xcf, 0x00, 0x0a, 0x00, 0x00,
+        ],
+
+        // OUTPUT[11].OUT_DIV+0x3 = [0]
+        // OUTPUT[11].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
+        &[
+            0xd3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[11].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        &[
+            0xd7, 0x00,
+        ],
+
+        // OUTPUT[11].OUT_CTRL_0 = [2]
+        // OUTPUT[11].OUT_CTRL_1 = [24]
+        &[
+            0xd8, 0x02, 0x24,
+        ],
+
+        // OUTPUT[11].OUT_PHASE_ADJ = [0, 0, 0]
+        &[
+            0xdc, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT[11].OUT_PHASE_ADJ+0x3 = [0]
+        // SERIAL.I2CM = [0]
+        &[
+            0xdf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ],
+
+        // SERIAL.SER_APPLY_CONFIG = [0]
+        &[
+            0xe8, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xcb00
+        &[
+            0xfc, 0x00, 0xcb, 0x10, 0x20,
+        ],
+
+        // PWM_ENCODER[0].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[0].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[0].PWM_ENCODER_CMD = [0]
+        &[
+            0x04, 0x00,
+        ],
+
+        // PWM_ENCODER[1].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[1].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x08, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[1].PWM_ENCODER_CMD = [0]
+        &[
+            0x0c, 0x00,
+        ],
+
+        // PWM_ENCODER[2].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[2].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x10, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[2].PWM_ENCODER_CMD = [0]
+        &[
+            0x14, 0x00,
+        ],
+
+        // PWM_ENCODER[3].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[3].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x18, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[3].PWM_ENCODER_CMD = [0]
+        &[
+            0x1c, 0x00,
+        ],
+
+        // PWM_ENCODER[4].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[4].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x20, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[4].PWM_ENCODER_CMD = [0]
+        &[
+            0x24, 0x00,
+        ],
+
+        // PWM_ENCODER[5].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[5].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x28, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[5].PWM_ENCODER_CMD = [0]
+        &[
+            0x2c, 0x00,
+        ],
+
+        // PWM_ENCODER[6].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[6].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x30, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[6].PWM_ENCODER_CMD = [0]
+        &[
+            0x34, 0x00,
+        ],
+
+        // PWM_ENCODER[7].PWM_ENCODER_ID = [0]
+        // PWM_ENCODER[7].PWM_ENCODER_CNFG = [0]
+        // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_0 = [0]
+        // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_1 = [0]
+        &[
+            0x38, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_ENCODER[7].PWM_ENCODER_CMD = [0]
+        &[
+            0x3c, 0x00,
+        ],
+
+        // PWM_DECODER[0].PWM_DECODER_CNFG = [0]
+        &[
+            0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[0].PWM_DECODER_CMD = [0]
+        &[
+            0x45, 0x00,
+        ],
+
+        // PWM_DECODER[1].PWM_DECODER_CNFG = [0]
+        &[
+            0x48, 0x00,
+        ],
+
+        // Unknown write to 0xcb49
+        &[
+            0x49, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[1].PWM_DECODER_CMD = [0]
+        &[
+            0x4d, 0x00,
+        ],
+
+        // PWM_DECODER[2].PWM_DECODER_CNFG = [0]
+        &[
+            0x50, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[2].PWM_DECODER_SIGNATURE_0 = [0]
+        // PWM_DECODER[2].PWM_DECODER_SIGNATURE_1 = [0]
+        &[
+            0x53, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[2].PWM_DECODER_CMD = [0]
+        &[
+            0x55, 0x00,
+        ],
+
+        // PWM_DECODER[3].PWM_DECODER_CNFG = [0]
+        &[
+            0x58, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[3].PWM_DECODER_CMD = [0]
+        &[
+            0x5d, 0x00,
+        ],
+
+        // PWM_DECODER[4].PWM_DECODER_CNFG = [0]
+        &[
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[4].PWM_DECODER_CMD = [0]
+        &[
+            0x65, 0x00,
+        ],
+
+        // PWM_DECODER[5].PWM_DECODER_CNFG = [0]
+        &[
+            0x68, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[5].PWM_DECODER_CMD = [0]
+        &[
+            0x6d, 0x00,
+        ],
+
+        // PWM_DECODER[6].PWM_DECODER_CNFG = [0]
+        &[
+            0x70, 0x00,
+        ],
+
+        // Unknown write to 0xcb71
+        &[
+            0x71, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[6].PWM_DECODER_CMD = [0]
+        &[
+            0x75, 0x00,
+        ],
+
+        // PWM_DECODER[7].PWM_DECODER_CNFG = [0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[7].PWM_DECODER_CMD = [0]
+        &[
+            0x85, 0x00,
+        ],
+
+        // PWM_DECODER[8].PWM_DECODER_CNFG = [0]
+        &[
+            0x88, 0x00,
+        ],
+
+        // Unknown write to 0xcb89
+        &[
+            0x89, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[8].PWM_DECODER_CMD = [0]
+        &[
+            0x8d, 0x00,
+        ],
+
+        // PWM_DECODER[9].PWM_DECODER_CNFG = [0]
+        &[
+            0x90, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[9].PWM_DECODER_SIGNATURE_0 = [0]
+        // PWM_DECODER[9].PWM_DECODER_SIGNATURE_1 = [0]
+        &[
+            0x93, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[9].PWM_DECODER_CMD = [0]
+        &[
+            0x95, 0x00,
+        ],
+
+        // PWM_DECODER[10].PWM_DECODER_CNFG = [0]
+        &[
+            0x98, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[10].PWM_DECODER_CMD = [0]
+        &[
+            0x9d, 0x00,
+        ],
+
+        // PWM_DECODER[11].PWM_DECODER_CNFG = [0]
+        &[
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[11].PWM_DECODER_CMD = [0]
+        &[
+            0xa5, 0x00,
+        ],
+
+        // PWM_DECODER[12].PWM_DECODER_CNFG = [0]
+        &[
+            0xa8, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[12].PWM_DECODER_CMD = [0]
+        &[
+            0xad, 0x00,
+        ],
+
+        // PWM_DECODER[13].PWM_DECODER_CNFG = [0]
+        &[
+            0xb0, 0x00,
+        ],
+
+        // Unknown write to 0xcbb1
+        &[
+            0xb1, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[13].PWM_DECODER_CMD = [0]
+        &[
+            0xb5, 0x00,
+        ],
+
+        // PWM_DECODER[14].PWM_DECODER_CNFG = [0]
+        &[
+            0xb8, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[14].PWM_DECODER_SIGNATURE_0 = [0]
+        // PWM_DECODER[14].PWM_DECODER_SIGNATURE_1 = [0]
+        &[
+            0xbb, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[14].PWM_DECODER_CMD = [0]
+        &[
+            0xbd, 0x00,
+        ],
+
+        // PWM_DECODER[15].PWM_DECODER_CNFG = [0]
+        &[
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_DECODER[15].PWM_DECODER_CMD = [0]
+        &[
+            0xc5, 0x00,
+        ],
+
+        // PWM_USER_DATA.PWM_SRC_ENCODER_ID = [0]
+        // PWM_USER_DATA.PWM_DST_DECODER_ID = [0]
+        // PWM_USER_DATA.PWM_USER_DATA_SIZE = [0]
+        &[
+            0xc8, 0x00, 0x00, 0x00,
+        ],
+
+        // PWM_USER_DATA.PWM_USER_DATA_CMD_STS = [0]
+        // TOD[0].TOD_CFG = [0]
+        &[
+            0xcb, 0x00, 0x00,
+        ],
+
+        // TOD[1].TOD_CFG = [0]
+        &[
+            0xce, 0x00,
+        ],
+
+        // TOD[2].TOD_CFG = [0]
+        &[
+            0xd0, 0x00,
+        ],
+
+        // TOD[3].TOD_CFG = [0]
+        &[
+            0xd2, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xcc00
+        &[
+            0xfc, 0x00, 0xcc, 0x10, 0x20,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE_CMD = [0]
+        // TOD_WRITE[1].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // TOD_WRITE[1].TOD_WRITE_CMD = [0]
+        // TOD_WRITE[2].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // TOD_WRITE[2].TOD_WRITE_CMD = [0]
+        // TOD_WRITE[3].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        &[
+            0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ],
+
+        // TOD_WRITE[3].TOD_WRITE_CMD = [0]
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_COUNTER = [0]
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
+        &[
+            0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_CMD = [0]
+        &[
+            0x4e, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_COUNTER = [0]
+        // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
+        // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
+        &[
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_CMD = [0]
+        &[
+            0x5e, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_COUNTER = [0]
+        // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
+        // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
+        &[
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_CMD = [0]
+        &[
+            0x6e, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_COUNTER = [0]
+        // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
+        // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
+        &[
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_CMD = [0]
+        &[
+            0x8e, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_COUNTER = [0]
+        // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
+        // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
+        &[
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_CMD = [0]
+        &[
+            0x9e, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_COUNTER = [0]
+        // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
+        // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
+        &[
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_CMD = [0]
+        &[
+            0xae, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_COUNTER = [0]
+        // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
+        // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
+        &[
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_CMD = [0]
+        &[
+            0xbe, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_COUNTER = [0]
+        // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
+        // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
+        &[
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_CMD = [0]
+        &[
+            0xce, 0x00,
+        ],
+
+        // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_0 = [0, 0]
+        // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_1 = [0, 0]
+        &[
+            0xd0, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_2 = [0]
+        &[
+            0xd4, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xcd00
+        &[
+            0xfc, 0x00, 0xcd, 0x10, 0x20,
+        ],
+
+        // Unknown write to 0xcd00
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
+        ],
+
+        // Unknown write to 0xcd06
+        &[
+            0x06, 0x00,
+        ],
+
+        // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_0 = [0, 0]
+        // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_1 = [0, 0]
+        // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_2 = [0]
+        // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_3 = [22]
+        &[
+            0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
+        ],
+
+        // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_4 = [0]
+        &[
+            0x0e, 0x00,
+        ],
+
+        // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_0 = [0, 0]
+        // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_1 = [0, 0]
+        // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_2 = [0]
+        // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_3 = [22]
+        &[
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
+        ],
+
+        // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_4 = [0]
+        &[
+            0x16, 0x00,
+        ],
+
+        // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_0 = [0, 0]
+        // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_1 = [0, 0]
+        // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_2 = [0]
+        // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_3 = [22]
+        &[
+            0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
+        ],
+
+        // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_4 = [0]
+        &[
+            0x1e, 0x00,
+        ],
+
+        // INPUT_TDC.INPUT_TDC_SDM_FRAC = [0, 0]
+        // INPUT_TDC.INPUT_TDC_SDM_MOD = [0, 0]
+        // INPUT_TDC.INPUT_TDC_FBD_CTRL = [0]
+        &[
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // INPUT_TDC.INPUT_TDC_CTRL = [0]
+        &[
+            0x25, 0x00,
+        ],
+
+        // Unknown write to 0xcd80
+        &[
+            0x80, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd82
+        &[
+            0x82, 0x00,
+        ],
+
+        // Unknown write to 0xcd84
+        &[
+            0x84, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd86
+        &[
+            0x86, 0x00,
+        ],
+
+        // Unknown write to 0xcd88
+        &[
+            0x88, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd8a
+        &[
+            0x8a, 0x00,
+        ],
+
+        // Unknown write to 0xcd8c
+        &[
+            0x8c, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd8e
+        &[
+            0x8e, 0x00,
+        ],
+
+        // Unknown write to 0xcd90
+        &[
+            0x90, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd92
+        &[
+            0x92, 0x00,
+        ],
+
+        // Unknown write to 0xcd94
+        &[
+            0x94, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd96
+        &[
+            0x96, 0x00,
+        ],
+
+        // Unknown write to 0xcd98
+        &[
+            0x98, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd9a
+        &[
+            0x9a, 0x00,
+        ],
+
+        // Unknown write to 0xcd9c
+        &[
+            0x9c, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xcd9e
+        &[
+            0x9e, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xce00
+        &[
+            0xfc, 0x00, 0xce, 0x10, 0x20,
+        ],
+
+        // Unknown write to 0xce00
+        &[
+            0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce04
+        &[
+            0x04, 0x00,
+        ],
+
+        // Unknown write to 0xce06
+        &[
+            0x06, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce0a
+        &[
+            0x0a, 0x00,
+        ],
+
+        // Unknown write to 0xce0c
+        &[
+            0x0c, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce10
+        &[
+            0x10, 0x00,
+        ],
+
+        // Unknown write to 0xce12
+        &[
+            0x12, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce14
+        &[
+            0x14, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce16
+        &[
+            0x16, 0x00,
+        ],
+
+        // Unknown write to 0xce18
+        &[
+            0x18, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce1c
+        &[
+            0x1c, 0x00,
+        ],
+
+        // Unknown write to 0xce1e
+        &[
+            0x1e, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce22
+        &[
+            0x22, 0x00,
+        ],
+
+        // Unknown write to 0xce24
+        &[
+            0x24, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce28
+        &[
+            0x28, 0x00,
+        ],
+
+        // Unknown write to 0xce2a
+        &[
+            0x2a, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce2c
+        &[
+            0x2c, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce2e
+        &[
+            0x2e, 0x00,
+        ],
+
+        // Unknown write to 0xce30
+        &[
+            0x30, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce34
+        &[
+            0x34, 0x00,
+        ],
+
+        // Unknown write to 0xce36
+        &[
+            0x36, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce3a
+        &[
+            0x3a, 0x00,
+        ],
+
+        // Unknown write to 0xce3c
+        &[
+            0x3c, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce40
+        &[
+            0x40, 0x00,
+        ],
+
+        // Unknown write to 0xce42
+        &[
+            0x42, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce44
+        &[
+            0x44, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce46
+        &[
+            0x46, 0x00,
+        ],
+
+        // Unknown write to 0xce48
+        &[
+            0x48, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce4c
+        &[
+            0x4c, 0x00,
+        ],
+
+        // Unknown write to 0xce4e
+        &[
+            0x4e, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce52
+        &[
+            0x52, 0x00,
+        ],
+
+        // Unknown write to 0xce54
+        &[
+            0x54, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce58
+        &[
+            0x58, 0x00,
+        ],
+
+        // Unknown write to 0xce5a
+        &[
+            0x5a, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // Unknown write to 0xce5e
+        &[
+            0x5e, 0x00,
+        ],
+
+        // PAGE_ADDR = 0xcf00
+        &[
+            0xfc, 0x00, 0xcf, 0x10, 0x20,
+        ],
+
+        // Unknown write to 0xcf40
+        &[
+            0x40, 0x05, 0x35, 0x64, 0x00, 0x77, 0x00, 0x30,
+            0x60, 0x01, 0x35,
+        ],
+
+        // Unknown write to 0xcf4a
+        &[
+            0x4a, 0x05, 0x35, 0x64, 0x00,
+        ],
+
+        // Unknown write to 0xcf4e
+        &[
+            0x4e, 0x77,
+        ],
+
+        // SCRATCH.SCRATCH0 = [0, 0, 0, 0]
+        // SCRATCH.SCRATCH1 = [0, 0, 0, 0]
+        // SCRATCH.SCRATCH2 = [a, 0, 1]
+        &[
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x0a, 0x00, 0x01,
+        ],
+
+        // SCRATCH.SCRATCH2+0x3 = [0]
+        // SCRATCH.SCRATCH3 = [0, 0, 0]
+        &[
+            0x5b, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SCRATCH.SCRATCH3+0x3 = [0]
+        &[
+            0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x01,
+        ],
+
+        // Unknown write to 0xcf67
+        &[
+            0x67, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // EEPROM.EEPROM_CMD+0x1 = [0]
+        &[
+            0x6d, 0x00,
+        ],
+
+    ];
+
+    for chunk in PAYLOAD {
+        func(chunk)?;
+    }
 
     Ok(())
 }
