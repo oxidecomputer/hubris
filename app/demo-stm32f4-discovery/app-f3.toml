@@ -1,7 +1,7 @@
 name = "demo-stm32f3-discovery"
 target = "thumbv7em-none-eabihf"
 board = "stm32f3-discovery"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -79,7 +79,7 @@ path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 512}
+requires = {flash = 8192, ram = 1024}
 stacksize = 512
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]

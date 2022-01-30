@@ -1284,71 +1284,161 @@ pub unsafe extern "C" fn _start() -> ! {
     }
 }
 
+/// Panic handler for user tasks with the `panic-messages` feature enabled. This
+/// handler will try its best to generate a panic message, up to a maximum
+/// buffer size (configured below).
+///
+/// Including this panic handler permanently reserves a buffer in the RAM of a
+/// task, to ensure that memory is available for the panic message, even if the
+/// resources have been trimmed aggressively using `xtask sizes` and `humility
+/// stackmargin`.
 #[cfg(feature = "panic-messages")]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    use core::fmt::Write;
+    // Implementation Note
+    //
+    // This is a panic handler (obvs). Panic handlers have a unique
+    // responsibility: they are the only piece of Rust code that _must not
+    // panic._ (If they do, they wind up calling themselves recursively, which
+    // usually translates a simple panic into a harder-to-diagnose stack
+    // overflow.)
+    //
+    // There is unfortunately no way to have the compiler _check_ that the code
+    // does not panic, so we have to work very carefully.
 
-    // This is the "we want panic messages" panic handler. It is written in a
-    // slightly tortured fashion, but for good reason. The goals here are:
-    //
-    // 1. Put the panic message _somewhere._
-    // 2. Don't permanently reserve the RAM for that "somewhere" in all tasks at
-    //    all times.
-    // 3. Don't panic recursively. This is very important.
-    //
-    // We need to set aside RAM to achieve #1, but per #2 it isn't a static.
-    // Instead, we allocate a BUFSIZE-byte buffer on the panicking task's stack.
-    // This is not _ideal_ as it runs the risk of turning a panic into a stack
-    // overflow (TODO).
+    // There's a tradeoff here between "getting a useful message" and "wasting a
+    // lot of RAM." Somewhat arbitrarily, we choose to collect this many bytes
+    // of panic message (and permanently reserve the same number of bytes of
+    // RAM):
     const BUFSIZE: usize = 128;
 
-    // If the panic message is longer than BUFSIZE, we'll throw away remaining
-    // bytes. So we need to implement `core::fmt::Write` (how panic messages get
-    // generated) in a way that will only record a maximum-length _prefix_ of
-    // the output.
+    // Panic messages get constructed using `core::fmt::Write`. If we implement
+    // that trait, we can provide our own type that will back the
+    // `core::fmt::Formatter` handed into any formatting routines (like those on
+    // `Debug`/`Display`). This is important, because the standard library does
+    // not provide an implementation of `core::fmt::Write` that uses a fixed
+    // size buffer and discards the rest -- which is what we want.
     //
-    // To do that we have this custom type:
-    struct PrefixWrite([u8; BUFSIZE], usize);
+    // And so, we provide our own!
+    use core::fmt::Write;
+
+    struct PrefixWrite {
+        /// Content will be written here. While the content itself will be
+        /// UTF-8, it may end in an incomplete UTF-8 character to simplify our
+        /// truncation logic.
+        buf: &'static mut [u8; BUFSIZE],
+        /// Number of bytes of `buf` that are valid.
+        ///
+        /// Invariant: always in the range `0..buf.len()`.
+        pos: usize,
+    }
 
     impl Write for PrefixWrite {
         fn write_str(&mut self, s: &str) -> core::fmt::Result {
-            if self.1 < self.0.len() {
-                let (_, remaining) = self.0.split_at_mut(self.1);
-                let strbytes = s.as_bytes();
-                let to_write = remaining.len().min(strbytes.len());
-                unsafe {
-                    core::ptr::copy_nonoverlapping(
-                        strbytes.as_ptr(),
-                        remaining.as_mut_ptr(),
-                        to_write,
-                    );
-                }
-                // Wrapping add here because (1) we're confident that adding
-                // to_write won't cause wrap because of our `min` above, and (2)
-                // we want to avoid writing code that implies an integer
-                // overflow check.
-                self.1 = self.1.wrapping_add(to_write);
+            // If we've filled the buffer, this is a no-op.
+            //
+            // Note that we check `>=` here even though our invariant on this
+            // type states that the `>` part won't happen. This is to reassure
+            // the compiler, which otherwise can't see our invariant.
+            if self.pos >= self.buf.len() {
+                return Ok(());
             }
+
+            // We can write more. How much more? Let's find out. We're going to
+            // do this using unchecked operations to avoid a recursive panic.
+            //
+            // Safety: this is unsafe because of the risk of passing in an
+            // out-of-bounds index for the split. However, our type invariant
+            // ensures that `self.pos` is in-bounds.
+            let remaining = unsafe { self.buf.get_unchecked_mut(..self.pos) };
+            // We will copy bytes from the input string `s` into `remaining`,
+            // using the length of whichever is _shorter_ to stay in bounds.
+            let strbytes = s.as_bytes();
+            let to_write = usize::min(remaining.len(), strbytes.len());
+            // Copy!
+            //
+            // Safety: to use this copy operation safely we must ensure the
+            // following.
+            //
+            // - The source pointer must be readable for the given number of
+            //   bytes, which we ensure by taking it from the `strbytes` slice,
+            //   whose length is _at least_ as long as our count (by
+            //   construction).
+            // - The dest pointer must be writable for the given number of
+            //   bytes, which we ensure the same way except by using
+            //   `remaining`.
+            // - Both pointers must be properly aligned, which is ensured by
+            //   getting them from slices.
+            // - The affected regions starting at the source and dest pointers
+            //   must not overlap, which we can prove trivially since they're
+            //   coming from a `&[u8]` and a `&mut [u8]`, which cannot overlap
+            //   due to `&mut` aliasing requirements.
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    strbytes.as_ptr(),
+                    remaining.as_mut_ptr(),
+                    to_write,
+                );
+            }
+            // Finally, update our `pos` to record the number of bytes written.
+            //
+            // We use a wrapping add here to avoid integer overflow checks that
+            // could recursively panic. However, we also need to maintain our
+            // type invariant that `pos` does not exceed `buf.len()`. We can be
+            // sure of this here because:
+            //
+            // - `remaining.len()` is exactly equal to `buf.len() - pos`.
+            // - `to_write` is no larger than `remaining.len()`.
+            // - Therefore `pos + to_write <= buf.len()`.
+            //
+            // While this code is not `unsafe`, violating this invariant would
+            // break the `unsafe` code above, hence the size of this comment on
+            // what is otherwise a single instruction.
+            self.pos = self.pos.wrapping_add(to_write);
+
             Ok(())
         }
     }
 
-    // Okay. Now we start the actual panicking process. Allocate buffer:
-    let mut pw = PrefixWrite([0; BUFSIZE], 0);
-    // Generate message:
+    // We declare a single static panic buffer per task, to ensure the memory is
+    // available.
+    static mut PANIC_BUFFER: [u8; BUFSIZE] = [0; BUFSIZE];
+
+    // Okay. Now we start the actual panicking process.
+    //
+    // Safety: this is unsafe because we're getting a reference to a static mut,
+    // and the compiler can't be sure we're not aliasing or racing. We can be
+    // sure that this reference won't be aliased elsewhere in the program,
+    // because we've lexically confined it to this block.
+    //
+    // However, it is possible to produce an alias if the panic handler is
+    // called reentrantly. This can only happen if the code in the panic handler
+    // itself panics, which is what we're working very hard to prevent here.
+    let panic_buffer = unsafe { &mut PANIC_BUFFER };
+
+    // Whew! Time to write the darn message.
+    //
+    // Note that if we provided a different value of `pos` here we could destroy
+    // PrefixWrite's type invariant, so, don't do that.
+    let mut pw = PrefixWrite {
+        buf: panic_buffer,
+        pos: 0,
+    };
     write!(pw, "{}", info).ok();
-    // Pass it to kernel. We are using split-at rather than `&pw.0[..pw.1]`
-    // because the latter generates more checks that can lead to a recursive
-    // panic.
-    sys_panic(if pw.1 < pw.0.len() {
-        pw.0.split_at(pw.1).0
-    } else {
-        // Try the first BUFSIZE bytes then.
-        &pw.0
-    });
+
+    // Get the written part of the message.
+    //
+    // Safety: this is unsafe due to the potential for an out-of-bounds index,
+    // but PrefixWrite ensures that `pos <= buf.len()`, so this is ok.
+    let msg = unsafe { pw.buf.get_unchecked(..pw.pos) };
+
+    // Pass it to kernel.
+    sys_panic(msg)
 }
 
+/// Panic handler for tasks without the `panic-messages` feature enabled. This
+/// kills the task with a fixed message, `"PANIC"`. While this is less helpful
+/// than a proper panic message, the stack trace can still be informative.
 #[cfg(not(feature = "panic-messages"))]
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {

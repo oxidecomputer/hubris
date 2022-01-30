@@ -1,7 +1,7 @@
 name = "demo-stm32h743-nucleo"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h743zi2"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -119,7 +119,7 @@ features = ["spi1", "h743"]
 uses = ["spi1"]
 start = true
 interrupts = {35 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi_driver.config.spi]
@@ -151,8 +151,7 @@ path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
+requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 

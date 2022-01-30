@@ -1,7 +1,7 @@
 name = "gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -126,7 +126,7 @@ features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
 interrupts = {36 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi2_driver.config.spi]
@@ -141,7 +141,7 @@ features = ["h753", "spi4"]
 uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi4_driver.config.spi]
