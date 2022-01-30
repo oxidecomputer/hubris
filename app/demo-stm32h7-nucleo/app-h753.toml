@@ -1,7 +1,7 @@
 name = "demo-stm32h753-nucleo"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h753zi"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -108,7 +108,7 @@ features = ["spi1", "h753"]
 uses = ["spi1"]
 start = true
 interrupts = {53 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi_driver.config.spi]
@@ -128,8 +128,7 @@ path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 512}
-stacksize = 512
+requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
@@ -157,7 +156,7 @@ name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
 requires = {flash = 16384, ram = 2048 }
-stacksize = 2048
+stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {92 = 1, 80 = 1}

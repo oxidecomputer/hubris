@@ -42,7 +42,7 @@ priority = 0
 requires = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
-stacksize = 2032
+stacksize = 1904
 
 [tasks.suite]
 path = "../test-suite"

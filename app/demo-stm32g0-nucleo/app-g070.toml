@@ -6,7 +6,7 @@ stacksize = 944
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 12212, ram = 2552}
+requires = {flash = 32768, ram = 2552}
 features = ["g070", "panic-halt"]
 stacksize = 640
 
@@ -81,7 +81,7 @@ path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 256}
+requires = {flash = 8192, ram = 512}
 stacksize = 256
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]

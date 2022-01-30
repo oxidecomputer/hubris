@@ -1,7 +1,7 @@
 name = "gimletlet"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -124,7 +124,7 @@ features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi_driver.config.spi]
@@ -163,7 +163,7 @@ name = "drv-gimlet-hf-server"
 features = ["h753"]
 priority = 3
 requires = {flash = 16384, ram = 2048 }
-stacksize = 2048
+stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}

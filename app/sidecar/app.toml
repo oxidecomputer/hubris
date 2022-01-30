@@ -1,7 +1,7 @@
 name = "sidecar"
 target = "thumbv7em-none-eabihf"
 board = "sidecar-1"
-stacksize = 1024
+stacksize = 896
 
 [kernel]
 path = "."
@@ -74,7 +74,7 @@ features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
 interrupts = {36 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi2_driver.config.spi]
@@ -89,7 +89,7 @@ features = ["h753", "spi5"]
 uses = ["spi5"]
 start = true
 interrupts = {85 = 1}
-stacksize = 1000
+stacksize = 880
 task-slots = ["gpio_driver", "rcc_driver"]
 
 [tasks.spi5_driver.config.spi]
@@ -130,7 +130,7 @@ name = "task-sensor"
 features = ["itm"]
 priority = 3
 requires = {flash = 8192, ram = 2048 }
-stacksize = 2000        # Sensor data is stored on the stack
+stacksize = 1920        # Sensor data is stored on the stack
 start = true
 
 [tasks.sidecar_seq]
