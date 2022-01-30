@@ -34,8 +34,21 @@ use idol_runtime::RequestError;
 use userlib::*;
 
 cfg_if::cfg_if! {
+    if #[cfg(target_board = "stm32f3-discovery")] {
+        #[derive(FromPrimitive)]
+        enum Led {
+            Northwest = 0,
+            North = 1,
+            Northeast = 2,
+            East = 3,
+            Southeast = 4,
+            South = 5,
+            Southwest = 6,
+            West = 7,
+        }
+    }
     // Target boards with 4 leds
-    if #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))] {
+    else if #[cfg(any(target_board = "gemini-bu-1", target_board = "gimletlet-2"))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -157,7 +170,7 @@ fn enable_led_pins() {
     use zerocopy::AsBytes;
 
     // This assumes an STM32F4DISCOVERY board, where the LEDs are on D12 and
-    // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8 and E9.
+    // D13 OR an STM32F3DISCOVERY board, where the LEDs are on E8-E15.
 
     // Contact the RCC driver to get power turned on for GPIOD/E.
     let rcc_driver = RCC.get_task_id();
@@ -182,7 +195,24 @@ fn enable_led_pins() {
     let gpio_moder = &gpio!().moder;
 
     #[cfg(feature = "stm32f3")]
-    gpio_moder.modify(|_, w| w.moder8().output().moder9().output());
+    gpio_moder.modify(|_, w| {
+        w.moder8()
+            .output()
+            .moder9()
+            .output()
+            .moder10()
+            .output()
+            .moder11()
+            .output()
+            .moder12()
+            .output()
+            .moder13()
+            .output()
+            .moder14()
+            .output()
+            .moder15()
+            .output()
+    });
     #[cfg(feature = "stm32f4")]
     gpio_moder.modify(|_, w| w.moder12().output().moder13().output());
 }
@@ -193,9 +223,21 @@ fn led_on(led: Led) {
 
     match led {
         #[cfg(feature = "stm32f3")]
-        Led::Zero => gpio.bsrr.write(|w| w.bs8().set_bit()),
+        Led::Northwest => gpio.bsrr.write(|w| w.bs8().set_bit()),
         #[cfg(feature = "stm32f3")]
-        Led::One => gpio.bsrr.write(|w| w.bs9().set_bit()),
+        Led::North => gpio.bsrr.write(|w| w.bs9().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Northeast => gpio.bsrr.write(|w| w.bs10().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::East => gpio.bsrr.write(|w| w.bs11().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Southeast => gpio.bsrr.write(|w| w.bs12().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::South => gpio.bsrr.write(|w| w.bs13().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Southwest => gpio.bsrr.write(|w| w.bs14().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::West => gpio.bsrr.write(|w| w.bs15().set_bit()),
 
         #[cfg(feature = "stm32f4")]
         Led::Zero => gpio.bsrr.write(|w| w.bs12().set_bit()),
@@ -210,9 +252,21 @@ fn led_off(led: Led) {
 
     match led {
         #[cfg(feature = "stm32f3")]
-        Led::Zero => gpio.bsrr.write(|w| w.br8().set_bit()),
+        Led::Northwest => gpio.bsrr.write(|w| w.br8().set_bit()),
         #[cfg(feature = "stm32f3")]
-        Led::One => gpio.bsrr.write(|w| w.br9().set_bit()),
+        Led::North => gpio.bsrr.write(|w| w.br9().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Northeast => gpio.bsrr.write(|w| w.br10().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::East => gpio.bsrr.write(|w| w.br11().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Southeast => gpio.bsrr.write(|w| w.br12().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::South => gpio.bsrr.write(|w| w.br13().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::Southwest => gpio.bsrr.write(|w| w.br14().set_bit()),
+        #[cfg(feature = "stm32f3")]
+        Led::West => gpio.bsrr.write(|w| w.br15().set_bit()),
 
         #[cfg(feature = "stm32f4")]
         Led::Zero => gpio.bsrr.write(|w| w.br12().set_bit()),
@@ -227,7 +281,7 @@ fn led_toggle(led: Led) {
 
     match led {
         #[cfg(feature = "stm32f3")]
-        Led::Zero => {
+        Led::Northwest => {
             if gpio.odr.read().odr8().bit() {
                 gpio.bsrr.write(|w| w.br8().set_bit())
             } else {
@@ -235,11 +289,59 @@ fn led_toggle(led: Led) {
             }
         }
         #[cfg(feature = "stm32f3")]
-        Led::One => {
+        Led::North => {
             if gpio.odr.read().odr9().bit() {
                 gpio.bsrr.write(|w| w.br9().set_bit())
             } else {
                 gpio.bsrr.write(|w| w.bs9().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::Northeast => {
+            if gpio.odr.read().odr10().bit() {
+                gpio.bsrr.write(|w| w.br10().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs10().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::East => {
+            if gpio.odr.read().odr11().bit() {
+                gpio.bsrr.write(|w| w.br11().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs11().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::Southeast => {
+            if gpio.odr.read().odr12().bit() {
+                gpio.bsrr.write(|w| w.br12().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs12().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::South => {
+            if gpio.odr.read().odr13().bit() {
+                gpio.bsrr.write(|w| w.br13().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs13().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::Southwest => {
+            if gpio.odr.read().odr14().bit() {
+                gpio.bsrr.write(|w| w.br14().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs14().set_bit())
+            }
+        }
+        #[cfg(feature = "stm32f3")]
+        Led::West => {
+            if gpio.odr.read().odr15().bit() {
+                gpio.bsrr.write(|w| w.br15().set_bit())
+            } else {
+                gpio.bsrr.write(|w| w.bs15().set_bit())
             }
         }
 
