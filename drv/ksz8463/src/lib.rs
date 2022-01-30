@@ -129,7 +129,7 @@ impl Ksz8463 {
         // capacitors which dramatically slow down the rise of the reset
         // line, meaning you have to wait for extra long here.
         //
-        // Otherwise, the datasheet value is 1 µs, so 1 ms is fine.
+        // Otherwise, the minimum wait time is 1 µs, so 1 ms is fine.
         sleep_for(if self.slow_reset { 150 } else { 1 });
 
         let id = self.read(Register::CIDER).unwrap();

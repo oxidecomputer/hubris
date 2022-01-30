@@ -14,11 +14,14 @@ use vsc85xx::{Phy, PhyRw, PhyVsc85xx, VscError};
 
 task_slot!(SPI, spi_driver);
 const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
+const VSC8552_PORT: u8 = 0b11100; // Based on resistor strapping
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Ksz8463Status { port: u8, status: u16 },
     Vsc8552Status { port: u8, status: u16 },
+    Vsc8552Status100 { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -128,13 +131,26 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        // These log to the ringbuf automatically
-        self.ksz.read(KszRegister::P1MBSR).unwrap();
-        self.ksz.read(KszRegister::P2MBSR).unwrap();
+        let p1_sr = self.ksz.read(KszRegister::P1MBSR).unwrap();
+        ringbuf_entry!(Trace::Ksz8463Status {
+            port: 1,
+            status: p1_sr
+        });
 
-        for port in [0, 1] {
+        let p2_sr = self.ksz.read(KszRegister::P2MBSR).unwrap();
+        ringbuf_entry!(Trace::Ksz8463Status {
+            port: 2,
+            status: p2_sr
+        });
+
+        for i in [0, 1] {
+            let port = VSC8552_PORT + i;
             let status = eth.smi_read(port, eth::SmiClause22Register::Status);
             ringbuf_entry!(Trace::Vsc8552Status { port, status });
+
+            let status = eth
+                .smi_read(port, eth::SmiClause22Register::TxFxExtendedStatus);
+            ringbuf_entry!(Trace::Vsc8552Status100 { port, status });
         }
     }
 }
@@ -190,10 +206,10 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     gpio_driver.set(nrst).unwrap();
     sleep_for(120); // Wait for the chip to come out of reset
 
-    // This PHY is on MIIM ports 0 and 1, based on resistor strapping
+    // port is based on resistor strapping on the PCB
     let mut phy_rw = MiimBridge { eth };
     let mut phy = Phy {
-        port: 0b11100,
+        port: VSC8552_PORT,
         rw: &mut phy_rw,
     };
     vsc85xx::init_vsc8552_phy(&mut phy).unwrap();
