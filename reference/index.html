@@ -741,7 +741,7 @@ pre.rouge {
 <ul class="sectlevel2">
 <li><a href="#_syscall_abi">7.1. Syscall ABI</a>
 <ul class="sectlevel3">
-<li><a href="#_armv7_m_armv8_m">7.1.1. ARMv7-M / ARMv8-M</a></li>
+<li><a href="#_armv6_m_armv7_m_armv8_m">7.1.1. ARMv6-M / ARMv7-M / ARMv8-M</a></li>
 <li><a href="#_risc_v">7.1.2. RISC-V</a></li>
 </ul>
 </li>
@@ -2267,7 +2267,7 @@ applications.</p>
 <h3 id="_the_hubris_interrupt_model">4.2. The Hubris interrupt model</h3>
 <div class="paragraph">
 <p>We assume an interrupt system with the following characteristics. This is based
-on the design of the ARMv7-M interrupt system, but is intended to be general.</p>
+on the design of the ARMv6/7/8-M interrupt system, but is intended to be general.</p>
 </div>
 <div class="paragraph">
 <p>You can likely skip this section if you&#8217;re not porting the kernel.</p>
@@ -2276,7 +2276,7 @@ on the design of the ARMv7-M interrupt system, but is intended to be general.</p
 <ul>
 <li>
 <p>Interrupts can be numbered using small integers starting at zero. They may be
-a subset of exception numbers at a fixed offset&#8201;&#8212;&#8201;16, on ARMv7-M&#8201;&#8212;&#8201;and we&#8217;ll
+a subset of exception numbers at a fixed offset&#8201;&#8212;&#8201;16, on ARMvX-M&#8201;&#8212;&#8201;and we&#8217;ll
 subtract that offset when numbering interrupts.</p>
 </li>
 <li>
@@ -2651,8 +2651,8 @@ configure it even though the kernel itself may not use floating point;</p>
 </ul>
 </div>
 <div class="paragraph">
-<p>On ARMv7-M this sequence is handled by the <code>cortex_m_rt</code> crate, which in turn
-uses the <code>r0</code> crate to set up Rust variables.</p>
+<p>On ARMv6-M, ARMv7-M, and ARMv8-M this sequence is handled by the <code>cortex_m_rt</code>
+crate, which in turn uses the <code>r0</code> crate to set up Rust variables.</p>
 </div>
 </div>
 <div class="sect2">
@@ -2845,7 +2845,7 @@ seven argument slots and eight return slots.</p>
 <p>We assume that all registers are 32 bits wide.</p>
 </div>
 <div class="sect3">
-<h4 id="_armv7_m_armv8_m">7.1.1. ARMv7-M / ARMv8-M</h4>
+<h4 id="_armv6_m_armv7_m_armv8_m">7.1.1. ARMv6-M / ARMv7-M / ARMv8-M</h4>
 <div class="paragraph">
 <p>Syscalls are invoked using the <code>SVC</code> instruction. The 8-bit immediate in the
 instruction is ignored, because reading it from user text is potentially
@@ -2873,11 +2873,24 @@ in <code>r11</code>.</p>
 <td class="content">
 You&#8217;re probably wondering why we&#8217;re using weird registers instead of the
 standard calling convention, which would pass things in <code>r0</code> through <code>r3</code>. It
-comes back to the point above about stack accesses. The ARMv-7M hardware stores
+comes back to the point above about stack accesses. The ARMvX-M hardware stores
 <code>r0</code> through <code>r3</code> <em>on the user stack</em> on entry to a syscall, and we don&#8217;t want
 to have to read it back from there. <code>r4</code> through <code>r11</code>, on the other hand, are
 treated as callee-save, and our syscall entry sequence saves them into the TCB,
 where we can refer to them as needed.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+This calling convention is somewhat awkward on ARMv6-M, where the
+registers above <code>r7</code> are second-class. So it goes.
 </td>
 </tr>
 </table>
@@ -3062,7 +3075,7 @@ your task to be immediately faulted instead of returning a code.</p>
 <h5 id="_notes">Notes</h5>
 <div class="paragraph">
 <p>Target and operation are packed into a single word because we&#8217;re out of useful
-registers on ARMv7-M. This currently limits operation codes to 16 bits. We might
+registers on ARM. This currently limits operation codes to 16 bits. We might
 revisit this later.</p>
 </div>
 <div class="paragraph">
@@ -5376,7 +5389,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-01-19 20:36:23 UTC
+Last updated 2022-01-31 19:22:10 UTC
 </div>
 </div>
 </body>
