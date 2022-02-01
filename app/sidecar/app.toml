@@ -136,7 +136,7 @@ task-slots = ["net"]
 path = "../../task/vsc7448"
 name = "task-vsc7448"
 priority = 3
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 131072, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys", "net", { spi_driver = "spi2_driver" }]
