@@ -6,7 +6,7 @@ stacksize = 1024
 [kernel]
 path = "."
 name = "gemini-bu"
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -51,7 +51,7 @@ path = "../../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 4096, ram = 2048}
 uses = ["rcc"]
 start = true
 
@@ -60,7 +60,7 @@ path = "../../drv/stm32h7-gpio"
 name = "drv-stm32h7-gpio"
 features = ["h753"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 8192, ram = 2048}
 uses = ["gpios1", "gpios2", "gpios3"]
 start = true
 task-slots = ["rcc_driver"]
@@ -70,7 +70,7 @@ path = "../../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
 features = ["h753"]
 priority = 2
-requires = { flash = 8192, ram = 1024}
+requires = { flash = 8192, ram = 2048}
 uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
@@ -81,7 +81,7 @@ path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 uses = ["i2c1", "i2c3", "i2c4"]
 start = true
 task-slots = ["gpio_driver", "rcc_driver"]
@@ -121,7 +121,7 @@ task-slots = ["gpio_driver", "i2c_driver", "rcc_driver"]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 features = ["h753", "spi2"]
 uses = ["spi2"]
 start = true
@@ -136,7 +136,7 @@ global_config = "spi2"
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 features = ["h753", "spi4"]
 uses = ["spi4"]
 start = true
@@ -152,7 +152,7 @@ path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
 
@@ -160,7 +160,7 @@ task-slots = ["gpio_driver"]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
