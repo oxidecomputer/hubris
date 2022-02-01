@@ -16,8 +16,6 @@ use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Initialized(u64),
-    FailedToInitialize(VscError),
     PhyScanError { miim: u32, phy: u8, err: VscError },
     PhyLinkChanged { port: u32, status: u16 },
 }
@@ -32,19 +30,6 @@ impl<'a> Bsp<'a> {
         let out = Bsp { vsc7448 };
         out.init()?;
         Ok(out)
-    }
-
-    /// Attempts to initialize the system.  This is based on a VSC7448 dev kit
-    /// (VSC5627EV), so will need to change depending on your system.
-    fn init(&self) -> Result<(), VscError> {
-        // We call into an inner function so that we can easily match on
-        // errors here and log in the ringbuf.
-        let out = self.init_inner();
-        match out {
-            Err(e) => ringbuf_entry!(Trace::FailedToInitialize(e)),
-            Ok(_) => ringbuf_entry!(Trace::Initialized(sys_get_timer().now)),
-        }
-        out
     }
 
     /// Initializes four ports on front panel RJ45 connectors
@@ -176,7 +161,9 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
-    fn init_inner(&self) -> Result<(), VscError> {
+    /// Attempts to initialize the system.  This is based on a VSC7448 dev kit
+    /// (VSC5627EV), so will need to change depending on your system.
+    fn init(&self) -> Result<(), VscError> {
         self.gpio_init()?;
         self.init_rj45()?;
         self.init_sfp()?;

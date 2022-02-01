@@ -4,7 +4,7 @@
 
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
-use userlib::{hl::sleep_for, sys_get_timer, task_slot};
+use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{
     dev::{Dev10g, DevGeneric},
     serdes10g, serdes1g, serdes6g,
@@ -20,8 +20,6 @@ task_slot!(NET, net);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Initialized(u64),
-    FailedToInitialize(VscError),
     Vsc8504StatusLink { port: u8, status: u16 },
     Vsc8504Status100Base { port: u8, status: u16 },
 }
@@ -72,16 +70,8 @@ impl<'a> Bsp<'a> {
         Ok(out)
     }
 
-    pub fn init(&mut self) -> Result<(), VscError> {
-        let out = self.init_inner();
-        match out {
-            Err(e) => ringbuf_entry!(Trace::FailedToInitialize(e)),
-            Ok(_) => ringbuf_entry!(Trace::Initialized(sys_get_timer().now)),
-        }
-        out
-    }
-
-    fn init_inner(&mut self) -> Result<(), VscError> {
+    fn init(&mut self) -> Result<(), VscError> {
+        // See RFD144 for a detailed look at the design
         let sys = SYS.get_task_id();
         let sys = Sys::from(sys);
 

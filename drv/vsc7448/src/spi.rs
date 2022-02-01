@@ -14,6 +14,12 @@ enum Trace {
     Write { addr: u32, value: u32 },
 }
 
+/// This indicates how many bytes we pad between (writing) the address bytes
+/// and (reading) data back, during SPI transactions to the VSC7448.  See
+/// section 5.5.2 for details.  1 padding byte should be good up to 6.5 MHz
+/// SPI clock.
+pub const SPI_PAD_BYTES: u8 = 1;
+
 // Flags to tune ringbuf output while developing
 const DEBUG_TRACE_SPI: u8 = 1 << 0;
 const DEBUG_MASK: u8 = 0;
@@ -47,16 +53,17 @@ impl Vsc7448Spi {
             (addr & 0xFF) as u8,
         ];
 
-        // We read back 8 bytes in total:
+        // We read back 7 + padding bytes in total:
         // - 3 bytes of address
-        // - 1 byte of padding
+        // - Some number of padding bytes
         // - 4 bytes of data
-        let mut out = [0; 8];
+        const SIZE: usize = 7 + SPI_PAD_BYTES as usize;
+        let mut out = [0; SIZE];
         self.0.exchange(&data[..], &mut out[..])?;
-        let value = (out[7] as u32)
-            | ((out[6] as u32) << 8)
-            | ((out[5] as u32) << 16)
-            | ((out[4] as u32) << 24);
+        let value = (out[SIZE - 1] as u32)
+            | ((out[SIZE - 2] as u32) << 8)
+            | ((out[SIZE - 3] as u32) << 16)
+            | ((out[SIZE - 4] as u32) << 24);
 
         ringbuf_entry_masked!(
             DEBUG_TRACE_SPI,
@@ -65,8 +72,46 @@ impl Vsc7448Spi {
                 value
             }
         );
+        // The VSC7448 is configured to return 0x88888888 if a register is
+        // read too fast.  Reading takes place over SPI: we write a 3-byte
+        // address, then read 4 bytes of data; based on SPI speed, we may
+        // need to configure padding bytes in between the address and
+        // returning data.
+        //
+        // This is controlled by setting DEVCPU_ORG:IF_CFGSTAT.IF_CFG in
+        // Vsc7448::init(), then by padding bytes in the `out` arrays in
+        // [read] and [write].
+        //
+        // Therefore, we should only read "too fast" if someone has modified
+        // the SPI speed without updating the padding byte, which should
+        // never happen in well-behaved code.
+        //
+        // If we see this sentinel value, then we check
+        // DEVCPU_ORG:IF_CFGSTAT.IF_STAT.  If that bit is set, then the sentinel
+        // value _actually_ indicates an error (and not just an unfortunate
+        // coincidence).
         if value == 0x88888888 {
-            panic!("suspicious read");
+            // Panic immediately if we got an invalid read sentinel while
+            // reading IF_CFGSTAT itself.  This check also protects us from a
+            // stack overflow (by panicking instead).
+            let if_cfgstat = Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
+            if reg.addr == if_cfgstat.addr {
+                panic!(
+                    "Got invalid read sentinel value while reading IF_CFGSTAT"
+                );
+            }
+            // This read should _never_ fail for timing reasons because the
+            // DEVCPU_ORG register block can be accessed faster than all other
+            // registers (section 5.3.2 of the datasheet).
+            let v = match self.read(if_cfgstat) {
+                Err(e) => {
+                    panic!("Failed read while trying to check IF_STAT: {:?}", e)
+                }
+                Ok(v) => v,
+            };
+            if v.if_stat() == 1 {
+                panic!("Read before data was ready");
+            }
         }
         Ok(value.into())
     }

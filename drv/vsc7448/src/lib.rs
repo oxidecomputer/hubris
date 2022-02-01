@@ -33,8 +33,10 @@ pub fn init(v: &crate::spi::Vsc7448Spi) -> Result<(), VscError> {
         Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
         0x81818181.into(),
     )?;
-    // Configure reads to include 1 padding byte, since we're reading quickly
-    v.write(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), 1.into())?;
+    // Configure reads to include padding bytes, since we're reading quickly
+    v.write_with(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |r| {
+        r.set_if_cfg(spi::SPI_PAD_BYTES.into());
+    })?;
 
     let chip_id = v.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
