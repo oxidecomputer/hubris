@@ -60,7 +60,7 @@ path = "../../drv/stm32h7-rcc"
 name = "drv-stm32h7-rcc"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 2048}
+requires = {flash = 4096, ram = 2048}
 uses = ["rcc"]
 start = true
 
@@ -103,7 +103,7 @@ path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
 
@@ -111,7 +111,7 @@ task-slots = ["gpio_driver"]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
