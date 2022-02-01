@@ -1350,7 +1350,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             // Safety: this is unsafe because of the risk of passing in an
             // out-of-bounds index for the split. However, our type invariant
             // ensures that `self.pos` is in-bounds.
-            let remaining = unsafe { self.buf.get_unchecked_mut(..self.pos) };
+            let remaining = unsafe { self.buf.get_unchecked_mut(self.pos..) };
             // We will copy bytes from the input string `s` into `remaining`,
             // using the length of whichever is _shorter_ to stay in bounds.
             let strbytes = s.as_bytes();
