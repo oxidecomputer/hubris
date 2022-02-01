@@ -504,7 +504,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -575,7 +575,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -846,6 +846,7 @@ name = "drv-stm32g0-sys"
 version = "0.1.0"
 dependencies = [
  "drv-stm32g0-sys-api",
+ "drv-stm32xx-gpio-common",
  "idol",
  "idol-runtime",
  "num-traits",
@@ -859,6 +860,7 @@ name = "drv-stm32g0-sys-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
  "unwrap-lite",
@@ -885,7 +887,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "smoltcp",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
 ]
 
@@ -896,8 +898,9 @@ dependencies = [
  "byteorder",
  "cortex-m",
  "drv-stm32h7-rcc-api",
+ "drv-stm32xx-gpio-common",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.14.0",
  "userlib",
  "zerocopy",
 ]
@@ -907,6 +910,7 @@ name = "drv-stm32h7-gpio-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
  "userlib",
@@ -924,7 +928,7 @@ dependencies = [
  "drv-stm32h7-rcc-api",
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -945,7 +949,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
 ]
 
@@ -953,7 +957,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "vcell",
  "zerocopy",
@@ -967,7 +971,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
  "zerocopy",
 ]
@@ -989,7 +993,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "ringbuf",
- "stm32h7",
+ "stm32h7 0.13.0",
  "vcell",
  "zerocopy",
 ]
@@ -1014,7 +1018,7 @@ dependencies = [
  "quote",
  "ringbuf",
  "serde",
- "stm32h7",
+ "stm32h7 0.13.0",
  "syn",
  "userlib",
  "zerocopy",
@@ -1026,7 +1030,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -1037,7 +1041,19 @@ dependencies = [
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-rcc-api",
  "num-traits",
- "stm32h7",
+ "stm32h7 0.13.0",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32xx-gpio-common"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
+ "num-traits",
+ "stm32g0",
+ "stm32h7 0.14.0",
  "userlib",
  "zerocopy",
 ]
@@ -1185,7 +1201,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -1236,7 +1252,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -1266,7 +1282,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -2302,7 +2318,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -2453,6 +2469,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32h7"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f0faa648e03579befdd7267ab5c669624729028001fcf3c973832f53e310a06"
+dependencies = [
+ "bare-metal 1.0.0",
+ "cortex-m",
+ "vcell",
+]
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2594,7 +2621,7 @@ dependencies = [
  "serde",
  "smoltcp",
  "ssmarshal",
- "stm32h7",
+ "stm32h7 0.13.0",
  "syn",
  "task-net-api",
  "userlib",
@@ -2700,7 +2727,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "spd",
- "stm32h7",
+ "stm32h7 0.13.0",
  "userlib",
 ]
 
@@ -2840,7 +2867,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
@@ -2912,7 +2939,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]

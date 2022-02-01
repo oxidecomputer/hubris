@@ -8,7 +8,10 @@
 
 use unwrap_lite::UnwrapLite;
 use userlib::*;
-use zerocopy::AsBytes;
+
+pub use drv_stm32xx_gpio_common::{
+    Alternate, Mode, OutputType, PinSet, Port, Pull, Speed,
+};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u32)]
@@ -189,105 +192,6 @@ pub enum Peripheral {
     Spi1 = apb2!(12),
     Tim1 = apb2!(11),
     Syscfg = apb2!(0),
-}
-
-/// Enumeration of all GPIO ports on the STM32G0 series. Note that not all these
-/// ports may be externally exposed on your device/package. We do not check this
-/// at compile time.
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, AsBytes)]
-#[repr(u8)]
-pub enum Port {
-    A = 0,
-    B = 1,
-    C = 2,
-    D = 3,
-    F = 4,
-
-    #[cfg(feature = "g0b1")]
-    E = 5,
-}
-
-impl Port {
-    /// Turns a `Port` into a `PinSet` containing one pin, number `index`.
-    pub const fn pin(self, index: usize) -> PinSet {
-        PinSet {
-            port: self,
-            pin_mask: 1 << index,
-        }
-    }
-}
-
-/// The STM32G0 GPIO hardware lets us configure up to 16 pins on the same port
-/// at a time, and we expose this in the IPC API. A `PinSet` describes the
-/// target of a configuration operation.
-///
-/// A `PinSet` can technically be empty (`pin_mask` of zero) but that's rarely
-/// useful.
-#[derive(Copy, Clone, Debug)]
-pub struct PinSet {
-    /// Port we're talking about.
-    pub port: Port,
-    /// Mask with 1s in affected positions, 0s in others.
-    pub pin_mask: u16,
-}
-
-impl PinSet {
-    /// Derives a `PinSet` by setting mask bit `index`.
-    pub const fn and_pin(self, index: usize) -> Self {
-        Self {
-            pin_mask: self.pin_mask | 1 << index,
-            ..self
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
-pub enum Mode {
-    Input = 0b00,
-    Output = 0b01,
-    Alternate = 0b10,
-    Analog = 0b11,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
-pub enum OutputType {
-    PushPull = 0,
-    OpenDrain = 1,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
-pub enum Speed {
-    Low = 0b00,
-    Medium = 0b01,
-    High = 0b10,
-    VeryHigh = 0b11,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
-pub enum Pull {
-    None = 0b00,
-    Up = 0b01,
-    Down = 0b10,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
-pub enum Alternate {
-    AF0 = 0,
-    AF1 = 1,
-    AF2 = 2,
-    AF3 = 3,
-    AF4 = 4,
-    AF5 = 5,
-    AF6 = 6,
-    AF7 = 7,
-    AF8 = 8,
-    AF9 = 9,
-    AF10 = 10,
-    AF11 = 11,
-    AF12 = 12,
-    AF13 = 13,
-    AF14 = 14,
-    AF15 = 15,
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -1,0 +1,87 @@
+[package]
+name = "drv-stm32xx-gpio-common"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cfg-if = "1"
+stm32h7 = { version = "0.14", default-features = false, optional = true }
+userlib = {path = "../../sys/userlib"}
+num-traits = {version = "0.2", default-features = false}
+zerocopy = "0.6.1"
+
+[dependencies.stm32g0]
+optional = true
+git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
+branch = "stm32g0b1-initial-support"
+default-features = false
+
+[features]
+# When enabled, the `server` submodule is included, providing code for modeling
+# register accesses. This requires that you set a `model` feature so that we
+# can reference the right PAC submodule.
+server-support = []
+
+#
+# family- and model- features
+#
+# The family-XXX features switch on support for a specific family of parts. The
+# model-XXX features switch on model-specific code for a part available within
+# the family. The model-XXX features imply the family-XXX features, so if you
+# know the model you don't need to set the family.
+
+# Switches SoC family support to the STM32G0 series. Most G0 client code
+# needn't set a model feature, but note that the G0B1 adds a GPIO port.
+family-stm32g0 = [
+    "stm32g0",
+    "has-gpioa-type",
+    "has-gpiob-type",
+    "has-port-gpiof",
+]
+model-stm32g031 = ["family-stm32g0"]
+model-stm32g070 = ["family-stm32g0"]
+model-stm32g0b1 = ["family-stm32g0", "has-port-gpioe"]
+
+# Switches SoC family support to the STM32H7 series. Most H7 client code
+# needn't set a model feature, since the models we target are _almost_
+# identical.
+family-stm32h7 = [
+    "stm32h7",
+    "has-gpioa-type",
+    "has-af8-thru-af15",
+    "has-port-gpioe",
+    "has-port-gpiof",
+    "has-port-gpiog",
+    "has-port-gpioh",
+    "has-port-gpioi",
+    "has-port-gpioj",
+    "has-port-gpiok",
+]
+model-stm32h743 = ["family-stm32h7"]
+model-stm32h753 = ["family-stm32h7"]
+
+# The has-gpioX-type features indicates that the PAC for the chosen model calls
+# at least some of the GPIO ports `gpioX`. Note that this has nothing to do
+# with the actual identity of the port; GPIOX is probably called `gpioX` but
+# GPIOZ might be too.
+has-gpioa-type = []
+has-gpiob-type = []
+
+# The has-port-gpioX features indicate that the model or family includes the
+# given GPIO port in the memory map. Numbering here starts at E because it is a
+# rare STM32 part that is missing GPIOD and below.
+has-port-gpioe = []
+has-port-gpiof = []
+has-port-gpiog = []
+has-port-gpioh = []
+has-port-gpioi = []
+has-port-gpioj = []
+has-port-gpiok = []
+
+# Indicates that the Alternate Function field in the GPIO blocks has 16
+# possible options rather than 8. (The field is always 4 bits wide, but on
+# simpler STM32 implementations missing this feature the top 8 values are
+# reserved.)
+has-af8-thru-af15 = []
