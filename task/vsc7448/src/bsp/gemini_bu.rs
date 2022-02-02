@@ -231,7 +231,7 @@ impl<'a> Bsp<'a> {
     /// (VSC5627EV), so will need to change depending on your system.
     fn init(&self) -> Result<(), VscError> {
         self.gpio_init()?;
-        self.i2c_init()?;
+        //self.i2c_init()?;
         self.init_rj45()?;
         self.init_sfp()?;
         self.init_10g_sgmii()?;
