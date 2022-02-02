@@ -206,11 +206,18 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     gpio_driver.set(nrst).unwrap();
     sleep_for(120); // Wait for the chip to come out of reset
 
-    // port is based on resistor strapping on the PCB
+    // The VSC8552 patch must be applied to port 0 in the phy
     let mut phy_rw = MiimBridge { eth };
-    let mut phy = Phy {
+    let mut phy0 = Phy {
         port: VSC8552_PORT,
         rw: &mut phy_rw,
     };
-    vsc85xx::init_vsc8552_phy(&mut phy).unwrap();
+    vsc85xx::patch_vsc8552_phy(&mut phy0).unwrap();
+
+    // Port 1 on the PHY is connected to SMA connectors, so we'll configure it
+    let mut phy1 = Phy {
+        port: VSC8552_PORT + 1,
+        rw: &mut phy_rw,
+    };
+    vsc85xx::init_vsc8552_phy(&mut phy1).unwrap();
 }
