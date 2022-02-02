@@ -68,6 +68,7 @@ fn main() -> ! {
     let registers = unsafe { &*CONFIG.registers };
 
     rcc_driver.enable_clock(CONFIG.peripheral);
+    rcc_driver.enter_reset(CONFIG.peripheral);
     rcc_driver.leave_reset(CONFIG.peripheral);
     let mut spi = spi_core::Spi::from(registers);
 
