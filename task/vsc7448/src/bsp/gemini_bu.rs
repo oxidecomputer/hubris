@@ -108,9 +108,9 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
-    /// Configures port 51 to run DEV2G5_27 through SERDES10G_2.  This isn't
-    /// actually valid for the dev kit, which expects SFI, but as long as you
-    /// don't plug anything into that port, it's _fine_.
+    /// Configures port 51 to run DEV2G5_27 through SERDES10G_2 through S35.
+    /// This isn't actually valid for the dev kit, which expects SFI, but as
+    /// long as you don't plug anything into that port, it's _fine_.
     fn init_10g_sgmii(&self) -> Result<(), VscError> {
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
@@ -151,20 +151,87 @@ impl<'a> Bsp<'a> {
             0x00008000.into(),
         )?;
 
-        //  I2C_SCL = GPIO17_SI_nCS3 (for port A)
-        //            GPIO18_SI_nCS3 (for port B)
-        //            (both alt "10")
+        //  I2C_SCL = GPIO17_SI_nCS3 (for SFI port A)
+        //            GPIO18_SI_nCS3 (for SFI port B)
+        //            GPIO20_IRQ0_OUT (for SFI port C)
+        //            GPIO21_IRQ1_OUT (for SFI port D)
+        //            (all alt "10")
         self.vsc7448.write(
             Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT(1),
-            0x00060000.into(),
+            0x00360000.into(),
         )?;
         Ok(())
+    }
+
+    fn i2c_init(&self) -> Result<(), VscError> {
+        self.vsc7448.modify(Vsc7448::TWI().TWI().CTRL(), |r| {
+            r.set_enable(1);
+        })?;
+        Ok(())
+    }
+
+    fn i2c_read(&self, target: u8, reg: u8) -> Result<u8, VscError> {
+        let twi = Vsc7448::TWI().TWI();
+        // Configure the target address register
+        self.vsc7448.write_with(twi.TAR(), |r| {
+            r.set_tar(target.into());
+        })?;
+        // First, we do an I2C write to set the address
+        self.vsc7448.write_with(twi.DATA_CMD(), |r| {
+            r.set_cmd(0);
+            r.set_data(reg.into());
+        })?;
+        self.i2c_wait()?;
+
+        // Then, an I2C write to get data
+        self.vsc7448.write_with(twi.DATA_CMD(), |r| {
+            r.set_cmd(1);
+        })?;
+        self.i2c_wait()?;
+
+        // Return the u8 of data
+        let data = self.vsc7448.read(twi.DATA_CMD())?.data();
+        Ok(data as u8)
+    }
+
+    fn i2c_wait(&self) -> Result<(), VscError> {
+        loop {
+            // Wait for the state machine to go idle
+            if self
+                .vsc7448
+                .read(Vsc7448::TWI().TWI().STAT())?
+                .mst_activity()
+                == 0
+            {
+                return Ok(());
+            }
+        }
+    }
+
+    /// Configures the I2C clock to go to the appropriate SFP peripheral
+    /// by configuring the GPIO_OUT register so that only that clock is enabled.
+    fn sfp_i2c_select(&self, u: u8) -> Result<(), VscError> {
+        // Oddly enough, the I2C clocks are enabled by writing `1` to the
+        // GPIO output register (see 5.8.6.3 in the datasheet).  We'll enable
+        // a single bit here, since we aren't using GPIOs for anything else.
+        self.vsc7448.write(
+            Vsc7448::DEVCPU_GCB().GPIO().GPIO_OUT(),
+            (1 << match u {
+                0 => 17,
+                1 => 18,
+                2 => 20,
+                3 => 21,
+                e => panic!("Invalid SFP port selected: {}", e),
+            })
+            .into(),
+        )
     }
 
     /// Attempts to initialize the system.  This is based on a VSC7448 dev kit
     /// (VSC5627EV), so will need to change depending on your system.
     fn init(&self) -> Result<(), VscError> {
         self.gpio_init()?;
+        self.i2c_init()?;
         self.init_rj45()?;
         self.init_sfp()?;
         self.init_10g_sgmii()?;
