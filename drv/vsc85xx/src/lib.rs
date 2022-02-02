@@ -17,6 +17,7 @@ pub use vsc_err::VscError;
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Vsc8552Patch(u8),
     Vsc8552Init(u8),
     Vsc8504Init(u8),
     PatchState { patch_ok: bool, skip_download: bool },
@@ -185,14 +186,17 @@ pub fn init_vsc8504_phy<P: PhyRw + PhyVsc85xx>(
     Ok(())
 }
 
-/// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
-/// to 100BASE-FX SFP Fiber). This should be called _after_ the PHY is reset
+/// Checks the chip ID of a VSC8552 patch, then applies a patch to the built-in
+/// 8051 processor based on the MESA SDK.  This must only be called on port 0
+/// in the PHY; otherwise it will panic in a check.
+///
+/// This should be called _after_ the PHY is reset
 /// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
 /// The caller is also responsible for handling the `COMA_MODE` pin.
-pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
+pub fn patch_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     v: &mut Phy<P>,
 ) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8552Init(v.port));
+    ringbuf_entry!(Trace::Vsc8552Patch(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
     assert_eq!(id1, 0x7);
@@ -201,7 +205,16 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
     assert_eq!(rev.tesla_e(), 1);
 
-    v.patch()?;
+    v.patch()
+}
+
+/// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
+/// to 100BASE-FX SFP Fiber). This should be called _after_ [patch_vsc8552_phy],
+/// and has the same caveats w.r.t. the reset and COMA_MODE pins.
+pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
+    v: &mut Phy<P>,
+) -> Result<(), VscError> {
+    ringbuf_entry!(Trace::Vsc8552Init(v.port));
 
     v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
         // MAC configuration = SGMII
