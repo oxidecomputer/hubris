@@ -108,7 +108,7 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
-    /// Configures port 51 to run DEV2G5_27 through SERDES10G_2 through S35.
+    /// Configures port 52 to run DEV2G5_28 through SERDES10G_3 through S36.
     /// This isn't actually valid for the dev kit, which expects SFI, but as
     /// long as you don't plug anything into that port, it's _fine_.
     fn init_10g_sgmii(&self) -> Result<(), VscError> {
@@ -117,10 +117,10 @@ impl<'a> Bsp<'a> {
         // "Configure the 10G Mux mode to DEV2G5"
         self.vsc7448
             .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                r.set_dev10g_2_mode(3);
+                r.set_dev10g_3_mode(3);
             })?;
 
-        let dev_2g5 = DevGeneric::new_2g5(27);
+        let dev_2g5 = DevGeneric::new_2g5(28);
         // This bit must be set when a 10G port runs below 10G speed
         self.vsc7448.modify(
             Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
@@ -129,7 +129,7 @@ impl<'a> Bsp<'a> {
             },
         )?;
         dev_2g5.init_sgmii(&self.vsc7448)?;
-        serdes10g_cfg_sgmii.apply(2, &self.vsc7448)?;
+        serdes10g_cfg_sgmii.apply(3, &self.vsc7448)?;
         Ok(())
     }
 
