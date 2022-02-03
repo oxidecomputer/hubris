@@ -214,7 +214,10 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     };
     vsc85xx::patch_vsc8552_phy(&mut phy0).unwrap();
 
-    // Port 1 on the PHY is connected to SMA connectors, so we'll configure it
+    // Port 0 on the PHY is connected to a SFF-8087 Mini-Sas
+    vsc85xx::init_vsc8552_phy(&mut phy0).unwrap();
+
+    // Port 1 on the PHY is connected to SMA connectors
     let mut phy1 = Phy {
         port: VSC8552_PORT + 1,
         rw: &mut phy_rw,
