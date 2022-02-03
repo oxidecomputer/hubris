@@ -211,8 +211,8 @@ impl Vsc7448Spi {
     pub fn serdes6g_read(&self, instance: u32) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
-            reg.set_serdes6g_rd_one_shot(1);
-            reg.set_serdes6g_addr(1 << instance);
+            r.set_serdes6g_rd_one_shot(1);
+            r.set_serdes6g_addr(1 << instance);
         })?;
         for _ in 0..32 {
             if self.read(addr)?.serdes6g_rd_one_shot() != 1 {
@@ -228,8 +228,8 @@ impl Vsc7448Spi {
     pub fn serdes6g_write(&self, instance: u32) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
-            reg.set_serdes6g_wr_one_shot(1);
-            reg.set_serdes6g_addr(1 << instance);
+            r.set_serdes6g_wr_one_shot(1);
+            r.set_serdes6g_addr(1 << instance);
         })?;
         for _ in 0..32 {
             if self.read(addr)?.serdes6g_wr_one_shot() != 1 {
@@ -245,8 +245,8 @@ impl Vsc7448Spi {
     pub fn serdes1g_read(&self, instance: u32) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
-            reg.set_serdes1g_rd_one_shot(1);
-            reg.set_serdes1g_addr(1 << instance);
+            r.set_serdes1g_rd_one_shot(1);
+            r.set_serdes1g_addr(1 << instance);
         })?;
         for _ in 0..32 {
             if self.read(addr)?.serdes1g_rd_one_shot() != 1 {
@@ -262,8 +262,8 @@ impl Vsc7448Spi {
     pub fn serdes1g_write(&self, instance: u32) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
-            reg.set_serdes1g_wr_one_shot(1);
-            reg.set_serdes1g_addr(1 << instance);
+            r.set_serdes1g_wr_one_shot(1);
+            r.set_serdes1g_addr(1 << instance);
         })?;
         for _ in 0..32 {
             if self.read(addr)?.serdes1g_wr_one_shot() != 1 {
