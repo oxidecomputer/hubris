@@ -391,7 +391,6 @@ pub enum SmiClause22Register {
     MmdAccessControl = 13,
     MmdAccessAddressData = 14,
     ExtendedStatus = 15,
-    TxFxExtendedStatus = 16,
 }
 
 impl From<SmiClause22Register> for u8 {
