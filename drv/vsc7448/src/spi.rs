@@ -47,8 +47,9 @@ impl Vsc7448Spi {
     where
         T: From<u32>,
     {
-        assert!(reg.addr >= 0x71000000);
-        assert!(reg.addr <= 0x72000000);
+        if reg.addr < 0x71000000 || reg.addr > 0x72000000 {
+            return Err(VscError::BadRegAddr(reg.addr));
+        }
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
         let data: [u8; 3] = [
             ((addr >> 16) & 0xFF) as u8,
@@ -94,26 +95,19 @@ impl Vsc7448Spi {
         // value _actually_ indicates an error (and not just an unfortunate
         // coincidence).
         if value == 0x88888888 {
-            // Panic immediately if we got an invalid read sentinel while
+            // Return immediately if we got an invalid read sentinel while
             // reading IF_CFGSTAT itself.  This check also protects us from a
-            // stack overflow (by panicking instead).
+            // stack overflow.
             let if_cfgstat = Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
             if reg.addr == if_cfgstat.addr {
-                panic!(
-                    "Got invalid read sentinel value while reading IF_CFGSTAT"
-                );
+                return Err(VscError::InvalidRegisterReadNested);
             }
             // This read should _never_ fail for timing reasons because the
             // DEVCPU_ORG register block can be accessed faster than all other
             // registers (section 5.3.2 of the datasheet).
-            let v = match self.read(if_cfgstat) {
-                Err(e) => {
-                    panic!("Failed read while trying to check IF_STAT: {:?}", e)
-                }
-                Ok(v) => v,
-            };
+            let v = self.read(if_cfgstat)?;
             if v.if_stat() == 1 {
-                panic!("Read before data was ready");
+                return Err(VscError::InvalidRegisterRead(reg.addr));
             }
         }
         Ok(value.into())
@@ -129,8 +123,9 @@ impl Vsc7448Spi {
     where
         u32: From<T>,
     {
-        assert!(reg.addr >= 0x71000000);
-        assert!(reg.addr <= 0x72000000);
+        if reg.addr < 0x71000000 || reg.addr > 0x72000000 {
+            return Err(VscError::BadRegAddr(reg.addr));
+        }
 
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
         let value: u32 = value.into();

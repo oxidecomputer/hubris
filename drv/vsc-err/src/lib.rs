@@ -45,6 +45,9 @@ pub enum VscError {
     RxPllLockFailed,
     RxPllFsmFailed,
     OffsetCalFailed,
+    InvalidDev1g(u32),
+    InvalidDev2g5(u32),
+    InvalidDev10g(u32),
 
     /// Mismatch in the `IDENTIFIER_1` PHY register
     BadPhyId1(u16),
@@ -52,7 +55,17 @@ pub enum VscError {
     BadPhyId2(u16),
     /// Indicates that the VSC8504 is not Tesla E silicon
     BadPhyRev,
+    /// Indicates that we tried to apply the phy patch to an invalid port;
+    /// it can only be applied to port 0 of the PHY
+    BadPhyPatchPort(u8),
+    /// Checking the CRC after applying a patch to the PHY firmware returned
+    /// an unexpected CRC.
+    PhyPatchFailedCrc,
     PhyInitTimeout,
+
+    BadRegAddr(u32),
+    InvalidRegisterRead(u32),
+    InvalidRegisterReadNested,
 
     MiimReadErr {
         miim: u32,

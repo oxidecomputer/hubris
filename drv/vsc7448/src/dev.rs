@@ -18,13 +18,23 @@ pub enum DevGeneric {
 }
 
 impl DevGeneric {
-    pub fn new_1g(d: u32) -> Self {
-        assert!(d < 24);
-        DevGeneric::Dev1g(d)
+    /// Constructs a handle to a DEV1G device.  Returns an error on `d >= 24`,
+    /// as there are only 24 DEV1G devices in the chip (numbering from 0).
+    pub fn new_1g(d: u32) -> Result<Self, VscError> {
+        if d < 24 {
+            Ok(DevGeneric::Dev1g(d))
+        } else {
+            Err(VscError::InvalidDev1g(d))
+        }
     }
-    pub fn new_2g5(d: u32) -> Self {
-        assert!(d < 29);
-        DevGeneric::Dev2g5(d)
+    /// Constructs a handle to DEV2G5 device.  Returns an error on `d >= 29`,
+    /// as there are only 29 DEV2G5 devices in the chip (numbering from 0).
+    pub fn new_2g5(d: u32) -> Result<Self, VscError> {
+        if d < 29 {
+            Ok(DevGeneric::Dev2g5(d))
+        } else {
+            Err(VscError::InvalidDev2g5(d))
+        }
     }
     /// Convert from a DEV to a port number, based on Table 12 in the datasheet
     pub fn port(&self) -> u32 {
@@ -155,9 +165,12 @@ impl DevGeneric {
 #[derive(Copy, Clone)]
 pub struct Dev10g(u32);
 impl Dev10g {
-    pub fn new(d: u32) -> Self {
-        assert!(d < 4);
-        Self(d)
+    pub fn new(d: u32) -> Result<Self, VscError> {
+        if d < 4 {
+            Ok(Self(d))
+        } else {
+            Err(VscError::InvalidDev10g(d))
+        }
     }
     /// Converts from a DEV10G index to a port index
     pub fn port(&self) -> u32 {
