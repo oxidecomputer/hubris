@@ -68,7 +68,7 @@ pub enum VscError {
     InvalidRegisterReadNested,
 
     MiimReadErr {
-        miim: u32,
+        miim: u8,
         phy: u8,
         page: u16,
         addr: u8,
