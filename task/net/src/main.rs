@@ -9,6 +9,9 @@ mod bsp;
 mod buf;
 mod server;
 
+#[cfg(feature = "mgmt")]
+mod miim_bridge;
+
 use core::sync::atomic::{AtomicU32, Ordering};
 
 #[cfg(feature = "h743")]

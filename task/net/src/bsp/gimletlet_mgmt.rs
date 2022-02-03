@@ -2,15 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::miim_bridge::MiimBridge;
 use crate::GPIO;
+
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32h7_gpio_api as gpio_api;
 use ksz8463::{Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
-use vsc7448_pac::types::PhyRegisterAddress;
-use vsc85xx::{Phy, PhyRw, PhyVsc85xx, VscError};
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc85xx::{Phy, PhyVsc85xx, VscError};
 
 task_slot!(SPI, spi_driver);
 const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
@@ -21,6 +23,7 @@ enum Trace {
     None,
     Ksz8463Status { port: u8, status: u16 },
     Vsc8552Status { port: u8, status: u16 },
+    Vsc8552Err { err: VscError },
     Vsc8552Status100 { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
@@ -145,46 +148,38 @@ impl Bsp {
 
         for i in [0, 1] {
             let port = VSC8552_PORT + i;
-            let status = eth.smi_read(port, eth::SmiClause22Register::Status);
-            ringbuf_entry!(Trace::Vsc8552Status { port, status });
+            let mut phy = Phy {
+                port,
+                rw: &mut MiimBridge::new(eth),
+            };
 
-            let status = eth
-                .smi_read(port, eth::SmiClause22Register::TxFxExtendedStatus);
-            ringbuf_entry!(Trace::Vsc8552Status100 { port, status });
+            match phy.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(status) => {
+                    ringbuf_entry!(Trace::Vsc8552Status {
+                        port,
+                        status: u16::from(status)
+                    })
+                }
+                Err(err) => ringbuf_entry!(Trace::Vsc8552Err { err }),
+            }
+
+            // This is a non-standard register address
+            let extended_status =
+                PhyRegisterAddress::<u16>::from_page_and_addr_unchecked(0, 16);
+            match phy.read(extended_status) {
+                Ok(status) => {
+                    ringbuf_entry!(Trace::Vsc8552Status100 {
+                        port,
+                        status: u16::from(status)
+                    })
+                }
+                Err(err) => ringbuf_entry!(Trace::Vsc8552Err { err }),
+            }
         }
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-/// Helper struct to implement the `PhyRw` trait using direct access through
-/// `eth`'s MIIM registers.
-struct MiimBridge<'a> {
-    eth: &'a mut eth::Ethernet,
-}
-
-impl PhyRw for MiimBridge<'_> {
-    fn read_raw<T: From<u16>>(
-        &mut self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        Ok(self.eth.smi_read(phy, reg.addr).into())
-    }
-    fn write_raw<T>(
-        &mut self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
-        self.eth.smi_write(phy, reg.addr, value.into());
-        Ok(())
-    }
-}
 
 // We're talking to a VSC8552, which is compatible with the VSC85xx trait.
 impl PhyVsc85xx for MiimBridge<'_> {}
@@ -207,7 +202,7 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
     sleep_for(120); // Wait for the chip to come out of reset
 
     // The VSC8552 patch must be applied to port 0 in the phy
-    let mut phy_rw = MiimBridge { eth };
+    let mut phy_rw = MiimBridge::new(eth);
     let mut phy0 = Phy {
         port: VSC8552_PORT,
         rw: &mut phy_rw,
