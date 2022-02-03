@@ -3,8 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #![no_std]
 
-use core::convert::TryInto;
-
 use drv_spi_api::{SpiDevice, SpiError};
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ringbuf::*;
@@ -94,8 +92,8 @@ impl Ksz8463 {
         v: u16,
         mask: u16,
     ) -> Result<(), SpiError> {
-        let _v = (self.read(r)? & !mask) | (v & mask);
-        self.write(r, _v)
+        let v = (self.read(r)? & !mask) | (v & mask);
+        self.write(r, v)
     }
 
     pub fn enabled(&self) -> Result<bool, SpiError> {

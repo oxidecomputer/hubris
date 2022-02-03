@@ -5,7 +5,7 @@ authors = ["Cliff L. Biffle <cliff@oxide.computer>"]
 edition = "2021"
 
 [dependencies]
-cfg-if = "0.1.10"
+cfg-if = "1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 num-traits = {version = "0.2.12", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}

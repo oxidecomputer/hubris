@@ -22,7 +22,7 @@ pub struct Config {
     des_bw_ana: u32,
     ena_lane: bool,
 }
-/// Based on `jr2_sd1g_cfg`
+/// Based on `jr2_sd1g_cfg` in the MESA SDK
 impl Config {
     pub fn new(m: Mode) -> Self {
         match m {
