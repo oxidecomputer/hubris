@@ -502,7 +502,7 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         let phy_port =
             self.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
         if phy_port != 0 {
-            return BadPhyPatchPort(phy_port);
+            return Err(VscError::BadPhyPatchPort(phy_port));
         }
         let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
         let skip_download = crc == EXPECTED_CRC;
@@ -532,7 +532,9 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
 
         if !skip_download {
             let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
-            return Err(VscError::PhyPatchFailedCrc);
+            if crc != EXPECTED_CRC {
+                return Err(VscError::PhyPatchFailedCrc);
+            }
         }
 
         //////////////////////////////////////////////////////////////////////////
