@@ -36,7 +36,9 @@ impl DevGeneric {
             Err(VscError::InvalidDev2g5(d))
         }
     }
-    /// Convert from a DEV to a port number, based on Table 12 in the datasheet
+    /// Convert from a DEV to a port number.  Note that port numbers are
+    /// not uniquely mapped to devices in the chip; it depends on how the
+    /// chip is configured.
     pub fn port(&self) -> u8 {
         match *self {
             DevGeneric::Dev1g(d) => {
@@ -44,7 +46,7 @@ impl DevGeneric {
                     d
                 } else {
                     // DEV1G_8-23 are only available in QSGMII mode, where
-                    // they map to ports 32-47
+                    // they map to ports 32-47 (Table 8)
                     d + 24
                 }
             }
@@ -57,7 +59,7 @@ impl DevGeneric {
                 } else {
                     // DEV2G5_25-28 are only available when running through
                     // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
-                    // 49-52, using SERDES10G_0-3
+                    // 49-52, using SERDES10G_0-3 (Table 9)
                     d + 24
                 }
             }
