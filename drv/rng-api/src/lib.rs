@@ -20,6 +20,9 @@ use userlib::*;
 pub enum RngError {
     BadArg = Error::CUSTOM_START,
     PoweredOff,
+    TimeoutChi2Min,
+    TimeoutChi2Gt4,
+    TimeoutRefreshCnt,
 }
 
 impl From<RngError> for u16 {
