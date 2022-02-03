@@ -48,7 +48,7 @@ impl Config {
         }
     }
 
-    pub fn apply(&self, instance: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+    pub fn apply(&self, instance: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         v.serdes6g_read(instance)?;
         let ana_cfg = Vsc7448::HSIO().SERDES6G_ANA_CFG();
         let dig_cfg = Vsc7448::HSIO().SERDES6G_DIG_CFG();

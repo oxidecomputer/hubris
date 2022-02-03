@@ -19,19 +19,19 @@ pub enum VscError {
 
     BadChipId(u32),
     Serdes1gReadTimeout {
-        instance: u32,
+        instance: u8,
     },
     Serdes1gWriteTimeout {
-        instance: u32,
+        instance: u8,
     },
     Serdes6gReadTimeout {
-        instance: u32,
+        instance: u8,
     },
     Serdes6gWriteTimeout {
-        instance: u32,
+        instance: u8,
     },
     PortFlushTimeout {
-        port: u32,
+        port: u8,
     },
     AnaCfgTimeout,
     SerdesFrequencyTooLow(u64),
@@ -45,9 +45,9 @@ pub enum VscError {
     RxPllLockFailed,
     RxPllFsmFailed,
     OffsetCalFailed,
-    InvalidDev1g(u32),
-    InvalidDev2g5(u32),
-    InvalidDev10g(u32),
+    InvalidDev1g(u8),
+    InvalidDev2g5(u8),
+    InvalidDev10g(u8),
 
     /// Mismatch in the `IDENTIFIER_1` PHY register
     BadPhyId1(u16),

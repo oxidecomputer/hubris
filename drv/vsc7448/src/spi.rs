@@ -214,7 +214,7 @@ impl Vsc7448Spi {
     /// Reads from a specific SERDES6G instance, which is done by writing its
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
-    pub fn serdes6g_read(&self, instance: u32) -> Result<(), VscError> {
+    pub fn serdes6g_read(&self, instance: u8) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes6g_rd_one_shot(1);
@@ -231,7 +231,7 @@ impl Vsc7448Spi {
     /// Writes to a specific SERDES6G instance, which is done by writing its
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
-    pub fn serdes6g_write(&self, instance: u32) -> Result<(), VscError> {
+    pub fn serdes6g_write(&self, instance: u8) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes6g_wr_one_shot(1);
@@ -248,7 +248,7 @@ impl Vsc7448Spi {
     /// Writes to a specific SERDES1G instance, which is done by writing its
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
-    pub fn serdes1g_read(&self, instance: u32) -> Result<(), VscError> {
+    pub fn serdes1g_read(&self, instance: u8) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes1g_rd_one_shot(1);
@@ -265,7 +265,7 @@ impl Vsc7448Spi {
     /// Reads from a specific SERDES1G instance, which is done by writing its
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
-    pub fn serdes1g_write(&self, instance: u32) -> Result<(), VscError> {
+    pub fn serdes1g_write(&self, instance: u8) -> Result<(), VscError> {
         let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes1g_wr_one_shot(1);
