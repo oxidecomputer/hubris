@@ -133,10 +133,14 @@ pub fn init_vsc8522_phy<P: PhyRw + PhyVsc85xx>(
     // Do a self-reset on the PHY
     v.modify(phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    assert_eq!(id1, 0x7);
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
+    }
 
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    assert_eq!(id2, 0x6f3);
+    if id2 != 0x6f3 {
+        return Err(VscError::BadPhyId2(id2));
+    }
 
     // Disable COMA MODE, which keeps the chip holding itself in reset
     v.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
@@ -159,11 +163,17 @@ pub fn init_vsc8504_phy<P: PhyRw + PhyVsc85xx>(
     ringbuf_entry!(Trace::Vsc8504Init(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    assert_eq!(id1, 0x7);
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
+    }
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    assert_eq!(id2, 0x4c2);
+    if id2 != 0x4c2 {
+        return Err(VscError::BadPhyId2(id2));
+    }
     let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-    assert_eq!(rev.tesla_e(), 1);
+    if rev.tesla_e() != 1 {
+        return Err(VscError::BadPhyRev);
+    }
 
     v.patch()?;
 
@@ -188,7 +198,7 @@ pub fn init_vsc8504_phy<P: PhyRw + PhyVsc85xx>(
 
 /// Checks the chip ID of a VSC8552 patch, then applies a patch to the built-in
 /// 8051 processor based on the MESA SDK.  This must only be called on port 0
-/// in the PHY; otherwise it will panic in a check.
+/// in the PHY; otherwise it will return an error
 ///
 /// This should be called _after_ the PHY is reset
 /// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
@@ -199,11 +209,17 @@ pub fn patch_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     ringbuf_entry!(Trace::Vsc8552Patch(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    assert_eq!(id1, 0x7);
+    if id1 != 0x7 {
+        return Err(VscError::BadPhyId1(id1));
+    }
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    assert_eq!(id2, 0x4e2);
+    if id2 != 0x4e2 {
+        return Err(VscError::BadPhyId2(id2));
+    }
     let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-    assert_eq!(rev.tesla_e(), 1);
+    if rev.tesla_e() != 1 {
+        return Err(VscError::BadPhyRev);
+    }
 
     v.patch()
 }
@@ -485,7 +501,9 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         // the address here.
         let phy_port =
             self.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
-        assert_eq!(phy_port, 0);
+        if phy_port != 0 {
+            return BadPhyPatchPort(phy_port);
+        }
         let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
         let skip_download = crc == EXPECTED_CRC;
         let patch_ok = skip_download
@@ -514,7 +532,7 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
 
         if !skip_download {
             let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
-            assert!(crc == EXPECTED_CRC);
+            return Err(VscError::PhyPatchFailedCrc);
         }
 
         //////////////////////////////////////////////////////////////////////////

@@ -84,7 +84,7 @@ impl<'a> Bsp<'a> {
             .apply(4, &self.vsc7448)?;
 
         for port in 0..4 {
-            DevGeneric::new_1g(port).init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_1g(port)?.init_sgmii(&self.vsc7448)?;
         }
         Ok(())
     }
@@ -100,7 +100,7 @@ impl<'a> Bsp<'a> {
 
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
         for dev in [0, 1] {
-            let dev = Dev10g::new(dev);
+            let dev = Dev10g::new(dev)?;
             dev.init_sfi(&self.vsc7448)?;
             serdes_cfg.apply(dev.index(), &self.vsc7448)?;
         }
@@ -120,7 +120,7 @@ impl<'a> Bsp<'a> {
                 r.set_dev10g_3_mode(3);
             })?;
 
-        let dev_2g5 = DevGeneric::new_2g5(28);
+        let dev_2g5 = DevGeneric::new_2g5(28)?;
         // This bit must be set when a 10G port runs below 10G speed
         self.vsc7448.modify(
             Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
