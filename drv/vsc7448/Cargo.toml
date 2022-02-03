@@ -1,10 +1,10 @@
 [package]
 name = "vsc7448"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-cfg-if = "0.1.10"
+cfg-if = "1"
 userlib = {path = "../../sys/userlib" }
 
 drv-spi-api = {path = "../../drv/spi-api"}

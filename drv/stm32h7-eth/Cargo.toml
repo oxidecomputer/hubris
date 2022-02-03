@@ -12,7 +12,7 @@ ipv4 = []
 ipv6 = []
 
 [dependencies]
-cfg-if = "0.1.10"
+cfg-if = "1"
 cortex-m = "0.7"
 userlib = {path = "../../sys/userlib"}
 stm32h7 = {version = "0.13", default-features = false}

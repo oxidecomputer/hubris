@@ -10,9 +10,8 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 /// become configurable.
 const PHYADDR: u8 = 0x01;
 
-pub struct Bsp {
-    // Empty handle
-}
+// Empty handle
+pub struct Bsp;
 
 impl Bsp {
     pub fn new() -> Self {
