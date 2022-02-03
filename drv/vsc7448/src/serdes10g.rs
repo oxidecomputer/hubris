@@ -121,7 +121,7 @@ impl Config {
     /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
     /// changed are converted into direct register assignments (rather than
     /// passing them around in the config struct).
-    pub fn apply(&self, index: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+    pub fn apply(&self, index: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         // jr2_sd10g_xfi_mode
         v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_sw_rst(0);

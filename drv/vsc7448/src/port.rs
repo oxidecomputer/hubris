@@ -97,7 +97,7 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
 }
 
 /// Shared logic between 1G and 10G port flushing
-fn port_flush_inner(port: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
     // 3: Disable traffic being sent to or from switch port
     v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
         r.set_port_ena(0)
@@ -123,7 +123,7 @@ fn port_flush_inner(port: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
 
     // 7: Flush the queues accociated with the port
     v.modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
-        r.set_flush_port(port);
+        r.set_flush_port(port.into());
         r.set_flush_dst(1);
         r.set_flush_src(1);
         r.set_flush_ena(1);
@@ -142,14 +142,16 @@ fn port_flush_inner(port: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
 
 /// Waits for a port flush to finish.  This is based on
 /// `jr2_port_flush_poll` in the MESA SDK
-fn port_flush_wait(port: u32, v: &Vsc7448Spi) -> Result<(), VscError> {
+fn port_flush_wait(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
     for _ in 0..32 {
         let mut empty = true;
         // DST-MEM and SRC-MEM
         for base in [0, 2048] {
             for prio in 0..8 {
                 let value = v.read(
-                    Vsc7448::QRES().RES_CTRL(base + 8 * port + prio).RES_STAT(),
+                    Vsc7448::QRES()
+                        .RES_CTRL(base + 8 * u16::from(port) + prio)
+                        .RES_STAT(),
                 )?;
                 empty &= value.maxuse() == 0;
                 // Keep looping, because these registers are clear-on-read,

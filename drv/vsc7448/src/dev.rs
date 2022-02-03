@@ -13,14 +13,14 @@ use vsc7448_pac::Vsc7448;
 /// that use either one.
 #[derive(Copy, Clone)]
 pub enum DevGeneric {
-    Dev1g(u32),
-    Dev2g5(u32),
+    Dev1g(u8),
+    Dev2g5(u8),
 }
 
 impl DevGeneric {
     /// Constructs a handle to a DEV1G device.  Returns an error on `d >= 24`,
     /// as there are only 24 DEV1G devices in the chip (numbering from 0).
-    pub fn new_1g(d: u32) -> Result<Self, VscError> {
+    pub fn new_1g(d: u8) -> Result<Self, VscError> {
         if d < 24 {
             Ok(DevGeneric::Dev1g(d))
         } else {
@@ -29,7 +29,7 @@ impl DevGeneric {
     }
     /// Constructs a handle to DEV2G5 device.  Returns an error on `d >= 29`,
     /// as there are only 29 DEV2G5 devices in the chip (numbering from 0).
-    pub fn new_2g5(d: u32) -> Result<Self, VscError> {
+    pub fn new_2g5(d: u8) -> Result<Self, VscError> {
         if d < 29 {
             Ok(DevGeneric::Dev2g5(d))
         } else {
@@ -37,7 +37,7 @@ impl DevGeneric {
         }
     }
     /// Convert from a DEV to a port number, based on Table 12 in the datasheet
-    pub fn port(&self) -> u32 {
+    pub fn port(&self) -> u8 {
         match *self {
             DevGeneric::Dev1g(d) => {
                 if d < 8 {
@@ -76,7 +76,8 @@ impl DevGeneric {
             // this should be a safe trick.
             {
                 vsc7448_pac::DEV1G::from_raw_unchecked_address(
-                    vsc7448_pac::DEV2G5::BASE + d * vsc7448_pac::DEV1G::SIZE,
+                    vsc7448_pac::DEV2G5::BASE
+                        + u32::from(d) * vsc7448_pac::DEV1G::SIZE,
                 )
             }
         }
@@ -163,9 +164,9 @@ impl DevGeneric {
 /// The DEV10G target registers aren't identical to the DEV1G, so we need
 /// to handle it differently.
 #[derive(Copy, Clone)]
-pub struct Dev10g(u32);
+pub struct Dev10g(u8);
 impl Dev10g {
-    pub fn new(d: u32) -> Result<Self, VscError> {
+    pub fn new(d: u8) -> Result<Self, VscError> {
         if d < 4 {
             Ok(Self(d))
         } else {
@@ -173,13 +174,13 @@ impl Dev10g {
         }
     }
     /// Converts from a DEV10G index to a port index
-    pub fn port(&self) -> u32 {
+    pub fn port(&self) -> u8 {
         self.0 + 49
     }
     pub fn regs(&self) -> vsc7448_pac::DEV10G {
         Vsc7448::DEV10G(self.0)
     }
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> u8 {
         self.0
     }
     pub fn init_sfi(&self, v: &Vsc7448Spi) -> Result<(), VscError> {
