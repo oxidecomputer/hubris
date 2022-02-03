@@ -316,7 +316,6 @@ impl Config {
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
             r.set_synth_fb_step(self.mult.rx_fb_step.into());
             r.set_synth_i2_step(self.mult.rx_i2_step.into());
-            // TODO: check FB_STEP and I2_STEP values against running system
         })?;
 
         v.modify(rx_synth.SD10G65_RX_SYNTH_CFG0(), |r| {
