@@ -10,7 +10,7 @@ zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-spi = {path = "../stm32h7-spi", default-features = false}
 drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
-drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api", default-features = false}
+drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
 drv-spi-api = {path = "../spi-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 stm32h7 = { version = "0.13.0", default-features = false }
