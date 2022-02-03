@@ -42,7 +42,9 @@ impl Vsc7448Spi {
     pub fn new(spi: SpiDevice) -> Self {
         Self(spi)
     }
-    /// Reads from a VSC7448 register
+    /// Reads from a VSC7448 register.  The register must be in the switch
+    /// core register block, i.e. having an address in the range
+    /// 0x71000000-0x72000000.
     pub fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u32>,
@@ -115,6 +117,9 @@ impl Vsc7448Spi {
 
     /// Writes to a VSC7448 register.  This will overwrite the entire register;
     /// if you want to modify it, then use [Self::modify] instead.
+    ///
+    /// The register must be in the switch core register block, i.e. having an
+    /// address in the range 0x71000000-0x72000000.
     pub fn write<T>(
         &self,
         reg: RegisterAddress<T>,
@@ -169,6 +174,9 @@ impl Vsc7448Spi {
     /// Performs a write operation on the given register, where the value is
     /// calculated by calling f(0).  This is helpful as a way to reduce manual
     /// type information.
+    ///
+    /// The register must be in the switch core register block, i.e. having an
+    /// address in the range 0x71000000-0x72000000.
     pub fn write_with<T, F>(
         &self,
         reg: RegisterAddress<T>,
@@ -185,6 +193,9 @@ impl Vsc7448Spi {
     }
 
     /// Performs a read-modify-write operation on a VSC7448 register
+    ///
+    /// The register must be in the switch core register block, i.e. having an
+    /// address in the range 0x71000000-0x72000000.
     pub fn modify<T, F>(
         &self,
         reg: RegisterAddress<T>,

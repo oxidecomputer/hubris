@@ -57,7 +57,7 @@ pub enum VscError {
     BadPhyRev,
     /// Indicates that we tried to apply the phy patch to an invalid port;
     /// it can only be applied to port 0 of the PHY
-    BadPhyPatchPort(u8),
+    BadPhyPatchPort(u16),
     /// Checking the CRC after applying a patch to the PHY firmware returned
     /// an unexpected CRC.
     PhyPatchFailedCrc,
