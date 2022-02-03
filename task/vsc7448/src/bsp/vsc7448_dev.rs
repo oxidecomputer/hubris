@@ -16,8 +16,8 @@ use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    PhyScanError { miim: u32, phy: u8, err: VscError },
-    PhyLinkChanged { port: u32, status: u16 },
+    PhyScanError { miim: u8, phy: u8, err: VscError },
+    PhyLinkChanged { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -257,7 +257,7 @@ impl<'a> Bsp<'a> {
                             if up != link_up[miim as usize - 1][phy as usize] {
                                 link_up[miim as usize - 1][phy as usize] = up;
                                 ringbuf_entry!(Trace::PhyLinkChanged {
-                                    port: (miim - 1) * 24 + phy as u32,
+                                    port: (miim - 1) * 24 + phy,
                                     status: status.0,
                                 });
                             }
@@ -280,11 +280,11 @@ impl<'a> Bsp<'a> {
 
 pub struct Vsc7448SpiPhy<'a> {
     vsc7448: &'a Vsc7448Spi,
-    miim: u32,
+    miim: u8,
 }
 
 impl<'a> Vsc7448SpiPhy<'a> {
-    pub fn new(vsc7448: &'a Vsc7448Spi, miim: u32) -> Self {
+    pub fn new(vsc7448: &'a Vsc7448Spi, miim: u8) -> Self {
         Self { vsc7448, miim }
     }
     /// Builds a MII_CMD register based on the given phy and register.  Note
@@ -377,7 +377,7 @@ impl PhyRw for Vsc7448SpiPhy<'_> {
 
         self.miim_idle_wait()?;
         self.vsc7448
-            .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim as u32).MII_CMD(), v)
+            .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)
     }
 }
 
