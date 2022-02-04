@@ -10,6 +10,9 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 /// become configurable.
 const PHYADDR: u8 = 0x01;
 
+// The Nucleo dev board doesn't do any periodic logging
+pub const WAKE_INTERVAL: Option<u64> = None;
+
 // Empty handle
 pub struct Bsp;
 
@@ -78,7 +81,7 @@ impl Bsp {
     }
 
     pub fn wake(&self, _eth: &mut eth::Ethernet) {
-        // Nothing to do here
+        panic!("Wake should never be called, because WAKE_INTERVAL is None");
     }
 
     pub fn configure_phy(&self, eth: &mut eth::Ethernet, _sys: &Sys) {

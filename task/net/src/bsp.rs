@@ -7,14 +7,14 @@
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
-        pub mod nucleo_h7;
-        pub use nucleo_h7::Bsp as Bsp;
+        mod nucleo_h7;
+        pub use nucleo_h7::*;
     } else if #[cfg(target_board = "sidecar-1")] {
-        pub mod sidecar_1;
-        pub use sidecar_1::Bsp as Bsp;
+        mod sidecar_1;
+        pub use sidecar_1::*;
     } else if #[cfg(target_board = "gimletlet-1")] {
-        pub mod gimletlet_mgmt;
-        pub use gimletlet_mgmt::Bsp as Bsp;
+        mod gimletlet_mgmt;
+        pub use gimletlet_mgmt::*;
     } else {
         compile_error!("Board is not supported by the task/net");
     }
