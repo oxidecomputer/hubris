@@ -316,6 +316,11 @@ impl Ethernet {
     /// complete asynchronously, so feel free to do other things. Any attempt to
     /// do other SMI operations will synchronize and block until the SMI unit is
     /// free.
+    ///
+    /// Note that this function does not modify the extended page access
+    /// register (31); if you are using the `PhyRw` trait, then the extended
+    /// page access register may not be set to 0, so this could return values
+    /// from a register on an extended page!
     pub fn smi_write(&mut self, phy: u8, register: impl Into<u8>, value: u16) {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
@@ -341,9 +346,10 @@ impl Ethernet {
     /// Performs a SMI read from PHY address `phy`, register number `register`,
     /// and returns the result.
     ///
-    /// This function blocks until the read is complete, so that it can return
-    /// the result. It will also block until any previously issued write has
-    /// finished.
+    /// Note that this function does not modify the extended page access
+    /// register (31); if you are using the `PhyRw` trait, then the extended
+    /// page access register may not be set to 0, so this could return values
+    /// from a register on an extended page!
     pub fn smi_read(&mut self, phy: u8, register: impl Into<u8>) -> u16 {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
@@ -374,6 +380,11 @@ impl Ethernet {
 
 /// Standard MDIO registers laid out in IEEE 802.3 standard clause 22. Vendors
 /// often add to this set in the 16+ range.
+///
+/// If you are using the VSC7448 / VSC85xx / KSZ8463, then your task includes
+/// the `vsc7448-pac` crate.  This crate defines a more complete set of
+/// registers, including various extended pages, and has bitfield definitions;
+/// you may consider using them instead!
 pub enum SmiClause22Register {
     Control = 0,
     Status = 1,

@@ -143,7 +143,9 @@ fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
 /// Waits for a port flush to finish.  This is based on
 /// `jr2_port_flush_poll` in the MESA SDK
 fn port_flush_wait(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
-    for _ in 0..32 {
+    // This timeout count is based on the SDK, which checks 2000x with a
+    // 1 ms pause between attempts.
+    for _ in 0..2000 {
         let mut empty = true;
         // DST-MEM and SRC-MEM
         for base in [0, 2048] {
