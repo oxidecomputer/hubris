@@ -21,7 +21,7 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-stm32g0 = ["drv-stm32g0-sys-api"]
+stm32g0 = ["drv-stm32g0-sys-api/family-stm32g0"]
 stm32h7 = ["drv-stm32h7-gpio-api"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
