@@ -2,21 +2,32 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! A driver for the STM32G0 RCC and GPIO blocks, combined for compactness.
+//! A driver for the STM32xx RCC and GPIO blocks, combined for compactness.
 
 #![no_std]
 #![no_main]
 
-use stm32g0 as pac;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "family-stm32g0")] {
+        use stm32g0 as pac;
 
-#[cfg(feature = "g031")]
-use stm32g0::stm32g031 as device;
+        #[cfg(feature = "g031")]
+        use stm32g0::stm32g031 as device;
 
-#[cfg(feature = "g070")]
-use stm32g0::stm32g070 as device;
+        #[cfg(feature = "g070")]
+        use stm32g0::stm32g070 as device;
 
-#[cfg(feature = "g0b1")]
-use stm32g0::stm32g0b1 as device;
+        #[cfg(feature = "g0b1")]
+        use stm32g0::stm32g0b1 as device;
+    } else if #[cfg(feature = "family-stm32h7")] {
+        use stm32h7 as pac;
+
+        #[cfg(feature = "h743")]
+        use stm32g0::stm32g031 as device;
+    } else {
+        compiler_error!("unsupported SoC family");
+    }
+}
 
 use drv_stm32g0_sys_api::{GpioError, Group, RccError};
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};

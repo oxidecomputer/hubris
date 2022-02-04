@@ -845,12 +845,14 @@ dependencies = [
 name = "drv-stm32g0-sys"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "drv-stm32g0-sys-api",
  "drv-stm32xx-gpio-common",
  "idol",
  "idol-runtime",
  "num-traits",
  "stm32g0",
+ "stm32h7 0.14.0",
  "userlib",
  "zerocopy",
 ]
@@ -860,6 +862,7 @@ name = "drv-stm32g0-sys-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
+ "cfg-if 1.0.0",
  "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
@@ -2568,7 +2571,6 @@ dependencies = [
  "drv-stm32g0-sys-api",
  "drv-stm32h7-gpio-api",
  "drv-stm32h7-i2c",
- "drv-stm32h7-rcc-api",
  "hif",
  "hubris-num-tasks",
  "num-traits",
