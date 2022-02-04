@@ -23,7 +23,9 @@ cfg_if::cfg_if! {
         use stm32h7 as pac;
 
         #[cfg(feature = "h743")]
-        use stm32g0::stm32g031 as device;
+        use stm32h7::stm32h743 as device;
+        #[cfg(feature = "h753")]
+        use stm32h7::stm32h753 as device;
     } else {
         compiler_error!("unsupported SoC family");
     }
@@ -77,21 +79,50 @@ fn main() -> ! {
     let rcc = unsafe { &*device::RCC::ptr() };
 
     // Global setup.
-    rcc.iopenr.write(|w| {
-        w.iopaen()
-            .set_bit()
-            .iopben()
-            .set_bit()
-            .iopcen()
-            .set_bit()
-            .iopden()
-            .set_bit()
-            .iopfen()
-            .set_bit();
-        #[cfg(feature = "g0b1")]
-        w.iopeen().set_bit();
-        w
-    });
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "family-stm32g0")] {
+            rcc.iopenr.write(|w| {
+                w.iopaen()
+                    .set_bit()
+                    .iopben()
+                    .set_bit()
+                    .iopcen()
+                    .set_bit()
+                    .iopden()
+                    .set_bit()
+                    .iopfen()
+                    .set_bit();
+                #[cfg(feature = "g0b1")]
+                w.iopeen().set_bit();
+                w
+            });
+        } else if #[cfg(feature = "family-stm32h7")] {
+            rcc.ahb4enr.write(|w| {
+                w.gpioaen()
+                    .set_bit()
+                    .gpioben()
+                    .set_bit()
+                    .gpiocen()
+                    .set_bit()
+                    .gpioden()
+                    .set_bit()
+                    .gpioeen()
+                    .set_bit()
+                    .gpiofen()
+                    .set_bit()
+                    .gpiogen()
+                    .set_bit()
+                    .gpiohen()
+                    .set_bit()
+                    .gpioien()
+                    .set_bit()
+                    .gpiojen()
+                    .set_bit()
+                    .gpioken()
+                    .set_bit()
+            });
+        }
+    }
 
     // Field messages.
     let mut buffer = [0u8; idl::INCOMING_SIZE];
@@ -124,12 +155,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
         raw: u32,
     ) -> Result<(), RequestError<RccError>> {
-        match Self::unpack_raw(raw)? {
-            (Group::Iop, bit) => unsafe { self.rcc.iopenr.set_bit(bit) },
-            (Group::Ahb, bit) => unsafe { self.rcc.ahbenr.set_bit(bit) },
-            (Group::Apb1, bit) => unsafe { self.rcc.apbenr1.set_bit(bit) },
-            (Group::Apb2, bit) => unsafe { self.rcc.apbenr2.set_bit(bit) },
-        }
+        let (group, bit) = Self::unpack_raw(raw)?;
+        enable_clock(self.rcc, group, bit);
         Ok(())
     }
 
@@ -138,12 +165,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
         raw: u32,
     ) -> Result<(), RequestError<RccError>> {
-        match Self::unpack_raw(raw)? {
-            (Group::Iop, bit) => unsafe { self.rcc.iopenr.clear_bit(bit) },
-            (Group::Ahb, bit) => unsafe { self.rcc.ahbenr.clear_bit(bit) },
-            (Group::Apb1, bit) => unsafe { self.rcc.apbenr1.clear_bit(bit) },
-            (Group::Apb2, bit) => unsafe { self.rcc.apbenr2.clear_bit(bit) },
-        }
+        let (group, bit) = Self::unpack_raw(raw)?;
+        disable_clock(self.rcc, group, bit);
         Ok(())
     }
 
@@ -152,12 +175,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
         raw: u32,
     ) -> Result<(), RequestError<RccError>> {
-        match Self::unpack_raw(raw)? {
-            (Group::Iop, bit) => unsafe { self.rcc.ioprstr.set_bit(bit) },
-            (Group::Ahb, bit) => unsafe { self.rcc.ahbrstr.set_bit(bit) },
-            (Group::Apb1, bit) => unsafe { self.rcc.apbrstr1.set_bit(bit) },
-            (Group::Apb2, bit) => unsafe { self.rcc.apbrstr2.set_bit(bit) },
-        }
+        let (group, bit) = Self::unpack_raw(raw)?;
+        enter_reset(self.rcc, group, bit);
         Ok(())
     }
 
@@ -166,12 +185,8 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         _: &RecvMessage,
         raw: u32,
     ) -> Result<(), RequestError<RccError>> {
-        match Self::unpack_raw(raw)? {
-            (Group::Iop, bit) => unsafe { self.rcc.ioprstr.clear_bit(bit) },
-            (Group::Ahb, bit) => unsafe { self.rcc.ahbrstr.clear_bit(bit) },
-            (Group::Apb1, bit) => unsafe { self.rcc.apbrstr1.clear_bit(bit) },
-            (Group::Apb2, bit) => unsafe { self.rcc.apbrstr2.clear_bit(bit) },
-        }
+        let (group, bit) = Self::unpack_raw(raw)?;
+        leave_reset(self.rcc, group, bit);
         Ok(())
     }
 
@@ -213,6 +228,138 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
         port: Port,
     ) -> Result<u16, RequestError<GpioError>> {
         Ok(unsafe { get_gpio_regs(port) }.read())
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "family-stm32g0")] {
+        fn enable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Iop => unsafe { rcc.iopenr.set_bit(bit) },
+                Group::Ahb => unsafe { rcc.ahbenr.set_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apbenr1.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apbenr2.set_bit(bit) },
+            }
+        }
+
+        fn disable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Iop => unsafe { rcc.iopenr.clear_bit(bit) },
+                Group::Ahb => unsafe { rcc.ahbenr.clear_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apbenr1.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apbenr2.clear_bit(bit) },
+            }
+        }
+
+        fn enter_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Iop => unsafe { rcc.ioprstr.set_bit(bit) },
+                Group::Ahb => unsafe { rcc.ahbrstr.set_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apbrstr1.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apbrstr2.set_bit(bit) },
+            }
+        }
+
+        fn leave_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Iop => unsafe { rcc.ioprstr.clear_bit(bit) },
+                Group::Ahb => unsafe { rcc.ahbrstr.clear_bit(bit) },
+                Group::Apb1 => unsafe { rcc.apbrstr1.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apbrstr2.clear_bit(bit) },
+            }
+        }
+
+    } else if #[cfg(feature = "family-stm32h7")] {
+        fn enable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1enr.set_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2enr.set_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3enr.set_bit(bit) },
+                Group::Ahb4 => unsafe { rcc.ahb4enr.set_bit(bit) },
+                Group::Apb1L => unsafe { rcc.apb1lenr.set_bit(bit) },
+                Group::Apb1H => unsafe { rcc.apb1henr.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2enr.set_bit(bit) },
+                Group::Apb3 => unsafe { rcc.apb3enr.set_bit(bit) },
+                Group::Apb4 => unsafe { rcc.apb4enr.set_bit(bit) },
+            }
+        }
+
+        fn disable_clock(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1enr.clear_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2enr.clear_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3enr.clear_bit(bit) },
+                Group::Ahb4 => unsafe { rcc.ahb4enr.clear_bit(bit) },
+                Group::Apb1L => unsafe { rcc.apb1lenr.clear_bit(bit) },
+                Group::Apb1H => unsafe { rcc.apb1henr.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2enr.clear_bit(bit) },
+                Group::Apb3 => unsafe { rcc.apb3enr.clear_bit(bit) },
+                Group::Apb4 => unsafe { rcc.apb4enr.clear_bit(bit) },
+            }
+        }
+
+        fn enter_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1rstr.set_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2rstr.set_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3rstr.set_bit(bit) },
+                Group::Ahb4 => unsafe { rcc.ahb4rstr.set_bit(bit) },
+                Group::Apb1L => unsafe { rcc.apb1lrstr.set_bit(bit) },
+                Group::Apb1H => unsafe { rcc.apb1hrstr.set_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2rstr.set_bit(bit) },
+                Group::Apb3 => unsafe { rcc.apb3rstr.set_bit(bit) },
+                Group::Apb4 => unsafe { rcc.apb4rstr.set_bit(bit) },
+            }
+        }
+
+        fn leave_reset(
+            rcc: &device::rcc::RegisterBlock,
+            group: Group,
+            bit: u8,
+        ) {
+            match group {
+                Group::Ahb1 => unsafe { rcc.ahb1rstr.clear_bit(bit) },
+                Group::Ahb2 => unsafe { rcc.ahb2rstr.clear_bit(bit) },
+                Group::Ahb3 => unsafe { rcc.ahb3rstr.clear_bit(bit) },
+                Group::Ahb4 => unsafe { rcc.ahb4rstr.clear_bit(bit) },
+                Group::Apb1L => unsafe { rcc.apb1lrstr.clear_bit(bit) },
+                Group::Apb1H => unsafe { rcc.apb1hrstr.clear_bit(bit) },
+                Group::Apb2 => unsafe { rcc.apb2rstr.clear_bit(bit) },
+                Group::Apb3 => unsafe { rcc.apb3rstr.clear_bit(bit) },
+                Group::Apb4 => unsafe { rcc.apb4rstr.clear_bit(bit) },
+            }
+        }
+
+    } else {
+        compiler_error!("unsupported SoC family");
     }
 }
 
