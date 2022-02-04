@@ -24,6 +24,9 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+// This system wants to be woken periodically to do logging
+pub const WAKE_INTERVAL: Option<u64> = Some(500);
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pub struct Bsp {
