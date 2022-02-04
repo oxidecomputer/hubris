@@ -132,7 +132,7 @@ impl Vsc7448Spi {
         let mut data: [u8; 7] = [0; 7];
         data[..3].copy_from_slice(&addr.to_be_bytes()[1..]);
         data[3..].copy_from_slice(&value.to_be_bytes());
-        data[0] |= 0x80;
+        data[0] |= 0x80; // Indicates that this is a write
 
         ringbuf_entry_masked!(
             DEBUG_TRACE_SPI,
