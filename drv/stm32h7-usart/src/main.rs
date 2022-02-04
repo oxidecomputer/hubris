@@ -24,8 +24,7 @@ use stm32h7::stm32h7b3 as device;
 
 use userlib::*;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 enum Operation {
@@ -157,40 +156,34 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    use drv_stm32h7_rcc_api::{Peripheral, Rcc};
-    let rcc_driver = Rcc::from(RCC.get_task_id());
-
-    #[cfg(feature = "h7b3")]
-    const PORT: Peripheral = Peripheral::Usart1;
+    use drv_stm32g0_sys_api::{Peripheral, Sys};
+    let sys = Sys::from(SYS.get_task_id());
 
     #[cfg(any(feature = "h743", feature = "h753"))]
     const PORT: Peripheral = Peripheral::Usart3;
 
-    rcc_driver.enable_clock(PORT);
-    rcc_driver.leave_reset(PORT);
+    sys.enable_clock(PORT);
+    sys.leave_reset(PORT);
 }
 
 fn configure_pins() {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     // TODO these are really board configs, not SoC configs!
-    #[cfg(feature = "h7b3")]
-    const TX_RX_MASK: PinSet = Port::A.pin(9).and_pin(10);
     #[cfg(any(feature = "h743", feature = "h753"))]
     const TX_RX_MASK: PinSet = Port::D.pin(8).and_pin(9);
 
-    gpio_driver
-        .configure_alternate(
-            TX_RX_MASK,
-            OutputType::PushPull,
-            Speed::High,
-            Pull::None,
-            Alternate::AF7,
-        )
-        .unwrap();
+    sys.gpio_configure_alternate(
+        TX_RX_MASK,
+        OutputType::PushPull,
+        Speed::High,
+        Pull::None,
+        Alternate::AF7,
+    )
+    .unwrap();
 }
 
 fn step_transmit(

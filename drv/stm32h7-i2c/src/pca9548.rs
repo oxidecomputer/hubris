@@ -28,7 +28,7 @@ impl I2cMuxDriver for Pca9548 {
         &self,
         mux: &I2cMux,
         _controller: &I2cController,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        gpio: &sys_api::Sys,
         _ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.configure(gpio)
@@ -90,7 +90,7 @@ impl I2cMuxDriver for Pca9548 {
     fn reset(
         &self,
         mux: &I2cMux,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        gpio: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.reset(gpio)
     }

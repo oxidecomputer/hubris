@@ -352,37 +352,37 @@ fn led_toggle(led: Led) {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "stm32h7")] {
-        task_slot!(GPIO, gpio_driver);
+        task_slot!(SYS, sys);
 
         cfg_if::cfg_if! {
             if #[cfg(target_board = "stm32h7b3i-dk")] {
                 // STM32H7B3 DISCOVERY kit: LEDs are on G2 and G11.
-                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
-                    (drv_stm32h7_gpio_api::Port::G.pin(2), true),
-                    (drv_stm32h7_gpio_api::Port::G.pin(11), true),
+                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
+                    (drv_stm32g0_sys_api::Port::G.pin(2), true),
+                    (drv_stm32g0_sys_api::Port::G.pin(11), true),
                 ];
             } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo boards: LEDs are on PB0, PB14 and PE1.
-                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
-                    (drv_stm32h7_gpio_api::Port::B.pin(0), false),
-                    (drv_stm32h7_gpio_api::Port::B.pin(14), false),
-                    (drv_stm32h7_gpio_api::Port::E.pin(1), false),
+                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
+                    (drv_stm32g0_sys_api::Port::B.pin(0), false),
+                    (drv_stm32g0_sys_api::Port::B.pin(14), false),
+                    (drv_stm32g0_sys_api::Port::E.pin(1), false),
                 ];
             } else if #[cfg(target_board = "gemini-bu-1")] {
                 // Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.
-                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
-                    (drv_stm32h7_gpio_api::Port::I.pin(8), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(9), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(10), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(11), false),
+                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
+                    (drv_stm32g0_sys_api::Port::I.pin(8), false),
+                    (drv_stm32g0_sys_api::Port::I.pin(9), false),
+                    (drv_stm32g0_sys_api::Port::I.pin(10), false),
+                    (drv_stm32g0_sys_api::Port::I.pin(11), false),
                 ];
             } else if #[cfg(target_board = "gimletlet-2")] {
                 // Glorified gimletlet SP: LEDs are on PG2-5
-                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
-                    (drv_stm32h7_gpio_api::Port::G.pin(2), false),
-                    (drv_stm32h7_gpio_api::Port::G.pin(3), false),
-                    (drv_stm32h7_gpio_api::Port::G.pin(4), false),
-                    (drv_stm32h7_gpio_api::Port::G.pin(5), false),
+                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
+                    (drv_stm32g0_sys_api::Port::G.pin(2), false),
+                    (drv_stm32g0_sys_api::Port::G.pin(3), false),
+                    (drv_stm32g0_sys_api::Port::G.pin(4), false),
+                    (drv_stm32g0_sys_api::Port::G.pin(5), false),
                 ];
             } else {
                 compile_error!("no LED mapping for unknown board");
@@ -393,28 +393,27 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     for &(pinset, active_low) in LEDS {
         // Make sure LEDs are initially off.
-        gpio_driver.set_to(pinset, active_low).unwrap();
+        sys.gpio_set_to(pinset, active_low).unwrap();
         // Make them outputs.
-        gpio_driver
-            .configure_output(
-                pinset,
-                OutputType::PushPull,
-                Speed::High,
-                Pull::None,
-            )
-            .unwrap();
+        sys.gpio_configure_output(
+            pinset,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+        )
+        .unwrap();
     }
 }
 
 #[cfg(feature = "stm32h7")]
-fn led_info(led: Led) -> (drv_stm32h7_gpio_api::PinSet, bool) {
+fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
         Led::One => LEDS[1],
@@ -432,36 +431,36 @@ fn led_info(led: Led) -> (drv_stm32h7_gpio_api::PinSet, bool) {
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
-    gpio_driver.set_to(pinset, !active_low).unwrap();
+    sys.gpio_set_to(pinset, !active_low).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let (pinset, active_low) = led_info(led);
 
-    gpio_driver.set_to(pinset, active_low).unwrap();
+    sys.gpio_set_to(pinset, active_low).unwrap();
 }
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     let pinset = led_info(led).0;
-    gpio_driver.toggle(pinset.port, pinset.pin_mask).unwrap();
+    sys.gpio_toggle(pinset.port, pinset.pin_mask).unwrap();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

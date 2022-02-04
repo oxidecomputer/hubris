@@ -8,8 +8,7 @@ edition = "2018"
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 stm32h7 = { version = "0.13.0", default-features = false }
-drv-stm32h7-rcc-api = {path = "../stm32h7-rcc-api", default-features = false}
-drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
+drv-stm32g0-sys-api = {path = "../stm32g0-sys-api", default-features = false}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
 cfg-if = "0.1.10"
 num-traits = { version = "0.2.12", default-features = false }
@@ -23,5 +22,5 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-rcc-api/h743", "drv-stm32h7-qspi/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32h7-rcc-api/h753", "drv-stm32h7-qspi/h753"]
+h743 = ["stm32h7/stm32h743", "drv-stm32g0-sys-api/h743", "drv-stm32h7-qspi/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32g0-sys-api/h753", "drv-stm32h7-qspi/h753"]

@@ -19,7 +19,7 @@ use drv_i2c_api::{
 task_slot!(I2C, i2c_driver);
 
 #[cfg(feature = "gpio")]
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -27,16 +27,16 @@ enum Trace {
     Failure(Failure),
     #[cfg(feature = "gpio")]
     GpioConfigure(
-        drv_stm32h7_gpio_api::Port,
+        drv_stm32g0_sys_api::Port,
         u16,
-        drv_stm32h7_gpio_api::Mode,
-        drv_stm32h7_gpio_api::OutputType,
-        drv_stm32h7_gpio_api::Speed,
-        drv_stm32h7_gpio_api::Pull,
-        drv_stm32h7_gpio_api::Alternate,
+        drv_stm32g0_sys_api::Mode,
+        drv_stm32g0_sys_api::OutputType,
+        drv_stm32g0_sys_api::Speed,
+        drv_stm32g0_sys_api::Pull,
+        drv_stm32g0_sys_api::Alternate,
     ),
     #[cfg(feature = "gpio")]
-    GpioInput(drv_stm32h7_gpio_api::Port),
+    GpioInput(drv_stm32g0_sys_api::Port),
     Success,
     None,
 }
@@ -67,34 +67,34 @@ pub enum Functions {
         ResponseCode,
     ),
     #[cfg(feature = "gpio")]
-    GpioInput(drv_stm32h7_gpio_api::Port, drv_stm32h7_gpio_api::GpioError),
+    GpioInput(drv_stm32g0_sys_api::Port, drv_stm32g0_sys_api::GpioError),
     #[cfg(feature = "gpio")]
     GpioToggle(
-        (drv_stm32h7_gpio_api::Port, u8),
-        drv_stm32h7_gpio_api::GpioError,
+        (drv_stm32g0_sys_api::Port, u8),
+        drv_stm32g0_sys_api::GpioError,
     ),
     #[cfg(feature = "gpio")]
     GpioSet(
-        (drv_stm32h7_gpio_api::Port, u8),
-        drv_stm32h7_gpio_api::GpioError,
+        (drv_stm32g0_sys_api::Port, u8),
+        drv_stm32g0_sys_api::GpioError,
     ),
     #[cfg(feature = "gpio")]
     GpioReset(
-        (drv_stm32h7_gpio_api::Port, u8),
-        drv_stm32h7_gpio_api::GpioError,
+        (drv_stm32g0_sys_api::Port, u8),
+        drv_stm32g0_sys_api::GpioError,
     ),
     #[cfg(feature = "gpio")]
     GpioConfigure(
         (
-            drv_stm32h7_gpio_api::Port,
+            drv_stm32g0_sys_api::Port,
             u8,
-            drv_stm32h7_gpio_api::Mode,
-            drv_stm32h7_gpio_api::OutputType,
-            drv_stm32h7_gpio_api::Speed,
-            drv_stm32h7_gpio_api::Pull,
-            drv_stm32h7_gpio_api::Alternate,
+            drv_stm32g0_sys_api::Mode,
+            drv_stm32g0_sys_api::OutputType,
+            drv_stm32g0_sys_api::Speed,
+            drv_stm32g0_sys_api::Pull,
+            drv_stm32g0_sys_api::Alternate,
         ),
-        drv_stm32h7_gpio_api::GpioError,
+        drv_stm32g0_sys_api::GpioError,
     ),
     #[cfg(feature = "spi")]
     SpiRead((Task, usize, usize), drv_spi_api::SpiError),
@@ -343,7 +343,7 @@ fn i2c_bulk_write(
 #[cfg(feature = "gpio")]
 fn gpio_args(
     stack: &[Option<u32>],
-) -> Result<(drv_stm32h7_gpio_api::Port, u16), Failure> {
+) -> Result<(drv_stm32g0_sys_api::Port, u16), Failure> {
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
@@ -351,7 +351,7 @@ fn gpio_args(
     let fp = stack.len() - 2;
 
     let port = match stack[fp + 0] {
-        Some(port) => match drv_stm32h7_gpio_api::Port::from_u32(port) {
+        Some(port) => match drv_stm32g0_sys_api::Port::from_u32(port) {
             Some(port) => port,
             None => return Err(Failure::Fault(Fault::BadParameter(0))),
         },
@@ -379,8 +379,8 @@ fn gpio_input(
 ) -> Result<usize, Failure> {
     use byteorder::ByteOrder;
 
-    let task = GPIO.get_task_id();
-    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+    let task = SYS.get_task_id();
+    let gpio = drv_stm32g0_sys_api::Sys::from(task);
 
     if stack.len() < 1 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -389,7 +389,7 @@ fn gpio_input(
     let fp = stack.len() - 1;
 
     let port = match stack[fp + 0] {
-        Some(port) => match drv_stm32h7_gpio_api::Port::from_u32(port) {
+        Some(port) => match drv_stm32g0_sys_api::Port::from_u32(port) {
             Some(port) => port,
             None => return Err(Failure::Fault(Fault::BadParameter(0))),
         },
@@ -398,7 +398,7 @@ fn gpio_input(
 
     ringbuf_entry!(Trace::GpioInput(port));
 
-    match gpio.read_input(port) {
+    match gpio.gpio_read_input(port) {
         Ok(input) => {
             byteorder::LittleEndian::write_u16(rval, input);
             Ok(core::mem::size_of::<u16>())
@@ -413,12 +413,12 @@ fn gpio_toggle(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = GPIO.get_task_id();
-    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+    let task = SYS.get_task_id();
+    let gpio = drv_stm32g0_sys_api::Sys::from(task);
 
     let (port, mask) = gpio_args(stack)?;
 
-    match gpio.toggle(port, mask) {
+    match gpio.gpio_toggle(port, mask) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -430,12 +430,12 @@ fn gpio_set(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = GPIO.get_task_id();
-    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+    let task = SYS.get_task_id();
+    let gpio = drv_stm32g0_sys_api::Sys::from(task);
 
     let (port, mask) = gpio_args(stack)?;
 
-    match gpio.set_reset(port, mask, 0) {
+    match gpio.gpio_set_reset(port, mask, 0) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -447,12 +447,12 @@ fn gpio_reset(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    let task = GPIO.get_task_id();
-    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+    let task = SYS.get_task_id();
+    let gpio = drv_stm32g0_sys_api::Sys::from(task);
 
     let (port, mask) = gpio_args(stack)?;
 
-    match gpio.set_reset(port, 0, mask) {
+    match gpio.gpio_set_reset(port, 0, mask) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }
@@ -464,7 +464,7 @@ fn gpio_configure(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    use drv_stm32h7_gpio_api::*;
+    use drv_stm32g0_sys_api::*;
 
     if stack.len() < 7 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -513,15 +513,15 @@ fn gpio_configure(
         None => return Err(Failure::Fault(Fault::EmptyParameter(6))),
     };
 
-    let task = GPIO.get_task_id();
-    let gpio = drv_stm32h7_gpio_api::Gpio::from(task);
+    let task = SYS.get_task_id();
+    let gpio = drv_stm32g0_sys_api::Sys::from(task);
 
     #[rustfmt::skip]
     ringbuf_entry!(
         Trace::GpioConfigure(port, mask, mode, output_type, speed, pull, af)
     );
 
-    match gpio.configure(port, mask, mode, output_type, speed, pull, af) {
+    match gpio.gpio_configure(port, mask, mode, output_type, speed, pull, af) {
         Ok(_) => Ok(0),
         Err(err) => Err(Failure::FunctionError(err.into())),
     }

@@ -46,24 +46,14 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.rcc_driver]
-path = "../../drv/stm32h7-rcc"
-name = "drv-stm32h7-rcc"
+[tasks.sys]
+path = "../../drv/stm32g0-sys"
+name = "drv-stm32g0-sys"
 features = ["h753"]
 priority = 1
 requires = {flash = 8192, ram = 1024}
-uses = ["rcc"]
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
-
-[tasks.gpio_driver]
-path = "../../drv/stm32h7-gpio"
-name = "drv-stm32h7-gpio"
-features = ["h753"]
-priority = 2
-requires = {flash = 8192, ram = 1024}
-uses = ["gpios1", "gpios2", "gpios3"]
-start = true
-task-slots = ["rcc_driver"]
 
 [tasks.spi4_driver]
 path = "../../drv/stm32h7-spi-server"
@@ -75,7 +65,7 @@ uses = ["spi4"]
 start = true
 interrupts = {"spi4.irq" = 1}
 stacksize = 872
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi4_driver.config.spi]
 global_config = "spi4"
@@ -90,7 +80,7 @@ uses = ["spi2"]
 start = true
 interrupts = {36 = 1}
 stacksize = 872
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
@@ -104,7 +94,7 @@ priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c2", "i2c3", "i2c4"]
 start = true
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
 33 = 0b0000_0010        # I2C2 event
@@ -122,7 +112,7 @@ priority = 2
 requires = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true
-task-slots = ["gpio_driver", "i2c_driver", "rcc_driver"]
+task-slots = ["sys", "i2c_driver"]
 
 [tasks.spd.interrupts]
 31 = 0b0000_0001        # I2C1 event
@@ -156,7 +146,7 @@ priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 1024
 start = true
-task-slots = ["gpio_driver", "hf", "i2c_driver"]
+task-slots = ["sys", "hf", "i2c_driver"]
 
 [tasks.gimlet_seq]
 path = "../../drv/gimlet-seq-server"
@@ -166,7 +156,7 @@ priority = 3
 requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
-task-slots = ["gpio_driver", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
+task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
@@ -178,7 +168,7 @@ stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.sensor]
 path = "../../task/sensor"

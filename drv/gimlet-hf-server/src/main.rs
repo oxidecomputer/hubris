@@ -12,9 +12,9 @@
 
 use userlib::*;
 
+use drv_stm32g0_sys_api as rcc_api;
 use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_qspi::Qspi;
-use drv_stm32h7_rcc_api as rcc_api;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 
 // Note: h7b3 has QUADSPI but has not been used in this project.

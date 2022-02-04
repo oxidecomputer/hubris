@@ -24,9 +24,9 @@
 use core::cell::Cell;
 use core::cell::RefCell;
 use drv_i2c_api::*;
+use drv_stm32g0_sys_api::Rcc;
 use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
-use drv_stm32h7_rcc_api::Rcc;
 use ringbuf::*;
 use userlib::*;
 
