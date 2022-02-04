@@ -22,9 +22,6 @@ use idol_runtime::{
 };
 use ringbuf::*;
 
-#[cfg(feature = "h7b3")]
-use stm32h7::stm32h7b3 as device;
-
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
@@ -33,12 +30,10 @@ use stm32h7::stm32h753 as device;
 
 use userlib::*;
 
-use drv_stm32h7_gpio_api as gpio_api;
-use drv_stm32h7_rcc_api as rcc_api;
+use drv_stm32g0_sys_api as sys_api;
 use drv_stm32h7_spi as spi_core;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -63,13 +58,13 @@ struct LockState {
 fn main() -> ! {
     check_server_config();
 
-    let rcc_driver = rcc_api::Rcc::from(RCC.get_task_id());
+    let sys = sys_api::Sys::from(SYS.get_task_id());
 
     let registers = unsafe { &*CONFIG.registers };
 
-    rcc_driver.enable_clock(CONFIG.peripheral);
-    rcc_driver.enter_reset(CONFIG.peripheral);
-    rcc_driver.leave_reset(CONFIG.peripheral);
+    sys.enable_clock(CONFIG.peripheral);
+    sys.enter_reset(CONFIG.peripheral);
+    sys.leave_reset(CONFIG.peripheral);
     let mut spi = spi_core::Spi::from(registers);
 
     // This should correspond to '0' in the standard SPI parlance
@@ -83,25 +78,21 @@ fn main() -> ! {
         device::spi1::cfg2::SSOM_A::ASSERTED,
     );
 
-    let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
-
     // Configure all devices' CS pins to be deasserted (set).
     // We leave them in GPIO output mode from this point forward.
     for device in CONFIG.devices {
-        gpio_driver
-            .set_reset(device.cs.port, device.cs.pin_mask, 0)
+        sys.gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
             .unwrap();
-        gpio_driver
-            .configure(
-                device.cs.port,
-                device.cs.pin_mask,
-                gpio_api::Mode::Output,
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF1, // doesn't matter in GPIO mode
-            )
-            .unwrap();
+        sys.gpio_configure(
+            device.cs.port,
+            device.cs.pin_mask,
+            sys_api::Mode::Output,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::High,
+            sys_api::Pull::None,
+            sys_api::Alternate::AF1, // doesn't matter in GPIO mode
+        )
+        .unwrap();
     }
 
     // Initially, configure mux 0. This keeps us from having to deal with a "no
@@ -114,17 +105,13 @@ fn main() -> ! {
     // with one of these activated.
     let current_mux_index = 0;
     for opt in &CONFIG.mux_options[1..] {
-        deactivate_mux_option(&opt, &gpio_driver);
+        deactivate_mux_option(&opt, &sys);
     }
-    activate_mux_option(
-        &CONFIG.mux_options[current_mux_index],
-        &gpio_driver,
-        &spi,
-    );
+    activate_mux_option(&CONFIG.mux_options[current_mux_index], &sys, &spi);
 
     let mut server = ServerImpl {
         spi,
-        gpio_driver,
+        sys,
         lock_holder: None,
         current_mux_index,
     };
@@ -136,7 +123,7 @@ fn main() -> ! {
 
 struct ServerImpl {
     spi: spi_core::Spi,
-    gpio_driver: gpio_api::Gpio,
+    sys: sys_api::Sys,
     lock_holder: Option<LockState>,
     current_mux_index: usize,
 }
@@ -213,8 +200,8 @@ impl InOrderSpiImpl for ServerImpl {
         // If we're asserting CS, we want to *reset* the pin. If
         // we're not, we want to *set* it. Because CS is active low.
         let pin_mask = device.cs.pin_mask;
-        self.gpio_driver
-            .set_reset(
+        self.sys
+            .gpio_set_reset(
                 device.cs.port,
                 if cs_asserted { 0 } else { pin_mask },
                 if cs_asserted { pin_mask } else { 0 },
@@ -240,8 +227,8 @@ impl InOrderSpiImpl for ServerImpl {
 
             // Deassert CS. If it wasn't asserted, this is a no-op.
             // If it was, this fixes that.
-            self.gpio_driver
-                .set_reset(device.cs.port, device.cs.pin_mask, 0)
+            self.sys
+                .gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
                 .unwrap();
             self.lock_holder = None;
             Ok(())
@@ -307,11 +294,11 @@ impl ServerImpl {
         if device.mux_index != self.current_mux_index {
             deactivate_mux_option(
                 &CONFIG.mux_options[self.current_mux_index],
-                &self.gpio_driver,
+                &self.sys,
             );
             activate_mux_option(
                 &CONFIG.mux_options[device.mux_index],
-                &self.gpio_driver,
+                &self.sys,
                 &self.spi,
             );
             // Remember this for later to avoid unnecessary
@@ -364,8 +351,8 @@ impl ServerImpl {
         // We're doing this! Check if we need to control CS.
         let cs_override = self.lock_holder.is_some();
         if !cs_override {
-            self.gpio_driver
-                .set_reset(device.cs.port, 0, device.cs.pin_mask)
+            self.sys
+                .gpio_set_reset(device.cs.port, 0, device.cs.pin_mask)
                 .unwrap();
         }
 
@@ -512,8 +499,8 @@ impl ServerImpl {
 
         // Deassert (set) CS, if we asserted it in the first place.
         if !cs_override {
-            self.gpio_driver
-                .set_reset(device.cs.port, device.cs.pin_mask, 0)
+            self.sys
+                .gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
                 .unwrap();
         }
 
@@ -521,63 +508,63 @@ impl ServerImpl {
     }
 }
 
-fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &gpio_api::Gpio) {
+fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &sys_api::Sys) {
     // Drive all output pins low.
     for &(pins, _af) in opt.outputs {
-        gpio.set_reset(pins.port, 0, pins.pin_mask).unwrap();
-        gpio.configure(
+        gpio.gpio_set_reset(pins.port, 0, pins.pin_mask).unwrap();
+        gpio.gpio_configure(
             pins.port,
             pins.pin_mask,
-            gpio_api::Mode::Output,
-            gpio_api::OutputType::PushPull,
-            gpio_api::Speed::High,
-            gpio_api::Pull::None,
-            gpio_api::Alternate::AF0, // doesn't matter in GPIO mode
+            sys_api::Mode::Output,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::High,
+            sys_api::Pull::None,
+            sys_api::Alternate::AF0, // doesn't matter in GPIO mode
         )
         .unwrap();
     }
     // Switch input pin away from SPI peripheral to a GPIO input, which makes it
     // Hi-Z.
-    gpio.configure(
+    gpio.gpio_configure(
         opt.input.0.port,
         opt.input.0.pin_mask,
-        gpio_api::Mode::Input,
-        gpio_api::OutputType::PushPull, // doesn't matter
-        gpio_api::Speed::High,          // doesn't matter
-        gpio_api::Pull::None,
-        gpio_api::Alternate::AF0, // doesn't matter
+        sys_api::Mode::Input,
+        sys_api::OutputType::PushPull, // doesn't matter
+        sys_api::Speed::High,          // doesn't matter
+        sys_api::Pull::None,
+        sys_api::Alternate::AF0, // doesn't matter
     )
     .unwrap();
 }
 
 fn activate_mux_option(
     opt: &SpiMuxOption,
-    gpio: &gpio_api::Gpio,
+    gpio: &sys_api::Sys,
     spi: &spi_core::Spi,
 ) {
     // Apply the data line swap if requested.
     spi.set_data_line_swap(opt.swap_data);
     // Switch all outputs to the SPI peripheral.
     for &(pins, af) in opt.outputs {
-        gpio.configure(
+        gpio.gpio_configure(
             pins.port,
             pins.pin_mask,
-            gpio_api::Mode::Alternate,
-            gpio_api::OutputType::PushPull,
-            gpio_api::Speed::High,
-            gpio_api::Pull::None,
+            sys_api::Mode::Alternate,
+            sys_api::OutputType::PushPull,
+            sys_api::Speed::High,
+            sys_api::Pull::None,
             af,
         )
         .unwrap();
     }
     // And the input too.
-    gpio.configure(
+    gpio.gpio_configure(
         opt.input.0.port,
         opt.input.0.pin_mask,
-        gpio_api::Mode::Alternate,
-        gpio_api::OutputType::PushPull, // doesn't matter
-        gpio_api::Speed::High,          // doesn't matter
-        gpio_api::Pull::None,
+        sys_api::Mode::Alternate,
+        sys_api::OutputType::PushPull, // doesn't matter
+        sys_api::Speed::High,          // doesn't matter
+        sys_api::Pull::None,
         opt.input.1,
     )
     .unwrap();
@@ -599,7 +586,7 @@ struct ServerConfig {
     /// task's `uses` list for this to work.
     registers: *const device::spi1::RegisterBlock,
     /// Name for the peripheral as far as the RCC is concerned.
-    peripheral: rcc_api::Peripheral,
+    peripheral: sys_api::Peripheral,
     /// We allow for an individual SPI controller to be switched between several
     /// physical sets of pads. The mux options for a given server configuration
     /// are numbered from 0 and correspond to this slice.
@@ -620,19 +607,19 @@ struct SpiMuxOption {
     /// To disable the mux, we'll force these pins low. This is correct for SPI
     /// mode 0/1 but not mode 2/3; fortunately we currently don't support mode
     /// 2/3, so we can simplify.
-    outputs: &'static [(PinSet, gpio_api::Alternate)],
+    outputs: &'static [(PinSet, sys_api::Alternate)],
     /// A list of config changes to apply to activate the input pins of this mux
     /// option. This is _not_ a list because there's only one such pin, CIPO.
     ///
     /// To disable the mux, we'll switch this pin to HiZ.
-    input: (PinSet, gpio_api::Alternate),
+    input: (PinSet, sys_api::Alternate),
     /// Swap data lines?
     swap_data: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 struct PinSet {
-    port: gpio_api::Port,
+    port: sys_api::Port,
     pin_mask: u16,
 }
 

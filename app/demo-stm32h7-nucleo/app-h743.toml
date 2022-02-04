@@ -57,24 +57,14 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.rcc_driver]
-path = "../../drv/stm32h7-rcc"
-name = "drv-stm32h7-rcc"
+[tasks.sys]
+path = "../../drv/stm32g0-sys"
+name = "drv-stm32g0-sys"
 features = ["h743"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
-uses = ["rcc"]
+requires = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
-
-[tasks.gpio_driver]
-path = "../../drv/stm32h7-gpio"
-name = "drv-stm32h7-gpio"
-features = ["h743"]
-priority = 2
-requires = {flash = 8192, ram = 1024}
-uses = ["gpios1", "gpios2", "gpios3"]
-start = true
-task-slots = ["rcc_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/stm32h7-usart"
@@ -85,7 +75,7 @@ requires = {flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -95,7 +85,7 @@ priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 start = true
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
 33 = 0b0000_0010        # I2C2 event
@@ -120,7 +110,7 @@ uses = ["spi1"]
 start = true
 interrupts = {35 = 1}
 stacksize = 880
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi_driver.config.spi]
 global_config = "spi1"
@@ -135,16 +125,16 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
 interrupts = {61 = 0b1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["sys"]
 
 [tasks.ping]
 path = "../../task/ping"
@@ -159,7 +149,7 @@ task-slots = [{peer = "pong"}, "usart_driver"]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
@@ -180,7 +170,7 @@ priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "i2c_driver"]
+task-slots = ["sys", "i2c_driver"]
 
 [tasks.idle]
 path = "../../task/idle"

@@ -28,16 +28,18 @@ pub mod pca9548;
 use ringbuf::*;
 use userlib::*;
 
+use drv_stm32g0_sys_api as sys_api;
+
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,
     pub port: drv_i2c_api::PortIndex,
-    pub gpio_pins: drv_stm32h7_gpio_api::PinSet,
-    pub function: drv_stm32h7_gpio_api::Alternate,
+    pub gpio_pins: sys_api::PinSet,
+    pub function: sys_api::Alternate,
 }
 
 pub struct I2cController<'a> {
     pub controller: drv_i2c_api::Controller,
-    pub peripheral: drv_stm32h7_rcc_api::Peripheral,
+    pub peripheral: sys_api::Peripheral,
     pub notification: u32,
     pub registers: &'a RegisterBlock,
 }
@@ -69,7 +71,7 @@ pub trait I2cMuxDriver {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        sys: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
@@ -77,7 +79,7 @@ pub trait I2cMuxDriver {
     fn reset(
         &self,
         mux: &I2cMux,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
     /// Enable the specified segment on the specified mux
@@ -159,18 +161,18 @@ impl<'a> I2cMux<'_> {
 
     fn configure(
         &self,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         if let Some(pin) = &self.enable {
             // Set the pins to high _before_ switching to output to avoid
             // glitching.
-            gpio.set(pin.gpio_pins).unwrap();
+            sys.gpio_set(pin.gpio_pins).unwrap();
             // Now, expose them as outputs.
-            gpio.configure_output(
+            sys.gpio_configure_output(
                 pin.gpio_pins,
-                drv_stm32h7_gpio_api::OutputType::PushPull,
-                drv_stm32h7_gpio_api::Speed::High,
-                drv_stm32h7_gpio_api::Pull::None,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
             )
             .unwrap();
         }
@@ -180,11 +182,11 @@ impl<'a> I2cMux<'_> {
 
     fn reset(
         &self,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         if let Some(pin) = &self.enable {
-            gpio.reset(pin.gpio_pins).unwrap();
-            gpio.set(pin.gpio_pins).unwrap();
+            sys.gpio_reset(pin.gpio_pins).unwrap();
+            sys.gpio_set(pin.gpio_pins).unwrap();
         }
 
         Ok(())
@@ -192,9 +194,9 @@ impl<'a> I2cMux<'_> {
 }
 
 impl<'a> I2cController<'a> {
-    pub fn enable(&self, rcc_driver: &drv_stm32h7_rcc_api::Rcc) {
-        rcc_driver.enable_clock(self.peripheral);
-        rcc_driver.leave_reset(self.peripheral);
+    pub fn enable(&self, sys: &sys_api::Sys) {
+        sys.enable_clock(self.peripheral);
+        sys.leave_reset(self.peripheral);
     }
 
     fn configure_timing(&self, i2c: &RegisterBlock) {

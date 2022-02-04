@@ -8,16 +8,14 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_stm32h7_gpio_api::{Gpio, OutputType, Pull, Speed};
+use drv_stm32g0_sys_api::{OutputType, Pull, Speed, Sys};
 use drv_stm32h7_i2c::*;
-use drv_stm32h7_rcc_api::Rcc;
 
 use fixedmap::*;
 use ringbuf::*;
 use userlib::*;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 fn lookup_controller<'a>(
     controllers: &'a [I2cController],
@@ -127,8 +125,8 @@ fn reset_if_needed(
         }
     }
 
-    let gpio = GPIO.get_task_id();
-    let gpio = Gpio::from(gpio);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     // First, bounce our I2C controller
     controller.reset();
@@ -136,7 +134,7 @@ fn reset_if_needed(
     // And now reset the mux, eating any errors.
     let _ = find_mux(controller, port, muxes, mux, |mux, _, _| {
         ringbuf_entry!(None);
-        mux.driver.reset(&mux, &gpio)?;
+        mux.driver.reset(&mux, &sys)?;
         Ok(())
     });
 }
@@ -268,10 +266,10 @@ fn main() -> ! {
 }
 
 fn turn_on_i2c(controllers: &[I2cController]) {
-    let rcc_driver = Rcc::from(RCC.get_task_id());
+    let sys = Sys::from(SYS.get_task_id());
 
     for controller in controllers {
-        controller.enable(&rcc_driver);
+        controller.enable(&sys);
     }
 }
 
@@ -294,8 +292,8 @@ fn configure_port(
         return;
     }
 
-    let gpio = GPIO.get_task_id();
-    let gpio = Gpio::from(gpio);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     //
     // We will now iterate over all pins, de-configuring any that match our
@@ -311,10 +309,10 @@ fn configure_port(
             // `Mode::input`, which will assure that we don't leave SCL and
             // SDA pulled high.
             //
-            gpio.configure_input(pin.gpio_pins, Pull::None).unwrap();
+            sys.gpio_configure_input(pin.gpio_pins, Pull::None).unwrap();
         } else if pin.port == port {
             // Configure our new port!
-            gpio.configure_alternate(
+            sys.gpio_configure_alternate(
                 pin.gpio_pins,
                 OutputType::OpenDrain,
                 Speed::High,
@@ -333,8 +331,8 @@ fn configure_pins(
     pins: &[I2cPin],
     map: &mut PortMap,
 ) {
-    let gpio = GPIO.get_task_id();
-    let gpio = Gpio::from(gpio);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     for pin in pins {
         let controller =
@@ -351,7 +349,7 @@ fn configure_pins(
             _ => {}
         }
 
-        gpio.configure_alternate(
+        sys.gpio_configure_alternate(
             pin.gpio_pins,
             OutputType::OpenDrain,
             Speed::High,
@@ -371,8 +369,8 @@ fn configure_muxes(
     map: &mut PortMap,
     ctrl: &I2cControl,
 ) {
-    let gpio = GPIO.get_task_id();
-    let gpio = Gpio::from(gpio);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     for mux in muxes {
         let controller =
@@ -380,7 +378,7 @@ fn configure_muxes(
         configure_port(map, controller, mux.port, pins);
 
         loop {
-            match mux.driver.configure(&mux, controller, &gpio, ctrl) {
+            match mux.driver.configure(&mux, controller, &sys, ctrl) {
                 Ok(_) => {
                     break;
                 }

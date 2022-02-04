@@ -141,7 +141,7 @@ impl I2cMuxDriver for Max7358 {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        gpio: &sys_api::Sys,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         mux.configure(gpio)?;
@@ -233,7 +233,7 @@ impl I2cMuxDriver for Max7358 {
     fn reset(
         &self,
         mux: &I2cMux,
-        gpio: &drv_stm32h7_gpio_api::Gpio,
+        gpio: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.reset(gpio)
     }

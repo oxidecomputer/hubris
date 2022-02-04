@@ -9,7 +9,6 @@ hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 drv-spi-api = {path = "../../drv/spi-api"}
-drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api", optional = true}
 drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", default-features = false, optional = true }
 drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
@@ -35,13 +34,12 @@ semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
-stm32h7 = ["drv-stm32h7-gpio-api", "userlib/panic-messages"]
+stm32h7 = ["drv-stm32g0-sys-api/family-stm32h7", "userlib/panic-messages"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]
 stm32g0 = ["drv-stm32g0-sys-api/family-stm32g0"]
 qspi = ["drv-gimlet-hf-api"]
-h743 = ["drv-stm32h7-i2c/h743", "build-i2c/h743"]
-h753 = ["drv-stm32h7-i2c/h753", "build-i2c/h753"]
-h7b3 = ["drv-stm32h7-i2c/h7b3", "build-i2c/h7b3"]
+h743 = ["stm32h7", "drv-stm32h7-i2c/h743", "build-i2c/h743"]
+h753 = ["stm32h7", "drv-stm32h7-i2c/h753", "build-i2c/h753"]
 micro = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
 

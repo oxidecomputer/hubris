@@ -11,12 +11,11 @@ mod server;
 use core::sync::atomic::{AtomicU32, Ordering};
 use stm32h7::stm32h743 as device;
 
+use drv_stm32g0_sys_api::{self as sys_api, Sys};
 use drv_stm32h7_eth as eth;
-use drv_stm32h7_rcc_api::Rcc;
 use userlib::*;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
@@ -48,20 +47,20 @@ static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 
 #[export_name = "main"]
 fn main() -> ! {
-    let rcc = RCC.get_task_id();
-    let rcc = Rcc::from(rcc);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     // Turn on the Ethernet power.
-    rcc.enable_clock(drv_stm32h7_rcc_api::Peripheral::Eth1Rx);
-    rcc.enable_clock(drv_stm32h7_rcc_api::Peripheral::Eth1Tx);
-    rcc.enable_clock(drv_stm32h7_rcc_api::Peripheral::Eth1Mac);
+    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Rx);
+    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Tx);
+    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
 
     // Reset the MAC. This is one of two resets that must occur for the MAC to
     // work; the other is below.
-    rcc.enter_reset(drv_stm32h7_rcc_api::Peripheral::Eth1Mac);
-    rcc.leave_reset(drv_stm32h7_rcc_api::Peripheral::Eth1Mac);
+    sys.enter_reset(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
+    sys.leave_reset(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
 
-    configure_ethernet_pins();
+    configure_ethernet_pins(&sys);
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -220,7 +219,7 @@ fn link_local_iface_addr(
     smoltcp::wire::Ipv6Address(bytes)
 }
 
-fn configure_ethernet_pins() {
+fn configure_ethernet_pins(sys: &Sys) {
     // TODO this mapping is hard-coded for the STM32H7 Nucleo board!
     //
     // This board's mapping:
@@ -236,12 +235,11 @@ fn configure_ethernet_pins() {
     // RMII TX EN       PG11
     // RMII TXD1        PB13 <-- port B
     // RMII TXD0        PG13
-    use drv_stm32h7_gpio_api::*;
+    use sys_api::*;
 
-    let gpio = Gpio::from(GPIO.get_task_id());
     let eth_af = Alternate::AF11;
 
-    gpio.configure(
+    sys.gpio_configure(
         Port::A,
         (1 << 1) | (1 << 2) | (1 << 7),
         Mode::Alternate,
@@ -251,7 +249,7 @@ fn configure_ethernet_pins() {
         eth_af,
     )
     .unwrap();
-    gpio.configure(
+    sys.gpio_configure(
         Port::B,
         1 << 13,
         Mode::Alternate,
@@ -261,7 +259,7 @@ fn configure_ethernet_pins() {
         eth_af,
     )
     .unwrap();
-    gpio.configure(
+    sys.gpio_configure(
         Port::C,
         (1 << 1) | (1 << 4) | (1 << 5),
         Mode::Alternate,
@@ -271,7 +269,7 @@ fn configure_ethernet_pins() {
         eth_af,
     )
     .unwrap();
-    gpio.configure(
+    sys.gpio_configure(
         Port::G,
         (1 << 11) | (1 << 12) | (1 << 13),
         Mode::Alternate,

@@ -105,7 +105,7 @@ fn main() -> ! {
     // the SPI and CS lines are separately managed by the SPI server; the ice40
     // crate handles the CRESETB and CDONE signals, and takes care not to
     // generate surprise resets.
-    ice40::configure_pins(&gpio, &ICE40_CONFIG);
+    ice40::configure_pins(&sys, &ICE40_CONFIG);
 
     let pg = gpio.read_input(PGS_PORT).unwrap();
     let v1p2 = pg & PG_V1P2_MASK != 0;
@@ -247,7 +247,7 @@ fn main() -> ! {
         loop {
             let prog = spi.device(ICE40_SPI_DEVICE);
             ringbuf_entry!(Trace::Programming);
-            match reprogram_fpga(&prog, &gpio, &ICE40_CONFIG) {
+            match reprogram_fpga(&prog, &sys, &ICE40_CONFIG) {
                 Ok(()) => {
                     // yay
                     break;
