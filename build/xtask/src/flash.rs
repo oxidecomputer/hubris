@@ -78,7 +78,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
         }
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-2"
-        | "gimlet-1" | "sidecar-1" | "stm32g031" | "stm32g070"
+        | "gimlet-1" | "psc-1" | "sidecar-1" | "stm32g031" | "stm32g070"
         | "stm32g0b1" => {
             let cfg = if toml.board == "stm32f3-discovery" {
                 "./app/demo-stm32f4-discovery/openocd-f3.cfg"

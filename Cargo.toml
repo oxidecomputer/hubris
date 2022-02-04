@@ -28,6 +28,7 @@ members = [
     "app/gimlet-rot",
     "app/gimletlet",
     "app/lpc55xpresso",
+    "app/psc",
     "app/sidecar",
 
     "task/template",
