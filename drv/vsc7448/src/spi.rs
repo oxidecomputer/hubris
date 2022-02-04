@@ -52,12 +52,10 @@ impl Vsc7448Spi {
         if reg.addr < 0x71000000 || reg.addr > 0x72000000 {
             return Err(VscError::BadRegAddr(reg.addr));
         }
+        // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
+        // a register address to a request over SPI.
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
-        let data: [u8; 3] = [
-            ((addr >> 16) & 0xFF) as u8,
-            ((addr >> 8) & 0xFF) as u8,
-            (addr & 0xFF) as u8,
-        ];
+        let data: &[u8] = &addr.to_be_bytes()[1..];
 
         // We read back 7 + padding bytes in total:
         // - 3 bytes of address
@@ -66,10 +64,7 @@ impl Vsc7448Spi {
         const SIZE: usize = 7 + SPI_NUM_PAD_BYTES as usize;
         let mut out = [0; SIZE];
         self.0.exchange(&data[..], &mut out[..])?;
-        let value = (out[SIZE - 1] as u32)
-            | ((out[SIZE - 2] as u32) << 8)
-            | ((out[SIZE - 3] as u32) << 16)
-            | ((out[SIZE - 4] as u32) << 24);
+        let value = u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap());
 
         ringbuf_entry_masked!(
             DEBUG_TRACE_SPI,
@@ -133,22 +128,17 @@ impl Vsc7448Spi {
         }
 
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
-        let value: u32 = value.into();
-        let data: [u8; 7] = [
-            0x80 | ((addr >> 16) & 0xFF) as u8,
-            ((addr >> 8) & 0xFF) as u8,
-            (addr & 0xFF) as u8,
-            ((value >> 24) & 0xFF) as u8,
-            ((value >> 16) & 0xFF) as u8,
-            ((value >> 8) & 0xFF) as u8,
-            (value & 0xFF) as u8,
-        ];
+        let value = u32::from(value);
+        let mut data: [u8; 7] = [0; 7];
+        data[..3].copy_from_slice(&addr.to_be_bytes()[1..]);
+        data[3..].copy_from_slice(&value.to_be_bytes());
+        data[0] |= 0x80;
 
         ringbuf_entry_masked!(
             DEBUG_TRACE_SPI,
             Trace::Write {
                 addr: reg.addr,
-                value: value.into()
+                value
             }
         );
         self.0.write(&data[..])?;
