@@ -20,18 +20,11 @@ enum Trace {
 /// SPI clock.
 pub const SPI_NUM_PAD_BYTES: usize = 1;
 
-// Flags to tune ringbuf output while developing
-const DEBUG_TRACE_SPI: u8 = 1 << 0;
-const DEBUG_MASK: u8 = 0;
+/// This controls how many times we poll the SERDES1/6G register after a
+/// read/write operation before returning a timeout error.  The SDK polls
+/// _forever_, which seems questionable, and has no pauses between polling.
+const SERDES_RW_POLL_COUNT: usize = 32;
 
-/// Writes the given value to the ringbuf if allowed by the global `DEBUG_MASK`
-macro_rules! ringbuf_entry_masked {
-    ($mask:ident, $value:expr) => {
-        if (DEBUG_MASK & $mask) != 0 {
-            ringbuf_entry!($value);
-        }
-    };
-}
 ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,14 +37,14 @@ impl Vsc7448Spi {
     }
     /// Reads from a VSC7448 register.  The register must be in the switch
     /// core register block, i.e. having an address in the range
-    /// 0x71000000-0x72000000.
+    /// 0x71000000-0x72000000; otherwise, this will panic.
     pub fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u32>,
     {
-        if reg.addr < 0x71000000 || reg.addr > 0x72000000 {
-            return Err(VscError::BadRegAddr(reg.addr));
-        }
+        assert!(reg.addr >= 0x71000000);
+        assert!(reg.addr < 0x72000000);
+
         // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
         // a register address to a request over SPI.
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
@@ -66,13 +59,10 @@ impl Vsc7448Spi {
         self.0.exchange(&data[..], &mut out[..])?;
         let value = u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap());
 
-        ringbuf_entry_masked!(
-            DEBUG_TRACE_SPI,
-            Trace::Read {
-                addr: reg.addr,
-                value
-            }
-        );
+        ringbuf_entry!(Trace::Read {
+            addr: reg.addr,
+            value
+        });
         // The VSC7448 is configured to return 0x88888888 if a register is
         // read too fast.  Reading takes place over SPI: we write a 3-byte
         // address, then read 4 bytes of data; based on SPI speed, we may
@@ -92,12 +82,13 @@ impl Vsc7448Spi {
         // value _actually_ indicates an error (and not just an unfortunate
         // coincidence).
         if value == 0x88888888 {
-            // Return immediately if we got an invalid read sentinel while
-            // reading IF_CFGSTAT itself.  This check also protects us from a
+            // Panic immediately if we got an invalid read sentinel while
+            // reading IF_CFGSTAT itself, because that means something has
+            // gone very deeply wrong.  This check also protects us from a
             // stack overflow.
             let if_cfgstat = Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
             if reg.addr == if_cfgstat.addr {
-                return Err(VscError::InvalidRegisterReadNested);
+                panic!("Invalid nested read sentinel");
             }
             // This read should _never_ fail for timing reasons because the
             // DEVCPU_ORG register block can be accessed faster than all other
@@ -114,7 +105,7 @@ impl Vsc7448Spi {
     /// if you want to modify it, then use [Self::modify] instead.
     ///
     /// The register must be in the switch core register block, i.e. having an
-    /// address in the range 0x71000000-0x72000000.
+    /// address in the range 0x71000000-0x72000000; otherwise, this will panic.
     pub fn write<T>(
         &self,
         reg: RegisterAddress<T>,
@@ -123,9 +114,8 @@ impl Vsc7448Spi {
     where
         u32: From<T>,
     {
-        if reg.addr < 0x71000000 || reg.addr > 0x72000000 {
-            return Err(VscError::BadRegAddr(reg.addr));
-        }
+        assert!(reg.addr >= 0x71000000);
+        assert!(reg.addr < 0x72000000);
 
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
         let value = u32::from(value);
@@ -134,13 +124,10 @@ impl Vsc7448Spi {
         data[3..].copy_from_slice(&value.to_be_bytes());
         data[0] |= 0x80; // Indicates that this is a write
 
-        ringbuf_entry_masked!(
-            DEBUG_TRACE_SPI,
-            Trace::Write {
-                addr: reg.addr,
-                value
-            }
-        );
+        ringbuf_entry!(Trace::Write {
+            addr: reg.addr,
+            value
+        });
         self.0.write(&data[..])?;
         Ok(())
     }
@@ -166,7 +153,7 @@ impl Vsc7448Spi {
     /// type information.
     ///
     /// The register must be in the switch core register block, i.e. having an
-    /// address in the range 0x71000000-0x72000000.
+    /// address in the range 0x71000000-0x72000000; otherwise, this will panic.
     pub fn write_with<T, F>(
         &self,
         reg: RegisterAddress<T>,
@@ -185,7 +172,7 @@ impl Vsc7448Spi {
     /// Performs a read-modify-write operation on a VSC7448 register
     ///
     /// The register must be in the switch core register block, i.e. having an
-    /// address in the range 0x71000000-0x72000000.
+    /// address in the range 0x71000000-0x72000000; otherwise, this will panic.
     pub fn modify<T, F>(
         &self,
         reg: RegisterAddress<T>,
@@ -210,7 +197,9 @@ impl Vsc7448Spi {
             r.set_serdes6g_rd_one_shot(1);
             r.set_serdes6g_addr(1 << instance);
         })?;
-        for _ in 0..32 {
+        // TODO: look at whether this ever takes more than one iteration.
+        // (same for other instances in this file)
+        for _ in 0..SERDES_RW_POLL_COUNT {
             if self.read(addr)?.serdes6g_rd_one_shot() != 1 {
                 return Ok(());
             }
@@ -227,7 +216,7 @@ impl Vsc7448Spi {
             r.set_serdes6g_wr_one_shot(1);
             r.set_serdes6g_addr(1 << instance);
         })?;
-        for _ in 0..32 {
+        for _ in 0..SERDES_RW_POLL_COUNT {
             if self.read(addr)?.serdes6g_wr_one_shot() != 1 {
                 return Ok(());
             }
@@ -244,7 +233,7 @@ impl Vsc7448Spi {
             r.set_serdes1g_rd_one_shot(1);
             r.set_serdes1g_addr(1 << instance);
         })?;
-        for _ in 0..32 {
+        for _ in 0..SERDES_RW_POLL_COUNT {
             if self.read(addr)?.serdes1g_rd_one_shot() != 1 {
                 return Ok(());
             }
@@ -261,7 +250,7 @@ impl Vsc7448Spi {
             r.set_serdes1g_wr_one_shot(1);
             r.set_serdes1g_addr(1 << instance);
         })?;
-        for _ in 0..32 {
+        for _ in 0..SERDES_RW_POLL_COUNT {
             if self.read(addr)?.serdes1g_wr_one_shot() != 1 {
                 return Ok(());
             }
