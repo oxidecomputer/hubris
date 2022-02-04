@@ -9,7 +9,7 @@ use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ksz8463::{Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc7448_pac::phy;
 use vsc85xx::{Phy, PhyVsc85xx, VscError};
 
 task_slot!(SPI, spi_driver);
