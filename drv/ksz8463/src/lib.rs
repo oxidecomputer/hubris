@@ -19,34 +19,27 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
-const fn register_offset(address: u16) -> u16 {
-    let addr10_2 = address >> 2;
-    let mask_shift = 2 /* turn around bits */ + (2 * ((address >> 1) & 0x1));
-    (addr10_2 << 6) | ((0x3 as u16) << mask_shift)
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u16)]
 #[allow(non_camel_case_types)]
 pub enum Register {
-    CIDER = register_offset(0x000),
-    SGCR1 = register_offset(0x002),
-    SGCR2 = register_offset(0x004),
-    SGCR3 = register_offset(0x006),
-    SGCR6 = register_offset(0x00c),
-    SGCR7 = register_offset(0x00e),
-    MACAR1 = register_offset(0x010),
-    MACAR2 = register_offset(0x012),
-    MACAR3 = register_offset(0x014),
+    CIDER = 0x0,
+    SGCR1 = 0x2,
+    SGCR2 = 0x4,
+    SGCR3 = 0x6,
+    SGCR6 = 0xc,
+    SGCR7 = 0xe,
+    MACAR1 = 0x10,
+    MACAR2 = 0x12,
+    MACAR3 = 0x14,
 
-    P1MBCR = register_offset(0x04c),
-    P1MBSR = register_offset(0x04e),
+    P1MBCR = 0x4c,
+    P1MBSR = 0x4e,
 
-    P2MBCR = register_offset(0x058),
-    P2MBSR = register_offset(0x05a),
+    P2MBCR = 0x58,
+    P2MBSR = 0x5a,
 
-    CFGR = register_offset(0x0d8),
-    DSP_CNTRL_6 = register_offset(0x734),
+    CFGR = 0xd8,
+    DSP_CNTRL_6 = 0x734,
 }
 
 pub struct Ksz8463 {
@@ -64,12 +57,24 @@ impl Ksz8463 {
         }
     }
 
+    fn pack_addr(address: u16) -> u16 {
+        // This chip has a bizarre addressing scheme where you specify the
+        // address with 4-byte resolution (i.e. masking off the lower two bits
+        // of the address), then use four flags to indicate which bytes within
+        // that region you actually want.
+        let b = match address & 0b11 {
+            0 => 0b0011,
+            2 => 0b1100,
+            _ => panic!("Address must be 2-byte aligned"),
+        };
+        ((address & 0b1111111100) << 4) | (b << 2)
+    }
+
     pub fn read(&self, r: Register) -> Result<u16, SpiError> {
-        let cmd = (r as u16).to_be_bytes();
-        let request = [cmd[0], cmd[1]];
+        let cmd = Self::pack_addr(r as u16).to_be_bytes();
         let mut response = [0; 4];
 
-        self.spi.exchange(&request, &mut response)?;
+        self.spi.exchange(&cmd, &mut response)?;
         let v = u16::from_le_bytes(response[2..].try_into().unwrap());
         ringbuf_entry!(Trace::Read(r, v));
 
@@ -77,9 +82,13 @@ impl Ksz8463 {
     }
 
     pub fn write(&self, r: Register, v: u16) -> Result<(), SpiError> {
-        let cmd = (r as u16 | 0x8000).to_be_bytes(); // Set MSB to indicate write.
-        let data = v.to_le_bytes();
-        let request = [cmd[0], cmd[1], data[0], data[1]];
+        // Yes, the address is big-endian while the data is little-endian.
+        //
+        // I don't make the rules.
+        let mut request: [u8; 4] = [0; 4];
+        request[..2].copy_from_slice(&Self::pack_addr(r as u16).to_be_bytes());
+        request[2..].copy_from_slice(&v.to_le_bytes());
+        request[0] |= 0x80; // Set MSB to indicate write.
 
         ringbuf_entry!(Trace::Write(r, v));
         self.spi.write(&request[..])?;
@@ -135,8 +144,8 @@ impl Ksz8463 {
         ringbuf_entry!(Trace::Id(id));
 
         // Configure for 100BASE-FX operation
-        self.enable().unwrap();
         self.write_masked(Register::CFGR, 0x0, 0xc0).unwrap();
         self.write_masked(Register::DSP_CNTRL_6, 0, 0x2000).unwrap();
+        self.enable().unwrap();
     }
 }
