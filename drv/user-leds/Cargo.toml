@@ -10,7 +10,7 @@ stm32f4 = { version = "0.13.0", features = ["stm32f407"], optional = true }
 lpc55-pac = { version = "0.3.0", optional = true }
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32g0-sys-api = {path = "../stm32g0-sys-api", optional = true}
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", optional = true}
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api", optional = true}
 cfg-if = "0.1.10"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
@@ -20,8 +20,8 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-stm32g0 = ["drv-stm32g0-sys-api/family-stm32g0"]
-stm32h7 = ["drv-stm32g0-sys-api/family-stm32h7"]
+stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
+stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
 

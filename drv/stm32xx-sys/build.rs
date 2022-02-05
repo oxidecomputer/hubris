@@ -4,7 +4,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     idol::server::build_server_support(
-        "../../idl/stm32g0-sys.idol",
+        "../../idl/stm32xx-sys.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
     )?;

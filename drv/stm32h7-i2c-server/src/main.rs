@@ -8,8 +8,8 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_stm32g0_sys_api::{OutputType, Pull, Speed, Sys};
 use drv_stm32h7_i2c::*;
+use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
 use fixedmap::*;
 use ringbuf::*;

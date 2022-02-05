@@ -1,5 +1,5 @@
 [package]
-name = "drv-stm32g0-sys-api"
+name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 edition = "2021"
 

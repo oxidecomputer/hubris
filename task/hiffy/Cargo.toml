@@ -12,7 +12,7 @@ drv-spi-api = {path = "../../drv/spi-api"}
 drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", default-features = false, optional = true }
 drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
-drv-stm32g0-sys-api = {path = "../../drv/stm32g0-sys-api", default-features = false, optional = true}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false, optional = true}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
 zerocopy = "0.6.1"
@@ -34,9 +34,9 @@ semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
 spi = []
-stm32h7 = ["drv-stm32g0-sys-api/family-stm32h7", "userlib/panic-messages"]
+stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7", "userlib/panic-messages"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]
-stm32g0 = ["drv-stm32g0-sys-api/family-stm32g0"]
+stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
 qspi = ["drv-gimlet-hf-api"]
 h743 = ["stm32h7", "drv-stm32h7-i2c/h743", "build-i2c/h743"]
 h753 = ["stm32h7", "drv-stm32h7-i2c/h753", "build-i2c/h753"]

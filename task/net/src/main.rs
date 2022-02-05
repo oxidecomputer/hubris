@@ -11,8 +11,8 @@ mod server;
 use core::sync::atomic::{AtomicU32, Ordering};
 use stm32h7::stm32h743 as device;
 
-use drv_stm32g0_sys_api::{self as sys_api, Sys};
 use drv_stm32h7_eth as eth;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use userlib::*;
 
 task_slot!(SYS, sys);
@@ -51,14 +51,14 @@ fn main() -> ! {
     let sys = Sys::from(sys);
 
     // Turn on the Ethernet power.
-    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Rx);
-    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Tx);
-    sys.enable_clock(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
+    sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Rx);
+    sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Tx);
+    sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
     // Reset the MAC. This is one of two resets that must occur for the MAC to
     // work; the other is below.
-    sys.enter_reset(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
-    sys.leave_reset(drv_stm32g0_sys_api::Peripheral::Eth1Mac);
+    sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
+    sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
     configure_ethernet_pins(&sys);
 

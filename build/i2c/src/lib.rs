@@ -346,7 +346,7 @@ impl ConfigGenerator {
             writeln!(
                 &mut s,
                 r##"
-        use drv_stm32g0_sys_api::Peripheral;
+        use drv_stm32xx_sys_api::Peripheral;
         use drv_i2c_api::Controller;
 
         #[cfg(feature = "h743")]
@@ -422,7 +422,7 @@ impl ConfigGenerator {
                 &mut s,
                 r##"
         use drv_i2c_api::{{Controller, PortIndex}};
-        use drv_stm32g0_sys_api::{{self as gpio_api, Alternate}};"##
+        use drv_stm32xx_sys_api::{{self as gpio_api, Alternate}};"##
             )?;
         }
 
@@ -504,7 +504,7 @@ impl ConfigGenerator {
         use drv_i2c_api::{{Controller, PortIndex, Mux}};
 
         #[allow(unused_imports)]
-        use drv_stm32g0_sys_api::{{self as gpio_api, Alternate}};"##
+        use drv_stm32xx_sys_api::{{self as gpio_api, Alternate}};"##
             )?;
         }
 
