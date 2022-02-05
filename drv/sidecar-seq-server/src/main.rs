@@ -14,7 +14,7 @@ use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_sidecar_seq_api::{PowerState, SeqError};
 use idol_runtime::{NotificationHandler, RequestError};
 
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 
 mod payload;
@@ -43,44 +43,43 @@ const TIMER_INTERVAL: u64 = 1000;
 struct ServerImpl {
     state: PowerState,
     clockgen: I2cDevice,
-    led: drv_stm32h7_gpio_api::PinSet,
+    led: drv_stm32xx_sys_api::PinSet,
     led_on: bool,
     deadline: u64,
 }
 
 impl ServerImpl {
     fn led_init(&mut self) {
-        use drv_stm32h7_gpio_api::*;
+        use drv_stm32xx_sys_api::*;
 
-        let gpio_driver = GPIO.get_task_id();
-        let gpio_driver = Gpio::from(gpio_driver);
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
 
         // Make the LED an output.
-        gpio_driver
-            .configure_output(
-                self.led,
-                OutputType::PushPull,
-                Speed::High,
-                Pull::None,
-            )
-            .unwrap();
+        sys.gpio_configure_output(
+            self.led,
+            OutputType::PushPull,
+            Speed::High,
+            Pull::None,
+        )
+        .unwrap();
     }
 
     fn led_on(&mut self) {
-        use drv_stm32h7_gpio_api::*;
+        use drv_stm32xx_sys_api::*;
 
-        let gpio_driver = GPIO.get_task_id();
-        let gpio_driver = Gpio::from(gpio_driver);
-        gpio_driver.set_to(self.led, true).unwrap();
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+        sys.gpio_set_to(self.led, true).unwrap();
         self.led_on = true;
     }
 
     fn led_off(&mut self) {
-        use drv_stm32h7_gpio_api::*;
+        use drv_stm32xx_sys_api::*;
 
-        let gpio_driver = GPIO.get_task_id();
-        let gpio_driver = Gpio::from(gpio_driver);
-        gpio_driver.set_to(self.led, false).unwrap();
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+        sys.gpio_set_to(self.led, false).unwrap();
         self.led_on = false;
     }
 
@@ -172,7 +171,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: PowerState::A2,
         clockgen: devices::idt8a34001(task)[0],
-        led: drv_stm32h7_gpio_api::Port::C.pin(3),
+        led: drv_stm32xx_sys_api::Port::C.pin(3),
         led_on: false,
         deadline,
     };

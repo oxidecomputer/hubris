@@ -12,7 +12,7 @@ byteorder = {version = "1.4", default-features = false}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32h7-spi = {path = "../stm32h7-spi", default-features = false }
-drv-stm32g0-sys-api = {path = "../stm32g0-sys-api", default-features = false}
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-spi-api = {path = "../spi-api"}
 drv-ice40-spi-program = {path = "../ice40-spi-program"}
 drv-i2c-api = {path = "../i2c-api"}
@@ -33,4 +33,4 @@ serde_json = "1.0"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-h753 = ["drv-stm32h7-spi/h753", "drv-stm32g0-sys-api/h753"]
+h753 = ["drv-stm32h7-spi/h753", "drv-stm32xx-sys-api/h753"]

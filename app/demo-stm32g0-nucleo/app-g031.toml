@@ -35,8 +35,8 @@ features = ["log-null"]
 stacksize = 368
 
 [tasks.sys]
-path = "../../drv/stm32g0-sys"
-name = "drv-stm32g0-sys"
+path = "../../drv/stm32xx-sys"
+name = "drv-stm32xx-sys"
 priority = 1
 requires = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]

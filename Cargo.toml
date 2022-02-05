@@ -53,8 +53,8 @@ members = [
 
     "drv/stm32xx-gpio-common",
 
-    "drv/stm32g0-sys",
-    "drv/stm32g0-sys-api",
+    "drv/stm32xx-sys",
+    "drv/stm32xx-sys-api",
     "drv/stm32g0-usart",
 
     "drv/stm32h7-eth",

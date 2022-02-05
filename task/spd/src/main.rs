@@ -24,32 +24,29 @@
 use core::cell::Cell;
 use core::cell::RefCell;
 use drv_i2c_api::*;
-use drv_stm32g0_sys_api::Rcc;
-use drv_stm32h7_gpio_api::*;
 use drv_stm32h7_i2c::*;
+use drv_stm32xx_sys_api::*;
 use ringbuf::*;
 use userlib::*;
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 
 mod ltc4306;
 
 fn configure_pins(pins: &[I2cPin]) {
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
 
     for pin in pins {
-        gpio_driver
-            .configure_alternate(
-                pin.gpio_pins,
-                OutputType::OpenDrain,
-                Speed::High,
-                Pull::None,
-                pin.function,
-            )
-            .unwrap();
+        sys.gpio_configure_alternate(
+            pin.gpio_pins,
+            OutputType::OpenDrain,
+            Speed::High,
+            Pull::None,
+            pin.function,
+        )
+        .unwrap();
     }
 }
 
@@ -261,9 +258,9 @@ fn main() -> ! {
     }
 
     // Enable the controller
-    let rcc_driver = Rcc::from(RCC.get_task_id());
+    let sys = Sys::from(SYS.get_task_id());
 
-    controller.enable(&rcc_driver);
+    controller.enable(&sys);
 
     // Configure our pins
     configure_pins(&pins);

@@ -31,8 +31,8 @@ cfg_if::cfg_if! {
     }
 }
 
-use drv_stm32g0_sys_api::{GpioError, Group, RccError};
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
+use drv_stm32xx_sys_api::{GpioError, Group, RccError};
 use idol_runtime::RequestError;
 use userlib::*;
 

@@ -270,13 +270,13 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "stm32g0")] {
         task_slot!(SYS, sys);
 
-        const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
+        const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
         {
             cfg_if::cfg_if! {
                 if #[cfg(target_board = "stm32g031")] {
-                    (drv_stm32g0_sys_api::Port::C.pin(6), true)
+                    (drv_stm32xx_sys_api::Port::C.pin(6), true)
                 } else {
-                    (drv_stm32g0_sys_api::Port::A.pin(5), true)
+                    (drv_stm32xx_sys_api::Port::A.pin(5), true)
                 }
             }
         },
@@ -286,7 +286,7 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32g0")]
 fn enable_led_pins() {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -306,7 +306,7 @@ fn enable_led_pins() {
 }
 
 #[cfg(feature = "stm32g0")]
-fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
+fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
     }
@@ -314,7 +314,7 @@ fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
 
 #[cfg(feature = "stm32g0")]
 fn led_on(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -325,7 +325,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32g0")]
 fn led_off(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -337,7 +337,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32g0")]
 fn led_toggle(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -357,32 +357,32 @@ cfg_if::cfg_if! {
         cfg_if::cfg_if! {
             if #[cfg(target_board = "stm32h7b3i-dk")] {
                 // STM32H7B3 DISCOVERY kit: LEDs are on G2 and G11.
-                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
-                    (drv_stm32g0_sys_api::Port::G.pin(2), true),
-                    (drv_stm32g0_sys_api::Port::G.pin(11), true),
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::G.pin(2), true),
+                    (drv_stm32xx_sys_api::Port::G.pin(11), true),
                 ];
             } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
                 // Nucleo boards: LEDs are on PB0, PB14 and PE1.
-                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
-                    (drv_stm32g0_sys_api::Port::B.pin(0), false),
-                    (drv_stm32g0_sys_api::Port::B.pin(14), false),
-                    (drv_stm32g0_sys_api::Port::E.pin(1), false),
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::B.pin(0), false),
+                    (drv_stm32xx_sys_api::Port::B.pin(14), false),
+                    (drv_stm32xx_sys_api::Port::E.pin(1), false),
                 ];
             } else if #[cfg(target_board = "gemini-bu-1")] {
                 // Gemini bringup SP: LEDs are on PI8, PI9, PI10 and PI11.
-                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
-                    (drv_stm32g0_sys_api::Port::I.pin(8), false),
-                    (drv_stm32g0_sys_api::Port::I.pin(9), false),
-                    (drv_stm32g0_sys_api::Port::I.pin(10), false),
-                    (drv_stm32g0_sys_api::Port::I.pin(11), false),
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::I.pin(8), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(9), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(10), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(11), false),
                 ];
             } else if #[cfg(target_board = "gimletlet-2")] {
                 // Glorified gimletlet SP: LEDs are on PG2-5
-                const LEDS: &[(drv_stm32g0_sys_api::PinSet, bool)] = &[
-                    (drv_stm32g0_sys_api::Port::G.pin(2), false),
-                    (drv_stm32g0_sys_api::Port::G.pin(3), false),
-                    (drv_stm32g0_sys_api::Port::G.pin(4), false),
-                    (drv_stm32g0_sys_api::Port::G.pin(5), false),
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::G.pin(2), false),
+                    (drv_stm32xx_sys_api::Port::G.pin(3), false),
+                    (drv_stm32xx_sys_api::Port::G.pin(4), false),
+                    (drv_stm32xx_sys_api::Port::G.pin(5), false),
                 ];
             } else {
                 compile_error!("no LED mapping for unknown board");
@@ -393,7 +393,7 @@ cfg_if::cfg_if! {
 
 #[cfg(feature = "stm32h7")]
 fn enable_led_pins() {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -413,7 +413,7 @@ fn enable_led_pins() {
 }
 
 #[cfg(feature = "stm32h7")]
-fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
+fn led_info(led: Led) -> (drv_stm32xx_sys_api::PinSet, bool) {
     match led {
         Led::Zero => LEDS[0],
         Led::One => LEDS[1],
@@ -431,7 +431,7 @@ fn led_info(led: Led) -> (drv_stm32g0_sys_api::PinSet, bool) {
 
 #[cfg(feature = "stm32h7")]
 fn led_on(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -442,7 +442,7 @@ fn led_on(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_off(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
@@ -454,7 +454,7 @@ fn led_off(led: Led) {
 
 #[cfg(feature = "stm32h7")]
 fn led_toggle(led: Led) {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);

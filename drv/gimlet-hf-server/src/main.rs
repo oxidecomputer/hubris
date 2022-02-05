@@ -12,9 +12,8 @@
 
 use userlib::*;
 
-use drv_stm32g0_sys_api as rcc_api;
-use drv_stm32h7_gpio_api as gpio_api;
 use drv_stm32h7_qspi::Qspi;
+use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 
 // Note: h7b3 has QUADSPI but has not been used in this project.
@@ -27,18 +26,16 @@ use stm32h7::stm32h753 as device;
 
 use drv_gimlet_hf_api::{HfError, HfMuxState};
 
-task_slot!(RCC, rcc_driver);
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 const QSPI_IRQ: u32 = 1;
 
 #[export_name = "main"]
 fn main() -> ! {
-    let rcc_driver = rcc_api::Rcc::from(RCC.get_task_id());
-    let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
+    let sys = sys_api::Sys::from(SYS.get_task_id());
 
-    rcc_driver.enable_clock(rcc_api::Peripheral::QuadSpi);
-    rcc_driver.leave_reset(rcc_api::Peripheral::QuadSpi);
+    sys.enable_clock(sys_api::Peripheral::QuadSpi);
+    sys.leave_reset(sys_api::Peripheral::QuadSpi);
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
     let qspi = Qspi::new(reg, QSPI_IRQ);
@@ -62,40 +59,40 @@ fn main() -> ! {
             // PB2 SP_FLASH_TO_SP_RESET_L
             // PB1 SP_TO_SP3_FLASH_MUX_SELECT <-- low means us
             //
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(8).and_pin(9),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(8).and_pin(9),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::G.pin(6),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::G.pin(6),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
 
             // start reset and select off low
-            gpio_driver.reset(gpio_api::Port::B.pin(1).and_pin(2)).unwrap();
+            sys.gpio_reset(sys_api::Port::B.pin(1).and_pin(2)).unwrap();
 
-            gpio_driver.configure_output(
-                gpio_api::Port::B.pin(1).and_pin(2),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
+            sys.gpio_configure_output(
+                sys_api::Port::B.pin(1).and_pin(2),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
             ).unwrap();
 
-            let select_pin = gpio_api::Port::B.pin(1);
-            let reset_pin = gpio_api::Port::B.pin(2);
+            let select_pin = sys_api::Port::B.pin(1);
+            let reset_pin = sys_api::Port::B.pin(2);
         } else if #[cfg(target_board = "gimletlet-2")] {
             qspi.configure(
                 5, // 200MHz kernel / 5 = 40MHz clock
@@ -114,40 +111,40 @@ fn main() -> ! {
             // PF4 SP_FLASH_TO_SP_RESET_L
             // PF5 SP_TO_SP3_FLASH_MUX_SELECT <-- low means us
             //
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(8).and_pin(9),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(8).and_pin(9),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::G.pin(6),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::G.pin(6),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
 
             // start reset and select off low
-            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
 
-            gpio_driver.configure_output(
-                gpio_api::Port::F.pin(4).and_pin(5),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
+            sys.gpio_configure_output(
+                sys_api::Port::F.pin(4).and_pin(5),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
             ).unwrap();
 
-            let select_pin = gpio_api::Port::F.pin(5);
-            let reset_pin = gpio_api::Port::F.pin(4);
+            let select_pin = sys_api::Port::F.pin(5);
+            let reset_pin = sys_api::Port::F.pin(4);
 
         } else if #[cfg(target_board = "gemini-bu-1")] {
             // PF4 HOST_ACCESS
@@ -163,39 +160,39 @@ fn main() -> ! {
                 200 / 25, // 200MHz kernel clock / $x MHz SPI clock = divisor
                 25, // 2**25 = 32MiB = 256Mib
             );
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::F.pin(8).and_pin(9),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::F.pin(8).and_pin(9),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::B.pin(6),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::B.pin(6),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
 
             // start reset and select off low
-            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
 
-            gpio_driver.configure_output(
-                gpio_api::Port::F.pin(4).and_pin(5),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
+            sys.gpio_configure_output(
+                sys_api::Port::F.pin(4).and_pin(5),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
             ).unwrap();
-            let select_pin = gpio_api::Port::F.pin(4);
-            let reset_pin = gpio_api::Port::F.pin(5);
+            let select_pin = sys_api::Port::F.pin(4);
+            let reset_pin = sys_api::Port::F.pin(5);
 
         } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
             // Nucleo-h743zi2/h753zi pin mappings
@@ -237,47 +234,47 @@ fn main() -> ! {
             //
             // PG6 SP_QSPI1_CS
             //
-            gpio_driver.configure_alternate(
-                gpio_api::Port::B.pin(2),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::B.pin(2),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::D.pin(11).and_pin(12).and_pin(13),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::D.pin(11).and_pin(12).and_pin(13),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::E.pin(2),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF9,
+            sys.gpio_configure_alternate(
+                sys_api::Port::E.pin(2),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF9,
             ).unwrap();
-            gpio_driver.configure_alternate(
-                gpio_api::Port::G.pin(6),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::VeryHigh,
-                gpio_api::Pull::None,
-                gpio_api::Alternate::AF10,
+            sys.gpio_configure_alternate(
+                sys_api::Port::G.pin(6),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::VeryHigh,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF10,
             ).unwrap();
 
             // start reset and select off low
-            gpio_driver.reset(gpio_api::Port::F.pin(4).and_pin(5)).unwrap();
+            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
 
-            gpio_driver.configure_output(
-                gpio_api::Port::F.pin(4).and_pin(5),
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::High,
-                gpio_api::Pull::None,
+            sys.gpio_configure_output(
+                sys_api::Port::F.pin(4).and_pin(5),
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
             ).unwrap();
 
-            let select_pin = gpio_api::Port::F.pin(5);
-            let reset_pin = gpio_api::Port::F.pin(4);
+            let select_pin = sys_api::Port::F.pin(5);
+            let reset_pin = sys_api::Port::F.pin(4);
         } else {
             compile_error!("unsupported board");
         }
@@ -288,7 +285,7 @@ fn main() -> ! {
     hl::sleep_for(1);
 
     // Release reset and let it stabilize.
-    gpio_driver.set(reset_pin).unwrap();
+    sys.gpio_set(reset_pin).unwrap();
     hl::sleep_for(10);
 
     // Check the ID.
@@ -323,7 +320,7 @@ struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
     mux_state: HfMuxState,
-    select_pin: drv_stm32h7_gpio_api::PinSet,
+    select_pin: drv_stm32xx_sys_api::PinSet,
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -408,11 +405,11 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         state: HfMuxState,
     ) -> Result<(), RequestError<HfError>> {
-        let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
+        let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let rv = match state {
-            HfMuxState::SP => gpio_driver.reset(self.select_pin),
-            HfMuxState::HostCPU => gpio_driver.set(self.select_pin),
+            HfMuxState::SP => sys.gpio_reset(self.select_pin),
+            HfMuxState::HostCPU => sys.gpio_set(self.select_pin),
         };
 
         match rv {

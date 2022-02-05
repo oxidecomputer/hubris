@@ -30,8 +30,8 @@ use stm32h7::stm32h753 as device;
 
 use userlib::*;
 
-use drv_stm32g0_sys_api as sys_api;
 use drv_stm32h7_spi as spi_core;
+use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
 

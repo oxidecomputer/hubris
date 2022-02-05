@@ -8,7 +8,7 @@ fixedmap = {path = "../../lib/fixedmap"}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf"}
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32g0-sys-api = {path = "../stm32g0-sys-api", default-features = false}
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-i2c = {path = "../stm32h7-i2c", default-features = false }
 drv-i2c-api = {path = "../i2c-api"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
@@ -22,8 +22,8 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32g0-sys-api/h743", "build-i2c/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32g0-sys-api/h753", "build-i2c/h753"]
+h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
 itm = [ "userlib/log-itm" ]
 
 # These options allow for external muxes on the Gemini bringup board:

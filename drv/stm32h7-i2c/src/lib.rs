@@ -28,7 +28,7 @@ pub mod pca9548;
 use ringbuf::*;
 use userlib::*;
 
-use drv_stm32g0_sys_api as sys_api;
+use drv_stm32xx_sys_api as sys_api;
 
 pub struct I2cPin {
     pub controller: drv_i2c_api::Controller,

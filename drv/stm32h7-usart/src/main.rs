@@ -156,7 +156,7 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    use drv_stm32g0_sys_api::{Peripheral, Sys};
+    use drv_stm32xx_sys_api::{Peripheral, Sys};
     let sys = Sys::from(SYS.get_task_id());
 
     #[cfg(any(feature = "h743", feature = "h753"))]
@@ -167,7 +167,7 @@ fn turn_on_usart() {
 }
 
 fn configure_pins() {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
