@@ -1,0 +1,35 @@
+[package]
+name = "drv-stm32xx-sys"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-initial-support", default-features = false, optional = true }
+stm32h7 = {version = "0.14", default-features = false, optional = true}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api"}
+drv-stm32xx-gpio-common = {path = "../stm32xx-gpio-common", features = ["server-support"]}
+cfg-if = "1"
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[features]
+family-stm32h7 = ["stm32h7"]
+h743 = ["family-stm32h7", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32xx-gpio-common/model-stm32h743"]
+h753 = ["family-stm32h7", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32xx-gpio-common/model-stm32h753"]
+
+family-stm32g0 = ["stm32g0"]
+g031 = ["family-stm32g0", "stm32g0/stm32g031", "drv-stm32xx-sys-api/g031", "drv-stm32xx-gpio-common/model-stm32g031"]
+g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-stm32xx-gpio-common/model-stm32g070"]
+g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32xx-sys"
+test = false
+bench = false

@@ -3,9 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    idol::client::build_client_stub(
-        "../../idl/stm32h7-rcc.idol",
-        "client_stub.rs",
+    idol::server::build_server_support(
+        "../../idl/stm32xx-sys.idol",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
     )?;
+
     Ok(())
 }

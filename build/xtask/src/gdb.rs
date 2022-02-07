@@ -10,8 +10,7 @@ use crate::Config;
 pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
     ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
 
-    let cfg_contents = std::fs::read(&cfg)?;
-    let toml: Config = toml::from_slice(&cfg_contents)?;
+    let toml = Config::from_file(&cfg)?;
 
     let mut out = PathBuf::from("target");
     out.push(toml.name);

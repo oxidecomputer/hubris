@@ -8,4 +8,4 @@ edition = "2018"
 [dependencies]
 userlib = {path = "../../sys/userlib"}
 drv-spi-api = {path = "../spi-api"}
-drv-stm32h7-gpio-api = {path = "../stm32h7-gpio-api"}
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api"}

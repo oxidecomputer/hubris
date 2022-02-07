@@ -2,9 +2,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Client API for the STM32G0 SYS server.
+//! Client API for the STM32xx SYS server.
 
 #![no_std]
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "family-stm32g0")] {
+        mod g0;
+        pub use self::g0::*;
+    } else if #[cfg(feature = "family-stm32h7")] {
+        mod h7;
+        pub use self::h7::*;
+    } else {
+        compile_error!("unsupported SoC family");
+    }
+}
 
 use unwrap_lite::UnwrapLite;
 use userlib::*;
@@ -93,105 +105,37 @@ impl Sys {
     }
 }
 
-//
-// A few macros for purposes of defining the Peripheral enum in terms that our
-// driver is expecting:
-//
-// - RCC_IOPENR[31:0] and RCC_IOPRSTR[31:0] are indices 31-0.
-// - RCC_AHBENR[31:0] and RCC_AHBRSTR[31:0] are indices 63-32.
-// - RCC_APBENR1[31:0] and RCC_APBRSTR1[31:0] are indices 95-64.
-// - RCC_APBENR2[31:0] and RCC_APBRSTR2[31:0] are indices 127-96.
-//
-macro_rules! iop {
-    ($bit:literal) => {
-        (0 * 32) + $bit
-    };
+/// Assign peripheral numbers that are unique by group.
+const fn periph(g: Group, bit_number: u8) -> u32 {
+    // Note: this will accept bit numbers higher than 31, and they'll wrap
+    // around to zero. Asserting here would be nice, but asserts in const fns
+    // are not yet stable. In practice, you are likely to get a compile error if
+    // you make a mistake here, because it will cause enum variants to alias to
+    // the same number which is not permitted.
+    (g as u32) << 5 | (bit_number & 0x1F) as u32
 }
 
-macro_rules! ahb {
-    ($bit:literal) => {
-        (1 * 32) + $bit
-    };
-}
+impl Peripheral {
+    #[inline(always)]
+    pub fn group(self) -> Group {
+        let index = (self as u32 >> 5) as u8;
+        // Safety: this is unsafe because it can turn any arbitrary bit pattern
+        // into a `Group`, potentially resulting in undefined behavior. However,
+        // `self` is a valid `Peripheral`, and we make sure (above) that
+        // `Peripheral` has valid values in its `Group` bits by only
+        // constructing it _from_ a `Group`. So this is safe.
+        //
+        // The reason this is using unsafe code in the _first_ place is to
+        // ensure that we don't generate an unnecessary panic here. We don't
+        // need the panic because we already checked user input on the way into
+        // the `Peripheral` type.
+        unsafe { core::mem::transmute(index) }
+    }
 
-macro_rules! apb1 {
-    ($bit:literal) => {
-        (2 * 32) + $bit
-    };
-}
-
-macro_rules! apb2 {
-    ($bit:literal) => {
-        (3 * 32) + $bit
-    };
-}
-
-/// Peripheral numbering.
-///
-/// Peripheral bit numbers per the STM32G0 documentation, starting at section:
-///
-///    STM32G0 PART     MANUAL      SECTION
-///    G0x0             RM0454      5.4.8 (RCC_IOPRSTR)
-///    G0x1             RM0444      5.4.9 (RCC_IOPRSTR)
-///
-/// These are in the order that they appear in the documentation.   This is
-/// the union of all STM32G0 peripherals; not all peripherals will exist on
-/// all variants!
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-#[repr(u32)]
-pub enum Peripheral {
-    GpioF = iop!(5),
-    GpioE = iop!(4),
-    GpioD = iop!(3),
-    GpioC = iop!(2),
-    GpioB = iop!(1),
-    GpioA = iop!(0),
-
-    Rng = ahb!(18), // G0x1 only
-    Aes = ahb!(16), // G0x1 only
-    Crc = ahb!(12),
-    Flash = ahb!(8),
-    Dma2 = ahb!(1),
-    Dma1 = ahb!(0),
-
-    LpTim1 = apb1!(31), // G0x1 only
-    LpTim2 = apb1!(30), // G0x1 only
-    Dac1 = apb1!(29),   // G0x1 only
-    Pwr = apb1!(28),
-    Dbg = apb1!(27),
-    Ucpd2 = apb1!(26), // G0x1 only
-    Ucpd1 = apb1!(25), // G0x1 only
-    Cec = apb1!(24),   // G0x1 only
-    I2c3 = apb1!(23),
-    I2c2 = apb1!(22),
-    I2c1 = apb1!(21),
-    LpUart1 = apb1!(20), // G0x1 only
-    Usart4 = apb1!(19),
-    Usart3 = apb1!(18),
-    Usart2 = apb1!(17),
-    Crs = apb1!(16), // G0x1 only
-    Spi3 = apb1!(15),
-    Spi2 = apb1!(14),
-    Usb = apb1!(13),
-    Fdcan = apb1!(12), // G0x1 only
-    Usart6 = apb1!(9),
-    Usart5 = apb1!(8),
-    LpUart2 = apb1!(7), // G0x1 only
-    Tim7 = apb1!(5),
-    Tim6 = apb1!(4),
-    Tim4 = apb1!(2),
-    Tim3 = apb1!(1),
-    Tim2 = apb1!(0), // G0x1 only
-
-    Adc = apb2!(20),
-    Tim17 = apb2!(18),
-    Tim16 = apb2!(17),
-    Tim15 = apb2!(16),
-    Tim14 = apb2!(15),
-    Usart1 = apb2!(14),
-    Spi1 = apb2!(12),
-    Tim1 = apb2!(11),
-    Syscfg = apb2!(0),
+    #[inline(always)]
+    pub fn bit_index(self) -> u8 {
+        self as u8 & 0x1F
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

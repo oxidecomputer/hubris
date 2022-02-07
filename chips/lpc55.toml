@@ -1,0 +1,43 @@
+[syscon]
+address = 0x40000000
+size = 4096
+
+[anactrl]
+address = 0x40013000
+size = 4096
+
+[gpio]
+address = 0x4008c000
+size = 9348
+
+[iocon]
+address = 0x40001000
+size = 4096
+
+[flexcomm0]
+address = 0x40086000
+size = 4096
+
+[flexcomm3]
+address = 0x40089000
+size = 4096
+
+[flexcomm4]
+address = 0x4008A000
+size = 4096
+
+[flexcomm8]
+address = 0x4009F000
+size = 4096
+
+[pmc]
+address = 0x40020000
+size = 4096
+
+[rng]
+address = 0x4003A000
+size = 4096
+
+[flash]
+address = 0x50034000
+size = 0x1000

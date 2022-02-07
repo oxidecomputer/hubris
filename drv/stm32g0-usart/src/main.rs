@@ -171,7 +171,7 @@ fn main() -> ! {
 }
 
 fn turn_on_usart() {
-    use drv_stm32g0_sys_api::{Peripheral, Sys};
+    use drv_stm32xx_sys_api::{Peripheral, Sys};
     let rcc_driver = Sys::from(SYS.get_task_id());
 
     const PORT: Peripheral = Peripheral::Usart1;
@@ -181,7 +181,7 @@ fn turn_on_usart() {
 }
 
 fn configure_pins() {
-    use drv_stm32g0_sys_api::*;
+    use drv_stm32xx_sys_api::*;
 
     let gpio_driver = SYS.get_task_id();
     let gpio_driver = Sys::from(gpio_driver);

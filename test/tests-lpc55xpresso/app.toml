@@ -1,6 +1,7 @@
 name = "tests-lpc55xpresso"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
+chip = "../../chips/lpc55.toml"
 stacksize = 2048
 
 [kernel]
@@ -106,11 +107,3 @@ size = 0x8000
 [extratext.rom]
 address = 0x13000000
 size = 0x20000
-
-[peripherals.syscon]
-address = 0x50000000
-size = 0x1000
-
-[peripherals.flash]
-address = 0x50034000
-size = 0x1000

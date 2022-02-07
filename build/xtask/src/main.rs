@@ -2,11 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::BTreeMap;
-use std::hash::Hash;
-use std::path::PathBuf;
+use std::collections::{hash_map::DefaultHasher, BTreeMap};
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use structopt::StructOpt;
 
 use serde::Deserialize;
@@ -136,12 +136,17 @@ enum Xtask {
     },
 }
 
+/// A `RawConfig` represents an `app.toml` file that has been deserialized,
+/// but may not be ready for use.  In particular, we use the `chip` field
+/// to load a second file containing peripheral register addresses.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct Config {
+struct RawConfig {
     name: String,
     target: String,
     board: String,
+    #[serde(default)]
+    chip: Option<String>,
     #[serde(default)]
     signing: IndexMap<String, Signing>,
     secure: Option<bool>,
@@ -157,6 +162,70 @@ struct Config {
     supervisor: Option<Supervisor>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
+}
+
+#[derive(Clone, Debug)]
+struct Config {
+    name: String,
+    target: String,
+    board: String,
+    signing: IndexMap<String, Signing>,
+    secure: Option<bool>,
+    stacksize: Option<u32>,
+    bootloader: Option<Bootloader>,
+    kernel: Kernel,
+    outputs: IndexMap<String, Output>,
+    tasks: IndexMap<String, Task>,
+    peripherals: IndexMap<String, Peripheral>,
+    extratext: IndexMap<String, Peripheral>,
+    supervisor: Option<Supervisor>,
+    config: Option<ordered_toml::Value>,
+    buildhash: u64,
+}
+
+impl Config {
+    pub fn from_file(cfg: &Path) -> Result<Self> {
+        let cfg_contents = std::fs::read(&cfg)?;
+        let toml: RawConfig = toml::from_slice(&cfg_contents)?;
+
+        let mut hasher = DefaultHasher::new();
+        hasher.write(&cfg_contents);
+
+        // If the app.toml specifies a `chip` key, then load the peripheral
+        // register map from a separate file and accumulate that file in the
+        // buildhash.
+        let peripherals = if let Some(chip) = toml.chip {
+            if !toml.peripherals.is_empty() {
+                bail!("Cannot specify both chip and peripherals");
+            }
+            let chip_file = cfg.parent().unwrap().join(chip);
+            let chip_contents = std::fs::read(chip_file)?;
+            hasher.write(&chip_contents);
+            toml::from_slice(&chip_contents)?
+        } else {
+            toml.peripherals
+        };
+
+        let buildhash = hasher.finish();
+
+        Ok(Config {
+            name: toml.name,
+            target: toml.target,
+            board: toml.board,
+            signing: toml.signing,
+            secure: toml.secure,
+            stacksize: toml.stacksize,
+            bootloader: toml.bootloader,
+            kernel: toml.kernel,
+            outputs: toml.outputs,
+            tasks: toml.tasks,
+            peripherals,
+            extratext: toml.extratext,
+            supervisor: toml.supervisor,
+            config: toml.config,
+            buildhash,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

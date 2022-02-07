@@ -219,7 +219,7 @@ impl ToTokens for SpiConfig {
             const FIFO_DEPTH: usize = #fifo_depth;
             const CONFIG: ServerConfig = ServerConfig {
                 registers: device::#devname::ptr(),
-                peripheral: rcc_api::Peripheral::#pname,
+                peripheral: sys_api::Peripheral::#pname,
                 mux_options: &[ #(#muxes),* ],
                 devices: &[ #(#device_code),* ],
             };
@@ -246,7 +246,7 @@ impl ToTokens for ConfigPort {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let port: syn::Ident = syn::parse_str(&format!("{:?}", self)).unwrap();
         tokens.append_all(quote::quote! {
-            gpio_api::Port::#port
+            sys_api::Port::#port
         });
     }
 }
@@ -303,7 +303,7 @@ impl ToTokens for Af {
         let name: syn::Ident =
             syn::parse_str(&format!("AF{}", self.0)).unwrap();
         tokens.append_all(quote::quote! {
-            gpio_api::Alternate::#name
+            sys_api::Alternate::#name
         });
     }
 }

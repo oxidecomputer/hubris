@@ -1,9 +1,49 @@
-// STM32G0 GPIO IPC API
+// STM32xx "system" IPC API
 
 Interface(
-    name: "Gpio",
+    name: "Sys",
     ops: {
-        "configure_raw": (
+        "enable_clock_raw": (
+            args: {
+                "peripheral": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("RccError"),
+            ),
+            idempotent: true,
+        ),
+        "disable_clock_raw": (
+            args: {
+                "peripheral": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("RccError"),
+            ),
+            idempotent: true,
+        ),
+        "enter_reset_raw": (
+            args: {
+                "peripheral": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("RccError"),
+            ),
+            idempotent: true,
+        ),
+        "leave_reset_raw": (
+            args: {
+                "peripheral": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("RccError"),
+            ),
+            idempotent: true,
+        ),
+        "gpio_configure_raw": (
             args: {
                 "port": (
                     type: "Port",
@@ -18,7 +58,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "set_reset": (
+        "gpio_set_reset": (
             args: {
                 "port": (
                     type: "Port",
@@ -33,7 +73,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "read_input": (
+        "gpio_read_input": (
             args: {
                 "port": (
                     type: "Port",
@@ -46,7 +86,7 @@ Interface(
             ),
             idempotent: true,
         ),
-        "toggle": (
+        "gpio_toggle": (
             args: {
                 "port": (
                     type: "Port",
