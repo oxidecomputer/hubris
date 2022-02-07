@@ -62,7 +62,7 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["usart2", "gpioa"]
 start = true
-interrupts = {38 = 1}
+interrupts = {"usart2.irq" = 1}
 task-slots = ["rcc_driver"]
 
 [tasks.user_leds]

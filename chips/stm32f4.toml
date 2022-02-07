@@ -1,6 +1,7 @@
 [usart2]
 address = 0x40004400
 size = 1024
+interrupts = { irq = 38 }
 
 [rcc]
 address = 0x40023800

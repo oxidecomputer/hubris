@@ -9,3 +9,4 @@ size = 0x2000
 [usart1]
 address = 0x40013800
 size = 1024
+interrupts = { irq = 27 }

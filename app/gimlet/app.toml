@@ -79,7 +79,7 @@ requires = {flash = 16384, ram = 2048}
 features = ["spi2", "h753"]
 uses = ["spi2"]
 start = true
-interrupts = {36 = 1}
+interrupts = {"spi2.irq" = 1}
 stacksize = 872
 task-slots = ["sys"]
 
@@ -97,12 +97,12 @@ start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
-72 = 0b0000_0100        # I2C3 event
-73 = 0b0000_0100        # I2C3 error
-95 = 0b0000_1000        # I2C4 event
-96 = 0b0000_1000        # I2C4 error
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
+"i2c3.event" = 0b0000_0100
+"i2c3.error" = 0b0000_0100
+"i2c4.event" = 0b0000_1000
+"i2c4.error" = 0b0000_1000
 
 [tasks.spd]
 path = "../../task/spd"
@@ -115,8 +115,8 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 
 [tasks.spd.interrupts]
-31 = 0b0000_0001        # I2C1 event
-32 = 0b0000_0001        # I2C1 error
+"i2c1.event" = 0b0000_0001
+"i2c1.error" = 0b0000_0001
 
 [tasks.thermal]
 path = "../../task/thermal"
@@ -167,7 +167,7 @@ requires = {flash = 8192, ram = 2048 }
 stacksize = 1920
 start = true
 uses = ["quadspi"]
-interrupts = {92 = 1}
+interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.sensor]

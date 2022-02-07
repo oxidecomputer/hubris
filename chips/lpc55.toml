@@ -17,6 +17,7 @@ size = 4096
 [flexcomm0]
 address = 0x40086000
 size = 4096
+interrupts = { irq = 14 }
 
 [flexcomm3]
 address = 0x40089000
@@ -29,6 +30,7 @@ size = 4096
 [flexcomm8]
 address = 0x4009F000
 size = 4096
+interrupts = { hs_spi = 59 }
 
 [pmc]
 address = 0x40020000
