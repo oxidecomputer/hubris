@@ -10,8 +10,7 @@ use anyhow::Context;
 use crate::Config;
 
 pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
-    let cfg_contents = std::fs::read(&cfg)?;
-    let toml: Config = toml::from_slice(&cfg_contents)?;
+    let toml = Config::from_file(&cfg)?;
 
     let mut archive = PathBuf::from("target");
     archive.push(&toml.name);

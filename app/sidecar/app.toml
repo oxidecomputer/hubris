@@ -1,6 +1,7 @@
 name = "sidecar"
 target = "thumbv7em-none-eabihf"
 board = "sidecar-1"
+chip = "../../chips/stm32h7.toml"
 stacksize = 896
 
 [kernel]
@@ -141,58 +142,6 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-
-[peripherals.rcc]
-address = 0x58024400
-size = 1024
-
-[peripherals.gpios1]
-address = 0x58020000
-size = 0x2000
-
-[peripherals.gpios2]
-address = 0x58022000
-size = 0x0800
-
-[peripherals.gpios3]
-address = 0x58022800
-size = 0x0400
-
-[peripherals.spi2]
-address = 0x40003800
-size = 1024
-
-[peripherals.spi4]
-address = 0x40013400
-size = 1024
-
-[peripherals.spi5]
-address = 0x40015000
-size = 1024
-
-[peripherals.usart3]
-address = 0x40004800
-size = 1024
-
-[peripherals.i2c1]
-address = 0x40005400
-size = 1024
-
-[peripherals.i2c2]
-address = 0x40005800
-size = 1024
-
-[peripherals.i2c3]
-address = 0x40005c00
-size = 1024
-
-[peripherals.i2c4]
-address = 0x58001c00
-size = 1024
-
-[peripherals.quadspi]
-address = 0x52005000
-size = 4096
 
 [config]
 

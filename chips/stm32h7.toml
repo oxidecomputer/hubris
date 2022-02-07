@@ -1,0 +1,84 @@
+[rcc]
+address = 0x58024400
+size = 1024
+
+[gpios1]
+address = 0x58020000
+size = 0x2000
+
+[gpios2]
+address = 0x58022000
+size = 0x0800
+
+[gpios3]
+address = 0x58022800
+size = 0x0400
+
+[spi1]
+address = 0x40013000
+size = 1024
+
+[spi2]
+address = 0x40003800
+size = 1024
+
+[spi3]
+address = 0x40003c00
+size = 1024
+
+[spi4]
+address = 0x40013400
+size = 1024
+interrupts = { irq = 84 }
+
+[spi5]
+address = 0x40015000
+size = 1024
+
+[spi6]
+address = 0x58001400
+size = 1024
+
+[usart3]
+address = 0x40004800
+size = 1024
+
+[i2c1]
+address = 0x40005400
+size = 1024
+
+[i2c2]
+address = 0x40005800
+size = 1024
+
+[i2c3]
+address = 0x40005c00
+size = 1024
+
+[i2c4]
+address = 0x58001c00
+size = 1024
+
+[quadspi]
+address = 0x52005000
+size = 4096
+
+[eth]
+address = 0x40028000
+size = 0x1000
+
+[eth_dma]
+address = 0x40029000
+size = 0x400
+
+[hash]
+address = 0x48021400
+size = 4096
+
+#[rng]
+#address = 0x48021800
+#size = 4096
+
+#[cryp]
+#address = 0x48021000
+#size = 4096

@@ -11,7 +11,7 @@ use goblin::Object;
 use indexmap::IndexMap;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-use crate::{dist::DEFAULT_KERNEL_STACK, Config};
+use crate::{Config, dist::DEFAULT_KERNEL_STACK};
 
 fn pow2_suggest(size: u64) -> u64 {
     size.next_power_of_two()
@@ -43,8 +43,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
     }(color_choice);
     let out = &mut out_stream;
 
-    let cfg_contents = std::fs::read(&cfg)?;
-    let toml: Config = toml::from_slice(&cfg_contents)?;
+    let toml = Config::from_file(&cfg)?;
 
     let mut dist_dir = PathBuf::from("target");
     dist_dir.push(&toml.name);
