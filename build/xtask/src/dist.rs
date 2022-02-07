@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
@@ -39,13 +38,7 @@ pub fn package(
     // convenient flag.
     let partial_build = tasks_to_build.is_some();
 
-    let cfg_contents = std::fs::read(&cfg)?;
-    let toml: Config = toml::from_slice(&cfg_contents)?;
-
-    let mut hasher = DefaultHasher::new();
-    hasher.write(&cfg_contents);
-    let buildhash = hasher.finish();
-    drop(cfg_contents);
+    let toml = Config::from_file(&cfg)?;
 
     let mut out = PathBuf::from("target");
     let buildstamp_file = out.join("buildstamp");
@@ -59,7 +52,7 @@ pub fn package(
         Ok(contents) => {
             if let Ok(contents) = std::str::from_utf8(&contents) {
                 if let Ok(cmp) = u64::from_str_radix(contents, 16) {
-                    buildhash != cmp
+                    toml.buildhash != cmp
                 } else {
                     println!("buildstamp file contents unknown; re-building.");
                     true
@@ -141,7 +134,7 @@ pub fn package(
 
     // now that we're clean, update our buildstamp file; any failure to build
     // from here on need not trigger a clean
-    std::fs::write(&buildstamp_file, format!("{:x}", buildhash))?;
+    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
     let mut shared_syms: Option<&[String]> = None;
 
     // Panic messages in crates have a long prefix; we'll shorten it using

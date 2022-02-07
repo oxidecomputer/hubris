@@ -43,8 +43,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
     }(color_choice);
     let out = &mut out_stream;
 
-    let cfg_contents = std::fs::read(&cfg)?;
-    let toml: Config = toml::from_slice(&cfg_contents)?;
+    let toml = Config::from_file(&cfg)?;
 
     let mut dist_dir = PathBuf::from("target");
     dist_dir.push(&toml.name);
