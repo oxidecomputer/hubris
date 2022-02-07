@@ -583,6 +583,12 @@ pub fn package(
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
     archive.copy(cfg, "app.toml")?;
+    if let Some(chip) = &toml.chip {
+        let chip_file = cfg.parent().unwrap().join(chip);
+        let chip_filename =
+            chip_file.file_name().unwrap().to_str().unwrap().to_owned();
+        archive.copy(chip_file, chip_filename)?;
+    }
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
