@@ -5,10 +5,10 @@
 use crate::miim_bridge::MiimBridge;
 use crate::GPIO;
 
-use drv_spi_api::Spi;
+use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
 use drv_stm32h7_gpio_api as gpio_api;
-use ksz8463::{Ksz8463, Register as KszRegister};
+use ksz8463::{Ksz8463, MIBCounter, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -21,10 +21,47 @@ const VSC8552_PORT: u8 = 0b11100; // Based on resistor strapping
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    Ksz8463Status { port: u8, status: u16 },
-    Vsc8552Status { port: u8, status: u16 },
-    Vsc8552Err { err: VscError },
-    Vsc8552Status100 { port: u8, status: u16 },
+    Ksz8463Configured,
+    KszErr {
+        err: SpiError,
+    },
+    Ksz8463Status {
+        port: u8,
+        status: u16,
+    },
+    Ksz8463Control {
+        port: u8,
+        control: u16,
+    },
+    Ksz8463Counter {
+        port: u8,
+        counter: MIBCounter,
+    },
+
+    Vsc8552Configured,
+    Vsc8552Status {
+        port: u8,
+        status: phy::standard::MODE_STATUS,
+    },
+    Vsc8552Err {
+        err: VscError,
+    },
+    Vsc8552BypassControl {
+        port: u8,
+        control: phy::standard::BYPASS_CONTROL,
+    },
+    Vsc8552Status100 {
+        port: u8,
+        status: u16,
+    },
+    Vsc8552TxGoodCounter {
+        port: u8,
+        counter: phy::extended_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER,
+    },
+    Vsc8552RxCRCGoodCounter {
+        port: u8,
+        counter: phy::extended_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER,
+    },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -130,23 +167,33 @@ impl Bsp {
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
         self.ksz.configure();
+        ringbuf_entry!(Trace::Ksz8463Configured);
 
         // The VSC8552 connects the KSZ switch to the management network
         // over SGMII
         configure_vsc8552(eth);
+        ringbuf_entry!(Trace::Vsc8552Configured);
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        let p1_sr = self.ksz.read(KszRegister::P1MBSR).unwrap();
-        ringbuf_entry!(Trace::Ksz8463Status {
-            port: 1,
-            status: p1_sr
+        ringbuf_entry!(match self.ksz.read(KszRegister::P1MBSR) {
+            Ok(status) => Trace::Ksz8463Status { port: 1, status },
+            Err(err) => Trace::KszErr { err },
         });
 
-        let p2_sr = self.ksz.read(KszRegister::P2MBSR).unwrap();
-        ringbuf_entry!(Trace::Ksz8463Status {
-            port: 2,
-            status: p2_sr
+        ringbuf_entry!(match self.ksz.read(KszRegister::P1MBCR) {
+            Ok(control) => Trace::Ksz8463Control { port: 1, control },
+            Err(err) => Trace::KszErr { err },
+        });
+        ringbuf_entry!(match self.ksz.read_mib_counter(0) {
+            Ok(counter) => Trace::Ksz8463Counter { port: 1, counter },
+            Err(err) => Trace::KszErr { err },
+        });
+
+        // TODO: log more for port 2?
+        ringbuf_entry!(match self.ksz.read(KszRegister::P2MBSR) {
+            Ok(status) => Trace::Ksz8463Status { port: 2, status },
+            Err(err) => Trace::KszErr { err },
         });
 
         for i in [0, 1] {
@@ -156,28 +203,36 @@ impl Bsp {
                 rw: &mut MiimBridge::new(eth),
             };
 
-            match phy.read(phy::STANDARD::MODE_STATUS()) {
-                Ok(status) => {
-                    ringbuf_entry!(Trace::Vsc8552Status {
-                        port,
-                        status: u16::from(status)
-                    })
-                }
-                Err(err) => ringbuf_entry!(Trace::Vsc8552Err { err }),
-            }
+            ringbuf_entry!(match phy.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(status) => Trace::Vsc8552Status { port, status },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
 
             // This is a non-standard register address
             let extended_status =
                 PhyRegisterAddress::<u16>::from_page_and_addr_unchecked(0, 16);
-            match phy.read(extended_status) {
-                Ok(status) => {
-                    ringbuf_entry!(Trace::Vsc8552Status100 {
-                        port,
-                        status: u16::from(status)
-                    })
-                }
-                Err(err) => ringbuf_entry!(Trace::Vsc8552Err { err }),
-            }
+            ringbuf_entry!(match phy.read(extended_status) {
+                Ok(status) => Trace::Vsc8552Status100 { port, status },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
+
+            ringbuf_entry!(match phy.read(phy::STANDARD::BYPASS_CONTROL()) {
+                Ok(control) => Trace::Vsc8552BypassControl { port, control },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
+
+            ringbuf_entry!(match phy
+                .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())
+            {
+                Ok(counter) => Trace::Vsc8552TxGoodCounter { port, counter },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
+            ringbuf_entry!(match phy
+                .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
+            {
+                Ok(counter) => Trace::Vsc8552RxCRCGoodCounter { port, counter },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
         }
     }
 }
