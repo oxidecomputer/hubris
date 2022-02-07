@@ -28,6 +28,107 @@ pub enum MIBCounter {
     CountOverflow(u32),
 }
 
+/// Offsets used to access MIB counters
+/// (see Table 4-200 in the datasheet for details)
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MIBOffset {
+    /// Rx lo-priority (default) octet count, including bad packets.
+    RxLoPriorityByte = 0x0,
+
+    /// Rx hi-priority octet count, including bad packets.
+    RxHiPriorityByte = 0x1,
+
+    /// Rx undersize packets with good CRC.
+    RxUndersizePkt = 0x2,
+
+    /// Rx fragment packets with bad CRC, symbol errors or alignment errors.
+    RxFragments = 0x3,
+
+    /// Rx oversize packets with good CRC (maximum: 2000 bytes).
+    RxOversize = 0x4,
+
+    /// Rx packets longer than 1522 bytes with either CRC errors, alignment errors, or symbol errors (depends on max packet size setting).
+    RxJabbers = 0x5,
+
+    /// Rx packets w/ invalid data symbol and legal packet size.
+    RxSymbolError = 0x6,
+
+    /// Rx packets within (64,1522) bytes w/ an integral number of bytes and a bad CRC (upper limit depends on maximum packet size setting).
+    RxCRCError = 0x7,
+
+    /// Rx packets within (64,1522) bytes w/ a non-integral number of bytes and a bad CRC (upper limit depends on maximum packet size setting).
+    RxAlignmentError = 0x8,
+
+    /// Number of MAC control frames received by a port with 88-08h in Ether- Type field.
+    RxControl8808Pkts = 0x9,
+
+    /// Number of PAUSE frames received by a port. PAUSE frame is qualified with EtherType (88-08h), DA, control opcode (00-01), data length (64B minimum), and a valid CRC.
+    RxPausePkts = 0xA,
+
+    /// Rx good broadcast packets (not including error broadcast packets or valid multicast packets).
+    RxBroadcast = 0xB,
+
+    /// Rx good multicast packets (not including MAC control frames, error multicast packets or valid broadcast packets).
+    RxMulticast = 0xC,
+
+    /// Rx good unicast packets.
+    RxUnicast = 0xD,
+
+    /// Total Rx packets (bad packets included) that were 64 octets in length.
+    Rx64Octets = 0xE,
+
+    /// Total Rx packets (bad packets included) that are between 65 and 127 octets in length.
+    Rx65to127Octets = 0xF,
+
+    /// Total Rx packets (bad packets included) that are between 128 and 255 octets in length.
+    Rx128to255Octets = 0x10,
+
+    /// Total Rx packets (bad packets included) that are between 256 and 511 octets in length.
+    Rx256to511Octets = 0x11,
+
+    /// Total Rx packets (bad packets included) that are between 512 and 1023 octets in length.
+    Rx512to1023Octets = 0x12,
+
+    /// Total Rx packets (bad packets included) that are between 1024 and 2000 octets in length (upper limit depends on max packet size setting).
+    Rx1024to2000Octets = 0x13,
+
+    /// Tx lo-priority good octet count, including PAUSE packets.
+    TxLoPriorityByte = 0x14,
+
+    /// Tx hi-priority good octet count, including PAUSE packets.
+    TxHiPriorityByte = 0x15,
+
+    /// The number of times a collision is detected later than 512 bit-times into the Tx of a packet.
+    TxLateCollision = 0x16,
+
+    /// Number of PAUSE frames transmitted by a port.
+    TxPausePkts = 0x17,
+
+    /// Tx good broadcast packets (not including error broadcast or valid multi- cast packets).
+    TxBroadcastPkts = 0x18,
+
+    /// Tx good multicast packets (not including error multicast packets or valid broadcast packets).
+    TxMulticastPkts = 0x19,
+
+    /// Tx good unicast packets.
+    TxUnicastPkts = 0x1A,
+
+    /// Tx packets by a port for which the 1st Tx attempt is delayed due to the busy medium.
+    TxDeferred = 0x1B,
+
+    /// Tx total collision, half duplex only.
+    TxTotalCollision = 0x1C,
+
+    /// A count of frames for which Tx fails due to excessive collisions.
+    TxExcessiveCollision = 0x1D,
+
+    /// Successfully Tx frames on a port for which Tx is inhibited by exactly one collision.
+    TxSingleCollision = 0x1E,
+
+    /// Successfully Tx frames on a port for which Tx is inhibited by more than one collision.
+    TxMultipleCollision = 0x1F,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Register {
@@ -155,25 +256,43 @@ impl Ksz8463 {
     }
 
     /// Reads a management information base (MIB) counter
-    pub fn read_mib_counter(&self, offset: u8) -> Result<MIBCounter, SpiError> {
+    ///
+    /// `port` must be 1 or 2 to select the relevant port; otherwise, this
+    /// function will panic.
+    pub fn read_mib_counter(
+        &self,
+        port: u8,
+        offset: MIBOffset,
+    ) -> Result<MIBCounter, SpiError> {
+        let b = match port {
+            1 => 0x0,
+            2 => 0x20,
+            _ => panic!("Invalid port {}", port),
+        };
         // Request counter with given offset.
-        self.write(Register::IACR, 0x1c00 | offset as u16)?;
+        self.write(
+            Register::IACR,
+            (1 << 12) |        // Read
+            (0b11 << 10) |     // MIB counter
+            offset as u16 + b, // Offset
+        )?;
 
         // Read counter data.
         let hi = self.read(Register::IADR5)?;
         let lo = self.read(Register::IADR4)?;
+        let value = u32::from(hi) << 16 | u32::from(lo);
 
         // Determine state of the counter, see p. 184 of datasheet.
-        let valid = ((1 << 14) & hi) == 0;
-        let overflow = ((1 << 15) & hi) != 0;
-        let value: u32 = (((hi as u32) << 16) | lo as u32) & (3 << 30);
+        let invalid = ((1 << 30) & value) != 0;
+        let overflow = ((1 << 31) & value) != 0;
+        let value: u32 = value & 0x3fffffff;
 
-        if !valid {
+        if invalid {
             Ok(MIBCounter::Invalid)
-        } else if !overflow {
-            Ok(MIBCounter::Count(value))
-        } else {
+        } else if overflow {
             Ok(MIBCounter::CountOverflow(value))
+        } else {
+            Ok(MIBCounter::Count(value))
         }
     }
 

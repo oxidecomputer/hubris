@@ -8,7 +8,7 @@ use crate::GPIO;
 use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
 use drv_stm32h7_gpio_api as gpio_api;
-use ksz8463::{Ksz8463, MIBCounter, Register as KszRegister};
+use ksz8463::{Ksz8463, MIBCounter, MIBOffset, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -185,7 +185,10 @@ impl Bsp {
             Ok(control) => Trace::Ksz8463Control { port: 1, control },
             Err(err) => Trace::KszErr { err },
         });
-        ringbuf_entry!(match self.ksz.read_mib_counter(0) {
+        ringbuf_entry!(match self
+            .ksz
+            .read_mib_counter(1, MIBOffset::RxLoPriorityByte)
+        {
             Ok(counter) => Trace::Ksz8463Counter { port: 1, counter },
             Err(err) => Trace::KszErr { err },
         });
