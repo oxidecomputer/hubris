@@ -5,3 +5,7 @@ size = 1024
 [gpio]
 address = 0x50000000
 size = 0x2000
+
+[usart1]
+address = 0x40013800
+size = 1024

@@ -198,9 +198,8 @@ impl Config {
             if !toml.peripherals.is_empty() {
                 bail!("Cannot specify both chip and peripherals");
             }
-            let mut src_dir = cfg.to_path_buf();
-            src_dir.pop();
-            let chip_contents = std::fs::read(src_dir.join(chip))?;
+            let chip_file = cfg.parent().unwrap().join(chip);
+            let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice(&chip_contents)?
         } else {
