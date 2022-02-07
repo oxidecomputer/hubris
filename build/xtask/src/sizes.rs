@@ -11,7 +11,7 @@ use goblin::Object;
 use indexmap::IndexMap;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-use crate::{Config, dist::DEFAULT_KERNEL_STACK};
+use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
 fn pow2_suggest(size: u64) -> u64 {
     size.next_power_of_two()
