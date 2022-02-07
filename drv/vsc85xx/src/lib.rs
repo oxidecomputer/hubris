@@ -260,6 +260,11 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     })?;
     v.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
 
+    // Enable ethernet packet generator (XXX remove this before production)
+    let epg_reg_addr =
+        PhyRegisterAddress::<u16>::from_page_and_addr_unchecked(1, 29);
+    v.write(epg_reg_addr, 0xE400)?;
+
     Ok(())
 }
 

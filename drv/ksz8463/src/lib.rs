@@ -19,26 +19,63 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+/// Data from a management information base (MIB) counter on the chip,
+/// used to monitor port activity for network management.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MIBCounter {
+    Invalid,
+    Count(u32),
+    CountOverflow(u32),
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum Register {
+    /// Chip ID and enable register
     CIDER = 0x0,
+    /// Switch global control register 1
     SGCR1 = 0x2,
+    /// Switch global control register 2
     SGCR2 = 0x4,
+    /// Switch global control register 3
     SGCR3 = 0x6,
+    /// Switch global control register 6
     SGCR6 = 0xc,
+    /// Switch global control register 7
     SGCR7 = 0xe,
+    /// MAC address register 1
     MACAR1 = 0x10,
+    /// MAC address register 2
     MACAR2 = 0x12,
+    /// MAC address register 3
     MACAR3 = 0x14,
 
+    /// Indirect access data register 4
+    IADR4 = 0x02c,
+    /// Indirect access data register 5
+    IADR5 = 0x02e,
+    /// Indirect access control register
+    IACR = 0x030,
+
+    /// PHY 1 and MII basic control register
     P1MBCR = 0x4c,
+    /// PHY 1 and MII basic status register
     P1MBSR = 0x4e,
 
+    /// PHY 2 and MII basic control register
     P2MBCR = 0x58,
+    /// PHY 2 and MII basic status register
     P2MBSR = 0x5a,
 
+    /// PHY 1 special control and status register
+    P1PHYCTRL = 0x066,
+    /// PHY 2 special control and status register
+    P2PHYCTRL = 0x06a,
+
+    /// Configuration status and serial bus mode register
     CFGR = 0xd8,
+
+    /// DSP control 1 register
     DSP_CNTRL_6 = 0x734,
 }
 
@@ -117,6 +154,29 @@ impl Ksz8463 {
         self.write(Register::CIDER, 0)
     }
 
+    /// Reads a management information base (MIB) counter
+    pub fn read_mib_counter(&self, offset: u8) -> Result<MIBCounter, SpiError> {
+        // Request counter with given offset.
+        self.write(Register::IACR, 0x1c00 | offset as u16)?;
+
+        // Read counter data.
+        let hi = self.read(Register::IADR5)?;
+        let lo = self.read(Register::IADR4)?;
+
+        // Determine state of the counter, see p. 184 of datasheet.
+        let valid = ((1 << 14) & hi) == 0;
+        let overflow = ((1 << 15) & hi) != 0;
+        let value: u32 = (((hi as u32) << 16) | lo as u32) & (3 << 30);
+
+        if !valid {
+            Ok(MIBCounter::Invalid)
+        } else if !overflow {
+            Ok(MIBCounter::Count(value))
+        } else {
+            Ok(MIBCounter::CountOverflow(value))
+        }
+    }
+
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
     pub fn configure(&self, sys: &Sys) {
         sys.gpio_reset(self.nrst).unwrap();
@@ -146,6 +206,12 @@ impl Ksz8463 {
         // Configure for 100BASE-FX operation
         self.write_masked(Register::CFGR, 0x0, 0xc0).unwrap();
         self.write_masked(Register::DSP_CNTRL_6, 0, 0x2000).unwrap();
+
+        // Enable port 1 near-end loopback (XXX delete this before connecting
+        // to the rest of the management network)
+        self.write_masked(Register::P1PHYCTRL, 1 << 1, 1 << 1)
+            .unwrap();
+
         self.enable().unwrap();
     }
 }
