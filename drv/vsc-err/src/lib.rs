@@ -10,10 +10,13 @@
 #![no_std]
 
 use drv_spi_api::SpiError;
+use task_net_api::NetError;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VscError {
     SpiError(SpiError),
+    NetError(NetError),
+
     BadChipId(u32),
     Serdes1gReadTimeout {
         instance: u32,
@@ -64,5 +67,11 @@ pub enum VscError {
 impl From<SpiError> for VscError {
     fn from(s: SpiError) -> Self {
         Self::SpiError(s)
+    }
+}
+
+impl From<NetError> for VscError {
+    fn from(s: NetError) -> Self {
+        Self::NetError(s)
     }
 }

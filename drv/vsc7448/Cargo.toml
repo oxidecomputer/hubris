@@ -13,6 +13,7 @@ vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 vsc85xx = { path = "../vsc85xx" }
 vsc-err = { path = "../vsc-err" }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false, features = ["h743"]}
+task-net-api = {path = "../../task/net-api" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

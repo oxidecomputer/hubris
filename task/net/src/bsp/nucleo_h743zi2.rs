@@ -66,7 +66,7 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 /// become configurable.
 const PHYADDR: u8 = 0x01;
 
-pub fn configure_phy(eth: &mut eth::Ethernet) {
+pub fn configure_phy(eth: &mut eth::Ethernet, _sys: &Sys) {
     // Set up the PHY.
     let mii_basic_control =
         eth.smi_read(PHYADDR, eth::SmiClause22Register::Control);

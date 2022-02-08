@@ -4,13 +4,13 @@
 
 // These modules are exported so that we don't have warnings about unused code,
 // but you should import Bsp instead, which is autoselected based on board.
-pub mod gemini_bu;
-pub mod sidecar_1;
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gemini-bu-1")] {
+        pub mod gemini_bu;
         pub use gemini_bu::Bsp;
     } else if #[cfg(target_board = "sidecar-1")] {
+        pub mod sidecar_1;
         pub use sidecar_1::Bsp;
     } else {
         compile_error!("No BSP available for this board");

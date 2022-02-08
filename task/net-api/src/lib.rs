@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 #[repr(u32)]
 pub enum NetError {
     QueueEmpty = 1,

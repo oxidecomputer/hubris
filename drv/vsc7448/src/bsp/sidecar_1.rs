@@ -8,13 +8,14 @@ use crate::{
     spi::Vsc7448Spi,
     VscError,
 };
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
 task_slot!(SYS, sys);
+task_slot!(NET, net);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -26,20 +27,24 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a> {
     vsc7448: &'a Vsc7448Spi,
+    net: task_net_api::Net,
 }
 
 impl<'a> PhyRw for Bsp<'a> {
     fn read_raw<T: From<u16>>(
         &mut self,
-        phy: u8,
+        port: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-        unimplemented!();
+        self.net
+            .smi_read(port, reg.addr)
+            .map(|r| r.into())
+            .map_err(|e| e.into())
     }
 
     fn write_raw<T>(
         &mut self,
-        phy: u8,
+        port: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
     ) -> Result<(), VscError>
@@ -47,14 +52,17 @@ impl<'a> PhyRw for Bsp<'a> {
         u16: From<T>,
         T: From<u16> + Clone,
     {
-        unimplemented!();
+        self.net
+            .smi_write(port, reg.addr, value.into())
+            .map_err(|e| e.into())
     }
 }
 
 impl<'a> Bsp<'a> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
-        let mut out = Bsp { vsc7448 };
+        let net = task_net_api::Net::from(NET.get_task_id());
+        let mut out = Bsp { vsc7448, net };
         out.init()?;
         Ok(out)
     }
