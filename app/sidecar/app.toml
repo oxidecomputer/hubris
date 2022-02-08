@@ -88,7 +88,7 @@ requires = {flash = 16384, ram = 4096}
 features = ["h753", "spi3"]
 uses = ["spi3"]
 start = true
-interrupts = {51 = 1}
+interrupts = {"spi3.irq" = 1}
 stacksize = 1000
 task-slots = ["sys", "gpio_driver", "rcc_driver"]
 
@@ -120,7 +120,7 @@ requires = {flash = 131072, ram = 8192, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
-interrupts = {61 = 0b1}
+interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", "rcc_driver", { spi_driver = "spi3_driver" }]
 
 [tasks.udpecho]

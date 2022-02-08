@@ -61,19 +61,10 @@ path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
-#
-# SPI interrupts:
-#   spi1 = 35
-#   spi2 = 36
-#   spi3 = 51
-#   spi4 = 84
-#   spi5 = 85
-#   spi6 = 86
-#
 [tasks.spi2_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -126,7 +117,7 @@ requires = {flash = 131072, ram = 8192, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
-interrupts = {61 = 0b1}
+interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
 [tasks.udpecho]
