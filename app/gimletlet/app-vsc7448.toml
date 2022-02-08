@@ -52,7 +52,7 @@ path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
@@ -164,7 +164,7 @@ task-slots = ["sys"]
 path = "../../task/vsc7448"
 name = "task-vsc7448"
 priority = 3
-requires = {flash = 65536, ram = 4096}
+requires = {flash = 131072, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys", { spi_driver = "spi4_driver" }]
