@@ -5,6 +5,7 @@
 #![no_std]
 #![no_main]
 
+mod bsp;
 mod buf;
 mod server;
 
@@ -12,7 +13,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use stm32h7::stm32h743 as device;
 
 use drv_stm32h7_eth as eth;
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_stm32xx_sys_api::Sys;
 use userlib::*;
 
 task_slot!(SYS, sys);
@@ -56,7 +57,7 @@ fn main() -> ! {
     sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
     sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
-    configure_ethernet_pins(&sys);
+    bsp::configure_ethernet_pins(&sys);
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -115,7 +116,7 @@ fn main() -> ! {
     }
 
     // Board-dependant!
-    configure_phy(eth.device_mut());
+    bsp::configure_phy(eth.device_mut());
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
@@ -192,160 +193,6 @@ fn link_local_iface_addr(
     bytes[13..16].copy_from_slice(&mac.0[3..6]);
 
     smoltcp::wire::Ipv6Address(bytes)
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(target_board = "nucleo-h743zi2")] {
-        fn configure_ethernet_pins(sys: &Sys) {
-            // This board's mapping:
-            //
-            // RMII REF CLK     PA1
-            // MDIO             PA2
-            // RMII RX DV       PA7
-            //
-            // MDC              PC1
-            // RMII RXD0        PC4
-            // RMII RXD1        PC5
-            //
-            // RMII TX EN       PG11
-            // RMII TXD1        PB13 <-- port B
-            // RMII TXD0        PG13
-            use sys_api::*;
-
-            let eth_af = Alternate::AF11;
-
-            sys.gpio_configure(
-                Port::A,
-                (1 << 1) | (1 << 2) | (1 << 7),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-            sys.gpio_configure(
-                Port::B,
-                1 << 13,
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-            sys.gpio_configure(
-                Port::C,
-                (1 << 1) | (1 << 4) | (1 << 5),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-            sys.gpio_configure(
-                Port::G,
-                (1 << 11) | (1 << 12) | (1 << 13),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-        }
-
-
-        /// Address used on the MDIO link by our Ethernet PHY. Different
-        /// vendors have different defaults for this, it will likely need to
-        /// become configurable.
-        const PHYADDR: u8 = 0x01;
-
-        fn configure_phy(eth: &mut eth::Ethernet) {
-            // Set up the PHY.
-            let mii_basic_control = eth
-                .smi_read(PHYADDR, eth::SmiClause22Register::Control);
-            let mii_basic_control = mii_basic_control
-                | 1 << 12 // AN enable
-                | 1 << 9 // restart autoneg
-                ;
-            eth.smi_write(
-                PHYADDR,
-                eth::SmiClause22Register::Control,
-                mii_basic_control,
-            );
-
-            // Wait for link-up
-            while eth
-                .smi_read(PHYADDR, eth::SmiClause22Register::Status)
-                & (1 << 2)
-                == 0
-            {
-                userlib::hl::sleep_for(1);
-            }
-        }
-    } else if #[cfg(target_board = "sidecar-1")] {
-        fn configure_ethernet_pins(sys: &Sys) {
-            // This board's mapping:
-            //
-            // RMII REF CLK     PA1
-            // MDIO             PA2
-            // RMII RX DV       PA7
-            //
-            // MDC              PC1
-            // RMII RXD0        PC4
-            // RMII RXD1        PC5
-            //
-            // RMII TX EN       PG11
-            // RMII TXD1        PG12
-            // RMII TXD0        PG13
-            //
-            // (it's _almost_ identical to the STM32H7 Nucleo, except that
-            //  TXD1 is on a different pin)
-            use sys_api::*;
-
-            let eth_af = Alternate::AF11;
-
-            sys.gpio_configure(
-                Port::A,
-                (1 << 1) | (1 << 2) | (1 << 7),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-            sys.gpio_configure(
-                Port::C,
-                (1 << 1) | (1 << 4) | (1 << 5),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-            sys.gpio_configure(
-                Port::G,
-                (1 << 11) | (1 << 12) | (1 << 13),
-                Mode::Alternate,
-                OutputType::PushPull,
-                Speed::VeryHigh,
-                Pull::None,
-                eth_af,
-            )
-            .unwrap();
-        }
-        fn configure_phy(_eth: &mut eth::Ethernet) {
-        }
-    } else {
-        compile_error!("Board is not supported by the task/net");
-        // Dummy functions to avoid distracting from the main error above
-        fn configure_ethernet_pins(sys: &Sys) {}
-        fn configure_phy(_eth: &mut eth::Ethernet) {}
-    }
 }
 
 // Place to namespace all the bits generated by our config processor.
