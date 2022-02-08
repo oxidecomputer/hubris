@@ -116,21 +116,21 @@ impl PhyRw for MiimBridge<'_> {
 pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
     use sys_api::*;
 
-    // SP_TO_LDO_PHY2_EN (PI11)
-    let phy2_pwr_en = Port::I.pin(11);
-    sys.gpio_reset(phy2_pwr_en).unwrap();
+    // TODO: wait for PLL lock to happen here
+
+    // Start with reset low and COMA_MODE high
+    // - SP_TO_PHY2_RESET_3V3_L (PI14)
+    let nrst = Port::I.pin(14);
+    sys.gpio_reset(nrst).unwrap();
     sys.gpio_configure_output(
-        phy2_pwr_en,
+        nrst,
         OutputType::PushPull,
         Speed::Low,
         Pull::None,
     )
     .unwrap();
-    sys.gpio_set(phy2_pwr_en).unwrap();
-    sleep_for(10); // TODO: how long does this need to be?
 
     // - SP_TO_PHY2_COMA_MODE (PI15, internal pull-up)
-    // - SP_TO_PHY2_RESET_3V3_L (PI14)
     let coma_mode = Port::I.pin(15);
     sys.gpio_set(coma_mode).unwrap();
     sys.gpio_configure_output(
@@ -141,16 +141,24 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
     )
     .unwrap();
 
-    let nrst = Port::I.pin(14);
-    sys.gpio_reset(nrst).unwrap();
+    // SP_TO_LDO_PHY2_EN (PI11)
+    let phy2_pwr_en = Port::I.pin(11);
+    sys.gpio_reset(phy2_pwr_en).unwrap();
     sys.gpio_configure_output(
-        nrst,
+        phy2_pwr_en,
         OutputType::PushPull,
         Speed::Low,
         Pull::None,
     )
     .unwrap();
-    sleep_for(10);
+    sys.gpio_reset(phy2_pwr_en).unwrap();
+    sleep_for(10); // TODO: how long does this need to be?
+
+    // Power on
+    sys.gpio_set(phy2_pwr_en).unwrap();
+    sleep_for(4);
+    // TODO: sleep for PG lines going high here
+
     sys.gpio_set(nrst).unwrap();
     sleep_for(120); // Wait for the chip to come out of reset
 
