@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-drv-spi-api = {path = "../../drv/spi-api"}
+drv-spi-api = {path = "../spi-api"}
+task-net-api = {path = "../../task/net-api" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

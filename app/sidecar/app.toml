@@ -80,6 +80,21 @@ task-slots = ["sys"]
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
 
+[tasks.spi3_driver]
+path = "../../drv/stm32h7-spi-server"
+name = "drv-stm32h7-spi-server"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+features = ["h753", "spi3"]
+uses = ["spi3"]
+start = true
+interrupts = {51 = 1}
+stacksize = 1000
+task-slots = ["sys", "gpio_driver", "rcc_driver"]
+
+[tasks.spi3_driver.config.spi]
+global_config = "spi3"
+
 [tasks.spi5_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -100,13 +115,13 @@ path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-features = ["with_vsc85xx"]
+features = ["mgmt"]
 requires = {flash = 131072, ram = 8192, sram1 = 32768}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
 interrupts = {61 = 0b1}
-task-slots = ["sys", "rcc_driver"]
+task-slots = ["sys", "rcc_driver", { spi_driver = "spi3_driver" }]
 
 [tasks.udpecho]
 path = "../../task/udpecho"
@@ -124,7 +139,7 @@ priority = 3
 requires = {flash = 65536, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["sys", { spi_driver = "spi2_driver" }]
+task-slots = ["sys", "net", { spi_driver = "spi2_driver" }]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -586,9 +601,23 @@ outputs = [
 ]
 input = {port = "I", pin = 2, af = 5}
 
-[config.spi.spi2.devices.ethernet_switch]
+[config.spi.spi2.devices.vsc7448]
 mux = "port_i"
 cs = {port = "I", pin = 0}
+
+
+[config.spi.spi3]
+controller = 3
+
+[config.spi.spi3.mux_options.port_c]
+outputs = [
+    {port = "C", pins = [10, 12], af = 6},
+]
+input = {port = "C", pin = 11, af = 6}
+
+[config.spi.spi3.devices.ksz8463]
+mux = "port_c"
+cs = {port = "A", pin = 4}
 
 
 [config.spi.spi5]

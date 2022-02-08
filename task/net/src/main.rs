@@ -116,7 +116,7 @@ fn main() -> ! {
     }
 
     // Board-dependant!
-    bsp::Bsp::configure_phy(eth.device_mut());
+    bsp::Bsp::configure_phy(eth.device_mut(), &sys);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
