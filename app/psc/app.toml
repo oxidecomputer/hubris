@@ -78,7 +78,7 @@ requires = {flash = 16384, ram = 2048}
 features = ["spi2", "h753"]
 uses = ["spi2"]
 start = true
-interrupts = {36 = 1}
+interrupts = {"spi2.irq" = 1}
 stacksize = 872
 task-slots = ["sys"]
 
