@@ -143,23 +143,8 @@ impl<'a> Bsp<'a> {
         // The PHY talks on MIIM addresses 0x4-0x7 (configured by resistors
         // on the board)
 
-        // The PHY must be powered and RefClk must be up at this point
-        //
-        // Jiggle reset line, then wait 120 ms
-        // SP_TO_LDO_PHY4_EN (PI6)
+        // TODO: wait for PLL lock to happen here
         use sys_api::*;
-        let phy4_pwr_en = Port::I.pin(6);
-        sys.gpio_reset(phy4_pwr_en).unwrap();
-        sys.gpio_configure_output(
-            phy4_pwr_en,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-        sys.gpio_set(phy4_pwr_en).unwrap();
-        // TODO: sleep for PG lines going high here
-        sleep_for(10);
 
         let coma_mode = Port::I.pin(10);
         sys.gpio_set(coma_mode).unwrap();
@@ -170,6 +155,7 @@ impl<'a> Bsp<'a> {
             Pull::None,
         )
         .unwrap();
+        sys.gpio_reset(coma_mode).unwrap();
 
         // Make NRST low then switch it to output mode
         let nrst = Port::I.pin(9);
@@ -181,7 +167,26 @@ impl<'a> Bsp<'a> {
             Pull::None,
         )
         .unwrap();
+
+        // Jiggle reset line, then wait 120 ms
+        // SP_TO_LDO_PHY4_EN (PI6)
+        let phy4_pwr_en = Port::I.pin(6);
+        sys.gpio_reset(phy4_pwr_en).unwrap();
+        sys.gpio_configure_output(
+            phy4_pwr_en,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
+        sys.gpio_reset(phy4_pwr_en).unwrap();
         sleep_for(10);
+
+        // Power on!
+        sys.gpio_set(phy4_pwr_en).unwrap();
+        sleep_for(4);
+        // TODO: sleep for PG lines going high here
+
         sys.gpio_set(nrst).unwrap();
         sleep_for(120); // Wait for the chip to come out of reset
 
@@ -219,7 +224,7 @@ impl<'a> Bsp<'a> {
         ////////////////////////////////////////////////////////////////////////
         // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP
         serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
-        dev1g_init_sgmii(DevGeneric::new_1g(24), &self.vsc7448)?;
+        dev1g_init_sgmii(DevGeneric::new_2g5(24), &self.vsc7448)?;
 
         ////////////////////////////////////////////////////////////////////////
         // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
