@@ -19,91 +19,125 @@ enum Trace {
     KszRead(KszRegister, u16),
     KszWrite(KszRegister, u16),
     KszId(u16),
+    Vsc8552Status { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn configure_ethernet_pins(sys: &Sys) {
-    // This board's mapping:
-    //
-    // RMII REF CLK     PA1
-    // RMII RX DV       PA7
-    //
-    // RMII RXD0        PC4
-    // RMII RXD1        PC5
-    //
-    // RMII TX EN       PG11
-    // RMII TXD1        PG12
-    // RMII TXD0        PG13
-    //
-    // MDIO             PA2
-    //
-    // MDC              PC1
-    //
-    // (it's _almost_ identical to the STM32H7 Nucleo, except that
-    //  TXD1 is on a different pin)
-    use sys_api::*;
-
-    let eth_af = Alternate::AF11;
-
-    sys.gpio_configure(
-        Port::A,
-        (1 << 1) | (1 << 7),
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::VeryHigh,
-        Pull::None,
-        eth_af,
-    )
-    .unwrap();
-    sys.gpio_configure(
-        Port::C,
-        (1 << 4) | (1 << 5),
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::VeryHigh,
-        Pull::None,
-        eth_af,
-    )
-    .unwrap();
-    sys.gpio_configure(
-        Port::G,
-        (1 << 11) | (1 << 12) | (1 << 13),
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::VeryHigh,
-        Pull::None,
-        eth_af,
-    )
-    .unwrap();
-
-    // SMI (MDC and MDIO)
-    sys.gpio_configure(
-        Port::A,
-        1 << 2,
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-        eth_af,
-    )
-    .unwrap();
-    sys.gpio_configure(
-        Port::C,
-        1 << 1,
-        Mode::Alternate,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-        eth_af,
-    )
-    .unwrap();
+pub struct Bsp {
+    ksz: Ksz8463,
 }
 
-pub fn configure_phy(eth: &mut eth::Ethernet, sys: &Sys) {
-    configure_vsc8552(eth, sys);
-    configure_ksz8463(sys);
+impl Bsp {
+    pub fn new() -> Self {
+        let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
+        let ksz = Ksz8463(spi);
+
+        Self { ksz }
+    }
+
+    pub fn configure_ethernet_pins(&self, sys: &Sys) {
+        // This board's mapping:
+        //
+        // RMII REF CLK     PA1
+        // RMII RX DV       PA7
+        //
+        // RMII RXD0        PC4
+        // RMII RXD1        PC5
+        //
+        // RMII TX EN       PG11
+        // RMII TXD1        PG12
+        // RMII TXD0        PG13
+        //
+        // MDIO             PA2
+        //
+        // MDC              PC1
+        //
+        // (it's _almost_ identical to the STM32H7 Nucleo, except that
+        //  TXD1 is on a different pin)
+        use sys_api::*;
+
+        let eth_af = Alternate::AF11;
+
+        sys.gpio_configure(
+            Port::A,
+            (1 << 1) | (1 << 7),
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::VeryHigh,
+            Pull::None,
+            eth_af,
+        )
+        .unwrap();
+        sys.gpio_configure(
+            Port::C,
+            (1 << 4) | (1 << 5),
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::VeryHigh,
+            Pull::None,
+            eth_af,
+        )
+        .unwrap();
+        sys.gpio_configure(
+            Port::G,
+            (1 << 11) | (1 << 12) | (1 << 13),
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::VeryHigh,
+            Pull::None,
+            eth_af,
+        )
+        .unwrap();
+
+        // SMI (MDC and MDIO)
+        sys.gpio_configure(
+            Port::A,
+            1 << 2,
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+            eth_af,
+        )
+        .unwrap();
+        sys.gpio_configure(
+            Port::C,
+            1 << 1,
+            Mode::Alternate,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+            eth_af,
+        )
+        .unwrap();
+    }
+
+    pub fn configure_phy(&self, eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+        // The KSZ8463 connects to the SP over RMII, then sends data to the
+        // VSC8552 over 100-BASE FX
+        let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
+        let ksz = Ksz8463(spi);
+        ksz.configure(sys);
+
+        // The VSC8552 connects the KSZ switch to the management network
+        // over SGMII
+        configure_vsc8552(eth, sys);
+
+        Self { ksz }
+    }
+
+    pub fn wake(&self, eth: &mut eth::Ethernet) {
+        // These log to the ringbuf automatically
+        self.ksz.read(KszRegister::P1MBSR).unwrap();
+        self.ksz.read(KszRegister::P2MBSR).unwrap();
+
+        for port in [0, 1] {
+            let status = eth.smi_read(port, eth::SmiClause22Register::Status);
+            ringbuf_entry!(Trace::Vsc8552Status { port, status });
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -200,42 +234,6 @@ pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Configures the KSZ8463 switch in 100BASE-FX mode.
-fn configure_ksz8463(sys: &Sys) {
-    use sys_api::*;
-
-    // SP_TO_EPE_RESET_L (PA0)
-    let rst = Port::A.pin(0);
-    sys.gpio_reset(rst).unwrap();
-    sys.gpio_configure_output(
-        rst,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-    )
-    .unwrap();
-    // Toggle the reset line
-    sleep_for(10); // Reset must be held low for 10 ms after power up
-    sys.gpio_set(rst).unwrap();
-    sleep_for(1); // You have to wait 1 µs, so this is overkill
-
-    let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-    let ksz = Ksz8463(spi);
-    let id = ksz.read(KszRegister::CIDER).unwrap();
-    assert_eq!(id & !1, 0x8452);
-    ringbuf_entry!(Trace::KszId(id));
-
-    // Configure for 100BASE-FX operation
-    ksz.enable().unwrap();
-    ksz.write_masked(KszRegister::CFGR, 0x0, 0xc0).unwrap();
-    ksz.write_masked(KszRegister::DSP_CNTRL_6, 0, 0x2000)
-        .unwrap();
-
-    ksz.read(KszRegister::P1MBCR).unwrap();
-
-    // TODO: more configuration
-}
-
 const fn register_offset(address: u16) -> u16 {
     let addr10_2 = address >> 2;
     let mask_shift = 2 /* turn around bits */ + (2 * ((address >> 1) & 0x1));
@@ -258,6 +256,9 @@ pub enum KszRegister {
 
     P1MBCR = register_offset(0x04c),
     P1MBSR = register_offset(0x04e),
+
+    P2MBCR = register_offset(0x058),
+    P2MBSR = register_offset(0x05a),
 
     CFGR = register_offset(0x0d8),
     DSP_CNTRL_6 = register_offset(0x734),
@@ -307,5 +308,35 @@ impl Ksz8463 {
 
     pub fn disable(&self) -> Result<(), SpiError> {
         self.write(KszRegister::CIDER, 0)
+    }
+
+    /// Configures the KSZ8463 switch in 100BASE-FX mode.
+    pub fn configure(&self, sys: &Sys) {
+        use sys_api::*;
+
+        // SP_TO_EPE_RESET_L (PA0)
+        let rst = Port::A.pin(0);
+        sys.gpio_reset(rst).unwrap();
+        sys.gpio_configure_output(
+            rst,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
+        // Toggle the reset line
+        sleep_for(10); // Reset must be held low for 10 ms after power up
+        sys.gpio_set(rst).unwrap();
+        sleep_for(1); // You have to wait 1 µs, so this is overkill
+
+        let id = self.read(KszRegister::CIDER).unwrap();
+        assert_eq!(id & !1, 0x8452);
+        ringbuf_entry!(Trace::KszId(id));
+
+        // Configure for 100BASE-FX operation
+        self.enable().unwrap();
+        self.write_masked(KszRegister::CFGR, 0x0, 0xc0).unwrap();
+        self.write_masked(KszRegister::DSP_CNTRL_6, 0, 0x2000)
+            .unwrap();
     }
 }

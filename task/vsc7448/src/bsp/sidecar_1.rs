@@ -11,7 +11,7 @@ use vsc7448::{
     spi::Vsc7448Spi,
     VscError,
 };
-use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
+use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -22,6 +22,8 @@ enum Trace {
     None,
     Initialized(u64),
     FailedToInitialize(VscError),
+    Vsc8504StatusLink { port: u8, status: u16 },
+    Vsc8504Status100Base { port: u8, status: u16 },
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -222,7 +224,7 @@ impl<'a> Bsp<'a> {
         }
 
         ////////////////////////////////////////////////////////////////////////
-        // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP
+        // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP (via VSC8552)
         serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
         dev1g_init_sgmii(DevGeneric::new_2g5(24), &self.vsc7448)?;
 
@@ -237,8 +239,22 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
-    pub fn run(&self) -> ! {
+    pub fn run(&mut self) -> ! {
         loop {
+            self.net.wake().unwrap();
+
+            for port in 4..8 {
+                let mut vsc8504 = Phy { port, rw: self };
+                let status: u16 =
+                    vsc8504.read(phy::STANDARD::MODE_STATUS()).unwrap().into();
+                ringbuf_entry!(Trace::Vsc8504StatusLink { port, status });
+
+                // 100BASE-TX/FX Status Extension register
+                let addr: PhyRegisterAddress<u16> =
+                    PhyRegisterAddress::from_page_and_addr_unchecked(0, 16);
+                let status: u16 = vsc8504.read(addr).unwrap();
+                ringbuf_entry!(Trace::Vsc8504Status100Base { port, status });
+            }
             sleep_for(100);
         }
     }
