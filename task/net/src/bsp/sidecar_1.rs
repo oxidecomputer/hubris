@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::miim_bridge::MiimBridge;
-use drv_spi_api::{Spi, SpiDevice, SpiError};
+use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ksz8463::{Ksz8463, Register as KszRegister};
@@ -38,7 +38,7 @@ impl Bsp {
         let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
         let ksz = Ksz8463::new(
             spi,
-            gpio_api::Port::A.pin(0),
+            sys_api::Port::A.pin(0),
             ksz8463::ResetSpeed::Normal,
         );
 
