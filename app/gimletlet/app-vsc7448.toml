@@ -114,7 +114,7 @@ requires = {flash = 16384, ram = 2048}
 features = ["spi4", "h753"]
 uses = ["spi4"]
 start = true
-interrupts = {84 = 1}
+interrupts = {"spi4.irq" = 1}
 stacksize = 880
 task-slots = ["sys"]
 
