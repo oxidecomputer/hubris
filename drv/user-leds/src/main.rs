@@ -382,11 +382,11 @@ cfg_if::cfg_if! {
                 ];
             } else if #[cfg(target_board = "gimletlet-1")] {
                 // Original Gimletlet: LEDs are on PI8-11
-                const LEDS: &[(drv_stm32h7_gpio_api::PinSet, bool)] = &[
-                    (drv_stm32h7_gpio_api::Port::I.pin(8), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(9), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(10), false),
-                    (drv_stm32h7_gpio_api::Port::I.pin(11), false),
+                const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
+                    (drv_stm32xx_sys_api::Port::I.pin(8), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(9), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(10), false),
+                    (drv_stm32xx_sys_api::Port::I.pin(11), false),
                 ];
             } else if #[cfg(target_board = "gimletlet-2")] {
                 // Glorified gimletlet SP: LEDs are on PG2-5

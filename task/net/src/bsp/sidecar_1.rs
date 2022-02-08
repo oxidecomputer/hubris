@@ -36,7 +36,11 @@ pub struct Bsp {
 impl Bsp {
     pub fn new() -> Self {
         let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(0), false);
+        let ksz = Ksz8463::new(
+            spi,
+            gpio_api::Port::A.pin(0),
+            ksz8463::ResetSpeed::Normal,
+        );
 
         Self { ksz }
     }
@@ -60,10 +64,14 @@ impl Bsp {
         //
         // (it's _almost_ identical to the STM32H7 Nucleo, except that
         //  TXD1 is on a different pin)
+        //
+        //  The MDIO/MDC lines run at Speed::Low because otherwise the VSC8504
+        //  refuses to talk.
         use sys_api::*;
 
         let eth_af = Alternate::AF11;
 
+        // RMII
         sys.gpio_configure(
             Port::A,
             (1 << 1) | (1 << 7),
