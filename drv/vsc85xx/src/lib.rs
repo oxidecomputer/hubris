@@ -130,13 +130,10 @@ pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Do a self-reset on the PHY
     v.modify(phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
-    }
+    assert_eq!(id1, 0x6f3);
+
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    if id2 != 0x6f3 {
-        return Err(VscError::BadPhyId2(id2));
-    }
+    assert_eq!(id2, 0x6f3);
 
     // Disable COMA MODE, which keeps the chip holding itself in reset
     v.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
@@ -157,17 +154,11 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8504Init);
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
-    }
+    assert_eq!(id1, 0x7);
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    if id2 != 0x4c2 {
-        return Err(VscError::BadPhyId2(id2));
-    }
+    assert_eq!(id2, 0x4c2);
     let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-    if rev.tesla_e() != 0x01 {
-        return Err(VscError::BadPhyRev);
-    }
+    assert_eq!(rev.tesla_e(), 1);
 
     vsc85xx_patch(v)?;
 
@@ -198,17 +189,11 @@ pub fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8552Init);
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
-    if id1 != 0x7 {
-        return Err(VscError::BadPhyId1(id1));
-    }
+    assert_eq!(id1, 0x7);
     let id2 = v.read(phy::STANDARD::IDENTIFIER_2())?.0;
-    if id2 != 0x4e2 {
-        return Err(VscError::BadPhyId2(id2));
-    }
+    assert_eq!(id2, 0x4e2);
     let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-    if rev.tesla_e() != 0x01 {
-        return Err(VscError::BadPhyRev);
-    }
+    assert_eq!(rev.tesla_e(), 1);
 
     vsc85xx_patch(v)?;
 
