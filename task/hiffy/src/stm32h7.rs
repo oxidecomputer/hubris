@@ -114,6 +114,12 @@ pub enum Functions {
     QspiSectorErase(u32, drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
     QspiVerify((u32, usize, usize), drv_gimlet_hf_api::HfError),
+    #[cfg(feature = "spdm")]
+    SpdmSend(usize, task_spdm_api::SpdmError),
+    #[cfg(feature = "spdm")]
+    SpdmRecv((), task_spdm_api::SpdmError),
+    #[cfg(feature = "spdm")]
+    SpdmExchange(usize, task_spdm_api::SpdmError),
 }
 
 #[cfg(feature = "i2c")]
@@ -564,6 +570,12 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::qspi_sector_erase,
     #[cfg(feature = "qspi")]
     crate::common::qspi_verify,
+    #[cfg(feature = "spdm")]
+    crate::common::spdm_send,
+    #[cfg(feature = "spdm")]
+    crate::common::spdm_recv,
+    #[cfg(feature = "spdm")]
+    crate::common::spdm_exchange,
 ];
 
 //

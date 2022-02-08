@@ -430,3 +430,71 @@ pub(crate) fn qspi_sector_erase(
     func_err(server.sector_erase(addr))?;
     Ok(0)
 }
+
+#[cfg(feature = "spdm")]
+use userlib::*;
+
+#[cfg(feature = "spdm")]
+task_slot!(SPDM, spdm);
+
+#[cfg(feature = "spdm")]
+pub(crate) fn spdm_send(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use task_spdm_api as spdm;
+
+    if stack.len() < 1 {
+        // return Err(Failure::Fault(Fault::MissingParameters));
+        return Err(Failure::Fault(Fault::EmptyParameter((stack.len() & 0xff) as u8)));
+    }
+    let frame = &stack[stack.len() - 1..];
+    let length = frame[0].ok_or(Failure::Fault(Fault::BadParameter(0)))? as usize;
+    if length > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let server = spdm::Spdm::from(SPDM.get_task_id());
+    let source = &data[..length];
+    func_err(server.send(length, source))?;
+    Ok(0)
+}
+
+#[cfg(feature = "spdm")]
+pub(crate) fn spdm_recv(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use task_spdm_api as spdm;
+
+    let maxlen = rval.len();
+    let sink = &mut rval[..maxlen];
+
+    let server = spdm::Spdm::from(SPDM.get_task_id());
+    let rlen = func_err(server.recv(sink))?;
+    Ok(rlen)
+}
+
+#[cfg(feature = "spdm")]
+pub(crate) fn spdm_exchange(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use task_spdm_api as spdm;
+
+    let frame = &stack[stack.len() - 1..];
+    let length = frame[0].ok_or(Failure::Fault(Fault::BadParameter(0)))? as usize;
+    if length > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let server = spdm::Spdm::from(SPDM.get_task_id());
+    let source = &data[..length];
+    let maxrlen = rval.len();
+    let sink = &mut rval[..maxrlen];
+    let rlen = func_err(server.exchange(length, source, sink))?;
+    Ok(rlen)
+}

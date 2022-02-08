@@ -1,0 +1,47 @@
+// SPDM Responder Interface
+
+Interface(
+    name: "Spdm",
+    ops: {
+        "send": (
+            doc: "Send an SPDM message.",
+            args: {
+                "length": "usize",
+            },
+            leases: {
+                "source": (type: "[u8]", read: true),
+            },
+            reply: Result(
+               ok: "()",
+               err: CLike("SpdmError"),
+           ),
+        ),
+
+        "recv": (
+            doc: "Receive an SPDM message.",
+            args: {},
+            leases: {
+                "sink": (type: "[u8]", write: true),
+            },
+            reply: Result(
+               ok: "usize",
+               err: CLike("SpdmError"),
+           ),
+        ),
+
+        "exchange": (
+            doc: "Exchange SPDM messages.",
+            args: {
+                "length": "usize",
+            },
+            leases: {
+                "source": (type: "[u8]", read: true),
+                "sink": (type: "[u8]", write: true),
+            },
+            reply: Result(
+               ok: "usize",
+               err: CLike("SpdmError"),
+           ),
+        )
+    },
+)

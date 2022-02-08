@@ -8,6 +8,7 @@ userlib = {path = "../../sys/userlib"}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
+task-spdm-api = {path = "../spdm-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api"}
 drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", default-features = false, optional = true }
 drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
@@ -33,6 +34,7 @@ itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 i2c = []
 gpio = []
+spdm = [ "task-spdm-api" ]
 spi = []
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7", "userlib/panic-messages"]
 lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]

@@ -1,18 +1,24 @@
 [package]
-name = "task-spdm-responder"
+name = "task-spdm"
 version = "0.1.0"
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
 ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+task-spdm-api = {path = "../spdm-api"}
 spdm = {git = "https://github.com/oxidecomputer/spdm.git", branch = "crypto-cfg"}
 #spdm = {path = "../../../spdm"}
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "task-spdm-responder"
+name = "task-spdm"
 test = false
 bench = false
