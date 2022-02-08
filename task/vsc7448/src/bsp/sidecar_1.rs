@@ -146,7 +146,21 @@ impl<'a> Bsp<'a> {
         // The PHY must be powered and RefClk must be up at this point
         //
         // Jiggle reset line, then wait 120 ms
+        // SP_TO_LDO_PHY4_EN (PI6)
         use sys_api::*;
+        let phy4_pwr_en = Port::I.pin(6);
+        sys.gpio_reset(phy4_pwr_en).unwrap();
+        sys.gpio_configure_output(
+            phy4_pwr_en,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
+        sys.gpio_set(phy4_pwr_en).unwrap();
+        // TODO: sleep for PG lines going high here
+        sleep_for(10);
+
         let coma_mode = Port::I.pin(10);
         sys.gpio_set(coma_mode).unwrap();
         sys.gpio_configure_output(
@@ -172,7 +186,7 @@ impl<'a> Bsp<'a> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        init_vsc8504_phy(&mut Phy { port: 0, rw: self })?;
+        init_vsc8504_phy(&mut Phy { port: 4, rw: self })?;
         sys.gpio_reset(coma_mode).unwrap();
 
         // Now that the PHY is configured, we can bring up the VSC7448.  This
