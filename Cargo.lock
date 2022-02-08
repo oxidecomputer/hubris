@@ -1194,7 +1194,6 @@ dependencies = [
  "cortex-m-rt",
  "drv-stm32h7-startup",
  "kern",
- "panic-halt",
  "panic-itm",
  "panic-semihosting",
  "stm32h7 0.13.0",
@@ -1925,6 +1924,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba508cc11742c0dc5c1659771673afbab7a0efab23aa17e854cbab0837ed0b43"
 dependencies = [
  "unicode-xid",
+]
+
+[[package]]
+name = "psc"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "cortex-m-rt",
+ "drv-stm32h7-startup",
+ "kern",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32h7 0.13.0",
 ]
 
 [[package]]
