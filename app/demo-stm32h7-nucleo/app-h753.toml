@@ -64,7 +64,7 @@ priority = 2
 requires = {flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
-interrupts = {39 = 1}
+interrupts = {"usart3.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.i2c_driver]
@@ -78,18 +78,9 @@ start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
 
-#
-# SPI interrupts:
-#   spi1 = 35
-#   spi2 = 36
-#   spi3 = 51
-#   spi4 = 84
-#   spi5 = 85
-#   spi6 = 86
-#
 [tasks.spi_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -98,7 +89,7 @@ requires = {flash = 16384, ram = 2048}
 features = ["spi1", "h753"]
 uses = ["spi1"]
 start = true
-interrupts = {53 = 1}
+interrupts = {"spi1.irq" = 1}
 stacksize = 880
 task-slots = ["sys"]
 
@@ -150,7 +141,7 @@ requires = {flash = 16384, ram = 2048 }
 stacksize = 1920
 start = true
 uses = ["quadspi"]
-interrupts = {92 = 1, 80 = 1}
+interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.idle]

@@ -54,7 +54,7 @@ priority = 2
 requires = {flash = 4096, ram = 256}
 uses = ["usart1"]
 start = true
-interrupts = {27 = 1}
+interrupts = {"usart1.irq" = 1}
 task-slots = ["sys"]
 stacksize = 256
 

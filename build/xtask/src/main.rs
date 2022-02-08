@@ -169,6 +169,7 @@ struct Config {
     name: String,
     target: String,
     board: String,
+    chip: Option<String>,
     signing: IndexMap<String, Signing>,
     secure: Option<bool>,
     stacksize: Option<u32>,
@@ -194,7 +195,7 @@ impl Config {
         // If the app.toml specifies a `chip` key, then load the peripheral
         // register map from a separate file and accumulate that file in the
         // buildhash.
-        let peripherals = if let Some(chip) = toml.chip {
+        let peripherals = if let Some(chip) = &toml.chip {
             if !toml.peripherals.is_empty() {
                 bail!("Cannot specify both chip and peripherals");
             }
@@ -212,6 +213,7 @@ impl Config {
             name: toml.name,
             target: toml.target,
             board: toml.board,
+            chip: toml.chip,
             signing: toml.signing,
             secure: toml.secure,
             stacksize: toml.stacksize,
