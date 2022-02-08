@@ -1,6 +1,7 @@
 name = "gimletlet-mgmt"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-1"
+chip = "../../chips/stm32h7.toml"
 stacksize = 1024
 
 [kernel]
@@ -55,24 +56,14 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.rcc_driver]
-path = "../../drv/stm32h7-rcc"
-name = "drv-stm32h7-rcc"
+[tasks.sys]
+path = "../../drv/stm32xx-sys"
+name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 4096, ram = 2048}
-uses = ["rcc"]
+requires = {flash = 8192, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
-
-[tasks.gpio_driver]
-path = "../../drv/stm32h7-gpio"
-name = "drv-stm32h7-gpio"
-features = ["h753"]
-priority = 2
-requires = {flash = 8192, ram = 2048}
-uses = ["gpios1", "gpios2", "gpios3"]
-start = true
-task-slots = ["rcc_driver"]
 
 #
 # SPI interrupts:
@@ -93,7 +84,7 @@ uses = ["spi2"]
 start = true
 interrupts = {"spi2.irq" = 1}
 stacksize = 1000
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi2_driver.config.spi]
 global_config = "spi2"
@@ -105,7 +96,7 @@ features = ["stm32h7"]
 priority = 2
 requires = {flash = 2048, ram = 1024}
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["sys"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -123,7 +114,7 @@ priority = 3
 requires = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "user_leds"]
+task-slots = ["sys", "user_leds"]
 
 [tasks.net]
 path = "../../task/net"
@@ -136,7 +127,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
 interrupts = {61 = 0b1}
-task-slots = ["gpio_driver", "rcc_driver", { spi_driver = "spi2_driver" }]
+task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
 [tasks.udpecho]
 path = "../../task/udpecho"
@@ -154,35 +145,6 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-
-[peripherals.rcc]
-address = 0x58024400
-size = 1024
-
-[peripherals.gpios1]
-address = 0x58020000
-size = 0x2000
-
-[peripherals.gpios2]
-address = 0x58022000
-size = 0x0800
-
-[peripherals.gpios3]
-address = 0x58022800
-size = 0x0400
-
-[peripherals.spi2]
-address = 0x40003800
-size = 1024
-interrupts = { irq = 36 }
-
-[peripherals.eth]
-address = 0x40028000
-size = 0x1000
-
-[peripherals.eth_dma]
-address = 0x40029000
-size = 0x400
 
 [config.spi.spi2]
 controller = 2

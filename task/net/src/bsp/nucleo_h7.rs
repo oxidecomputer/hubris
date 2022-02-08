@@ -35,7 +35,6 @@ impl Bsp {
         // RMII TXD1        PB13 <-- port B
         // RMII TXD0        PG13
         use sys_api::*;
-
         let eth_af = Alternate::AF11;
 
         sys.gpio_configure(

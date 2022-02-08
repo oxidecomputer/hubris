@@ -8,7 +8,7 @@ cfg-if = "1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
-drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false, features = ["h743"]}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
 vsc7448 = {path = "../../drv/vsc7448" }
 vsc85xx = {path = "../../drv/vsc85xx" }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }

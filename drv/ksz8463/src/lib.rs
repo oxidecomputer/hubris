@@ -4,11 +4,9 @@
 #![no_std]
 
 use drv_spi_api::{SpiDevice, SpiError};
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_stm32xx_sys_api::{self as sys_api, PinSet, Sys};
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot};
-
-task_slot!(GPIO, gpio_driver);
+use userlib::hl::sleep_for;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
@@ -180,18 +178,22 @@ pub enum Register {
     DSP_CNTRL_6 = 0x734,
 }
 
+pub enum ResetSpeed {
+    Slow,
+    Normal,
+}
 pub struct Ksz8463 {
     spi: SpiDevice,
     nrst: PinSet,
-    slow_reset: bool,
+    reset_speed: ResetSpeed,
 }
 
 impl Ksz8463 {
-    pub fn new(spi: SpiDevice, nrst: PinSet, slow_reset: bool) -> Self {
+    pub fn new(spi: SpiDevice, nrst: PinSet, reset_speed: ResetSpeed) -> Self {
         Self {
             spi,
             nrst,
-            slow_reset,
+            reset_speed,
         }
     }
 
@@ -298,6 +300,7 @@ impl Ksz8463 {
 
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
     pub fn configure(&self, sys: &Sys) {
+        use sys_api::*;
         sys.gpio_reset(self.nrst).unwrap();
         sys.gpio_configure_output(
             self.nrst,
@@ -316,7 +319,10 @@ impl Ksz8463 {
         // line, meaning you have to wait for extra long here.
         //
         // Otherwise, the minimum wait time is 1 µs, so 1 ms is fine.
-        sleep_for(if self.slow_reset { 150 } else { 1 });
+        sleep_for(match self.reset_speed {
+            ResetSpeed::Slow => 150,
+            ResetSpeed::Normal => 1,
+        });
 
         let id = self.read(Register::CIDER).unwrap();
         assert_eq!(id & !1, 0x8452);

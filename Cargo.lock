@@ -1441,7 +1441,7 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
- "drv-stm32h7-gpio-api",
+ "drv-stm32xx-sys-api",
  "ringbuf",
  "userlib",
 ]
@@ -3097,9 +3097,7 @@ dependencies = [
  "build-util",
  "cfg-if 1.0.0",
  "drv-spi-api",
- "drv-stm32xx-sys-api",
  "ringbuf",
- "task-net-api",
  "userlib",
  "vsc-err",
  "vsc7448-pac",

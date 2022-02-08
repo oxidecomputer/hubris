@@ -7,7 +7,11 @@ edition = "2021"
 userlib = {path = "../../sys/userlib" }
 ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
-drv-stm32h7-gpio-api = {path = "../../drv/stm32h7-gpio-api"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api"}
+
+[features]
+h743 = ["drv-stm32xx-sys-api/h743"]
+h753 = ["drv-stm32xx-sys-api/h753"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

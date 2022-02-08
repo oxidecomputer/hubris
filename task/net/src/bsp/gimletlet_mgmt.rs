@@ -3,11 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::miim_bridge::MiimBridge;
-use crate::GPIO;
 
 use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
-use drv_stm32h7_gpio_api as gpio_api;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ksz8463::{Ksz8463, MIBCounter, MIBOffset, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
@@ -77,12 +76,16 @@ pub struct Bsp {
 impl Bsp {
     pub fn new() -> Self {
         let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-        let ksz = Ksz8463::new(spi, gpio_api::Port::A.pin(9), true);
+        let ksz = Ksz8463::new(
+            spi,
+            sys_api::Port::A.pin(9),
+            ksz8463::ResetSpeed::Slow,
+        );
 
         Self { ksz }
     }
 
-    pub fn configure_ethernet_pins(&self) {
+    pub fn configure_ethernet_pins(&self, sys: &Sys) {
         // This board's mapping:
         //
         // RMII REF CLK     PA1
@@ -104,12 +107,11 @@ impl Bsp {
         //
         //  The MDIO/MDC lines run at Speed::Low because otherwise the VSC8504
         //  refuses to talk.
-        use gpio_api::*;
-        let gpio = Gpio::from(GPIO.get_task_id());
+        use sys_api::*;
         let eth_af = Alternate::AF11;
 
         // RMII
-        gpio.configure(
+        sys.gpio_configure(
             Port::A,
             (1 << 1) | (1 << 7),
             Mode::Alternate,
@@ -119,7 +121,7 @@ impl Bsp {
             eth_af,
         )
         .unwrap();
-        gpio.configure(
+        sys.gpio_configure(
             Port::C,
             (1 << 4) | (1 << 5),
             Mode::Alternate,
@@ -129,7 +131,7 @@ impl Bsp {
             eth_af,
         )
         .unwrap();
-        gpio.configure(
+        sys.gpio_configure(
             Port::G,
             (1 << 11) | (1 << 12) | (1 << 13),
             Mode::Alternate,
@@ -141,7 +143,7 @@ impl Bsp {
         .unwrap();
 
         // SMI (MDC and MDIO)
-        gpio.configure(
+        sys.gpio_configure(
             Port::A,
             1 << 2,
             Mode::Alternate,
@@ -151,7 +153,7 @@ impl Bsp {
             eth_af,
         )
         .unwrap();
-        gpio.configure(
+        sys.gpio_configure(
             Port::C,
             1 << 1,
             Mode::Alternate,
@@ -163,15 +165,15 @@ impl Bsp {
         .unwrap();
     }
 
-    pub fn configure_phy(&self, eth: &mut eth::Ethernet) {
+    pub fn configure_phy(&self, eth: &mut eth::Ethernet, sys: &Sys) {
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
-        self.ksz.configure();
+        self.ksz.configure(sys);
         ringbuf_entry!(Trace::Ksz8463Configured);
 
         // The VSC8552 connects the KSZ switch to the management network
         // over SGMII
-        configure_vsc8552(eth);
+        configure_vsc8552(eth, sys);
         ringbuf_entry!(Trace::Vsc8552Configured);
     }
 
@@ -245,21 +247,23 @@ impl Bsp {
 // We're talking to a VSC8552, which is compatible with the VSC85xx trait.
 impl PhyVsc85xx for MiimBridge<'_> {}
 
-pub fn configure_vsc8552(eth: &mut eth::Ethernet) {
-    use gpio_api::*;
-    let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
+    use sys_api::*;
 
-    let nrst = gpio_api::Port::A.pin(10);
+    let nrst = Port::A.pin(10);
 
     // Start with reset low
-    gpio_driver.reset(nrst).unwrap();
-    gpio_driver
-        .configure_output(nrst, OutputType::PushPull, Speed::Low, Pull::None)
-        .unwrap();
+    sys.gpio_reset(nrst).unwrap();
+    sys.gpio_configure_output(
+        nrst,
+        OutputType::PushPull,
+        Speed::Low,
+        Pull::None,
+    )
+    .unwrap();
     sleep_for(4);
 
-    gpio_driver.set(nrst).unwrap();
+    sys.gpio_set(nrst).unwrap();
     sleep_for(120); // Wait for the chip to come out of reset
 
     // The VSC8552 patch must be applied to port 0 in the phy

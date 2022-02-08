@@ -1,6 +1,7 @@
 name = "gimletlet"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
+chip = "../../chips/stm32h7.toml"
 stacksize = 896
 
 [kernel]
@@ -46,24 +47,14 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.rcc_driver]
-path = "../../drv/stm32h7-rcc"
-name = "drv-stm32h7-rcc"
+[tasks.sys]
+path = "../../drv/stm32xx-sys"
+name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 4096, ram = 1024}
-uses = ["rcc"]
-start = true
-
-[tasks.gpio_driver]
-path = "../../drv/stm32h7-gpio"
-name = "drv-stm32h7-gpio"
-features = ["h753"]
-priority = 2
 requires = {flash = 8192, ram = 1024}
-uses = ["gpios1", "gpios2", "gpios3"]
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
-task-slots = ["rcc_driver"]
 
 [tasks.usart_driver]
 path = "../../drv/stm32h7-usart"
@@ -74,7 +65,7 @@ requires = { flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
 interrupts = {39 = 1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -84,7 +75,7 @@ priority = 2
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c3", "i2c4"]
 start = true
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
 72 = 0b0000_0100        # I2C3 event
@@ -100,7 +91,7 @@ priority = 2
 requires = {flash = 16384, ram = 16384}
 uses = ["i2c2"]
 start = true
-task-slots = ["gpio_driver", "rcc_driver", "i2c_driver"]
+task-slots = ["sys", "i2c_driver"]
 
 [tasks.spd.interrupts]
 33 = 0b0000_0010        # I2C2 event
@@ -125,7 +116,7 @@ uses = ["spi4"]
 start = true
 interrupts = {84 = 1}
 stacksize = 880
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi4_driver.config.spi]
 global_config = "spi4"
@@ -167,7 +158,7 @@ stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {92 = 1}
-task-slots = ["gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.vsc7448]
 path = "../../task/vsc7448"
@@ -185,70 +176,6 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-
-[peripherals.rcc]
-address = 0x58024400
-size = 1024
-
-[peripherals.gpios1]
-address = 0x58020000
-size = 0x2000
-
-[peripherals.gpios2]
-address = 0x58022000
-size = 0x0800
-
-[peripherals.gpios3]
-address = 0x58022800
-size = 0x0400
-
-[peripherals.spi1]
-address = 0x40013000
-size = 1024
-
-[peripherals.spi2]
-address = 0x40003800
-size = 1024
-
-[peripherals.spi3]
-address = 0x40003c00
-size = 1024
-
-[peripherals.spi4]
-address = 0x40013400
-size = 1024
-
-[peripherals.spi5]
-address = 0x40015000
-size = 1024
-
-[peripherals.spi6]
-address = 0x58001400
-size = 1024
-
-[peripherals.usart3]
-address = 0x40004800
-size = 1024
-
-[peripherals.i2c1]
-address = 0x40005400
-size = 1024
-
-[peripherals.i2c2]
-address = 0x40005800
-size = 1024
-
-[peripherals.i2c3]
-address = 0x40005c00
-size = 1024
-
-[peripherals.i2c4]
-address = 0x58001c00
-size = 1024
-
-[peripherals.quadspi]
-address = 0x52005000
-size = 4096
 
 [config]
 [[config.i2c.controllers]]
