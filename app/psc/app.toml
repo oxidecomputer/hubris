@@ -184,7 +184,7 @@ controller = 2
 #
 [config.i2c.controllers.ports.F]
 name = "local"
-description = "M.2 bus"
+description = "Local bus"
 pins = [ { pins = [ 0, 1 ], af = 4 } ]
 
 #
