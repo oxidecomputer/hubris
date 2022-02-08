@@ -128,7 +128,7 @@ features = ["stm32h7"]
 priority = 2
 requires = {flash = 2048, ram = 1024}
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["sys"]
 
 [tasks.pong]
 path = "../../task/pong"
@@ -146,7 +146,7 @@ priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
-task-slots = ["hf", "gpio_driver", "i2c_driver", "user_leds"]
+task-slots = ["hf", "sys", "i2c_driver", "user_leds"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
@@ -167,7 +167,7 @@ priority = 3
 requires = {flash = 65536, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", { spi_driver = "spi4_driver" }]
+task-slots = ["sys", { spi_driver = "spi4_driver" }]
 
 [tasks.idle]
 path = "../../task/idle"
