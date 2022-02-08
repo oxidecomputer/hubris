@@ -115,7 +115,7 @@ features = ["h753"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma"]
 start = true
-interrupts = {61 = 0b1}
+interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", "rcc_driver"]
 
 [tasks.user_leds]
