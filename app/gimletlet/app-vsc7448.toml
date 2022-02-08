@@ -1,4 +1,4 @@
-name = "gimletlet"
+name = "gimletlet-vsc7448"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
 chip = "../../chips/stm32h7.toml"
@@ -64,7 +64,7 @@ priority = 2
 requires = { flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
-interrupts = {39 = 1}
+interrupts = {"usart3.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.i2c_driver]
@@ -78,10 +78,10 @@ start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
-72 = 0b0000_0100        # I2C3 event
-73 = 0b0000_0100        # I2C3 error
-95 = 0b0000_1000        # I2C4 event
-96 = 0b0000_1000        # I2C4 error
+"i2c3.event" = 0b0000_0100
+"i2c3.error" = 0b0000_0100
+"i2c4.event" = 0b0000_1000
+"i2c4.error" = 0b0000_1000
 
 [tasks.spd]
 path = "../../task/spd"
