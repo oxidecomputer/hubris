@@ -8,13 +8,13 @@ use crate::{
     spi::Vsc7448Spi,
     VscError,
 };
-use drv_stm32h7_gpio_api as gpio_api;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ringbuf::*;
 use userlib::{hl::sleep_for, sys_get_timer, task_slot};
 use vsc7448_pac::{types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8504_phy, PhyRw};
 
-task_slot!(GPIO, gpio_driver);
+task_slot!(SYS, sys);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -69,8 +69,8 @@ impl<'a> Bsp<'a> {
     }
 
     fn init_inner(&self) -> Result<(), VscError> {
-        // See RFD144 for a detailed look at the design
-        let gpio_driver = gpio_api::Gpio::from(GPIO.get_task_id());
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
 
         // Cubbies 0 through 7
         let serdes1g_cfg_sgmii = serdes1g::Config::new(serdes1g::Mode::Sgmii);
@@ -138,35 +138,34 @@ impl<'a> Bsp<'a> {
         // The PHY must be powered and RefClk must be up at this point
         //
         // Jiggle reset line, then wait 120 ms
-        let coma_mode = gpio_api::Port::I.pin(10);
-        gpio_driver.set(coma_mode).unwrap();
-        gpio_driver
-            .configure_output(
-                coma_mode,
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::Low,
-                gpio_api::Pull::None,
-            )
-            .unwrap();
+        use sys_api::*;
+        let coma_mode = Port::I.pin(10);
+        sys.gpio_set(coma_mode).unwrap();
+        sys.gpio_configure_output(
+            coma_mode,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
 
         // Make NRST low then switch it to output mode
-        let nrst = gpio_api::Port::I.pin(9);
-        gpio_driver.reset(nrst).unwrap();
-        gpio_driver
-            .configure_output(
-                nrst,
-                gpio_api::OutputType::PushPull,
-                gpio_api::Speed::Low,
-                gpio_api::Pull::None,
-            )
-            .unwrap();
+        let nrst = Port::I.pin(9);
+        sys.gpio_reset(nrst).unwrap();
+        sys.gpio_configure_output(
+            nrst,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
         sleep_for(10);
-        gpio_driver.set(nrst).unwrap();
+        sys.gpio_set(nrst).unwrap();
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
         init_vsc8504_phy(0, self)?;
-        gpio_driver.reset(coma_mode).unwrap();
+        sys.gpio_reset(coma_mode).unwrap();
 
         // Now that the PHY is configured, we can bring up the VSC7448.  This
         // is very similar to how we bring up QSGMII in the dev kit BSP
