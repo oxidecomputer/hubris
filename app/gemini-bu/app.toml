@@ -171,7 +171,7 @@ priority = 3
 requires = {flash = 65536, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", { spi_driver = "spi2_driver" }]
+task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
 [config]
 

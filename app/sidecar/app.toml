@@ -38,6 +38,15 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
+
 [tasks.jefe]
 path = "../../task/jefe"
 name = "task-jefe"
@@ -86,6 +95,27 @@ task-slots = ["sys"]
 [tasks.spi5_driver.config.spi]
 global_config = "spi5"
 
+[tasks.net]
+path = "../../task/net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+requires = {flash = 131072, ram = 8192, sram1 = 32768}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma"]
+start = true
+interrupts = {61 = 0b1}
+task-slots = ["sys", "rcc_driver"]
+
+[tasks.udpecho]
+path = "../../task/udpecho"
+name = "task-udpecho"
+priority = 3
+requires = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
 [tasks.vsc7448]
 path = "../../task/vsc7448"
 name = "task-vsc7448"
@@ -93,7 +123,7 @@ priority = 3
 requires = {flash = 65536, ram = 4096}
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", { spi_driver = "spi2_driver" }]
+task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -573,3 +603,12 @@ input = {port = "J", pin = 11, af = 5}
 [config.spi.spi5.devices.seq_fpga]
 mux = "port_jk"
 cs = {port = "K", pin = 1}
+
+[config.net]
+
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

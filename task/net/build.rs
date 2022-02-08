@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let net_config = build_net::load_net_config()?;
 
     generate_net_config(&net_config)?;
+    build_util::expose_target_board();
 
     Ok(())
 }

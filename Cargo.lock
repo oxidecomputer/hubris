@@ -2583,6 +2583,7 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
+ "cfg-if 0.1.10",
  "cortex-m",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
@@ -3075,7 +3076,7 @@ name = "vsc7448"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
- "drv-stm32h7-gpio-api",
+ "drv-stm32xx-sys-api",
  "ringbuf",
  "userlib",
  "vsc-err",
