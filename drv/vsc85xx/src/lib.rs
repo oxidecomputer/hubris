@@ -17,6 +17,7 @@ pub use vsc_err::VscError;
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Vsc8522Init(u8),
     Vsc8552Patch(u8),
     Vsc8552Init(u8),
     Vsc8504Init(u8),
@@ -130,6 +131,8 @@ impl<P: PhyRw> Phy<'_, P> {
 pub fn init_vsc8522_phy<P: PhyRw + PhyVsc85xx>(
     v: &mut Phy<P>,
 ) -> Result<(), VscError> {
+    ringbuf_entry!(Trace::Vsc8522Init(v.port));
+
     // Do a self-reset on the PHY
     v.modify(phy::STANDARD::MODE_CONTROL(), |g| g.set_sw_reset(1))?;
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
