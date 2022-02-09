@@ -83,29 +83,6 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
-[tasks.spd]
-path = "../../task/spd"
-name = "task-spd"
-features = ["h753", "itm"]
-priority = 2
-requires = {flash = 16384, ram = 16384}
-uses = ["i2c2"]
-start = true
-task-slots = ["sys", "i2c_driver"]
-
-[tasks.spd.interrupts]
-33 = 0b0000_0010        # I2C2 event
-34 = 0b0000_0010        # I2C2 error
-
-#
-# SPI interrupts:
-#   spi1 = 35
-#   spi2 = 36
-#   spi3 = 51
-#   spi4 = 84
-#   spi5 = 85
-#   spi6 = 86
-#
 [tasks.spi4_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
@@ -157,7 +134,7 @@ requires = {flash = 8192, ram = 2048 }
 stacksize = 1920
 start = true
 uses = ["quadspi"]
-interrupts = {92 = 1}
+interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.vsc7448]
