@@ -244,7 +244,7 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     v.cmd(0x80F0)?;
 
     v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
-        // SerDes fiber/SFP protocol transfer mode
+        // 100BASE-FX fiber/SFP on the fiber media pins only
         r.set_media_operating_mode(0b011);
     })?;
     v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
