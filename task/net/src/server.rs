@@ -7,7 +7,7 @@
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use smoltcp::iface::{Interface, SocketHandle};
 use smoltcp::socket::UdpSocket;
-use task_net_api::{NetError, UdpMetadata};
+use task_net_api::{NetError, SocketName, UdpMetadata};
 
 use crate::generated;
 use crate::ETH_IRQ;
@@ -73,8 +73,8 @@ impl<'a> ServerImpl<'a> {
 
 /// Implementation of the Net Idol interface.
 impl idl::InOrderNetImpl for ServerImpl<'_> {
-    /// Requests that a packet waiting in the rx queue of socket `socket_index`
-    /// be delivered into loaned memory at `payload`.
+    /// Requests that a packet waiting in the rx queue of `socket` be delivered
+    /// into loaned memory at `payload`.
     ///
     /// If a packet is available and fits, copies it into `payload` and returns
     /// its `UdpMetadata`. Otherwise, leaves `payload` untouched and returns an
@@ -82,10 +82,10 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
     fn recv_packet(
         &mut self,
         msg: &userlib::RecvMessage,
-        socket_index: u32,
+        socket: SocketName,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<UdpMetadata, RequestError<NetError>> {
-        let socket_index = socket_index as usize;
+        let socket_index = socket as usize;
 
         // Check that the task owns the socket.
         if generated::SOCKET_OWNERS[socket_index].0.index()
@@ -118,16 +118,16 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         }
     }
 
-    /// Requests to copy a packet into the tx queue of socket `socket_index`,
+    /// Requests to copy a packet into the tx queue of socket `socket`,
     /// described by `metadata` and containing the bytes loaned in `payload`.
     fn send_packet(
         &mut self,
         msg: &userlib::RecvMessage,
-        socket_index: u32,
+        socket: SocketName,
         metadata: UdpMetadata,
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
     ) -> Result<(), RequestError<NetError>> {
-        let socket_index = socket_index as usize;
+        let socket_index = socket as usize;
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
@@ -192,7 +192,7 @@ impl NotificationHandler for ServerImpl<'_> {
 }
 
 mod idl {
-    use task_net_api::{NetError, UdpMetadata};
+    use task_net_api::{NetError, SocketName, UdpMetadata};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

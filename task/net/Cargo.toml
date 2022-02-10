@@ -36,6 +36,7 @@ standalone = []
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+build-net = {path = "../../build/net"}
 serde = "1"
 quote = "1"
 syn = {version = "1", features = ["parsing"]}

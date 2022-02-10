@@ -15,7 +15,7 @@ fn main() -> ! {
     let net = NET.get_task_id();
     let net = Net::from(net);
 
-    const SOCKET: u32 = 0;
+    const SOCKET: SocketName = SocketName::echo;
 
     loop {
         // Tiiiiiny payload buffer
