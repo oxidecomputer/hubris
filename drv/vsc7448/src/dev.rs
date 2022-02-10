@@ -118,8 +118,10 @@ impl DevGeneric {
         // This bit isn't documented in the datasheet, but the SDK says it
         // must be set in SGMII mode.  It allows a link to be set up by
         // software, even if autonegotiation fails.
-        v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
-            r.set_sw_resolve_ena(1)
+        v.write_with(dev1g.PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
+            // The SDK notes that we write the whole register here, instead of
+            // just modifying one bit (since we're in SGMII mode)
+            r.set_sw_resolve_ena(1);
         })?;
 
         // Configure signal detect line with values from the dev kit
@@ -129,7 +131,9 @@ impl DevGeneric {
         })?;
 
         // Enable the PCS!
-        v.modify(dev1g.PCS1G_CFG_STATUS().PCS1G_CFG(), |r| r.set_pcs_ena(1))?;
+        v.write_with(dev1g.PCS1G_CFG_STATUS().PCS1G_CFG(), |r| {
+            r.set_pcs_ena(1);
+        })?;
 
         // The SDK configures MAC VLAN awareness here; let's not do that
         // for the time being.
