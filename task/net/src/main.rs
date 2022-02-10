@@ -39,9 +39,6 @@ const RX_RING_SZ: usize = 4;
 /// Notification mask for our IRQ; must match configuration in app.toml.
 const ETH_IRQ: u32 = 1;
 
-/// Notification mask for periodic wake-and-check-status
-const WAKE: u32 = 2;
-
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
 
@@ -135,6 +132,11 @@ fn main() -> ! {
     // Move resources into the server impl.
     let mut server = server::ServerImpl::new(socket_handles, eth, bsp);
 
+    // Some of the BSPs include a 'wake' function which allows for periodic
+    // logging.  We schedule a wake-up before entering the idol_runtime dispatch
+    // loop, to make sure that this gets called periodically.
+    let mut wake_target_time = sys_get_timer().now;
+
     // Go!
     loop {
         ITER_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -167,11 +169,16 @@ fn main() -> ! {
         } else {
             // No work to do immediately. Wait for an ethernet IRQ or an
             // incoming message, or for a certain amount of time to pass.
-            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
             if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-                let wake_time = sys_get_timer().now + wake_interval;
-                sys_set_timer(Some(wake_time), WAKE);
+                let now = sys_get_timer().now;
+                if now >= wake_target_time {
+                    server.wake();
+                    wake_target_time = now + wake_interval;
+                } else {
+                    sys_set_timer(Some(wake_target_time - now), 0);
+                }
             }
+            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

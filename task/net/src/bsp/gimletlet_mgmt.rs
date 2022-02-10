@@ -182,11 +182,11 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
+        // Logging for KSZ8463 port 1
         ringbuf_entry!(match self.ksz.read(KszRegister::P1MBSR) {
             Ok(status) => Trace::Ksz8463Status { port: 1, status },
             Err(err) => Trace::KszErr { err },
         });
-
         ringbuf_entry!(match self.ksz.read(KszRegister::P1MBCR) {
             Ok(control) => Trace::Ksz8463Control { port: 1, control },
             Err(err) => Trace::KszErr { err },
@@ -199,9 +199,20 @@ impl Bsp {
             Err(err) => Trace::KszErr { err },
         });
 
-        // TODO: log more for port 2?
+        // Logging for KSZ8463 port 2
         ringbuf_entry!(match self.ksz.read(KszRegister::P2MBSR) {
             Ok(status) => Trace::Ksz8463Status { port: 2, status },
+            Err(err) => Trace::KszErr { err },
+        });
+        ringbuf_entry!(match self.ksz.read(KszRegister::P2MBCR) {
+            Ok(control) => Trace::Ksz8463Control { port: 2, control },
+            Err(err) => Trace::KszErr { err },
+        });
+        ringbuf_entry!(match self
+            .ksz
+            .read_mib_counter(2, MIBOffset::RxLoPriorityByte)
+        {
+            Ok(counter) => Trace::Ksz8463Counter { port: 2, counter },
             Err(err) => Trace::KszErr { err },
         });
 

@@ -10,7 +10,7 @@ use smoltcp::socket::UdpSocket;
 use task_net_api::{NetError, SocketName, UdpMetadata};
 
 use crate::generated;
-use crate::{ETH_IRQ, WAKE};
+use crate::ETH_IRQ;
 
 /// State for the running network server.
 pub struct ServerImpl<'a> {
@@ -71,6 +71,12 @@ impl<'a> ServerImpl<'a> {
         index: usize,
     ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
         Ok(self.eth.get_socket::<UdpSocket>(self.get_handle(index)?))
+    }
+
+    /// Calls the `wake` function on the BSP, which handles things like
+    /// periodic logging and monitoring of ports.
+    pub fn wake(&mut self) {
+        self.bsp.wake(self.eth.device_mut());
     }
 }
 
@@ -182,7 +188,7 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
         // We're always just listening for our interrupt.
-        ETH_IRQ | WAKE
+        ETH_IRQ
     }
 
     fn handle_notification(&mut self, bits: u32) {
@@ -190,9 +196,6 @@ impl NotificationHandler for ServerImpl<'_> {
         if bits & ETH_IRQ != 0 {
             self.eth.device_mut().on_interrupt();
             userlib::sys_irq_control(ETH_IRQ, true);
-        }
-        if bits & WAKE != 0 {
-            self.bsp.wake(self.eth.device_mut());
         }
     }
 }

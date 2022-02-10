@@ -48,6 +48,7 @@ members = [
     "task/spi-loopback",
     "task/thermal",
     "task/thermal-api",
+    "task/udpbroadcast",
     "task/udpecho",
     "task/vsc7448",
 

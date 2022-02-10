@@ -2773,6 +2773,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-udpbroadcast"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
+]
+
+[[package]]
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
