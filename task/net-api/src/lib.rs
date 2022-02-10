@@ -51,6 +51,8 @@ impl From<UdpMetadata> for smoltcp::wire::IpEndpoint {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Address {
     Ipv6(Ipv6Address),
+    #[cfg(feature = "ipv4")]
+    Ipv4(Ipv4Address),
 }
 
 #[cfg(feature = "use-smoltcp")]
@@ -58,6 +60,8 @@ impl From<Address> for smoltcp::wire::IpAddress {
     fn from(a: Address) -> Self {
         match a {
             Address::Ipv6(a) => Self::Ipv6(a.into()),
+            #[cfg(feature = "use-smoltcp-ipv4")]
+            Address::Ipv4(a) => Self::Ipv4(a.into()),
         }
     }
 }
@@ -71,6 +75,8 @@ impl TryFrom<smoltcp::wire::IpAddress> for Address {
 
         match a {
             IpAddress::Ipv6(a) => Ok(Self::Ipv6(a.into())),
+            #[cfg(feature = "use-smoltcp-ipv4")]
+            IpAddress::Ipv4(a) => Ok(Self::Ipv4(a.into())),
             _ => Err(AddressUnspecified),
         }
     }
@@ -83,6 +89,11 @@ pub struct AddressUnspecified;
 #[serde(transparent)]
 pub struct Ipv6Address(pub [u8; 16]);
 
+#[cfg(feature = "ipv4")]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Ipv4Address(pub [u8; 4]);
+
 #[cfg(feature = "use-smoltcp")]
 impl From<smoltcp::wire::Ipv6Address> for Ipv6Address {
     fn from(a: smoltcp::wire::Ipv6Address) -> Self {
@@ -93,6 +104,20 @@ impl From<smoltcp::wire::Ipv6Address> for Ipv6Address {
 #[cfg(feature = "use-smoltcp")]
 impl From<Ipv6Address> for smoltcp::wire::Ipv6Address {
     fn from(a: Ipv6Address) -> Self {
+        Self(a.0)
+    }
+}
+
+#[cfg(feature = "use-smoltcp-ipv4")]
+impl From<smoltcp::wire::Ipv4Address> for Ipv4Address {
+    fn from(a: smoltcp::wire::Ipv4Address) -> Self {
+        Self(a.0)
+    }
+}
+
+#[cfg(feature = "use-smoltcp-ipv4")]
+impl From<Ipv4Address> for smoltcp::wire::Ipv4Address {
+    fn from(a: Ipv4Address) -> Self {
         Self(a.0)
     }
 }

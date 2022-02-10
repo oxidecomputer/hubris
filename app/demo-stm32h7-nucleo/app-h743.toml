@@ -118,6 +118,7 @@ uses = ["eth", "eth_dma"]
 start = true
 interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys"]
+features = ["ipv4"]
 
 [tasks.user_leds]
 path = "../../drv/user-leds"
@@ -153,6 +154,7 @@ requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["ipv4"]
 
 [tasks.hiffy]
 path = "../../task/hiffy"

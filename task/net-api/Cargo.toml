@@ -5,6 +5,10 @@ edition = "2021"
 
 [features]
 use-smoltcp = ["smoltcp"]
+ipv4 = []
+# We want smoltcp support and ipv4 support to be independent, which
+# unfortunately from a Cargo perspective means having this other feature:
+use-smoltcp-ipv4 = ["ipv4", "smoltcp/proto-ipv4"]
 
 [dependencies]
 userlib = {path = "../../sys/userlib"}

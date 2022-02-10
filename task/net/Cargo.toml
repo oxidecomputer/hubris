@@ -33,6 +33,7 @@ features = [
 [features]
 default = ["standalone"]
 standalone = []
+ipv4 = ["task-net-api/use-smoltcp-ipv4", "smoltcp/proto-ipv4"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

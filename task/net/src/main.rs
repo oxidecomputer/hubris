@@ -88,7 +88,16 @@ fn main() -> ! {
     let ipv6_addr = link_local_iface_addr(mac);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
 
-    let mut ip_addrs = [ipv6_net];
+    #[cfg(feature = "ipv4")]
+    let ipv4_addr = smoltcp::wire::Ipv4Address::new(169, 254, 31, 2);
+    #[cfg(feature = "ipv4")]
+    let ipv4_net = smoltcp::wire::Ipv4Cidr::new(ipv4_addr, 16).into();
+
+    let mut ip_addrs = [
+        ipv6_net,
+        #[cfg(feature = "ipv4")]
+        ipv4_net,
+    ];
     let mut neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; NEIGHBORS] =
         [None; NEIGHBORS];
     let neighbor_cache =
