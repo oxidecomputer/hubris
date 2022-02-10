@@ -332,11 +332,6 @@ impl Ksz8463 {
         self.write_masked(Register::CFGR, 0x0, 0xc0).unwrap();
         self.write_masked(Register::DSP_CNTRL_6, 0, 0x2000).unwrap();
 
-        // Enable port 1 near-end loopback (XXX delete this before connecting
-        // to the rest of the management network)
-        self.write_masked(Register::P1PHYCTRL, 1 << 1, 1 << 1)
-            .unwrap();
-
         self.enable().unwrap();
     }
 }

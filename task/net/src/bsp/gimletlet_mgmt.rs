@@ -42,6 +42,10 @@ enum Trace {
         port: u8,
         status: phy::standard::MODE_STATUS,
     },
+    Vsc8552MacPcsStatus {
+        port: u8,
+        status: phy::extended_3::MAC_SERDES_PCS_STATUS,
+    },
     Vsc8552Err {
         err: VscError,
     },
@@ -236,6 +240,12 @@ impl Bsp {
                 .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
             {
                 Ok(counter) => Trace::Vsc8552RxCRCGoodCounter { port, counter },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
+            ringbuf_entry!(match phy
+                .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())
+            {
+                Ok(status) => Trace::Vsc8552MacPcsStatus { port, status },
                 Err(err) => Trace::Vsc8552Err { err },
             });
         }
