@@ -109,20 +109,26 @@ impl<'a> Bsp<'a> {
         Ok(())
     }
 
-    /// Configures port 52 to run DEV2G5_28 through SERDES10G_3 through S36.
+    /// Configures a port to run DEV2G5_XX through SERDES10G_3 through S36.
     /// This isn't actually valid for the dev kit, which expects SFI, but as
     /// long as you don't plug anything into that port, it's _fine_.
-    fn init_10g_sgmii(&self) -> Result<(), VscError> {
+    ///
+    /// `d2g5` must be a valid DEV2G5; `d10g` must be the DEV10G that it shadows
+    fn init_10g_sgmii(&self, d2g5: u8, d10g: u8) -> Result<(), VscError> {
         // We have to disable and flush the 10G port that shadows this port
-        port::port10g_flush(&Dev10g::new(3).unwrap(), self.vsc7448)?;
+        port::port10g_flush(&Dev10g::new(d10g).unwrap(), self.vsc7448)?;
 
         // "Configure the 10G Mux mode to DEV2G5"
         self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                r.set_dev10g_3_mode(3);
+            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| match d10g {
+                0 => r.set_dev10g_0_mode(3),
+                1 => r.set_dev10g_1_mode(3),
+                2 => r.set_dev10g_2_mode(3),
+                3 => r.set_dev10g_3_mode(3),
+                d => panic!("Invalid DEV10G {}", d),
             })?;
 
-        let dev_2g5 = DevGeneric::new_2g5(28)?;
+        let dev_2g5 = DevGeneric::new_2g5(d2g5)?;
         // This bit must be set when a 10G port runs below 10G speed
         self.vsc7448.modify(
             Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
@@ -132,7 +138,7 @@ impl<'a> Bsp<'a> {
         )?;
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
-        serdes10g_cfg_sgmii.apply(3, &self.vsc7448)?;
+        serdes10g_cfg_sgmii.apply(d10g, &self.vsc7448)?;
         dev_2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
         Ok(())
     }
@@ -155,7 +161,8 @@ impl<'a> Bsp<'a> {
         self.gpio_init()?;
         self.init_rj45()?;
         self.init_sfp()?;
-        self.init_10g_sgmii()?;
+        self.init_10g_sgmii(27, 2)?; // DEV2G5_27, SERDES10G_2, S35
+        self.init_10g_sgmii(28, 3)?; // DEV2G5_28, SERDES10G_3, S36
 
         Ok(())
     }
