@@ -7,7 +7,7 @@ Interface(
             encoding: Ssmarshal,
             doc: "Unqueues an incoming packet from a socket.",
             args: {
-                "socket_index": "u32",
+                "socket": "SocketName",
             },
             leases: {
                 "payload": (type: "[u8]", write: true),
@@ -21,7 +21,7 @@ Interface(
             encoding: Ssmarshal,
             doc: "Queues an outgoing packet into a socket.",
             args: {
-                "socket_index": "u32",
+                "socket": "SocketName",
                 "metadata": "UdpMetadata",
             },
             leases: {

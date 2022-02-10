@@ -2,9 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use build_net::{BufSize, NetConfig, SocketConfig};
 use proc_macro2::TokenStream;
-use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,53 +13,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         idol::server::ServerStyle::InOrder,
     )?;
 
-    let global_config = build_util::config::<GlobalConfig>()?;
+    let net_config = build_net::load_net_config()?;
 
-    generate_net_config(&global_config.net)?;
+    generate_net_config(&net_config)?;
 
     Ok(())
 }
-
-///////////////////////////////////////////////////////////////////////////////
-// Network config schema definition.
-//
-
-#[derive(Deserialize)]
-struct GlobalConfig {
-    net: NetConfig,
-}
-
-#[derive(Deserialize)]
-struct NetConfig {
-    sockets: BTreeMap<String, SocketConfig>,
-}
-
-/// TODO: this type really wants to be an enum, but the toml crate's enum
-/// handling is really, really fragile, and currently it would be an enum with a
-/// single variant anyway.
-#[derive(Deserialize)]
-struct SocketConfig {
-    kind: String,
-    owner: TaskNote,
-    port: u16,
-    tx: BufSize,
-    rx: BufSize,
-}
-
-#[derive(Deserialize)]
-struct BufSize {
-    packets: usize,
-    bytes: usize,
-}
-
-#[derive(Deserialize)]
-struct TaskNote {
-    name: String,
-    notification: u32,
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Net config code generation.
 
 fn generate_net_config(
     config: &NetConfig,
@@ -89,6 +47,8 @@ fn generate_net_config(
     writeln!(out, "{}", generate_constructor(&config)?)?;
     writeln!(out, "{}", generate_owner_info(&config)?)?;
     writeln!(out, "{}", generate_port_table(&config)?)?;
+
+    build_net::generate_socket_enum(&config, &mut out)?;
 
     drop(out);
 

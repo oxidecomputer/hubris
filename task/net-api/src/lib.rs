@@ -98,3 +98,4 @@ impl From<Ipv6Address> for smoltcp::wire::Ipv6Address {
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+include!(concat!(env!("OUT_DIR"), "/net_config.rs"));

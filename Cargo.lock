@@ -168,6 +168,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-net"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "serde",
+]
+
+[[package]]
 name = "build-util"
 version = "0.1.0"
 dependencies = [
@@ -2562,6 +2570,7 @@ dependencies = [
 name = "task-net"
 version = "0.1.0"
 dependencies = [
+ "build-net",
  "build-util",
  "cortex-m",
  "drv-stm32h7-eth",
@@ -2587,6 +2596,7 @@ dependencies = [
 name = "task-net-api"
 version = "0.1.0"
 dependencies = [
+ "build-net",
  "idol",
  "num-traits",
  "serde",
