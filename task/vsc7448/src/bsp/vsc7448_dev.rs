@@ -5,8 +5,8 @@
 use ringbuf::*;
 use userlib::*;
 use vsc7448::{
-    dev::{Dev10g, DevGeneric},
-    serdes10g, serdes6g,
+    dev::{Dev10g, DevGeneric, Speed},
+    port, serdes10g, serdes6g,
     spi::Vsc7448Spi,
     VscError,
 };
@@ -84,7 +84,8 @@ impl<'a> Bsp<'a> {
             .apply(4, &self.vsc7448)?;
 
         for port in 0..4 {
-            DevGeneric::new_1g(port)?.init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_1g(port)?
+                .init_sgmii(&self.vsc7448, Speed::Speed1G)?;
         }
         Ok(())
     }
@@ -112,8 +113,9 @@ impl<'a> Bsp<'a> {
     /// This isn't actually valid for the dev kit, which expects SFI, but as
     /// long as you don't plug anything into that port, it's _fine_.
     fn init_10g_sgmii(&self) -> Result<(), VscError> {
-        let serdes10g_cfg_sgmii =
-            serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
+        // We have to disable and flush the 10G port that shadows this port
+        port::port10g_flush(&Dev10g::new(3).unwrap(), self.vsc7448)?;
+
         // "Configure the 10G Mux mode to DEV2G5"
         self.vsc7448
             .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
@@ -128,8 +130,10 @@ impl<'a> Bsp<'a> {
                 r.set_dev10g_shadow_ena(1);
             },
         )?;
-        dev_2g5.init_sgmii(&self.vsc7448)?;
+        let serdes10g_cfg_sgmii =
+            serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
         serdes10g_cfg_sgmii.apply(3, &self.vsc7448)?;
+        dev_2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
         Ok(())
     }
 

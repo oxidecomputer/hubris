@@ -219,7 +219,6 @@ input = {port = "E", pin = 14, af = 5}
 mux = "port_e"
 cs = {port = "E", pin = 11}
 
-
 [config.spi.spi6]
 controller = 6
 
