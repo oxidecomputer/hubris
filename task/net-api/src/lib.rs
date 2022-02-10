@@ -20,6 +20,7 @@ impl From<u32> for NetError {
     fn from(x: u32) -> Self {
         match x {
             1 => NetError::QueueEmpty,
+            2 => NetError::NotYours,
             _ => panic!(),
         }
     }
