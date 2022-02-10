@@ -251,6 +251,13 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
         r.set_media_operating_mode(0b011);
     })?;
     v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+        // We have to edit some non-standard bits, so we manipulate the u16
+        // directly then convert back.
+        let mut v = u16::from(*r);
+        v |= 1 << 8; // Full duplex
+        v = (v & !(0b11 << 13)) | (0b01 << 13); // 100 Mbps
+
+        *r = v.into();
         r.set_auto_neg_ena(0);
     })?;
 
@@ -262,11 +269,6 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
         r.set_sw_reset(1);
     })?;
     v.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)?;
-
-    // Enable ethernet packet generator (XXX remove this before production)
-    let epg_reg_addr =
-        PhyRegisterAddress::<u16>::from_page_and_addr_unchecked(1, 29);
-    v.write(epg_reg_addr, 0xE400)?;
 
     Ok(())
 }
