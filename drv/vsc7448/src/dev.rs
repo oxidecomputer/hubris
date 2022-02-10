@@ -17,6 +17,11 @@ pub enum DevGeneric {
     Dev2g5(u8),
 }
 
+pub enum Speed {
+    Speed100M,
+    Speed1G,
+}
+
 impl DevGeneric {
     /// Constructs a handle to a DEV1G device.  Returns an error on `d >= 24`,
     /// as there are only 24 DEV1G devices in the chip (numbering from 0).
@@ -86,24 +91,42 @@ impl DevGeneric {
     }
 
     /// Based on `jr2_port_conf_1g_set` in the SDK
-    pub fn init_sgmii(&self, v: &Vsc7448Spi) -> Result<(), VscError> {
-        // Flush the port before doing anything else
+    pub fn init_sgmii(
+        &self,
+        v: &Vsc7448Spi,
+        speed: Speed,
+    ) -> Result<(), VscError> {
+        // In some cases, 2G5 ports shadow 10G ports.  If that's happening here,
+        // then the caller must flush the 10G port separately before calling
+        // this function, which only flushes the 1G port.
         port1g_flush(self, v)?;
 
         // Enable full duplex mode and GIGA SPEED
         let dev1g = self.regs();
         v.modify(dev1g.MAC_CFG_STATUS().MAC_MODE_CFG(), |r| {
             r.set_fdx_ena(1);
-            r.set_giga_mode_ena(1);
+            r.set_giga_mode_ena(match speed {
+                Speed::Speed1G => 1,
+                Speed::Speed100M => 0,
+            });
         })?;
 
         v.modify(dev1g.MAC_CFG_STATUS().MAC_IFG_CFG(), |r| {
-            // NOTE: these are speed-dependent options and aren't
-            // fully documented in the manual; this values are chosen
-            // based on the SDK for 1G, full duplex operation.
-            r.set_tx_ifg(4);
-            r.set_rx_ifg1(0);
-            r.set_rx_ifg2(0);
+            match speed {
+                // NOTE: these are speed-dependent options and aren't
+                // fully documented in the manual; this values are chosen
+                // based on the SDK.
+                Speed::Speed1G => {
+                    r.set_tx_ifg(4);
+                    r.set_rx_ifg1(0);
+                    r.set_rx_ifg2(0);
+                }
+                Speed::Speed100M => {
+                    r.set_tx_ifg(6);
+                    r.set_rx_ifg1(1);
+                    r.set_rx_ifg2(4);
+                }
+            }
         })?;
 
         // The upcoming steps depend on how the port is talking to the
@@ -135,6 +158,13 @@ impl DevGeneric {
             r.set_pcs_ena(1);
         })?;
 
+        v.modify(Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(self.port()), |r| {
+            r.set_dev_tx_stop_wm(match speed {
+                Speed::Speed1G => 0,
+                Speed::Speed100M => 1,
+            })
+        })?;
+
         // The SDK configures MAC VLAN awareness here; let's not do that
         // for the time being.
 
@@ -151,7 +181,10 @@ impl DevGeneric {
         // Take MAC, Port, Phy (intern), and PCS (SGMII) clocks out of
         // reset, turning on a 1G port data rate.
         v.write_with(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
-            r.set_speed_sel(2)
+            r.set_speed_sel(match speed {
+                Speed::Speed1G => 2,
+                Speed::Speed100M => 1,
+            });
         })?;
 
         v.modify(

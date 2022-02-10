@@ -7,7 +7,7 @@ use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
 use vsc7448_pac::Vsc7448;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
     Lan10g,
     Sgmii,
@@ -31,6 +31,8 @@ pub struct Config {
     pll_lpf_cur: u32,
     pll_lpf_res: u32,
     pllf_ref_cnt_end: u32,
+
+    mode: Mode,
 }
 
 impl Config {
@@ -116,6 +118,7 @@ impl Config {
             pll_lpf_res,
             pllf_ref_cnt_end,
             ob_cfg2_d_filter,
+            mode,
         })
     }
     /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
@@ -123,10 +126,29 @@ impl Config {
     /// passing them around in the config struct).
     pub fn apply(&self, index: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         // jr2_sd10g_xfi_mode
+        // "Set XFI to default"
+        v.write(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), 5.into())?;
+
+        // Select either the 40-bit port (for SGMII) or 64-bit (for SFI)
+        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+            r.set_port_sel(match self.mode {
+                Mode::Sgmii => 1,
+                Mode::Lan10g => 0,
+            })
+        })?;
+        // Unclear if these all need to be in separate messages, but let's
+        // match the SDK behavior exactly for now.
         v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_sw_rst(0);
-            r.set_endian(1);
+        })?;
+        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_sw_ena(1);
+        })?;
+        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+            r.set_endian(1);
+        })?;
+        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+            r.set_tx_resync_shot(1);
         })?;
 
         let dev = Vsc7448::XGANA(index);

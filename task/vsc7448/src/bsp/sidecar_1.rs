@@ -78,20 +78,23 @@ impl<'a> Bsp<'a> {
         // Cubbies 0 through 7
         let serdes1g_cfg_sgmii = serdes1g::Config::new(serdes1g::Mode::Sgmii);
         for dev in 0..=7 {
-            DevGeneric::new_1g(dev)?.init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_1g(dev)?
+                .init_sgmii(&self.vsc7448, Speed::Speed100M)?;
             serdes1g_cfg_sgmii.apply(dev + 1, &self.vsc7448)?;
             // DEV1G[dev], SERDES1G[dev + 1], S[port + 1], SGMII
         }
         // Cubbies 8 through 21
         let serdes6g_cfg_sgmii = serdes6g::Config::new(serdes6g::Mode::Sgmii);
         for dev in 0..=13 {
-            DevGeneric::new_2g5(dev)?.init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_2g5(dev)?
+                .init_sgmii(&self.vsc7448, Speed::Speed100M)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
         // Cubbies 22 through 29
         for dev in 16..=23 {
-            DevGeneric::new_2g5(dev)?.init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_2g5(dev)?
+                .init_sgmii(&self.vsc7448, Speed::Speed100M)?;
             serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
             // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
         }
@@ -115,7 +118,7 @@ impl<'a> Bsp<'a> {
                     r.set_dev10g_shadow_ena(1);
                 },
             )?;
-            dev_2g5.init_sgmii(&self.vsc7448)?;
+            dev_2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
             serdes10g_cfg_sgmii.apply(dev - 25, &self.vsc7448)?;
             // DEV2G5[dev], SERDES10G[dev - 25], S[dev + 8], SGMII
         }
@@ -213,13 +216,15 @@ impl<'a> Bsp<'a> {
         serdes6g_cfg_qsgmii.apply(14, &self.vsc7448)?;
         serdes6g_cfg_qsgmii.apply(15, &self.vsc7448)?;
         for dev in 16..=23 {
-            DevGeneric::new_1g(dev)?.init_sgmii(&self.vsc7448)?;
+            DevGeneric::new_1g(dev)?
+                .init_sgmii(&self.vsc7448, Speed::Speed1G)?;
+            // TODO: is this the right speed?
         }
 
         ////////////////////////////////////////////////////////////////////////
         // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP (via VSC8552)
         serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
-        DevGeneric::new_2g5(24)?.init_sgmii(&self.vsc7448)?;
+        DevGeneric::new_2g5(24)?.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
 
         ////////////////////////////////////////////////////////////////////////
         // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
