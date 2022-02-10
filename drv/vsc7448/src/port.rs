@@ -25,7 +25,7 @@ pub fn port1g_flush(dev: &DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
         r.set_pcs_rx_rst(1)
     })?;
 
-    // 2: Reset the PCS Rx clock domain
+    // 2: Disable MAC frame reception
     v.modify(dev1g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| r.set_rx_ena(0))?;
 
     port_flush_inner(port, v)?;
@@ -61,7 +61,7 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
         r.set_pcs_rx_rst(1)
     })?;
 
-    // 2: Reset the PCS Rx clock domain
+    // 2: Disable MAC frame reception
     v.modify(dev10g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| r.set_rx_ena(0))?;
 
     port_flush_inner(port.into(), v)?;
@@ -76,6 +76,7 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
 
     // 11: Clear flushing
     v.modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+        r.set_flush_port(port.into());
         r.set_flush_ena(0);
     })?;
 
