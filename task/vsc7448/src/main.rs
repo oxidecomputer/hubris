@@ -31,6 +31,9 @@ fn main() -> ! {
     let spi = Spi::from(SPI.get_task_id()).device(VSC7448_SPI_DEVICE);
     let vsc7448 = Vsc7448Spi::new(spi);
 
+    // Used to turn on LEDs before anything else happens
+    bsp::preinit();
+
     let t0 = sys_get_timer().now;
     match vsc7448::init(&vsc7448) {
         Ok(()) => {

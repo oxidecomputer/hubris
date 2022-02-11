@@ -10,11 +10,15 @@
 #![no_std]
 
 use drv_spi_api::SpiError;
+
+#[cfg(feature = "mgmt")]
 use task_net_api::NetError;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VscError {
     SpiError(SpiError),
+
+    #[cfg(feature = "mgmt")]
     NetError(NetError),
 
     BadChipId(u32),
@@ -83,6 +87,7 @@ impl From<SpiError> for VscError {
     }
 }
 
+#[cfg(feature = "mgmt")]
 impl From<NetError> for VscError {
     fn from(s: NetError) -> Self {
         Self::NetError(s)

@@ -58,6 +58,10 @@ impl<'a> PhyRw for Bsp<'a> {
     }
 }
 
+pub fn preinit() {
+    // Nothing to do here
+}
+
 // We're talking to a VSC8504, which is compatible with the VSC85xx trait.
 impl PhyVsc85xx for Bsp<'_> {}
 
