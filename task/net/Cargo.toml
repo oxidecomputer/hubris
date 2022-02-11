@@ -17,6 +17,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6"]}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api"}
+drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true}
 ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
@@ -38,7 +39,7 @@ features = [
 [features]
 default = ["standalone"]
 standalone = []
-mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api", "ksz8463"]
+mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api", "ksz8463", "drv-user-leds-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 

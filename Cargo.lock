@@ -2599,6 +2599,7 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
