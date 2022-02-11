@@ -26,6 +26,34 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LED {
+    LED0 = 0,
+    LED1,
+    LED2,
+    LED3,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LEDMode {
+    LinkActivity = 0,
+    Link1000Activity,
+    Link100Activity,
+    Link10Activity,
+    Link100Link1000Activity,
+    Link10Link1000Activity,
+    Link10Link100Activity,
+    Link100BaseFXLink1000BaseXActivity,
+    DuplexCollision,
+    Collision,
+    Activity,
+    Fiber100Fiber1000Activity,
+    AutonegotiationFault,
+    SerialMode,
+    ForcedOff,
+    ForcedOn,
+}
+
 /// Trait implementing communication with an ethernet PHY.
 pub trait PhyRw {
     /// Reads a register from the PHY without changing the page.  This should
@@ -263,6 +291,24 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
 
     // Enable 2 ports Media 100BASE-FX
     v.cmd(0x8FD1)?;
+
+    // Configure LEDs.
+    v.set_led_mode(LED::LED0, LEDMode::ForcedOff)?;
+    v.set_led_mode(LED::LED1, LEDMode::Link100BaseFXLink1000BaseXActivity)?;
+    v.set_led_mode(LED::LED2, LEDMode::Activity)?;
+    v.set_led_mode(LED::LED3, LEDMode::Fiber100Fiber1000Activity)?;
+
+    // Tweak LED behavior.
+    v.modify(phy::STANDARD::LED_BEHAVIOR(), |r| {
+        let x: u16 = (*r).into();
+        // Disable LED1 combine, showing only link status.
+        let disable_led1_combine = 1 << 1;
+        // Split TX/RX activity across Activity/FiberActivity modes.
+        let split_rx_tx_activity = 1 << 14;
+        *r = phy::standard::LED_BEHAVIOR::from(
+            x | disable_led1_combine | split_rx_tx_activity,
+        );
+    })?;
 
     // Now, we reset the PHY and wait for the bit to clear
     v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
@@ -611,6 +657,18 @@ impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
         let crc: u16 = self.read(phy::EXTENDED::VERIPHY_CTRL_REG2())?.into();
         ringbuf_entry!(Trace::GotCrc(crc));
         Ok(crc)
+    }
+
+    fn set_led_mode(
+        &mut self,
+        led: LED,
+        mode: LEDMode,
+    ) -> Result<(), VscError> {
+        self.modify(phy::STANDARD::LED_MODE_SELECT(), |r| {
+            let shift_amount = led as u8 * 4;
+            r.0 = (r.0 & !(0xf << shift_amount))
+                | ((mode as u16) << shift_amount);
+        })
     }
 }
 
