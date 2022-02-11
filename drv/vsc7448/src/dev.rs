@@ -143,8 +143,11 @@ impl DevGeneric {
         // software, even if autonegotiation fails.
         v.write_with(dev1g.PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
             // The SDK notes that we write the whole register here, instead of
-            // just modifying one bit (since we're in SGMII mode)
+            // just modifying one bit (since we're in CISCO SGMII mode)
             r.set_sw_resolve_ena(1);
+            r.set_aneg_ena(1);
+            r.set_aneg_restart_one_shot(1);
+            r.set_adv_ability(1);
         })?;
 
         // Configure signal detect line with values from the dev kit

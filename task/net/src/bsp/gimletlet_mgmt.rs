@@ -49,6 +49,10 @@ enum Trace {
         port: u8,
         status: phy::extended_3::MAC_SERDES_PCS_STATUS,
     },
+    Vsc8552MacPcsControl {
+        port: u8,
+        control: phy::extended_3::MAC_SERDES_PCS_CONTROL,
+    },
     Vsc8552MediaSerdesStatus {
         port: u8,
         status: phy::extended_3::MEDIA_SERDES_STATUS,
@@ -73,7 +77,7 @@ enum Trace {
         counter: phy::extended_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER,
     },
 }
-ringbuf!(Trace, 16, Trace::None);
+ringbuf!(Trace, 32, Trace::None);
 
 // This system wants to be woken periodically to do logging
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
@@ -231,7 +235,7 @@ impl Bsp {
             Err(err) => Trace::KszErr { err },
         });
 
-        let mut any_coma = false;
+        let mut any_comma = false;
         let mut any_link = false;
         for i in [0, 1] {
             let port = VSC8552_PORT + i;
@@ -275,7 +279,7 @@ impl Bsp {
             {
                 Ok(status) => {
                     any_link |= (status.0 & (1 << 2)) != 0;
-                    any_coma |= (status.0 & (1 << 0)) != 0;
+                    any_comma |= (status.0 & (1 << 0)) != 0;
                     Trace::Vsc8552MacPcsStatus { port, status }
                 }
                 Err(err) => Trace::Vsc8552Err { err },
@@ -286,6 +290,14 @@ impl Bsp {
                 Ok(status) => Trace::Vsc8552MediaSerdesStatus { port, status },
                 Err(err) => Trace::Vsc8552Err { err },
             });
+            ringbuf_entry!(match phy
+                .read(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL())
+            {
+                Ok(control) => {
+                    Trace::Vsc8552MacPcsControl { port, control }
+                }
+                Err(err) => Trace::Vsc8552Err { err },
+            });
         }
 
         if any_link {
@@ -293,7 +305,7 @@ impl Bsp {
         } else {
             self.leds.led_off(1).unwrap();
         }
-        if any_coma {
+        if any_comma {
             self.leds.led_on(2).unwrap();
         } else {
             self.leds.led_off(2).unwrap();
