@@ -9,14 +9,13 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-spi-api = {path = "../../drv/spi-api"}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
+drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true }
 vsc7448 = {path = "../../drv/vsc7448" }
 vsc85xx = {path = "../../drv/vsc85xx" }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
-task-net-api = {path = "../net-api" }
 
 [features]
-default = ["standalone"]
-standalone = []
+leds = ["drv-user-leds-api"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

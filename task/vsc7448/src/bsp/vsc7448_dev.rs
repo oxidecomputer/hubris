@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_user_leds_api::UserLeds;
 use ringbuf::*;
 use userlib::*;
 use vsc7448::{
@@ -13,21 +14,32 @@ use vsc7448::{
 use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
 use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
 
+task_slot!(USER_LEDS, user_leds);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
     PhyScanError { miim: u8, phy: u8, err: VscError },
     PhyLinkChanged { port: u8, status: u16 },
+    SgmiiError { dev: u8, err: VscError },
 }
 ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a> {
     vsc7448: &'a Vsc7448Spi,
+    leds: UserLeds,
+    phy_link_up: [[bool; 24]; 2],
 }
+
 impl<'a> Bsp<'a> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
-        let out = Bsp { vsc7448 };
+        let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+        let out = Bsp {
+            vsc7448,
+            leds,
+            phy_link_up: [[false; 24]; 2],
+        };
         out.init()?;
         Ok(out)
     }
@@ -164,42 +176,78 @@ impl<'a> Bsp<'a> {
         self.init_10g_sgmii(27, 2)?; // DEV2G5_27, SERDES10G_2, S35
         self.init_10g_sgmii(28, 3)?; // DEV2G5_28, SERDES10G_3, S36
 
+        self.leds.led_off(0).unwrap();
+        self.leds.led_on(3).unwrap();
         Ok(())
     }
 
+    /// Checks the given PHY's status, return `true` if the link is up
+    fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
+        let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
+        let mut p = Phy {
+            port: phy,
+            rw: &mut phy_rw,
+        };
+        match p.read(phy::STANDARD::MODE_STATUS()) {
+            Ok(status) => {
+                let up = (status.0 & (1 << 5)) != 0;
+                if up != self.phy_link_up[miim as usize - 1][phy as usize] {
+                    self.phy_link_up[miim as usize - 1][phy as usize] = up;
+                    ringbuf_entry!(Trace::PhyLinkChanged {
+                        port: (miim - 1) * 24 + phy,
+                        status: status.0,
+                    });
+                }
+                up
+            }
+            Err(err) => {
+                ringbuf_entry!(Trace::PhyScanError { miim, phy, err });
+                false
+            }
+        }
+    }
+
+    fn check_sgmii(&mut self, dev: u8) -> bool {
+        match self
+            .vsc7448
+            .read(Vsc7448::DEV2G5(dev).PCS1G_CFG_STATUS().PCS1G_LINK_STATUS())
+        {
+            Ok(v) => v.link_status() != 0,
+            Err(err) => {
+                ringbuf_entry!(Trace::SgmiiError { dev, err });
+                false
+            }
+        }
+    }
+
+    fn wake(&mut self) {
+        let mut any_phy_up = false;
+        for miim in [1, 2] {
+            for phy in 0..24 {
+                any_phy_up |= self.check_phy(miim, phy);
+            }
+        }
+        if any_phy_up {
+            self.leds.led_on(1).unwrap();
+        } else {
+            self.leds.led_off(1).unwrap();
+        }
+
+        let mut any_sgmii_up = false;
+        for d in [27, 28] {
+            any_sgmii_up |= self.check_sgmii(d);
+        }
+        if any_sgmii_up {
+            self.leds.led_on(2).unwrap();
+        } else {
+            self.leds.led_off(2).unwrap();
+        }
+    }
+
     pub fn run(&mut self) -> ! {
-        let mut link_up = [[false; 24]; 2];
         loop {
             hl::sleep_for(100);
-            for miim in [1, 2] {
-                let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
-                for phy in 0..24 {
-                    let mut p = Phy {
-                        port: phy,
-                        rw: &mut phy_rw,
-                    };
-
-                    match p.read(phy::STANDARD::MODE_STATUS()) {
-                        Ok(status) => {
-                            let up = (status.0 & (1 << 5)) != 0;
-                            if up != link_up[miim as usize - 1][phy as usize] {
-                                link_up[miim as usize - 1][phy as usize] = up;
-                                ringbuf_entry!(Trace::PhyLinkChanged {
-                                    port: (miim - 1) * 24 + phy,
-                                    status: status.0,
-                                });
-                            }
-                        }
-                        Err(err) => {
-                            ringbuf_entry!(Trace::PhyScanError {
-                                miim,
-                                phy,
-                                err
-                            })
-                        }
-                    }
-                }
-            }
+            self.wake();
         }
     }
 }
@@ -307,6 +355,17 @@ impl PhyRw for Vsc7448SpiPhy<'_> {
         self.vsc7448
             .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)
     }
+}
+
+/// Turns on LEDs to let the user know that the board is alive and starting
+/// initialization (we'll turn these off at the end of Bsp::init)
+pub fn preinit() {
+    let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+    leds.led_off(1).unwrap();
+    leds.led_off(2).unwrap();
+    leds.led_off(3).unwrap();
+
+    leds.led_on(0).unwrap();
 }
 
 // In this system, we're talking to a VSC8522, which is in the VSC85xx family

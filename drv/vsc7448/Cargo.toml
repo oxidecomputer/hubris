@@ -13,6 +13,9 @@ vsc-err = { path = "../vsc-err" }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 vsc85xx = { path = "../vsc85xx" }
 
+[features]
+mgmt = ["vsc-err/mgmt"]
+
 [build-dependencies]
 build-util = {path = "../../build/util"}
 

@@ -11,11 +11,11 @@ cfg_if::cfg_if! {
     // connected over wires to the Hubris board.
     if #[cfg(any(target_board = "gemini-bu-1",
                  target_board = "gimletlet-2"))] {
-        pub mod vsc7448_dev;
-        pub use vsc7448_dev::Bsp;
+        mod vsc7448_dev;
+        pub use vsc7448_dev::*;
     } else if #[cfg(target_board = "sidecar-1")] {
-        pub mod sidecar_1;
-        pub use sidecar_1::Bsp;
+        mod sidecar_1;
+        pub use sidecar_1::*;
     } else {
         compile_error!("No BSP available for this board");
     }
