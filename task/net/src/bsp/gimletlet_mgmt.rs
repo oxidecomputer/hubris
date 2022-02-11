@@ -7,6 +7,7 @@ use crate::miim_bridge::MiimBridge;
 use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_user_leds_api::UserLeds;
 use ksz8463::{Ksz8463, MIBCounter, MIBOffset, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
@@ -14,6 +15,8 @@ use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{Phy, PhyVsc85xx, VscError};
 
 task_slot!(SPI, spi_driver);
+task_slot!(USER_LEDS, user_leds);
+
 const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
 const VSC8552_PORT: u8 = 0b11100; // Based on resistor strapping
 
@@ -46,6 +49,10 @@ enum Trace {
         port: u8,
         status: phy::extended_3::MAC_SERDES_PCS_STATUS,
     },
+    Vsc8552MediaSerdesStatus {
+        port: u8,
+        status: phy::extended_3::MEDIA_SERDES_STATUS,
+    },
     Vsc8552Err {
         err: VscError,
     },
@@ -75,6 +82,7 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 
 pub struct Bsp {
     ksz: Ksz8463,
+    leds: UserLeds,
 }
 
 impl Bsp {
@@ -85,8 +93,9 @@ impl Bsp {
             sys_api::Port::A.pin(9),
             ksz8463::ResetSpeed::Slow,
         );
+        let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-        Self { ksz }
+        Self { ksz, leds }
     }
 
     pub fn configure_ethernet_pins(&self, sys: &Sys) {
@@ -170,6 +179,9 @@ impl Bsp {
     }
 
     pub fn configure_phy(&self, eth: &mut eth::Ethernet, sys: &Sys) {
+        self.leds.led_off(0).unwrap();
+        self.leds.led_on(3).unwrap();
+
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
         self.ksz.configure(sys);
@@ -179,6 +191,9 @@ impl Bsp {
         // over SGMII
         configure_vsc8552(eth, sys);
         ringbuf_entry!(Trace::Vsc8552Configured);
+
+        self.leds.led_on(0).unwrap();
+        self.leds.led_off(3).unwrap();
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
@@ -216,6 +231,8 @@ impl Bsp {
             Err(err) => Trace::KszErr { err },
         });
 
+        let mut any_coma = false;
+        let mut any_link = false;
         for i in [0, 1] {
             let port = VSC8552_PORT + i;
             let mut phy = Phy {
@@ -256,9 +273,30 @@ impl Bsp {
             ringbuf_entry!(match phy
                 .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())
             {
-                Ok(status) => Trace::Vsc8552MacPcsStatus { port, status },
+                Ok(status) => {
+                    any_link |= (status.0 & (1 << 2)) != 0;
+                    any_coma |= (status.0 & (1 << 0)) != 0;
+                    Trace::Vsc8552MacPcsStatus { port, status }
+                }
                 Err(err) => Trace::Vsc8552Err { err },
             });
+            ringbuf_entry!(match phy
+                .read(phy::EXTENDED_3::MEDIA_SERDES_STATUS())
+            {
+                Ok(status) => Trace::Vsc8552MediaSerdesStatus { port, status },
+                Err(err) => Trace::Vsc8552Err { err },
+            });
+        }
+
+        if any_link {
+            self.leds.led_on(1).unwrap();
+        } else {
+            self.leds.led_off(1).unwrap();
+        }
+        if any_coma {
+            self.leds.led_on(2).unwrap();
+        } else {
+            self.leds.led_off(2).unwrap();
         }
     }
 }
