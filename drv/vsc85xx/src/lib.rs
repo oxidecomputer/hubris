@@ -293,19 +293,6 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
         // 100BASE-FX fiber/SFP on the fiber media pins only
         r.set_media_operating_mode(0b011);
     })?;
-    v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-        // We have to edit some non-standard bits, so we manipulate the u16
-        // directly then convert back.
-        let mut v = u16::from(*r);
-        v |= 1 << 8; // Full duplex
-
-        // Select 100M speed to 0b01
-        v |= 1 << 13; // Set LSB of forced speed selection
-        v &= !(1 << 6); // Clear MSB of forced speed selection
-
-        *r = v.into();
-        r.set_auto_neg_ena(0);
-    })?;
 
     // Enable 2 ports Media 100BASE-FX
     v.cmd(0x8FD1)?;
