@@ -116,6 +116,21 @@ impl<P: PhyRw> Phy<'_, P> {
         self.rw.write_raw(self.port, reg, value)
     }
 
+    pub fn write_with<T, F>(
+        &mut self,
+        reg: PhyRegisterAddress<T>,
+        f: F,
+    ) -> Result<(), VscError>
+    where
+        T: From<u16> + Clone,
+        u16: From<T>,
+        F: Fn(&mut T),
+    {
+        let mut data = 0.into();
+        f(&mut data);
+        self.write(reg, data)
+    }
+
     /// Performs a read-modify-write operation on a PHY register connected
     /// to the VSC7448 via MIIM.
     pub fn modify<T, F>(
