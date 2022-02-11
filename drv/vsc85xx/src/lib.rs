@@ -283,7 +283,10 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
         // directly then convert back.
         let mut v = u16::from(*r);
         v |= 1 << 8; // Full duplex
-        v = (v & !(0b11 << 13)) | (0b01 << 13); // 100 Mbps
+
+        // Select 100M speed to 0b01
+        v |= 1 << 13; // Set LSB of forced speed selection
+        v &= !(1 << 6); // Clear MSB of forced speed selection
 
         *r = v.into();
         r.set_auto_neg_ena(0);
