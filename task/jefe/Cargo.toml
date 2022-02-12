@@ -22,9 +22,8 @@ itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
 log-null = ["userlib/log-null"]
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "task-jefe"
+[lib]
+name = "task_jefe"
 test = false
 bench = false
+crate_type = ["staticlib"]

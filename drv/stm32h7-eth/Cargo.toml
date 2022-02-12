@@ -14,7 +14,7 @@ ipv6 = []
 [dependencies]
 cortex-m = "0.7"
 userlib = {path = "../../sys/userlib"}
-stm32h7 = {version = "0.13", default-features = false}
+stm32h7 = {version = "0.14", default-features = false}
 
 [dependencies.smoltcp]
 optional = true

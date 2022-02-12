@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-stm32h7 = {version = "0.13", features = ["stm32h743"]}
+stm32h7 = {version = "0.14", features = ["stm32h743"]}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 num-traits = {version = "0.2.12", default-features = false}

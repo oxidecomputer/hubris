@@ -291,6 +291,43 @@ pub fn package(
         File::create(Path::new(&format!("target/table.ld"))).unwrap();
     }
 
+    // Accumulate multibuild targets then build them all at once
+    let mut multibuild = vec![];
+    for name in toml.tasks.keys() {
+        // Implement task name filter. If we're only building a subset of tasks,
+        // skip the other ones here.
+        if let Some(included_names) = &tasks_to_build {
+            if !included_names.contains(name) {
+                continue;
+            }
+        }
+        let task_toml = &toml.tasks[name];
+        if task_toml.config.is_none() {
+            multibuild.push(TaskConfig {
+                name: &task_toml.name,
+                path: src_dir.join(&task_toml.path),
+                features: &task_toml.features,
+            });
+        }
+    }
+    if !multibuild.is_empty() {
+        build_many(
+            &toml.target,
+            &multibuild,
+            &toml.board,
+            &out,
+            verbose,
+            edges,
+            &task_names,
+            &remap_paths,
+            &toml.secure,
+            &shared_syms,
+            &toml.config,
+            &[],
+        )
+        .context("Multibuild failed")?;
+    }
+
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
         // skip the other ones here.
@@ -316,24 +353,35 @@ pub fn package(
 
         fs::copy("build/task-link.x", "target/link.x")?;
 
-        build(
-            &toml.target,
-            &toml.board,
-            &src_dir.join(&task_toml.path),
-            &task_toml.name,
-            &task_toml.features,
-            out.join(name),
-            verbose,
-            edges,
-            &task_names,
-            &remap_paths,
-            &toml.secure,
-            &shared_syms,
-            &task_toml.config,
-            &toml.config,
-            &[],
-        )
-        .context(format!("failed to build {}", name))?;
+        // Used for linking of static tasks
+        fs::copy("target/link.x", out.join("link.x"))?;
+        fs::copy("target/memory.x", out.join("memory.x"))?;
+        fs::copy("target/table.ld", out.join("table.ld"))?;
+
+        if task_toml.config.is_none() {
+            // TODO: link
+            link_static_task(&task_toml.name, &out, verbose)
+                .context(format!("Failed to link static task {}", name))?;
+        } else {
+            build(
+                &toml.target,
+                &toml.board,
+                &src_dir.join(&task_toml.path),
+                &task_toml.name,
+                &task_toml.features,
+                out.join(name),
+                verbose,
+                edges,
+                &task_names,
+                &remap_paths,
+                &toml.secure,
+                &shared_syms,
+                &task_toml.config,
+                &toml.config,
+                &[],
+            )
+            .context(format!("failed to build {}", name))?;
+        }
 
         resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
 
@@ -915,6 +963,190 @@ fn generate_kernel_linker_script(
     Ok(())
 }
 
+struct TaskConfig<'a> {
+    name: &'a str,
+    path: PathBuf,
+    features: &'a [String],
+}
+
+fn build_many(
+    target: &str,
+    tasks: &[TaskConfig],
+    board_name: &str,
+    dest: &PathBuf,
+    verbose: bool,
+    edges: bool,
+    task_names: &str,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+    secure: &Option<bool>,
+    shared_syms: &Option<&[String]>,
+    app_config: &Option<ordered_toml::Value>,
+    extra_env: &[(&str, &str)],
+) -> Result<()> {
+    // NOTE: current_dir's docs suggest that you should use canonicalize for
+    // portability. However, that's for when you're doing stuff like:
+    //
+    // Command::new("../cargo")
+    //
+    // That is, when you have a relative path to the binary being executed. We
+    // are not including a path in the binary name, so everything is peachy. If
+    // you change this line below, make sure to canonicalize path.
+    let mut cmd = Command::new("cargo");
+    cmd.arg("build")
+        .arg("--release")
+        .arg("--no-default-features")
+        .arg("--target")
+        .arg(target);
+
+    if verbose {
+        cmd.arg("-v");
+    }
+    for t in tasks {
+        cmd.arg("-p");
+        cmd.arg(t.name);
+        let features = t
+            .features
+            .iter()
+            .map(|f| format!("{}/{}", t.name, f))
+            .collect::<Vec<String>>();
+        if !t.features.is_empty() {
+            cmd.arg("--features");
+            cmd.arg(features.join(","));
+        }
+    }
+
+    let remap_path_prefix: String = remap_paths
+        .iter()
+        .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
+        .collect();
+    cmd.env(
+        "RUSTFLAGS",
+        &format!(
+            "-C llvm-args=--enable-machine-outliner=never \
+             -C overflow-checks=y \
+             {}
+             ",
+            remap_path_prefix,
+        ),
+    );
+    cmd.env("CARGO_TARGET_DIR", dest);
+
+    cmd.env("HUBRIS_TASKS", task_names);
+    cmd.env("HUBRIS_BOARD", board_name);
+
+    for (var, value) in extra_env {
+        cmd.env(var, value);
+    }
+
+    if let Some(s) = shared_syms {
+        if !s.is_empty() {
+            cmd.env("SHARED_SYMS", s.join(","));
+        }
+    }
+
+    if let Some(s) = secure {
+        if *s {
+            cmd.env("HUBRIS_SECURE", "1");
+        } else {
+            cmd.env("HUBRIS_SECURE", "0");
+        }
+    }
+
+    //
+    // We allow for task- and app-specific configuration to be passed
+    // via environment variables to build.rs scripts that may choose to
+    // incorporate configuration into compilation.
+    //
+    if let Some(app_config) = app_config {
+        let env = toml::to_string(&app_config).unwrap();
+        cmd.env("HUBRIS_APP_CONFIG", env);
+    }
+
+    if edges {
+        let mut tree = Command::new("cargo");
+        tree.arg("tree")
+            .arg("--no-default-features")
+            .arg("--edges")
+            .arg("features")
+            .arg("--verbose");
+
+        for t in tasks {
+            tree.arg("-p");
+            tree.arg(t.name);
+            let features = t
+                .features
+                .iter()
+                .map(|f| format!("{}/{}", t.name, f))
+                .collect::<Vec<String>>();
+            if !t.features.is_empty() {
+                tree.arg("--features");
+                tree.arg(features.join(","));
+            }
+        }
+        println!("Running cargo {:?}", tree);
+        let tree_status = tree
+            .status()
+            .context(format!("failed to run edge ({:?})", tree))?;
+        if !tree_status.success() {
+            bail!("tree command failed, see output for details");
+        }
+    }
+
+    println!("{:?}", cmd);
+    let status = cmd
+        .status()
+        .context(format!("failed to run rustc ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
+    for t in tasks {
+        let mut cargo_out = dest.clone();
+        cargo_out.push(target);
+        cargo_out.push("release");
+        cargo_out.push(format!("lib{}.a", t.name.replace("-", "_")));
+
+        let mut dest = dest.clone();
+        dest.push(format!("{}.a", t.name.replace("-", "_")));
+
+        println!("{} -> {}", cargo_out.display(), dest.display());
+        std::fs::copy(&cargo_out, dest)?;
+    }
+    Ok(())
+}
+
+fn link_static_task(name: &str, dest: &PathBuf, verbose: bool) -> Result<()> {
+    println!("linking task {}", name);
+
+    let mut cmd = Command::new("arm-none-eabi-ld");
+    if verbose {
+        cmd.arg("--verbose");
+    }
+
+    cmd.arg("-Tlink.x");
+    cmd.arg("-z");
+    cmd.arg("common-page-size=0x20");
+    cmd.arg("-z");
+    cmd.arg("max-page-size=0x20");
+
+    cmd.arg("-o");
+    cmd.arg(name);
+    cmd.arg(format!("{}.a", name.replace("-", "_")));
+
+    cmd.current_dir(dest);
+
+    let status = cmd
+        .status()
+        .context(format!("failed to run linker ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
+    Ok(())
+}
+
 fn build(
     target: &str,
     board_name: &str,
@@ -957,7 +1189,7 @@ fn build(
         cmd.arg(features.join(","));
     }
 
-    let mut cargo_out = cargo_output_dir(target, path)?;
+    let mut cargo_out = cargo_output_dir(target, Some(path))?;
 
     // the target dir for each project is set to the same dir, but it ends up
     // looking something like:
@@ -1276,7 +1508,7 @@ fn allocate_one(
     Ok(base..end)
 }
 
-fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
+fn cargo_output_dir(target: &str, path: Option<&Path>) -> Result<PathBuf> {
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
     //
@@ -1287,7 +1519,9 @@ fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
     // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
     cmd.arg("metadata").arg("--filter-platform").arg(target);
-    cmd.current_dir(path);
+    if let Some(path) = path {
+        cmd.current_dir(path);
+    }
 
     let output = cmd.output()?;
     if !output.status.success() {

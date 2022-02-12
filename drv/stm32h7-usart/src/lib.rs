@@ -203,9 +203,7 @@ fn step_transmit(
 
     if let Some(byte) = txs.caller.borrow(0).read_at::<u8>(txs.pos) {
         // Stuff byte into transmitter.
-        usart
-            .tdr
-            .write(|w| unsafe { w.tdr().bits(u16::from(byte)) });
+        usart.tdr.write(|w| w.tdr().bits(u16::from(byte)));
 
         txs.pos += 1;
         if txs.pos == txs.len {

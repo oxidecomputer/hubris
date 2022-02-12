@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-stm32h7 = { version = "0.13.0", default-features = false }
+stm32h7 = { version = "0.14.0", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
 cfg-if = "0.1.10"
@@ -24,3 +24,9 @@ idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743", "drv-stm32h7-qspi/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
+
+[lib]
+name = "drv_gimlet_hf_server"
+test = false
+bench = false
+crate_type = ["staticlib"]
