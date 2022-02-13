@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
+use filetime::FileTime;
 
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -313,24 +314,23 @@ pub fn package(
             features: &task_toml.features,
         });
     }
-    if !multibuild.is_empty() {
-        build_many(
-            &toml.target,
-            &multibuild,
-            &toml.board,
-            &out,
-            verbose,
-            edges,
-            &task_names,
-            &remap_paths,
-            &toml.secure,
-            &shared_syms,
-            &toml.config,
-            &task_config,
-            &[],
-        )
-        .context("Multibuild failed")?;
-    }
+    assert!(!multibuild.is_empty());
+    let needs_relink = build_many(
+        &toml.target,
+        &multibuild,
+        &toml.board,
+        &out,
+        verbose,
+        edges,
+        &task_names,
+        &remap_paths,
+        &toml.secure,
+        &shared_syms,
+        &toml.config,
+        &task_config,
+        &[],
+    )
+    .context("Multibuild failed")?;
 
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
@@ -356,14 +356,16 @@ pub fn package(
         .context(format!("failed to generate linker script for {}", name))?;
 
         // The static task linker runs in the target subfolder
-        fs::copy("build/task-link.x", out.join("link.x"))
-            .context("Failed to copy task-link.x for static build")?;
-        fs::copy("target/memory.x", out.join("memory.x"))
-            .context("Failed to copy target/memory.x")?;
-        fs::copy("target/table.ld", out.join("table.ld"))
-            .context("Failed to copy target/table.ld")?;
-        link_static_task(name, &out, verbose)
-            .context(format!("Failed to link static task {}", name))?;
+        if needs_relink.contains(name.as_str()) {
+            fs::copy("build/task-link.x", out.join("link.x"))
+                .context("Failed to copy task-link.x for static build")?;
+            fs::copy("target/memory.x", out.join("memory.x"))
+                .context("Failed to copy target/memory.x")?;
+            fs::copy("target/table.ld", out.join("table.ld"))
+                .context("Failed to copy target/table.ld")?;
+            link_static_task(name, &out, verbose)
+                .context(format!("Failed to link static task {}", name))?;
+        }
 
         resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
 
@@ -948,21 +950,21 @@ struct TaskConfig<'a> {
     features: &'a [String],
 }
 
-fn build_many(
-    target: &str,
-    tasks: &[TaskConfig],
-    board_name: &str,
-    dest: &PathBuf,
+fn build_many<'a>(
+    target: &'a str,
+    tasks: &'a [TaskConfig],
+    board_name: &'a str,
+    dest: &'a PathBuf,
     verbose: bool,
     edges: bool,
-    task_names: &str,
-    remap_paths: &BTreeMap<PathBuf, &str>,
-    secure: &Option<bool>,
-    shared_syms: &Option<&[String]>,
-    app_config: &Option<ordered_toml::Value>,
-    task_config: &Option<ordered_toml::Value>,
-    extra_env: &[(&str, &str)],
-) -> Result<()> {
+    task_names: &'a str,
+    remap_paths: &'a BTreeMap<PathBuf, &str>,
+    secure: &'a Option<bool>,
+    shared_syms: &'a Option<&[String]>,
+    app_config: &'a Option<ordered_toml::Value>,
+    task_config: &'a Option<ordered_toml::Value>,
+    extra_env: &'a [(&str, &str)],
+) -> Result<HashSet<&'a str>> {
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
     //
@@ -1084,19 +1086,37 @@ fn build_many(
         bail!("command failed, see output for details");
     }
 
+    // Check if each task has changed
+    let mut out = HashSet::new();
     for t in tasks {
-        let mut cargo_out = dest.clone();
-        cargo_out.push(target);
-        cargo_out.push("release");
-        cargo_out.push(format!("lib{}.a", t.crate_name.replace("-", "_")));
+        let mut src = dest.clone();
+        src.push(target);
+        src.push("release");
+        src.push(format!("lib{}.a", t.crate_name.replace("-", "_")));
 
         let mut dest = dest.clone();
         dest.push(format!("{}.a", t.task_name));
 
-        println!("{} -> {}", cargo_out.display(), dest.display());
-        std::fs::copy(&cargo_out, dest)?;
+        let changed = if let Some(dest_meta) =
+            std::fs::metadata(dest.clone()).ok()
+        {
+            let dest_mtime = FileTime::from_last_modification_time(&dest_meta);
+
+            let src_meta = std::fs::metadata(src.clone()).unwrap();
+            let src_mtime = FileTime::from_last_modification_time(&src_meta);
+
+            dest_mtime < src_mtime
+        } else {
+            true
+        };
+
+        if changed {
+            println!("{} -> {}", src.display(), dest.display());
+            std::fs::copy(&src, dest)?;
+            out.insert(t.task_name);
+        }
     }
-    Ok(())
+    Ok(out)
 }
 
 fn link_static_task(

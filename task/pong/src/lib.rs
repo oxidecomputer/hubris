@@ -11,7 +11,7 @@ task_slot!(USER_LEDS, user_leds);
 
 #[export_name = "main"]
 pub fn main() -> ! {
-    const TIMER_NOTIFICATION: u32 = 1;
+    const TIMER_NOTIFICATION: u32 = 0;
     const INTERVAL: u64 = 500;
 
     let mut response: u32 = 0;
