@@ -18,7 +18,7 @@ pub fn main() -> ! {
 
     let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-    let mut current = 0;
+    let mut current = 1;
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
     sys_set_timer(Some(dl), TIMER_NOTIFICATION);

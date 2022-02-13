@@ -293,6 +293,7 @@ pub fn package(
 
     // Accumulate multibuild targets then build them all at once
     let mut multibuild = vec![];
+    let mut task_config = None;
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
         // skip the other ones here.
@@ -302,13 +303,15 @@ pub fn package(
             }
         }
         let task_toml = &toml.tasks[name];
-        if task_toml.config.is_none() {
-            multibuild.push(TaskConfig {
-                name: &task_toml.name,
-                path: src_dir.join(&task_toml.path),
-                features: &task_toml.features,
-            });
+        if let Some(c) = &task_toml.config {
+            assert!(task_config.is_none());
+            task_config = Some(c.clone());
         }
+        multibuild.push(TaskConfig {
+            crate_name: &task_toml.name,
+            task_name: name,
+            features: &task_toml.features,
+        });
     }
     if !multibuild.is_empty() {
         build_many(
@@ -323,6 +326,7 @@ pub fn package(
             &toml.secure,
             &shared_syms,
             &toml.config,
+            &task_config,
             &[],
         )
         .context("Multibuild failed")?;
@@ -351,37 +355,15 @@ pub fn package(
         )
         .context(format!("failed to generate linker script for {}", name))?;
 
-        fs::copy("build/task-link.x", "target/link.x")?;
-
-        // Used for linking of static tasks
-        fs::copy("target/link.x", out.join("link.x"))?;
-        fs::copy("target/memory.x", out.join("memory.x"))?;
-        fs::copy("target/table.ld", out.join("table.ld"))?;
-
-        if task_toml.config.is_none() {
-            // TODO: link
-            link_static_task(&task_toml.name, &out, verbose)
-                .context(format!("Failed to link static task {}", name))?;
-        } else {
-            build(
-                &toml.target,
-                &toml.board,
-                &src_dir.join(&task_toml.path),
-                &task_toml.name,
-                &task_toml.features,
-                out.join(name),
-                verbose,
-                edges,
-                &task_names,
-                &remap_paths,
-                &toml.secure,
-                &shared_syms,
-                &task_toml.config,
-                &toml.config,
-                &[],
-            )
-            .context(format!("failed to build {}", name))?;
-        }
+        // The static task linker runs in the target subfolder
+        fs::copy("build/task-link.x", out.join("link.x"))
+            .context("Failed to copy task-link.x for static build")?;
+        fs::copy("target/memory.x", out.join("memory.x"))
+            .context("Failed to copy target/memory.x")?;
+        fs::copy("target/table.ld", out.join("table.ld"))
+            .context("Failed to copy target/table.ld")?;
+        link_static_task(name, &out, verbose)
+            .context(format!("Failed to link static task {}", name))?;
 
         resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
 
@@ -428,9 +410,6 @@ pub fn package(
         &allocs.kernel,
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
-
-    // this one was for the tasks, but we don't want to use it for the kernel
-    fs::remove_file("target/link.x")?;
 
     // Build the kernel.
     build(
@@ -964,8 +943,8 @@ fn generate_kernel_linker_script(
 }
 
 struct TaskConfig<'a> {
-    name: &'a str,
-    path: PathBuf,
+    crate_name: &'a str,
+    task_name: &'a str,
     features: &'a [String],
 }
 
@@ -981,6 +960,7 @@ fn build_many(
     secure: &Option<bool>,
     shared_syms: &Option<&[String]>,
     app_config: &Option<ordered_toml::Value>,
+    task_config: &Option<ordered_toml::Value>,
     extra_env: &[(&str, &str)],
 ) -> Result<()> {
     // NOTE: current_dir's docs suggest that you should use canonicalize for
@@ -1001,18 +981,17 @@ fn build_many(
     if verbose {
         cmd.arg("-v");
     }
+    let mut features = vec![];
     for t in tasks {
         cmd.arg("-p");
-        cmd.arg(t.name);
-        let features = t
-            .features
-            .iter()
-            .map(|f| format!("{}/{}", t.name, f))
-            .collect::<Vec<String>>();
-        if !t.features.is_empty() {
-            cmd.arg("--features");
-            cmd.arg(features.join(","));
+        cmd.arg(t.crate_name);
+        for f in t.features {
+            features.push(format!("{}/{}", t.crate_name, f));
         }
+    }
+    if !features.is_empty() {
+        cmd.arg("--features");
+        cmd.arg(features.join(","));
     }
 
     let remap_path_prefix: String = remap_paths
@@ -1057,6 +1036,10 @@ fn build_many(
     // via environment variables to build.rs scripts that may choose to
     // incorporate configuration into compilation.
     //
+    if let Some(config) = task_config {
+        let env = toml::to_string(&config).unwrap();
+        cmd.env("HUBRIS_TASK_CONFIG", env);
+    }
     if let Some(app_config) = app_config {
         let env = toml::to_string(&app_config).unwrap();
         cmd.env("HUBRIS_APP_CONFIG", env);
@@ -1072,11 +1055,11 @@ fn build_many(
 
         for t in tasks {
             tree.arg("-p");
-            tree.arg(t.name);
+            tree.arg(t.crate_name);
             let features = t
                 .features
                 .iter()
-                .map(|f| format!("{}/{}", t.name, f))
+                .map(|f| format!("{}/{}", t.crate_name, f))
                 .collect::<Vec<String>>();
             if !t.features.is_empty() {
                 tree.arg("--features");
@@ -1092,7 +1075,7 @@ fn build_many(
         }
     }
 
-    println!("{:?}", cmd);
+    println!("Building everything with {:?}", cmd);
     let status = cmd
         .status()
         .context(format!("failed to run rustc ({:?})", cmd))?;
@@ -1105,10 +1088,10 @@ fn build_many(
         let mut cargo_out = dest.clone();
         cargo_out.push(target);
         cargo_out.push("release");
-        cargo_out.push(format!("lib{}.a", t.name.replace("-", "_")));
+        cargo_out.push(format!("lib{}.a", t.crate_name.replace("-", "_")));
 
         let mut dest = dest.clone();
-        dest.push(format!("{}.a", t.name.replace("-", "_")));
+        dest.push(format!("{}.a", t.task_name));
 
         println!("{} -> {}", cargo_out.display(), dest.display());
         std::fs::copy(&cargo_out, dest)?;
@@ -1116,23 +1099,28 @@ fn build_many(
     Ok(())
 }
 
-fn link_static_task(name: &str, dest: &PathBuf, verbose: bool) -> Result<()> {
-    println!("linking task {}", name);
+fn link_static_task(
+    task_name: &str,
+    dest: &PathBuf,
+    verbose: bool,
+) -> Result<()> {
+    println!("linking task {}", task_name);
 
     let mut cmd = Command::new("arm-none-eabi-ld");
     if verbose {
         cmd.arg("--verbose");
     }
 
+    cmd.arg(format!("{}.a", task_name));
+    cmd.arg("-o");
+    cmd.arg(task_name);
+
     cmd.arg("-Tlink.x");
     cmd.arg("-z");
     cmd.arg("common-page-size=0x20");
     cmd.arg("-z");
     cmd.arg("max-page-size=0x20");
-
-    cmd.arg("-o");
-    cmd.arg(name);
-    cmd.arg(format!("{}.a", name.replace("-", "_")));
+    cmd.arg("--gc-sections");
 
     cmd.current_dir(dest);
 

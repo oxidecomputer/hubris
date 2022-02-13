@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+userlib = {path = "../../sys/userlib"}
 stm32h7 = { version = "0.14.0", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
