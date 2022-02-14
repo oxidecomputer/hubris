@@ -957,17 +957,9 @@ fn build(
         cmd.arg(features.join(","));
     }
 
-    let mut cargo_out = cargo_output_dir(target, path)?;
-
-    // the target dir for each project is set to the same dir, but it ends up
-    // looking something like:
-    //
-    // foo/bar/../target
-    // foo/baz/../target
-    //
-    // these resolve to the same dirs but since their text changes, this causes
-    // rebuilds. by canonicalizing it, you get foo/target for every one.
-    let canonical_cargo_out_dir = fs::canonicalize(&cargo_out)?;
+    // This works because we control the environment in which we're about
+    // to invoke cargo, and never modify CARGO_TARGET in that environment.
+    let mut cargo_out = Path::new("target").to_path_buf();
 
     let remap_path_prefix: String = remap_paths
         .iter()
@@ -985,7 +977,7 @@ fn build(
              -C overflow-checks=y \
              {}
              ",
-            canonical_cargo_out_dir.display(),
+            cargo_out.display(),
             remap_path_prefix,
         ),
     );
@@ -1274,28 +1266,6 @@ fn allocate_one(
     avail.start = end;
 
     Ok(base..end)
-}
-
-fn cargo_output_dir(target: &str, path: &Path) -> Result<PathBuf> {
-    // NOTE: current_dir's docs suggest that you should use canonicalize for
-    // portability. However, that's for when you're doing stuff like:
-    //
-    // Command::new("../cargo")
-    //
-    // That is, when you have a relative path to the binary being executed. We
-    // are not including a path in the binary name, so everything is peachy. If
-    // you change this line below, make sure to canonicalize path.
-    let mut cmd = Command::new("cargo");
-    cmd.arg("metadata").arg("--filter-platform").arg(target);
-    cmd.current_dir(path);
-
-    let output = cmd.output()?;
-    if !output.status.success() {
-        bail!("command failed, see output for details");
-    }
-
-    let meta: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    Ok(PathBuf::from(meta["target_directory"].as_str().unwrap()))
 }
 
 #[derive(Serialize)]
