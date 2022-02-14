@@ -12,6 +12,7 @@ use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
 
+use filetime::FileTime;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
@@ -278,8 +279,7 @@ pub fn package(
 
         f.read_to_end(&mut bytes)?;
 
-        let mut linkscr =
-            File::create(Path::new(&format!("target/table.ld"))).unwrap();
+        let mut linkscr = File::create(out.join("table.ld")).unwrap();
 
         for b in bytes {
             writeln!(linkscr, "BYTE(0x{:x})", b).unwrap();
@@ -288,7 +288,7 @@ pub fn package(
         drop(linkscr);
     } else {
         // Just create a new empty file
-        File::create(Path::new(&format!("target/table.ld"))).unwrap();
+        File::create(out.join("table.ld")).unwrap();
     }
 
     for name in toml.tasks.keys() {
@@ -302,7 +302,7 @@ pub fn package(
         let task_toml = &toml.tasks[name];
 
         generate_task_linker_script(
-            "memory.x",
+            &out.join("memory.x"),
             &allocs.tasks[name],
             Some(&task_toml.sections),
             task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
@@ -314,15 +314,16 @@ pub fn package(
         )
         .context(format!("failed to generate linker script for {}", name))?;
 
-        fs::copy("build/task-link.x", "target/link.x")?;
+        fs::copy("build/task-link.x", out.join("link.x"))
+            .context("Failed to copy task-link.x for static build")?;
 
-        build(
+        build_static(
             &toml.target,
             &toml.board,
-            &src_dir.join(&task_toml.path),
+            name,
             &task_toml.name,
             &task_toml.features,
-            out.join(name),
+            &out,
             verbose,
             edges,
             &task_names,
@@ -380,9 +381,6 @@ pub fn package(
         &allocs.kernel,
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
-
-    // this one was for the tasks, but we don't want to use it for the kernel
-    fs::remove_file("target/link.x")?;
 
     // Build the kernel.
     build(
@@ -798,13 +796,13 @@ fn generate_bootloader_linker_script(
 }
 
 fn generate_task_linker_script(
-    name: &str,
+    path: &PathBuf,
     map: &BTreeMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
-    let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
+    let mut linkscr = File::create(path)?;
 
     fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
@@ -911,6 +909,193 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_base = 0x{:08x};", stack_base.unwrap()).unwrap();
     writeln!(linkscr, "_stack_start = 0x{:08x};", stack_start.unwrap())
         .unwrap();
+
+    Ok(())
+}
+
+fn link_static(task_name: &str, dest: &PathBuf, verbose: bool) -> Result<()> {
+    println!("linking task {}", task_name);
+
+    let mut cmd = Command::new("arm-none-eabi-ld");
+    if verbose {
+        cmd.arg("--verbose");
+    }
+
+    cmd.arg(format!("{}.a", task_name));
+    cmd.arg("-o");
+    cmd.arg(task_name);
+
+    cmd.arg("-Tlink.x");
+    cmd.arg("-z");
+    cmd.arg("common-page-size=0x20");
+    cmd.arg("-z");
+    cmd.arg("max-page-size=0x20");
+    cmd.arg("--gc-sections");
+
+    cmd.current_dir(dest);
+
+    let status = cmd
+        .status()
+        .context(format!("failed to run linker ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
+    Ok(())
+}
+
+fn build_static(
+    target_triple: &str,
+    board_name: &str,
+    task_name: &str,
+    crate_name: &str,
+    features: &[String],
+    dest: &PathBuf,
+    verbose: bool,
+    edges: bool,
+    task_names: &str,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+    secure: &Option<bool>,
+    shared_syms: &Option<&[String]>,
+    config: &Option<ordered_toml::Value>,
+    app_config: &Option<ordered_toml::Value>,
+    extra_env: &[(&str, &str)],
+) -> Result<()> {
+    println!("building task {}", crate_name);
+
+    // This should run in the root Hubris directory
+    let mut cmd = Command::new("cargo");
+    cmd.arg("build")
+        .arg("--release")
+        .arg("--no-default-features")
+        .arg("--target")
+        .arg(target_triple)
+        .arg("-p")
+        .arg(crate_name);
+
+    if verbose {
+        cmd.arg("-v");
+    }
+    if !features.is_empty() {
+        cmd.arg("--features");
+        // If you build more than one package in this `cargo build` invocation,
+        // then you would need to prefix each feature with its crate name, e.g.
+        // `hiffy/h753` (instead of just `h753`)
+        //
+        // (this is also true below when conditionally running `cargo tree`)
+        cmd.arg(features.join(","));
+    }
+
+    let remap_path_prefix: String = remap_paths
+        .iter()
+        .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
+        .collect();
+    cmd.env(
+        "RUSTFLAGS",
+        &format!(
+            "-C llvm-args=--enable-machine-outliner=never \
+             -C overflow-checks=y \
+             {}
+             ",
+            remap_path_prefix,
+        ),
+    );
+    cmd.env("CARGO_TARGET_DIR", dest);
+
+    cmd.env("HUBRIS_TASKS", task_names);
+    cmd.env("HUBRIS_BOARD", board_name);
+
+    for (var, value) in extra_env {
+        cmd.env(var, value);
+    }
+
+    if let Some(s) = shared_syms {
+        if !s.is_empty() {
+            cmd.env("SHARED_SYMS", s.join(","));
+        }
+    }
+
+    if let Some(s) = secure {
+        if *s {
+            cmd.env("HUBRIS_SECURE", "1");
+        } else {
+            cmd.env("HUBRIS_SECURE", "0");
+        }
+    }
+
+    //
+    // We allow for task- and app-specific configuration to be passed
+    // via environment variables to build.rs scripts that may choose to
+    // incorporate configuration into compilation.
+    //
+    if let Some(config) = config {
+        let env = toml::to_string(&config).unwrap();
+        cmd.env("HUBRIS_TASK_CONFIG", env);
+    }
+
+    if let Some(app_config) = app_config {
+        let env = toml::to_string(&app_config).unwrap();
+        cmd.env("HUBRIS_APP_CONFIG", env);
+    }
+
+    if edges {
+        let mut tree = Command::new("cargo");
+        tree.arg("tree")
+            .arg("--no-default-features")
+            .arg("--edges")
+            .arg("features")
+            .arg("--verbose")
+            .arg("-p")
+            .arg(crate_name);
+        if !features.is_empty() {
+            tree.arg("--features");
+            tree.arg(features.join(","));
+        }
+        println!("Running cargo {:?}", tree);
+        let tree_status = tree
+            .status()
+            .context(format!("failed to run edge ({:?})", tree))?;
+        if !tree_status.success() {
+            bail!("tree command failed, see output for details");
+        }
+    }
+
+    let status = cmd
+        .status()
+        .context(format!("failed to run rustc ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
+    let mut built_lib = dest.clone();
+    built_lib.push(target_triple);
+    built_lib.push("release");
+    built_lib.push(format!("lib{}.a", crate_name.replace("-", "_")));
+
+    let dest_elf = dest.join(format!("{}", task_name));
+    let changed =
+        if let Some(dest_meta) = std::fs::metadata(dest_elf.clone()).ok() {
+            let dest_mtime = FileTime::from_last_modification_time(&dest_meta);
+
+            let src_meta = std::fs::metadata(built_lib.clone()).unwrap();
+            let src_mtime = FileTime::from_last_modification_time(&src_meta);
+
+            dest_mtime < src_mtime
+        } else {
+            true
+        };
+
+    if changed {
+        let dest_lib = dest.join(format!("{}.a", task_name));
+        println!("{} -> {}", built_lib.display(), dest_lib.display());
+        std::fs::copy(&built_lib, dest_lib.clone()).context(format!(
+            "Could not copy built lib {:?} to {:?}",
+            built_lib, dest_lib
+        ))?;
+        link_static(task_name, dest, verbose)?;
+    }
 
     Ok(())
 }

@@ -50,8 +50,8 @@ target-enable = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-stm32h7-i2c-server"
+[lib]
+name = "drv_stm32h7_i2c_server"
 test = false
 bench = false
-
+crate_type = ["staticlib"]
