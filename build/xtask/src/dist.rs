@@ -291,6 +291,11 @@ pub fn package(
         File::create(out.join("table.ld")).unwrap();
     }
 
+    // Copy `task-link.x` to `dist/APP_NAME/link.x`, where it will be used
+    // by the static task builds.
+    fs::copy("build/task-link.x", out.join("link.x"))
+        .context("Failed to copy task-link.x")?;
+
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
         // skip the other ones here.
@@ -313,9 +318,6 @@ pub fn package(
             })?,
         )
         .context(format!("failed to generate linker script for {}", name))?;
-
-        fs::copy("build/task-link.x", out.join("link.x"))
-            .context("Failed to copy task-link.x for static build")?;
 
         build_static(
             &toml.target,
@@ -351,6 +353,9 @@ pub fn package(
 
         entry_points.insert(name.clone(), ep);
     }
+
+    // Clean up after ourselves
+    fs::remove_file(out.join("link.x"))?;
 
     // If we've done a partial build, we can't do the rest because we're missing
     // required information, so, escape.
