@@ -22,6 +22,8 @@ enum Trace {
     PhyScanError { miim: u8, phy: u8, err: VscError },
     PhyLinkChanged { port: u8, status: u16 },
     SgmiiError { dev: u8, err: VscError },
+    MacAddress([u8; 6]),
+    VscErr(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -29,6 +31,7 @@ pub struct Bsp<'a> {
     vsc7448: &'a Vsc7448Spi,
     leds: UserLeds,
     phy_link_up: [[bool; 24]; 2],
+    known_macs: [Option<[u8; 6]>; 16],
 }
 
 impl<'a> Bsp<'a> {
@@ -38,7 +41,8 @@ impl<'a> Bsp<'a> {
         let out = Bsp {
             vsc7448,
             leds,
-            phy_link_up: [[false; 24]; 2],
+            phy_link_up: Default::default(),
+            known_macs: Default::default(),
         };
         out.init()?;
         Ok(out)
@@ -220,7 +224,7 @@ impl<'a> Bsp<'a> {
         }
     }
 
-    fn wake(&mut self) {
+    fn wake(&mut self) -> Result<(), VscError> {
         let mut any_phy_up = false;
         for miim in [1, 2] {
             for phy in 0..24 {
@@ -242,12 +246,67 @@ impl<'a> Bsp<'a> {
         } else {
             self.leds.led_off(2).unwrap();
         }
+
+        // Dump the MAC tables
+        loop {
+            // Trigger a FIND_SMALLEST action then wait for it to finish
+            let ctrl = Vsc7448::LRN().COMMON().COMMON_ACCESS_CTRL();
+            self.vsc7448.write_with(ctrl, |r| {
+                r.set_cpu_access_cmd(0x6); // FIND_SMALLEST
+                r.set_mac_table_access_shot(0x1); // run
+            })?;
+            while self.vsc7448.read(ctrl)?.mac_table_access_shot() == 1 {
+                hl::sleep_for(1);
+            }
+
+            let msb = self
+                .vsc7448
+                .read(Vsc7448::LRN().COMMON().MAC_ACCESS_CFG_0())?
+                .mac_entry_mac_msb();
+            let lsb = self
+                .vsc7448
+                .read(Vsc7448::LRN().COMMON().MAC_ACCESS_CFG_1())?
+                .mac_entry_mac_lsb();
+            if msb == 0 && lsb == 0 {
+                break;
+            } else {
+                let mut mac = [0; 6];
+                mac[0..2].copy_from_slice(&msb.to_be_bytes()[2..]);
+                mac[2..6].copy_from_slice(&lsb.to_be_bytes());
+
+                // Inefficient but easy way to avoid logging MAC addresses
+                // repeatedly.  This will fail to scale for larger systems,
+                // where we'd want some kind of LRU cache, but is nice
+                // for debugging.
+                let mut mac_is_new = true;
+                for m in self.known_macs.iter_mut() {
+                    match m {
+                        Some(m) => {
+                            if *m == mac {
+                                mac_is_new = false;
+                                break;
+                            }
+                        }
+                        None => {
+                            *m = Some(mac);
+                            break;
+                        }
+                    }
+                }
+                if mac_is_new {
+                    ringbuf_entry!(Trace::MacAddress(mac));
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn run(&mut self) -> ! {
         loop {
-            hl::sleep_for(100);
-            self.wake();
+            hl::sleep_for(500);
+            if let Err(e) = self.wake() {
+                ringbuf_entry!(Trace::VscErr(e));
+            }
         }
     }
 }
