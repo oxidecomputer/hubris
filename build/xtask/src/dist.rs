@@ -957,6 +957,8 @@ fn build(
         cmd.arg(features.join(","));
     }
 
+    // This works because we control the environment in which we're about
+    // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let mut cargo_out = Path::new("target").to_path_buf();
 
     let remap_path_prefix: String = remap_paths
