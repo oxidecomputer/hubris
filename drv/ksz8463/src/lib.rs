@@ -26,6 +26,34 @@ pub enum MIBCounter {
     CountOverflow(u32),
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SourcePort {
+    Port1,
+    Port2,
+    Port3,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct MacTableEntry {
+    /// Specifies that there are no valid entries in the table
+    empty: bool,
+
+    /// Number of valid entries in the table, minus 1 (check `empty` as well)
+    count: u32,
+
+    /// Two-bit counter for internal aging
+    timestamp: u8,
+
+    /// Source port where the FID + MAC is learned
+    source: SourcePort,
+
+    /// Filter ID
+    fid: u8,
+
+    /// MAC address from the table
+    addr: [u8; 6],
+}
+
 /// Offsets used to access MIB counters
 /// (see Table 4-200 in the datasheet for details)
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -149,6 +177,12 @@ pub enum Register {
     /// MAC address register 3
     MACAR3 = 0x14,
 
+    /// Indirect access data register 1
+    IADR1 = 0x026,
+    /// Indirect access data register 2
+    IADR2 = 0x028,
+    /// Indirect access data register 3
+    IADR3 = 0x02a,
     /// Indirect access data register 4
     IADR4 = 0x02c,
     /// Indirect access data register 5
@@ -296,6 +330,61 @@ impl Ksz8463 {
         } else {
             Ok(MIBCounter::Count(value))
         }
+    }
+
+    /// Reads an entry from the dynamic MAC address table.
+    /// `addr` must be < 1024, otherwise this will panic.
+    pub fn read_dynamic_mac_table(
+        &self,
+        addr: u16,
+    ) -> Result<MacTableEntry, SpiError> {
+        assert!(addr < 1024);
+        self.write(Register::IACR, 0x1800 | addr)?;
+        // Wait for the "not ready" bit to be cleared
+        let d_71_64 = loop {
+            let d = self.read(Register::IADR1)?;
+            if d & (1 << 15) == 0 {
+                break d;
+            }
+        };
+        // This ordering of IADR reads is straight out of the datasheet;
+        // heaven forbid they be in a sensible order.
+        let d_63_48 = self.read(Register::IADR3)?;
+        let d_47_32 = self.read(Register::IADR2)?;
+        let d_31_16 = self.read(Register::IADR5)?;
+        let d_15_0 = self.read(Register::IADR4)?;
+
+        let empty = (d_71_64 & 4) != 0;
+
+        // Awkwardly stradling the line between two words...
+        let count = (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xF0) >> 8;
+
+        let timestamp = (d_63_48 >> 6) as u8 & 0b11;
+        let source = match (d_63_48 >> 4) & 0b11 {
+            0 => SourcePort::Port1,
+            1 => SourcePort::Port2,
+            2 => SourcePort::Port3,
+            _ => panic!("Invalid port"),
+        };
+        let fid = (d_63_48 & 0b1111) as u8;
+
+        let addr = [
+            (d_47_32 >> 8) as u8,
+            d_47_32 as u8,
+            (d_31_16 >> 8) as u8,
+            d_31_16 as u8,
+            (d_15_0 >> 8) as u8,
+            d_15_0 as u8,
+        ];
+
+        Ok(MacTableEntry {
+            empty,
+            count,
+            timestamp,
+            source,
+            fid,
+            addr,
+        })
     }
 
     /// Configures the KSZ8463 switch in 100BASE-FX mode.

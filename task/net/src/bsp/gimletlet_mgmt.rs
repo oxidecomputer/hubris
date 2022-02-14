@@ -39,6 +39,7 @@ enum Trace {
         port: u8,
         counter: MIBCounter,
     },
+    Ksz8463MacTable(ksz8463::MacTableEntry),
 
     Vsc8552Configured,
     Vsc8552Status {
@@ -232,6 +233,12 @@ impl Bsp {
             .read_mib_counter(2, MIBOffset::RxLoPriorityByte)
         {
             Ok(counter) => Trace::Ksz8463Counter { port: 2, counter },
+            Err(err) => Trace::KszErr { err },
+        });
+
+        // Read the MAC table for fun
+        ringbuf_entry!(match self.ksz.read_dynamic_mac_table(0) {
+            Ok(mac) => Trace::Ksz8463MacTable(mac),
             Err(err) => Trace::KszErr { err },
         });
 
