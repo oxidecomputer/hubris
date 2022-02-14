@@ -290,7 +290,6 @@ struct Output {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Task {
-    path: PathBuf,
     name: String,
     requires: IndexMap<String, u32>,
     priority: u32,
