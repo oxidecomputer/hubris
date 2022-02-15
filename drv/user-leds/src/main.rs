@@ -30,6 +30,7 @@
 #![no_std]
 #![no_main]
 
+use drv_user_leds_api::LedState;
 use idol_runtime::RequestError;
 use userlib::*;
 
@@ -109,6 +110,19 @@ impl idl::InOrderUserLedsImpl for ServerImpl {
     ) -> Result<(), RequestError<LedError>> {
         let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
         led_toggle(led);
+        Ok(())
+    }
+    fn led_set_state(
+        &mut self,
+        _: &RecvMessage,
+        index: usize,
+        state: LedState,
+    ) -> Result<(), RequestError<LedError>> {
+        let led = Led::from_usize(index).ok_or(LedError::NotPresent)?;
+        match state {
+            LedState::On => led_on(led),
+            LedState::Off => led_off(led),
+        };
         Ok(())
     }
 }
@@ -571,6 +585,7 @@ fn led_toggle(led: Led) {
 
 mod idl {
     use super::LedError;
+    use drv_user_leds_api::LedState;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

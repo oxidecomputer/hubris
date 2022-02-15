@@ -1020,6 +1020,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "idol",
  "idol-runtime",
  "lpc55-pac",
