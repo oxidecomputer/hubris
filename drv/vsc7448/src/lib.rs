@@ -5,6 +5,7 @@
 #![no_std]
 
 pub mod dev;
+pub mod mac;
 pub mod port;
 pub mod serdes10g;
 pub mod serdes1g;
