@@ -131,31 +131,36 @@ impl<'a> Bsp<'a> {
     ///
     /// `d2g5` must be a valid DEV2G5; `d10g` must be the DEV10G that it shadows
     fn init_10g_sgmii(&self, d2g5: u8, d10g: u8) -> Result<(), VscError> {
+        let d2g5 = DevGeneric::new_2g5(d2g5).unwrap();
+        let d10g = Dev10g::new(d10g).unwrap();
+        assert!(d2g5.port() == d10g.port());
+
         // We have to disable and flush the 10G port that shadows this port
-        port::port10g_flush(&Dev10g::new(d10g).unwrap(), self.vsc7448)?;
+        port::port10g_flush(&d10g, self.vsc7448)?;
 
         // "Configure the 10G Mux mode to DEV2G5"
         self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| match d10g {
-                0 => r.set_dev10g_0_mode(3),
-                1 => r.set_dev10g_1_mode(3),
-                2 => r.set_dev10g_2_mode(3),
-                3 => r.set_dev10g_3_mode(3),
-                d => panic!("Invalid DEV10G {}", d),
+            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+                match d10g.index() {
+                    0 => r.set_dev10g_0_mode(3),
+                    1 => r.set_dev10g_1_mode(3),
+                    2 => r.set_dev10g_2_mode(3),
+                    3 => r.set_dev10g_3_mode(3),
+                    d => panic!("Invalid DEV10G {}", d),
+                }
             })?;
 
-        let dev_2g5 = DevGeneric::new_2g5(d2g5)?;
         // This bit must be set when a 10G port runs below 10G speed
         self.vsc7448.modify(
-            Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
+            Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()),
             |r| {
                 r.set_dev10g_shadow_ena(1);
             },
         )?;
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
-        serdes10g_cfg_sgmii.apply(d10g, &self.vsc7448)?;
-        dev_2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
+        serdes10g_cfg_sgmii.apply(d10g.index(), &self.vsc7448)?;
+        d2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
         Ok(())
     }
 
