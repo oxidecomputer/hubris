@@ -48,6 +48,34 @@ impl<'a> Bsp<'a> {
         Ok(out)
     }
 
+    fn init_qsgmii(
+        &self,
+        dev_type: impl Fn(u8) -> Result<DevGeneric, VscError>,
+        ports: core::ops::Range<u8>,
+        serde: u8,
+    ) -> Result<(), VscError> {
+        assert!(ports.start + 4 == ports.end);
+
+        // Reset the PCS TX clock domain.  In the SDK, this is accompanied
+        // by the cryptic comment "BZ23738", which may refer to an errata
+        // of some kind?
+        for port in (ports.start + 1)..ports.end {
+            self.vsc7448.modify(
+                dev_type(port)?.regs().DEV_CFG_STATUS().DEV_RST_CTRL(),
+                |r| r.set_pcs_tx_rst(0),
+            )?;
+        }
+
+        // Configure SERDES6G_4 for QSGMII
+        serdes6g::Config::new(serdes6g::Mode::Qsgmii)
+            .apply(serde, &self.vsc7448)?;
+
+        for port in ports {
+            dev_type(port)?.init_sgmii(&self.vsc7448, Speed::Speed1G)?;
+        }
+        Ok(())
+    }
+
     /// Initializes four ports on front panel RJ45 connectors
     fn init_rj45(&self) -> Result<(), VscError> {
         // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
@@ -78,31 +106,26 @@ impl<'a> Bsp<'a> {
         // the chip is configured from reset)
         self.vsc7448
             .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                // Enable QSGMII mode for devices DEV1G_0, DEV1G_1, DEV1G_2, and
-                // DEV1G_3 via SerDes6G_4.
-                let ena = r.qsgmii_ena() | 1;
-                r.set_qsgmii_ena(ena);
+                // Enable QSGMII mode for all 12 QSGMII outputs
+                r.set_qsgmii_ena(0xFFF);
             })?;
-        for port in 0..4 {
-            // Reset the PCS TX clock domain.  In the SDK, this is accompanied
-            // by the cryptic comment "BZ23738", which may refer to an errata
-            // of some kind?
-            self.vsc7448.modify(
-                Vsc7448::DEV1G(port).DEV_CFG_STATUS().DEV_RST_CTRL(),
-                |r| {
-                    r.set_pcs_tx_rst(0);
-                },
-            )?;
-        }
 
-        // Configure SERDES6G_4 for QSGMII
-        serdes6g::Config::new(serdes6g::Mode::Qsgmii)
-            .apply(4, &self.vsc7448)?;
+        // See Table 8 in the datasheet for details about this
+        self.init_qsgmii(DevGeneric::new_1g, 0..4, 4)?;
+        self.init_qsgmii(DevGeneric::new_1g, 4..8, 5)?;
 
-        for port in 0..4 {
-            DevGeneric::new_1g(port)?
-                .init_sgmii(&self.vsc7448, Speed::Speed1G)?;
-        }
+        self.init_qsgmii(DevGeneric::new_2g5, 0..4, 6)?;
+        self.init_qsgmii(DevGeneric::new_2g5, 4..8, 7)?;
+        self.init_qsgmii(DevGeneric::new_2g5, 8..12, 8)?;
+        self.init_qsgmii(DevGeneric::new_2g5, 12..16, 9)?;
+        self.init_qsgmii(DevGeneric::new_2g5, 16..20, 10)?;
+        self.init_qsgmii(DevGeneric::new_2g5, 20..24, 11)?;
+
+        self.init_qsgmii(DevGeneric::new_1g, 8..12, 12)?;
+        self.init_qsgmii(DevGeneric::new_1g, 12..16, 13)?;
+        self.init_qsgmii(DevGeneric::new_1g, 16..20, 14)?;
+        self.init_qsgmii(DevGeneric::new_1g, 20..24, 15)?;
+
         Ok(())
     }
 
