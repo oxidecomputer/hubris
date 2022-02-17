@@ -138,7 +138,7 @@ impl<'a> Bsp<'a> {
         // HW_CFG is already set up for 10G on all four DEV10G
 
         let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
-        for dev in [0, 1] {
+        for dev in [2, 3] {
             let dev = Dev10g::new(dev)?;
             dev.init_sfi(&self.vsc7448)?;
             serdes_cfg.apply(dev.index(), &self.vsc7448)?;
@@ -204,8 +204,8 @@ impl<'a> Bsp<'a> {
         self.gpio_init()?;
         self.init_rj45()?;
         self.init_sfp()?;
-        self.init_10g_sgmii(27, 2)?; // DEV2G5_27, SERDES10G_2, S35
-        self.init_10g_sgmii(28, 3)?; // DEV2G5_28, SERDES10G_3, S36
+        self.init_10g_sgmii(25, 0)?; // DEV2G5_26, SERDES10G_1, S33
+        self.init_10g_sgmii(26, 1)?; // DEV2G5_26, SERDES10G_1, S34
 
         self.leds.led_off(0).unwrap();
         self.leds.led_on(3).unwrap();
