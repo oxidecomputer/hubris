@@ -5,7 +5,7 @@
 use crate::VscError;
 use drv_spi_api::SpiDevice;
 use ringbuf::*;
-use vsc7448_pac::{types::RegisterAddress, Vsc7448};
+use vsc7448_pac::{types::RegisterAddress, *};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -70,7 +70,7 @@ impl Vsc7448Spi {
         // returning data.
         //
         // This is controlled by setting DEVCPU_ORG:IF_CFGSTAT.IF_CFG in
-        // Vsc7448::init(), then by padding bytes in the `out` arrays in
+        // init(), then by padding bytes in the `out` arrays in
         // [read] and [write].
         //
         // Therefore, we should only read "too fast" if someone has modified
@@ -86,7 +86,7 @@ impl Vsc7448Spi {
             // reading IF_CFGSTAT itself, because that means something has
             // gone very deeply wrong.  This check also protects us from a
             // stack overflow.
-            let if_cfgstat = Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
+            let if_cfgstat = DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
             if reg.addr == if_cfgstat.addr {
                 panic!("Invalid nested read sentinel");
             }
@@ -192,7 +192,7 @@ impl Vsc7448Spi {
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
     pub fn serdes6g_read(&self, instance: u8) -> Result<(), VscError> {
-        let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+        let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes6g_rd_one_shot(1);
             r.set_serdes6g_addr(1 << instance);
@@ -211,7 +211,7 @@ impl Vsc7448Spi {
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
     pub fn serdes6g_write(&self, instance: u8) -> Result<(), VscError> {
-        let addr = Vsc7448::HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+        let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes6g_wr_one_shot(1);
             r.set_serdes6g_addr(1 << instance);
@@ -228,7 +228,7 @@ impl Vsc7448Spi {
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
     pub fn serdes1g_read(&self, instance: u8) -> Result<(), VscError> {
-        let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
+        let addr = HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes1g_rd_one_shot(1);
             r.set_serdes1g_addr(1 << instance);
@@ -245,7 +245,7 @@ impl Vsc7448Spi {
     /// value (as a bitmask) to a particular register with a read flag set,
     /// then waiting for the flag to autoclear.
     pub fn serdes1g_write(&self, instance: u8) -> Result<(), VscError> {
-        let addr = Vsc7448::HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
+        let addr = HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
         self.write_with(addr, |r| {
             r.set_serdes1g_wr_one_shot(1);
             r.set_serdes1g_addr(1 << instance);

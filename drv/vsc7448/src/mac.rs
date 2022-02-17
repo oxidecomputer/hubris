@@ -4,7 +4,7 @@
 //
 use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 /// Represents an entry in the VSC7448's MAC tables
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -25,7 +25,7 @@ pub struct MacTableEntry {
 
 pub fn next_mac(v: &Vsc7448Spi) -> Result<Option<MacTableEntry>, VscError> {
     // Trigger a FIND_SMALLEST action then wait for it to finish
-    let ctrl = Vsc7448::LRN().COMMON().COMMON_ACCESS_CTRL();
+    let ctrl = LRN().COMMON().COMMON_ACCESS_CTRL();
     v.write_with(ctrl, |r| {
         r.set_cpu_access_cmd(0x6); // FIND_SMALLEST
         r.set_mac_table_access_shot(0x1); // run
@@ -35,12 +35,12 @@ pub fn next_mac(v: &Vsc7448Spi) -> Result<Option<MacTableEntry>, VscError> {
     }
 
     let msb = v
-        .read(Vsc7448::LRN().COMMON().MAC_ACCESS_CFG_0())?
+        .read(LRN().COMMON().MAC_ACCESS_CFG_0())?
         .mac_entry_mac_msb();
     let lsb = v
-        .read(Vsc7448::LRN().COMMON().MAC_ACCESS_CFG_1())?
+        .read(LRN().COMMON().MAC_ACCESS_CFG_1())?
         .mac_entry_mac_lsb();
-    let cfg = v.read(Vsc7448::LRN().COMMON().MAC_ACCESS_CFG_2())?;
+    let cfg = v.read(LRN().COMMON().MAC_ACCESS_CFG_2())?;
     if msb == 0 && lsb == 0 {
         Ok(None)
     } else {

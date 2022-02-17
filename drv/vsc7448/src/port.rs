@@ -12,7 +12,7 @@ use crate::{
     VscError,
 };
 use userlib::hl;
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 /// Flushes a particular 1G port.  This is equivalent to `jr2_port_flush`
 /// in the MESA toolkit.
@@ -40,7 +40,7 @@ pub fn port1g_flush(dev: &DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
     })?;
 
     // 11: Clear flushing
-    v.modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+    v.modify(HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
         r.set_flush_ena(0);
     })?;
     Ok(())
@@ -75,7 +75,7 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
     })?;
 
     // 11: Clear flushing
-    v.modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+    v.modify(HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
         r.set_flush_port(port.into());
         r.set_flush_ena(0);
     })?;
@@ -87,12 +87,9 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
     v.modify(dev10g.PCS2X6G_CONFIGURATION().PCS2X6G_CFG(), |r| {
         r.set_pcs_ena(0);
     })?;
-    v.modify(
-        Vsc7448::PCS10G_BR(dev.index()).PCS_10GBR_CFG().PCS_CFG(),
-        |r| {
-            r.set_pcs_ena(0);
-        },
-    )?;
+    v.modify(PCS10G_BR(dev.index()).PCS_10GBR_CFG().PCS_CFG(), |r| {
+        r.set_pcs_ena(0);
+    })?;
 
     Ok(())
 }
@@ -100,30 +97,24 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
 /// Shared logic between 1G and 10G port flushing
 fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
     // 3: Disable traffic being sent to or from switch port
-    v.modify(Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
+    v.modify(QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
         r.set_port_ena(0)
     })?;
 
     // 4: Disable dequeuing from the egress queues
-    v.modify(Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port), |r| {
-        r.set_dequeue_dis(1)
-    })?;
+    v.modify(HSCH().HSCH_MISC().PORT_MODE(port), |r| r.set_dequeue_dis(1))?;
 
     // 5: Disable Flowcontrol
-    v.modify(Vsc7448::QSYS().PAUSE_CFG().PAUSE_CFG(port), |r| {
-        r.set_pause_ena(0)
-    })?;
+    v.modify(QSYS().PAUSE_CFG().PAUSE_CFG(port), |r| r.set_pause_ena(0))?;
 
     // 5.1: Disable PFC
-    v.modify(Vsc7448::QRES().RES_QOS_ADV().PFC_CFG(port), |r| {
-        r.set_tx_pfc_ena(0)
-    })?;
+    v.modify(QRES().RES_QOS_ADV().PFC_CFG(port), |r| r.set_tx_pfc_ena(0))?;
 
     // 6: Wait a worst case time 8ms (jumbo/10Mbit)
     hl::sleep_for(8);
 
     // 7: Flush the queues accociated with the port
-    v.modify(Vsc7448::HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
+    v.modify(HSCH().HSCH_MISC().FLUSH_CTRL(), |r| {
         r.set_flush_port(port.into());
         r.set_flush_dst(1);
         r.set_flush_src(1);
@@ -131,9 +122,7 @@ fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
     })?;
 
     // 8: Enable dequeuing from the egress queues
-    v.modify(Vsc7448::HSCH().HSCH_MISC().PORT_MODE(port), |r| {
-        r.set_dequeue_dis(0)
-    })?;
+    v.modify(HSCH().HSCH_MISC().PORT_MODE(port), |r| r.set_dequeue_dis(0))?;
 
     // 9: Wait until flushing is complete
     port_flush_wait(port, v)?;
@@ -152,7 +141,7 @@ fn port_flush_wait(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         for base in [0, 2048] {
             for prio in 0..8 {
                 let value = v.read(
-                    Vsc7448::QRES()
+                    QRES()
                         .RES_CTRL(base + 8 * u16::from(port) + prio)
                         .RES_STAT(),
                 )?;

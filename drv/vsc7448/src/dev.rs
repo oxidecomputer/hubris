@@ -7,7 +7,7 @@ use crate::{
     spi::Vsc7448Spi,
     VscError,
 };
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 /// DEV1G and DEV2G5 share the same register layout, so we can write functions
 /// that use either one.
@@ -73,18 +73,18 @@ impl DevGeneric {
     /// Returns the register block for this device.  This is always a DEV1G
     /// address, because the layout is identical between DEV1G and DEV2G5, so
     /// this avoids duplication.
-    pub fn regs(&self) -> vsc7448_pac::DEV1G {
+    pub fn regs(&self) -> vsc7448_pac::tgt::DEV1G {
         match *self {
-            DevGeneric::Dev1g(d) => Vsc7448::DEV1G(d),
+            DevGeneric::Dev1g(d) => DEV1G(d),
             DevGeneric::Dev2g5(d) =>
             // We know that d is < 29 based on the check in the constructor.
             // DEV1G and DEV2G5 register blocks are identical in layout and
             // tightly packed, and there are 28 DEV2G5 register blocks, so
             // this should be a safe trick.
             {
-                vsc7448_pac::DEV1G::from_raw_unchecked_address(
-                    vsc7448_pac::DEV2G5::BASE
-                        + u32::from(d) * vsc7448_pac::DEV1G::SIZE,
+                vsc7448_pac::tgt::DEV1G::from_raw_unchecked_address(
+                    vsc7448_pac::tgt::DEV2G5::BASE
+                        + u32::from(d) * vsc7448_pac::tgt::DEV1G::SIZE,
                 )
             }
         }
@@ -158,7 +158,7 @@ impl DevGeneric {
             r.set_pcs_ena(1);
         })?;
 
-        v.modify(Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(self.port()), |r| {
+        v.modify(DSM().CFG().DEV_TX_STOP_WM_CFG(self.port()), |r| {
             r.set_dev_tx_stop_wm(match speed {
                 Speed::Speed1G => 0,
                 Speed::Speed100M => 1,
@@ -187,13 +187,10 @@ impl DevGeneric {
             });
         })?;
 
-        v.modify(
-            Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()),
-            |r| {
-                r.set_port_ena(1);
-                r.set_fwd_urgency(104); // This is different based on speed
-            },
-        )?;
+        v.modify(QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()), |r| {
+            r.set_port_ena(1);
+            r.set_fwd_urgency(104); // This is different based on speed
+        })?;
 
         Ok(())
     }
@@ -216,8 +213,8 @@ impl Dev10g {
     pub fn port(&self) -> u8 {
         self.0 + 49
     }
-    pub fn regs(&self) -> vsc7448_pac::DEV10G {
-        Vsc7448::DEV10G(self.0)
+    pub fn regs(&self) -> vsc7448_pac::tgt::DEV10G {
+        DEV10G(self.0)
     }
     pub fn index(&self) -> u8 {
         self.0
@@ -228,7 +225,7 @@ impl Dev10g {
         // Remaining logic is from `jr2_port_conf_10g_set`
         // Handle signal detect
         let dev10g = self.regs();
-        let pcs10g = Vsc7448::PCS10G_BR(self.index());
+        let pcs10g = PCS10G_BR(self.index());
         v.modify(pcs10g.PCS_10GBR_CFG().PCS_SD_CFG(), |r| {
             r.set_sd_ena(0);
         })?;
@@ -247,13 +244,10 @@ impl Dev10g {
             r.set_mac_tx_rst(0);
             r.set_speed_sel(7); // SFI
         })?;
-        v.modify(
-            Vsc7448::QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()),
-            |r| {
-                r.set_port_ena(1);
-                r.set_fwd_urgency(9);
-            },
-        )?;
+        v.modify(QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()), |r| {
+            r.set_port_ena(1);
+            r.set_fwd_urgency(9);
+        })?;
 
         Ok(())
     }

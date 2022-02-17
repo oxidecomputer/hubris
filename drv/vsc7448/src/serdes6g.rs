@@ -4,7 +4,7 @@
 
 use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 pub enum Mode {
     Sgmii,
@@ -50,8 +50,8 @@ impl Config {
 
     pub fn apply(&self, instance: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         v.serdes6g_read(instance)?;
-        let ana_cfg = Vsc7448::HSIO().SERDES6G_ANA_CFG();
-        let dig_cfg = Vsc7448::HSIO().SERDES6G_DIG_CFG();
+        let ana_cfg = HSIO().SERDES6G_ANA_CFG();
+        let dig_cfg = HSIO().SERDES6G_DIG_CFG();
         v.modify(ana_cfg.SERDES6G_COMMON_CFG(), |r| {
             r.set_sys_rst(0);
         })?;

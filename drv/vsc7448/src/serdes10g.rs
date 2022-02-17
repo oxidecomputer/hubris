@@ -5,7 +5,7 @@
 /// Tools for working with the 10G SERDES (sd10g65 in the SDK)
 use crate::{spi::Vsc7448Spi, VscError};
 use userlib::hl;
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
@@ -127,10 +127,10 @@ impl Config {
     pub fn apply(&self, index: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         // jr2_sd10g_xfi_mode
         // "Set XFI to default"
-        v.write(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), 5.into())?;
+        v.write(XGXFI(index).XFI_CONTROL().XFI_MODE(), 5.into())?;
 
         // Select either the 40-bit port (for SGMII) or 64-bit (for SFI)
-        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+        v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_port_sel(match self.mode {
                 Mode::Sgmii => 1,
                 Mode::Lan10g => 0,
@@ -138,20 +138,20 @@ impl Config {
         })?;
         // Unclear if these all need to be in separate messages, but let's
         // match the SDK behavior exactly for now.
-        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+        v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_sw_rst(0);
         })?;
-        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+        v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_sw_ena(1);
         })?;
-        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+        v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_endian(1);
         })?;
-        v.modify(Vsc7448::XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
+        v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_tx_resync_shot(1);
         })?;
 
-        let dev = Vsc7448::XGANA(index);
+        let dev = XGANA(index);
 
         ////////////////////////////////////////////////////////////////////////
         //  `jaguar2c_sd10g_tx_register_cfg`
@@ -476,7 +476,7 @@ impl Config {
 
         ////////////////////////////////////////////////////////////////////////
         // jaguar2c_apc10g_register_cfg
-        let dev_dig = Vsc7448::XGDIG(index);
+        let dev_dig = XGDIG(index);
         let apc = dev_dig.SD10G65_APC();
         v.modify(apc.APC_COMMON_CFG0(), |r| {
             r.set_apc_fsm_recover_mode(1);
