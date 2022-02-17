@@ -228,11 +228,12 @@ impl Dev10g {
         // Remaining logic is from `jr2_port_conf_10g_set`
         // Handle signal detect
         let dev10g = self.regs();
-        v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_SD_CFG(), |r| {
+        let pcs10g = Vsc7448::PCS10G_BR(self.index());
+        v.modify(pcs10g.PCS_10GBR_CFG().PCS_SD_CFG(), |r| {
             r.set_sd_ena(0);
         })?;
         // Enable SFI PCS
-        v.modify(dev10g.PCS_XAUI_CONFIGURATION().PCS_XAUI_CFG(), |r| {
+        v.modify(pcs10g.PCS_10GBR_CFG().PCS_CFG(), |r| {
             r.set_pcs_ena(1);
         })?;
         v.modify(dev10g.MAC_CFG_STATUS().MAC_ENA_CFG(), |r| {
