@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
-use crate::{spi::Vsc7448Spi, VscError};
+use crate::{Vsc7448Rw, VscError};
 use userlib::hl;
 use vsc7448_pac::*;
 
@@ -23,7 +23,7 @@ pub struct MacTableEntry {
     valid: bool,
 }
 
-pub fn next_mac(v: &Vsc7448Spi) -> Result<Option<MacTableEntry>, VscError> {
+pub fn next_mac(v: &impl Vsc7448Rw) -> Result<Option<MacTableEntry>, VscError> {
     // Trigger a FIND_SMALLEST action then wait for it to finish
     let ctrl = LRN().COMMON().COMMON_ACCESS_CTRL();
     v.write_with(ctrl, |r| {

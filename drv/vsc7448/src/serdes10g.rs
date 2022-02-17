@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 /// Tools for working with the 10G SERDES (sd10g65 in the SDK)
-use crate::{spi::Vsc7448Spi, VscError};
+use crate::{Vsc7448Rw, VscError};
 use userlib::hl;
 use vsc7448_pac::*;
 
@@ -124,7 +124,7 @@ impl Config {
     /// Based on `jaguar2c_sd10g_*_register_cfg`.  Any variables which aren't
     /// changed are converted into direct register assignments (rather than
     /// passing them around in the config struct).
-    pub fn apply(&self, index: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
+    pub fn apply(&self, index: u8, v: &impl Vsc7448Rw) -> Result<(), VscError> {
         // jr2_sd10g_xfi_mode
         // "Set XFI to default"
         v.write(XGXFI(index).XFI_CONTROL().XFI_MODE(), 5.into())?;

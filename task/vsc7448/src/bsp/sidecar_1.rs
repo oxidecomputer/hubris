@@ -2,17 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_stm32xx_sys_api as sys_api;
+use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
-use vsc7448::{
-    dev::{Dev10g, DevGeneric, Speed as DevSpeed},
-    serdes10g, serdes1g, serdes6g,
-    spi::Vsc7448Spi,
-    VscError,
-};
-use vsc7448_pac::{phy, types::PhyRegisterAddress, *};
-use vsc85xx::{init_vsc8504_phy, Phy, PhyRw, PhyVsc85xx};
+use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
@@ -25,12 +20,12 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
-pub struct Bsp<'a> {
-    vsc7448: &'a Vsc7448Spi,
+pub struct Bsp<'a, R> {
+    vsc7448: &'a Vsc7448<'a, R>,
     net: task_net_api::Net,
 }
 
-impl<'a> PhyRw for Bsp<'a> {
+impl<'a, R> PhyRw for Bsp<'a, R> {
     fn read_raw<T: From<u16>>(
         &mut self,
         port: u8,
@@ -62,12 +57,9 @@ pub fn preinit() {
     // Nothing to do here
 }
 
-// We're talking to a VSC8504, which is compatible with the VSC85xx trait.
-impl PhyVsc85xx for Bsp<'_> {}
-
-impl<'a> Bsp<'a> {
+impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
-    pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
+    pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let net = task_net_api::Net::from(NET.get_task_id());
         let mut out = Bsp { vsc7448, net };
         out.init()?;
@@ -75,64 +67,77 @@ impl<'a> Bsp<'a> {
     }
 
     fn init(&mut self) -> Result<(), VscError> {
-        // See RFD144 for a detailed look at the design
+        // Get a handle to modify GPIOs
         let sys = SYS.get_task_id();
         let sys = Sys::from(sys);
 
-        // Cubbies 0 through 7
-        let serdes1g_cfg_sgmii = serdes1g::Config::new(serdes1g::Mode::Sgmii);
-        for dev in 0..=7 {
-            DevGeneric::new_1g(dev)?
-                .init_sgmii(&self.vsc7448, DevSpeed::Speed100M)?;
-            serdes1g_cfg_sgmii.apply(dev + 1, &self.vsc7448)?;
-            // DEV1G[dev], SERDES1G[dev + 1], S[port + 1], SGMII
-        }
-        // Cubbies 8 through 21
-        let serdes6g_cfg_sgmii = serdes6g::Config::new(serdes6g::Mode::Sgmii);
-        for dev in 0..=13 {
-            DevGeneric::new_2g5(dev)?
-                .init_sgmii(&self.vsc7448, DevSpeed::Speed100M)?;
-            serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
-            // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
-        }
-        // Cubbies 22 through 29
-        for dev in 16..=23 {
-            DevGeneric::new_2g5(dev)?
-                .init_sgmii(&self.vsc7448, DevSpeed::Speed100M)?;
-            serdes6g_cfg_sgmii.apply(dev, &self.vsc7448)?;
-            // DEV2G5[dev], SERDES6G[dev], S[port + 1], SGMII
-        }
+        // See RFD144 for a detailed look at the design
+        self.vsc7448.init_sgmii(&[
+            0,  // DEV1G_0   | SERDES1G_1  | Cubby 0
+            1,  // DEV1G_1   | SERDES1G_2  | Cubby 1
+            2,  // DEV1G_2   | SERDES1G_3  | Cubby 2
+            3,  // DEV1G_3   | SERDES1G_4  | Cubby 3
+            4,  // DEV1G_4   | SERDES1G_5  | Cubby 4
+            5,  // DEV1G_5   | SERDES1G_6  | Cubby 5
+            6,  // DEV1G_6   | SERDES1G_7  | Cubby 6
+            7,  // DEV1G_7   | SERDES1G_8  | Cubby 7
+            8,  // DEV2G5_0  | SERDES6G_0  | Cubby 8
+            9,  // DEV2G5_1  | SERDES6G_1  | Cubby 9
+            10, // DEV2G5_2  | SERDES6G_2  | Cubby 10
+            11, // DEV2G5_3  | SERDES6G_3  | Cubby 11
+            12, // DEV2G5_4  | SERDES6G_4  | Cubby 12
+            13, // DEV2G5_5  | SERDES6G_5  | Cubby 13
+            14, // DEV2G5_6  | SERDES6G_6  | Cubby 14
+            15, // DEV2G5_7  | SERDES6G_7  | Cubby 15
+            16, // DEV2G5_8  | SERDES6G_8  | Cubby 16
+            17, // DEV2G5_9  | SERDES6G_9  | Cubby 17
+            18, // DEV2G5_10 | SERDES6G_10 | Cubby 18
+            19, // DEV2G5_11 | SERDES6G_11 | Cubby 19
+            20, // DEV2G5_12 | SERDES6G_12 | Cubby 20
+            21, // DEV2G5_13 | SERDES6G_13 | Cubby 21
+            24, // DEV2G5_16 | SERDES6G_16 | Cubby 22
+            25, // DEV2G5_17 | SERDES6G_17 | Cubby 23
+            26, // DEV2G5_18 | SERDES6G_18 | Cubby 24
+            27, // DEV2G5_19 | SERDES6G_19 | Cubby 25
+            28, // DEV2G5_20 | SERDES6G_20 | Cubby 26
+            29, // DEV2G5_21 | SERDES6G_21 | Cubby 27
+            30, // DEV2G5_22 | SERDES6G_22 | Cubby 28
+            31, // DEV2G5_23 | SERDES6G_23 | Cubby 29
+            48, // Local SP
+        ])?;
+        self.vsc7448.init_10g_sgmii(&[
+            51, // DEV2G5_27 | SERDES10G_2 | Cubby 30   (shadows DEV10G_2)
+            52, // DEV2G5_28 | SERDES10G_3 | Cubby 31   (shadows DEV10G_3)
+        ])?;
 
-        ////////////////////////////////////////////////////////////////////////
-        // Cubbies 30 and 31
-        let serdes10g_cfg_sgmii =
-            serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
-        // "Configure the 10G Mux mode to DEV2G5"
-        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-            r.set_dev10g_2_mode(3);
-            r.set_dev10g_3_mode(3);
-        })?;
-        for dev in [27, 28] {
-            let dev_2g5 = DevGeneric::new_2g5(dev)?;
-            // This bit must be set when a 10G port runs below 10G speed
-            self.vsc7448.modify(
-                DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
-                |r| {
-                    r.set_dev10g_shadow_ena(1);
-                },
-            )?;
-            dev_2g5.init_sgmii(&self.vsc7448, DevSpeed::Speed100M)?;
-            serdes10g_cfg_sgmii.apply(dev - 25, &self.vsc7448)?;
-            // DEV2G5[dev], SERDES10G[dev - 25], S[dev + 8], SGMII
-        }
+        self.phy_init(&sys)?;
+        self.vsc7448.init_qsgmii(&[
+            // Going to an on-board VSC8504 PHY (PHY4, U40), which is
+            // configured over MIIM by the SP.
+            //
+            // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
+            // 41 | DEV1G_17 | SERDES6G_14 | PSC0
+            // 42 | DEV1G_18 | SERDES6G_14 | PSC1
+            // 43 | Unused
+            40,
+            // Going out to the front panel board, where there's a waiting
+            // PHY that is configured by the FPGA.
+            //
+            // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
+            // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
+            // 42 | Unused
+            // 43 | Unused
+            44,
+        ])?;
 
-        ////////////////////////////////////////////////////////////////////////
-        // PSC0/1, Technician 0/1, a few unused ports
-        // These go over 2x QSGMII links:
-        // - Ports 16-19 go through SERDES6G_14 to an on-board VSC8504 PHY
-        //   (PHY4, U40), which is configured over MIIM from the SP
-        // - Ports 20-23 go through SERDES6G_15 to the front panel board
+        self.vsc7448.init_sfi(&[
+            49, //  DEV10G_0 | SERDES10G_0 | Tofino 2
+        ])?;
 
+        Ok(())
+    }
+
+    fn phy_init(&mut self, sys: &Sys) -> Result<(), VscError> {
         // Let's configure the on-board PHY first
         // Relevant pins are
         // - MIIM_SP_TO_PHY_MDC_2V5 (PC1)
@@ -194,48 +199,6 @@ impl<'a> Bsp<'a> {
         // Initialize the PHY, then disable COMA_MODE
         init_vsc8504_phy(&mut Phy { port: 4, rw: self })?;
         sys.gpio_reset(coma_mode).unwrap();
-
-        // Now that the PHY is configured, we can bring up the VSC7448.  This
-        // is very similar to how we bring up QSGMII in the dev kit BSP
-        // (bsp/gemini_bu.rs)
-        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-            // Enable QSGMII mode for DEV1G_16-23 via SerDes6G_14/15
-            let ena = r.qsgmii_ena();
-            r.set_qsgmii_ena(ena | (1 << 10) | (1 << 11));
-        })?;
-        for dev in 16..=23 {
-            // Reset the PCS TX clock domain.  In the SDK, this is accompanied
-            // by the cryptic comment "BZ23738", which may refer to an errata
-            // of some kind?
-            self.vsc7448.modify(
-                DEV1G(dev).DEV_CFG_STATUS().DEV_RST_CTRL(),
-                |r| {
-                    r.set_pcs_tx_rst(0);
-                },
-            )?;
-        }
-        let serdes6g_cfg_qsgmii = serdes6g::Config::new(serdes6g::Mode::Qsgmii);
-        serdes6g_cfg_qsgmii.apply(14, &self.vsc7448)?;
-        serdes6g_cfg_qsgmii.apply(15, &self.vsc7448)?;
-        for dev in 16..=23 {
-            DevGeneric::new_1g(dev)?
-                .init_sgmii(&self.vsc7448, DevSpeed::Speed1G)?;
-            // TODO: is this the right speed?
-        }
-
-        ////////////////////////////////////////////////////////////////////////
-        // DEV2G5[24], SERDES1G[0], S0, SGMII to Local SP (via VSC8552)
-        serdes1g_cfg_sgmii.apply(0, &self.vsc7448)?;
-        DevGeneric::new_2g5(24)?
-            .init_sgmii(&self.vsc7448, DevSpeed::Speed100M)?;
-
-        ////////////////////////////////////////////////////////////////////////
-        // DEV10G[0], SERDES10G[0], S33, SFI to Tofino 2
-        let serdes10g_cfg_sfi =
-            serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
-        let dev = Dev10g::new(0)?;
-        dev.init_sfi(&self.vsc7448)?;
-        serdes10g_cfg_sfi.apply(dev.index(), &self.vsc7448)?;
 
         Ok(())
     }

@@ -12,7 +12,7 @@ use ksz8463::{Ksz8463, MIBCounter, MIBOffset, Register as KszRegister};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{Phy, PhyVsc85xx, VscError};
+use vsc85xx::{Phy, VscError};
 
 task_slot!(SPI, spi_driver);
 task_slot!(USER_LEDS, user_leds);
@@ -321,9 +321,6 @@ impl Bsp {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-// We're talking to a VSC8552, which is compatible with the VSC85xx trait.
-impl PhyVsc85xx for MiimBridge<'_> {}
 
 pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
     use sys_api::*;

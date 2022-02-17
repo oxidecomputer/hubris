@@ -5,14 +5,9 @@
 use drv_user_leds_api::UserLeds;
 use ringbuf::*;
 use userlib::*;
-use vsc7448::{
-    dev::{Dev10g, DevGeneric, Speed},
-    port, serdes10g, serdes6g,
-    spi::Vsc7448Spi,
-    VscError,
-};
-use vsc7448_pac::{phy, types::PhyRegisterAddress, *};
-use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
+use vsc7448::{miim_phy::Vsc7448MiimPhy, Vsc7448, Vsc7448Rw, VscError};
+use vsc7448_pac::{phy, *};
+use vsc85xx::{init_vsc8522_phy, Phy};
 
 task_slot!(USER_LEDS, user_leds);
 
@@ -27,16 +22,16 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
-pub struct Bsp<'a> {
-    vsc7448: &'a Vsc7448Spi,
+pub struct Bsp<'a, R> {
+    vsc7448: &'a Vsc7448<'a, R>,
     leds: UserLeds,
     phy_link_up: [[bool; 24]; 2],
     known_macs: [Option<[u8; 6]>; 16],
 }
 
-impl<'a> Bsp<'a> {
+impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
-    pub fn new(vsc7448: &'a Vsc7448Spi) -> Result<Self, VscError> {
+    pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
         let out = Bsp {
             vsc7448,
@@ -48,35 +43,8 @@ impl<'a> Bsp<'a> {
         Ok(out)
     }
 
-    fn init_qsgmii(
-        &self,
-        dev_type: impl Fn(u8) -> Result<DevGeneric, VscError>,
-        ports: core::ops::Range<u8>,
-        serde: u8,
-    ) -> Result<(), VscError> {
-        assert!(ports.start + 4 == ports.end);
-
-        // Reset the PCS TX clock domain.  In the SDK, this is accompanied
-        // by the cryptic comment "BZ23738", which may refer to an errata
-        // of some kind?
-        for port in (ports.start + 1)..ports.end {
-            self.vsc7448.modify(
-                dev_type(port)?.regs().DEV_CFG_STATUS().DEV_RST_CTRL(),
-                |r| r.set_pcs_tx_rst(0),
-            )?;
-        }
-
-        serdes6g::Config::new(serdes6g::Mode::Qsgmii)
-            .apply(serde, &self.vsc7448)?;
-
-        for port in ports {
-            dev_type(port)?.init_sgmii(&self.vsc7448, Speed::Speed1G)?;
-        }
-        Ok(())
-    }
-
-    /// Initializes four ports on front panel RJ45 connectors
-    fn init_rj45(&self) -> Result<(), VscError> {
+    /// Initializes the four PHYs on the dev kit
+    fn phy_init(&self) -> Result<(), VscError> {
         // The VSC7448 dev kit has 2x VSC8522 PHYs on each of MIIM1 and MIIM2.
         // Each PHYs on the same MIIM bus is strapped to different ports.
         for miim in [1, 2] {
@@ -87,7 +55,7 @@ impl<'a> Bsp<'a> {
             // We only need to check this on one PHY port per physical PHY
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
-            let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
+            let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448, miim);
             for port in [0, 12] {
                 let mut p = Phy {
                     port,
@@ -96,91 +64,6 @@ impl<'a> Bsp<'a> {
                 init_vsc8522_phy(&mut p)?;
             }
         }
-
-        // I want to configure ports 0-3 (or 1-4, depending on numbering) on
-        // the VSC7448 to use QSGMII to talk on SERDES6G_4 to the VSC8522.
-        //
-        // The following code is based on port_setup in the MESA SDK, but
-        // extracted and trimmed down to the bare necessacities (e.g. assuming
-        // the chip is configured from reset)
-        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-            // Enable QSGMII mode for all 12 QSGMII outputs
-            r.set_qsgmii_ena(0xFFF);
-        })?;
-
-        // See Table 8 in the datasheet for details about this
-        self.init_qsgmii(DevGeneric::new_1g, 0..4, 4)?;
-        self.init_qsgmii(DevGeneric::new_1g, 4..8, 5)?;
-
-        self.init_qsgmii(DevGeneric::new_2g5, 0..4, 6)?;
-        self.init_qsgmii(DevGeneric::new_2g5, 4..8, 7)?;
-        self.init_qsgmii(DevGeneric::new_2g5, 8..12, 8)?;
-        self.init_qsgmii(DevGeneric::new_2g5, 12..16, 9)?;
-        self.init_qsgmii(DevGeneric::new_2g5, 16..20, 10)?;
-        self.init_qsgmii(DevGeneric::new_2g5, 20..24, 11)?;
-
-        self.init_qsgmii(DevGeneric::new_1g, 8..12, 12)?;
-        self.init_qsgmii(DevGeneric::new_1g, 12..16, 13)?;
-        self.init_qsgmii(DevGeneric::new_1g, 16..20, 14)?;
-        self.init_qsgmii(DevGeneric::new_1g, 20..24, 15)?;
-
-        Ok(())
-    }
-
-    /// Initializes two ports on front panel SFP+ connectors
-    fn init_sfp(&self) -> Result<(), VscError> {
-        //  Now, let's bring up two SFP+ ports
-        //
-        //  SFP ports A and B are connected to S33/34 using SFI.  We need to
-        //  bring up 10G SERDES then enable the ports
-
-        // HW_CFG is already set up for 10G on all four DEV10G
-
-        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
-        for dev in [2, 3] {
-            let dev = Dev10g::new(dev)?;
-            dev.init_sfi(&self.vsc7448)?;
-            serdes_cfg.apply(dev.index(), &self.vsc7448)?;
-        }
-
-        Ok(())
-    }
-
-    /// Configures a port to run DEV2G5_XX through SERDES10G_3 through S36.
-    /// This isn't actually valid for the dev kit, which expects SFI, but as
-    /// long as you don't plug anything into that port, it's _fine_.
-    ///
-    /// `d2g5` must be a valid DEV2G5; `d10g` must be the DEV10G that it shadows
-    fn init_10g_sgmii(&self, d2g5: u8, d10g: u8) -> Result<(), VscError> {
-        let d2g5 = DevGeneric::new_2g5(d2g5).unwrap();
-        let d10g = Dev10g::new(d10g).unwrap();
-        assert!(d2g5.port() == d10g.port());
-
-        // We have to disable and flush the 10G port that shadows this port
-        port::port10g_flush(&d10g, self.vsc7448)?;
-
-        // "Configure the 10G Mux mode to DEV2G5"
-        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-            match d10g.index() {
-                0 => r.set_dev10g_0_mode(3),
-                1 => r.set_dev10g_1_mode(3),
-                2 => r.set_dev10g_2_mode(3),
-                3 => r.set_dev10g_3_mode(3),
-                d => panic!("Invalid DEV10G {}", d),
-            }
-        })?;
-
-        // This bit must be set when a 10G port runs below 10G speed
-        self.vsc7448.modify(
-            DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()),
-            |r| {
-                r.set_dev10g_shadow_ena(1);
-            },
-        )?;
-        let serdes10g_cfg_sgmii =
-            serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
-        serdes10g_cfg_sgmii.apply(d10g.index(), &self.vsc7448)?;
-        d2g5.init_sgmii(&self.vsc7448, Speed::Speed100M)?;
         Ok(())
     }
 
@@ -198,10 +81,12 @@ impl<'a> Bsp<'a> {
     /// (VSC5627EV), so will need to change depending on your system.
     fn init(&self) -> Result<(), VscError> {
         self.gpio_init()?;
-        self.init_rj45()?;
-        self.init_sfp()?;
-        self.init_10g_sgmii(25, 0)?; // DEV2G5_26, SERDES10G_1, S33
-        self.init_10g_sgmii(26, 1)?; // DEV2G5_26, SERDES10G_1, S34
+        self.phy_init()?;
+
+        self.vsc7448
+            .init_qsgmii(&[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44])?;
+        self.vsc7448.init_sfi(&[51, 52])?;
+        self.vsc7448.init_10g_sgmii(&[49, 50])?; // DEV2G5_26, SERDES10G_1, S33
 
         self.leds.led_off(0).unwrap();
         self.leds.led_on(3).unwrap();
@@ -210,7 +95,7 @@ impl<'a> Bsp<'a> {
 
     /// Checks the given PHY's status, return `true` if the link is up
     fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
-        let mut phy_rw = Vsc7448SpiPhy::new(self.vsc7448, miim);
+        let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448, miim);
         let mut p = Phy {
             port: phy,
             rw: &mut phy_rw,
@@ -271,7 +156,7 @@ impl<'a> Bsp<'a> {
         }
 
         // Dump the MAC tables
-        while let Some(mac) = vsc7448::mac::next_mac(&self.vsc7448)? {
+        while let Some(mac) = vsc7448::mac::next_mac(self.vsc7448)? {
             // Inefficient but easy way to avoid logging MAC addresses
             // repeatedly.  This will fail to scale for larger systems,
             // where we'd want some kind of LRU cache, but is nice
@@ -310,107 +195,6 @@ impl<'a> Bsp<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct Vsc7448SpiPhy<'a> {
-    vsc7448: &'a Vsc7448Spi,
-    miim: u8,
-}
-
-impl<'a> Vsc7448SpiPhy<'a> {
-    pub fn new(vsc7448: &'a Vsc7448Spi, miim: u8) -> Self {
-        Self { vsc7448, miim }
-    }
-    /// Builds a MII_CMD register based on the given phy and register.  Note
-    /// that miim_cmd_opr_field is unset; you must configure it for a read
-    /// or write yourself.
-    fn miim_cmd(
-        phy: u8,
-        reg_addr: u8,
-    ) -> vsc7448_pac::devcpu_gcb::miim::MII_CMD {
-        let mut v: vsc7448_pac::devcpu_gcb::miim::MII_CMD = 0.into();
-        v.set_miim_cmd_vld(1);
-        v.set_miim_cmd_phyad(phy as u32);
-        v.set_miim_cmd_regad(reg_addr as u32);
-        v
-    }
-
-    /// Waits for the PENDING_RD and PENDING_WR bits to go low, indicating that
-    /// it's safe to read or write to the MIIM.
-    fn miim_idle_wait(&self) -> Result<(), VscError> {
-        for _i in 0..32 {
-            let status = self
-                .vsc7448
-                .read(DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
-            if status.miim_stat_opr_pend() == 0 {
-                return Ok(());
-            }
-        }
-        return Err(VscError::MiimIdleTimeout);
-    }
-
-    /// Waits for the STAT_BUSY bit to go low, indicating that a read has
-    /// finished and data is available.
-    fn miim_read_wait(&self) -> Result<(), VscError> {
-        for _i in 0..32 {
-            let status = self
-                .vsc7448
-                .read(DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
-            if status.miim_stat_busy() == 0 {
-                return Ok(());
-            }
-        }
-        return Err(VscError::MiimReadTimeout);
-    }
-}
-
-impl PhyRw for Vsc7448SpiPhy<'_> {
-    fn read_raw<T: From<u16>>(
-        &mut self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        let mut v = Self::miim_cmd(phy, reg.addr);
-        v.set_miim_cmd_opr_field(0b10); // read
-
-        self.miim_idle_wait()?;
-        self.vsc7448
-            .write(DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)?;
-        self.miim_read_wait()?;
-
-        let out = self.vsc7448.read(DEVCPU_GCB().MIIM(self.miim).MII_DATA())?;
-        if out.miim_data_success() == 0b11 {
-            return Err(VscError::MiimReadErr {
-                miim: self.miim,
-                phy,
-                page: reg.page,
-                addr: reg.addr,
-            });
-        }
-
-        let value = out.miim_data_rddata() as u16;
-        Ok(value.into())
-    }
-
-    fn write_raw<T>(
-        &mut self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
-        let value: u16 = value.into();
-        let mut v = Self::miim_cmd(phy, reg.addr);
-        v.set_miim_cmd_opr_field(0b01); // read
-        v.set_miim_cmd_wrdata(value as u32);
-
-        self.miim_idle_wait()?;
-        self.vsc7448
-            .write(DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)
-    }
-}
-
 /// Turns on LEDs to let the user know that the board is alive and starting
 /// initialization (we'll turn these off at the end of Bsp::init)
 pub fn preinit() {
@@ -421,7 +205,3 @@ pub fn preinit() {
 
     leds.led_on(0).unwrap();
 }
-
-// In this system, we're talking to a VSC8522, which is in the VSC85xx family
-// and compatible with its control and config functions.
-impl PhyVsc85xx for Vsc7448SpiPhy<'_> {}

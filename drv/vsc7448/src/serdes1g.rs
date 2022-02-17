@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{spi::Vsc7448Spi, VscError};
+use crate::{Vsc7448Rw, VscError};
 use vsc7448_pac::*;
 
 pub enum Mode {
@@ -22,6 +22,49 @@ pub struct Config {
     des_bw_ana: u32,
     ena_lane: bool,
 }
+
+/// This controls how many times we poll the SERDES1 register after a
+/// read/write operation before returning a timeout error.  The SDK polls
+/// _forever_, which seems questionable, and has no pauses between polling.
+const SERDES1G_RW_POLL_COUNT: usize = 32;
+
+/// Writes to a specific SERDES1G instance, which is done by writing its
+/// value (as a bitmask) to a particular register with a read flag set,
+/// then waiting for the flag to autoclear.
+pub fn serdes1g_read(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
+    let addr = HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
+    v.write_with(addr, |r| {
+        r.set_serdes1g_rd_one_shot(1);
+        r.set_serdes1g_addr(1 << instance);
+    })?;
+    for _ in 0..SERDES1G_RW_POLL_COUNT {
+        if v.read(addr)?.serdes1g_rd_one_shot() != 1 {
+            return Ok(());
+        }
+    }
+    Err(VscError::Serdes1gReadTimeout { instance })
+}
+
+/// Reads from a specific SERDES1G instance, which is done by writing its
+/// value (as a bitmask) to a particular register with a read flag set,
+/// then waiting for the flag to autoclear.
+pub fn serdes1g_write(
+    v: &impl Vsc7448Rw,
+    instance: u8,
+) -> Result<(), VscError> {
+    let addr = HSIO().MCB_SERDES1G_CFG().MCB_SERDES1G_ADDR_CFG();
+    v.write_with(addr, |r| {
+        r.set_serdes1g_wr_one_shot(1);
+        r.set_serdes1g_addr(1 << instance);
+    })?;
+    for _ in 0..SERDES1G_RW_POLL_COUNT {
+        if v.read(addr)?.serdes1g_wr_one_shot() != 1 {
+            return Ok(());
+        }
+    }
+    Err(VscError::Serdes1gWriteTimeout { instance })
+}
+
 /// Based on `jr2_sd1g_cfg` in the MESA SDK
 impl Config {
     pub fn new(m: Mode) -> Self {
@@ -42,8 +85,12 @@ impl Config {
             },
         }
     }
-    pub fn apply(&self, instance: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
-        v.serdes1g_read(instance)?;
+    pub fn apply(
+        &self,
+        instance: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<(), VscError> {
+        serdes1g_read(v, instance)?;
         let ana_cfg = HSIO().SERDES1G_ANA_CFG();
         let dig_cfg = HSIO().SERDES1G_DIG_CFG();
         v.modify(ana_cfg.SERDES1G_SER_CFG(), |r| {
@@ -78,17 +125,17 @@ impl Config {
         v.modify(ana_cfg.SERDES1G_COMMON_CFG(), |r| {
             r.set_ena_lane(self.ena_lane.into());
         })?;
-        v.serdes1g_write(instance)?;
+        serdes1g_write(v, instance)?;
 
         v.modify(ana_cfg.SERDES1G_COMMON_CFG(), |r| {
             r.set_sys_rst(1);
         })?;
-        v.serdes1g_write(instance)?;
+        serdes1g_write(v, instance)?;
 
         v.modify(dig_cfg.SERDES1G_MISC_CFG(), |r| {
             r.set_lane_rst(0);
         })?;
-        v.serdes1g_write(instance)?;
+        serdes1g_write(v, instance)?;
 
         Ok(())
     }
