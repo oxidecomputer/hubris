@@ -4,8 +4,7 @@
 
 use crate::{
     port::{port10g_flush, port1g_flush},
-    spi::Vsc7448Spi,
-    VscError,
+    Vsc7448Rw, VscError,
 };
 use vsc7448_pac::*;
 
@@ -93,7 +92,7 @@ impl DevGeneric {
     /// Based on `jr2_port_conf_1g_set` in the SDK
     pub fn init_sgmii(
         &self,
-        v: &Vsc7448Spi,
+        v: &impl Vsc7448Rw,
         speed: Speed,
     ) -> Result<(), VscError> {
         // In some cases, 2G5 ports shadow 10G ports.  If that's happening here,
@@ -219,7 +218,7 @@ impl Dev10g {
     pub fn index(&self) -> u8 {
         self.0
     }
-    pub fn init_sfi(&self, v: &Vsc7448Spi) -> Result<(), VscError> {
+    pub fn init_sfi(&self, v: &impl Vsc7448Rw) -> Result<(), VscError> {
         port10g_flush(self, v)?;
 
         // Remaining logic is from `jr2_port_conf_10g_set`

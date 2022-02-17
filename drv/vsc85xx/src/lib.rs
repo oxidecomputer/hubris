@@ -171,9 +171,7 @@ impl<P: PhyRw> Phy<'_, P> {
 
 /// Initializes a VSC8522 PHY using QSGMII.
 /// This is the PHY on the VSC7448 dev kit.
-pub fn init_vsc8522_phy<P: PhyRw + PhyVsc85xx>(
-    v: &mut Phy<P>,
-) -> Result<(), VscError> {
+pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8522Init(v.port));
 
     // Do a self-reset on the PHY
@@ -203,9 +201,7 @@ pub fn init_vsc8522_phy<P: PhyRw + PhyVsc85xx>(
 /// the PHY is reset (i.e. the reset pin is toggled and then the caller
 /// waits for 120 ms).  The caller is also responsible for handling the
 /// `COMA_MODE` pin.
-pub fn init_vsc8504_phy<P: PhyRw + PhyVsc85xx>(
-    v: &mut Phy<P>,
-) -> Result<(), VscError> {
+pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8504Init(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
@@ -249,9 +245,7 @@ pub fn init_vsc8504_phy<P: PhyRw + PhyVsc85xx>(
 /// This should be called _after_ the PHY is reset
 /// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
 /// The caller is also responsible for handling the `COMA_MODE` pin.
-pub fn patch_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
-    v: &mut Phy<P>,
-) -> Result<(), VscError> {
+pub fn patch_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8552Patch(v.port));
 
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
@@ -273,9 +267,7 @@ pub fn patch_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
 /// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
 /// to 100BASE-FX SFP Fiber). This should be called _after_ [patch_vsc8552_phy],
 /// and has the same caveats w.r.t. the reset and COMA_MODE pins.
-pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
-    v: &mut Phy<P>,
-) -> Result<(), VscError> {
+pub fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ringbuf_entry!(Trace::Vsc8552Init(v.port));
 
     v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
@@ -324,10 +316,7 @@ pub fn init_vsc8552_phy<P: PhyRw + PhyVsc85xx>(
     Ok(())
 }
 
-/// Marker trait which indicates that a [PhyRw] can use `vsc85xx` commands
-pub trait PhyVsc85xx {}
-
-impl<P: PhyRw + PhyVsc85xx> Phy<'_, P> {
+impl<P: PhyRw> Phy<'_, P> {
     /// The VSC85xx family supports sending commands to the system by writing to
     /// register 19G.  This helper function sends a command then waits for it
     /// to finish, return [VscError::PhyInitTimeout] if it fails (or another

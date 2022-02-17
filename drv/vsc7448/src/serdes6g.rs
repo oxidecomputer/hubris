@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{spi::Vsc7448Spi, VscError};
+use crate::{Vsc7448Rw, VscError};
 use userlib::hl;
 use vsc7448_pac::*;
 
@@ -20,6 +20,47 @@ pub struct Config {
     qrate: u32,
     if_mode: u32,
     des_bw_ana: u32,
+}
+
+/// This controls how many times we poll the SERDES1 register after a
+/// read/write operation before returning a timeout error.  The SDK polls
+/// _forever_, which seems questionable, and has no pauses between polling.
+const SERDES6G_RW_POLL_COUNT: usize = 32;
+
+/// Reads from a specific SERDES6G instance, which is done by writing its
+/// value (as a bitmask) to a particular register with a read flag set,
+/// then waiting for the flag to autoclear.
+fn serdes6g_read(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
+    let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+    v.write_with(addr, |r| {
+        r.set_serdes6g_rd_one_shot(1);
+        r.set_serdes6g_addr(1 << instance);
+    })?;
+    // TODO: look at whether this ever takes more than one iteration.
+    // (same for other instances in this file)
+    for _ in 0..SERDES6G_RW_POLL_COUNT {
+        if v.read(addr)?.serdes6g_rd_one_shot() != 1 {
+            return Ok(());
+        }
+    }
+    Err(VscError::Serdes6gReadTimeout { instance })
+}
+
+/// Writes to a specific SERDES6G instance, which is done by writing its
+/// value (as a bitmask) to a particular register with a read flag set,
+/// then waiting for the flag to autoclear.
+fn serdes6g_write(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
+    let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
+    v.write_with(addr, |r| {
+        r.set_serdes6g_wr_one_shot(1);
+        r.set_serdes6g_addr(1 << instance);
+    })?;
+    for _ in 0..SERDES6G_RW_POLL_COUNT {
+        if v.read(addr)?.serdes6g_wr_one_shot() != 1 {
+            return Ok(());
+        }
+    }
+    Err(VscError::Serdes6gWriteTimeout { instance })
 }
 
 // Based on the beginning of `jr2_sd6g_cfg`, with only relevant parameters
@@ -48,8 +89,12 @@ impl Config {
         }
     }
 
-    pub fn apply(&self, instance: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
-        v.serdes6g_read(instance)?;
+    pub fn apply(
+        &self,
+        instance: u8,
+        v: &impl Vsc7448Rw,
+    ) -> Result<(), VscError> {
+        serdes6g_read(v, instance)?;
         let ana_cfg = HSIO().SERDES6G_ANA_CFG();
         let dig_cfg = HSIO().SERDES6G_DIG_CFG();
         v.modify(ana_cfg.SERDES6G_COMMON_CFG(), |r| {
@@ -58,7 +103,7 @@ impl Config {
         v.modify(dig_cfg.SERDES6G_MISC_CFG(), |r| {
             r.set_lane_rst(1);
         })?;
-        v.serdes6g_write(instance)?;
+        serdes6g_write(v, instance)?;
 
         v.modify(ana_cfg.SERDES6G_OB_CFG(), |r| {
             r.set_ob_ena1v_mode(self.ob_ena1v_mode);
@@ -85,17 +130,17 @@ impl Config {
             r.set_qrate(self.qrate);
             r.set_if_mode(self.if_mode);
         })?;
-        v.serdes6g_write(instance)?;
+        serdes6g_write(v, instance)?;
 
         // Enable the PLL then wait 20 ms for bringup
         v.modify(ana_cfg.SERDES6G_PLL_CFG(), |r| r.set_pll_fsm_ena(1))?;
-        v.serdes6g_write(instance)?;
+        serdes6g_write(v, instance)?;
         hl::sleep_for(20);
 
         // Start IB calibration, then wait 60 ms for it to complete
         v.modify(ana_cfg.SERDES6G_IB_CFG(), |r| r.set_ib_cal_ena(1))?;
         v.modify(dig_cfg.SERDES6G_MISC_CFG(), |r| r.set_lane_rst(0))?;
-        v.serdes6g_write(instance)?;
+        serdes6g_write(v, instance)?;
         hl::sleep_for(60);
 
         // "Set ib_tsdet and ib_reg_pat_sel_offset back to correct value"
@@ -105,7 +150,7 @@ impl Config {
             r.set_ib_sig_det_clk_sel(7);
         })?;
         v.modify(ana_cfg.SERDES6G_IB_CFG1(), |r| r.set_ib_tsdet(3))?;
-        v.serdes6g_write(instance)?;
+        serdes6g_write(v, instance)?;
 
         Ok(())
     }

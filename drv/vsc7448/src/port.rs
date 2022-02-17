@@ -8,15 +8,17 @@
 
 use crate::{
     dev::{Dev10g, DevGeneric},
-    spi::Vsc7448Spi,
-    VscError,
+    Vsc7448Rw, VscError,
 };
 use userlib::hl;
 use vsc7448_pac::*;
 
 /// Flushes a particular 1G port.  This is equivalent to `jr2_port_flush`
 /// in the MESA toolkit.
-pub fn port1g_flush(dev: &DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
+pub fn port1g_flush(
+    dev: &DevGeneric,
+    v: &impl Vsc7448Rw,
+) -> Result<(), VscError> {
     let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
@@ -52,7 +54,7 @@ pub fn port1g_flush(dev: &DevGeneric, v: &Vsc7448Spi) -> Result<(), VscError> {
 /// different types in our PAC crate.
 ///
 /// `dev` is the 10G device (0-4)
-pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
+pub fn port10g_flush(dev: &Dev10g, v: &impl Vsc7448Rw) -> Result<(), VscError> {
     let port = dev.port();
 
     // 1: Reset the PCS Rx clock domain
@@ -95,7 +97,7 @@ pub fn port10g_flush(dev: &Dev10g, v: &Vsc7448Spi) -> Result<(), VscError> {
 }
 
 /// Shared logic between 1G and 10G port flushing
-fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
+fn port_flush_inner(port: u8, v: &impl Vsc7448Rw) -> Result<(), VscError> {
     // 3: Disable traffic being sent to or from switch port
     v.modify(QFWD().SYSTEM().SWITCH_PORT_MODE(port), |r| {
         r.set_port_ena(0)
@@ -132,7 +134,7 @@ fn port_flush_inner(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
 
 /// Waits for a port flush to finish.  This is based on
 /// `jr2_port_flush_poll` in the MESA SDK
-fn port_flush_wait(port: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
+fn port_flush_wait(port: u8, v: &impl Vsc7448Rw) -> Result<(), VscError> {
     // This timeout count is based on the SDK, which checks 2000x with a
     // 1 ms pause between attempts.
     for _ in 0..2000 {
