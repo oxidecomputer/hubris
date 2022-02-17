@@ -2696,15 +2696,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-spi-loopback"
-version = "0.1.0"
-dependencies = [
- "drv-spi-api",
- "ringbuf",
- "userlib",
-]
-
-[[package]]
 name = "task-template"
 version = "0.1.0"
 dependencies = [
