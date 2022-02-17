@@ -36,51 +36,13 @@ task_slot!(GPIO, gpio_driver);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Start(Op),
+    IRQ,
     Tx(u8),
     Rx(u8),
-    IRQ,
     None,
 }
 
 ringbuf!(Trace, 64, Trace::None);
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
-    Busy = 3,
-}
-
-// Read/Write is defined from the perspective of the SPI device
-#[derive(FromPrimitive, Copy, Clone, PartialEq)]
-enum Op {
-    Read = 1,
-    Write = 2,
-    Exchange = 3,
-}
-
-struct Transmit {
-    task: hl::Caller<()>,
-    len: usize,
-    rpos: usize,
-    rlease_num: usize,
-    wpos: usize,
-    wlease_num: usize,
-    op: Op,
-}
-
-struct SpiDat<'a> {
-    spi: &'a mut spi_core::Spi,
-    dat: Option<Transmit>,
-}
-
-// TODO: it is super unfortunate to have to write this by hand, but deriving
-// ToPrimitive makes us check at runtime whether the value fits
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
-}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -117,172 +79,74 @@ fn main() -> ! {
 
     spi.enable();
 
-    // Field messages.
-    let mask = 1;
-
-    let mut dat = SpiDat {
-        spi: &mut spi,
-        dat: None,
-    };
+    let mut a_bytes: [u8; 8] = [0xaa; 8];
+    let mut b_bytes: [u8; 8] = [0; 8];
 
     sys_irq_control(1, true);
 
+    let mut tx = &mut a_bytes;
+    let mut rx = &mut b_bytes;
+
+    let mut tx_cnt = 0;
+    let mut rx_cnt = 0;
+
+    spi.drain();
+    spi.enable_rx();
+    spi.enable_tx();
+
+    let mut tx_done = false;
+    let mut rx_done = false;
+
     loop {
-        hl::recv(
-            &mut [],
-            mask,
-            &mut dat,
-            |datref, bits| {
-                if bits & 1 != 0 {
-                    ringbuf_entry!(Trace::IRQ);
-                    if datref.spi.can_tx() {
-                        write_byte(datref.spi, &mut datref.dat);
-                    }
+        if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
+            panic!()
+        }
 
-                    if datref.spi.has_byte() {
-                        read_byte(datref.spi, &mut datref.dat);
-                    }
+        ringbuf_entry!(Trace::IRQ);
 
-                    if let Some(txs) = &datref.dat {
-                        if txs.rpos == txs.len && txs.wpos == txs.len {
-                            if txs.op == Op::Read {
-                                datref.spi.disable_tx();
-                            }
-                            core::mem::replace(&mut datref.dat, None)
-                                .unwrap()
-                                .task
-                                .reply(());
-                        }
-                    }
+        loop {
+            let mut again = false;
+
+            if spi.can_tx() && !tx_done {
+                let b = tx[tx_cnt];
+                ringbuf_entry!(Trace::Tx(b));
+                spi.send_u8(b);
+                tx_cnt += 1;
+                if tx_cnt == tx.len() {
+                    tx_done = true;
                 }
-                sys_irq_control(1, true);
-            },
-            |datref, op, msg| match op {
-                Op::Write => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
+                again = true;
+            }
 
-                    // Deny incoming transfers if we're already running one.
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
-
-                    let borrow = caller.borrow(0);
-
-                    let borrow_info =
-                        borrow.info().ok_or(ResponseCode::BadArg)?;
-
-                    if !borrow_info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    // Keep a minimum size to go with the FIFO settings
-                    if borrow_info.len < 8 {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: borrow_info.len,
-                        wpos: 0,
-                        len: borrow_info.len,
-                        op: Op::Write,
-                        rlease_num: 0,
-                        wlease_num: 0,
-                    });
-
-                    datref.spi.drain();
-                    datref.spi.enable_tx();
-
-                    ringbuf_entry!(Trace::Start(Op::Write));
-                    Ok(())
+            if spi.has_byte() && !rx_done {
+                let b = spi.read_u8();
+                ringbuf_entry!(Trace::Rx(b));
+                rx[rx_cnt] = b;
+                rx_cnt += 1;
+                if rx_cnt == rx.len() {
+                    rx_done = true;
                 }
-                Op::Read => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(1).ok_or(ResponseCode::BadArg)?;
 
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
+                again = true;
+            }
 
-                    let borrow = caller.borrow(0);
-                    let borrow_info =
-                        borrow.info().ok_or(ResponseCode::BadArg)?;
-                    if !borrow_info.attributes.contains(LeaseAttributes::WRITE)
-                    {
-                        return Err(ResponseCode::BadArg);
-                    }
+            if !again {
+                break;
+            }
+        }
 
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: borrow_info.len,
-                        wpos: 0,
-                        len: borrow_info.len,
-                        op: Op::Read,
-                        rlease_num: 0,
-                        wlease_num: 0,
-                    });
+        if tx_done && rx_done {
+            let tmp = rx;
 
-                    // Turning off receive without send is difficult (requires a
-                    // 16 bit write to a particular register) so just send some
-                    // bogus data for now
-                    datref.spi.drain();
-                    datref.spi.enable_tx();
-                    datref.spi.enable_rx();
+            rx = tx;
+            tx = tmp;
+            rx_done = false;
+            tx_done = false;
+            tx_cnt = 0;
+            rx_cnt = 0;
+        }
 
-                    ringbuf_entry!(Trace::Start(Op::Read));
-                    Ok(())
-                }
-                Op::Exchange => {
-                    let ((), caller) =
-                        msg.fixed_with_leases(2).ok_or(ResponseCode::BadArg)?;
-
-                    if datref.dat.is_some() {
-                        return Err(ResponseCode::Busy);
-                    }
-
-                    let borrow_send = caller.borrow(0);
-                    let send_info =
-                        borrow_send.info().ok_or(ResponseCode::BadArg)?;
-                    if !send_info.attributes.contains(LeaseAttributes::READ) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    // Keep a minimum size to go with the FIFO settings
-                    if send_info.len < 8 {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    let borrow_recv = caller.borrow(1);
-                    let recv_info =
-                        borrow_recv.info().ok_or(ResponseCode::BadArg)?;
-                    if !recv_info.attributes.contains(LeaseAttributes::WRITE) {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    if recv_info.len != send_info.len {
-                        return Err(ResponseCode::BadArg);
-                    }
-
-                    datref.dat = Some(Transmit {
-                        task: caller,
-                        rpos: 0,
-                        rlease_num: 0,
-                        wpos: 0,
-                        wlease_num: 1,
-                        len: recv_info.len,
-                        op: Op::Exchange,
-                    });
-
-                    datref.spi.drain();
-                    datref.spi.enable_tx();
-                    datref.spi.enable_rx();
-
-                    ringbuf_entry!(Trace::Start(Op::Exchange));
-                    Ok(())
-                }
-            },
-        );
+        sys_irq_control(1, true);
     }
 }
 
@@ -357,68 +221,5 @@ fn muck_with_gpios(syscon: &Syscon) {
         iocon
             .iocon_configure(pin, alt, mode, slew, invert, digi, od)
             .unwrap();
-    }
-}
-
-fn write_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
-    let txs = if let Some(txs) = tx { txs } else { return };
-
-    if txs.op == Op::Read {
-        // This hardware block expects us to send at the same time we're
-        // receiving. There is a bit to turn it off but accessing it is
-        // not easy. For now just send 0 if we're trying to receive but
-        // not actually write
-        spi.send_u8(0x0);
-        return;
-    }
-
-    if txs.rpos == txs.len {
-        return;
-    }
-
-    if let Some(byte) = txs.task.borrow(txs.rlease_num).read_at::<u8>(txs.rpos)
-    {
-        txs.rpos += 1;
-        ringbuf_entry!(Trace::Tx(byte));
-        spi.send_u8(byte);
-        if txs.rpos == txs.len {
-            spi.disable_tx();
-        }
-    } else {
-        spi.disable_tx();
-        spi.disable_rx();
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
-    }
-}
-
-fn read_byte(spi: &mut spi_core::Spi, tx: &mut Option<Transmit>) {
-    let txs = if let Some(txs) = tx { txs } else { return };
-
-    if txs.wpos == txs.len {
-        // This might actually be an error because we've received another
-        // byte when we have no room?
-        return;
-    }
-
-    let byte = spi.read_u8();
-    ringbuf_entry!(Trace::Rx(byte));
-
-    let borrow = txs.task.borrow(txs.wlease_num);
-
-    if let Some(_) = borrow.write_at(txs.wpos, byte) {
-        txs.wpos += 1;
-        if txs.wpos == txs.len {
-            spi.disable_rx();
-        }
-    } else {
-        spi.disable_rx();
-        spi.disable_tx();
-        core::mem::replace(tx, None)
-            .unwrap()
-            .task
-            .reply_fail(ResponseCode::BadArg);
     }
 }
