@@ -66,7 +66,6 @@ impl<'a> Bsp<'a> {
             )?;
         }
 
-        // Configure SERDES6G_4 for QSGMII
         serdes6g::Config::new(serdes6g::Mode::Qsgmii)
             .apply(serde, &self.vsc7448)?;
 
