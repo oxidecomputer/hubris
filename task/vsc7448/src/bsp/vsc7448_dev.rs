@@ -145,8 +145,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             self.leds.led_off(1).unwrap();
         }
 
+        // Check the DEV2G5 ports that could be mapped to SGMII on SFP slots
         let mut any_sgmii_up = false;
-        for d in [27, 28] {
+        for d in 25..29 {
             any_sgmii_up |= self.check_sgmii(d);
         }
         if any_sgmii_up {
