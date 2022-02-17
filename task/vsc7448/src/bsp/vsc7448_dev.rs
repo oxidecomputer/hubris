@@ -11,7 +11,7 @@ use vsc7448::{
     spi::Vsc7448Spi,
     VscError,
 };
-use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
+use vsc7448_pac::{phy, types::PhyRegisterAddress, *};
 use vsc85xx::{init_vsc8522_phy, Phy, PhyRw, PhyVsc85xx};
 
 task_slot!(USER_LEDS, user_leds);
@@ -81,7 +81,7 @@ impl<'a> Bsp<'a> {
         // Each PHYs on the same MIIM bus is strapped to different ports.
         for miim in [1, 2] {
             self.vsc7448
-                .modify(Vsc7448::DEVCPU_GCB().MIIM(miim).MII_CFG(), |cfg| {
+                .modify(DEVCPU_GCB().MIIM(miim).MII_CFG(), |cfg| {
                     cfg.set_miim_cfg_prescale(0xFF)
                 })?;
             // We only need to check this on one PHY port per physical PHY
@@ -103,11 +103,10 @@ impl<'a> Bsp<'a> {
         // The following code is based on port_setup in the MESA SDK, but
         // extracted and trimmed down to the bare necessacities (e.g. assuming
         // the chip is configured from reset)
-        self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                // Enable QSGMII mode for all 12 QSGMII outputs
-                r.set_qsgmii_ena(0xFFF);
-            })?;
+        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+            // Enable QSGMII mode for all 12 QSGMII outputs
+            r.set_qsgmii_ena(0xFFF);
+        })?;
 
         // See Table 8 in the datasheet for details about this
         self.init_qsgmii(DevGeneric::new_1g, 0..4, 4)?;
@@ -161,20 +160,19 @@ impl<'a> Bsp<'a> {
         port::port10g_flush(&d10g, self.vsc7448)?;
 
         // "Configure the 10G Mux mode to DEV2G5"
-        self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                match d10g.index() {
-                    0 => r.set_dev10g_0_mode(3),
-                    1 => r.set_dev10g_1_mode(3),
-                    2 => r.set_dev10g_2_mode(3),
-                    3 => r.set_dev10g_3_mode(3),
-                    d => panic!("Invalid DEV10G {}", d),
-                }
-            })?;
+        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+            match d10g.index() {
+                0 => r.set_dev10g_0_mode(3),
+                1 => r.set_dev10g_1_mode(3),
+                2 => r.set_dev10g_2_mode(3),
+                3 => r.set_dev10g_3_mode(3),
+                d => panic!("Invalid DEV10G {}", d),
+            }
+        })?;
 
         // This bit must be set when a 10G port runs below 10G speed
         self.vsc7448.modify(
-            Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()),
+            DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()),
             |r| {
                 r.set_dev10g_shadow_ena(1);
             },
@@ -191,10 +189,8 @@ impl<'a> Bsp<'a> {
         // talking to a VSC7448 dev kit on his desk.  In this case, we want to
         // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
         // GPIO_56-59 to Overlaid Function 1
-        self.vsc7448.write(
-            Vsc7448::DEVCPU_GCB().GPIO().GPIO_ALT1(0),
-            0xF000000.into(),
-        )?;
+        self.vsc7448
+            .write(DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
         Ok(())
     }
 
@@ -241,7 +237,7 @@ impl<'a> Bsp<'a> {
     fn check_sgmii(&mut self, dev: u8) -> bool {
         match self
             .vsc7448
-            .read(Vsc7448::DEV2G5(dev).PCS1G_CFG_STATUS().PCS1G_LINK_STATUS())
+            .read(DEV2G5(dev).PCS1G_CFG_STATUS().PCS1G_LINK_STATUS())
         {
             Ok(v) => v.link_status() != 0,
             Err(err) => {
@@ -343,7 +339,7 @@ impl<'a> Vsc7448SpiPhy<'a> {
         for _i in 0..32 {
             let status = self
                 .vsc7448
-                .read(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
+                .read(DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
             if status.miim_stat_opr_pend() == 0 {
                 return Ok(());
             }
@@ -357,7 +353,7 @@ impl<'a> Vsc7448SpiPhy<'a> {
         for _i in 0..32 {
             let status = self
                 .vsc7448
-                .read(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
+                .read(DEVCPU_GCB().MIIM(self.miim).MII_STATUS())?;
             if status.miim_stat_busy() == 0 {
                 return Ok(());
             }
@@ -377,12 +373,10 @@ impl PhyRw for Vsc7448SpiPhy<'_> {
 
         self.miim_idle_wait()?;
         self.vsc7448
-            .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)?;
+            .write(DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)?;
         self.miim_read_wait()?;
 
-        let out = self
-            .vsc7448
-            .read(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_DATA())?;
+        let out = self.vsc7448.read(DEVCPU_GCB().MIIM(self.miim).MII_DATA())?;
         if out.miim_data_success() == 0b11 {
             return Err(VscError::MiimReadErr {
                 miim: self.miim,
@@ -413,7 +407,7 @@ impl PhyRw for Vsc7448SpiPhy<'_> {
 
         self.miim_idle_wait()?;
         self.vsc7448
-            .write(Vsc7448::DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)
+            .write(DEVCPU_GCB().MIIM(self.miim).MII_CMD(), v)
     }
 }
 

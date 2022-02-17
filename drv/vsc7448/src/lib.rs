@@ -13,7 +13,7 @@ pub mod serdes6g;
 pub mod spi;
 
 use userlib::hl::sleep_for;
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 pub use vsc_err::VscError;
 
 /// Performs initial configuration (endianness, soft reset, read padding) of
@@ -21,25 +21,19 @@ pub use vsc_err::VscError;
 /// out of reset.
 pub fn init(v: &crate::spi::Vsc7448Spi) -> Result<(), VscError> {
     // Write the byte ordering / endianness configuration
-    v.write(
-        Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
-        0x81818181.into(),
-    )?;
+    v.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
 
     // Trigger a soft reset
-    v.write(Vsc7448::DEVCPU_GCB().CHIP_REGS().SOFT_RST(), 1.into())?;
+    v.write(DEVCPU_GCB().CHIP_REGS().SOFT_RST(), 1.into())?;
 
     // Re-write byte ordering / endianness
-    v.write(
-        Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(),
-        0x81818181.into(),
-    )?;
+    v.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
     // Configure reads to include padding bytes, since we're reading quickly
-    v.write_with(Vsc7448::DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |r| {
+    v.write_with(DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |r| {
         r.set_if_cfg(spi::SPI_NUM_PAD_BYTES as u32);
     })?;
 
-    let chip_id = v.read(Vsc7448::DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
+    let chip_id = v.read(DEVCPU_GCB().CHIP_REGS().CHIP_ID())?;
     if chip_id.rev_id() != 0x3
         || chip_id.part_id() != 0x7468
         || chip_id.mfg_id() != 0x74
@@ -50,34 +44,32 @@ pub fn init(v: &crate::spi::Vsc7448Spi) -> Result<(), VscError> {
 
     // Core chip bringup, bringing all of the main subsystems out of reset
     // (based on `jr2_init_conf_set` in the SDK)
-    v.modify(Vsc7448::ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(), |r| {
+    v.modify(ANA_AC().STAT_GLOBAL_CFG_PORT().STAT_RESET(), |r| {
         r.set_reset(1)
     })?;
-    v.modify(Vsc7448::ASM().CFG().STAT_CFG(), |r| {
-        r.set_stat_cnt_clr_shot(1)
-    })?;
-    v.modify(Vsc7448::QSYS().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(ASM().CFG().STAT_CFG(), |r| r.set_stat_cnt_clr_shot(1))?;
+    v.modify(QSYS().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
-    v.modify(Vsc7448::REW().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(REW().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
     // The VOP isn't in the datasheet, but it's in the SDK
-    v.modify(Vsc7448::VOP().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(VOP().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
-    v.modify(Vsc7448::ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(ANA_AC().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
-    v.modify(Vsc7448::ASM().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(ASM().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
-    v.modify(Vsc7448::DSM().RAM_CTRL().RAM_INIT(), |r| {
+    v.modify(DSM().RAM_CTRL().RAM_INIT(), |r| {
         r.set_ram_init(1);
         r.set_ram_ena(1);
     })?;
@@ -86,7 +78,7 @@ pub fn init(v: &crate::spi::Vsc7448Spi) -> Result<(), VscError> {
     // TODO: read back all of those autoclear bits and make sure they cleared
 
     // Enable the queue system
-    v.write_with(Vsc7448::QSYS().SYSTEM().RESET_CFG(), |r| r.set_core_ena(1))?;
+    v.write_with(QSYS().SYSTEM().RESET_CFG(), |r| r.set_core_ena(1))?;
 
     sleep_for(105); // Minimum time between reset and SMI access
 

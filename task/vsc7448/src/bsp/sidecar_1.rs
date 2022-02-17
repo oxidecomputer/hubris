@@ -11,7 +11,7 @@ use vsc7448::{
     spi::Vsc7448Spi,
     VscError,
 };
-use vsc7448_pac::{phy, types::PhyRegisterAddress, Vsc7448};
+use vsc7448_pac::{phy, types::PhyRegisterAddress, *};
 use vsc85xx::{init_vsc8504_phy, Phy, PhyRw, PhyVsc85xx};
 
 task_slot!(SYS, sys);
@@ -108,16 +108,15 @@ impl<'a> Bsp<'a> {
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
         // "Configure the 10G Mux mode to DEV2G5"
-        self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                r.set_dev10g_2_mode(3);
-                r.set_dev10g_3_mode(3);
-            })?;
+        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+            r.set_dev10g_2_mode(3);
+            r.set_dev10g_3_mode(3);
+        })?;
         for dev in [27, 28] {
             let dev_2g5 = DevGeneric::new_2g5(dev)?;
             // This bit must be set when a 10G port runs below 10G speed
             self.vsc7448.modify(
-                Vsc7448::DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
+                DSM().CFG().DEV_TX_STOP_WM_CFG(dev_2g5.port()),
                 |r| {
                     r.set_dev10g_shadow_ena(1);
                 },
@@ -199,18 +198,17 @@ impl<'a> Bsp<'a> {
         // Now that the PHY is configured, we can bring up the VSC7448.  This
         // is very similar to how we bring up QSGMII in the dev kit BSP
         // (bsp/gemini_bu.rs)
-        self.vsc7448
-            .modify(Vsc7448::HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                // Enable QSGMII mode for DEV1G_16-23 via SerDes6G_14/15
-                let ena = r.qsgmii_ena();
-                r.set_qsgmii_ena(ena | (1 << 10) | (1 << 11));
-            })?;
+        self.vsc7448.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+            // Enable QSGMII mode for DEV1G_16-23 via SerDes6G_14/15
+            let ena = r.qsgmii_ena();
+            r.set_qsgmii_ena(ena | (1 << 10) | (1 << 11));
+        })?;
         for dev in 16..=23 {
             // Reset the PCS TX clock domain.  In the SDK, this is accompanied
             // by the cryptic comment "BZ23738", which may refer to an errata
             // of some kind?
             self.vsc7448.modify(
-                Vsc7448::DEV1G(dev).DEV_CFG_STATUS().DEV_RST_CTRL(),
+                DEV1G(dev).DEV_CFG_STATUS().DEV_RST_CTRL(),
                 |r| {
                     r.set_pcs_tx_rst(0);
                 },

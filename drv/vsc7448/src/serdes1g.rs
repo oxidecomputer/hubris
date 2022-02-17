@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{spi::Vsc7448Spi, VscError};
-use vsc7448_pac::Vsc7448;
+use vsc7448_pac::*;
 
 pub enum Mode {
     Sgmii,
@@ -44,8 +44,8 @@ impl Config {
     }
     pub fn apply(&self, instance: u8, v: &Vsc7448Spi) -> Result<(), VscError> {
         v.serdes1g_read(instance)?;
-        let ana_cfg = Vsc7448::HSIO().SERDES1G_ANA_CFG();
-        let dig_cfg = Vsc7448::HSIO().SERDES1G_DIG_CFG();
+        let ana_cfg = HSIO().SERDES1G_ANA_CFG();
+        let dig_cfg = HSIO().SERDES1G_DIG_CFG();
         v.modify(ana_cfg.SERDES1G_SER_CFG(), |r| {
             r.set_ser_idle(self.ob_idle);
         })?;
