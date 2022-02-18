@@ -130,6 +130,15 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
+[tasks.udprpc]
+path = "../../task/udprpc"
+name = "task-udprpc"
+priority = 3
+requires = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
@@ -164,5 +173,12 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = 1}
 port = 8
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

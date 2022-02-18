@@ -2796,6 +2796,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-udprpc"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
+]
+
+[[package]]
 name = "task-vsc7448"
 version = "0.1.0"
 dependencies = [
