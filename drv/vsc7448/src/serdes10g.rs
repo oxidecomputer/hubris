@@ -483,6 +483,7 @@ impl Config {
             r.set_skip_cal(0);
             r.set_reset_apc(1);
             r.set_apc_direct_ena(1);
+            r.set_if_width(self.if_mode_sel);
         })?;
         v.modify(apc.APC_LD_CAL_CFG(), |r| {
             r.set_cal_clk_div(3);
