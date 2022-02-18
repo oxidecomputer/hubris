@@ -55,5 +55,12 @@ Interface(
                 err: CLike("NetError"),
             ),
         ),
+        "release_leds": (
+            doc: "Releases the user LEDs to software control",
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
     },
 )

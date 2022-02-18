@@ -183,6 +183,13 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         // TODO: this should not be open to all callers!
         Ok(self.eth.device_mut().smi_write(phy, register, value))
     }
+
+    fn release_leds(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<NetError>> {
+        Ok(self.bsp.release_leds())
+    }
 }
 
 impl NotificationHandler for ServerImpl<'_> {

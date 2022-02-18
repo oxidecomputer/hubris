@@ -88,6 +88,7 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 pub struct Bsp {
     ksz: Ksz8463,
     leds: UserLeds,
+    claimed_leds: bool,
 }
 
 impl Bsp {
@@ -100,7 +101,11 @@ impl Bsp {
         );
         let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-        Self { ksz, leds }
+        Self {
+            ksz,
+            leds,
+            claimed_leds: true,
+        }
     }
 
     pub fn configure_ethernet_pins(&self, sys: &Sys) {
@@ -307,15 +312,24 @@ impl Bsp {
             });
         }
 
-        if any_link {
-            self.leds.led_on(1).unwrap();
-        } else {
-            self.leds.led_off(1).unwrap();
+        if self.claimed_leds {
+            if any_link {
+                self.leds.led_on(1).unwrap();
+            } else {
+                self.leds.led_off(1).unwrap();
+            }
+            if any_comma {
+                self.leds.led_on(2).unwrap();
+            } else {
+                self.leds.led_off(2).unwrap();
+            }
         }
-        if any_comma {
-            self.leds.led_on(2).unwrap();
-        } else {
-            self.leds.led_off(2).unwrap();
+    }
+
+    pub fn release_leds(&mut self) {
+        self.claimed_leds = false;
+        for i in 0..4 {
+            self.leds.led_off(i).unwrap();
         }
     }
 }

@@ -121,15 +121,6 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
-[tasks.udpbroadcast]
-path = "../../task/udpbroadcast"
-name = "task-udpbroadcast"
-priority = 3
-requires = {flash = 16384, ram = 8192}
-stacksize = 4096
-start = true
-task-slots = ["net"]
-
 [tasks.udprpc]
 path = "../../task/udprpc"
 name = "task-udprpc"
@@ -166,13 +157,6 @@ cs = {port = "I", pin = 0}
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
-
-[config.net.sockets.broadcast]
-kind = "udp"
-owner = {name = "udpbroadcast", notification = 1}
-port = 8
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
