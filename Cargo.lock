@@ -550,6 +550,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -863,6 +874,7 @@ dependencies = [
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "cortex-m",
  "smoltcp",
  "stm32h7 0.13.0",
@@ -1422,6 +1434,16 @@ dependencies = [
  "ssmarshal",
  "unwrap-lite",
  "zerocopy",
+]
+
+[[package]]
+name = "ksz8463"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "ringbuf",
+ "userlib",
 ]
 
 [[package]]
@@ -2572,12 +2594,16 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
+ "cfg-if 1.0.0",
  "cortex-m",
+ "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
+ "ksz8463",
  "num-traits",
  "proc-macro2",
  "quote",
@@ -2589,6 +2615,8 @@ dependencies = [
  "syn",
  "task-net-api",
  "userlib",
+ "vsc7448-pac",
+ "vsc85xx",
  "zerocopy",
 ]
 
@@ -2737,6 +2765,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-udpbroadcast"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
+]
+
+[[package]]
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
@@ -2745,6 +2784,23 @@ dependencies = [
  "ssmarshal",
  "task-net-api",
  "userlib",
+]
+
+[[package]]
+name = "task-vsc7448"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
+ "ringbuf",
+ "task-net-api",
+ "userlib",
+ "vsc7448",
+ "vsc7448-pac",
+ "vsc85xx",
 ]
 
 [[package]]
@@ -3028,6 +3084,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ee8f19f9d74293faf70901bc20ad067dc1ad390d2cbf1e3f75f721ffee908b6"
 dependencies = [
  "vcell",
+]
+
+[[package]]
+name = "vsc-err"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "task-net-api",
+]
+
+[[package]]
+name = "vsc7448"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "drv-spi-api",
+ "ringbuf",
+ "userlib",
+ "vsc-err",
+ "vsc7448-pac",
+ "vsc85xx",
+]
+
+[[package]]
+name = "vsc7448-pac"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/vsc7448#c48345f64739d01ecee4be1aeaf4227bf2464635"
+dependencies = [
+ "derive_more",
+]
+
+[[package]]
+name = "vsc85xx"
+version = "0.1.0"
+dependencies = [
+ "ringbuf",
+ "userlib",
+ "vsc-err",
+ "vsc7448-pac",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 #[repr(u32)]
 pub enum NetError {
     QueueEmpty = 1,
@@ -20,6 +20,7 @@ impl From<u32> for NetError {
     fn from(x: u32) -> Self {
         match x {
             1 => NetError::QueueEmpty,
+            2 => NetError::NotYours,
             _ => panic!(),
         }
     }

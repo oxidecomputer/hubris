@@ -1,0 +1,34 @@
+[package]
+name = "task-vsc7448"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cfg-if = "1"
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+ringbuf = {path = "../../lib/ringbuf" }
+drv-spi-api = {path = "../../drv/spi-api"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
+drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true }
+vsc7448 = {path = "../../drv/vsc7448" }
+vsc85xx = {path = "../../drv/vsc85xx" }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+task-net-api = { path = "../net-api", optional = true }
+
+[features]
+leds = ["drv-user-leds-api"]
+mgmt = ["task-net-api", "vsc85xx/mgmt", "vsc7448/mgmt"]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-vsc7448"
+test = false
+bench = false

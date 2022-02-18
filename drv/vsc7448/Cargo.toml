@@ -1,0 +1,26 @@
+[package]
+name = "vsc7448"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cfg-if = "1"
+userlib = {path = "../../sys/userlib" }
+
+drv-spi-api = {path = "../../drv/spi-api"}
+ringbuf = {path = "../../lib/ringbuf" }
+vsc-err = { path = "../vsc-err" }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+vsc85xx = { path = "../vsc85xx" }
+
+[features]
+mgmt = ["vsc-err/mgmt"]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[lib]
+test = false
+bench = false

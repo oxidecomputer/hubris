@@ -16,6 +16,7 @@ use crate::ETH_IRQ;
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; generated::SOCKET_COUNT],
     eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+    bsp: crate::bsp::Bsp,
 }
 
 impl<'a> ServerImpl<'a> {
@@ -26,10 +27,12 @@ impl<'a> ServerImpl<'a> {
     pub fn new(
         socket_handles: [SocketHandle; generated::SOCKET_COUNT],
         eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+        bsp: crate::bsp::Bsp,
     ) -> Self {
         Self {
             socket_handles,
             eth,
+            bsp,
         }
     }
 
@@ -68,6 +71,12 @@ impl<'a> ServerImpl<'a> {
         index: usize,
     ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
         Ok(self.eth.get_socket::<UdpSocket>(self.get_handle(index)?))
+    }
+
+    /// Calls the `wake` function on the BSP, which handles things like
+    /// periodic logging and monitoring of ports.
+    pub fn wake(&mut self) {
+        self.bsp.wake(self.eth.device_mut());
     }
 }
 
