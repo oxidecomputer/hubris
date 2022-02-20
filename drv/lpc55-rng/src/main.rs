@@ -13,8 +13,9 @@ use core::mem::size_of;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_rng_api::RngError;
 use idol_runtime::{ClientError, RequestError};
+use rand_chacha::ChaCha20Rng;
 use rand_core::block::{BlockRng, BlockRngCore};
-use rand_core::{Error, RngCore};
+use rand_core::{impls, Error, RngCore, SeedableRng};
 use userlib::*;
 
 use lpc55_pac as device;
@@ -87,11 +88,72 @@ impl RngCore for Lpc55Rng {
     }
 }
 
-struct Lpc55RngServer(Lpc55Rng);
+// low-budget rand::rngs::adapter::ReseedingRng w/o fork stuff
+struct ReseedingRng<T: SeedableRng> {
+    inner: T,
+    reseeder: Lpc55Rng,
+    threshold: usize,
+    bytes_until_reseed: usize,
+}
+
+impl<T> ReseedingRng<T>
+where
+    T: SeedableRng,
+{
+    fn new(mut reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
+        use ::core::usize::MAX;
+
+        let threshold = if threshold == 0 { MAX } else { threshold };
+
+        // try_trait_v2 is still experimental
+        let inner = match T::from_rng(&mut reseeder) {
+            Ok(rng) => rng,
+            Err(err) => return Err(err),
+        };
+        Ok(ReseedingRng {
+            inner,
+            reseeder,
+            threshold,
+            bytes_until_reseed: threshold,
+        })
+    }
+}
+
+impl<T> RngCore for ReseedingRng<T>
+where
+    T: SeedableRng + RngCore,
+{
+    fn next_u32(&mut self) -> u32 {
+        impls::next_u32_via_fill(self)
+    }
+    fn next_u64(&mut self) -> u64 {
+        impls::next_u64_via_fill(self)
+    }
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.try_fill_bytes(dest)
+            .expect("Failed to get entropy from RNG.")
+    }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        let num_bytes = dest.len();
+        if num_bytes >= self.bytes_until_reseed || num_bytes >= self.threshold {
+            // try_trait_v2 is still experimental
+            self.inner = match T::from_rng(&mut self.reseeder) {
+                Ok(rng) => rng,
+                Err(e) => return Err(e),
+            };
+            self.bytes_until_reseed = self.threshold;
+        } else {
+            self.bytes_until_reseed -= num_bytes;
+        }
+        self.inner.try_fill_bytes(dest)
+    }
+}
+
+struct Lpc55RngServer(ReseedingRng<ChaCha20Rng>);
 
 impl Lpc55RngServer {
-    fn new(rng: Lpc55Rng) -> Self {
-        Lpc55RngServer(rng)
+    fn new(reseeder: Lpc55Rng, threshold: usize) -> Result<Self, Error> {
+        Ok(Lpc55RngServer(ReseedingRng::new(reseeder, threshold)?))
     }
 }
 
@@ -129,7 +191,9 @@ fn main() -> ! {
     let rng = Lpc55Rng::new();
     rng.init();
 
-    let mut rng = Lpc55RngServer::new(rng);
+    let threshold = 0x100000; // 1 MiB
+    let mut rng = Lpc55RngServer::new(rng, threshold)
+        .expect("Failed to create Lpc55RngServer");
     let mut buffer = [0u8; idl::INCOMING_SIZE];
 
     loop {

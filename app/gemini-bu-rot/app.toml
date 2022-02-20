@@ -117,9 +117,10 @@ task-slots = ["gpio_driver", "syscon_driver"]
 path = "../../drv/lpc55-rng"
 name = "drv-lpc55-rng"
 priority = 2
-requires = {flash = 8192, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
+stacksize = 2200
 task-slots = ["syscon_driver"]
 
 [tasks.spi0_driver]
