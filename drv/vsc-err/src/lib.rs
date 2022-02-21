@@ -53,10 +53,8 @@ pub enum VscError {
     InvalidDev2g5(u8),
     InvalidDev10g(u8),
 
-    /// Mismatch in the `IDENTIFIER_1` PHY register
-    BadPhyId1(u16),
-    /// Mismatch in the `IDENTIFIER_2` PHY register
-    BadPhyId2(u16),
+    /// Mismatch in the `IDENTIFIER_1/2` PHY register
+    BadPhyId(u32),
     /// Indicates that the VSC8504 is not Tesla E silicon
     BadPhyRev,
     /// Indicates that we tried to apply the phy patch to an invalid port;
