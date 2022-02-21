@@ -64,8 +64,8 @@ fn main() -> ! {
     sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
     sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
-    let bsp = bsp::Bsp::new();
-    bsp.configure_ethernet_pins(&sys);
+    // Do preliminary pin configuration
+    bsp::configure_ethernet_pins(&sys);
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -123,8 +123,8 @@ fn main() -> ! {
             .unwrap();
     }
 
-    // Board-dependant!
-    bsp.configure_phy(eth.device_mut(), &sys);
+    // Board-dependant initialization (e.g. bringing up the PHYs)
+    let bsp = bsp::Bsp::new(eth.device_mut(), &sys);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);

@@ -4,9 +4,7 @@
 #![no_std]
 
 use drv_spi_api::{SpiDevice, SpiError};
-use drv_stm32xx_sys_api::{self as sys_api, PinSet, Sys};
 use ringbuf::*;
-use userlib::hl::sleep_for;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
@@ -212,23 +210,13 @@ pub enum Register {
     DSP_CNTRL_6 = 0x734,
 }
 
-pub enum ResetSpeed {
-    Slow,
-    Normal,
-}
 pub struct Ksz8463 {
     spi: SpiDevice,
-    nrst: PinSet,
-    reset_speed: ResetSpeed,
 }
 
 impl Ksz8463 {
-    pub fn new(spi: SpiDevice, nrst: PinSet, reset_speed: ResetSpeed) -> Self {
-        Self {
-            spi,
-            nrst,
-            reset_speed,
-        }
+    pub fn new(spi: SpiDevice) -> Self {
+        Self { spi }
     }
 
     fn pack_addr(address: u16) -> u16 {
@@ -388,31 +376,7 @@ impl Ksz8463 {
     }
 
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
-    pub fn configure(&self, sys: &Sys) {
-        use sys_api::*;
-        sys.gpio_reset(self.nrst).unwrap();
-        sys.gpio_configure_output(
-            self.nrst,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-
-        // Toggle the reset line
-        sleep_for(10); // Reset must be held low for 10 ms after power up
-        sys.gpio_set(self.nrst).unwrap();
-
-        // The datasheet recommends a particular combination of diodes and
-        // capacitors which dramatically slow down the rise of the reset
-        // line, meaning you have to wait for extra long here.
-        //
-        // Otherwise, the minimum wait time is 1 µs, so 1 ms is fine.
-        sleep_for(match self.reset_speed {
-            ResetSpeed::Slow => 150,
-            ResetSpeed::Normal => 1,
-        });
-
+    pub fn configure(&self) {
         let id = self.read(Register::CIDER).unwrap();
         assert_eq!(id & !1, 0x8452);
         ringbuf_entry!(Trace::Id(id));
