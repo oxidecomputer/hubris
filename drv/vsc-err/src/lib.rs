@@ -66,6 +66,9 @@ pub enum VscError {
     /// an unexpected CRC.
     PhyPatchFailedCrc,
     PhyInitTimeout,
+    /// Returned by functions that support both the VSC8552 and VSC8562, when
+    /// the PHY id doesn't match either.
+    UnknownPhyId(u32),
 
     BadRegAddr(u32),
     InvalidRegisterRead(u32),
