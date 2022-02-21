@@ -33,7 +33,7 @@ impl RmiiPins {
             self.txd1,
             self.txd0,
             self.rxd1,
-            self.rxd1,
+            self.rxd0,
         ] {
             sys.gpio_configure(
                 p.port,
