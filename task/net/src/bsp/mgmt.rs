@@ -205,8 +205,10 @@ impl Config {
 
         // Build handle for the VSC85x2 PHY, then initialize it
         let vsc85x2 = vsc85xx::Vsc85x2::new(self.vsc85x2_base_port);
-        let mut phy_rw = MiimBridge::new(eth);
-        vsc85xx::init_vsc8552_phy(&mut vsc85x2.phy(0, &mut phy_rw)).unwrap();
+        let phy_rw = &mut MiimBridge::new(eth);
+        vsc85xx::patch_vsc8552_phy(&mut vsc85x2.phy(0, phy_rw)).unwrap();
+        vsc85xx::init_vsc8552_phy(&mut vsc85x2.phy(0, phy_rw)).unwrap();
+        vsc85xx::init_vsc8552_phy(&mut vsc85x2.phy(1, phy_rw)).unwrap();
 
         // Disable COMA_MODE
         if let Some(coma_mode) = self.vsc85x2_coma_mode {
