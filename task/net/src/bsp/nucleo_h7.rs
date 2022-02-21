@@ -16,74 +16,67 @@ pub const WAKE_INTERVAL: Option<u64> = None;
 // Empty handle
 pub struct Bsp;
 
+pub fn configure_ethernet_pins(sys: &Sys) {
+    // This board's mapping:
+    //
+    // RMII REF CLK     PA1
+    // MDIO             PA2
+    // RMII RX DV       PA7
+    //
+    // MDC              PC1
+    // RMII RXD0        PC4
+    // RMII RXD1        PC5
+    //
+    // RMII TX EN       PG11
+    // RMII TXD1        PB13 <-- port B
+    // RMII TXD0        PG13
+    use sys_api::*;
+    let eth_af = Alternate::AF11;
+
+    sys.gpio_configure(
+        Port::A,
+        (1 << 1) | (1 << 2) | (1 << 7),
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::VeryHigh,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+    sys.gpio_configure(
+        Port::B,
+        1 << 13,
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::VeryHigh,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+    sys.gpio_configure(
+        Port::C,
+        (1 << 1) | (1 << 4) | (1 << 5),
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::VeryHigh,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+    sys.gpio_configure(
+        Port::G,
+        (1 << 11) | (1 << 12) | (1 << 13),
+        Mode::Alternate,
+        OutputType::PushPull,
+        Speed::VeryHigh,
+        Pull::None,
+        eth_af,
+    )
+    .unwrap();
+}
+
 impl Bsp {
-    pub fn new() -> Self {
-        Self {}
-    }
-    pub fn configure_ethernet_pins(&self, sys: &Sys) {
-        // This board's mapping:
-        //
-        // RMII REF CLK     PA1
-        // MDIO             PA2
-        // RMII RX DV       PA7
-        //
-        // MDC              PC1
-        // RMII RXD0        PC4
-        // RMII RXD1        PC5
-        //
-        // RMII TX EN       PG11
-        // RMII TXD1        PB13 <-- port B
-        // RMII TXD0        PG13
-        use sys_api::*;
-        let eth_af = Alternate::AF11;
-
-        sys.gpio_configure(
-            Port::A,
-            (1 << 1) | (1 << 2) | (1 << 7),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::B,
-            1 << 13,
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::C,
-            (1 << 1) | (1 << 4) | (1 << 5),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::G,
-            (1 << 11) | (1 << 12) | (1 << 13),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-    }
-
-    pub fn wake(&self, _eth: &mut eth::Ethernet) {
-        panic!("Wake should never be called, because WAKE_INTERVAL is None");
-    }
-
-    pub fn configure_phy(&self, eth: &mut eth::Ethernet, _sys: &Sys) {
+    pub fn new(eth: &mut eth::Ethernet, _sys: &Sys) -> Self {
         // Set up the PHY.
         let mii_basic_control =
             eth.smi_read(PHYADDR, eth::SmiClause22Register::Control);
@@ -103,5 +96,11 @@ impl Bsp {
         {
             userlib::hl::sleep_for(1);
         }
+
+        Self {}
+    }
+
+    pub fn wake(&self, _eth: &mut eth::Ethernet) {
+        panic!("Wake should never be called, because WAKE_INTERVAL is None");
     }
 }

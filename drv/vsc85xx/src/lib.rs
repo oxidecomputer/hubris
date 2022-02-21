@@ -238,6 +238,30 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     Ok(())
 }
 
+/// Represents a VSC8552 or VSC8562 PHY.  `base_port` is the PHY address of
+/// the chip's port 0; since this is a two-port PHY, we can address either
+/// `base_port` or `base_port + 1` given a suitable `PhyRw`.
+pub struct Vsc85x2 {
+    base_port: u8,
+}
+
+impl Vsc85x2 {
+    pub fn new(base_port: u8) -> Self {
+        Self { base_port }
+    }
+
+    /// Returns a handle to address the specified port, which must be either 0
+    /// or 1; this function offsets by the chip's port offset, which is set
+    /// by resistor strapping.
+    pub fn phy<'a, P: PhyRw>(&self, port: u8, rw: &'a mut P) -> Phy<'a, P> {
+        assert!(port < 2);
+        Phy {
+            port: self.base_port + port,
+            rw,
+        }
+    }
+}
+
 /// Checks the chip ID of a VSC8552 patch, then applies a patch to the built-in
 /// 8051 processor based on the MESA SDK.  This must only be called on port 0
 /// in the PHY; otherwise it will return an error

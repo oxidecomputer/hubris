@@ -58,18 +58,23 @@ impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
         Self(
             mgmt::Config {
-                power_en: Some(Port::I.pin(11)),
+                // SP_TO_MGMT_V2P5_EN
+                power_en: Some(Port::I.pin(12)),
                 power_good: None,
                 pll_lock: None,
 
                 // Based on ordering in app.toml
-                ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+                ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
                 ksz8463_nrst: Port::A.pin(0),
                 ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
-                vsc85x2_coma_mode: Some(Port::I.pin(15)),
-                vsc85x2_nrst: Port::I.pin(14),
-                vsc85x2_base_port: 0,
+                // SP_TO_MGMT_PHY_COMA_MODE
+                vsc85x2_coma_mode: Some(Port::D.pin(7)),
+
+                // SP_TO_MGMT_PHY_RESET
+                vsc85x2_nrst: Port::A.pin(8),
+
+                vsc85x2_base_port: 0b11110, // Based on resistor strapping
             }
             .build(sys, eth),
         )
