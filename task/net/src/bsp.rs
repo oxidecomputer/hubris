@@ -5,9 +5,6 @@
 // These modules are exported so that we don't have warnings about unused code,
 // but you should import Bsp instead, which is autoselected based on board.
 
-#[cfg(feature = "mgmt")]
-pub(crate) mod mgmt;
-
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
         mod nucleo_h7;

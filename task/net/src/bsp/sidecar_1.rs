@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::bsp::mgmt;
 use crate::miim_bridge::MiimBridge;
+use crate::{mgmt, pins};
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
@@ -32,7 +32,7 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 /// Stateless function to configure ethernet pins before the Bsp struct
 /// is actually constructed
 pub fn configure_ethernet_pins(sys: &Sys) {
-    mgmt::RmiiPins {
+    pins::RmiiPins {
         refclk: Port::A.pin(1),
         crs_dv: Port::A.pin(7),
         tx_en: Port::G.pin(11),
@@ -44,7 +44,7 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     }
     .configure(sys);
 
-    mgmt::MdioPins {
+    pins::MdioPins {
         mdio: Port::A.pin(2),
         mdc: Port::C.pin(1),
         af: Alternate::AF11,

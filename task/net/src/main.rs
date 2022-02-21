@@ -7,10 +7,14 @@
 
 mod bsp;
 mod buf;
+mod pins;
 mod server;
 
 #[cfg(feature = "mgmt")]
 mod miim_bridge;
+
+#[cfg(feature = "mgmt")]
+pub(crate) mod mgmt;
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
