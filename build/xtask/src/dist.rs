@@ -609,6 +609,7 @@ pub fn package(
     archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
     archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
     archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
+
     if let Some(bootloader) = toml.bootloader.as_ref() {
         archive
             .copy(out.join(&bootloader.name), img_dir.join(&bootloader.name))?;
@@ -617,6 +618,16 @@ pub fn package(
         let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
         archive.copy(out.join(&name), img_dir.join(&name))?;
     }
+
+    archive.copy(out.join("final.srec"), img_dir.join("final.srec"))?;
+    archive.copy(out.join("final.elf"), img_dir.join("final.elf"))?;
+    archive.copy(out.join("final.ihex"), img_dir.join("final.ihex"))?;
+    archive.copy(out.join("final.bin"), img_dir.join("final.bin"))?;
+
+    let mut config = crate::flash::config(&toml.board.as_str())?;
+    config.flatten()?;
+
+    archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
 
     archive.finish()?;
 
