@@ -8,6 +8,7 @@
 //! It relies heavily on the trait [PhyRw], which callers must implement.  This
 //! trait is an abstraction over reading and writing raw PHY registers.
 #![no_std]
+use core::convert::TryInto;
 
 use ringbuf::*;
 use userlib::hl::sleep_for;
@@ -41,23 +42,39 @@ pub trait PhyRw {
         T: From<u16> + Clone;
 }
 
-/// Handle for interacting with a particular PHY port
+/// Handle for interacting with a particular PHY port.  This handle assumes
+/// exclusive access to the port, because it tracks the current page and
+/// minimizes page-change writes.  This is _somewhat_ enforced by the ownership
+/// rules, as we have an exclusive (mutable) reference to the `PhyRw` object
+/// `rw`.
 pub struct Phy<'a, P> {
     pub port: u8,
     pub rw: &'a mut P,
+    last_page: Option<u16>,
 }
 
-impl<P: PhyRw> Phy<'_, P> {
+impl<'a, P: PhyRw> Phy<'a, P> {
+    pub fn new(port: u8, rw: &'a mut P) -> Self {
+        Self {
+            port,
+            rw,
+            last_page: None,
+        }
+    }
+
     pub fn read<T>(&mut self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.rw.write_raw::<phy::standard::PAGE>(
-            self.port,
-            phy::STANDARD::PAGE(),
-            reg.page.into(),
-        )?;
+        if self.last_page.map(|p| p != reg.page).unwrap_or(true) {
+            self.rw.write_raw::<phy::standard::PAGE>(
+                self.port,
+                phy::STANDARD::PAGE(),
+                reg.page.into(),
+            )?;
+            self.last_page = Some(reg.page);
+        }
         self.rw.read_raw(self.port, reg)
     }
 
@@ -362,6 +379,11 @@ pub fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Enable 2 port MAC SGMII, then wait for the command to finish
     cmd(v, 0x80F0)?;
 
+    ////////////////////////////////////////////////////////////////////////////
+    // Based on `vtss_phy_sd6g_patch_private`
+    let base_phy = &mut Phy::new(v.port & !1, v.rw);
+    vsc8562_sd6g_patch(base_phy)?;
+
     // 100BASE-FX on all PHYs
     cmd(v, 0x8FD1)?;
 
@@ -373,11 +395,46 @@ pub fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     })?;
 
     // Now, we reset the PHY to put those settings into effect
-    software_reset(v)
+    software_reset(v)?;
 
-    // TODO: "Apply Enhanced SerDes patch from PHY_API"
-    // I think this is `vtss_phy_chk_serdes_patch_init_private` and
-    // `vtss_phy_sd6g_patch_private`?
+    ////////////////////////////////////////////////////////////////////////////
+    // "Bug# 19146
+    // Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
+    // Calls into `vtss_phy_sd1g_patch_private` in the SDK
+
+    // XXX not sure if this is the right way to find base_port
+    let base_phy = &mut Phy::new(v.port & !1, v.rw);
+    let slave_addr = v.port * 2;
+
+    // "read 1G MCB into CSRs"
+    vsc8562_mcb_read(base_phy, 0x20, slave_addr)?;
+
+    // Various bits of configuration for 100FX mode
+    vsc8562_sd1g_ib_cfg_write(base_phy, 0)?;
+    vsc8562_sd1g_misc_cfg_write(base_phy, 1)?;
+    vsc8562_sd1g_des_cfg_write(base_phy, 14, 3)?;
+
+    // "write back 1G MCB"
+    vsc8562_mcb_write(base_phy, 0x20, slave_addr)?;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
+    v.write(phy::TR::TR_16(), 0xa7f8.into())?;
+    v.modify(phy::TR::TR_17(), |r| {
+        r.0 &= 0xffe7;
+        r.0 |= 3 << 3;
+    })?;
+    v.write(phy::TR::TR_16(), 0x87f8.into())?;
+
+    // "Fix for bz# 21485 ,VgaThresh100=25"
+    v.write(phy::TR::TR_16(), 0xafa4.into())?;
+    v.modify(phy::TR::TR_18(), |r| {
+        r.0 &= 0xff80;
+        r.0 |= 19
+    })?;
+    v.write(phy::TR::TR_16(), 0x8fa4.into())?;
+
+    Ok(())
 }
 
 /// Represents a VSC8552 or VSC8562 PHY.  `base_port` is the PHY address of
@@ -397,10 +454,7 @@ impl Vsc85x2 {
     /// by resistor strapping.
     pub fn phy<'a, P: PhyRw>(&self, port: u8, rw: &'a mut P) -> Phy<'a, P> {
         assert!(port < 2);
-        Phy {
-            port: self.base_port + port,
-            rw,
-        }
+        Phy::new(self.base_port + port, rw)
     }
 }
 
@@ -415,6 +469,626 @@ fn cmd<P: PhyRw>(v: &mut Phy<P>, command: u16) -> Result<(), VscError> {
     v.wait_timeout(phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 == 0)?;
     Ok(())
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Based on `vtss_phy_sd6g_patch_private`.
+///
+/// `v` must be the base port of this PHY, otherwise this will return an error
+fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
+    // Check to make sure we're talking to the base port of the PHY
+    let phy_port = v.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
+    if phy_port != 0 {
+        return Err(VscError::BadPhyPatchPort(phy_port));
+    }
+
+    let pll_fsm_ctrl_data = 60;
+    let qrate = 1;
+    let if_mode = 1;
+    let des_bw_ana_val = 3;
+    let ib_sig_det_clk_sel_cal = 0; // 0 for during IBCAL for all
+    let ib_sig_det_clk_sel_mm = 7;
+    let ib_tsdet_cal = 16;
+    let ib_tsdet_mm = 5;
+
+    // `detune_pll5g`
+    let mut rd_dat = vsc8562_macsec_csr_read(v, 7, 0x8)?;
+    rd_dat &= 0xfffffc1e; // "Mask Off bit 0: ena_gain_test & bit [9:5] = gain_test"
+    let gain_test = 0;
+    let ena_gain_test = 1;
+    rd_dat |= (ena_gain_test << 0) | (gain_test << 5);
+    vsc8562_macsec_csr_write(v, 7, 0x8, rd_dat)?;
+
+    // "0. Reset RCPLL"
+    // "pll_fsm_ena=0, reset rcpll"
+    vsc8562_sd6g_pll_cfg_write(v, 3, pll_fsm_ctrl_data, 0)?;
+    vsc8562_sd6g_common_cfg_write(v, 0, 0, 0, qrate, if_mode, 0)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "1. Configure sd6g for SGMII prior to sd6g_IB_CAL"
+    // "update des_bw_ana for bug 14948"
+    let ib_rtrm_adj = 16 - 3;
+    vsc8562_sd6g_des_cfg_write(v, 6, 2, 5, des_bw_ana_val, 0)?;
+    vsc8562_sd6g_ib_cfg0_write(v, ib_rtrm_adj, ib_sig_det_clk_sel_mm, 0, 0)?;
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_mm, 15, 0, 1)?;
+
+    // "update ib_tcalv & ib_ureg for bug 14626"
+    vsc8562_sd6g_ib_cfg2_write(v, 3, 13, 5)?;
+    vsc8562_sd6g_ib_cfg3_write(v, 0, 31, 1, 31)?;
+    vsc8562_sd6g_ib_cfg4_write(v, 63, 63, 2, 63)?;
+
+    vsc8562_sd6g_common_cfg_write(v, 1, 1, 0, qrate, if_mode, 0)?; // "sys_rst, ena_lane"
+    vsc8562_sd6g_misc_cfg_write(v, 1)?; // "assert lane reset"
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "2. Start rcpll_fsm"
+    vsc8562_sd6g_pll_cfg_write(v, 3, pll_fsm_ctrl_data, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "3. Wait for PLL cal to complete"
+    let mut timed_out = true;
+    for _ in 0..300 {
+        vsc8562_mcb_read(v, 0x3f, 0)?;
+        let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x31)?;
+        if (rd_dat & 0x0001000) == 0 {
+            timed_out = false;
+            break;
+        }
+    }
+    if timed_out {
+        return Err(VscError::PhyPllCalTimeout);
+    }
+
+    // "4. Release digital reset and disable transmitter"
+    vsc8562_sd6g_misc_cfg_write(v, 0)?; // "release lane reset"
+    vsc8562_sd6g_common_cfg_write(v, 1, 1, 0, qrate, if_mode, 1)?; // "sys_rst, ena_lane, pwd_tx"
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "5. Apply a frequency offset on RX-side (using internal FoJi logic)
+    //  Make sure that equipment loop is not active. Already done above"
+    vsc8562_sd6g_gp_cfg_write(v, 768)?; // "release lane reset"
+    vsc8562_sd6g_dft_cfg2_write(v, 0, 2, 0, 0, 0, 1)?; // "release lane reset"
+    vsc8562_sd6g_dft_cfg0_write(v, 0, 0, 1)?;
+    vsc8562_sd6g_des_cfg_write(v, 6, 2, 5, des_bw_ana_val, 2)?;
+
+    // "6. Prepare required settings for IBCAL"
+    let gp_iter = 5;
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_cal, 15, 1, 0)?;
+    vsc8562_sd6g_ib_cfg0_write(v, ib_rtrm_adj, ib_sig_det_clk_sel_cal, 0, 0)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "7. Start IB_CAL"
+    vsc8562_sd6g_ib_cfg0_write(v, ib_rtrm_adj, ib_sig_det_clk_sel_cal, 0, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+    for _ in 0..gp_iter {
+        vsc8562_sd6g_gp_cfg_write(v, 769)?;
+        vsc8562_mcb_write(v, 0x3f, 0)?;
+        vsc8562_sd6g_gp_cfg_write(v, 768)?;
+        vsc8562_mcb_write(v, 0x3f, 0)?;
+    }
+
+    //ib_filt_offset=1
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_cal, 15, 1, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+    // then ib_frc_offset=0
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_cal, 15, 0, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "8. Wait for IB cal to complete"
+    let mut timed_out = true;
+    for _ in 0..200 {
+        vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
+        let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x2f)?; // "ib_status0"
+        if rd_dat & 0x0000100 != 0 {
+            timed_out = false;
+            break;
+        }
+    }
+    if timed_out {
+        return Err(VscError::PhyIbCalTimeout);
+    }
+
+    // "9. Restore cfg values for mission mode"
+    vsc8562_sd6g_ib_cfg0_write(v, ib_rtrm_adj, ib_sig_det_clk_sel_mm, 0, 1)?;
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_mm, 15, 0, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "10. Re-enable transmitter"
+    vsc8562_sd6g_common_cfg_write(v, 1, 1, 0, qrate, if_mode, 0)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "11. Disable frequency offset generation (using internal FoJi logic)"
+    vsc8562_sd6g_dft_cfg2_write(v, 0, 0, 0, 0, 0, 0)?;
+    vsc8562_sd6g_dft_cfg0_write(v, 0, 0, 0)?;
+    vsc8562_sd6g_des_cfg_write(v, 6, 2, 5, des_bw_ana_val, 0)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // `tune_pll5g`
+    // "Mask Off bit 0: ena_gain_test"
+    vsc8562_macsec_csr_modify(v, 7, 0x8, |r| *r &= 0xfffffffe)?;
+
+    // "12. Configure for Final Configuration and Settings"
+    // "a. Reset RCPLL"
+    vsc8562_sd6g_pll_cfg_write(v, 3, pll_fsm_ctrl_data, 0)?;
+    vsc8562_sd6g_common_cfg_write(v, 0, 1, 0, qrate, if_mode, 0)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "b. Configure sd6g for desired operating mode"
+    // Settings for SGMII
+    let pll_fsm_ctrl_data = 60;
+    let qrate = 1;
+    let if_mode = 1;
+    let des_bw_ana_val = 3;
+    cmd(v, 0x80F0)?; // XXX: why do we need to do this again here?
+
+    vsc8562_mcb_read(v, 0x11, 0)?; // "read LCPLL MCB into CSRs"
+    vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
+
+    // "update LCPLL bandgap voltage setting (bug 13887)"
+    vsc8562_pll5g_cfg0_write(v, 4)?;
+    vsc8562_mcb_write(v, 0x11, 0)?;
+
+    // "update des_bw_ana for bug 14948"
+    vsc8562_sd6g_des_cfg_write(v, 6, 2, 5, des_bw_ana_val, 0)?;
+    vsc8562_sd6g_ib_cfg0_write(v, ib_rtrm_adj, ib_sig_det_clk_sel_mm, 0, 1)?;
+    vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_mm, 15, 0, 1)?;
+    vsc8562_sd6g_common_cfg_write(v, 1, 1, 0, qrate, if_mode, 0)?;
+
+    // "update ib_tcalv & ib_ureg for bug 14626"
+    vsc8562_sd6g_ib_cfg2_write(v, 3, 13, 5)?;
+    vsc8562_sd6g_ib_cfg3_write(v, 0, 31, 1, 31)?;
+    vsc8562_sd6g_ib_cfg4_write(v, 63, 63, 2, 63)?;
+
+    vsc8562_sd6g_misc_cfg_write(v, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "2. Start rcpll_fsm"
+    vsc8562_sd6g_pll_cfg_write(v, 3, pll_fsm_ctrl_data, 1)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
+
+    // "3. Wait for PLL cal to complete"
+    let mut timed_out = true;
+    for _ in 0..200 {
+        vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
+        let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x31)?; // "ib_status0"
+
+        // "wait for bit 12 to clear"
+        if rd_dat & 0x0001000 == 0 {
+            timed_out = false;
+            break;
+        }
+    }
+    if timed_out {
+        return Err(VscError::PhyPllCalTimeout);
+    }
+
+    vsc8562_sd6g_misc_cfg_write(v, 0)?; // "release lane reset"
+    vsc8562_mcb_write(v, 0x3f, 0)?; // "write back 6G MCB"
+
+    Ok(())
+}
+
+/// `vtss_phy_mcb_rd_trig_private`
+fn vsc8562_mcb_read<P: PhyRw>(
+    v: &mut Phy<P>,
+    mcb_reg_addr: u32,
+    mcb_slave_num: u8,
+) -> Result<(), VscError> {
+    // Request a read from the MCB
+    vsc8562_macsec_csr_write(
+        v,
+        7,
+        mcb_reg_addr,
+        0x40000000 | (1 << mcb_slave_num),
+    )?;
+
+    // Timeout based on the SDK SD6G_TIMEOUT
+    for _ in 0..200 {
+        let r = vsc8562_macsec_csr_read(v, 7, mcb_reg_addr)?;
+        if (r & 0x40000000) == 0 {
+            return Ok(());
+        }
+        sleep_for(1);
+    }
+    Err(VscError::McbReadTimeout)
+}
+
+/// `vtss_phy_mcb_wr_trig_private`
+fn vsc8562_mcb_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    mcb_reg_addr: u32,
+    mcb_slave_num: u8,
+) -> Result<(), VscError> {
+    // Write back MCB
+    vsc8562_macsec_csr_write(
+        v,
+        7,
+        mcb_reg_addr,
+        0x80000000 | (1 << mcb_slave_num),
+    )?;
+
+    // Timeout based on the SDK SD6G_TIMEOUT
+    for _ in 0..200 {
+        let r = vsc8562_macsec_csr_read(v, 7, mcb_reg_addr)?;
+        if (r & 0x80000000) == 0 {
+            return Ok(());
+        }
+        sleep_for(1);
+    }
+    Err(VscError::McbWriteTimeout)
+}
+
+/// `vtss_phy_macsec_csr_rd_private`
+fn vsc8562_macsec_csr_read<P: PhyRw>(
+    v: &mut Phy<P>,
+    target: u16,
+    csr_reg_addr: u32,
+) -> Result<u32, VscError> {
+    // "Wait for MACSEC register access"
+    vsc8562_macsec_wait(v, 19)?;
+
+    // "Setup the Target Id"
+    v.write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
+
+    // "non-macsec access"
+    let target_tmp = if target >> 2 == 1 { target & 3 } else { 0 };
+
+    // "Trigger CSR Action - Read(16) into the CSR's and wait for complete"
+    v.write(
+        phy::MACSEC::MACSEC_19(),
+        TryInto::<u16>::try_into(
+            // VTSS_PHY_F_PAGE_MACSEC_19_CMD_BIT
+            (1 << 15) |
+            // VTSS_PHY_F_PAGE_MACSEC_19_READ
+            (1 << 14) |
+            // VTSS_PHY_F_PAGE_MACSEC_19_TARGET
+            ((u32::from(target_tmp) & 0xfff) << 2) |
+            // VTSS_PHY_F_PAGE_MACSEC_19_CSR_REG_ADDR
+            (csr_reg_addr & 0x3fff),
+        )
+        .unwrap()
+        .into(),
+    )?;
+
+    vsc8562_macsec_wait(v, 19)?;
+    let lsb = v.read(phy::MACSEC::MACSEC_CSR_DATA_LSB())?;
+    let msb = v.read(phy::MACSEC::MACSEC_CSR_DATA_MSB())?;
+    Ok((u32::from(msb.0) << 16) | u32::from(lsb.0))
+}
+
+/// `vtss_phy_macsec_csr_wr_private`
+fn vsc8562_macsec_csr_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    target: u16,
+    csr_reg_addr: u32,
+    value: u32,
+) -> Result<(), VscError> {
+    // "Wait for MACSEC register access"
+    vsc8562_macsec_wait(v, 19)?;
+
+    v.write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
+
+    // "non-macsec access"
+    let target_tmp = if target >> 2 == 1 || target >> 2 == 3 {
+        target
+    } else {
+        0
+    };
+
+    v.write(phy::MACSEC::MACSEC_CSR_DATA_LSB(), (value as u16).into())?;
+    v.write(
+        phy::MACSEC::MACSEC_CSR_DATA_MSB(),
+        ((value >> 16) as u16).into(),
+    )?;
+
+    // "Trigger CSR Action"
+    v.write(
+        phy::MACSEC::MACSEC_19(),
+        TryInto::<u16>::try_into(
+            // VTSS_PHY_F_PAGE_MACSEC_19_CMD_BIT
+            (1 << 15) |
+            // VTSS_PHY_F_PAGE_MACSEC_19_TARGET
+            ((u32::from(target_tmp) & 0xfff) << 2) |
+            // VTSS_PHY_F_PAGE_MACSEC_19_CSR_REG_ADDR
+            (csr_reg_addr & 0x3fff),
+        )
+        .unwrap()
+        .into(),
+    )?;
+
+    vsc8562_macsec_wait(v, 19)?;
+
+    Ok(())
+}
+
+/// `vtss_phy_wait_for_macsec_command_busy`
+fn vsc8562_macsec_wait<P: PhyRw>(
+    v: &mut Phy<P>,
+    page: u32,
+) -> Result<(), VscError> {
+    // Timeout based on the SDK
+    for _ in 0..255 {
+        match page {
+            19 => {
+                let value = v.read(phy::MACSEC::MACSEC_19())?;
+                if value.0 & (1 << 15) != 0 {
+                    return Ok(());
+                }
+            }
+            20 => {
+                let value = v.read(phy::MACSEC::MACSEC_20())?;
+                if value.0 == 0 {
+                    return Ok(());
+                }
+            }
+            _ => panic!("Invalid MACSEC page"),
+        }
+    }
+    Err(VscError::MacSecWaitTimeout)
+}
+
+/// `vtss_phy_sd1g_ib_cfg_wr_private`
+fn vsc8562_sd1g_ib_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_ena_cmv_term: u8,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_modify(v, 7, 0x13, |r| {
+        *r &= !(1 << 13);
+        *r |= u32::from(ib_ena_cmv_term) << 13;
+    })
+}
+
+/// Helper function to combine `vsc8562_macsec_csr_read`, some modification,
+/// followed by `vsc8562_macsec_csr_write`
+fn vsc8562_macsec_csr_modify<F, P: PhyRw>(
+    v: &mut Phy<P>,
+    target: u16,
+    csr_reg_addr: u32,
+    f: F,
+) -> Result<(), VscError>
+where
+    F: Fn(&mut u32),
+{
+    let mut reg_val = vsc8562_macsec_csr_read(v, target, csr_reg_addr)?;
+    f(&mut reg_val);
+    vsc8562_macsec_csr_write(v, target, csr_reg_addr, reg_val)
+}
+
+/// `vtss_phy_sd1g_misc_cfg_wr_private`
+fn vsc8562_sd1g_misc_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    des_100fx_cpmd_mode: u8,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_modify(v, 7, 0x1e, |r| {
+        *r &= !(1 << 9);
+        *r |= u32::from(des_100fx_cpmd_mode) << 9;
+    })
+}
+
+/// `vtss_phy_sd1g_des_cfg_wr_private`
+fn vsc8562_sd1g_des_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    des_phs_ctrl: u8,
+    des_mbtr_ctrl: u8,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_modify(v, 7, 0x12, |r| {
+        *r &= !((0xf << 13) | (0x7 << 8));
+        *r |= (u32::from(des_phs_ctrl) << 13) | (u32::from(des_mbtr_ctrl) << 8);
+    })
+}
+
+/// `vtss_phy_sd6g_pll_cfg_wr_private`
+fn vsc8562_sd6g_pll_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    pll_ena_offs: u8,
+    pll_fsm_ctrl_data: u8,
+    pll_fsm_ena: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(pll_ena_offs) << 21)
+        | (u32::from(pll_fsm_ctrl_data) << 8)
+        | (u32::from(pll_fsm_ena) << 7);
+    vsc8562_macsec_csr_write(v, 7, 0x2b, reg_val)
+}
+
+/// `vtss_phy_sd6g_ib_cfg0_wr_private`
+fn vsc8562_sd6g_ib_cfg0_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_rtrm_adj: u8,
+    ib_sig_det_clk_sel: u8,
+    ib_reg_pat_sel_offset: u8,
+    ib_cal_ena: u8,
+) -> Result<(), VscError> {
+    // "constant terms"
+    let base_val = (1 << 30)
+        | (1 << 29)
+        | (5 << 21)
+        | (1 << 19)
+        | (1 << 14)
+        | (1 << 12)
+        | (2 << 10)
+        | (1 << 5)
+        | (1 << 4)
+        | 7;
+    // "configurable terms"
+    let reg_val = base_val
+        | (u32::from(ib_rtrm_adj) << 25)
+        | (u32::from(ib_sig_det_clk_sel) << 16)
+        | (u32::from(ib_reg_pat_sel_offset) << 8)
+        | (u32::from(ib_cal_ena) << 3);
+    vsc8562_macsec_csr_write(v, 7, 0x22, reg_val)
+}
+
+/// `vtss_phy_sd6g_ib_cfg1_wr_private`
+fn vsc8562_sd6g_ib_cfg1_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_tjtag: u8,
+    ib_tsdet: u8,
+    ib_scaly: u8,
+    ib_frc_offset: u8,
+    ib_filt_offset: u8,
+) -> Result<(), VscError> {
+    // "constant terms"
+    let ib_filt_val = (1 << 7) | (1 << 6) | (1 << 5);
+    let ib_frc_val = (0 << 3) | (0 << 2) | (0 << 1);
+    // "configurable terms"
+    let reg_val = (u32::from(ib_tjtag) << 17)
+        | (u32::from(ib_tsdet) << 12)
+        | (u32::from(ib_scaly) << 8)
+        | ib_filt_val
+        | (u32::from(ib_filt_offset) << 4)
+        | ib_frc_val
+        | u32::from(ib_frc_offset);
+    vsc8562_macsec_csr_write(v, 7, 0x23, reg_val)
+}
+
+/// `vtss_phy_sd6g_ib_cfg2_wr_private`
+fn vsc8562_sd6g_ib_cfg2_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_tinfv: u8,
+    ib_tcalv: u8,
+    ib_ureg: u8,
+) -> Result<(), VscError> {
+    // "constant terms"
+    // "in theory, we should read the register and mask off bits 30:28, etc.,
+    //  and/or pass in other arguments"
+    let base_val = 0x0f878010;
+    let reg_val = base_val
+        | (u32::from(ib_tinfv) << 28)
+        | (u32::from(ib_tcalv) << 5)
+        | (u32::from(ib_ureg) << 0);
+    vsc8562_macsec_csr_write(v, 7, 0x24, reg_val)
+}
+
+/// `vtss_phy_sd6g_ib_cfg3_wr_private`
+fn vsc8562_sd6g_ib_cfg3_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_ini_hp: u8,
+    ib_ini_mid: u8,
+    ib_ini_lp: u8,
+    ib_ini_offset: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(ib_ini_hp) << 24)
+        | (u32::from(ib_ini_mid) << 16)
+        | (u32::from(ib_ini_lp) << 8)
+        | (u32::from(ib_ini_offset) << 0);
+    vsc8562_macsec_csr_write(v, 7, 0x25, reg_val)
+}
+
+/// `vtss_phy_sd6g_ib_cfg4_wr_private`
+fn vsc8562_sd6g_ib_cfg4_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_max_hp: u8,
+    ib_max_mid: u8,
+    ib_max_lp: u8,
+    ib_max_offset: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(ib_max_hp) << 24)
+        | (u32::from(ib_max_mid) << 16)
+        | (u32::from(ib_max_lp) << 8)
+        | (u32::from(ib_max_offset) << 0);
+    vsc8562_macsec_csr_write(v, 7, 0x26, reg_val)
+}
+/// `vtss_phy_sd6g_des_cfg_wr_private`
+fn vsc8562_sd6g_des_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    des_phy_ctrl: u8,
+    des_mbtr_ctrl: u8,
+    des_bw_hyst: u8,
+    des_bw_ana: u8,
+    des_cpmd_sel: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(des_phy_ctrl) << 13)
+        | (u32::from(des_mbtr_ctrl) << 10)
+        | (u32::from(des_cpmd_sel) << 8)
+        | (u32::from(des_bw_hyst) << 5)
+        | (u32::from(des_bw_ana) << 1);
+    vsc8562_macsec_csr_write(v, 7, 0x21, reg_val)
+}
+
+/// `vtss_phy_sd6g_misc_cfg_wr_private`
+fn vsc8562_sd6g_misc_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    lane_rst: u8,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_write(v, 7, 0x3b, u32::from(lane_rst))
+}
+
+/// `vtss_phy_sd6g_gp_cfg_wr_private`
+fn vsc8562_sd6g_gp_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    gp_cfg_val: u32,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_write(v, 7, 0x2e, gp_cfg_val)
+}
+
+/// `vtss_phy_sd6g_dft_cfg0_wr_private`
+fn vsc8562_sd6g_dft_cfg0_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    prbs_sel: u8,
+    test_mode: u8,
+    rx_dft_ena: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(prbs_sel) << 20)
+        | (u32::from(test_mode) << 16)
+        | (u32::from(rx_dft_ena) << 2);
+    vsc8562_macsec_csr_write(v, 7, 0x35, reg_val)
+}
+
+/// `vtss_phy_sd6g_dft_cfg2_wr_private`
+fn vsc8562_sd6g_dft_cfg2_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    rx_ji_ampl: u8,
+    rx_step_freq: u8,
+    rx_ji_ena: u8,
+    rx_waveform_sel: u8,
+    rx_freqoff_dir: u8,
+    rx_freqoff_ena: u8,
+) -> Result<(), VscError> {
+    // "configurable terms"
+    let reg_val = (u32::from(rx_ji_ampl) << 8)
+        | (u32::from(rx_step_freq) << 4)
+        | (u32::from(rx_ji_ena) << 3)
+        | (u32::from(rx_waveform_sel) << 2)
+        | (u32::from(rx_freqoff_dir) << 1)
+        | u32::from(rx_freqoff_ena);
+    vsc8562_macsec_csr_write(v, 7, 0x37, reg_val)
+}
+
+/// `vtss_phy_pll5g_cfg0_wr_private`
+fn vsc8562_pll5g_cfg0_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    selbgv820: u8,
+) -> Result<(), VscError> {
+    // "in theory, we should read the register and mask off bits 26:23, or pass
+    //  in other arguments"
+    let base_val = 0x7036f145;
+    let reg_val = base_val | (u32::from(selbgv820) << 23);
+    vsc8562_macsec_csr_write(v, 7, 0x06, reg_val)
+}
+
+/// `vtss_phy_sd6g_common_cfg_wr_private`
+fn vsc8562_sd6g_common_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    sys_rst: u8,
+    ena_lane: u8,
+    // 8 for eloop, 4 for floop, 2 for iloop, 1 for ploop
+    ena_loop: u8,
+    // 1 for SGMII, 0 for QSGMII
+    qrate: u8,
+    // 1 for SGMII, 3 for QSGMII
+    if_mode: u8,
+    pwd_tx: u8,
+) -> Result<(), VscError> {
+    let reg_val = (u32::from(sys_rst) << 31)
+        | (u32::from(ena_lane) << 18)
+        | (u32::from(pwd_tx) << 16)
+        | (u32::from(ena_loop) << 8)
+        | (u32::from(qrate) << 6)
+        | (u32::from(if_mode) << 4);
+    vsc8562_macsec_csr_write(v, 7, 0x2c, reg_val)
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Applies a patch to the 8051 microcode inside the PHY, based on
 /// `vtss_phy_pre_init_seq_viper` in the SDK, which calls

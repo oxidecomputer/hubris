@@ -68,6 +68,17 @@ pub enum VscError {
     /// the PHY id doesn't match either.
     UnknownPhyId(u32),
 
+    /// The MACSEC block failed to finish an operation in time
+    MacSecWaitTimeout,
+    /// The MCB module in the PHY timed out while doing a read
+    McbReadTimeout,
+    /// The MCB module in the PHY timed out while doing a write
+    McbWriteTimeout,
+    /// We timed out while doing a calibration step in a PHY PLL
+    PhyPllCalTimeout,
+    /// We timed out while doing input buffer calibration on a PHY
+    PhyIbCalTimeout,
+
     BadRegAddr(u32),
     InvalidRegisterRead(u32),
     InvalidRegisterReadNested,

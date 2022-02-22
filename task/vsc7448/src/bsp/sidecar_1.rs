@@ -197,7 +197,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        init_vsc8504_phy(&mut Phy { port: 4, rw: self })?;
+        init_vsc8504_phy(&mut Phy::new(4, self))?;
         sys.gpio_reset(coma_mode).unwrap();
 
         Ok(())
@@ -206,7 +206,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     pub fn run(&mut self) -> ! {
         loop {
             for port in 4..8 {
-                let mut vsc8504 = Phy { port, rw: self };
+                let mut vsc8504 = Phy::new(port, self);
                 let status: u16 =
                     vsc8504.read(phy::STANDARD::MODE_STATUS()).unwrap().into();
                 ringbuf_entry!(Trace::Vsc8504StatusLink { port, status });

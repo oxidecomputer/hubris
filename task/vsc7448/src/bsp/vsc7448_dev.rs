@@ -55,12 +55,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             // We only need to check this on one PHY port per physical PHY
             // chip.  Port 0 maps to one PHY chip, and port 12 maps to the
             // other one (controlled by hardware pull-ups).
-            let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448, miim);
+            let phy_rw = &mut Vsc7448MiimPhy::new(self.vsc7448, miim);
             for port in [0, 12] {
-                let mut p = Phy {
-                    port,
-                    rw: &mut phy_rw,
-                };
+                let mut p = Phy::new(port, phy_rw);
                 init_vsc8522_phy(&mut p)?;
             }
         }
@@ -95,11 +92,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     /// Checks the given PHY's status, return `true` if the link is up
     fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
-        let mut phy_rw = Vsc7448MiimPhy::new(self.vsc7448, miim);
-        let mut p = Phy {
-            port: phy,
-            rw: &mut phy_rw,
-        };
+        let phy_rw = &mut Vsc7448MiimPhy::new(self.vsc7448, miim);
+        let mut p = Phy::new(phy, rw);
         match p.read(phy::STANDARD::MODE_STATUS()) {
             Ok(status) => {
                 let up = (status.0 & (1 << 5)) != 0;
