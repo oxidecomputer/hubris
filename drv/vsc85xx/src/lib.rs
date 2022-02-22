@@ -369,6 +369,7 @@ pub fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 /// to 100BASE-FX SFP Fiber). This should be called _after_ [patch_viper],
 /// and has the same caveats w.r.t. the reset and COMA_MODE pins.
 pub fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
+    // This is roughly based on `vtss_phy_reset_private`
     ringbuf_entry!(Trace::Vsc8562Init(v.port));
 
     v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
@@ -382,6 +383,7 @@ pub fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     ////////////////////////////////////////////////////////////////////////////
     // Based on `vtss_phy_sd6g_patch_private`
     let base_phy = &mut Phy::new(v.port & !1, v.rw);
+    // TODO: check if the SD6G needs a patch
     vsc8562_sd6g_patch(base_phy)?;
 
     // 100BASE-FX on all PHYs
@@ -530,10 +532,12 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     for _ in 0..300 {
         vsc8562_mcb_read(v, 0x3f, 0)?;
         let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x31)?;
+        // "wait for bit 12 to clear"
         if (rd_dat & 0x0001000) == 0 {
             timed_out = false;
             break;
         }
+        sleep_for(1);
     }
     if timed_out {
         return Err(VscError::PhyPllCalTimeout);
@@ -567,10 +571,10 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
         vsc8562_mcb_write(v, 0x3f, 0)?;
     }
 
-    //ib_filt_offset=1
+    // "ib_filt_offset=1"
     vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_cal, 15, 1, 1)?;
     vsc8562_mcb_write(v, 0x3f, 0)?;
-    // then ib_frc_offset=0
+    // "then ib_frc_offset=0"
     vsc8562_sd6g_ib_cfg1_write(v, 8, ib_tsdet_cal, 15, 0, 1)?;
     vsc8562_mcb_write(v, 0x3f, 0)?;
 
@@ -579,10 +583,13 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     for _ in 0..200 {
         vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
         let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x2f)?; // "ib_status0"
+
+        // "wait for bit 8 to set"
         if rd_dat & 0x0000100 != 0 {
             timed_out = false;
             break;
         }
+        sleep_for(1);
     }
     if timed_out {
         return Err(VscError::PhyIbCalTimeout);
@@ -657,6 +664,7 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
             timed_out = false;
             break;
         }
+        sleep_for(1);
     }
     if timed_out {
         return Err(VscError::PhyPllCalTimeout);
