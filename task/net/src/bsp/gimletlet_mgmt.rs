@@ -7,7 +7,7 @@ use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use drv_user_leds_api::UserLeds;
-use ksz8463::{MIBCounter, MIBOffset, Register as KszRegister};
+use ksz8463::{MIBCounter, MIBCounterValue, Register as KszRegister};
 use ringbuf::*;
 use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -34,7 +34,7 @@ enum Trace {
     },
     Ksz8463Counter {
         port: u8,
-        counter: MIBCounter,
+        counter: MIBCounterValue,
     },
     Ksz8463MacTable(ksz8463::MacTableEntry),
 
@@ -139,41 +139,32 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        // Logging for KSZ8463 port 1
-        ringbuf_entry!(match self.mgmt.ksz8463.read(KszRegister::P1MBSR) {
-            Ok(status) => Trace::Ksz8463Status { port: 1, status },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self.mgmt.ksz8463.read(KszRegister::P1MBCR) {
-            Ok(control) => Trace::Ksz8463Control { port: 1, control },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self
-            .mgmt
-            .ksz8463
-            .read_mib_counter(1, MIBOffset::RxLoPriorityByte)
-        {
-            Ok(counter) => Trace::Ksz8463Counter { port: 1, counter },
-            Err(err) => Trace::KszErr { err },
-        });
-
-        // Logging for KSZ8463 port 2
-        ringbuf_entry!(match self.mgmt.ksz8463.read(KszRegister::P2MBSR) {
-            Ok(status) => Trace::Ksz8463Status { port: 2, status },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self.mgmt.ksz8463.read(KszRegister::P2MBCR) {
-            Ok(control) => Trace::Ksz8463Control { port: 2, control },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self
-            .mgmt
-            .ksz8463
-            .read_mib_counter(2, MIBOffset::RxLoPriorityByte)
-        {
-            Ok(counter) => Trace::Ksz8463Counter { port: 2, counter },
-            Err(err) => Trace::KszErr { err },
-        });
+        for port in [1, 2] {
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read(KszRegister::PxMBSR(port))
+            {
+                Ok(status) => Trace::Ksz8463Status { port, status },
+                Err(err) => Trace::KszErr { err },
+            });
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read(KszRegister::PxMBCR(port))
+            {
+                Ok(control) => Trace::Ksz8463Control { port, control },
+                Err(err) => Trace::KszErr { err },
+            });
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read_mib_counter(port, MIBCounter::RxLoPriorityByte)
+            {
+                Ok(counter) => Trace::Ksz8463Counter { port, counter },
+                Err(err) => Trace::KszErr { err },
+            });
+        }
 
         // Read the MAC table for fun
         ringbuf_entry!(match self.mgmt.ksz8463.read_dynamic_mac_table(0) {
