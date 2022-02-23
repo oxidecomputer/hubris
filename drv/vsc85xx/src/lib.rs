@@ -62,6 +62,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         }
     }
 
+    #[inline(always)]
     pub fn read<T>(&mut self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u16> + Clone,
@@ -78,6 +79,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         self.rw.read_raw(self.port, reg)
     }
 
+    #[inline(always)]
     pub fn write<T>(
         &mut self,
         reg: PhyRegisterAddress<T>,
@@ -95,6 +97,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         self.rw.write_raw(self.port, reg, value)
     }
 
+    #[inline(always)]
     pub fn write_with<T, F>(
         &mut self,
         reg: PhyRegisterAddress<T>,
@@ -112,6 +115,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 
     /// Performs a read-modify-write operation on a PHY register connected
     /// to the VSC7448 via MIIM.
+    #[inline(always)]
     pub fn modify<T, F>(
         &mut self,
         reg: PhyRegisterAddress<T>,
@@ -127,6 +131,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         self.write(reg, data)
     }
 
+    #[inline(always)]
     pub fn wait_timeout<T, F>(
         &mut self,
         reg: PhyRegisterAddress<T>,
