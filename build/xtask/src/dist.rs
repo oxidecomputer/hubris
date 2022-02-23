@@ -624,6 +624,12 @@ pub fn package(
     archive.copy(out.join("final.ihex"), img_dir.join("final.ihex"))?;
     archive.copy(out.join("final.bin"), img_dir.join("final.bin"))?;
 
+    //
+    // To allow for the image to be flashed based only on the archive (e.g.,
+    // by Humility), we pull in our flash configuration, flatten it to pull in
+    // any external configuration files, serialize it, and add it to the
+    // archive.
+    //
     let mut config = crate::flash::config(&toml.board.as_str())?;
     config.flatten()?;
 

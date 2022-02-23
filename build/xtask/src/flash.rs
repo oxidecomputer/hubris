@@ -12,23 +12,46 @@ use anyhow::Context;
 
 use crate::Config;
 
+//
+// We allow for enough information to be put in the archive for the image to
+// be flashed based only on the archive (e.g., by Humility).  Because flashing
+// is itself a bit of a mess (requiring different programs for different
+// targets), this is a bit gritty (e.g., any required external configuration
+// files must themselves put in the archive).  If these structures need to
+// change, be sure to make corresponding changes to Humility.
+//
 #[derive(Debug, Serialize)]
 pub enum FlashProgram {
     PyOcd(Vec<FlashArgument>),
     OpenOcd(FlashProgramConfig),
 }
 
+//
+// Enum describing flash programs configuration (e.g., "openocd.cfg" for
+// OpenOCD), either as a path in the file system or with the entire contents.
+//
 #[derive(Debug, Serialize)]
 pub enum FlashProgramConfig {
     Path(Vec<String>),
     Payload(String),
 }
 
+//
+// An enum describing a single command-line argument to the flash program.
+//
 #[derive(Debug, Serialize)]
 pub enum FlashArgument {
+    // A direct string
     Direct(String),
+
+    // The filesystem path of the binary flash payload itself
     Payload,
+
+    // A single argument consisting of a prefix, the path of the flash
+    // payload, and a suffix
     FormattedPayload(String, String),
+
+    // The filesystem path of the flash program configuration
     Config,
 }
 
@@ -52,36 +75,51 @@ impl FlashConfig {
         }
     }
 
+    //
+    // Add a command-line argument to the flash program
+    //
     fn arg<'a>(&'a mut self, val: &str) -> &'a mut Self {
         self.args.push(FlashArgument::Direct(val.to_string()));
         self
     }
 
+    //
+    // Add the path to the payload as an argument to the flash program
+    //
     fn payload<'a>(&'a mut self) -> &'a mut Self {
         self.args.push(FlashArgument::Payload);
         self
     }
 
+    //
+    // Add a formatted payload as a single argument to the flash program that
+    // consists of the prefix followed by the path to the payload, followed by
+    // the suffix.
+    //
     fn formatted_payload<'a>(
         &'a mut self,
-        pfx: &str,
-        sfx: &str,
+        prefix: &str,
+        suffix: &str,
     ) -> &'a mut Self {
         self.args.push(FlashArgument::FormattedPayload(
-            pfx.to_string(),
-            sfx.to_string(),
+            prefix.to_string(),
+            suffix.to_string(),
         ));
         self
     }
 
+    //
+    // Add a flasher configuration file as an argument to the flash program
+    //
     fn config<'a>(&'a mut self) -> &'a mut Self {
         self.args.push(FlashArgument::Config);
         self
     }
 
-    ///
-    /// Called to slurp in any configuration file
-    ///
+    //
+    // Slurp in any flash program configuration file and flatten it into
+    // our overall configuration
+    //
     pub fn flatten(&mut self) -> anyhow::Result<()> {
         if let FlashProgram::OpenOcd(ref config) = self.program {
             if let FlashProgramConfig::Path(ref path) = config {
@@ -190,7 +228,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                         flash.arg(out.join("final.ihex"));
                     }
                     _ => {
-                        anyhow::bail!("unexpected PyOCD argument {:?}", arg);
+                        anyhow::bail!("unexpected pyOCD argument {:?}", arg);
                     }
                 }
             }
@@ -199,7 +237,7 @@ pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
                 if let FlashArgument::Direct(ref val) = arg {
                     reset.arg(val);
                 } else {
-                    anyhow::bail!("unexpected PyOCD reset argument {:?}", arg);
+                    anyhow::bail!("unexpected pyOCD reset argument {:?}", arg);
                 }
             }
 
