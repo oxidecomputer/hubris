@@ -578,11 +578,7 @@ fn vsc8562_sd6g_has_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<bool, VscError> {
 ///
 /// `v` must be the base port of this PHY, otherwise this will return an error
 fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    // Check to make sure we're talking to the base port of the PHY
-    let phy_port = v.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
-    if phy_port != 0 {
-        return Err(VscError::BadPhyPatchPort(phy_port));
-    }
+    check_base_port(v)?;
 
     let pll_fsm_ctrl_data = 60;
     let qrate = 1;
