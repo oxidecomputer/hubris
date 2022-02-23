@@ -47,8 +47,10 @@ pub enum FlashArgument {
     // The filesystem path of the binary flash payload itself
     Payload,
 
-    // A single argument consisting of a prefix, the path of the flash
-    // payload, and a suffix
+    // A single argument consisting of a prefix and a suffix.  When the
+    // argument is processed, a single argument should be generated consisting
+    // of the prefix, the path of the flash, and the suffix, all joined by
+    // spaces.
     FormattedPayload(String, String),
 
     // The filesystem path of the flash program configuration
@@ -92,9 +94,9 @@ impl FlashConfig {
     }
 
     //
-    // Add a formatted payload as a single argument to the flash program that
-    // consists of the prefix followed by the path to the payload, followed by
-    // the suffix.
+    // Add a formatted payload as a single argument to the flash program.  The
+    // argument will consists of the specified prefix, followed by the path to
+    // the payload, followed by the specified suffix.
     //
     fn formatted_payload<'a>(
         &'a mut self,
@@ -198,7 +200,7 @@ pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
             Ok(flash)
         }
         _ => {
-            anyhow::bail!("unrecnogized board {}", board);
+            anyhow::bail!("unrecognized board {}", board);
         }
     }
 }
