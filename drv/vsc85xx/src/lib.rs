@@ -292,7 +292,7 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // Now, we reset the PHY to put those settings into effect
     // XXX: is it necessary to reset each of the four ports independently?
     // (It _is_ necessary for the VSC8552 on the management network dev board)
-    for port in 0..4 {
+    for p in 0..4 {
         software_reset(&mut Phy::new(v.port + p, v.rw))?;
     }
 

@@ -19,7 +19,6 @@ ringbuf!(Trace, 16, Trace::None);
 /// used to monitor port activity for network management.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MIBCounter {
-    Invalid,
     Count(u32),
     CountOverflow(u32),
 }
@@ -301,19 +300,22 @@ impl Ksz8463 {
             offset as u16 + b, // Offset
         )?;
 
-        // Read counter data.
-        let hi = self.read(Register::IADR5)?;
+        // Read counter data, looping until the 'valid' bit is 1
+        let hi = loop {
+            let hi = self.read(Register::IADR5)?;
+            if hi & (1 << 14) != 0 {
+                break hi;
+            }
+        };
+
         let lo = self.read(Register::IADR4)?;
         let value = u32::from(hi) << 16 | u32::from(lo);
 
         // Determine state of the counter, see p. 184 of datasheet.
-        let invalid = ((1 << 30) & value) != 0;
         let overflow = ((1 << 31) & value) != 0;
         let value: u32 = value & 0x3fffffff;
 
-        if invalid {
-            Ok(MIBCounter::Invalid)
-        } else if overflow {
+        if overflow {
             Ok(MIBCounter::CountOverflow(value))
         } else {
             Ok(MIBCounter::Count(value))
