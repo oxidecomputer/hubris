@@ -93,7 +93,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Checks the given PHY's status, return `true` if the link is up
     fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
         let phy_rw = &mut Vsc7448MiimPhy::new(self.vsc7448, miim);
-        let mut p = Phy::new(phy, rw);
+        let mut p = Phy::new(phy, phy_rw);
         match p.read(phy::STANDARD::MODE_STATUS()) {
             Ok(status) => {
                 let up = (status.0 & (1 << 5)) != 0;

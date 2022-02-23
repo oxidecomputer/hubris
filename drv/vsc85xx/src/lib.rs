@@ -580,22 +580,21 @@ fn vsc8562_sd6g_has_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<bool, VscError> {
 fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     check_base_port(v)?;
 
-    let pll_fsm_ctrl_data = 60;
-    let qrate = 1;
-    let if_mode = 1;
-    let des_bw_ana_val = 3;
-    let ib_sig_det_clk_sel_cal = 0; // 0 for during IBCAL for all
+    let ib_sig_det_clk_sel_cal = 0; // "0 for during IBCAL for all"
     let ib_sig_det_clk_sel_mm = 7;
     let ib_tsdet_cal = 16;
     let ib_tsdet_mm = 5;
 
+    let pll_fsm_ctrl_data = 60;
+    let qrate = 1;
+    let if_mode = 1;
+    let des_bw_ana_val = 3;
+
     // `detune_pll5g`
-    let mut rd_dat = vsc8562_macsec_csr_read(v, 7, 0x8)?;
-    rd_dat &= 0xfffffc1e; // "Mask Off bit 0: ena_gain_test & bit [9:5] = gain_test"
-    let gain_test = 0;
-    let ena_gain_test = 1;
-    rd_dat |= (ena_gain_test << 0) | (gain_test << 5);
-    vsc8562_macsec_csr_write(v, 7, 0x8, rd_dat)?;
+    vsc8562_macsec_csr_modify(v, 7, 0x8, |r| {
+        *r &= 0xfffffc1e;
+        *r |= 1; // ena_gain_test
+    })?;
 
     // "0. Reset RCPLL"
     // "pll_fsm_ena=0, reset rcpll"
@@ -650,6 +649,7 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     vsc8562_sd6g_dft_cfg2_write(v, 0, 2, 0, 0, 0, 1)?; // "release lane reset"
     vsc8562_sd6g_dft_cfg0_write(v, 0, 0, 1)?;
     vsc8562_sd6g_des_cfg_write(v, 6, 2, 5, des_bw_ana_val, 2)?;
+    vsc8562_mcb_write(v, 0x3f, 0)?;
 
     // "6. Prepare required settings for IBCAL"
     let gp_iter = 5;
@@ -676,7 +676,7 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 
     // "8. Wait for IB cal to complete"
     let mut timed_out = true;
-    for _ in 0..200 {
+    for _ in 0..300 {
         vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
         let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x2f)?; // "ib_status0"
 
@@ -753,7 +753,7 @@ fn vsc8562_sd6g_patch<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     let mut timed_out = true;
     for _ in 0..200 {
         vsc8562_mcb_read(v, 0x3f, 0)?; // "read 6G MCB into CSRs"
-        let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x31)?; // "ib_status0"
+        let rd_dat = vsc8562_macsec_csr_read(v, 7, 0x31)?; // "pll_status"
 
         // "wait for bit 12 to clear"
         if rd_dat & 0x0001000 == 0 {
@@ -931,17 +931,6 @@ fn vsc8562_macsec_wait<P: PhyRw>(
     Err(VscError::MacSecWaitTimeout)
 }
 
-/// `vtss_phy_sd1g_ib_cfg_wr_private`
-fn vsc8562_sd1g_ib_cfg_write<P: PhyRw>(
-    v: &mut Phy<P>,
-    ib_ena_cmv_term: u8,
-) -> Result<(), VscError> {
-    vsc8562_macsec_csr_modify(v, 7, 0x13, |r| {
-        *r &= !(1 << 13);
-        *r |= u32::from(ib_ena_cmv_term) << 13;
-    })
-}
-
 /// Helper function to combine `vsc8562_macsec_csr_read`, some modification,
 /// followed by `vsc8562_macsec_csr_write`
 fn vsc8562_macsec_csr_modify<F, P: PhyRw>(
@@ -956,6 +945,17 @@ where
     let mut reg_val = vsc8562_macsec_csr_read(v, target, csr_reg_addr)?;
     f(&mut reg_val);
     vsc8562_macsec_csr_write(v, target, csr_reg_addr, reg_val)
+}
+
+/// `vtss_phy_sd1g_ib_cfg_wr_private`
+fn vsc8562_sd1g_ib_cfg_write<P: PhyRw>(
+    v: &mut Phy<P>,
+    ib_ena_cmv_term: u8,
+) -> Result<(), VscError> {
+    vsc8562_macsec_csr_modify(v, 7, 0x13, |r| {
+        *r &= !(1 << 13);
+        *r |= u32::from(ib_ena_cmv_term) << 13;
+    })
 }
 
 /// `vtss_phy_sd1g_misc_cfg_wr_private`
@@ -1041,7 +1041,7 @@ fn vsc8562_sd6g_ib_cfg1_write<P: PhyRw>(
         | ib_filt_val
         | (u32::from(ib_filt_offset) << 4)
         | ib_frc_val
-        | u32::from(ib_frc_offset);
+        | (u32::from(ib_frc_offset) << 0);
     vsc8562_macsec_csr_write(v, 7, 0x23, reg_val)
 }
 
