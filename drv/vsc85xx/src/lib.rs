@@ -291,7 +291,7 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 
     // Now, we reset the PHY to put those settings into effect
     // XXX: is it necessary to reset each of the four ports independently?
-    // It is for the VSC8552 on the management network dev kit.
+    // (It _is_ necessary for the VSC8552 on the management network dev board)
     for port in 0..4 {
         software_reset(&mut Phy::new(v.port + p, v.rw))?;
     }
@@ -429,21 +429,22 @@ fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 
     ////////////////////////////////////////////////////////////////////////////
     // "Bug# 19146
-    // Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
-    // Calls into `vtss_phy_sd1g_patch_private` in the SDK
+    //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
+    // Based on `vtss_phy_sd1g_patch_private` in the SDK
+    for p in 0..2 {
+        let slave_addr = (v.port + p) * 2; // XXX is this right?  It seems odd
 
-    let slave_addr = v.port * 2;
+        // "read 1G MCB into CSRs"
+        vsc8562_mcb_read(v, 0x20, slave_addr)?;
 
-    // "read 1G MCB into CSRs"
-    vsc8562_mcb_read(v, 0x20, slave_addr)?;
+        // Various bits of configuration for 100FX mode
+        vsc8562_sd1g_ib_cfg_write(v, 0)?;
+        vsc8562_sd1g_misc_cfg_write(v, 1)?;
+        vsc8562_sd1g_des_cfg_write(v, 14, 3)?;
 
-    // Various bits of configuration for 100FX mode
-    vsc8562_sd1g_ib_cfg_write(v, 0)?;
-    vsc8562_sd1g_misc_cfg_write(v, 1)?;
-    vsc8562_sd1g_des_cfg_write(v, 14, 3)?;
-
-    // "write back 1G MCB"
-    vsc8562_mcb_write(v, 0x20, slave_addr)?;
+        // "write back 1G MCB"
+        vsc8562_mcb_write(v, 0x20, slave_addr)?;
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
