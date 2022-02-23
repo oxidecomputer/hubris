@@ -57,6 +57,7 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
 
 fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     let image_id: u64 = env::var("HUBRIS_IMAGE_ID")?.parse()?;
+    println!("cargo:rerun-if-env-changed=HUBRIS_IMAGE_ID");
 
     let kconfig: KernelConfig =
         ron::de::from_str(&env::var("HUBRIS_KCONFIG")?)?;
