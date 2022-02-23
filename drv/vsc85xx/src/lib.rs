@@ -290,7 +290,13 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     // XXX: I don't think this is correct
 
     // Now, we reset the PHY to put those settings into effect
-    software_reset(v)
+    // XXX: is it necessary to reset each of the four ports independently?
+    // It is for the VSC8552 on the management network dev kit.
+    for port in 0..4 {
+        software_reset(&mut Phy::new(v.port + p, v.rw))?;
+    }
+
+    Ok(())
 }
 
 /// Initializes either a VSC8552 or VSC8562 PHY, configuring it to use 2x SGMII
@@ -370,8 +376,12 @@ fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
         })
     })?;
 
-    // Now, we reset the PHY to put those settings into effect
-    software_reset(v)
+    // Now, we reset the PHY to put those settings into effect.  For some
+    // reason, we can't do a broadcast reset, so we do it port-by-port.
+    for p in 0..2 {
+        software_reset(&mut Phy::new(v.port + p, v.rw))?;
+    }
+    Ok(())
 }
 
 /// Initializes a VSC8562 PHY using SGMII based on section 3.1.2.1 (2x SGMII
@@ -411,8 +421,11 @@ fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
         })
     })?;
 
-    // Now, we reset the PHY to put those settings into effect
-    software_reset(v)?;
+    // Now, we reset the PHY to put those settings into effect.  For some
+    // reason, we can't do a broadcast reset, so we do it port-by-port.
+    for p in 0..2 {
+        software_reset(&mut Phy::new(v.port + p, v.rw))?;
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // "Bug# 19146
