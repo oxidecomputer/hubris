@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 /// Offsets used to access MIB counters
 /// (see Table 4-200 in the datasheet for details)
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -103,6 +107,7 @@ pub enum MIBCounter {
 #[allow(non_camel_case_types)]
 pub enum Register {
     // Table 4-2
+    // Meticulously transcribed by copy-pasting and elaborate Vim macros
     /// Chip ID and Enable Register [15:0]
     CIDER = 0x000,
     /// Switch Global Control Register 1 [15:0]
