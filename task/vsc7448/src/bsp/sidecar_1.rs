@@ -26,6 +26,7 @@ pub struct Bsp<'a, R> {
 }
 
 impl<'a, R> PhyRw for Bsp<'a, R> {
+    #[inline(always)]
     fn read_raw<T: From<u16>>(
         &mut self,
         port: u8,
@@ -37,6 +38,7 @@ impl<'a, R> PhyRw for Bsp<'a, R> {
             .map_err(|e| e.into())
     }
 
+    #[inline(always)]
     fn write_raw<T>(
         &mut self,
         port: u8,
