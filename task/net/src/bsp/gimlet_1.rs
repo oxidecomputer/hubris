@@ -57,8 +57,8 @@ impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
         Self(
             mgmt::Config {
-                // SP_TO_MGMT_V2P5_EN
-                power_en: Some(Port::I.pin(12)),
+                // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
+                power_en: Some(Port::I.pin(10).and_pin(12)),
                 power_good: None,
                 pll_lock: None,
 

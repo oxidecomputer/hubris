@@ -217,7 +217,12 @@ fn set_led_mode<P: PhyRw>(
 const VSC8504_ID: u32 = 0x704c2;
 const VSC8522_ID: u32 = 0x706f3;
 const VSC8552_ID: u32 = 0x704e2;
-const VSC8562_ID: u32 = 0x7071b;
+
+// The datasheet will tell you that the ID for the VSC8562 should be 0x707b1.
+// Don't believe its lies!  The SDK (as the one source of truth) informs us
+// that it shares an ID with the VSC8564, then has a secondary ID in the
+// EXTENDED_CHIP_ID register
+const VSC8562_ID: u32 = 0x707e1;
 
 fn read_id<P: PhyRw>(v: &mut Phy<P>) -> Result<u32, VscError> {
     let id1 = v.read(phy::STANDARD::IDENTIFIER_1())?.0;
@@ -316,7 +321,14 @@ pub fn init_vsc85x2_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
                 Err(VscError::BadPhyRev)
             }
         }
-        VSC8562_ID => init_vsc8562_phy(v),
+        VSC8562_ID => {
+            let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
+            if u16::from(rev) & 0x4000 == 0 {
+                init_vsc8562_phy(v)
+            } else {
+                Err(VscError::BadPhyRev)
+            }
+        }
         i => Err(VscError::UnknownPhyId(i)),
     }
 }
