@@ -444,7 +444,10 @@ fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
     // Based on `vtss_phy_sd1g_patch_private` in the SDK
     for p in 0..2 {
-        let slave_addr = (v.port + p) * 2; // XXX is this right?  It seems odd
+        // XXX The SDK just does v.port * 2 (including any offset); based on
+        // table 33 in the datasheet, I believe this is actually the correct
+        // behavior.
+        let slave_addr = p * 2;
 
         // "read 1G MCB into CSRs"
         vsc8562_mcb_read(v, 0x20, slave_addr)?;
@@ -846,7 +849,7 @@ fn vsc8562_macsec_csr_read<P: PhyRw>(
             // VTSS_PHY_F_PAGE_MACSEC_19_READ
             (1 << 14) |
             // VTSS_PHY_F_PAGE_MACSEC_19_TARGET
-            ((u32::from(target_tmp) & 0xfff) << 2) |
+            ((u32::from(target_tmp) & 0b11) << 12) |
             // VTSS_PHY_F_PAGE_MACSEC_19_CSR_REG_ADDR
             (csr_reg_addr & 0x3fff),
         )
@@ -892,7 +895,7 @@ fn vsc8562_macsec_csr_write<P: PhyRw>(
             // VTSS_PHY_F_PAGE_MACSEC_19_CMD_BIT
             (1 << 15) |
             // VTSS_PHY_F_PAGE_MACSEC_19_TARGET
-            ((u32::from(target_tmp) & 0xfff) << 2) |
+            ((u32::from(target_tmp) & 0b11) << 12) |
             // VTSS_PHY_F_PAGE_MACSEC_19_CSR_REG_ADDR
             (csr_reg_addr & 0x3fff),
         )
