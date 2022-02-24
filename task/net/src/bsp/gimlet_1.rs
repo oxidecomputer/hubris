@@ -64,7 +64,7 @@ impl Bsp {
 
                 // Based on ordering in app.toml
                 ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
-                ksz8463_nrst: Port::A.pin(0),
+                ksz8463_nrst: Port::C.pin(2),
                 ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
                 // SP_TO_MGMT_PHY_COMA_MODE

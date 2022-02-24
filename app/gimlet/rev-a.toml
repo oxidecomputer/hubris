@@ -564,7 +564,7 @@ cs = {port = "A", pin = 0}
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "A", pin = 0}
+cs = {port = "I", pin = 0}
 # ATTENTION REWORKED CS: Uncomment the below line
 # cs = {port = "H", pin = 2}
 
