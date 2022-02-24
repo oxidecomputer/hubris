@@ -59,6 +59,8 @@ pub enum Functions {
         (drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::Direction),
         drv_lpc55_gpio_api::GpioError,
     ),
+    #[cfg(feature = "rng")]
+    Rng(usize, drv_rng_api::RngError),
     #[cfg(feature = "spi")]
     SpiRead((Task, u8, usize, usize), drv_spi_api::SpiError),
     #[cfg(feature = "spi")]
@@ -274,6 +276,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     gpio_configure,
     #[cfg(feature = "gpio")]
     gpio_direction,
+    #[cfg(feature = "rng")]
+    crate::common::rng_fill,
     #[cfg(feature = "spi")]
     spi_read,
     #[cfg(feature = "spi")]

@@ -2717,6 +2717,7 @@ dependencies = [
  "drv-hash-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
+ "drv-rng-api",
  "drv-spi-api",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",

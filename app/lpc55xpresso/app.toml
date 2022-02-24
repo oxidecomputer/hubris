@@ -76,11 +76,11 @@ stacksize = 1536
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["lpc55", "gpio"]
+features = ["lpc55", "gpio", "rng"]
 requires = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["gpio_driver", "rng_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
