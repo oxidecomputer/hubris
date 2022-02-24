@@ -58,16 +58,20 @@ impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
         Self(
             mgmt::Config {
+                // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
                 power_en: Some(Port::I.pin(11)),
                 power_good: None,
                 pll_lock: None,
 
                 // Based on ordering in app.toml
                 ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+                // SP_TO_EPE_RESET_L
                 ksz8463_nrst: Port::A.pin(0),
                 ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
+                // SP_TO_PHY2_COMA_MODE_3V3
                 vsc85x2_coma_mode: Some(Port::I.pin(15)),
+                // SP_TO_PHY2_RESET_3V3_L
                 vsc85x2_nrst: Port::I.pin(14),
                 vsc85x2_base_port: 0,
             }
