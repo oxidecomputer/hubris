@@ -28,6 +28,12 @@ pub enum Ksz8463ResetSpeed {
 pub struct Status {
     ksz8463_100base_fx_link_up: [bool; 2],
     vsc85x2_100base_fx_link_up: [bool; 2],
+    vsc85x2_sgmii_link_up: [bool; 2],
+
+    vsc85x2_media_tx_good_count: [Option<u16>; 2],
+    vsc85x2_mac_tx_good_count: [Option<u16>; 2],
+    vsc85x2_media_rx_good_count: [u16; 2],
+    vsc85x2_mac_rx_good_count: [u16; 2],
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -200,6 +206,87 @@ impl Bsp {
                 Ok(sr) => {
                     s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
                 }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            };
+            match phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
+                Ok(status) => {
+                    s.vsc85x2_sgmii_link_up[i] = (status.0 & (1 << 2)) != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            };
+
+            // Configure the PHY to read fiber media SerDes counters
+            if let Err(err) = phy.modify(
+                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                |r| r.set_tx_select(0),
+            ) {
+                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                return;
+            }
+            if let Err(err) = phy.modify(
+                phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
+                |r| r.0 &= 0b11 << 14,
+            ) {
+                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                return;
+            }
+            match phy
+                .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())
+            {
+                Ok(r) => {
+                    s.vsc85x2_media_tx_good_count[i] =
+                        if r.active() == 0 { None } else { Some(r.cnt()) }
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            };
+            match phy.read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
+            {
+                Ok(r) => s.vsc85x2_media_rx_good_count[i] = r.cnt(),
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            }
+
+            // Configure the PHY to read the MAC SerDes counters
+            if let Err(err) = phy.modify(
+                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                |r| r.set_tx_select(1),
+            ) {
+                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                return;
+            }
+            if let Err(err) = phy.modify(
+                phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
+                |r| r.0 |= 0b01 << 14,
+            ) {
+                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                return;
+            }
+            match phy
+                .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())
+            {
+                Ok(r) => {
+                    s.vsc85x2_mac_tx_good_count[i] =
+                        if r.active() == 0 { None } else { Some(r.cnt()) }
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            };
+            match phy.read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
+            {
+                Ok(r) => s.vsc85x2_mac_rx_good_count[i] = r.cnt(),
                 Err(err) => {
                     ringbuf_entry!(Trace::Vsc85x2Err { port, err });
                     return;
