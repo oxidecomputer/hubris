@@ -3,12 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::miim_bridge::MiimBridge;
-use drv_spi_api::SpiDevice;
+use drv_spi_api::{SpiDevice, SpiError};
 use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
-use ksz8463::Ksz8463;
+use ksz8463::{Ksz8463, Register as KszRegister};
+use ringbuf::*;
 use userlib::hl::sleep_for;
-use vsc85xx::Vsc85x2;
+use vsc7448_pac::phy;
+use vsc85xx::{Vsc85x2, VscError};
 
 /// On some boards, the KSZ8463 reset line is tied to an RC + diode network
 /// which dramatically slows its rise and fall times.  We use this parameter
@@ -21,6 +23,22 @@ pub enum Ksz8463ResetSpeed {
     Slow,
     Normal,
 }
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct Status {
+    ksz8463_100base_fx_link_up: [bool; 2],
+    vsc85x2_100base_fx_link_up: [bool; 2],
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    Ksz8463Err { port: u8, err: SpiError },
+    Vsc85x2Err { port: u8, err: VscError },
+    Status(Status),
+}
+
+ringbuf!(Trace, 16, Trace::None);
 
 /// Configuration struct for the rest of the management network hardware,
 /// which is a KSZ8463 switch attached to a VSC8552 or VSC8562 PHY.
@@ -156,4 +174,38 @@ impl Config {
 pub struct Bsp {
     pub ksz8463: Ksz8463,
     pub vsc85x2: Vsc85x2,
+}
+
+impl Bsp {
+    pub fn wake(&self, eth: &mut Ethernet) {
+        let mut s = Status::default();
+        let rw = &mut MiimBridge::new(eth);
+        for i in 0..2 {
+            // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
+            let port = i as u8 + 1;
+            match self.ksz8463.read(KszRegister::PxMBSR(port)) {
+                Ok(sr) => {
+                    s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return;
+                }
+            }
+
+            // The VSC85x2 numbers its ports starting at 0
+            let port = i as u8;
+            let mut phy = self.vsc85x2.phy(port, rw);
+            match phy.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(sr) => {
+                    s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return;
+                }
+            }
+        }
+        ringbuf_entry!(Trace::Status(s));
+    }
 }

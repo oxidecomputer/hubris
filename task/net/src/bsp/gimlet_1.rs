@@ -2,26 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgmt, miim_bridge::MiimBridge, pins};
+use crate::{mgmt, pins};
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use ksz8463::Register as KszRegister;
-use ringbuf::*;
 use userlib::task_slot;
-use vsc7448_pac::phy;
-use vsc85xx::VscError;
 
 task_slot!(SPI, spi_driver);
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
-    None,
-    Ksz8463Status { port: u8, status: u16 },
-    Vsc8552Status { port: u8, status: u16 },
-    Vsc8552Err { err: VscError },
-}
-ringbuf!(Trace, 16, Trace::None);
 
 // This system wants to be woken periodically to do logging
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
@@ -80,34 +67,6 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        let p1_sr = self.0.ksz8463.read(KszRegister::P1MBSR).unwrap();
-        ringbuf_entry!(Trace::Ksz8463Status {
-            port: 1,
-            status: p1_sr
-        });
-
-        let p2_sr = self.0.ksz8463.read(KszRegister::P2MBSR).unwrap();
-        ringbuf_entry!(Trace::Ksz8463Status {
-            port: 2,
-            status: p2_sr
-        });
-
-        let rw = &mut MiimBridge::new(eth);
-        for port in [0, 1] {
-            match self
-                .0
-                .vsc85x2
-                .phy(port, rw)
-                .read(phy::STANDARD::MODE_STATUS())
-            {
-                Ok(status) => {
-                    ringbuf_entry!(Trace::Vsc8552Status {
-                        port,
-                        status: u16::from(status)
-                    })
-                }
-                Err(err) => ringbuf_entry!(Trace::Vsc8552Err { err }),
-            }
-        }
+        self.0.wake(eth);
     }
 }

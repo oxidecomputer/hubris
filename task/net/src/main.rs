@@ -43,6 +43,9 @@ const RX_RING_SZ: usize = 4;
 /// Notification mask for our IRQ; must match configuration in app.toml.
 const ETH_IRQ: u32 = 1;
 
+/// Notification mask for optional periodic logging
+const WAKE_IRQ: u32 = 2;
+
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
 
@@ -178,9 +181,8 @@ fn main() -> ! {
                 if now >= wake_target_time {
                     server.wake();
                     wake_target_time = now + wake_interval;
-                } else {
-                    sys_set_timer(Some(wake_target_time - now), 0);
                 }
+                sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
             let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
