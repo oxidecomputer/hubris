@@ -22,8 +22,15 @@ ringbuf!(Trace, 16, Trace::None);
 /// used to monitor port activity for network management.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MIBCounterValue {
+    None,
     Count(u32),
     CountOverflow(u32),
+}
+
+impl Default for MIBCounterValue {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

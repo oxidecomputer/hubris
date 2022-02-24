@@ -27,6 +27,9 @@ pub enum Ksz8463ResetSpeed {
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Status {
     ksz8463_100base_fx_link_up: [bool; 2],
+    ksz8463_rx_bytes: [ksz8463::MIBCounterValue; 2],
+    ksz8463_tx_bytes: [ksz8463::MIBCounterValue; 2],
+
     vsc85x2_100base_fx_link_up: [bool; 2],
     vsc85x2_sgmii_link_up: [bool; 2],
 
@@ -193,6 +196,26 @@ impl Bsp {
                 Ok(sr) => {
                     s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
                 }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return;
+                }
+            }
+            match self
+                .ksz8463
+                .read_mib_counter(port, ksz8463::MIBCounter::RxLoPriorityByte)
+            {
+                Ok(c) => s.ksz8463_rx_bytes[i] = c,
+                Err(err) => {
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return;
+                }
+            }
+            match self
+                .ksz8463
+                .read_mib_counter(port, ksz8463::MIBCounter::TxLoPriorityByte)
+            {
+                Ok(c) => s.ksz8463_tx_bytes[i] = c,
                 Err(err) => {
                     ringbuf_entry!(Trace::Ksz8463Err { port, err });
                     return;
