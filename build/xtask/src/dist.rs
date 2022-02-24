@@ -54,16 +54,18 @@ pub fn package(
                 if let Ok(cmp) = u64::from_str_radix(contents, 16) {
                     toml.buildhash != cmp
                 } else {
-                    println!("buildstamp file contents unknown; re-building.");
+                    log::info!(
+                        "buildstamp file contents unknown; re-building."
+                    );
                     true
                 }
             } else {
-                println!("buildstamp file contents corrupt; re-building.");
+                log::info!("buildstamp file contents corrupt; re-building.");
                 true
             }
         }
         Err(_) => {
-            println!("no buildstamp file found; re-building.");
+            log::info!("no buildstamp file found; re-building.");
             true
         }
     };
@@ -76,27 +78,34 @@ pub fn package(
         if let Some(end) = out.address.checked_add(out.size) {
             memories.insert(name.clone(), out.address..end);
         } else {
-            eprintln!(
+            log::error!(
                 "output {}: address {:08x} size {:x} would overflow",
-                name, out.address, out.size
+                name,
+                out.address,
+                out.size
             );
             std::process::exit(1);
         }
     }
     for (name, range) in &memories {
-        println!("{:<5} = 0x{:0>8x}..0x{:0>8x}", name, range.start, range.end);
+        log::info!(
+            "{:<5} = 0x{:0>8x}..0x{:0>8x}",
+            name,
+            range.start,
+            range.end
+        );
     }
     let starting_memories = memories.clone();
 
     // Allocate memories.
     let allocs = allocate_all(&toml.kernel, &toml.tasks, &mut memories)?;
 
-    println!("Used:");
+    log::info!("Used:");
     for (name, new_range) in &memories {
         let orig_range = &starting_memories[name];
         let size = new_range.start - orig_range.start;
         let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} 0x{:x} ({}%)", format!("{}:", name), size, percent);
+        log::info!("  {:<6} 0x{:x} ({}%)", format!("{}:", name), size, percent);
     }
 
     let mut infofile = File::create(out.join("allocations.txt"))?;
@@ -112,7 +121,7 @@ pub fn package(
 
     // if we need to rebuild, we should clean everything before we start building
     if rebuild {
-        println!("app.toml has changed; rebuilding all tasks");
+        log::info!("app.toml has changed; rebuilding all tasks");
 
         cargo_clean(&toml.kernel.name, &toml.target)?;
 
@@ -191,7 +200,7 @@ pub fn package(
         {
             bootloader.imagea_flash_start..end
         } else {
-            eprintln!("image flash size is incorrect");
+            log::error!("image flash size is incorrect");
             std::process::exit(1);
         };
         let image_ram = if let Some(end) = bootloader
@@ -200,7 +209,7 @@ pub fn package(
         {
             bootloader.imagea_ram_start..end
         } else {
-            eprintln!("image ram size is incorrect");
+            log::error!("image ram size is incorrect");
             std::process::exit(1);
         };
 
@@ -737,7 +746,7 @@ fn do_sign_file(
             &out.join(format!("{}_ecc.bin", fname)),
         )
     } else {
-        eprintln!("Invalid sign method {}", sign.method);
+        log::error!("Invalid sign method {}", sign.method);
         std::process::exit(1);
     }
 }
@@ -963,7 +972,7 @@ fn build(
     app_config: &Option<ordered_toml::Value>,
     extra_env: &[(&str, &str)],
 ) -> Result<()> {
-    println!("building path {}", path.display());
+    log::info!("building path {}", path.display());
 
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
@@ -1061,7 +1070,7 @@ fn build(
             tree.arg(features.join(","));
         }
         tree.current_dir(path);
-        println!("Path: {}\nRunning cargo {:?}", path.display(), tree);
+        log::info!("Path: {}\nRunning cargo {:?}", path.display(), tree);
         let tree_status = tree
             .status()
             .context(format!("failed to run edge ({:?})", tree))?;
@@ -1082,7 +1091,7 @@ fn build(
     cargo_out.push("release");
     cargo_out.push(name);
 
-    println!("{} -> {}", cargo_out.display(), dest.display());
+    log::info!("{} -> {}", cargo_out.display(), dest.display());
     std::fs::copy(&cargo_out, dest)?;
 
     Ok(())
@@ -1864,7 +1873,7 @@ fn objcopy_translate_format(
 }
 
 fn cargo_clean(name: &str, target: &str) -> Result<()> {
-    println!("cleaning {}", name);
+    log::info!("cleaning {}", name);
 
     let mut cmd = Command::new("cargo");
     cmd.arg("clean");
@@ -1933,7 +1942,7 @@ fn resolve_task_slots(
         )?;
 
         if verbose {
-            println!(
+            log::info!(
                 "Task '{}' task_slot '{}' changed from task index 0x{:x} to task index 0x{:x}",
                 task_name, entry.slot_name, in_task_idx, target_task_idx
             );

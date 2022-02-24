@@ -446,6 +446,10 @@ where
 }
 
 fn main() -> Result<()> {
+    let env = env_logger::Env::default().filter_or("RUST_LOG", "info");
+
+    env_logger::init_from_env(env);
+
     let xtask = Xtask::from_args();
 
     match xtask {

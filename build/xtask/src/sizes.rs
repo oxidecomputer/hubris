@@ -148,7 +148,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
     )?;
     for (name, task) in &toml.tasks {
         if !only_suggest {
-            println!();
+            log::info!("");
         }
         check_task(
             &name,

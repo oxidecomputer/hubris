@@ -101,8 +101,8 @@ pub fn dump_task_slot_table(task_path: &PathBuf) -> Result<()> {
     let task_bin = std::fs::read(task_path)?;
     let elf = goblin::elf::Elf::parse(&task_bin)?;
 
-    println!("Task Slot          Address      File Offset   Task Index");
-    println!("------------------------------------------------------------");
+    log::info!("Task Slot          Address      File Offset   Task Index");
+    log::info!("------------------------------------------------------------");
 
     for entry in get_task_slot_table_entries(&task_bin, &elf)? {
         let task_idx = task_bin.pread_with::<u16>(
@@ -110,7 +110,7 @@ pub fn dump_task_slot_table(task_path: &PathBuf) -> Result<()> {
             elf::get_endianness(&elf),
         )?;
 
-        println!(
+        log::info!(
             "{:16}   0x{:08x}   0x{:08x}    0x{:04x}",
             entry.slot_name,
             entry.taskidx_address,

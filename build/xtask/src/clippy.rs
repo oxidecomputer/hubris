@@ -22,7 +22,7 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
             .to_string()
     });
 
-    println!("Running clippy on: {}", package);
+    log::info!("Running clippy on: {}", package);
 
     let mut cmd = Command::new("cargo");
     cmd.arg("clippy");
