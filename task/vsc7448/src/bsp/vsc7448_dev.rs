@@ -11,6 +11,9 @@ use vsc85xx::{init_vsc8522_phy, Phy};
 
 task_slot!(USER_LEDS, user_leds);
 
+pub const REF_CLOCK_FREQ: vsc7448::RefClockFreq =
+    vsc7448::RefClockFreq::Freq125MHz;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
