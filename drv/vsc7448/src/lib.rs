@@ -461,11 +461,10 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             let mut v = r.cal_auto();
             v &= !(0b11 << shift);
             v |= match bw {
+                Bandwidth::None => 0b00,
                 Bandwidth::Bw1G => 0b01,
+                Bandwidth::Bw2G5 => 0b10,
                 Bandwidth::Bw10G => 0b11,
-                // There's also an option for 2G5, but we don't use it
-                // anywhere, so it isn't present to avoid a warning
-                // about unused code.
             } << shift;
             r.set_cal_auto(v);
         })?;
@@ -473,6 +472,30 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     }
 
     pub fn apply_calendar(&self) -> Result<(), VscError> {
+        let mut total_bw_mhz = 0;
+        for i in 0..4 {
+            let d = self.read(QSYS().CALCFG().CAL_AUTO(i))?.cal_auto();
+            for j in 0..16 {
+                let v = (d >> (j * 2)) & 0b11;
+                let bw = match v {
+                    0b00 => Bandwidth::None,
+                    0b01 => Bandwidth::Bw1G,
+                    0b10 => Bandwidth::Bw2G5,
+                    0b11 => Bandwidth::Bw10G,
+                    _ => unreachable!(),
+                };
+                total_bw_mhz += bw.bandwidth_mhz();
+            }
+        }
+
+        // The chip nominally has 80 Gbps of bandwidth, but the SDK checks
+        // against 84 Gbps.  Perhaps this is because we overclock the PLLs;
+        // the datasheet mentions that this allows us to exceed 80 Gbps,
+        // but doesn't specify exactly how much.
+        if total_bw_mhz > 84_000 {
+            return Err(VscError::TooMuchBandwidth(total_bw_mhz));
+        }
+
         // "672->671, BZ19678"
         self.modify(QSYS().CALCFG().CAL_CTRL(), |r| {
             r.set_cal_auto_grant_rate(671);
@@ -496,8 +519,21 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 }
 
 enum Bandwidth {
+    None,
     Bw1G,
+    Bw2G5,
     Bw10G,
+}
+
+impl Bandwidth {
+    fn bandwidth_mhz(&self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Bw1G => 1_000,
+            Self::Bw2G5 => 2_500,
+            Self::Bw10G => 10_000,
+        }
+    }
 }
 
 /// Sets the frequency of the reference clock

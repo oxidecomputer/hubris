@@ -54,6 +54,7 @@ pub enum VscError {
     InvalidDev10g(u8),
     LcPllInitFailed(u8),
     CalConfigFailed,
+    TooMuchBandwidth(usize),
 
     /// Mismatch in the `IDENTIFIER_1/2` PHY register
     BadPhyId(u32),
