@@ -52,6 +52,8 @@ pub enum VscError {
     InvalidDev1g(u8),
     InvalidDev2g5(u8),
     InvalidDev10g(u8),
+    LcPllInitFailed(u8),
+    CalConfigFailed,
 
     /// Mismatch in the `IDENTIFIER_1/2` PHY register
     BadPhyId(u32),

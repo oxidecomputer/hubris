@@ -82,8 +82,10 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         self.vsc7448
             .init_qsgmii(&[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44])?;
-        self.vsc7448.init_sfi(&[51, 52])?;
-        self.vsc7448.init_10g_sgmii(&[49, 50])?; // DEV2G5_26, SERDES10G_1, S33
+        self.vsc7448.init_sfi(&[49, 50])?;
+        self.vsc7448.init_10g_sgmii(&[51, 52])?;
+
+        self.vsc7448.apply_calendar()?;
 
         self.leds.led_off(0).unwrap();
         self.leds.led_on(3).unwrap();

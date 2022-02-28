@@ -138,7 +138,17 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             assert!(port <= 52);
             let dev = Dev10g::new(port - 49)?;
             dev.init_sfi(self.rw)?;
+            // Disable ASM / DSM stat collection for this port, since that
+            // data will be collected in the DEV10G instead
+            self.modify(ASM().CFG().PORT_CFG(port), |r| {
+                r.set_csc_stat_dis(1);
+            })?;
+            self.modify(DSM().CFG().BUF_CFG(port), |r| {
+                r.set_csc_stat_dis(1);
+            })?;
             serdes_cfg.apply(dev.index(), self.rw)?;
+
+            self.set_calendar_bandwidth(port, Bandwidth::Bw10G)?;
         }
         Ok(())
     }
@@ -179,6 +189,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 48 => sd1g_cfg.apply(0, self.rw),
                 _ => panic!(),
             }?;
+
+            self.set_calendar_bandwidth(p, Bandwidth::Bw1G)?;
         }
         Ok(())
     }
@@ -239,6 +251,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             for dev in start_dev..(start_dev + 4) {
                 dev_type(dev)?.init_sgmii(self.rw, dev::Speed::Speed1G)?;
             }
+            for port in start_port..start_port + 4 {
+                self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
+            }
         }
         Ok(())
     }
@@ -276,6 +291,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             })?;
             serdes10g_cfg_sgmii.apply(d10g.index(), self.rw)?;
             d2g5.init_sgmii(self.rw, dev::Speed::Speed100M)?;
+
+            self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         }
         Ok(())
     }
@@ -341,11 +358,140 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         sleep_for(1);
         // TODO: read back all of those autoclear bits and make sure they cleared
 
+        // Enable the 5G PLL boost
+        self.pll5g_setup(0)?;
+        self.pll5g_setup(1)?;
+
         // Enable the queue system
         self.write_with(QSYS().SYSTEM().RESET_CFG(), |r| r.set_core_ena(1))?;
+
+        self.high_speed_mode()?;
 
         sleep_for(105); // Minimum time between reset and SMI access
 
         Ok(())
     }
+
+    /// Based on `vtss_lc_pll5g_setup` and various functions that it calls
+    fn pll5g_setup(&self, i: u8) -> Result<(), VscError> {
+        let pll5g = HSIO().PLL5G_CFG(i);
+        self.modify(pll5g.PLL5G_CFG4(), |r| {
+            r.set_ib_ctrl(0x7600);
+        })?;
+        self.modify(pll5g.PLL5G_CFG0(), |r| {
+            r.set_ena_vco_contrh(0);
+            r.set_loop_bw_res(14); // Frequency-dependent!
+            r.set_selbgv820(4);
+        })?;
+        for _ in 0..=9 {
+            self.modify(pll5g.PLL5G_CFG2(), |r| {
+                r.set_disable_fsm(1);
+            })?;
+            self.modify(pll5g.PLL5G_CFG2(), |r| {
+                r.set_disable_fsm(0);
+            })?;
+            sleep_for(10);
+            let v = self
+                .read(HSIO().PLL5G_STATUS(i).PLL5G_STATUS1())?
+                .gain_stat();
+            if v > 2 && v < 0xa {
+                sleep_for(5);
+                return Ok(());
+            }
+        }
+        Err(VscError::LcPllInitFailed(i))
+    }
+
+    /// Based on the section of `jr2_init_conf_set` beginning with the comment
+    /// "Configuring core clock to run 278MHz"
+    ///
+    /// In the SDK, this only runs for VTSS_TARGET_SPARX_IV_90, but in
+    /// conversations with Microchip support, they say to use this on the
+    /// VSC7448 as well (which is nominally a SPARX_IV_80 target)
+    fn high_speed_mode(&self) -> Result<(), VscError> {
+        for i in 0..2 {
+            self.modify(HSIO().PLL5G_CFG(i).PLL5G_CFG0(), |r| {
+                r.set_core_clk_div(3);
+            })?;
+        }
+        self.modify(ANA_AC_POL().COMMON_SDLB().DLB_CTRL(), |r| {
+            r.set_clk_period_01ns(36);
+        })?;
+        self.modify(ANA_AC_POL().COMMON_BDLB().DLB_CTRL(), |r| {
+            r.set_clk_period_01ns(36);
+        })?;
+        self.modify(ANA_AC_POL().COMMON_BUM_SLB().DLB_CTRL(), |r| {
+            r.set_clk_period_01ns(36);
+        })?;
+        self.modify(ANA_AC_POL().POL_ALL_CFG().POL_UPD_INT_CFG(), |r| {
+            r.set_pol_upd_int(693);
+        })?;
+        self.modify(LRN().COMMON().AUTOAGE_CFG_1(), |r| {
+            r.set_clk_period_01ns(36);
+        })?;
+        for i in 0..2 {
+            self.modify(DEVCPU_GCB().SIO_CTRL(i).SIO_CLOCK(), |r| {
+                r.set_sys_clk_period(36);
+            })?;
+        }
+        self.modify(HSCH().HSCH_MISC().SYS_CLK_PER(), |r| {
+            r.set_sys_clk_per_100ps(36);
+        })?;
+        self.modify(VOP().COMMON().LOC_CTRL(), |r| {
+            r.set_loc_base_tick_cnt(28);
+        })?;
+        self.modify(AFI().TTI_TICKS().TTI_TICK_BASE(), |r| {
+            r.set_base_len(14444);
+        })?;
+
+        Ok(())
+    }
+
+    fn set_calendar_bandwidth(
+        &self,
+        port: u8,
+        bw: Bandwidth,
+    ) -> Result<(), VscError> {
+        self.modify(QSYS().CALCFG().CAL_AUTO(port / 16), |r| {
+            let shift = (port % 16) * 2;
+            let mut v = r.cal_auto();
+            v &= !(0b11 << shift);
+            v |= match bw {
+                Bandwidth::Bw1G => 0b01,
+                Bandwidth::Bw10G => 0b11,
+                // There's also an option for 2G5, but we don't use it
+                // anywhere, so it isn't present to avoid a warning
+                // about unused code.
+            } << shift;
+            r.set_cal_auto(v);
+        })?;
+        Ok(())
+    }
+
+    pub fn apply_calendar(&self) -> Result<(), VscError> {
+        // "672->671, BZ19678"
+        self.modify(QSYS().CALCFG().CAL_CTRL(), |r| {
+            r.set_cal_auto_grant_rate(671);
+        })?;
+
+        // The SDK configures HSCH:HSCH_MISC.OUTB_SHARE_ENA here, but we're
+        // not using CPU ports, so we can skip it
+
+        // Configure CAL_CTRL to use the CAL_AUTO settings
+        self.modify(QSYS().CALCFG().CAL_CTRL(), |r| {
+            r.set_cal_mode(8);
+        })?;
+
+        // Confirm that the config was applied
+        if self.read(QSYS().CALCFG().CAL_CTRL())?.cal_auto_error() == 1 {
+            Err(VscError::CalConfigFailed)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+enum Bandwidth {
+    Bw1G,
+    Bw10G,
 }

@@ -25,6 +25,9 @@ pub struct Bsp<'a, R> {
     net: task_net_api::Net,
 }
 
+/// For convenience, we implement `PhyRw` on the top-level `Bsp` struct.
+/// In this case, we read and write to PHYs using RPC calls to the `net`
+/// task, which owns the ethernet peripheral containing the MDIO block.
 impl<'a, R> PhyRw for Bsp<'a, R> {
     #[inline(always)]
     fn read_raw<T: From<u16>>(
@@ -135,6 +138,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.vsc7448.init_sfi(&[
             49, //  DEV10G_0 | SERDES10G_0 | Tofino 2
         ])?;
+
+        self.vsc7448.apply_calendar()?;
 
         Ok(())
     }
