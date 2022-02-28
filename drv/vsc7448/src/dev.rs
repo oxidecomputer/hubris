@@ -159,6 +159,8 @@ impl DevGeneric {
 
         v.modify(DSM().CFG().DEV_TX_STOP_WM_CFG(self.port()), |r| {
             r.set_dev_tx_stop_wm(match speed {
+                // XXX In datasheet section 3.25.1, it says to set this to 3
+                // instead, but the SDK always uses 0
                 Speed::Speed1G => 0,
                 Speed::Speed100M => 1,
             })
