@@ -300,7 +300,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Performs initial configuration (endianness, soft reset, read padding) of
     /// the VSC7448, checks that its chip ID is correct, and brings core systems
     /// out of reset.
-    pub fn init(&self) -> Result<(), VscError> {
+    pub fn init(&self, f: RefClockFreq) -> Result<(), VscError> {
         // Write the byte ordering / endianness configuration
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
 
@@ -359,8 +359,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         // TODO: read back all of those autoclear bits and make sure they cleared
 
         // Enable the 5G PLL boost
-        self.pll5g_setup(0)?;
-        self.pll5g_setup(1)?;
+        self.pll5g_setup(0, f)?;
+        self.pll5g_setup(1, f)?;
 
         // Enable the queue system
         self.write_with(QSYS().SYSTEM().RESET_CFG(), |r| r.set_core_ena(1))?;
@@ -373,14 +373,18 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     }
 
     /// Based on `vtss_lc_pll5g_setup` and various functions that it calls
-    fn pll5g_setup(&self, i: u8) -> Result<(), VscError> {
+    fn pll5g_setup(&self, i: u8, freq: RefClockFreq) -> Result<(), VscError> {
         let pll5g = HSIO().PLL5G_CFG(i);
         self.modify(pll5g.PLL5G_CFG4(), |r| {
             r.set_ib_ctrl(0x7600);
         })?;
+        let loop_bw_res = match freq {
+            RefClockFreq::Clk125MHz => 14,
+            RefClockFreq::Clk156p25MHz => 17,
+        };
         self.modify(pll5g.PLL5G_CFG0(), |r| {
             r.set_ena_vco_contrh(0);
-            r.set_loop_bw_res(14); // Frequency-dependent!
+            r.set_loop_bw_res(loop_bw_res);
             r.set_selbgv820(4);
         })?;
         for _ in 0..=9 {
@@ -494,4 +498,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
 enum Bandwidth {
     Bw1G,
     Bw10G,
+}
+
+/// Sets the frequency of the reference clock
+#[derive(Copy, Clone)]
+pub enum RefClockFreq {
+    Clk125MHz,
+    Clk156p25MHz,
 }
