@@ -68,10 +68,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     fn gpio_init(&self) -> Result<(), VscError> {
-        // We assume that the only person running on a gemini-bu-1 is Matt, who is
-        // talking to a VSC7448 dev kit on his desk.  In this case, we want to
-        // configure the GPIOs to allow MIIM1 and 2 to be active, by setting
-        // GPIO_56-59 to Overlaid Function 1
+        // The VSC7448 dev kit has PHYs on MIIM1 and MIIM2, so we configure them
+        // by setting GPIO_56-59 to Overlay Function 1.
         self.vsc7448
             .write(DEVCPU_GCB().GPIO().GPIO_ALT1(0), 0xF000000.into())?;
         Ok(())
