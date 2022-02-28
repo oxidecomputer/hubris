@@ -34,7 +34,15 @@ task_slot!(SYS, sys);
 //
 // Much of this needs to move into the board-level configuration.
 
-static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C];
+cfg_if::cfg_if! {
+    if #[cfg(target_board = "gimlet-1")] {
+        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x1C];
+    } else if #[cfg(target_board = "sidecar-1")] {
+        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x2C];
+    } else {
+        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C];
+    }
+}
 
 const TX_RING_SZ: usize = 4;
 
