@@ -305,10 +305,13 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
 
         // Trigger a soft reset
-        self.write(DEVCPU_GCB().CHIP_REGS().SOFT_RST(), 1.into())?;
+        self.write_with(DEVCPU_GCB().CHIP_REGS().SOFT_RST(), |r| {
+            r.set_soft_chip_rst(1);
+        })?;
 
         // Re-write byte ordering / endianness
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
+
         // Configure reads to include padding bytes, since we're reading quickly
         self.write_with(DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT(), |r| {
             r.set_if_cfg(spi::SPI_NUM_PAD_BYTES as u32);
@@ -355,8 +358,22 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             r.set_ram_ena(1);
         })?;
 
+        // The RAM initialization should take about 40 µs, according to
+        // the datasheet.
         sleep_for(1);
-        // TODO: read back all of those autoclear bits and make sure they cleared
+
+        // Confirm that the RAM_INIT bits have cleared themselves.
+        // This should never fail, and there's not much we can do about it
+        // if it _does_ fail.
+        if self.read(QSYS().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+            || self.read(REW().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+            || self.read(VOP().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+            || self.read(ANA_AC().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+            || self.read(ASM().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+            || self.read(DSM().RAM_CTRL().RAM_INIT())?.ram_init() != 0
+        {
+            return Err(VscError::RamInitFailed);
+        }
 
         // Enable the 5G PLL boost
         self.pll5g_setup(0, f)?;
