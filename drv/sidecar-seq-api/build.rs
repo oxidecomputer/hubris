@@ -4,7 +4,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     idol::client::build_client_stub(
-        "../../idl/gimlet-seq.idol",
+        "../../idl/sidecar-seq.idol",
         "client_stub.rs",
     )?;
     Ok(())
