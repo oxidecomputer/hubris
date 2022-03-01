@@ -35,6 +35,10 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     .configure(sys);
 }
 
+pub fn preinit() {
+    // Nothing to do here
+}
+
 // Empty handle
 pub struct Bsp;
 impl Bsp {

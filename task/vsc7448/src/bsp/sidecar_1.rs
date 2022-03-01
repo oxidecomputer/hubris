@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_sidecar_seq_api::Sequencer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
@@ -11,6 +12,7 @@ use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
+task_slot!(SEQ, seq);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -63,7 +65,11 @@ impl<'a, R> PhyRw for Bsp<'a, R> {
 }
 
 pub fn preinit() {
-    // Nothing to do here
+    // Wait for the sequencer to turn on the clock
+    let seq = Sequencer::from(SEQ.get_task_id());
+    while seq.is_clock_config_loaded().unwrap() == 0 {
+        sleep_for(10);
+    }
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {

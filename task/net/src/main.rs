@@ -69,6 +69,11 @@ fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    // Do any preinit tasks specific to this board.  For hardware which requires
+    // explicit clock configuration, this is where the `net` tasks waits for
+    // the clock to come up.
+    bsp::preinit();
+
     // Turn on the Ethernet power.
     sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Rx);
     sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Tx);

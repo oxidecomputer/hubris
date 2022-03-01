@@ -3,12 +3,14 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{mgmt, pins};
+use drv_sidecar_seq_api::Sequencer;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use userlib::task_slot;
+use userlib::{hl::sleep_for, task_slot};
 
 task_slot!(SPI, spi_driver);
+task_slot!(SEQ, seq);
 
 // This system wants to be woken periodically to do logging
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
@@ -39,6 +41,14 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 }
 
 pub struct Bsp(mgmt::Bsp);
+
+pub fn preinit() {
+    // Wait for the sequencer to turn on the clock
+    let seq = Sequencer::from(SEQ.get_task_id());
+    while seq.is_clock_config_loaded().unwrap() == 0 {
+        sleep_for(10);
+    }
+}
 
 impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {

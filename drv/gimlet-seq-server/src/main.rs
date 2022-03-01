@@ -314,6 +314,7 @@ fn main() -> ! {
         state: PowerState::A2,
         clockgen: i2c_config::devices::idt8a34003(I2C.get_task_id())[0],
         seq,
+        clock_config_loaded: false,
     };
 
     loop {
@@ -326,6 +327,7 @@ struct ServerImpl {
     state: PowerState,
     clockgen: I2cDevice,
     seq: seq_spi::SequencerFpga,
+    clock_config_loaded: bool,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -463,8 +465,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 }
             }
         })?;
+        self.clock_config_loaded = true;
 
         Ok(())
+    }
+
+    fn is_clock_config_loaded(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(self.clock_config_loaded as u8)
     }
 }
 
