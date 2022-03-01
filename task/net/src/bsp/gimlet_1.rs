@@ -56,11 +56,13 @@ impl Bsp {
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
                 power_en: Some(Port::I.pin(10).and_pin(12)),
-                power_good: None,
-                pll_lock: None,
+                power_good: None, // TODO
+                pll_lock: None,   // TODO?
 
                 // Based on ordering in app.toml
                 ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
+
+                // SP_TO_MGMT_MUX_RESET_L
                 ksz8463_nrst: Port::C.pin(2),
                 ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
