@@ -254,7 +254,7 @@ impl Bsp {
             }
             if let Err(err) = phy.modify(
                 phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
-                |r| r.0 &= 0b11 << 14,
+                |r| r.0 &= !(0b11 << 14),
             ) {
                 ringbuf_entry!(Trace::Vsc85x2Err { port, err });
                 return;

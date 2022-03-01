@@ -14,17 +14,23 @@ task_slot!(SYS, sys);
 task_slot!(NET, net);
 task_slot!(SEQ, seq);
 
+const MAC_SEEN_COUNT: usize = 64;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
     Vsc8504StatusLink { port: u8, status: u16 },
     Vsc8504Status100Base { port: u8, status: u16 },
+    MacAddress(vsc7448::mac::MacTableEntry),
+    Vsc7448Error(VscError),
+    Vsc8504Error(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
     net: task_net_api::Net,
+    known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -76,7 +82,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let net = task_net_api::Net::from(NET.get_task_id());
-        let mut out = Bsp { vsc7448, net };
+        let mut out = Bsp {
+            vsc7448,
+            net,
+            known_macs: [None; MAC_SEEN_COUNT],
+        };
         out.init()?;
         Ok(out)
     }
@@ -220,20 +230,68 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
+    fn step(&mut self) {
+        for port in 4..8 {
+            let mut vsc8504 = Phy::new(port, self);
+            ringbuf_entry!(match vsc8504.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(status) => Trace::Vsc8504StatusLink {
+                    port,
+                    status: u16::from(status)
+                },
+                Err(e) => Trace::Vsc8504Error(e),
+            });
+
+            // 100BASE-TX/FX Status Extension register
+            let addr: PhyRegisterAddress<u16> =
+                PhyRegisterAddress::from_page_and_addr_unchecked(0, 16);
+            ringbuf_entry!(match vsc8504.read(addr) {
+                Ok(status) => Trace::Vsc8504Status100Base {
+                    port,
+                    status: u16::from(status)
+                },
+                Err(e) => Trace::Vsc8504Error(e),
+            });
+        }
+
+        // Dump the MAC tables
+        loop {
+            match vsc7448::mac::next_mac(self.vsc7448) {
+                Ok(Some(mac)) => {
+                    // Inefficient but easy way to avoid logging MAC addresses
+                    // repeatedly.  This will fail to scale for larger systems,
+                    // where we'd want some kind of LRU cache, but is nice
+                    // for debugging.
+                    let mut mac_is_new = true;
+                    for m in self.known_macs.iter_mut() {
+                        match m {
+                            Some(m) => {
+                                if *m == mac.mac {
+                                    mac_is_new = false;
+                                    break;
+                                }
+                            }
+                            None => {
+                                *m = Some(mac.mac);
+                                break;
+                            }
+                        }
+                    }
+                    if mac_is_new {
+                        ringbuf_entry!(Trace::MacAddress(mac));
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    ringbuf_entry!(Trace::Vsc7448Error(e));
+                    break;
+                }
+            }
+        }
+    }
+
     pub fn run(&mut self) -> ! {
         loop {
-            for port in 4..8 {
-                let mut vsc8504 = Phy::new(port, self);
-                let status: u16 =
-                    vsc8504.read(phy::STANDARD::MODE_STATUS()).unwrap().into();
-                ringbuf_entry!(Trace::Vsc8504StatusLink { port, status });
-
-                // 100BASE-TX/FX Status Extension register
-                let addr: PhyRegisterAddress<u16> =
-                    PhyRegisterAddress::from_page_and_addr_unchecked(0, 16);
-                let status: u16 = vsc8504.read(addr).unwrap();
-                ringbuf_entry!(Trace::Vsc8504Status100Base { port, status });
-            }
+            self.step();
             sleep_for(100);
         }
     }
