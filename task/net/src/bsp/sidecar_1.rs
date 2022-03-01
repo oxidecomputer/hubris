@@ -55,8 +55,8 @@ impl Bsp {
         let bsp = mgmt::Config {
             // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
             power_en: Some(Port::I.pin(11)),
-            power_good: None,
-            pll_lock: None,
+            power_good: None, // TODO
+            pll_lock: None,   // TODO?
 
             // Based on ordering in app.toml
             ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
