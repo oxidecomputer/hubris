@@ -159,8 +159,8 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 enum Trace {
     None,
     Vsc8522Init(u8),
-    Vsc8552Patch(u8),
-    Vsc8562Patch(u8),
+    TeslaPatch(u8),
+    ViperPatch(u8),
     Vsc8552Init(u8),
     Vsc8562Init(u8),
     Vsc8504Init(u8),
@@ -1201,7 +1201,7 @@ fn vsc8562_sd6g_common_cfg_write<P: PhyRw>(
 /// `vtss_phy_pre_init_seq_viper` in the SDK, which calls
 /// `vtss_phy_pre_init_seq_viper_rev_b`
 fn patch_viper<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8562Patch(v.port));
+    ringbuf_entry!(Trace::ViperPatch(v.port));
 
     v.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
         *r = (u16::from(*r) | 1).into()
@@ -1378,7 +1378,7 @@ fn patch_viper<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 /// Applies a patch to the 8051 microcode inside the PHY, based on
 /// `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
 fn patch_tesla<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8552Patch(v.port));
+    ringbuf_entry!(Trace::TeslaPatch(v.port));
 
     // Enable broadcast flag to configure all ports simultaneously
     v.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
