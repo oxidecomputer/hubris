@@ -81,6 +81,10 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+pub fn preinit() {
+    // Nothing to do here
+}
+
 pub fn configure_ethernet_pins(sys: &Sys) {
     pins::RmiiPins {
         refclk: Port::A.pin(1),
