@@ -487,6 +487,12 @@ fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Vsc85x2Type {
+    Vsc8552,
+    Vsc8562,
+}
+
 /// Represents a VSC8552 or VSC8562 PHY.  `base_port` is the PHY address of
 /// the chip's port 0; since this is a two-port PHY, we can address either
 /// `base_port` or `base_port + 1` given a suitable `PhyRw`.
@@ -495,6 +501,14 @@ pub struct Vsc85x2 {
 }
 
 impl Vsc85x2 {
+    pub fn chip<P: PhyRw>(&self, rw: &mut P) -> Result<Vsc85x2Type, VscError> {
+        match read_id(&mut self.phy(0, rw))? {
+            VSC8552_ID => Ok(Vsc85x2Type::Vsc8552),
+            VSC8562_ID => Ok(Vsc85x2Type::Vsc8562),
+            i => Err(VscError::BadPhyId(i)),
+        }
+    }
+
     pub fn new(base_port: u8) -> Self {
         Self { base_port }
     }
