@@ -25,8 +25,9 @@ pub struct Bsp<'a, R> {
     net: task_net_api::Net,
 }
 
-pub const REF_CLOCK_FREQ: vsc7448::RefClockFreq =
+pub const REFCLK_SEL: vsc7448::RefClockFreq =
     vsc7448::RefClockFreq::Clk156p25MHz;
+pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> = None;
 
 /// For convenience, we implement `PhyRw` on the top-level `Bsp` struct.
 /// In this case, we read and write to PHYs using RPC calls to the `net`

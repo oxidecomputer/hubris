@@ -300,7 +300,14 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// Performs initial configuration (endianness, soft reset, read padding) of
     /// the VSC7448, checks that its chip ID is correct, and brings core systems
     /// out of reset.
-    pub fn init(&self, f: RefClockFreq) -> Result<(), VscError> {
+    ///
+    /// Takes the REFCLK frequency, as well as an optional frequency for
+    /// REFCLK2 (used to configure the PLL boost).
+    pub fn init(
+        &self,
+        f1: RefClockFreq,
+        f2: Option<RefClockFreq>,
+    ) -> Result<(), VscError> {
         // Write the byte ordering / endianness configuration
         self.write(DEVCPU_ORG().DEVCPU_ORG().IF_CTRL(), 0x81818181.into())?;
 
@@ -375,9 +382,12 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             return Err(VscError::RamInitFailed);
         }
 
-        // Enable the 5G PLL boost
-        self.pll5g_setup(0, f)?;
-        self.pll5g_setup(1, f)?;
+        // Enable the 5G PLL boost on the main clock, and optionally on
+        // the secondary clock (if present)
+        self.pll5g_setup(0, f1)?;
+        if let Some(f2) = f2 {
+            self.pll5g_setup(1, f2)?;
+        }
 
         // Enable the queue system
         self.write_with(QSYS().SYSTEM().RESET_CFG(), |r| r.set_core_ena(1))?;
@@ -396,6 +406,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             r.set_ib_ctrl(0x7600);
         })?;
         let loop_bw_res = match freq {
+            RefClockFreq::Clk25MHz => 10,
             RefClockFreq::Clk125MHz => 14,
             RefClockFreq::Clk156p25MHz => 17,
         };
@@ -553,9 +564,11 @@ impl Bandwidth {
     }
 }
 
-/// Sets the frequency of the reference clock
+/// Sets the frequency of the reference clock.  The specific values are based
+/// on the REFCLK_SEL pins.
 #[derive(Copy, Clone)]
 pub enum RefClockFreq {
-    Clk125MHz,
-    Clk156p25MHz,
+    Clk25MHz = 0b100,
+    Clk125MHz = 0b000,
+    Clk156p25MHz = 0b001,
 }
