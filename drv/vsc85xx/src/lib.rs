@@ -506,6 +506,23 @@ impl Vsc85x2 {
         assert!(port < 2);
         Phy::new(self.base_port + port, rw)
     }
+
+    /// Sets the SIGDET polarity for all PHYs (by default, active high)
+    pub fn set_sigdet_polarity<P: PhyRw>(
+        &self,
+        rw: &mut P,
+        active_low: bool,
+    ) -> Result<(), VscError> {
+        let phy = &mut self.phy(0, rw);
+        broadcast(phy, |phy| {
+            phy.modify(phy::EXTENDED::EXTENDED_MODE_CONTROL(), |r| {
+                // TODO: fix VSC7448 codegen to include `sigdet_polarity` bit
+                let mut v = u16::from(*r);
+                v = (v & !1) | active_low as u16;
+                *r = v.into();
+            })
+        })
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
