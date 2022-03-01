@@ -69,6 +69,20 @@ impl Bsp {
         }
         .build(sys, eth);
 
+        use crate::miim_bridge::MiimBridge;
+        let rw = &mut MiimBridge::new(eth);
+        for i in 0..2 {
+            use vsc7448_pac::phy;
+            // Enable far-end loopback
+            let phy = &mut bsp.vsc85x2.phy(i, rw);
+            phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                let mut v = u16::from(*r);
+                v |= 1 << 3;
+                *r = v.into();
+            })
+            .unwrap();
+        }
+
         Self(bsp)
     }
 
