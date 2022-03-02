@@ -9,6 +9,7 @@
 //! trait is an abstraction over reading and writing raw PHY registers.
 #![no_std]
 use core::convert::TryInto;
+use core::ops::{Deref, DerefMut};
 
 use ringbuf::*;
 use userlib::hl::sleep_for;
@@ -304,187 +305,6 @@ pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
     Ok(())
 }
 
-/// Initializes either a VSC8552 or VSC8562 PHY, configuring it to use 2x SGMII
-/// to 100BASE-FX SFP fiber). This should be called _after_ the PHY is reset
-/// (i.e. the reset pin is toggled and then the caller waits for 120 ms).
-/// The caller is also responsible for handling the `COMA_MODE` pin.
-///
-/// This must be called on the base port of the PHY; otherwise it will return
-/// an error.
-pub fn init_vsc85x2_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    match read_id(v)? {
-        VSC8552_ID => {
-            let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-            if rev.tesla_e() == 1 {
-                init_vsc8552_phy(v)
-            } else {
-                Err(VscError::BadPhyRev)
-            }
-        }
-        VSC8562_ID => {
-            let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-            if u16::from(rev) & 0x4000 == 0 {
-                init_vsc8562_phy(v)
-            } else {
-                Err(VscError::BadPhyRev)
-            }
-        }
-        i => Err(VscError::UnknownPhyId(i)),
-    }
-}
-
-/// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
-/// to 100BASE-FX SFP Fiber).  Same caveats as `init_vsc85x2` apply.
-fn init_vsc8552_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8552Init(v.port));
-    check_base_port(v)?;
-
-    // Apply a patch to the 8051 inside the PHY
-    patch_tesla(v)?;
-
-    broadcast(v, |v| {
-        v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-            // MAC configuration = SGMII
-            r.0 &= !(0b11 << 14)
-        })
-    })?;
-
-    // Enable 2 port MAC SGMII, then wait for the command to finish
-    cmd(v, 0x80F0)?;
-
-    broadcast(v, |v| {
-        v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
-            // SGMII MAC interface mode
-            r.set_mac_interface_mode(0);
-            // 100BASE-FX fiber/SFP on the fiber media pins only
-            r.set_media_operating_mode(0b11);
-        })
-    })?;
-
-    // Enable 2 ports Media 100BASE-FX
-    cmd(v, 0x8FD1)?;
-
-    // Configure LEDs.
-    broadcast(v, |v| {
-        set_led_mode(v, LED::LED0, LEDMode::ForcedOff)?;
-        set_led_mode(
-            v,
-            LED::LED1,
-            LEDMode::Link100BaseFXLink1000BaseXActivity,
-        )?;
-        set_led_mode(v, LED::LED2, LEDMode::Activity)?;
-        set_led_mode(v, LED::LED3, LEDMode::Fiber100Fiber1000Activity)?;
-
-        // Tweak LED behavior.
-        v.modify(phy::STANDARD::LED_BEHAVIOR(), |r| {
-            let x: u16 = (*r).into();
-            // Disable LED1 combine, showing only link status.
-            let disable_led1_combine = 1 << 1;
-            // Split TX/RX activity across Activity/FiberActivity modes.
-            let split_rx_tx_activity = 1 << 14;
-            *r = phy::standard::LED_BEHAVIOR::from(
-                x | disable_led1_combine | split_rx_tx_activity,
-            );
-        })
-    })?;
-
-    // Now, we reset the PHY to put those settings into effect.  For some
-    // reason, we can't do a broadcast reset, so we do it port-by-port.
-    for p in 0..2 {
-        software_reset(&mut Phy::new(v.port + p, v.rw))?;
-    }
-    Ok(())
-}
-
-/// Initializes a VSC8562 PHY using SGMII based on section 3.1.2.1 (2x SGMII
-/// to 100BASE-FX SFP Fiber).  Same caveats as `init_vsc85x2` apply.
-fn init_vsc8562_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    // This is roughly based on `vtss_phy_reset_private`
-    ringbuf_entry!(Trace::Vsc8562Init(v.port));
-    check_base_port(v)?;
-
-    // Apply the initial patch (more patches to SerDes happen later)
-    patch_viper(v)?;
-
-    broadcast(v, |v| {
-        v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-            // MAC configuration = SGMII
-            r.0 &= !(0b11 << 14)
-        })
-    })?;
-
-    // Enable 2 port MAC SGMII, then wait for the command to finish
-    cmd(v, 0x80F0)?;
-
-    ////////////////////////////////////////////////////////////////////////////
-    if !vsc8562_sd6g_has_patch(v)? {
-        vsc8562_sd6g_patch(v)?;
-    }
-
-    // 100BASE-FX on all PHYs
-    cmd(v, 0x8FD1)?;
-
-    broadcast(v, |v| {
-        v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
-            // SGMII MAC interface mode
-            r.set_mac_interface_mode(0);
-            // 100BASE-FX fiber/SFP on the fiber media pins only
-            r.set_media_operating_mode(0b11);
-        })
-    })?;
-
-    // Now, we reset the PHY to put those settings into effect.  For some
-    // reason, we can't do a broadcast reset, so we do it port-by-port.
-    for p in 0..2 {
-        software_reset(&mut Phy::new(v.port + p, v.rw))?;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // "Bug# 19146
-    //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
-    // Based on `vtss_phy_sd1g_patch_private` in the SDK
-    for p in 0..2 {
-        // XXX The SDK just does v.port * 2 (including any offset); based on
-        // table 33 in the datasheet, I believe this is actually the correct
-        // behavior.
-        let slave_addr = p * 2;
-
-        // "read 1G MCB into CSRs"
-        vsc8562_mcb_read(v, 0x20, slave_addr)?;
-
-        // Various bits of configuration for 100FX mode
-        vsc8562_sd1g_ib_cfg_write(v, 0)?;
-        vsc8562_sd1g_misc_cfg_write(v, 1)?;
-        vsc8562_sd1g_des_cfg_write(v, 14, 3)?;
-
-        // "write back 1G MCB"
-        vsc8562_mcb_write(v, 0x20, slave_addr)?;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
-    broadcast(v, |v| {
-        v.write(phy::TR::TR_16(), 0xa7f8.into())?;
-        v.modify(phy::TR::TR_17(), |r| {
-            r.0 &= 0xffe7;
-            r.0 |= 3 << 3;
-        })?;
-        v.write(phy::TR::TR_16(), 0x87f8.into())?;
-
-        // "Fix for bz# 21485 ,VgaThresh100=25"
-        v.write(phy::TR::TR_16(), 0xafa4.into())?;
-        v.modify(phy::TR::TR_18(), |r| {
-            r.0 &= 0xff80;
-            r.0 |= 25
-        })?;
-        v.write(phy::TR::TR_16(), 0x8fa4.into())
-    })?;
-
-    // In the SDK, there's more configuration for 100BT, which we aren't using
-
-    Ok(())
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -493,32 +313,57 @@ pub enum Vsc85x2Type {
     Vsc8562,
 }
 
-/// Represents a VSC8552 or VSC8562 PHY.  `base_port` is the PHY address of
+/// Represents a VSC8552 or VSC8562 chip.  `base_port` is the PHY address of
 /// the chip's port 0; since this is a two-port PHY, we can address either
 /// `base_port` or `base_port + 1` given a suitable `PhyRw`.
 pub struct Vsc85x2 {
     base_port: u8,
+    phy_type: Vsc85x2Type,
 }
 
 impl Vsc85x2 {
-    pub fn chip<P: PhyRw>(&self, rw: &mut P) -> Result<Vsc85x2Type, VscError> {
-        match read_id(&mut self.phy(0, rw))? {
-            VSC8552_ID => Ok(Vsc85x2Type::Vsc8552),
-            VSC8562_ID => Ok(Vsc85x2Type::Vsc8562),
-            i => Err(VscError::BadPhyId(i)),
-        }
-    }
-
-    pub fn new(base_port: u8) -> Self {
-        Self { base_port }
+    pub fn init<P: PhyRw>(base_port: u8, rw: &mut P) -> Result<Self, VscError> {
+        let phy = &mut Phy::new(base_port, rw);
+        let phy_type = match read_id(phy)? {
+            VSC8552_ID => {
+                let rev = phy.read(phy::GPIO::EXTENDED_REVISION())?;
+                if rev.tesla_e() == 1 {
+                    Vsc85x2Type::Vsc8552
+                } else {
+                    return Err(VscError::BadPhyRev);
+                }
+            }
+            VSC8562_ID => {
+                let rev = phy.read(phy::GPIO::EXTENDED_REVISION())?;
+                if u16::from(rev) & 0x4000 == 0 {
+                    Vsc85x2Type::Vsc8562
+                } else {
+                    return Err(VscError::BadPhyRev);
+                }
+            }
+            i => return Err(VscError::UnknownPhyId(i)),
+        };
+        let out = Self {
+            base_port,
+            phy_type,
+        };
+        out.phy(0, rw).init()?;
+        Ok(out)
     }
 
     /// Returns a handle to address the specified port, which must be either 0
     /// or 1; this function offsets by the chip's port offset, which is set
     /// by resistor strapping.
-    pub fn phy<'a, P: PhyRw>(&self, port: u8, rw: &'a mut P) -> Phy<'a, P> {
+    pub fn phy<'a, P: PhyRw>(
+        &self,
+        port: u8,
+        rw: &'a mut P,
+    ) -> Vsc85x2Phy<'a, P> {
         assert!(port < 2);
-        Phy::new(self.base_port + port, rw)
+        Vsc85x2Phy {
+            phy_type: self.phy_type,
+            phy: Phy::new(self.base_port + port, rw),
+        }
     }
 
     /// Sets the SIGDET polarity for all PHYs (by default, active high)
@@ -527,8 +372,7 @@ impl Vsc85x2 {
         rw: &mut P,
         active_low: bool,
     ) -> Result<(), VscError> {
-        let phy = &mut self.phy(0, rw);
-        broadcast(phy, |phy| {
+        broadcast(&mut self.phy(0, rw), |phy| {
             phy.modify(phy::EXTENDED::EXTENDED_MODE_CONTROL(), |r| {
                 // TODO: fix VSC7448 codegen to include `sigdet_polarity` bit
                 let mut v = u16::from(*r);
@@ -536,6 +380,265 @@ impl Vsc85x2 {
                 *r = v.into();
             })
         })
+    }
+}
+
+/// Represents a single PHY within a VSC8552 or VSC8562 chip.  This is a
+/// transient `struct`, because the inner `Phy` is likely own something
+/// important.
+pub struct Vsc85x2Phy<'a, P> {
+    phy_type: Vsc85x2Type,
+    pub phy: Phy<'a, P>,
+}
+
+impl<'a, P> Deref for Vsc85x2Phy<'a, P> {
+    type Target = Phy<'a, P>;
+    fn deref(&self) -> &Self::Target {
+        &self.phy
+    }
+}
+
+impl<'a, P> DerefMut for Vsc85x2Phy<'a, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.phy
+    }
+}
+
+impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
+    /// Initializes either a VSC8552 or VSC8562 PHY, configuring it to use 2x
+    /// SGMII to 100BASE-FX SFP fiber). This should be called _after_ the PHY
+    /// is reset (i.e. the reset pin is toggled and then the caller waits for
+    /// 120 ms).  The caller is also responsible for handling the `COMA_MODE`
+    /// pin.
+    ///
+    /// This must be called on the base port of the PHY; otherwise it will
+    /// return an error.
+    fn init(&mut self) -> Result<(), VscError> {
+        match self.phy_type {
+            Vsc85x2Type::Vsc8552 => self.init_vsc8552(),
+            Vsc85x2Type::Vsc8562 => self.init_vsc8562(),
+        }
+    }
+
+    /// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
+    /// to 100BASE-FX SFP Fiber).  Same caveats as `init` apply.
+    fn init_vsc8552(&mut self) -> Result<(), VscError> {
+        ringbuf_entry!(Trace::Vsc8552Init(self.phy.port));
+        check_base_port(self)?;
+
+        // Apply a patch to the 8051 inside the PHY
+        patch_tesla(self)?;
+
+        broadcast(self, |v| {
+            v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+                // MAC configuration = SGMII
+                r.0 &= !(0b11 << 14)
+            })
+        })?;
+
+        // Enable 2 port MAC SGMII, then wait for the command to finish
+        cmd(self, 0x80F0)?;
+
+        broadcast(self, |v| {
+            v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                // SGMII MAC interface mode
+                r.set_mac_interface_mode(0);
+                // 100BASE-FX fiber/SFP on the fiber media pins only
+                r.set_media_operating_mode(0b11);
+            })
+        })?;
+
+        // Enable 2 ports Media 100BASE-FX
+        cmd(self, 0x8FD1)?;
+
+        // Configure LEDs.
+        broadcast(self, |v| {
+            set_led_mode(v, LED::LED0, LEDMode::ForcedOff)?;
+            set_led_mode(
+                v,
+                LED::LED1,
+                LEDMode::Link100BaseFXLink1000BaseXActivity,
+            )?;
+            set_led_mode(v, LED::LED2, LEDMode::Activity)?;
+            set_led_mode(v, LED::LED3, LEDMode::Fiber100Fiber1000Activity)?;
+
+            // Tweak LED behavior.
+            v.modify(phy::STANDARD::LED_BEHAVIOR(), |r| {
+                let x: u16 = (*r).into();
+                // Disable LED1 combine, showing only link status.
+                let disable_led1_combine = 1 << 1;
+                // Split TX/RX activity across Activity/FiberActivity modes.
+                let split_rx_tx_activity = 1 << 14;
+                *r = phy::standard::LED_BEHAVIOR::from(
+                    x | disable_led1_combine | split_rx_tx_activity,
+                );
+            })
+        })?;
+
+        // Now, we reset the PHY to put those settings into effect.  For some
+        // reason, we can't do a broadcast reset, so we do it port-by-port.
+        for p in 0..2 {
+            software_reset(&mut Phy::new(self.phy.port + p, self.phy.rw))?;
+        }
+        Ok(())
+    }
+
+    /// Initializes a VSC8562 PHY using SGMII based on section 3.1.2.1 (2x SGMII
+    /// to 100BASE-FX SFP Fiber).  Same caveats as `init` apply.
+    fn init_vsc8562(&mut self) -> Result<(), VscError> {
+        // This is roughly based on `vtss_phy_reset_private`
+        ringbuf_entry!(Trace::Vsc8562Init(self.phy.port));
+        check_base_port(self)?;
+
+        // Apply the initial patch (more patches to SerDes happen later)
+        patch_viper(self)?;
+
+        broadcast(self, |v| {
+            v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+                // MAC configuration = SGMII
+                r.0 &= !(0b11 << 14)
+            })
+        })?;
+
+        // Enable 2 port MAC SGMII, then wait for the command to finish
+        cmd(self, 0x80F0)?;
+
+        ////////////////////////////////////////////////////////////////////////
+        if !vsc8562_sd6g_has_patch(self)? {
+            vsc8562_sd6g_patch(self)?;
+        }
+
+        // 100BASE-FX on all PHYs
+        cmd(self, 0x8FD1)?;
+
+        broadcast(self, |v| {
+            v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                // SGMII MAC interface mode
+                r.set_mac_interface_mode(0);
+                // 100BASE-FX fiber/SFP on the fiber media pins only
+                r.set_media_operating_mode(0b11);
+            })
+        })?;
+
+        // Now, we reset the PHY to put those settings into effect.  For some
+        // reason, we can't do a broadcast reset, so we do it port-by-port.
+        for p in 0..2 {
+            software_reset(&mut Phy::new(self.phy.port + p, self.phy.rw))?;
+        }
+
+        ////////////////////////////////////////////////////////////////////////
+        // "Bug# 19146
+        //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
+        // Based on `vtss_phy_sd1g_patch_private` in the SDK
+        for p in 0..2 {
+            // XXX The SDK just does v.port * 2 (including any offset); based on
+            // table 33 in the datasheet, I believe this is actually the correct
+            // behavior.
+            let slave_addr = p * 2;
+
+            // "read 1G MCB into CSRs"
+            vsc8562_mcb_read(self, 0x20, slave_addr)?;
+
+            // Various bits of configuration for 100FX mode
+            vsc8562_sd1g_ib_cfg_write(self, 0)?;
+            vsc8562_sd1g_misc_cfg_write(self, 1)?;
+            vsc8562_sd1g_des_cfg_write(self, 14, 3)?;
+
+            // "write back 1G MCB"
+            vsc8562_mcb_write(self, 0x20, slave_addr)?;
+        }
+
+        ////////////////////////////////////////////////////////////////////////
+        // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
+        broadcast(self, |v| {
+            v.write(phy::TR::TR_16(), 0xa7f8.into())?;
+            v.modify(phy::TR::TR_17(), |r| {
+                r.0 &= 0xffe7;
+                r.0 |= 3 << 3;
+            })?;
+            v.write(phy::TR::TR_16(), 0x87f8.into())?;
+
+            // "Fix for bz# 21485 ,VgaThresh100=25"
+            v.write(phy::TR::TR_16(), 0xafa4.into())?;
+            v.modify(phy::TR::TR_18(), |r| {
+                r.0 &= 0xff80;
+                r.0 |= 25
+            })?;
+            v.write(phy::TR::TR_16(), 0x8fa4.into())
+        })?;
+
+        // In the SDK, there's more configuration for 100BT, which we aren't using
+
+        Ok(())
+    }
+
+    pub fn mac_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
+        // Configure the PHY to read fiber media SerDes counters
+        if self.phy_type == Vsc85x2Type::Vsc8552 {
+            return Ok((Counter::Unavailable, Counter::Unavailable));
+        }
+
+        self.modify(
+            phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+            |r| r.set_tx_select(1),
+        )?;
+        self.modify(
+            phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
+            |r| {
+                r.0 &= !(0b11 << 14);
+                r.0 |= 0b01 << 14;
+            },
+        )?;
+        self.tx_rx_good()
+    }
+
+    pub fn media_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
+        // Configure the PHY to read fiber media SerDes counters
+        if self.phy_type == Vsc85x2Type::Vsc8562 {
+            self.modify(
+                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                |r| r.set_tx_select(0),
+            )?;
+            self.modify(
+                phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
+                |r| r.0 &= !(0b11 << 14),
+            )?;
+        }
+        self.tx_rx_good()
+    }
+
+    fn tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
+        let r =
+            self.read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())?;
+        let tx = if r.active() == 0 {
+            Counter::Inactive
+        } else {
+            Counter::Value(r.cnt())
+        };
+        let r =
+            self.read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())?;
+        let rx = Counter::Value(r.cnt());
+
+        Ok((tx, rx))
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Represents the status of an internal PHY counter.  `Unavailable` indicates
+/// a counter which isn't available on this particular PHY (in particular,
+/// the VSC8552 doesn't have MAC counters); `Inactive` means that the counter
+/// is available but the active bit is cleared.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Counter {
+    Unavailable,
+    Inactive,
+    Value(u16),
+}
+
+impl Default for Counter {
+    fn default() -> Self {
+        Self::Inactive
     }
 }
 
