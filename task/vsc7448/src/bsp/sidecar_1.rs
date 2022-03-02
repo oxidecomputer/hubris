@@ -8,7 +8,7 @@ use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
+use vsc85xx::{vsc8504::Vsc8504, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
@@ -28,6 +28,7 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+    vsc8504: Vsc8504,
     net: task_net_api::Net,
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
     vsc8504_status: [u16; 4],
@@ -37,17 +38,18 @@ pub const REFCLK_SEL: vsc7448::RefClockFreq =
     vsc7448::RefClockFreq::Clk156p25MHz;
 pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> = None;
 
-/// For convenience, we implement `PhyRw` on the top-level `Bsp` struct.
-/// In this case, we read and write to PHYs using RPC calls to the `net`
-/// task, which owns the ethernet peripheral containing the MDIO block.
-impl<'a, R> PhyRw for Bsp<'a, R> {
+/// For convenience, we implement `PhyRw` on a thin wrapper around the `net`
+/// task handle.  We read and write to PHYs using RPC calls to the `net` task,
+/// which owns the ethernet peripheral containing the MDIO block.
+struct NetPhyRw<'a>(&'a mut task_net_api::Net);
+impl<'a> PhyRw for NetPhyRw<'a> {
     #[inline(always)]
     fn read_raw<T: From<u16>>(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-        self.net
+        self.0
             .smi_read(port, reg.addr)
             .map(|r| r.into())
             .map_err(|e| e.into())
@@ -64,7 +66,7 @@ impl<'a, R> PhyRw for Bsp<'a, R> {
         u16: From<T>,
         T: From<u16> + Clone,
     {
-        self.net
+        self.0
             .smi_write(port, reg.addr, value.into())
             .map_err(|e| e.into())
     }
@@ -84,6 +86,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         let net = task_net_api::Net::from(NET.get_task_id());
         let mut out = Bsp {
             vsc7448,
+            vsc8504: Vsc8504::empty(),
             net,
             known_macs: [None; MAC_SEEN_COUNT],
             vsc8504_status: [0; 4],
@@ -225,24 +228,27 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        init_vsc8504_phy(&mut Phy::new(4, self))?;
+        let rw = &mut NetPhyRw(&mut self.net);
+        self.vsc8504 = Vsc8504::init(4, rw)?;
+
         sys.gpio_reset(coma_mode).unwrap();
 
         Ok(())
     }
 
     fn step(&mut self) {
-        for port in 4..8 {
-            let mut vsc8504 = Phy::new(port, self);
+        for port in 0..4 {
+            let rw = &mut NetPhyRw(&mut self.net);
+            let mut vsc8504 = self.vsc8504.phy(port, rw);
             match vsc8504.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(status) => {
                     let status = u16::from(status);
-                    if status != self.vsc8504_status[port as usize - 4] {
+                    if status != self.vsc8504_status[port as usize] {
                         ringbuf_entry!(Trace::Vsc8504Status {
                             port,
                             status: u16::from(status)
                         });
-                        self.vsc8504_status[port as usize - 4] = status;
+                        self.vsc8504_status[port as usize] = status;
                     }
                 }
                 Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
