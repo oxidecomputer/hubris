@@ -13,12 +13,12 @@ pub struct Vsc8552Phy<'a, 'b, P>(pub &'b mut Phy<'a, P>);
 impl<'a, 'b, P> Deref for Vsc8552Phy<'a, 'b, P> {
     type Target = Phy<'a, P>;
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0
     }
 }
 impl<'a, 'b, P> DerefMut for Vsc8552Phy<'a, 'b, P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.0
     }
 }
 
