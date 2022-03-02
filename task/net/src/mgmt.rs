@@ -10,7 +10,7 @@ use ksz8463::{Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
-use vsc85xx::{Vsc85x2, Vsc85x2Type, VscError};
+use vsc85xx::{Counter, Vsc85x2, VscError};
 
 /// On some boards, the KSZ8463 reset line is tied to an RC + diode network
 /// which dramatically slows its rise and fall times.  We use this parameter
@@ -39,23 +39,6 @@ pub struct Status {
     vsc85x2_mac_tx_good_count: [Counter; 2],
     vsc85x2_media_rx_good_count: [Counter; 2],
     vsc85x2_mac_rx_good_count: [Counter; 2],
-}
-
-/// Represents the status of an internal PHY counter.  `Unavailable` indicates
-/// a counter which isn't available on this particular PHY (in particular,
-/// the VSC8552 doesn't have MAC counters); `Inactive` means that the counter
-/// is available but the active bit is cleared.
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Counter {
-    Unavailable,
-    Inactive,
-    Value(u16),
-}
-
-impl Default for Counter {
-    fn default() -> Self {
-        Self::Inactive
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -93,17 +76,13 @@ impl Config {
     pub fn build(self, sys: &Sys, eth: &mut Ethernet) -> Bsp {
         // The VSC8552 connects the KSZ switch to the management network
         // over SGMII
-        let (vsc85x2, phy_type) = self.configure_vsc85x2(sys, eth);
+        let vsc85x2 = self.configure_vsc85x2(sys, eth);
 
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
         let ksz8463 = self.configure_ksz8463(sys);
 
-        Bsp {
-            ksz8463,
-            vsc85x2,
-            phy_type,
-        }
+        Bsp { ksz8463, vsc85x2 }
     }
 
     fn configure_ksz8463(self, sys: &Sys) -> ksz8463::Ksz8463 {
@@ -138,11 +117,7 @@ impl Config {
         ksz8463
     }
 
-    fn configure_vsc85x2(
-        &self,
-        sys: &Sys,
-        eth: &mut Ethernet,
-    ) -> (Vsc85x2, Vsc85x2Type) {
+    fn configure_vsc85x2(&self, sys: &Sys, eth: &mut Ethernet) -> Vsc85x2 {
         // TODO: wait for PLL lock to happen here
 
         // Start with reset low and COMA_MODE high
@@ -190,28 +165,21 @@ impl Config {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Build handle for the VSC85x2 PHY, then initialize it
-        //
-        // TODO: this is all a little awkward, since it's a mix of free
-        // functions and the `struct Vsc85x2`.
-        let vsc85x2 = Vsc85x2::new(self.vsc85x2_base_port);
-        let phy_rw = &mut MiimBridge::new(eth);
-        let phy = &mut vsc85x2.phy(0, phy_rw);
-        vsc85xx::init_vsc85x2_phy(phy).unwrap();
-        let phy_type = vsc85x2.chip(phy_rw).unwrap();
+        let rw = &mut MiimBridge::new(eth);
+        let vsc85x2 = Vsc85x2::init(self.vsc85x2_base_port, rw);
 
         // Disable COMA_MODE
         if let Some(coma_mode) = self.vsc85x2_coma_mode {
             sys.gpio_reset(coma_mode).unwrap();
         }
 
-        (vsc85x2, phy_type)
+        vsc85x2.unwrap() // TODO
     }
 }
 
 pub struct Bsp {
     pub ksz8463: Ksz8463,
     pub vsc85x2: Vsc85x2,
-    phy_type: Vsc85x2Type,
 }
 
 impl Bsp {
@@ -273,92 +241,22 @@ impl Bsp {
                 }
             };
 
-            // Configure the PHY to read fiber media SerDes counters
-            if self.phy_type == Vsc85x2Type::Vsc8562 {
-                if let Err(err) = phy.modify(
-                    phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
-                    |r| r.set_tx_select(0),
-                ) {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
+            // Read media (100BASE-FX) and MAC counters, which are
+            // chip-dependent (some aren't present on the VSC8552)
+            match phy.media_tx_rx_good() {
+                Ok((tx, rx)) => {
+                    s.vsc85x2_media_tx_good_count[i] = tx;
+                    s.vsc85x2_media_rx_good_count[i] = rx;
                 }
-                if let Err(err) = phy.modify(
-                    phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
-                    |r| r.0 &= !(0b11 << 14),
-                ) {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
-                }
-            }
-            match phy
-                .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())
-            {
-                Ok(r) => {
-                    s.vsc85x2_media_tx_good_count[i] = if r.active() == 0 {
-                        Counter::Inactive
-                    } else {
-                        Counter::Value(r.cnt())
-                    }
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
-                }
-            };
-            match phy.read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
-            {
-                Ok(r) => {
-                    s.vsc85x2_media_rx_good_count[i] = Counter::Value(r.cnt())
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
-                }
+                Err(err) => ringbuf_entry!(Trace::Vsc85x2Err { port, err }),
             }
 
-            // Configure the PHY to read the MAC SerDes counters
-            // Not allowed on the VSC8552!
-            if self.phy_type == Vsc85x2Type::Vsc8562 {
-                if let Err(err) = phy.modify(
-                    phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
-                    |r| r.set_tx_select(1),
-                ) {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
+            match phy.mac_tx_rx_good() {
+                Ok((tx, rx)) => {
+                    s.vsc85x2_mac_tx_good_count[i] = tx;
+                    s.vsc85x2_mac_rx_good_count[i] = rx;
                 }
-                if let Err(err) = phy.modify(
-                    phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
-                    |r| r.0 |= 0b01 << 14,
-                ) {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
-                }
-                match phy
-                .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())
-            {
-                Ok(r) => {
-                    s.vsc85x2_mac_tx_good_count[i] =
-                        if r.active() == 0 { Counter::Inactive } else { Counter::Value(r.cnt()) }
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
-                }
-            };
-                match phy
-                    .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())
-                {
-                    Ok(r) => {
-                        s.vsc85x2_mac_rx_good_count[i] = Counter::Value(r.cnt())
-                    }
-                    Err(err) => {
-                        ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                        return;
-                    }
-                }
-            } else {
-                s.vsc85x2_mac_tx_good_count[i] = Counter::Unavailable;
-                s.vsc85x2_mac_rx_good_count[i] = Counter::Unavailable;
+                Err(err) => ringbuf_entry!(Trace::Vsc85x2Err { port, err }),
             }
         }
         ringbuf_entry!(Trace::Status(s));
