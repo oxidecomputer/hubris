@@ -10,7 +10,7 @@ use ksz8463::{Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
-use vsc85xx::{Counter, Vsc85x2, VscError};
+use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
 
 /// On some boards, the KSZ8463 reset line is tied to an RC + diode network
 /// which dramatically slows its rise and fall times.  We use this parameter

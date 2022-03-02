@@ -232,6 +232,23 @@ macro_rules! ringbuf_entry {
     }};
 }
 
+/// Inserts data into an unnamed ringbuffer at the root of this crate
+#[cfg(not(feature = "disabled"))]
+#[macro_export]
+macro_rules! ringbuf_entry_root {
+    ($payload:expr) => {
+        $crate::ringbuf_entry!(crate::__RINGBUF, $payload);
+    };
+}
+
+#[cfg(feature = "disabled")]
+#[macro_export]
+macro_rules! ringbuf_entry_root {
+    ($payload:expr) => {{
+        let _ = &$payload;
+    }};
+}
+
 ///
 /// The structure of a single [`Ringbuf`] entry, carrying a payload of arbitrary
 /// type.  When a ring buffer entry is generated with an identical payload to
