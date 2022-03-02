@@ -1329,8 +1329,8 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hif"
-version = "0.2.3"
-source = "git+https://github.com/oxidecomputer/hif#e512e4ce109eb697513cf59def667e2f0d6eae5c"
+version = "0.3.0"
+source = "git+https://github.com/oxidecomputer/hif#b5abd263f179695624b8b4ecf99256f8c9526bf1"
 dependencies = [
  "pkg-version",
  "postcard",
