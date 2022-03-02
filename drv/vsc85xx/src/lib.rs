@@ -15,6 +15,10 @@ mod util;
 mod viper;
 mod vsc8552;
 mod vsc8562;
+
+// User-facing handles to various PHY types
+pub mod vsc8504;
+pub mod vsc8522;
 pub mod vsc85x2;
 
 use ringbuf::*;
@@ -165,90 +169,16 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Vsc8504Init(u8),
     Vsc8522Init(u8),
-    TeslaPatch(u8),
-    ViperPatch(u8),
     Vsc8552Init(u8),
     Vsc8562Init(u8),
-    Vsc8504Init(u8),
+    TeslaPatch(u8),
+    ViperPatch(u8),
     PatchState { patch_ok: bool, skip_download: bool },
     GotCrc(u16),
 }
 ringbuf!(Trace, 16, Trace::None);
-
-////////////////////////////////////////////////////////////////////////////////
-
-// These IDs are (id1 << 16) | id2, meaning they also capture device revision
-// number.  This matters, because the patches are device-revision specific.
-const VSC8504_ID: u32 = 0x704c2;
-const VSC8522_ID: u32 = 0x706f3;
-
-/// Initializes a VSC8522 PHY using QSGMII.
-/// This is the PHY on the VSC7448 dev kit.
-pub fn init_vsc8522_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8522Init(v.port));
-
-    let id = v.read_id()?;
-    if id != VSC8522_ID {
-        return Err(VscError::BadPhyId(id));
-    }
-
-    // Disable COMA MODE, which keeps the chip holding itself in reset
-    v.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
-        g.set_coma_mode_output_enable(0)
-    })?;
-
-    // Configure the PHY in QSGMII + 12 port mode
-    v.cmd(0x80A0)?;
-    Ok(())
-}
-
-/// Initializes a VSC8504 PHY using QSGMII, based on the "Configuration"
-/// guide in the datasheet (section 3.19).  This should be called _after_
-/// the PHY is reset (i.e. the reset pin is toggled and then the caller
-/// waits for 120 ms).  The caller is also responsible for handling the
-/// `COMA_MODE` pin.
-///
-/// This must be called on the base port of the PHY, and will configure all
-/// ports using broadcast writes.
-pub fn init_vsc8504_phy<P: PhyRw>(v: &mut Phy<P>) -> Result<(), VscError> {
-    ringbuf_entry!(Trace::Vsc8504Init(v.port));
-
-    let id = v.read_id()?;
-    if id != VSC8504_ID {
-        return Err(VscError::BadPhyId(id));
-    }
-
-    let rev = v.read(phy::GPIO::EXTENDED_REVISION())?;
-    if rev.tesla_e() != 1 {
-        return Err(VscError::BadPhyRev);
-    }
-
-    v.check_base_port()?;
-    crate::tesla::TeslaPhy(v).patch()?;
-
-    // Configure MAC in QSGMII mode
-    v.broadcast(|v| {
-        v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-            r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
-        })
-    })?;
-
-    // Enable 4 port MAC QSGMII
-    v.cmd(0x80E0)?;
-
-    // The PHY is already configured for copper in register 23
-    // XXX: I don't think this is correct
-
-    // Now, we reset the PHY to put those settings into effect
-    // XXX: is it necessary to reset each of the four ports independently?
-    // (It _is_ necessary for the VSC8552 on the management network dev board)
-    for p in 0..4 {
-        Phy::new(v.port + p, v.rw).software_reset()?;
-    }
-
-    Ok(())
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
