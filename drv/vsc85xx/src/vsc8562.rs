@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::convert::TryInto;
-use core::ops::{Deref, DerefMut};
 
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
@@ -11,17 +10,8 @@ use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
 use vsc_err::VscError;
 
-pub struct Vsc8562Phy<'a, 'b, P>(pub &'b mut Phy<'a, P>);
-impl<'a, 'b, P> Deref for Vsc8562Phy<'a, 'b, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-impl<'a, 'b, P> DerefMut for Vsc8562Phy<'a, 'b, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
-    }
+pub struct Vsc8562Phy<'a, 'b, P> {
+    pub phy: &'b mut Phy<'a, P>,
 }
 
 impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
@@ -29,13 +19,13 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     /// to 100BASE-FX SFP Fiber).  Same caveats as `init` apply.
     pub fn init(&mut self) -> Result<(), VscError> {
         // This is roughly based on `vtss_phy_reset_private`
-        ringbuf_entry!(Trace::Vsc8562Init(self.port));
-        self.check_base_port()?;
+        ringbuf_entry!(Trace::Vsc8562Init(self.phy.port));
+        self.phy.check_base_port()?;
 
         // Apply the initial patch (more patches to SerDes happen later)
-        crate::viper::ViperPhy(self.0).patch()?;
+        crate::viper::ViperPhy { phy: self.phy }.patch()?;
 
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
                 // MAC configuration = SGMII
                 r.0 &= !(0b11 << 14)
@@ -43,7 +33,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         })?;
 
         // Enable 2 port MAC SGMII, then wait for the command to finish
-        self.cmd(0x80F0)?;
+        self.phy.cmd(0x80F0)?;
 
         ////////////////////////////////////////////////////////////////////////
         if !self.sd6g_has_patch()? {
@@ -51,9 +41,9 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         }
 
         // 100BASE-FX on all PHYs
-        self.cmd(0x8FD1)?;
+        self.phy.cmd(0x8FD1)?;
 
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 // SGMII MAC interface mode
                 r.set_mac_interface_mode(0);
@@ -65,7 +55,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // Now, we reset the PHY to put those settings into effect.  For some
         // reason, we can't do a broadcast reset, so we do it port-by-port.
         for p in 0..2 {
-            Phy::new(self.port + p, self.rw).software_reset()?;
+            Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
         ////////////////////////////////////////////////////////////////////////
@@ -92,7 +82,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
 
         ////////////////////////////////////////////////////////////////////////
         // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.write(phy::TR::TR_16(), 0xa7f8.into())?;
             v.modify(phy::TR::TR_17(), |r| {
                 r.0 &= 0xffe7;
@@ -145,7 +135,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     ///
     /// `v` must be the base port of this PHY, otherwise this will return an error
     fn sd6g_patch(&mut self) -> Result<(), VscError> {
-        self.check_base_port()?;
+        self.phy.check_base_port()?;
 
         let ib_sig_det_clk_sel_cal = 0; // "0 for during IBCAL for all"
         let ib_sig_det_clk_sel_mm = 7;
@@ -289,7 +279,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         let qrate = 1;
         let if_mode = 1;
         let des_bw_ana_val = 3;
-        self.cmd(0x80F0)?; // XXX: why do we need to do this again here?
+        self.phy.cmd(0x80F0)?; // XXX: why do we need to do this again here?
 
         self.mcb_read(0x11, 0)?; // "read LCPLL MCB into CSRs"
         self.mcb_read(0x3f, 0)?; // "read 6G MCB into CSRs"
@@ -397,13 +387,14 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.macsec_wait(19)?;
 
         // "Setup the Target Id"
-        self.write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
+        self.phy
+            .write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
 
         // "non-macsec access"
         let target_tmp = if target >> 2 == 1 { target & 3 } else { 0 };
 
         // "Trigger CSR Action - Read(16) into the CSR's and wait for complete"
-        self.write(
+        self.phy.write(
             phy::MACSEC::MACSEC_19(),
             TryInto::<u16>::try_into(
                 // VTSS_PHY_F_PAGE_MACSEC_19_CMD_BIT
@@ -420,8 +411,8 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         )?;
 
         self.macsec_wait(19)?;
-        let lsb = self.read(phy::MACSEC::MACSEC_CSR_DATA_LSB())?;
-        let msb = self.read(phy::MACSEC::MACSEC_CSR_DATA_MSB())?;
+        let lsb = self.phy.read(phy::MACSEC::MACSEC_CSR_DATA_LSB())?;
+        let msb = self.phy.read(phy::MACSEC::MACSEC_CSR_DATA_MSB())?;
         Ok((u32::from(msb.0) << 16) | u32::from(lsb.0))
     }
 
@@ -435,7 +426,8 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // "Wait for MACSEC register access"
         self.macsec_wait(19)?;
 
-        self.write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
+        self.phy
+            .write(phy::MACSEC::MACSEC_20(), ((target >> 2) & 0xf).into())?;
 
         // "non-macsec access"
         let target_tmp = if target >> 2 == 1 || target >> 2 == 3 {
@@ -444,14 +436,15 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             0
         };
 
-        self.write(phy::MACSEC::MACSEC_CSR_DATA_LSB(), (value as u16).into())?;
-        self.write(
+        self.phy
+            .write(phy::MACSEC::MACSEC_CSR_DATA_LSB(), (value as u16).into())?;
+        self.phy.write(
             phy::MACSEC::MACSEC_CSR_DATA_MSB(),
             ((value >> 16) as u16).into(),
         )?;
 
         // "Trigger CSR Action"
-        self.write(
+        self.phy.write(
             phy::MACSEC::MACSEC_19(),
             TryInto::<u16>::try_into(
                 // VTSS_PHY_F_PAGE_MACSEC_19_CMD_BIT
@@ -476,13 +469,13 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         for _ in 0..255 {
             match page {
                 19 => {
-                    let value = self.read(phy::MACSEC::MACSEC_19())?;
+                    let value = self.phy.read(phy::MACSEC::MACSEC_19())?;
                     if value.0 & (1 << 15) != 0 {
                         return Ok(());
                     }
                 }
                 20 => {
-                    let value = self.read(phy::MACSEC::MACSEC_20())?;
+                    let value = self.phy.read(phy::MACSEC::MACSEC_20())?;
                     if value.0 == 0 {
                         return Ok(());
                     }

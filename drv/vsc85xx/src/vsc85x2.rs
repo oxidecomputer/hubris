@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops::{Deref, DerefMut};
-
 use crate::{Counter, Phy, PhyRw, VscError};
 use vsc7448_pac::phy;
 
@@ -82,7 +80,7 @@ impl Vsc85x2 {
         rw: &mut P,
         active_low: bool,
     ) -> Result<(), VscError> {
-        self.phy(0, rw).broadcast(|phy| {
+        self.phy(0, rw).phy.broadcast(|phy| {
             phy.modify(phy::EXTENDED::EXTENDED_MODE_CONTROL(), |r| {
                 // TODO: fix VSC7448 codegen to include `sigdet_polarity` bit
                 let mut v = u16::from(*r);
@@ -101,19 +99,6 @@ pub struct Vsc85x2Phy<'a, P> {
     pub phy: Phy<'a, P>,
 }
 
-impl<'a, P> Deref for Vsc85x2Phy<'a, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        &self.phy
-    }
-}
-
-impl<'a, P> DerefMut for Vsc85x2Phy<'a, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.phy
-    }
-}
-
 impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
     /// Initializes either a VSC8552 or VSC8562 PHY, configuring it to use 2x
     /// SGMII to 100BASE-FX SFP fiber). This should be called _after_ the PHY
@@ -126,10 +111,10 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
     fn init(&mut self) -> Result<(), VscError> {
         match self.phy_type {
             Vsc85x2Type::Vsc8552 => {
-                crate::vsc8552::Vsc8552Phy(&mut self.phy).init()
+                crate::vsc8552::Vsc8552Phy { phy: &mut self.phy }.init()
             }
             Vsc85x2Type::Vsc8562 => {
-                crate::vsc8562::Vsc8562Phy(&mut self.phy).init()
+                crate::vsc8562::Vsc8562Phy { phy: &mut self.phy }.init()
             }
         }
     }
@@ -140,11 +125,11 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
             return Ok((Counter::Unavailable, Counter::Unavailable));
         }
 
-        self.modify(
+        self.phy.modify(
             phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
             |r| r.set_tx_select(1),
         )?;
-        self.modify(
+        self.phy.modify(
             phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
             |r| {
                 r.0 &= !(0b11 << 14);
@@ -157,11 +142,11 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
     pub fn media_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
         // Configure the PHY to read fiber media SerDes counters
         if self.phy_type == Vsc85x2Type::Vsc8562 {
-            self.modify(
+            self.phy.modify(
                 phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
                 |r| r.set_tx_select(0),
             )?;
-            self.modify(
+            self.phy.modify(
                 phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
                 |r| r.0 &= !(0b11 << 14),
             )?;
@@ -170,15 +155,17 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
     }
 
     fn tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
-        let r =
-            self.read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())?;
+        let r = self
+            .phy
+            .read(phy::EXTENDED_3::MEDIA_SERDES_TX_GOOD_PACKET_COUNTER())?;
         let tx = if r.active() == 0 {
             Counter::Inactive
         } else {
             Counter::Value(r.cnt())
         };
-        let r =
-            self.read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())?;
+        let r = self
+            .phy
+            .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())?;
         let rx = Counter::Value(r.cnt());
 
         Ok((tx, rx))

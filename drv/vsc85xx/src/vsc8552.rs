@@ -2,37 +2,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops::{Deref, DerefMut};
-
 use crate::led::*;
 use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
 
-pub struct Vsc8552Phy<'a, 'b, P>(pub &'b mut Phy<'a, P>);
-impl<'a, 'b, P> Deref for Vsc8552Phy<'a, 'b, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-impl<'a, 'b, P> DerefMut for Vsc8552Phy<'a, 'b, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
-    }
+pub struct Vsc8552Phy<'a, 'b, P> {
+    pub phy: &'b mut Phy<'a, P>,
 }
 
 impl<'a, 'b, P: PhyRw> Vsc8552Phy<'a, 'b, P> {
     /// Initializes a VSC8552 PHY using SGMII based on section 3.1.2 (2x SGMII
     /// to 100BASE-FX SFP Fiber).  Same caveats as `init` apply.
     pub fn init(&mut self) -> Result<(), VscError> {
-        ringbuf_entry!(Trace::Vsc8552Init(self.port));
-        self.check_base_port()?;
+        ringbuf_entry!(Trace::Vsc8552Init(self.phy.port));
+        self.phy.check_base_port()?;
 
         // Apply a patch to the 8051 inside the PHY
-        crate::tesla::TeslaPhy(self.0).patch()?;
+        crate::tesla::TeslaPhy { phy: self.phy }.patch()?;
 
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
                 // MAC configuration = SGMII
                 r.0 &= !(0b11 << 14)
@@ -40,9 +29,9 @@ impl<'a, 'b, P: PhyRw> Vsc8552Phy<'a, 'b, P> {
         })?;
 
         // Enable 2 port MAC SGMII, then wait for the command to finish
-        self.cmd(0x80F0)?;
+        self.phy.cmd(0x80F0)?;
 
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 // SGMII MAC interface mode
                 r.set_mac_interface_mode(0);
@@ -52,10 +41,10 @@ impl<'a, 'b, P: PhyRw> Vsc8552Phy<'a, 'b, P> {
         })?;
 
         // Enable 2 ports Media 100BASE-FX
-        self.cmd(0x8FD1)?;
+        self.phy.cmd(0x8FD1)?;
 
         // Configure LEDs.
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.set_led_mode(LED::LED0, LEDMode::ForcedOff)?;
             v.set_led_mode(
                 LED::LED1,
@@ -80,7 +69,7 @@ impl<'a, 'b, P: PhyRw> Vsc8552Phy<'a, 'b, P> {
         // Now, we reset the PHY to put those settings into effect.  For some
         // reason, we can't do a broadcast reset, so we do it port-by-port.
         for p in 0..2 {
-            Phy::new(self.0.port + p, self.0.rw).software_reset()?;
+            Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
         Ok(())
     }

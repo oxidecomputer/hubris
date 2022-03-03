@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops::{Deref, DerefMut};
-
 use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
@@ -48,51 +46,44 @@ impl Vsc8504 {
     ) -> Vsc8504Phy<'a, P> {
         assert!(port < 4);
         assert!(self.base_port != 0xFF);
-        Vsc8504Phy(Phy::new(self.base_port + port, rw))
+        Vsc8504Phy {
+            phy: Phy::new(self.base_port + port, rw),
+        }
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct Vsc8504Phy<'a, P>(pub Phy<'a, P>);
-impl<'a, P> Deref for Vsc8504Phy<'a, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl<'a, P> DerefMut for Vsc8504Phy<'a, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+pub struct Vsc8504Phy<'a, P> {
+    pub phy: Phy<'a, P>,
 }
 
 impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
     fn init(&mut self) -> Result<(), VscError> {
-        ringbuf_entry!(Trace::Vsc8504Init(self.port));
+        ringbuf_entry!(Trace::Vsc8504Init(self.phy.port));
 
-        let id = self.read_id()?;
+        let id = self.phy.read_id()?;
         if id != VSC8504_ID {
             return Err(VscError::BadPhyId(id));
         }
 
-        let rev = self.read(phy::GPIO::EXTENDED_REVISION())?;
+        let rev = self.phy.read(phy::GPIO::EXTENDED_REVISION())?;
         if rev.tesla_e() != 1 {
             return Err(VscError::BadPhyRev);
         }
 
-        self.check_base_port()?;
-        crate::tesla::TeslaPhy(&mut self.0).patch()?;
+        self.phy.check_base_port()?;
+        crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
 
         // Configure MAC in QSGMII mode
-        self.broadcast(|v| {
+        self.phy.broadcast(|v| {
             v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
                 r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
             })
         })?;
 
         // Enable 4 port MAC QSGMII
-        self.cmd(0x80E0)?;
+        self.phy.cmd(0x80E0)?;
 
         // The PHY is already configured for copper in register 23
         // XXX: I don't think this is correct
@@ -101,7 +92,7 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // XXX: is it necessary to reset each of the four ports independently?
         // (It _is_ necessary for the VSC8552 on the management network dev board)
         for p in 0..4 {
-            Phy::new(self.port + p, self.rw).software_reset()?;
+            Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
         Ok(())
