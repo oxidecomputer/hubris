@@ -249,7 +249,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             qsgmii_cfg.apply(serde, self.rw)?;
 
             for dev in start_dev..(start_dev + 4) {
-                dev_type(dev)?.init_sgmii(self.rw, dev::Speed::Speed1G)?;
+                dev_type(dev)?.init_sgmii(self.rw, dev::Speed::Speed100M)?;
             }
             for port in start_port..start_port + 4 {
                 self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;

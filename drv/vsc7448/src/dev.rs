@@ -190,7 +190,7 @@ impl DevGeneric {
 
         v.modify(QFWD().SYSTEM().SWITCH_PORT_MODE(self.port()), |r| {
             r.set_port_ena(1);
-            r.set_fwd_urgency(104); // This is different based on speed
+            r.set_fwd_urgency(104); // This is different above 2.5G!
         })?;
 
         Ok(())
