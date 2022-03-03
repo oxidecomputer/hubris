@@ -1,0 +1,45 @@
+// STM32H7 HASH IPC API
+
+Interface(
+    name: "Hash",
+    ops: {
+        "init_sha256": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("HashError"),
+            ),
+        ),
+        "update": (
+            args: {
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(512)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HashError"),
+            ),
+        ),
+        "finalize_sha256": (
+            args: {},
+            reply: Result(
+                ok: "[u8; crate::SHA256_SZ]",
+                err: CLike("HashError"),
+            ),
+        ),
+        "digest_sha256": (
+            args: {
+                "len": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(512)),
+            },
+            reply: Result(
+                ok: "[u8; crate::SHA256_SZ]",
+                err: CLike("HashError"),
+            ),
+        ),
+    },
+)

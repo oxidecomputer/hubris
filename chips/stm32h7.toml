@@ -86,6 +86,7 @@ size = 0x400
 [hash]
 address = 0x48021400
 size = 4096
+interrupts = { irq = 80 }
 
 #[rng]
 #address = 0x48021800

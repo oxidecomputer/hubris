@@ -251,7 +251,7 @@ pub(crate) fn spi_write(
     Ok(0)
 }
 
-#[cfg(feature = "qspi")]
+#[cfg(any(feature = "qspi", feature = "hash"))]
 use userlib::*;
 
 #[cfg(feature = "qspi")]
@@ -429,4 +429,115 @@ pub(crate) fn qspi_sector_erase(
     let server = hf::HostFlash::from(HF.get_task_id());
     func_err(server.sector_erase(addr))?;
     Ok(0)
+}
+
+#[cfg(feature = "hash")]
+task_slot!(HASH, hash_driver);
+
+// TODO: port this
+#[cfg(all(feature = "qspi", feature = "hash"))]
+pub(crate) fn qspi_hash(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_gimlet_hf_api as hf;
+    use drv_hash_api as hash;
+
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+    let frame = &stack[stack.len() - 2..];
+    let addr = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?;
+    let len = frame[1].ok_or(Failure::Fault(Fault::MissingParameters))?;
+
+    if rval.len() < hash::SHA256_SZ {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    let server = hf::HostFlash::from(HF.get_task_id());
+    let sha256sum = func_err(server.hash(addr, len))?;
+    rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
+    Ok(hash::SHA256_SZ)
+}
+
+#[cfg(feature = "hash")]
+pub(crate) fn hash_init_sha256(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_hash_api as hash;
+
+    let server = hash::Hash::from(HASH.get_task_id());
+    func_err(server.init_sha256())?;
+    Ok(0)
+}
+
+#[cfg(feature = "hash")]
+pub(crate) fn hash_digest_sha256(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_hash_api as hash;
+
+    if rval.len() < hash::SHA256_SZ {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    if stack.len() < 1 {
+        // return Err(Failure::Fault(Fault::MissingParameters));
+        return Err(Failure::Fault(Fault::BadParameter(0)));
+    }
+    let frame = &stack[stack.len() - 1..];
+    let len = frame[0].ok_or(Failure::Fault(Fault::BadParameter(1)))? as usize;
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let server = hash::Hash::from(HASH.get_task_id());
+    let sha256sum = func_err(server.digest_sha256(len as u32, &data[0..len]))?;
+    rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
+    Ok(hash::SHA256_SZ)
+}
+
+#[cfg(feature = "hash")]
+pub(crate) fn hash_update(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_hash_api as hash;
+
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::BadParameter(0)));
+    }
+    let frame = &stack[stack.len() - 1..];
+    let len = frame[0].ok_or(Failure::Fault(Fault::BadParameter(1)))? as usize;
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let server = hash::Hash::from(HASH.get_task_id());
+    func_err(server.update(len as u32, &data[..len]))?;
+    Ok(0)
+}
+
+#[cfg(feature = "hash")]
+pub(crate) fn hash_finalize_sha256(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    use drv_hash_api as hash;
+
+    if rval.len() < hash::SHA256_SZ {
+        // XXX use a well defined constant
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+    let server = hash::Hash::from(HASH.get_task_id());
+    let sha256sum = func_err(server.finalize_sha256())?;
+    rval[..hash::SHA256_SZ].copy_from_slice(&sha256sum);
+    Ok(hash::SHA256_SZ)
 }

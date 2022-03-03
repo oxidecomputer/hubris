@@ -80,5 +80,15 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "hash": (
+            args: {
+                "address": "u32",
+                "len": "u32",
+            },
+            reply: Result(
+                ok: "[u8; crate::SHA256_SZ]",
+                err: CLike("HfError"),
+            ),
+        ),
     },
 )
