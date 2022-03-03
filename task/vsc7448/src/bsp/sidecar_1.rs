@@ -132,7 +132,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             29, // DEV2G5_21 | SERDES6G_21 | Cubby 27
             30, // DEV2G5_22 | SERDES6G_22 | Cubby 28
             31, // DEV2G5_23 | SERDES6G_23 | Cubby 29
-            48, // Local SP
+            48, // DEV2G5_24 | SERDES1G_0  | Local SP
         ])?;
         self.vsc7448.init_10g_sgmii(&[
             51, // DEV2G5_27 | SERDES10G_2 | Cubby 30   (shadows DEV10G_2)
