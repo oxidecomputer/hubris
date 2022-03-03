@@ -73,20 +73,29 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         }
     }
 
+    /// Sets the PAGE register if it doesn't match.  This assumes that no one
+    /// else is allowed to modify the PHY registers, which is mentioned in the
+    /// `struct Phy` docstring.
+    #[inline(always)]
+    fn set_page(&mut self, page: u16) -> Result<(), VscError> {
+        if self.last_page.map(|p| p != page).unwrap_or(true) {
+            self.rw.write_raw::<phy::standard::PAGE>(
+                self.port,
+                phy::STANDARD::PAGE(),
+                page.into(),
+            )?;
+            self.last_page = Some(page);
+        }
+        Ok(())
+    }
+
     #[inline(always)]
     pub fn read<T>(&mut self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        if self.last_page.map(|p| p != reg.page).unwrap_or(true) {
-            self.rw.write_raw::<phy::standard::PAGE>(
-                self.port,
-                phy::STANDARD::PAGE(),
-                reg.page.into(),
-            )?;
-            self.last_page = Some(reg.page);
-        }
+        self.set_page(reg.page)?;
         self.rw.read_raw(self.port, reg)
     }
 
@@ -100,14 +109,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        if self.last_page.map(|p| p != reg.page).unwrap_or(true) {
-            self.rw.write_raw::<phy::standard::PAGE>(
-                self.port,
-                phy::STANDARD::PAGE(),
-                reg.page.into(),
-            )?;
-            self.last_page = Some(reg.page);
-        }
+        self.set_page(reg.page)?;
         self.rw.write_raw(self.port, reg, value)
     }
 
