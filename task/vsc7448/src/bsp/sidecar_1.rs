@@ -231,6 +231,10 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         let rw = &mut NetPhyRw(&mut self.net);
         self.vsc8504 = Vsc8504::init(4, rw)?;
 
+        // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
+        // for some reason.
+        self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
+
         sys.gpio_reset(coma_mode).unwrap();
 
         Ok(())
