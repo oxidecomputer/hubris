@@ -76,6 +76,9 @@ pub struct Vsc8504Phy<'a, P> {
 }
 
 impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
+    /// Configure the VSC8504 in protocol transfer (QSGMII to SGMII) mode,
+    /// based on section 3.3.3 of the datasheet, ENT-AN1175, and
+    /// `vtss_phy_pass_through_speed_mode` in the SDK.
     fn init(&mut self) -> Result<(), VscError> {
         ringbuf_entry!(Trace::Vsc8504Init(self.phy.port));
 
@@ -92,18 +95,31 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         self.phy.check_base_port()?;
         crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
 
-        // Configure MAC in QSGMII mode
+        // Configure MAC in QSGMII mode and enable autonegotiation
         self.phy.broadcast(|v| {
             v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
                 r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
-            })
+            })?;
+            v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+                r.set_auto_neg_ena(1);
+            })?;
+            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 7;
+            })?;
+            Ok(())
         })?;
 
         // Enable 4 port MAC QSGMII
         self.phy.cmd(0x80E0)?;
 
-        // The PHY is already configured for copper in register 23
-        // XXX: I don't think this is correct
+        self.phy.broadcast(|v| {
+            v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                // SGMII MAC interface mode (default)
+                r.set_mac_interface_mode(0);
+                // SerDes fiber/SFP protocol transfer mode only
+                r.set_media_operating_mode(0b001);
+            })
+        })?;
 
         // Now, we reset the PHY to put those settings into effect
         // XXX: is it necessary to reset each of the four ports independently?

@@ -19,7 +19,8 @@ const MAC_SEEN_COUNT: usize = 64;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Vsc8504Status { port: u8, status: u16 },
+    Vsc8504ModeStatus { port: u8, status: u16 },
+    Vsc8504MacStatus { port: u8, status: u16 },
     MacAddress(vsc7448::mac::MacTableEntry),
     Vsc7448Error(VscError),
     Vsc8504Error(VscError),
@@ -31,7 +32,8 @@ pub struct Bsp<'a, R> {
     vsc8504: Vsc8504,
     net: task_net_api::Net,
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
-    vsc8504_status: [u16; 4],
+    vsc8504_mode_status: [u16; 4],
+    vsc8504_mac_status: [u16; 4],
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -89,7 +91,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             vsc8504: Vsc8504::empty(),
             net,
             known_macs: [None; MAC_SEEN_COUNT],
-            vsc8504_status: [0; 4],
+            vsc8504_mode_status: [0; 4],
+            vsc8504_mac_status: [0; 4],
         };
         out.init()?;
         Ok(out)
@@ -247,16 +250,29 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             match vsc8504.phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(status) => {
                     let status = u16::from(status);
-                    if status != self.vsc8504_status[port as usize] {
-                        ringbuf_entry!(Trace::Vsc8504Status {
+                    if status != self.vsc8504_mode_status[port as usize] {
+                        ringbuf_entry!(Trace::Vsc8504ModeStatus {
                             port,
                             status: u16::from(status)
                         });
-                        self.vsc8504_status[port as usize] = status;
+                        self.vsc8504_mode_status[port as usize] = status;
                     }
                 }
                 Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
-            }
+            };
+            match vsc8504.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
+                Ok(status) => {
+                    let status = u16::from(status);
+                    if status != self.vsc8504_mac_status[port as usize] {
+                        ringbuf_entry!(Trace::Vsc8504MacStatus {
+                            port,
+                            status: u16::from(status)
+                        });
+                        self.vsc8504_mac_status[port as usize] = status;
+                    }
+                }
+                Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
+            };
         }
 
         // Dump the MAC tables
