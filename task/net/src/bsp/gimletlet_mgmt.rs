@@ -121,6 +121,7 @@ impl Bsp {
 
         let mgmt = mgmt::Config {
             power_en: None,
+            slow_power_en: false,
             power_good: None,
             pll_lock: None,
 

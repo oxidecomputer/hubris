@@ -56,6 +56,7 @@ impl Bsp {
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
                 power_en: Some(Port::I.pin(10).and_pin(12)),
+                slow_power_en: false,
                 power_good: None, // TODO
                 pll_lock: None,   // TODO?
 

@@ -50,6 +50,7 @@ impl Bsp {
             // SP_TO_MGMT_V1P0_EN / SP_TO_MGMT_V2P5_EN
             // (note that the latter also enables the MGMT_PHY_REFCLK)
             power_en: Some(Port::I.pin(10).and_pin(12)),
+            slow_power_en: true,
             power_good: None, // TODO
             pll_lock: None,
 
