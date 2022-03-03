@@ -120,7 +120,7 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
     }
 
     pub fn mac_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
-        // Configure the PHY to read fiber media SerDes counters
+        // Configure the PHY to read MAC side counters
         if self.phy_type == Vsc85x2Type::Vsc8552 {
             return Ok((Counter::Unavailable, Counter::Unavailable));
         }
