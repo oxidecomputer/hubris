@@ -81,6 +81,11 @@ impl Bsp {
                 *r = v.into();
             })
             .unwrap();
+
+            // Disable Rx to avoid DDOSing yourself
+            bsp.ksz8463
+                .write_masked(ksz8463::Register::PxCR2(i + 1), 0, 1 << 9)
+                .unwrap()
         }
 
         Self(bsp)
