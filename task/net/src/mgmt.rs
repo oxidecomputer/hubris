@@ -57,6 +57,11 @@ pub struct Config {
     /// Controls power to the management network
     pub power_en: Option<sys_api::PinSet>,
 
+    /// Specifies whether we should sleep for a longer time than usual after
+    /// enabling power, to work around a mysterious issue on the PSC board
+    /// (oxidecomputer/hardware-psc #48)
+    pub slow_power_en: bool,
+
     /// Goes high once power is good
     pub power_good: Option<sys_api::PinSet>,
 
@@ -154,9 +159,14 @@ impl Config {
             sys.gpio_reset(power_en).unwrap();
             sleep_for(10); // TODO: how long does this need to be?
 
-            // Power on
+            // Power on, then sleep.  For some reason, certain boards are
+            // much slower to come up than others, so we have a flag for that.
             sys.gpio_set(power_en).unwrap();
-            sleep_for(4);
+            if self.slow_power_en {
+                sleep_for(200);
+            } else {
+                sleep_for(4);
+            }
         }
 
         // TODO: sleep for PG lines going high here
