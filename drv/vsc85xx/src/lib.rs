@@ -100,11 +100,14 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.rw.write_raw::<phy::standard::PAGE>(
-            self.port,
-            phy::STANDARD::PAGE(),
-            reg.page.into(),
-        )?;
+        if self.last_page.map(|p| p != reg.page).unwrap_or(true) {
+            self.rw.write_raw::<phy::standard::PAGE>(
+                self.port,
+                phy::STANDARD::PAGE(),
+                reg.page.into(),
+            )?;
+            self.last_page = Some(reg.page);
+        }
         self.rw.write_raw(self.port, reg, value)
     }
 
