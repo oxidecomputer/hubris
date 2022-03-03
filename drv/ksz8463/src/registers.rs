@@ -1082,6 +1082,10 @@ impl Register {
     pub fn PxMBCR(i: u8) -> Self {
         Self::select(i, Self::P1MBCR, Self::P2MBCR)
     }
+    #[inline(always)]
+    pub fn PxCR2(i: u8) -> Self {
+        Self::select(i, Self::P1CR2, Self::P2CR2)
+    }
 
     // Helper function to dispatch between two registers
     #[inline(always)]
