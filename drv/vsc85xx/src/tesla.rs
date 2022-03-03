@@ -2,242 +2,234 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops::{Deref, DerefMut};
-
 use crate::Trace;
 use crate::{Phy, PhyRw};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
 use vsc_err::VscError;
 
-pub struct TeslaPhy<'a, 'b, P>(pub &'b mut Phy<'a, P>);
-impl<'a, 'b, P> Deref for TeslaPhy<'a, 'b, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a, 'b, P> DerefMut for TeslaPhy<'a, 'b, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+pub struct TeslaPhy<'a, 'b, P> {
+    pub phy: &'b mut Phy<'a, P>,
 }
 
 impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
     /// Applies a patch to the 8051 microcode inside the PHY, based on
     /// `vtss_phy_pre_init_seq_tesla_rev_e` in the SDK
     pub(crate) fn patch(&mut self) -> Result<(), VscError> {
-        ringbuf_entry!(Trace::TeslaPatch(self.port));
+        ringbuf_entry!(Trace::TeslaPatch(self.phy.port));
 
         // Enable broadcast flag to configure all ports simultaneously
-        self.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
-            *r = (u16::from(*r) | 1).into();
-        })?;
+        self.phy
+            .modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
+                *r = (u16::from(*r) | 1).into();
+            })?;
 
-        self.write(phy::STANDARD::EXTENDED_PHY_CONTROL_2(), 0x0040.into())?;
-        self.write(phy::EXTENDED_2::CU_PMD_TX_CTRL(), 0x02be.into())?;
-        self.write(phy::TEST::TEST_PAGE_20(), 0x4320.into())?;
-        self.write(phy::TEST::TEST_PAGE_24(), 0x0c00.into())?;
-        self.write(phy::TEST::TEST_PAGE_9(), 0x18ca.into())?;
-        self.write(phy::TEST::TEST_PAGE_5(), 0x1b20.into())?;
+        self.phy
+            .write(phy::STANDARD::EXTENDED_PHY_CONTROL_2(), 0x0040.into())?;
+        self.phy
+            .write(phy::EXTENDED_2::CU_PMD_TX_CTRL(), 0x02be.into())?;
+        self.phy.write(phy::TEST::TEST_PAGE_20(), 0x4320.into())?;
+        self.phy.write(phy::TEST::TEST_PAGE_24(), 0x0c00.into())?;
+        self.phy.write(phy::TEST::TEST_PAGE_9(), 0x18ca.into())?;
+        self.phy.write(phy::TEST::TEST_PAGE_5(), 0x1b20.into())?;
 
         // "Enable token-ring during coma-mode"
-        self.modify(phy::TEST::TEST_PAGE_8(), |r| {
+        self.phy.modify(phy::TEST::TEST_PAGE_8(), |r| {
             r.0 |= 0x8000;
         })?;
 
-        self.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.write(phy::TR::TR_17(), 0x01bd.into())?;
-        self.write(phy::TR::TR_16(), 0x8fae.into())?;
-        self.write(phy::TR::TR_18(), 0x000f.into())?;
-        self.write(phy::TR::TR_17(), 0x000f.into())?;
-        self.write(phy::TR::TR_16(), 0x8fac.into())?;
-        self.write(phy::TR::TR_18(), 0x00a0.into())?;
-        self.write(phy::TR::TR_17(), 0xf147.into())?;
-        self.write(phy::TR::TR_16(), 0x97a0.into())?;
-        self.write(phy::TR::TR_18(), 0x0005.into())?;
-        self.write(phy::TR::TR_17(), 0x2f54.into())?;
-        self.write(phy::TR::TR_16(), 0x8fe4.into())?;
-        self.write(phy::TR::TR_18(), 0x0027.into())?;
-        self.write(phy::TR::TR_17(), 0x303d.into())?;
-        self.write(phy::TR::TR_16(), 0x9792.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0704.into())?;
-        self.write(phy::TR::TR_16(), 0x87fe.into())?;
-        self.write(phy::TR::TR_18(), 0x0006.into())?;
-        self.write(phy::TR::TR_17(), 0x0150.into())?;
-        self.write(phy::TR::TR_16(), 0x8fe0.into())?;
-        self.write(phy::TR::TR_18(), 0x0012.into())?;
-        self.write(phy::TR::TR_17(), 0xb00a.into())?;
-        self.write(phy::TR::TR_16(), 0x8f82.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0d74.into())?;
-        self.write(phy::TR::TR_16(), 0x8f80.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0012.into())?;
-        self.write(phy::TR::TR_16(), 0x82e0.into())?;
-        self.write(phy::TR::TR_18(), 0x0005.into())?;
-        self.write(phy::TR::TR_17(), 0x0208.into())?;
-        self.write(phy::TR::TR_16(), 0x83a2.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x9186.into())?;
-        self.write(phy::TR::TR_16(), 0x83b2.into())?;
-        self.write(phy::TR::TR_18(), 0x000e.into())?;
-        self.write(phy::TR::TR_17(), 0x3700.into())?;
-        self.write(phy::TR::TR_16(), 0x8fb0.into())?;
-        self.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.write(phy::TR::TR_17(), 0x9f81.into())?;
-        self.write(phy::TR::TR_16(), 0x9688.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0xffff.into())?;
-        self.write(phy::TR::TR_16(), 0x8fd2.into())?;
-        self.write(phy::TR::TR_18(), 0x0003.into())?;
-        self.write(phy::TR::TR_17(), 0x9fa2.into())?;
-        self.write(phy::TR::TR_16(), 0x968a.into())?;
-        self.write(phy::TR::TR_18(), 0x0020.into())?;
-        self.write(phy::TR::TR_17(), 0x640b.into())?;
-        self.write(phy::TR::TR_16(), 0x9690.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x2220.into())?;
-        self.write(phy::TR::TR_16(), 0x8258.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x2a20.into())?;
-        self.write(phy::TR::TR_16(), 0x825a.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x3060.into())?;
-        self.write(phy::TR::TR_16(), 0x825c.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x3fa0.into())?;
-        self.write(phy::TR::TR_16(), 0x825e.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0xe0f0.into())?;
-        self.write(phy::TR::TR_16(), 0x83a6.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x1489.into())?;
-        self.write(phy::TR::TR_16(), 0x8f92.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x7000.into())?;
-        self.write(phy::TR::TR_16(), 0x96a2.into())?;
-        self.write(phy::TR::TR_18(), 0x0007.into())?;
-        self.write(phy::TR::TR_17(), 0x1448.into())?;
-        self.write(phy::TR::TR_16(), 0x96a6.into())?;
-        self.write(phy::TR::TR_18(), 0x00ee.into())?;
-        self.write(phy::TR::TR_17(), 0xffdd.into())?;
-        self.write(phy::TR::TR_16(), 0x96a0.into())?;
-        self.write(phy::TR::TR_18(), 0x0091.into())?;
-        self.write(phy::TR::TR_17(), 0xb06c.into())?;
-        self.write(phy::TR::TR_16(), 0x8fe8.into())?;
-        self.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.write(phy::TR::TR_17(), 0x1600.into())?;
-        self.write(phy::TR::TR_16(), 0x8fea.into())?;
-        self.write(phy::TR::TR_18(), 0x00ee.into())?;
-        self.write(phy::TR::TR_17(), 0xff00.into())?;
-        self.write(phy::TR::TR_16(), 0x96b0.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x7000.into())?;
-        self.write(phy::TR::TR_16(), 0x96b2.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0814.into())?;
-        self.write(phy::TR::TR_16(), 0x96b4.into())?;
-        self.write(phy::TR::TR_18(), 0x0068.into())?;
-        self.write(phy::TR::TR_17(), 0x8980.into())?;
-        self.write(phy::TR::TR_16(), 0x8f90.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0xd8f0.into())?;
-        self.write(phy::TR::TR_16(), 0x83a4.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0400.into())?;
-        self.write(phy::TR::TR_16(), 0x8fc0.into())?;
-        self.write(phy::TR::TR_18(), 0x0050.into())?;
-        self.write(phy::TR::TR_17(), 0x100f.into())?;
-        self.write(phy::TR::TR_16(), 0x87fa.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0003.into())?;
-        self.write(phy::TR::TR_16(), 0x8796.into())?;
-        self.write(phy::TR::TR_18(), 0x00c3.into())?;
-        self.write(phy::TR::TR_17(), 0xff98.into())?;
-        self.write(phy::TR::TR_16(), 0x87f8.into())?;
-        self.write(phy::TR::TR_18(), 0x0018.into())?;
-        self.write(phy::TR::TR_17(), 0x292a.into())?;
-        self.write(phy::TR::TR_16(), 0x8fa4.into())?;
-        self.write(phy::TR::TR_18(), 0x00d2.into())?;
-        self.write(phy::TR::TR_17(), 0xc46f.into())?;
-        self.write(phy::TR::TR_16(), 0x968c.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0620.into())?;
-        self.write(phy::TR::TR_16(), 0x97a2.into())?;
-        self.write(phy::TR::TR_18(), 0x0013.into())?;
-        self.write(phy::TR::TR_17(), 0x132f.into())?;
-        self.write(phy::TR::TR_16(), 0x96a4.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.write(phy::TR::TR_16(), 0x96a8.into())?;
-        self.write(phy::TR::TR_18(), 0x00c0.into())?;
-        self.write(phy::TR::TR_17(), 0xa028.into())?;
-        self.write(phy::TR::TR_16(), 0x8ffc.into())?;
-        self.write(phy::TR::TR_18(), 0x0090.into())?;
-        self.write(phy::TR::TR_17(), 0x1c09.into())?;
-        self.write(phy::TR::TR_16(), 0x8fec.into())?;
-        self.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.write(phy::TR::TR_17(), 0xa6a1.into())?;
-        self.write(phy::TR::TR_16(), 0x8fee.into())?;
-        self.write(phy::TR::TR_18(), 0x00b0.into())?;
-        self.write(phy::TR::TR_17(), 0x1807.into())?;
-        self.write(phy::TR::TR_16(), 0x8ffe.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x01bd.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fae.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x000f.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x000f.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fac.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00a0.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xf147.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x97a0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0005.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x2f54.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fe4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0027.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x303d.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x9792.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0704.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x87fe.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0006.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0150.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fe0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0012.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xb00a.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8f82.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0d74.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8f80.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0012.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x82e0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0005.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0208.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x83a2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x9186.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x83b2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x000e.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x3700.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fb0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x9f81.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x9688.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xffff.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fd2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0003.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x9fa2.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x968a.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0020.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x640b.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x9690.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x2220.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8258.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x2a20.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x825a.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x3060.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x825c.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x3fa0.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x825e.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xe0f0.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x83a6.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x1489.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8f92.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x7000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96a2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0007.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x1448.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96a6.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00ee.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xffdd.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96a0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0091.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xb06c.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fe8.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x1600.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fea.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00ee.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xff00.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96b0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x7000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96b2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0814.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96b4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0068.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x8980.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8f90.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xd8f0.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x83a4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0400.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fc0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0050.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x100f.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x87fa.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0003.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8796.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00c3.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xff98.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x87f8.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0018.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x292a.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fa4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00d2.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xc46f.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x968c.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0620.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x97a2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0013.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x132f.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96a4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x96a8.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00c0.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xa028.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8ffc.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0090.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x1c09.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fec.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xa6a1.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8fee.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x00b0.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x1807.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8ffe.into())?;
 
         // We're not using 10BASE-TE, so this is the correct config block
-        self.write(phy::TR::TR_16(), 0x028e.into())?;
-        self.write(phy::TR::TR_18(), 0x0008.into())?;
-        self.write(phy::TR::TR_17(), 0xa518.into())?;
-        self.write(phy::TR::TR_16(), 0x8486.into())?;
-        self.write(phy::TR::TR_18(), 0x006d.into())?;
-        self.write(phy::TR::TR_17(), 0xc696.into())?;
-        self.write(phy::TR::TR_16(), 0x8488.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0912.into())?;
-        self.write(phy::TR::TR_16(), 0x848a.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0db6.into())?;
-        self.write(phy::TR::TR_16(), 0x848e.into())?;
-        self.write(phy::TR::TR_18(), 0x0059.into())?;
-        self.write(phy::TR::TR_17(), 0x6596.into())?;
-        self.write(phy::TR::TR_16(), 0x849c.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0514.into())?;
-        self.write(phy::TR::TR_16(), 0x849e.into())?;
-        self.write(phy::TR::TR_18(), 0x0041.into())?;
-        self.write(phy::TR::TR_17(), 0x0280.into())?;
-        self.write(phy::TR::TR_16(), 0x84a2.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.write(phy::TR::TR_16(), 0x84a4.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.write(phy::TR::TR_16(), 0x84a6.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.write(phy::TR::TR_16(), 0x84a8.into())?;
-        self.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.write(phy::TR::TR_16(), 0x84aa.into())?;
-        self.write(phy::TR::TR_18(), 0x007d.into())?;
-        self.write(phy::TR::TR_17(), 0xf7dd.into())?;
-        self.write(phy::TR::TR_16(), 0x84ae.into())?;
-        self.write(phy::TR::TR_18(), 0x006d.into())?;
-        self.write(phy::TR::TR_17(), 0x95d4.into())?;
-        self.write(phy::TR::TR_16(), 0x84b0.into())?;
-        self.write(phy::TR::TR_18(), 0x0049.into())?;
-        self.write(phy::TR::TR_17(), 0x2410.into())?;
-        self.write(phy::TR::TR_16(), 0x84b2.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x028e.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0008.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xa518.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8486.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x006d.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xc696.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x8488.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0912.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x848a.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0db6.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x848e.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0059.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x6596.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x849c.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0514.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x849e.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0041.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0280.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84a2.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84a4.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84a6.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84a8.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84aa.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x007d.into())?;
+        self.phy.write(phy::TR::TR_17(), 0xf7dd.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84ae.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x006d.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x95d4.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84b0.into())?;
+        self.phy.write(phy::TR::TR_18(), 0x0049.into())?;
+        self.phy.write(phy::TR::TR_17(), 0x2410.into())?;
+        self.phy.write(phy::TR::TR_16(), 0x84b2.into())?;
 
-        self.modify(phy::TEST::TEST_PAGE_8(), |r| {
+        self.phy.modify(phy::TEST::TEST_PAGE_8(), |r| {
             r.0 &= !0x8000; // Disable token-ring mode
         })?;
 
-        self.modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
-            *r = (u16::from(*r) & !1).into();
-        })?;
+        self.phy
+            .modify(phy::STANDARD::EXTENDED_CONTROL_AND_STATUS(), |r| {
+                *r = (u16::from(*r) & !1).into();
+            })?;
 
         //////////////////////////////////////////////////////////////////////////
         // Now we're going deep into the weeds.  This section is based on
@@ -250,17 +242,17 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
         // This patch can only be applied to Port 0 of the PHY, so we'll check
         // the address here.
         let phy_port =
-            self.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
+            self.phy.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
         if phy_port != 0 {
             return Err(VscError::BadPhyPatchPort(phy_port));
         }
-        let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+        let crc = self.phy.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
         let skip_download = crc == EXPECTED_CRC;
         let patch_ok = skip_download
-            && self.read(phy::GPIO::GPIO_3())?.0 == 0x3eb7
-            && self.read(phy::GPIO::GPIO_4())?.0 == 0x4012
-            && self.read(phy::GPIO::GPIO_12())?.0 == 0x0100
-            && self.read(phy::GPIO::GPIO_0())?.0 == 0xc018;
+            && self.phy.read(phy::GPIO::GPIO_3())?.0 == 0x3eb7
+            && self.phy.read(phy::GPIO::GPIO_4())?.0 == 0x4012
+            && self.phy.read(phy::GPIO::GPIO_12())?.0 == 0x0100
+            && self.phy.read(phy::GPIO::GPIO_0())?.0 == 0xc018;
 
         ringbuf_entry!(Trace::PatchState {
             patch_ok,
@@ -268,21 +260,22 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
         });
 
         if !skip_download || !patch_ok {
-            self.micro_assert_reset()?;
+            self.phy.micro_assert_reset()?;
         }
         if !skip_download {
-            self.download_patch(&TESLA_PATCH)?;
+            self.phy.download_patch(&TESLA_PATCH)?;
         }
         if !patch_ok {
             // Various CPU commands to enable the patch
-            self.write(phy::GPIO::GPIO_3(), 0x3eb7.into())?;
-            self.write(phy::GPIO::GPIO_4(), 0x4012.into())?;
-            self.write(phy::GPIO::GPIO_12(), 0x0100.into())?;
-            self.write(phy::GPIO::GPIO_0(), 0xc018.into())?;
+            self.phy.write(phy::GPIO::GPIO_3(), 0x3eb7.into())?;
+            self.phy.write(phy::GPIO::GPIO_4(), 0x4012.into())?;
+            self.phy.write(phy::GPIO::GPIO_12(), 0x0100.into())?;
+            self.phy.write(phy::GPIO::GPIO_0(), 0xc018.into())?;
         }
 
         if !skip_download {
-            let crc = self.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+            let crc =
+                self.phy.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
             if crc != EXPECTED_CRC {
                 return Err(VscError::PhyPatchFailedCrc);
             }
@@ -293,7 +286,7 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
         //
         // "Pass the cmd to Micro to initialize all 1588 analyzer registers to
         //  default"
-        self.cmd(0x801A)?;
+        self.phy.cmd(0x801A)?;
 
         Ok(())
     }

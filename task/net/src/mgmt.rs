@@ -219,7 +219,7 @@ impl Bsp {
             // The VSC85x2 numbers its ports starting at 0
             let port = i as u8;
             let mut phy = self.vsc85x2.phy(port, rw);
-            match phy.read(phy::STANDARD::MODE_STATUS()) {
+            match phy.phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(sr) => {
                     s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
                 }
@@ -227,7 +227,7 @@ impl Bsp {
                     ringbuf_entry!(Trace::Vsc85x2Err { port, err })
                 }
             };
-            match phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
+            match phy.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
                 Ok(status) => {
                     s.vsc85x2_sgmii_link_up[i] = (status.0 & (1 << 2)) != 0
                 }

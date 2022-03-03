@@ -240,7 +240,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         for port in 0..4 {
             let rw = &mut NetPhyRw(&mut self.net);
             let mut vsc8504 = self.vsc8504.phy(port, rw);
-            match vsc8504.read(phy::STANDARD::MODE_STATUS()) {
+            match vsc8504.phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(status) => {
                     let status = u16::from(status);
                     if status != self.vsc8504_status[port as usize] {

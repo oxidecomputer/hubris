@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ops::{Deref, DerefMut};
-
 use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
@@ -42,41 +40,34 @@ impl Vsc8522 {
     ) -> Vsc8522Phy<'a, P> {
         assert!(port < 12);
         assert!(self.base_port != 0xFF);
-        Vsc8522Phy(Phy::new(self.base_port + port, rw))
+        Vsc8522Phy {
+            phy: Phy::new(self.base_port + port, rw),
+        }
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct Vsc8522Phy<'a, P>(pub Phy<'a, P>);
-impl<'a, P> Deref for Vsc8522Phy<'a, P> {
-    type Target = Phy<'a, P>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl<'a, P> DerefMut for Vsc8522Phy<'a, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+pub struct Vsc8522Phy<'a, P> {
+    pub phy: Phy<'a, P>,
 }
 
 impl<'a, P: PhyRw> Vsc8522Phy<'a, P> {
     fn init(&mut self) -> Result<(), VscError> {
-        ringbuf_entry!(Trace::Vsc8522Init(self.port));
+        ringbuf_entry!(Trace::Vsc8522Init(self.phy.port));
 
-        let id = self.read_id()?;
+        let id = self.phy.read_id()?;
         if id != VSC8522_ID {
             return Err(VscError::BadPhyId(id));
         }
 
         // Disable COMA MODE, which keeps the chip holding itself in reset
-        self.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
+        self.phy.modify(phy::GPIO::GPIO_CONTROL_2(), |g| {
             g.set_coma_mode_output_enable(0)
         })?;
 
         // Configure the PHY in QSGMII + 12 port mode
-        self.cmd(0x80A0)?;
+        self.phy.cmd(0x80A0)?;
         Ok(())
     }
 }
