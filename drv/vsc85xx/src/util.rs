@@ -5,7 +5,7 @@
 use crate::{Phy, PhyRw, Trace};
 
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use vsc7448_pac::phy;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc_err::VscError;
 
 impl<'a, P: PhyRw> Phy<'a, P> {
@@ -123,4 +123,10 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         ringbuf_entry!(Trace::GotCrc(crc));
         Ok(crc)
     }
+}
+
+/// Helper const fn to strip the type from a PhyRegisterAddress, used when
+/// packing them into an array.
+pub(crate) const fn detype<T>(r: PhyRegisterAddress<T>) -> (u16, u8) {
+    (r.page, r.addr)
 }

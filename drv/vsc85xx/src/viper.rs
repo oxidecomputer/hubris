@@ -2,10 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::util::detype;
 use crate::Trace;
 use crate::{Phy, PhyRw};
+
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use vsc7448_pac::phy;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc_err::VscError;
 
 pub struct ViperPhy<'a, 'b, P> {
@@ -37,109 +39,6 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
         self.phy
             .modify(phy::TR::TR_18(), |r| r.0 = (r.0 & !0x7f) | 0x19)?;
 
-        self.phy.write(phy::TR::TR_16(), 0x8fa4.into())?;
-        self.phy.write(phy::TR::TR_18(), 0x0050.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x100f.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x87fa.into())?;
-        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x9f81.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x9688.into())?;
-
-        // "Init script updates from James Bz#22267"
-        self.phy.write(phy::TR::TR_18(), 0x0068.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x8980.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8f90.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xd8f0.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x83a4.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0400.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8fc0.into())?;
-
-        // "EEE updates from James Bz#22267"
-        self.phy.write(phy::TR::TR_18(), 0x0012.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xb002.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8f82.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0004.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x9686.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00d2.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xc46f.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x968c.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0620.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x97a2.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00ee.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xffdd.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96a0.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0007.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x1448.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96a6.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0013.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x132f.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96a4.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96a8.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00c0.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xa028.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8ffc.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0091.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xb06c.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8fe8.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0004.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x1600.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8fea.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00ff.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xfaff.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8f80.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0090.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x1809.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8fec.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00b0.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x1007.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8ffe.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x00ee.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xff00.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96b0.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x7000.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96b2.into())?;
-
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0814.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x96b4.into())?;
-
-        // We aren't using 10Base-TE, so this is correct config block
-        self.phy
-            .write(phy::EXTENDED_2::CU_PMD_TX_CTRL(), 0x028e.into())?;
-        self.phy.write(phy::TR::TR_18(), 0x0008.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xa518.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8486.into())?;
-        self.phy.write(phy::TR::TR_18(), 0x006d.into())?;
-        self.phy.write(phy::TR::TR_17(), 0xc696.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x8488.into())?;
-        self.phy.write(phy::TR::TR_18(), 0x0000.into())?;
-        self.phy.write(phy::TR::TR_17(), 0x0912.into())?;
-        self.phy.write(phy::TR::TR_16(), 0x848a.into())?;
-
         self.phy.modify(phy::TEST::TEST_PAGE_8(), |r| {
             r.0 &= !0x8000;
         })?;
@@ -148,6 +47,12 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
                 *r = (u16::from(*r) & !1).into();
             })?;
 
+        for ((page, addr), value) in VIPER_TR_CONFIG {
+            self.phy.write(
+                PhyRegisterAddress::from_page_and_addr_unchecked(page, addr),
+                value,
+            )?;
+        }
         //////////////////////////////////////////////////////////////////////
         // Now, we do the fun part of patching the 8051 PHY, based on
         // `viper_revB_8051_patch` in the SDK
@@ -208,4 +113,87 @@ const VIPER_PATCH: [u8; 92] = [
     0x92, 0x12, 0x50, 0xee, 0x22, 0xe4, 0xf5, 0x10, 0x85, 0x10, 0xfb, 0x7d,
     0x1c, 0xe4, 0xff, 0x12, 0x59, 0xea, 0x05, 0x10, 0xe5, 0x10, 0xc3, 0x94,
     0x04, 0x40, 0xed, 0x22, 0x22, 0x22, 0x22, 0x22,
+];
+
+const VIPER_TR_CONFIG: [((u16, u8), u16); 77] = [
+    (detype(phy::TR::TR_16()), 0x8fa4),
+    (detype(phy::TR::TR_18()), 0x0050),
+    (detype(phy::TR::TR_17()), 0x100f),
+    (detype(phy::TR::TR_16()), 0x87fa),
+    (detype(phy::TR::TR_18()), 0x0004),
+    (detype(phy::TR::TR_17()), 0x9f81),
+    (detype(phy::TR::TR_16()), 0x9688),
+    // "Init script updates from James Bz#22267"
+    (detype(phy::TR::TR_18()), 0x0068),
+    (detype(phy::TR::TR_17()), 0x8980),
+    (detype(phy::TR::TR_16()), 0x8f90),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0xd8f0),
+    (detype(phy::TR::TR_16()), 0x83a4),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0400),
+    (detype(phy::TR::TR_16()), 0x8fc0),
+    // "EEE updates from James Bz#22267"
+    (detype(phy::TR::TR_18()), 0x0012),
+    (detype(phy::TR::TR_17()), 0xb002),
+    (detype(phy::TR::TR_16()), 0x8f82),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0004),
+    (detype(phy::TR::TR_16()), 0x9686),
+    (detype(phy::TR::TR_18()), 0x00d2),
+    (detype(phy::TR::TR_17()), 0xc46f),
+    (detype(phy::TR::TR_16()), 0x968c),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0620),
+    (detype(phy::TR::TR_16()), 0x97a2),
+    (detype(phy::TR::TR_18()), 0x00ee),
+    (detype(phy::TR::TR_17()), 0xffdd),
+    (detype(phy::TR::TR_16()), 0x96a0),
+    (detype(phy::TR::TR_18()), 0x0007),
+    (detype(phy::TR::TR_17()), 0x1448),
+    (detype(phy::TR::TR_16()), 0x96a6),
+    (detype(phy::TR::TR_18()), 0x0013),
+    (detype(phy::TR::TR_17()), 0x132f),
+    (detype(phy::TR::TR_16()), 0x96a4),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0000),
+    (detype(phy::TR::TR_16()), 0x96a8),
+    (detype(phy::TR::TR_18()), 0x00c0),
+    (detype(phy::TR::TR_17()), 0xa028),
+    (detype(phy::TR::TR_16()), 0x8ffc),
+    (detype(phy::TR::TR_18()), 0x0091),
+    (detype(phy::TR::TR_17()), 0xb06c),
+    (detype(phy::TR::TR_16()), 0x8fe8),
+    (detype(phy::TR::TR_18()), 0x0004),
+    (detype(phy::TR::TR_17()), 0x1600),
+    (detype(phy::TR::TR_16()), 0x8fea),
+    (detype(phy::TR::TR_18()), 0x00ff),
+    (detype(phy::TR::TR_17()), 0xfaff),
+    (detype(phy::TR::TR_16()), 0x8f80),
+    (detype(phy::TR::TR_18()), 0x0090),
+    (detype(phy::TR::TR_17()), 0x1809),
+    (detype(phy::TR::TR_16()), 0x8fec),
+    (detype(phy::TR::TR_18()), 0x00b0),
+    (detype(phy::TR::TR_17()), 0x1007),
+    (detype(phy::TR::TR_16()), 0x8ffe),
+    (detype(phy::TR::TR_18()), 0x00ee),
+    (detype(phy::TR::TR_17()), 0xff00),
+    (detype(phy::TR::TR_16()), 0x96b0),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x7000),
+    (detype(phy::TR::TR_16()), 0x96b2),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0814),
+    (detype(phy::TR::TR_16()), 0x96b4),
+    // We aren't using 10Base-TE, so this is correct config block
+    (detype(phy::EXTENDED_2::CU_PMD_TX_CTRL()), 0x028e),
+    (detype(phy::TR::TR_18()), 0x0008),
+    (detype(phy::TR::TR_17()), 0xa518),
+    (detype(phy::TR::TR_16()), 0x8486),
+    (detype(phy::TR::TR_18()), 0x006d),
+    (detype(phy::TR::TR_17()), 0xc696),
+    (detype(phy::TR::TR_16()), 0x8488),
+    (detype(phy::TR::TR_18()), 0x0000),
+    (detype(phy::TR::TR_17()), 0x0912),
+    (detype(phy::TR::TR_16()), 0x848a),
 ];
