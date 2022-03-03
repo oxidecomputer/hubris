@@ -73,8 +73,20 @@ impl Bsp {
         let rw = &mut MiimBridge::new(eth);
         for i in 0..2 {
             use vsc7448_pac::phy;
-            // Enable far-end loopback
             let phy = &mut bsp.vsc85x2.phy(i, rw);
+
+            // Errata: this bit must be disabled for loopback mode to work.
+            phy.modify(
+                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                |r| {
+                    let mut v = u16::from(*r);
+                    v &= !(1 << 13);
+                    *r = v.into();
+                },
+            )
+            .unwrap();
+
+            // Enable far-end loopback
             phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 let mut v = u16::from(*r);
                 v |= 1 << 3;
