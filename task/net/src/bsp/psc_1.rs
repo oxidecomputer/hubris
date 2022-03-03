@@ -76,23 +76,25 @@ impl Bsp {
             let phy = &mut bsp.vsc85x2.phy(i, rw);
 
             // Errata: this bit must be disabled for loopback mode to work.
-            phy.modify(
-                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
-                |r| {
-                    let mut v = u16::from(*r);
-                    v &= !(1 << 13);
-                    *r = v.into();
-                },
-            )
-            .unwrap();
+            phy.phy
+                .modify(
+                    phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                    |r| {
+                        let mut v = u16::from(*r);
+                        v &= !(1 << 13);
+                        *r = v.into();
+                    },
+                )
+                .unwrap();
 
             // Enable far-end loopback
-            phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
-                let mut v = u16::from(*r);
-                v |= 1 << 3;
-                *r = v.into();
-            })
-            .unwrap();
+            phy.phy
+                .modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                    let mut v = u16::from(*r);
+                    v |= 1 << 3;
+                    *r = v.into();
+                })
+                .unwrap();
 
             // Disable Rx to avoid DDOSing yourself
             bsp.ksz8463
