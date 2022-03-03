@@ -194,8 +194,7 @@ impl Bsp {
                     s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
-                    return;
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
                 }
             }
             match self
@@ -204,8 +203,7 @@ impl Bsp {
             {
                 Ok(c) => s.ksz8463_rx_bytes[i] = c,
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
-                    return;
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
                 }
             }
             match self
@@ -214,8 +212,7 @@ impl Bsp {
             {
                 Ok(c) => s.ksz8463_tx_bytes[i] = c,
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
-                    return;
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
                 }
             }
 
@@ -227,8 +224,7 @@ impl Bsp {
                     s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
                 }
             };
             match phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
@@ -236,8 +232,7 @@ impl Bsp {
                     s.vsc85x2_sgmii_link_up[i] = (status.0 & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                    return;
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
                 }
             };
 
