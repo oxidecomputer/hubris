@@ -52,31 +52,63 @@ pub fn preinit() {
 
 impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
-        Self(
-            mgmt::Config {
-                // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
-                power_en: Some(Port::I.pin(10).and_pin(12)),
-                slow_power_en: false,
-                power_good: None, // TODO
-                pll_lock: None,   // TODO?
+        let mut bsp = mgmt::Config {
+            // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
+            power_en: Some(Port::I.pin(10).and_pin(12)),
+            slow_power_en: false,
+            power_good: None, // TODO
+            pll_lock: None,   // TODO?
 
-                // Based on ordering in app.toml
-                ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
+            // Based on ordering in app.toml
+            ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
 
-                // SP_TO_MGMT_MUX_RESET_L
-                ksz8463_nrst: Port::C.pin(2),
-                ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
+            // SP_TO_MGMT_MUX_RESET_L
+            ksz8463_nrst: Port::C.pin(2),
+            ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
 
-                // SP_TO_MGMT_PHY_COMA_MODE
-                vsc85x2_coma_mode: Some(Port::D.pin(7)),
+            // SP_TO_MGMT_PHY_COMA_MODE
+            vsc85x2_coma_mode: Some(Port::D.pin(7)),
 
-                // SP_TO_MGMT_PHY_RESET
-                vsc85x2_nrst: Port::A.pin(8),
+            // SP_TO_MGMT_PHY_RESET
+            vsc85x2_nrst: Port::A.pin(8),
 
-                vsc85x2_base_port: 0b11110, // Based on resistor strapping
-            }
-            .build(sys, eth),
-        )
+            vsc85x2_base_port: 0b11110, // Based on resistor strapping
+        }
+        .build(sys, eth);
+
+        use crate::miim_bridge::MiimBridge;
+        let rw = &mut MiimBridge::new(eth);
+        for i in 0..2 {
+            use vsc7448_pac::phy;
+            let phy = &mut bsp.vsc85x2.phy(i, rw);
+
+            // Errata: this bit must be disabled for loopback mode to work.
+            phy.phy
+                .modify(
+                    phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                    |r| {
+                        let mut v = u16::from(*r);
+                        v &= !(1 << 13);
+                        *r = v.into();
+                    },
+                )
+                .unwrap();
+
+            // Enable far-end loopback
+            phy.phy
+                .modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                    let mut v = u16::from(*r);
+                    v |= 1 << 3;
+                    *r = v.into();
+                })
+                .unwrap();
+
+            // Disable Rx to avoid DDOSing yourself
+            bsp.ksz8463
+                .write_masked(ksz8463::Register::PxCR2(i + 1), 0, 1 << 9)
+                .unwrap();
+        }
+        Self(bsp)
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
