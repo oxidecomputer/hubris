@@ -70,10 +70,7 @@ You will need:
   Note that the 0.10 release of OpenOCD predates the STLink v3. People are using
   various post-0.10, pre-0.11 builds provided by system package managers, with
   some success, but if your system isn't packaging 0.11 yet, pester them. If
-  you're going to use Homebrew on macOS to install OpenOCD, you need to use
-  `brew install --head openocd` to build the tip of the main branch rather than
-  using the latest binary release. If you need to build from source, you can
-  find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
+  you need to build from source, you can find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
   When running `./configure`, make sure that you see that the
   `ST-Link Programmer` is set enabled (which should be the default).
 
@@ -91,9 +88,7 @@ You will need:
 
 - `arm-none-eabi-objcopy` and `arm-none-eabi-gdb`, typically from your system's
   package manager using package names like `arm-none-eabi-binutils` and
-  `arm-none-eabi-gdb`.  macOS users can run
-  `brew install --cask gcc-arm-embedded` to install the
-  [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
+  `arm-none-eabi-gdb`.
 
 - The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
   - `cargo install --git https://github.com/oxidecomputer/humility.git --locked`
@@ -129,6 +124,20 @@ explaining how.
 Finally, the instructions below invoke shell scripts. They're very small, and
 so for now you can run the commands manually, yourself. We may improve this
 in the future.
+
+## macOS
+
+If you're using Homebrew on macOS, you need to use:
+
+- `brew install --head openocd` to build the tip of the main OpenOCD branch
+  rather than using the latest binary release.
+
+- `brew install --cask gcc-arm-embedded` to install the [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
+
+[pkgsrc on macOS](https://pkgsrc.joyent.com/install-on-osx/) users can install
+all the necessary dependencies with:
+
+- `pkgin install cross-arm-none-eabi-gcc cross-arm-none-eabi-gdb openocd`
 
 ## Build
 
