@@ -17,6 +17,7 @@ mod miim_bridge;
 pub(crate) mod mgmt;
 
 use core::sync::atomic::{AtomicU32, Ordering};
+use zerocopy::AsBytes;
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -34,14 +35,28 @@ task_slot!(SYS, sys);
 //
 // Much of this needs to move into the board-level configuration.
 
-cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimlet-1")] {
-        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x1C];
-    } else if #[cfg(target_board = "sidecar-1")] {
-        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x2C];
-    } else {
-        static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C];
+/// Claims and calculates the MAC address.  This can only be called once.
+fn mac_address() -> &'static [u8; 6] {
+    let buf = crate::buf::claim_mac_address();
+    let uid = drv_stm32xx_uid::read_uid();
+    // Jenkins hash
+    let mut hash: u32 = 0;
+    for byte in uid.as_bytes() {
+        hash = hash.wrapping_add(*byte as u32);
+        hash = hash.wrapping_add(hash << 10);
+        hash ^= hash >> 6;
     }
+    hash = hash.wrapping_add(hash << 3);
+    hash ^= hash >> 11;
+    hash = hash.wrapping_add(hash >> 15);
+
+    // Locally administered, unicast address
+    buf[0] = 0x0e;
+    buf[1] = 0x1d;
+
+    // Set the lower 32-bits based on the hashed UID
+    buf[2..].copy_from_slice(&hash.to_be_bytes());
+    buf
 }
 
 const TX_RING_SZ: usize = 4;
@@ -108,7 +123,7 @@ fn main() -> ! {
     use smoltcp::socket::UdpSocket;
     use smoltcp::wire::{EthernetAddress, IpAddress};
 
-    let mac = EthernetAddress::from_bytes(&FAKE_MAC);
+    let mac = EthernetAddress::from_bytes(mac_address());
 
     let ipv6_addr = link_local_iface_addr(mac);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();

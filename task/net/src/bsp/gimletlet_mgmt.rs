@@ -185,7 +185,7 @@ impl Bsp {
         let mut any_link = false;
         let rw = &mut MiimBridge::new(eth);
         for i in [0, 1] {
-            let mut phy = self.mgmt.vsc85x2.phy(i, rw);
+            let mut phy = self.mgmt.vsc85x2.phy(i, rw).phy;
             let port = phy.port;
 
             ringbuf_entry!(match phy.read(phy::STANDARD::MODE_STATUS()) {

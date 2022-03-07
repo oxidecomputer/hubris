@@ -187,7 +187,7 @@ priority = 2
 features = ["mgmt", "h753", "gimlet"]
 requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma"]
+uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", "rcc_driver",

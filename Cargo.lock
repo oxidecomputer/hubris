@@ -1106,6 +1106,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32xx-uid"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
+]
+
+[[package]]
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
@@ -2703,6 +2710,7 @@ dependencies = [
  "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
+ "drv-stm32xx-uid",
  "drv-user-leds-api",
  "hubris-num-tasks",
  "idol",
