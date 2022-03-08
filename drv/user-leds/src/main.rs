@@ -34,6 +34,16 @@ use drv_user_leds_api::LedError;
 use idol_runtime::RequestError;
 use userlib::*;
 
+///////////////////////////////////////////////////////////////////////////////
+// Demo of task_config macro:
+task_config::task_config! {
+    user_leds, // config block name
+    count: usize,
+    leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 cfg_if::cfg_if! {
     // Target boards with 4 leds
     if #[cfg(any(

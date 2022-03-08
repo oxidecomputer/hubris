@@ -15,6 +15,7 @@ drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", optional = true}
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api", optional = true}
 cfg-if = "0.1.10"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+task-config = { path = "../../lib/task-config" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

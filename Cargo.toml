@@ -20,6 +20,7 @@ members = [
     "lib/hypocalls",
     "lib/ringbuf",
     "lib/unwrap-lite",
+    "lib/task-config",
 
     "app/demo-stm32f4-discovery",
     "app/demo-stm32g0-nucleo",
