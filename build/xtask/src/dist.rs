@@ -291,6 +291,20 @@ pub fn package(
         File::create(Path::new(&format!("target/table.ld"))).unwrap();
     }
 
+    // Quick sanity-check if we're trying to build individual tasks which
+    // aren't present in the app.toml.
+    if let Some(included_names) = &tasks_to_build {
+        let all_tasks = toml.tasks.keys().collect::<Vec<_>>();
+        for name in included_names {
+            if !all_tasks.contains(&name) {
+                bail!(
+                    "Attempted to build task '{}', which is not in the app",
+                    name
+                );
+            }
+        }
+    }
+
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
         // skip the other ones here.
