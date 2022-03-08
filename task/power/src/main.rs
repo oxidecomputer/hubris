@@ -162,6 +162,7 @@ macro_rules! adm1272_controller {
     };
 }
 
+#[cfg(target_board = "gimlet-a")]
 fn controllers() -> [PowerController; 10] {
     let task = I2C.get_task_id();
 
@@ -174,6 +175,25 @@ fn controllers() -> [PowerController; 10] {
         rail_controller!(task, Sys, tps546b24a, v3p3_sp_a2, A2),
         rail_controller!(task, Sys, tps546b24a, v1p8_sp3, A0),
         rail_controller!(task, Sys, tps546b24a, v5_sys_a2, A2),
+        adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
+    ]
+}
+
+#[cfg(target_board = "gimlet-b")]
+fn controllers() -> [PowerController; 11] {
+    let task = I2C.get_task_id();
+
+    [
+        rail_controller!(task, IBC, bmr491, v12_sys_a2, A2),
+        rail_controller!(task, Core, raa229618, vdd_vcore, A0),
+        rail_controller!(task, Core, raa229618, vddcr_soc, A0),
+        rail_controller!(task, Mem, raa229618, vdd_mem_abcd, A0),
+        rail_controller!(task, Mem, raa229618, vdd_mem_efgh, A0),
+        rail_controller!(task, Sys, tps546b24a, v3p3_sp_a2, A2),
+        rail_controller!(task, Sys, tps546b24a, v3p3_sys_a0, A0),
+        rail_controller!(task, Sys, tps546b24a, v5_sys_a2, A2),
+        rail_controller!(task, Sys, tps546b24a, v1p8_sys_a2, A0),
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
     ]

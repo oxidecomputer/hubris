@@ -213,7 +213,10 @@ fn main() -> ! {
     let task = I2C.get_task_id();
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "gimlet-1")] {
+        if #[cfg(any(
+            target_board = "gimlet-a",
+            target_board = "gimlet-b",
+        ))] {
             let fctrl = Max31790::new(&devices::max31790(task)[0]);
         } else {
             compile_error!("unknown board");
