@@ -13,9 +13,12 @@ pub use rand_core::{Error, RngCore};
 use userlib::{sys_send, FromPrimitive};
 
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
 pub enum RngError {
     PoweredOff,
+    NoData,
+    ClockError,
+    SeedError,
 }
 
 impl From<RngError> for u16 {

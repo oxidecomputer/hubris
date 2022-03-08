@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "demo-stm32h7-nucleo"
-requires = {flash = 22000, ram = 4096}
+requires = {flash = 22000, ram = 5120}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -194,6 +194,17 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.rng_driver]
+features = ["h753"]
+path = "../../drv/stm32h7-rng"
+priority = 2
+name = "drv-stm32h7-rng"
+requires = {flash = 8192, ram = 512}
+stacksize = 256
+start = true
+task-slots = ["sys", "user_leds"]
+uses = ["rng"]
 
 [config]
 [[config.i2c.controllers]]

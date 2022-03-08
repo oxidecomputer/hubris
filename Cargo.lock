@@ -1026,6 +1026,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-rng"
+version = "0.1.0"
+dependencies = [
+ "drv-rng-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32h7-spi"
 version = "0.1.0"
 dependencies = [

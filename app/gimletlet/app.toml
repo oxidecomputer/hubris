@@ -156,6 +156,17 @@ requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.rng_driver]
+features = ["h753"]
+path = "../../drv/stm32h7-rng"
+name = "drv-stm32h7-rng"
+priority = 2
+requires = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys", "user_leds"]
+
 [config]
 [[config.i2c.controllers]]
 controller = 2
