@@ -16,6 +16,7 @@ pub enum DevGeneric {
     Dev2g5(u8),
 }
 
+#[derive(Copy, Clone)]
 pub enum Speed {
     Speed100M,
     Speed1G,

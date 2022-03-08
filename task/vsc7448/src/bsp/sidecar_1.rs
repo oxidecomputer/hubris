@@ -143,24 +143,27 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         ])?;
 
         self.phy_init(&sys)?;
-        self.vsc7448.init_qsgmii(&[
-            // Going to an on-board VSC8504 PHY (PHY4, U40), which is
-            // configured over MIIM by the SP.
-            //
-            // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
-            // 41 | DEV1G_17 | SERDES6G_14 | PSC0
-            // 42 | DEV1G_18 | SERDES6G_14 | PSC1
-            // 43 | Unused
-            40,
-            // Going out to the front panel board, where there's a waiting
-            // PHY that is configured by the FPGA.
-            //
-            // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
-            // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
-            // 42 | Unused
-            // 43 | Unused
-            44,
-        ])?;
+        self.vsc7448.init_qsgmii(
+            &[
+                // Going to an on-board VSC8504 PHY (PHY4, U40), which is
+                // configured over MIIM by the SP.
+                //
+                // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
+                // 41 | DEV1G_17 | SERDES6G_14 | PSC0
+                // 42 | DEV1G_18 | SERDES6G_14 | PSC1
+                // 43 | Unused
+                40,
+                // Going out to the front panel board, where there's a waiting
+                // PHY that is configured by the FPGA.
+                //
+                // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
+                // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
+                // 42 | Unused
+                // 43 | Unused
+                44,
+            ],
+            vsc7448::Speed::Speed100M,
+        )?;
 
         self.vsc7448.init_sfi(&[
             49, //  DEV10G_0 | SERDES10G_0 | Tofino 2

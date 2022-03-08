@@ -85,8 +85,10 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.gpio_init()?;
         self.phy_init()?;
 
-        self.vsc7448
-            .init_qsgmii(&[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44])?;
+        self.vsc7448.init_qsgmii(
+            &[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44],
+            vsc7448::Speed::Speed1G,
+        )?;
         self.vsc7448.init_sfi(&[49, 50])?;
         self.vsc7448.init_10g_sgmii(&[51, 52])?;
 

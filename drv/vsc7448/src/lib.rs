@@ -4,17 +4,20 @@
 
 #![no_std]
 
-mod dev;
 pub mod mac;
 pub mod miim_phy;
+pub mod spi;
+
+mod dev;
 mod port;
 mod serdes10g;
 mod serdes1g;
 mod serdes6g;
-pub mod spi;
 
 use userlib::hl::sleep_for;
 use vsc7448_pac::{types::RegisterAddress, *};
+
+pub use dev::Speed;
 pub use vsc_err::VscError;
 
 use crate::dev::{Dev10g, DevGeneric};
@@ -201,7 +204,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// Each value in `start_ports` must be divisible by 4 and below 48;
     /// otherwise, this function will panic.
-    pub fn init_qsgmii(&self, start_ports: &[u8]) -> Result<(), VscError> {
+    pub fn init_qsgmii(
+        &self,
+        start_ports: &[u8],
+        speed: dev::Speed,
+    ) -> Result<(), VscError> {
         let qsgmii_cfg = serdes6g::Config::new(serdes6g::Mode::Qsgmii);
 
         // Set a bit to enable QSGMII for these block
@@ -249,7 +256,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             qsgmii_cfg.apply(serde, self.rw)?;
 
             for dev in start_dev..(start_dev + 4) {
-                dev_type(dev)?.init_sgmii(self.rw, dev::Speed::Speed100M)?;
+                dev_type(dev)?.init_sgmii(self.rw, speed)?;
             }
             for port in start_port..start_port + 4 {
                 self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
