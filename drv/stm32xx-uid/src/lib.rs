@@ -12,7 +12,7 @@
 // so it's not documented in the SVD or `stm32` crate.
 cfg_if::cfg_if! {
     if #[cfg(feature = "family-stm32g0")] {
-        const UID_ADDR: u32 = 0x1FFF_7590
+        const UID_ADDR: u32 = 0x1FFF_7590;
     } else if #[cfg(feature = "family-stm32h7")] {
         const UID_ADDR: u32 = 0x1FF1_E800;
     } else {
