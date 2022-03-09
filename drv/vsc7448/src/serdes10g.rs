@@ -475,7 +475,14 @@ impl Config {
         }
 
         ////////////////////////////////////////////////////////////////////////
-        // jaguar2c_apc10g_register_cfg
+        // jaguar2c_apc10g_register_cfg, assuming
+        //      ib_cal_only = false
+        //      incl_ld_cal = false
+        //      skip_cal = false
+        //      is_2pt_cal = false
+        //      force_eqz_l = false
+        //      force_eqz_c = false
+        // (these are the defaults from `vtss_sd10g65_setup_apc_args_init`)
         let dev_dig = XGDIG(index);
         let apc = dev_dig.SD10G65_APC();
         v.modify(apc.APC_COMMON_CFG0(), |r| {
@@ -528,8 +535,8 @@ impl Config {
             r.set_eqz_offs_chg_mode(0);
             r.set_eqz_offs_range_sel(self.apc_preset.range_sel.into());
             r.set_eqz_offs_max(0xA0);
-            r.set_eqz_offs_min(0x80);
-            r.set_eqz_offs_ini(0x60);
+            r.set_eqz_offs_ini(0x80);
+            r.set_eqz_offs_min(0x60);
         })?;
         v.modify(apc.APC_EQZ_OFFS_CTRL(), |r| {
             r.set_eqz_offs_sync_mode(1);
@@ -548,38 +555,53 @@ impl Config {
             r.set_eqz_offs_dir_sel(0);
         })?;
 
-        let mut eqz_l_par_cfg = v.read(apc.APC_EQZ_L_PAR_CFG())?;
-        let mut eqz_c_par_cfg = v.read(apc.APC_EQZ_C_PAR_CFG())?;
         if self.high_data_rate {
-            eqz_l_par_cfg.set_eqz_l_range_sel(
-                (self.apc_preset.range_sel + self.apc_preset.l_rs_offs).into(),
-            );
-            eqz_l_par_cfg.set_eqz_l_max(self.apc_preset.l_max.into());
-            eqz_l_par_cfg.set_eqz_l_min(self.apc_preset.l_min.into());
-            eqz_l_par_cfg.set_eqz_l_ini(self.apc_preset.l_ini.into());
+            v.modify(apc.APC_EQZ_L_PAR_CFG(), |r| {
+                r.set_eqz_l_chg_mode(0);
+                r.set_eqz_l_range_sel(
+                    (self.apc_preset.range_sel + self.apc_preset.l_rs_offs)
+                        .into(),
+                );
+                r.set_eqz_l_max(self.apc_preset.l_max.into());
+                r.set_eqz_l_min(self.apc_preset.l_min.into());
+                r.set_eqz_l_ini(self.apc_preset.l_ini.into());
+            })?;
 
-            eqz_c_par_cfg.set_eqz_c_chg_mode(1);
-            eqz_c_par_cfg.set_eqz_c_range_sel(
-                (self.apc_preset.range_sel + self.apc_preset.c_rs_offs).into(),
-            );
-            eqz_c_par_cfg.set_eqz_c_max(self.apc_preset.c_max.into());
-            eqz_c_par_cfg.set_eqz_c_min(self.apc_preset.c_min.into());
-            eqz_c_par_cfg.set_eqz_c_ini(self.apc_preset.c_ini.into());
+            v.modify(apc.APC_EQZ_L_CTRL(), |r| {
+                r.set_eqz_l_sync_mode(1);
+            })?;
+
+            v.modify(apc.APC_EQZ_C_PAR_CFG(), |r| {
+                r.set_eqz_c_chg_mode(0);
+                r.set_eqz_c_range_sel(
+                    (self.apc_preset.range_sel + self.apc_preset.c_rs_offs)
+                        .into(),
+                );
+                r.set_eqz_c_max(self.apc_preset.c_max.into());
+                r.set_eqz_c_min(self.apc_preset.c_min.into());
+                r.set_eqz_c_ini(self.apc_preset.c_ini.into());
+            })?;
+            v.modify(apc.APC_EQZ_C_CTRL(), |r| {
+                r.set_eqz_c_sync_mode(1);
+            })?;
         } else {
-            eqz_l_par_cfg.set_eqz_l_ini(0);
-            eqz_c_par_cfg.set_eqz_c_ini(0);
-        }
-        eqz_l_par_cfg.set_eqz_l_chg_mode(1);
-        eqz_c_par_cfg.set_eqz_c_chg_mode(1);
+            // "low data rates -> force L and C to 0"
+            v.modify(apc.APC_EQZ_L_PAR_CFG(), |r| {
+                r.set_eqz_l_chg_mode(1);
+                r.set_eqz_l_ini(0); // "lowest value"
+            })?;
+            v.modify(apc.APC_EQZ_L_CTRL(), |r| {
+                r.set_eqz_l_sync_mode(0); // "disabled"
+            })?;
 
-        v.write(apc.APC_EQZ_L_PAR_CFG(), eqz_l_par_cfg)?;
-        v.write(apc.APC_EQZ_C_PAR_CFG(), eqz_c_par_cfg)?;
-        v.modify(apc.APC_EQZ_L_CTRL(), |r| {
-            r.set_eqz_l_sync_mode(0);
-        })?;
-        v.modify(apc.APC_EQZ_C_CTRL(), |r| {
-            r.set_eqz_c_sync_mode(0);
-        })?;
+            v.modify(apc.APC_EQZ_C_PAR_CFG(), |r| {
+                r.set_eqz_c_chg_mode(1);
+                r.set_eqz_c_ini(0); // "lowest value"
+            })?;
+            v.modify(apc.APC_EQZ_C_CTRL(), |r| {
+                r.set_eqz_c_sync_mode(0); // "disabled"
+            })?;
+        }
 
         v.modify(apc.APC_DFE1_PAR_CFG(), |r| {
             r.set_dfe1_chg_mode(0);
@@ -626,6 +648,20 @@ impl Config {
         v.modify(ib.SD10G65_IB_CFG6(), |r| {
             r.set_ib_sam_offs_adj(31);
         })?;
+
+        // In the SDK, these three blocks are gated by "is_2pt_cal[0] == 0"
+        v.modify(ib.SD10G65_IB_CFG8(), |r| {
+            r.set_ib_inv_thr_cal_val(0);
+        })?;
+        v.modify(apc.APC_IS_CAL_CFG0(), |r| {
+            r.set_cpmd_thres_init(31);
+            r.set_vsc_thres_init(31);
+            r.set_skip_threshold_cal(1);
+        })?;
+        v.modify(apc.APC_IS_CAL_CFG1(), |r| {
+            r.set_cal_vsc_offset_tgt(1);
+        })?;
+
         v.modify(ib.SD10G65_IB_CFG0(), |r| {
             r.set_ib_dfe_ena(0);
         })?;
@@ -666,6 +702,11 @@ impl Config {
 
         v.modify(ib.SD10G65_IB_CFG0(), |r| {
             r.set_ib_dfe_ena(1);
+        })?;
+
+        v.modify(apc.APC_COMMON_CFG0(), |r| {
+            r.set_skip_cal(1);
+            r.set_apc_mode(2); // "Perform calibrarion and run FSM1"
         })?;
 
         Ok(())
