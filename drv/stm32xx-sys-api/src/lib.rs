@@ -171,8 +171,8 @@ impl Sys {
     /// Configures a subset of pins in a GPIO port.
     ///
     /// This is the raw operation, which can be useful if you're doing something
-    /// unusual, but see `configure_output`, `configure_input`, and
-    /// `configure_alternate` for the common cases.
+    /// unusual, but see `gpio_configure_output`, `gpio_configure_input`, and
+    /// `gpio_configure_alternate` for the common cases.
     pub fn gpio_configure(
         &self,
         port: Port,
