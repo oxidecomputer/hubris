@@ -112,7 +112,7 @@ struct DeviceDescriptorConfig {
     mux: String,
     #[serde(default)]
     clock_divider: ClockDivider,
-    cs: GpioPinConfig,
+    cs: Vec<GpioPinConfig>,
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
@@ -201,7 +201,7 @@ impl ToTokens for SpiConfig {
             quote::quote! {
                 DeviceDescriptor {
                     mux_index: #mux_index,
-                    cs: #cs,
+                    cs: &[ #(#cs),* ],
                     // `spi1` here is _not_ a typo/oversight, the PAC calls all
                     // SPI types spi1.
                     clock_divider: device::spi1::cfg1::MBR_A::#div,
@@ -347,7 +347,10 @@ fn check_spi_config(
             )
             .into());
         }
-        check_gpiopin(&dev.cs)?;
+
+        for pin in &dev.cs {
+            check_gpiopin(pin)?;
+        }
     }
 
     Ok(())
