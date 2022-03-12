@@ -494,7 +494,7 @@ static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimlet-1")] {
+    if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
         const SEQ_SPI_DEVICE: u8 = 0;
         const ICE40_SPI_DEVICE: u8 = 1;
 
@@ -512,15 +512,19 @@ cfg_if::cfg_if! {
             1 << 6,
         ));
 
-        // gimlet-1 needs to have a pin flipped to mux the iCE40 SPI flash out
+        // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
         // of circuit to be able to program the FPGA, because we accidentally
         // share a CS net between Flash and the iCE40.
         //
         // (port, mask, high_flag)
+        #[cfg(target_board = "gimlet-a")]
         const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = Some(&[
             // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
             (sys_api::Port::I, 1 << 8, false),
         ]);
+
+        #[cfg(target_board = "gimlet-b")]
+        const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = None;
 
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;

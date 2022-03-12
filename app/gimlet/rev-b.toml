@@ -1,6 +1,6 @@
 name = "gimlet"
 target = "thumbv7em-none-eabihf"
-board = "gimlet-1"
+board = "gimlet-b"
 chip = "../../chips/stm32h7.toml"
 stacksize = 896
 
@@ -275,60 +275,73 @@ name = "rear"
 description = "Rear bus"
 pins = [ { pins = [ 14, 15 ], af = 4 } ]
 
-#
-# Note that the north and south temperature boards are inverted with respect
-# to one another; see Gimlet issue #1302 for details
-#
 [[config.i2c.devices]]
 bus = "front"
 address = 0x48
 device = "tmp117"
 name = "Southwest"
-description = "Front temperature sensor (zone 1)"
+description = "Southwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J194"
 
 [[config.i2c.devices]]
 bus = "front"
 address = 0x49
 device = "tmp117"
 name = "South"
-description = "Front temperature sensor (zone 2)"
+description = "South temperature sensor"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J195"
 
 [[config.i2c.devices]]
 bus = "front"
 address = 0x4a
 device = "tmp117"
 name = "Southeast"
-description = "Front temperature sensor (zone 3)"
+description = "Southeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J196"
 
 [[config.i2c.devices]]
 bus = "front"
 address = 0x70
 device = "pca9545"
 description = "U.2 ABCD mux"
+refdes = "U336"
 
 [[config.i2c.devices]]
 bus = "front"
 address = 0x71
 device = "pca9545"
 description = "U.2 EFGH mux"
+refdes = "U339"
 
 [[config.i2c.devices]]
 bus = "front"
 address = 0x72
 device = "pca9545"
-description = "U.2 IJ mux"
+description = "U.2 IJ/FRUID mux"
+refdes = "U337"
 
 [[config.i2c.devices]]
 bus = "m2"
 address = 0x73
 device = "pca9545"
 description = "M.2 mux"
+refdes = "U422"
+
+[[config.i2c.devices]]
+bus = "m2"
+mux = 1
+segment = 4
+address = 0x4c
+device = "tmp451"
+sensors = { temperature = 1 }
+description = "T6 temperature sensor"
+refdes = "U491"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -341,16 +354,16 @@ refdes = "U522"
 
 [[config.i2c.devices]]
 bus = "mid"
-address = 0x27
+address = 0x25
 device = "tps546b24a"
-description = "A2 1.8V rail"
-pmbus = { rails = [ "V1P8_SP3" ] }
+description = "A0 3.3V rail"
+pmbus = { rails = [ "V3P3_SYS_A0" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
-refdes = "U523"
+refdes = "U560"
 
 [[config.i2c.devices]]
 bus = "mid"
-address = 0x29
+address = 0x27
 device = "tps546b24a"
 description = "A2 5V rail"
 pmbus = { rails = [ "V5_SYS_A2" ] }
@@ -359,9 +372,19 @@ refdes = "U524"
 
 [[config.i2c.devices]]
 bus = "mid"
+address = 0x29
+device = "tps546b24a"
+description = "A2 1.8V rail"
+pmbus = { rails = [ "V1P8_SYS_A2" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U561"
+
+[[config.i2c.devices]]
+bus = "mid"
 address = 0x3a
 device = "max5970"
 description = "M.2 hot plug controller"
+refdes = "U275"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -376,6 +399,7 @@ bus = "mid"
 address = 0x58
 device = "idt8a34003"
 description = "Clock generator"
+refdes = "U446"
 
 [[config.i2c.devices]]
 bus = "mid"
@@ -399,19 +423,10 @@ refdes = "U351"
 bus = "mid"
 address = 0x5c
 device = "isl68224"
-description = "DIMM ABCD power controller"
-pmbus = { rails = [ "VPP_ABCD", "V3P3_SYS", "" ] }
-sensors = { voltage = 2, current = 2 }
+description = "DIMM/SP3 1.8V A0 power controller"
+pmbus = { rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ] }
+sensors = { voltage = 3, current = 3 }
 refdes = "U352"
-
-[[config.i2c.devices]]
-bus = "mid"
-address = 0x5d
-device = "isl68224"
-description = "DIMM EFGH power controller"
-pmbus = { rails = [ "VPP_EFGH", "", "" ] }
-sensors = { voltage = 1, current = 1 }
-refdes = "U418"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -437,48 +452,46 @@ address = 0x20
 device = "max31790"
 description = "Fan controller"
 sensors = { speed = 6 }
+refdes = "U321"
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x25
+device = "tps546b24a"
+description = "T6 power controller"
+pmbus = { rails = [ "V0P96_NIC_VDD_A0HP" ] }
+sensors = { temperature = 1, voltage = 1, current = 1 }
+refdes = "U565"
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x48
 device = "tmp117"
 name = "Northeast"
-description = "Rear temperature sensor (zone 1)"
+description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J197"
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x49
 device = "tmp117"
 name = "North"
-description = "Rear temperature sensor (zone 2)"
+description = "North temperature sensor"
 sensors = { temperature = 1 }
 removable = true
+refdes = "J198"
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x4a
 device = "tmp117"
 name = "Northwest"
-description = "Rear temperature sensor (zone 3)"
+description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 removable = true
-
-[[config.i2c.devices]]
-bus = "rear"
-address = 0x4c
-device = "tmp451"
-sensors = { temperature = 1 }
-description = "T6 temperature sensor"
-
-[[config.i2c.devices]]
-bus = "rear"
-address = 0x5f
-device = "isl68224"
-description = "T6 power controller"
-pmbus = { rails = [ "V0P96_NIC_VDD", "V1P8_NIC_A0HP" ] }
-refdes = "U357"
+refdes = "J199"
 
 [[config.i2c.devices]]
 bus = "rear"
@@ -489,7 +502,6 @@ description = "Intermediate bus converter"
 pmbus = { rails = [ "V12_SYS_A2" ] }
 sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
 refdes = "U431"
-
 
 [config.spi.spi2]
 controller = 2
@@ -507,40 +519,21 @@ outputs = [
 input = {port = "B", pin = 15, af = 5}
 swap_data = true
 
-#
-# ATTENTION REWORKED CS
-#
-# On a very small number of EVT1 Gimlets, one of the pins used for chip
-# select was found to be damaged and needed to be reworked to be a different
-# pin.  If you find yourself on one of these Gimlets, the borked CS pin
-# (port A, pin 0) is connected to nothing and the sequencer won't correctly
-# program -- and the sequencer task will explicitly panic with a message
-# directing the user here.  To fix this, you will need to comment out the
-# lines below marked "Uncomment the below line" -- and it should go without
-# saying that this change should NOT be checked back in!
-#
 [config.spi.spi2.devices.sequencer]
 mux = "port_b"
-cs = {port = "A", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = {port = "B", pin = 5}
 
 [config.spi.spi2.devices.ice40]
 mux = "port_b"
-cs = {port = "A", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = {port = "B", pin = 5}
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "A", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = {port = "I", pin = 0}
 
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
 cs = {port = "B", pin = 12}
-
 
 [config.spi.spi4]
 controller = 4
