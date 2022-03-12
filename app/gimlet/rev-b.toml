@@ -336,7 +336,7 @@ refdes = "U422"
 [[config.i2c.devices]]
 bus = "m2"
 mux = 1
-segment = 3
+segment = 4
 address = 0x4c
 device = "tmp451"
 sensors = { temperature = 1 }
@@ -423,7 +423,7 @@ refdes = "U351"
 bus = "mid"
 address = 0x5c
 device = "isl68224"
-description = "DIMM/SP3 1.8V power controller"
+description = "DIMM/SP3 1.8V A0 power controller"
 pmbus = { rails = [ "VPP_ABCD", "VPP_EFGH", "V1P8_SP3" ] }
 sensors = { voltage = 3, current = 3 }
 refdes = "U352"
