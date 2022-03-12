@@ -14,7 +14,6 @@ use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
-use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
@@ -48,10 +47,7 @@ enum Trace {
     Done,
     GetState,
     SetState(PowerState, PowerState),
-    LoadClockConfig,
-    ClockConfigWrite(usize),
     ClockConfigSuccess(usize),
-    ClockConfigFailed(usize, ResponseCode),
     None,
 }
 
@@ -267,13 +263,7 @@ fn main() -> ! {
                     laps += 1;
 
                     if laps >= 3 {
-                        panic!(
-                            "could not reprogram FPGA after {} \
-                            attempts; if CS has been reworked, \
-                            look for \
-                            \"ATTENTION REWORKED CS\" in app.toml",
-                            laps
-                        );
+                        panic!();
                     }
                 }
             }
@@ -307,12 +297,36 @@ fn main() -> ! {
         hl::sleep_for(1);
     }
 
+    //
+    // If our clock generator is configured to load from external EEPROM,
+    // we need to wait for up to 150 ms here (!).
+    //
+    hl::sleep_for(150);
+
+    //
+    // And now load our clock configuration
+    //
+    let mut packet = 0;
+    let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+
+    payload::idt8a3xxxx_payload(|buf| {
+        match clockgen.write(buf) {
+            Err(err) => {
+                Err(err)
+            }
+            Ok(_) => {
+                packet += 1;
+                Ok(())
+            }
+        }
+    }).unwrap();
+
+    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
     ringbuf_entry!(Trace::A2);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
-        clockgen: i2c_config::devices::idt8a34003(I2C.get_task_id())[0],
         seq,
     };
 
@@ -324,7 +338,6 @@ fn main() -> ! {
 
 struct ServerImpl {
     state: PowerState,
-    clockgen: I2cDevice,
     seq: seq_spi::SequencerFpga,
 }
 
@@ -437,33 +450,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         self.seq
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
             .unwrap();
-        Ok(())
-    }
-
-    fn load_clock_config(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::LoadClockConfig);
-
-        let mut packet = 0;
-
-        payload::idt8a3xxxx_payload(|buf| {
-            ringbuf_entry!(Trace::ClockConfigWrite(packet));
-            match self.clockgen.write(buf) {
-                Err(err) => {
-                    ringbuf_entry!(Trace::ClockConfigFailed(packet, err));
-                    Err(SeqError::ClockConfigFailed)
-                }
-
-                Ok(_) => {
-                    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
-                    packet += 1;
-                    Ok(())
-                }
-            }
-        })?;
-
         Ok(())
     }
 }
