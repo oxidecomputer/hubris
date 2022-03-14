@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::{CurrentSensor, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::isl68224::*;
 use pmbus::*;
@@ -25,6 +26,16 @@ pub enum Error {
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
     InvalidData { err: pmbus::Error },
+}
+
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::BadRead { code, .. } => code,
+            Error::BadWrite { code, .. } => code,
+            _ => panic!(),
+        }
+    }
 }
 
 impl From<pmbus::Error> for Error {
@@ -71,14 +82,18 @@ impl Isl68224 {
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
     }
+}
 
-    pub fn read_vout(&mut self) -> Result<Volts, Error> {
+impl VoltageSensor<Error> for Isl68224 {
+    fn read_vout(&mut self) -> Result<Volts, Error> {
         self.set_rail()?;
         let vout = pmbus_read!(self.device, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
+}
 
-    pub fn read_iout(&mut self) -> Result<Amperes, Error> {
+impl CurrentSensor<Error> for Isl68224 {
+    fn read_iout(&mut self) -> Result<Amperes, Error> {
         self.set_rail()?;
         let iout = pmbus_read!(self.device, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))

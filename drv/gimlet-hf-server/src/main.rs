@@ -48,7 +48,7 @@ fn main() -> ! {
     let qspi = Qspi::new(reg, QSPI_IRQ);
     // Board specific goo
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "gimlet-1")] {
+        if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
             let clock = 5; // 200MHz kernel / 5 = 40MHz clock
             qspi.configure(
                 clock,

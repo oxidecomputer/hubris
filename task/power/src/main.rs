@@ -13,6 +13,7 @@
 use drv_gimlet_seq_api as seq_api;
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
+use drv_i2c_devices::isl68224::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
 use task_sensor_api as sensor_api;
@@ -37,6 +38,7 @@ enum Device {
     IBC(Bmr491),
     Core(Raa229618),
     Mem(Raa229618),
+    MemVpp(Isl68224),
     Sys(Tps546b24a),
     HotSwap(Adm1272),
     Fan(Adm1272),
@@ -100,6 +102,7 @@ impl PowerController {
         match &mut self.device {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
+            Device::MemVpp(_) => panic!(),
             Device::Sys(dev) => read_temperature(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
         }
@@ -109,6 +112,7 @@ impl PowerController {
         match &mut self.device {
             Device::IBC(dev) => read_current(dev),
             Device::Core(dev) | Device::Mem(dev) => read_current(dev),
+            Device::MemVpp(dev) => read_current(dev),
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
         }
@@ -118,6 +122,7 @@ impl PowerController {
         match &mut self.device {
             Device::IBC(dev) => read_voltage(dev),
             Device::Core(dev) | Device::Mem(dev) => read_voltage(dev),
+            Device::MemVpp(dev) => read_voltage(dev),
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
         }
@@ -143,6 +148,23 @@ macro_rules! rail_controller {
     };
 }
 
+macro_rules! rail_controller_notemp {
+    ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
+        paste::paste! {
+            PowerController {
+                state: seq_api::PowerState::$state,
+                device: Device::$which({
+                    let (device, rail) = i2c_config::pmbus::$rail($task);
+                    [<$dev:camel>]::new(&device, rail)
+                }),
+                voltage: sensors::[<$dev:upper _ $rail:upper _VOLTAGE_SENSOR>],
+                current: sensors::[<$dev:upper _ $rail:upper _CURRENT_SENSOR>],
+                temperature: None,
+            }
+        }
+    };
+}
+
 macro_rules! adm1272_controller {
     ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
@@ -162,7 +184,8 @@ macro_rules! adm1272_controller {
     };
 }
 
-fn controllers() -> [PowerController; 10] {
+#[cfg(target_board = "gimlet-a")]
+fn controllers() -> [PowerController; 13] {
     let task = I2C.get_task_id();
 
     [
@@ -171,9 +194,35 @@ fn controllers() -> [PowerController; 10] {
         rail_controller!(task, Core, raa229618, vddcr_soc, A0),
         rail_controller!(task, Mem, raa229618, vdd_mem_abcd, A0),
         rail_controller!(task, Mem, raa229618, vdd_mem_efgh, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, vpp_abcd, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, vpp_efgh, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, v3p3_sys, A0),
         rail_controller!(task, Sys, tps546b24a, v3p3_sp_a2, A2),
         rail_controller!(task, Sys, tps546b24a, v1p8_sp3, A0),
         rail_controller!(task, Sys, tps546b24a, v5_sys_a2, A2),
+        adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
+    ]
+}
+
+#[cfg(target_board = "gimlet-b")]
+fn controllers() -> [PowerController; 15] {
+    let task = I2C.get_task_id();
+
+    [
+        rail_controller!(task, IBC, bmr491, v12_sys_a2, A2),
+        rail_controller!(task, Core, raa229618, vdd_vcore, A0),
+        rail_controller!(task, Core, raa229618, vddcr_soc, A0),
+        rail_controller!(task, Mem, raa229618, vdd_mem_abcd, A0),
+        rail_controller!(task, Mem, raa229618, vdd_mem_efgh, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, vpp_abcd, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, vpp_efgh, A0),
+        rail_controller_notemp!(task, MemVpp, isl68224, v1p8_sp3, A0),
+        rail_controller!(task, Sys, tps546b24a, v3p3_sp_a2, A2),
+        rail_controller!(task, Sys, tps546b24a, v3p3_sys_a0, A0),
+        rail_controller!(task, Sys, tps546b24a, v5_sys_a2, A2),
+        rail_controller!(task, Sys, tps546b24a, v1p8_sys_a2, A2),
+        rail_controller!(task, Sys, tps546b24a, v0p96_nic_vdd_a0hp, A0),
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
     ]

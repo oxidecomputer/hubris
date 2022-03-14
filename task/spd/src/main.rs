@@ -209,7 +209,10 @@ fn main() -> ! {
                 (Controller::I2C3, i2c3_c(), None),
                 (Controller::I2C4, i2c4_f(), None),
             ];
-        } else if #[cfg(target_board = "gimlet-1")] {
+        } else if #[cfg(any(
+            target_board = "gimlet-a",
+            target_board = "gimlet-b",
+        ))] {
             //
             // On Gimlet, we have two banks of up to 8 DIMMs apiece:
             //
