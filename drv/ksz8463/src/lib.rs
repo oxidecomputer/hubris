@@ -108,14 +108,15 @@ impl Ksz8463 {
         Ok(())
     }
 
-    pub fn write_masked(
-        &self,
-        r: Register,
-        v: u16,
-        mask: u16,
-    ) -> Result<(), SpiError> {
-        let v = (self.read(r)? & !mask) | (v & mask);
-        self.write(r, v)
+    /// Performs a read-modify-write operation on a PHY register
+    #[inline(always)]
+    pub fn modify<F>(&self, reg: Register, f: F) -> Result<(), SpiError>
+    where
+        F: Fn(&mut u16),
+    {
+        let mut data = self.read(reg)?;
+        f(&mut data);
+        self.write(reg, data)
     }
 
     pub fn enabled(&self) -> Result<bool, SpiError> {
@@ -230,15 +231,15 @@ impl Ksz8463 {
     }
 
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
-    pub fn configure(&self) {
-        let id = self.read(Register::CIDER).unwrap();
+    pub fn configure(&self) -> Result<(), SpiError> {
+        let id = self.read(Register::CIDER)?;
         assert_eq!(id & !1, 0x8452);
         ringbuf_entry!(Trace::Id(id));
 
         // Configure for 100BASE-FX operation
-        self.write_masked(Register::CFGR, 0x0, 0xc0).unwrap();
-        self.write_masked(Register::DSP_CNTRL_6, 0, 0x2000).unwrap();
+        self.modify(Register::CFGR, |r| *r &= !0xc0)?;
+        self.modify(Register::DSP_CNTRL_6, |r| *r &= !0x2000)?;
 
-        self.enable().unwrap();
+        self.enable()
     }
 }

@@ -118,7 +118,7 @@ impl Config {
 
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
-        ksz8463.configure();
+        ksz8463.configure().unwrap();
         ksz8463
     }
 
