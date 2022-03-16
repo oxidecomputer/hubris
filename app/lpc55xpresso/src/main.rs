@@ -207,8 +207,8 @@ fn main() -> ! {
             // FRO_12MHz.  This is true but only before the Boot ROM runs.  Per
             // §10.2.1, the Boot ROM will read the CMPA to determine what speed
             // to run the cores at with options for 48MHz, 96MHz, and
-            // NMPA.SYSTEM_SPEED_CODE.  Assume the latter which is 96MHz FRO.
-            const CYCLES_PER_MS: u32 = 96_000;
+            // NMPA.SYSTEM_SPEED_CODE.  Assume the latter which is 48MHz FRO.
+            const CYCLES_PER_MS: u32 = 48_000;
         }
     }
 
