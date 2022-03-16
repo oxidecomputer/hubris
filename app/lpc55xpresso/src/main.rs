@@ -202,6 +202,12 @@ fn main() -> ! {
 
             const CYCLES_PER_MS: u32 = 150_000;
         } else {
+            // Confusingly, UM11126 lists the reset values of the clock
+            // configuration registers as setting MAINCLKA = MAINCLKB =
+            // FRO_12MHz.  This is true but only before the Boot ROM runs.  Per
+            // §10.2.1, the Boot ROM will read the CMPA to determine what speed
+            // to run the cores at with options for 48MHz, 96MHz, and
+            // NMPA.SYSTEM_SPEED_CODE.  Assume the latter which is 96MHz FRO.
             const CYCLES_PER_MS: u32 = 96_000;
         }
     }
