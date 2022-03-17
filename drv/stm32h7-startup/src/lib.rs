@@ -144,14 +144,10 @@ pub fn system_init(config: ClockConfig) -> device::Peripherals {
     // Our goal is now to boost the CPU frequency to its final level. This means
     // raising the core supply voltage from VOS3 and adding wait states or
     // reduced divisors to a bunch of things, and then finally making the actual
-    // change. (The target state is VOS1 on the H743/53, and VOS0 on H7B3.)
+    // change. (The target state is VOS1 on the H743/53.)
 
     // We're allowed to hop directly from VOS3 to the target state; the manual
     // doesn't say this explicitly but the ST drivers do it.
-    //
-    // We want to set the same bits on both SoCs despite the naming differences.
-    // On the H7B3, the register we're calling "D3CR" here is called "SRDCR" in
-    // certain editions of the manual.
     p.PWR.d3cr.write(|w| unsafe { w.vos().bits(0b11) });
     // Busy-wait for the voltage to reach the right level.
     while !p.PWR.d3cr.read().vosrdy().bit() {

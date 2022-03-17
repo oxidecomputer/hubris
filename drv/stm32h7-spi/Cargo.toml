@@ -13,4 +13,3 @@ stm32h7 = { version = "0.13.0", default-features = false }
 [features]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
-h7b3 = ["stm32h7/stm32h7b3"]
