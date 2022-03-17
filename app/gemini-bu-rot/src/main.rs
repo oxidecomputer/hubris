@@ -16,8 +16,18 @@ extern crate panic_itm; // breakpoint on `rust_begin_unwind` to catch panics
 #[cfg(feature = "panic-semihosting")]
 extern crate panic_semihosting; // requires a debugger
 
+use abi::ImageHeader;
+use core::mem::MaybeUninit;
 use cortex_m_rt::entry;
 use lpc55_pac as device;
+
+// This is updated by build scripts (which is why this is marked as no_mangle)
+// Although we don't access any fields of the header from hubris right now, it
+// is safer to treat this as MaybeUninit in case we need to do so in the future.
+#[used]
+#[no_mangle]
+#[link_section = ".image_header"]
+static HEADER: MaybeUninit<ImageHeader> = MaybeUninit::uninit();
 
 #[cfg(feature = "plls")]
 fn setup_clocks() {

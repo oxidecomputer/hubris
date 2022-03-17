@@ -103,7 +103,7 @@ pub struct FfrKeyStore {
     prince2_key_code: [u32; 13],
 }
 
-const FLASH_PAGE_SIZE: usize = 512;
+pub const FLASH_PAGE_SIZE: usize = 512;
 
 const ACTIVATION_CODE_SIZE: usize = 1192;
 
