@@ -71,6 +71,7 @@ pub struct Config {
     pub ksz8463_spi: SpiDevice,
     pub ksz8463_nrst: sys_api::PinSet,
     pub ksz8463_rst_type: Ksz8463ResetSpeed,
+    pub ksz8463_vlan_mode: ksz8463::VLanMode,
 
     pub vsc85x2_coma_mode: Option<sys_api::PinSet>,
     pub vsc85x2_nrst: sys_api::PinSet,
@@ -118,7 +119,7 @@ impl Config {
 
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
-        ksz8463.configure().unwrap();
+        ksz8463.configure(self.ksz8463_vlan_mode).unwrap();
         ksz8463
     }
 

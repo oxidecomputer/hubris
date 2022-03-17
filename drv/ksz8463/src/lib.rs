@@ -5,6 +5,7 @@
 
 use drv_spi_api::{SpiDevice, SpiError};
 use ringbuf::*;
+use userlib::hl::sleep_for;
 
 mod registers;
 pub use registers::{MIBCounter, Register};
@@ -230,16 +231,174 @@ impl Ksz8463 {
         })
     }
 
+    /// Configures an entry in the VLAN table.  There are various constraints
+    /// on incoming values:
+    /// ```
+    ///     table_entry <= 15
+    ///     port_mask <= 0b111
+    ///     vlan_id <= 4096
+    /// ```
+    ///
+    /// We assume that `table_entry` is the same as the desired FID.
+    ///
+    /// The function will panic if these constraints are not met.
+    fn write_vlan_table(
+        &self,
+        table_entry: u8,
+        port_mask: u8,
+        vlan_id: u16,
+    ) -> Result<(), SpiError> {
+        assert!(table_entry <= 15);
+        assert!(port_mask <= 0b111);
+        assert!(vlan_id <= 4096);
+
+        let cmd = vlan_id as u32
+            | (u32::from(true) << 19) // valid
+            | (u32::from(port_mask) << 16) // ports
+            | (u32::from(table_entry) << 12); // FID
+        self.write(Register::IADR5, (cmd >> 16) as u16)?;
+        self.write(Register::IADR4, cmd as u16)?;
+        self.write(Register::IACR, 0x400 | u16::from(table_entry))
+    }
+
+    /// Disables an entry in the VLAN table.  This is particularly important
+    /// to disable VLAN 1, which otherwise is allowed on all ports.
+    fn disable_vlan(&self, table_entry: u8) -> Result<(), SpiError> {
+        self.write(Register::IADR5, 0)?;
+        self.write(Register::IADR4, 0)?;
+        self.write(Register::IACR, 0x400 | u16::from(table_entry))
+    }
+
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
-    pub fn configure(&self) -> Result<(), SpiError> {
+    pub fn configure(&self, vlan_mode: VLanMode) -> Result<(), SpiError> {
         let id = self.read(Register::CIDER)?;
         assert_eq!(id & !1, 0x8452);
         ringbuf_entry!(Trace::Id(id));
+
+        // Do a full software reset of the chip to put registers into
+        // a known state.
+        self.write(Register::GRR, 1)?;
+        sleep_for(10);
+        self.write(Register::GRR, 0)?;
 
         // Configure for 100BASE-FX operation
         self.modify(Register::CFGR, |r| *r &= !0xc0)?;
         self.modify(Register::DSP_CNTRL_6, |r| *r &= !0x2000)?;
 
+        match vlan_mode {
+            // In `VLanMode::Optional`, we allow tags on the upstream ports,
+            // but strip them before frames are delivered downstream.  This
+            // lets us test the VLAN before the SP netstack supports tags.
+            VLanMode::Optional => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x301, and contains ports 1 and 3
+                // - VLAN 1 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 2 has tag 0x3FF, and contains all ports
+                //
+                // This uses slots 0-2 in the table, and FID 0-2 (same as slot),
+                // then disables the remaining slots in the VLAN table.
+                self.write_vlan_table(0, 0b101, 0x301)?;
+                self.write_vlan_table(1, 0b110, 0x302)?;
+                self.write_vlan_table(2, 0b111, 0x3FF)?;
+                for i in 3..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Assign default VLAN tags to each port
+                self.write(Register::P1VIDCR, 0x301)?;
+                self.write(Register::P2VIDCR, 0x302)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable ingress VLAN filtering on upstream ports
+                for i in [1, 2] {
+                    self.modify(Register::PxCR2(i), |r| *r |= 1 << 14)?;
+                }
+
+                // Enable tag removal on the downstream port
+                self.modify(Register::P3CR1, |r| *r |= 1 << 1)?;
+            }
+            // In `VLanMode::Mandatory`, we expect untagged frames on Port 1/2
+            // and tagged frames on Port 3. Untagged frames arriving on Port 3
+            // are assigned to VLAN 0x3FF, which drops them.
+            VLanMode::Mandatory => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x301, and contains ports 1 and 3
+                // - VLAN 1 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 2 has tag 0x3FF, and contains no ports
+                //
+                // This uses slots 0-2 in the table, and FID 0-2 (same as
+                // slot); all other VLANs are disabled (in particular, VLAN
+                // with VID 1, which by default includes all ports).
+                self.write_vlan_table(0, 0b101, 0x301)?;
+                self.write_vlan_table(1, 0b110, 0x302)?;
+                self.write_vlan_table(2, 0b000, 0x3FF)?;
+                for i in 3..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Assign default VLAN tags to each port
+                self.write(Register::P1VIDCR, 0x301)?;
+                self.write(Register::P2VIDCR, 0x302)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable tag removal on both ports
+                for i in [1, 2] {
+                    // For upstream ports, drop tagged ingress packets and
+                    // remove tags on packet egress.  This is because there
+                    // should be no VLAN tags between the VSC7448 on the
+                    // Sidecar and the KSZ8463 on the connected board.
+                    self.modify(Register::PxCR1(i), |r| {
+                        *r |= 1 << 9; // Drop tagged ingress packets
+                        *r |= 1 << 1; // Remove tags on egress
+                    })?;
+                }
+                // Insert tags before egress on Port 3
+                self.modify(Register::P3CR1, |r| *r |= 1 << 2)?;
+
+                // There's a secret bonus register which _actually_ enables
+                // PVID tagging, despite not being mentioned in the VLAN
+                // tagging section of the datasheet.  We enable tagging when
+                // frames come from Ports 1 and 2 and go to Port 3.
+                self.write(Register::SGCR9, (1 << 3) | (1 << 1))?;
+
+                // Enable ingress VLAN filtering on Port 3.  This will cause it
+                // to drop packets that have a tag other than 0x301/0x302 (and
+                // untagged frames will be assigned 0x3FF then unceremoniously
+                // dropped).
+                self.modify(Register::P3CR2, |r| *r |= 1 << 14)?;
+            }
+
+            VLanMode::Off => (),
+        }
+
+        // Enable 802.1Q VLAN mode.  This must happen after the VLAN tables
+        // are configured.
+        match vlan_mode {
+            VLanMode::Optional | VLanMode::Mandatory => {
+                self.modify(Register::SGCR2, |r| {
+                    *r |= 1 << 15;
+                })?
+            }
+            VLanMode::Off => (),
+        }
+
         self.enable()
     }
+}
+
+pub enum VLanMode {
+    /// Configure VLAN tags 0x301 and 0x302 for (upstream) ports 1 and 2
+    /// respectively.  Allow untagged frames on any port, but drop tagged
+    /// frames with an _incorrect_ tag.  Do not use any VLAN tags on port 3
+    /// (the downstream port to the SP).
+    Optional,
+
+    /// Require VLAN tags on port 3.  Frames tagged with 0x301/0x302 are sent
+    /// to ports 1 and 2 respectively; the tag is stripped before egress.
+    ///
+    /// Reject tagged frames on ingress into ports 1 and 2.
+    Mandatory,
+
+    /// Don't do any configuration of the VLANs.
+    Off,
 }

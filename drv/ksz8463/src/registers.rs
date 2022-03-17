@@ -1083,6 +1083,10 @@ impl Register {
         Self::select(i, Self::P1MBCR, Self::P2MBCR)
     }
     #[inline(always)]
+    pub fn PxCR1(i: u8) -> Self {
+        Self::select(i, Self::P1CR1, Self::P2CR1)
+    }
+    #[inline(always)]
     pub fn PxCR2(i: u8) -> Self {
         Self::select(i, Self::P1CR2, Self::P2CR2)
     }
