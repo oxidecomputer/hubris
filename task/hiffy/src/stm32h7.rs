@@ -101,9 +101,9 @@ pub enum Functions {
         drv_stm32xx_sys_api::GpioError,
     ),
     #[cfg(feature = "spi")]
-    SpiRead((Task, usize, usize), drv_spi_api::SpiError),
+    SpiRead((Task, u8, usize, usize), drv_spi_api::SpiError),
     #[cfg(feature = "spi")]
-    SpiWrite((Task, usize), drv_spi_api::SpiError),
+    SpiWrite((Task, u8, usize), drv_spi_api::SpiError),
     #[cfg(feature = "qspi")]
     QspiReadId((), drv_gimlet_hf_api::HfError),
     #[cfg(feature = "qspi")]
