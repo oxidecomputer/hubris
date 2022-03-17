@@ -150,7 +150,6 @@ custom build commands.
   - `cargo xtask dist app/demo-stm32g0-nucleo/app-g0b1.toml` - stm32g0b1
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
   - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
-  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h7b3.toml` - stm32h7b3i-dk
   - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
 - `cargo xtask build TOMLFILE TASKNAME` compiles one task of an application in
   isolation, the same way it would be built with `dist`. This is useful for
@@ -380,11 +379,6 @@ remove the jumper on J5 and move J3 to "Loc".)
 - Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
 - Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h753.toml app/demo-stm32h7-nucleo/openocd.gdb`
 
-### ST STM32H7B3I-DK board
-
-- Terminal 1: `cd app/demo-stm32h7-nucleo; openocd`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h7b3.toml app/demo-stm32h7-nucleo/openocd.gdb`
-
 ### Multiple boards simultaneously
 
 If multiple probes are attached, tools may struggle to find the right one at
@@ -435,7 +429,6 @@ depends on the board:
 - STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h743.toml`
 - ST Nucleo-H753ZI board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h753.toml`
-- ST STM32H7B3I-DK board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h7b3.toml`
 - Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
 
 ## Debug
@@ -476,7 +469,6 @@ and `cargo xtask humility test`.  The exact invocation depends on the board:
 - STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
 - ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
 - ST Nucleo-H753ZI board: `cargo xtask test test/tests-stm32h7/app-h753.toml`
-- ST STM32H7B3I-DK board: `cargo xtask test test/tests-stm32h7/app-h7b3.toml`
 
 Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
 You must exit any other instances of OpenOCD that you have connected to the device
