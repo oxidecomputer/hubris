@@ -13,6 +13,12 @@ pub enum LedError {
     NotPresent = 1,
 }
 
+impl From<LedError> for u16 {
+    fn from(rc: LedError) -> Self {
+        rc as u16
+    }
+}
+
 impl From<u32> for LedError {
     fn from(x: u32) -> Self {
         match x {
