@@ -603,7 +603,6 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "drv-hash-api",
  "idol",
  "num-traits",
@@ -634,7 +633,6 @@ dependencies = [
 name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -673,7 +671,6 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -838,7 +835,6 @@ dependencies = [
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -871,7 +867,6 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -1104,6 +1099,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "idol",
  "idol-runtime",
  "lpc55-pac",
@@ -1118,7 +1114,6 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -2789,7 +2784,6 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "drv-i2c-api",
  "idol",
  "num-traits",
@@ -2850,7 +2844,6 @@ dependencies = [
 name = "task-thermal-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
