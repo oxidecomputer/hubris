@@ -8,7 +8,7 @@
 
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug)]
 pub enum LedError {
     NotPresent = 1,
 }
