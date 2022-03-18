@@ -33,5 +33,19 @@ Interface(
             ),
             idempotent: true,
         ),
+        "led_set_state": (
+            args: {
+                "index": "usize",
+                "state": {
+                  type: "LedState",
+                  recv: FromPrimitive("u8"),
+                }
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("LedError"),
+            ),
+            idempotent: true,
+        ),
     },
 )

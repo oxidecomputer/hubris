@@ -22,4 +22,25 @@ impl From<u32> for LedError {
     }
 }
 
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, zerocopy::AsBytes, FromPrimitive,
+)]
+#[repr(u8)]
+pub enum LedState {
+    Off = 0,
+    On = 1,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
+
+impl UserLeds {
+    pub fn led_set(&self, index: usize, state: bool) -> Result<(), LedError> {
+        self.led_set_state(
+            index,
+            match state {
+                true => LedState::On,
+                false => LedState::Off,
+            },
+        )
+    }
+}
