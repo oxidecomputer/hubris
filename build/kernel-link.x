@@ -3,9 +3,8 @@
 INCLUDE memory.x
 
 /* # Entry point = reset vector */
-EXTERN(__RESET_VECTOR);
-EXTERN(Reset);
 ENTRY(Reset);
+EXTERN(__RESET_VECTOR); /* depends on the `Reset` symbol */
 
 /* # Exception vectors */
 /* This is effectively weak aliasing at the linker level */
@@ -41,7 +40,7 @@ PROVIDE(__pre_init = DefaultPreInit);
 SECTIONS
 {
   PROVIDE(_stack_start = ORIGIN(RAM) + LENGTH(RAM));
- 
+
   /* ## Sections in FLASH */
   /* ### Vector table */
   .vector_table ORIGIN(FLASH) :
@@ -70,12 +69,21 @@ SECTIONS
 	KEEP(*(.image_header));
   } > FLASH
 
+  /* Explicitly place text at vector table + size of header, deliberately ignoring
+     section alignment. This is important because the bootloader assumes that the header
+     immediately follows the vector table; if something changes to cause that to not
+     be true, this expression will cause the text and header sections to overlap, causing
+     a difficult to understand linker failure, which will hopefully be somewhat improved
+     by this comment.
+  */
   PROVIDE(_stext = ADDR(.vector_table) + SIZEOF(.vector_table) + SIZEOF(.header));
 
   /* ### .text */
   .text _stext :
   {
     __stext = .;
+    /* place these 2 close to each other or the `b` instruction will fail to link */
+    *(.PreResetTrampoline);
     *(.Reset);
 
     *(.text .text.*);
@@ -84,15 +92,13 @@ SECTIONS
        so must be placed close to it. */
     *(.HardFaultTrampoline);
     *(.HardFault.*);
-
-    . = ALIGN(4); /* Pad .text to the alignment to workaround overlapping load section bug in old lld */
+    . = ALIGN(4);
     __etext = .;
   } > FLASH
 
   /* ### .rodata */
-  .rodata : ALIGN(4)
+  .rodata __etext : ALIGN(4)
   {
-    . = ALIGN(4);
     __srodata = .;
     *(.rodata .rodata.*);
 
