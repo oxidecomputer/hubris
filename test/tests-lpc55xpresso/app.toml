@@ -94,7 +94,7 @@ features = ["itm"]
 path = "../test-idol-server"
 name = "test-idol-server"
 priority = 1
-requires = {flash = 512, ram = 256}
+requires = {flash = 1024, ram = 256}
 stacksize = 256
 start = true
 
