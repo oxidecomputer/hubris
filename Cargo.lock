@@ -2940,6 +2940,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-idol-api"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "test-idol-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "test-idol-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
@@ -2965,6 +2988,7 @@ dependencies = [
  "hubris-num-tasks",
  "num-traits",
  "test-api",
+ "test-idol-api",
  "userlib",
  "zerocopy",
 ]

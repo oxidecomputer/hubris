@@ -1,0 +1,17 @@
+// Simple IDOL test suite
+
+Interface(
+    name: "IdolTest",
+    ops: {
+        "increment": (
+            args: {
+                "i": "usize",
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: false,
+        ),
+    },
+)

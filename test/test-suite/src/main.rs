@@ -11,9 +11,13 @@
 //!
 //! # The assistant
 //!
-//! This test suite uses a second task, the assistant, to test IPC and
-//! interactions. The assistant must be included in the image with the name
-//! `assist`, but its ID is immaterial.
+//! This test suite uses two other tasks to test IPC and interactions.
+//!
+//! The assistant, `test-assit`, tests raw test IPC and interactions.  It must
+//! be included in the image with the name `assist`, but its ID is immaterial.
+//!
+//! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
+//! included in the image with the name `idol`, but its ID is immaterial.
 
 #![no_std]
 #![no_main]
@@ -980,6 +984,9 @@ fn test_post() {
 
 // Identity of our "assistant task" that we require in the image.
 task_slot!(ASSIST, assist);
+// Identity of the Idol server that we require in the image
+task_slot!(IDOL, idol);
+
 // Our own identity
 task_slot!(SUITE, suite);
 task_slot!(RUNNER, runner);
