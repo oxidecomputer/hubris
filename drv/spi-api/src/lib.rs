@@ -6,9 +6,10 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 #[repr(u32)]
 pub enum SpiError {
     /// Transfer size is 0 or exceeds maximum
@@ -28,25 +29,6 @@ pub enum SpiError {
 
     /// Receive FIFO overflow
     DataOverrun = 5,
-}
-
-impl From<SpiError> for u16 {
-    fn from(rc: SpiError) -> Self {
-        rc as u16
-    }
-}
-
-impl From<SpiError> for u32 {
-    fn from(rc: SpiError) -> Self {
-        rc as u32
-    }
-}
-
-impl core::convert::TryFrom<u32> for SpiError {
-    type Error = ();
-    fn try_from(x: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(x).ok_or(())
-    }
 }
 
 #[derive(

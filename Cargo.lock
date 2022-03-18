@@ -580,6 +580,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-idol-err"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +611,7 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "drv-hash-api",
  "idol",
  "num-traits",
@@ -633,6 +642,7 @@ dependencies = [
 name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -671,6 +681,7 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -835,6 +846,7 @@ dependencies = [
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -867,6 +879,7 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -1083,6 +1096,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cfg-if 1.0.0",
+ "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
@@ -1114,6 +1128,7 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -2713,6 +2728,7 @@ name = "task-net-api"
 version = "0.1.0"
 dependencies = [
  "build-net",
+ "derive-idol-err",
  "idol",
  "num-traits",
  "serde",
@@ -2784,6 +2800,7 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "drv-i2c-api",
  "idol",
  "num-traits",
@@ -2844,6 +2861,7 @@ dependencies = [
 name = "task-thermal-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",

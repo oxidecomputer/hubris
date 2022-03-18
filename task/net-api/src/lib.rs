@@ -6,30 +6,15 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum NetError {
     QueueEmpty = 1,
     NotYours = 2,
-}
-
-impl From<u32> for NetError {
-    fn from(x: u32) -> Self {
-        match x {
-            1 => NetError::QueueEmpty,
-            2 => NetError::NotYours,
-            _ => panic!(),
-        }
-    }
-}
-
-impl From<NetError> for u16 {
-    fn from(x: NetError) -> Self {
-        x as u16
-    }
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
