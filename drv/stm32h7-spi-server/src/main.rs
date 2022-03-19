@@ -82,8 +82,7 @@ fn main() -> ! {
     // We leave them in GPIO output mode from this point forward.
     for device in CONFIG.devices {
         for pin in device.cs {
-            sys.gpio_set_reset(pin.port, pin.pin_mask, 0)
-                .unwrap();
+            sys.gpio_set_reset(pin.port, pin.pin_mask, 0).unwrap();
             sys.gpio_configure(
                 pin.port,
                 pin.pin_mask,
@@ -233,9 +232,7 @@ impl InOrderSpiImpl for ServerImpl {
             for pin in device.cs {
                 // Deassert CS. If it wasn't asserted, this is a no-op.
                 // If it was, this fixes that.
-                self.sys
-                    .gpio_set_reset(pin.port, pin.pin_mask, 0)
-                    .unwrap();
+                self.sys.gpio_set_reset(pin.port, pin.pin_mask, 0).unwrap();
             }
 
             self.lock_holder = None;
@@ -360,9 +357,7 @@ impl ServerImpl {
         let cs_override = self.lock_holder.is_some();
         if !cs_override {
             for pin in device.cs {
-                self.sys
-                    .gpio_set_reset(pin.port, 0, pin.pin_mask)
-                    .unwrap();
+                self.sys.gpio_set_reset(pin.port, 0, pin.pin_mask).unwrap();
             }
         }
 
@@ -510,9 +505,7 @@ impl ServerImpl {
         // Deassert (set) CS, if we asserted it in the first place.
         if !cs_override {
             for pin in device.cs {
-                self.sys
-                    .gpio_set_reset(pin.port, pin.pin_mask, 0)
-                    .unwrap();
+                self.sys.gpio_set_reset(pin.port, pin.pin_mask, 0).unwrap();
             }
         }
 

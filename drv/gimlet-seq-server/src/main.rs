@@ -309,17 +309,14 @@ fn main() -> ! {
     let mut packet = 0;
     let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
 
-    payload::idt8a3xxxx_payload(|buf| {
-        match clockgen.write(buf) {
-            Err(err) => {
-                Err(err)
-            }
-            Ok(_) => {
-                packet += 1;
-                Ok(())
-            }
+    payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
+        Err(err) => Err(err),
+        Ok(_) => {
+            packet += 1;
+            Ok(())
         }
-    }).unwrap();
+    })
+    .unwrap();
 
     ringbuf_entry!(Trace::ClockConfigSuccess(packet));
     ringbuf_entry!(Trace::A2);
