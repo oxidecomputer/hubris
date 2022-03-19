@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 atty = "0.2"
-structopt = "0.3.15"
+clap = { version = "3.0.14", features = ["derive"] }
 anyhow = "1.0.32"
 cargo_metadata = "0.12.0"
 ordered-toml = {git = "https://github.com/oxidecomputer/ordered-toml"}
@@ -33,6 +33,7 @@ filetime = "0.2.12"
 scroll = "0.10"
 walkdir = "2.0.0"
 fnv = "1.0.7"
+zerocopy = "0.6.1"
 
 # For NXP signing
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support" }

@@ -21,8 +21,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet-a, gimlet-b, sidecar]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet-a, gimlet-b, sidecar, stm32g0]
         include:
+          - build: stm32g0
+            app_name: demo-stm32g070-nucleo
+            app_toml: app/demo-stm32g0-nucleo/app-g070.toml
+            target: thumbv6m-none-eabi
           - build: stm32f3
             app_name: demo-stm32f3-discovery
             app_toml: app/demo-stm32f4-discovery/app-f3.toml
@@ -104,6 +108,24 @@ jobs:
         with:
           command: xtask
           args: dist ${{ matrix.app_toml}}
+
+      - name: Fetch Humility 
+        uses: dsaltares/fetch-gh-release-asset@master
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          repo: "oxidecomputer/humility"
+          version: "59047694"
+          file: "humility"
+          target: "target/release/humility"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Humility manifest
+        # we need to chmod because all artifacts are marked as non-executable
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
+          sudo chmod +x target/release/humility
+          target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}.zip manifest
 
       # upload the output of our build
       - name: Upload build archive

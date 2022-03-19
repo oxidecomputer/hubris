@@ -3,7 +3,7 @@ target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55.toml"
 stacksize = 1024
-secure = true
+secure-separation = true
 
 [kernel]
 path = "."
@@ -61,6 +61,7 @@ imagea-flash-start = 0x8000
 imagea-flash-size = 0x88000
 imagea-ram-start = 0x20004000
 imagea-ram-size = 0x18000
+features = ["tz_support"]
 
 [tasks.jefe]
 path = "../../task/jefe"

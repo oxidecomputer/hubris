@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
-use structopt::StructOpt;
+use clap::Parser;
 
 use serde::Deserialize;
 
@@ -23,22 +23,19 @@ mod sizes;
 mod task_slot;
 mod test;
 
-#[derive(Debug, StructOpt)]
-#[structopt(
-    max_term_width = 80,
-    about = "extra tasks to help you work on Hubris"
-)]
+#[derive(Debug, Parser)]
+#[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
 enum Xtask {
     /// Builds a collection of cross-compiled binaries at non-overlapping
     /// addresses, and then combines them into a system image with an
     /// application descriptor.
     Dist {
         /// Request verbosity from tools we shell out to.
-        #[structopt(short)]
+        #[clap(short)]
         verbose: bool,
         /// Run `cargo tree --edges features ...` before each invocation of
         /// `cargo rustc ...`
-        #[structopt(short, long)]
+        #[clap(short, long)]
         edges: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
@@ -49,23 +46,23 @@ enum Xtask {
     /// archive. This is useful for iterating on a single task.
     Build {
         /// Request verbosity from tools we shell out to.
-        #[structopt(short)]
+        #[clap(short)]
         verbose: bool,
         /// Run `cargo tree --edges features ...` before each invocation of
         /// `cargo rustc ...`
-        #[structopt(short, long)]
+        #[clap(short, long)]
         edges: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
         /// Name of task(s) to build.
-        #[structopt(min_values = 1)]
+        #[clap(min_values = 1)]
         tasks: Vec<String>,
     },
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
         /// Request verbosity from tools we shell out to.
-        #[structopt(short)]
+        #[clap(short)]
         verbose: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
@@ -74,7 +71,7 @@ enum Xtask {
     /// Runs `xtask dist` and reports the sizes of resulting tasks
     Sizes {
         /// Request verbosity from tools we shell out to.
-        #[structopt(short)]
+        #[clap(short)]
         verbose: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
@@ -104,11 +101,11 @@ enum Xtask {
         cfg: PathBuf,
 
         /// Do not flash a new image; just run `humility test`
-        #[structopt(short)]
+        #[clap(short)]
         noflash: bool,
 
         /// Request verbosity from tools we shell out to.
-        #[structopt(short)]
+        #[clap(short)]
         verbose: bool,
     },
 
@@ -116,16 +113,16 @@ enum Xtask {
     Clippy {
         /// the target to build for, uses [package.metadata.build.target] if not
         /// passed
-        #[structopt(long)]
+        #[clap(long)]
         target: Option<String>,
 
         /// the package you're trying to build, uses current directory if not
         /// passed
-        #[structopt(short)]
+        #[clap(short)]
         package: Option<String>,
 
         /// check all packages, not only one
-        #[structopt(long)]
+        #[clap(long)]
         all: bool,
     },
 
@@ -149,7 +146,7 @@ struct RawConfig {
     chip: Option<String>,
     #[serde(default)]
     signing: IndexMap<String, Signing>,
-    secure: Option<bool>,
+    secure_separation: Option<bool>,
     stacksize: Option<u32>,
     bootloader: Option<Bootloader>,
     kernel: Kernel,
@@ -171,7 +168,7 @@ struct Config {
     board: String,
     chip: Option<String>,
     signing: IndexMap<String, Signing>,
-    secure: Option<bool>,
+    secure_separation: Option<bool>,
     stacksize: Option<u32>,
     bootloader: Option<Bootloader>,
     kernel: Kernel,
@@ -215,7 +212,7 @@ impl Config {
             board: toml.board,
             chip: toml.chip,
             signing: toml.signing,
-            secure: toml.secure,
+            secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
             bootloader: toml.bootloader,
             kernel: toml.kernel,
@@ -446,7 +443,7 @@ where
 }
 
 fn main() -> Result<()> {
-    let xtask = Xtask::from_args();
+    let xtask = Xtask::parse();
 
     match xtask {
         Xtask::Dist {

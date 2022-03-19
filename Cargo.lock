@@ -277,9 +277,39 @@ dependencies = [
  "atty",
  "bitflags",
  "strsim 0.8.0",
- "textwrap",
+ "textwrap 0.11.0",
  "unicode-width",
  "vec_map",
+]
+
+[[package]]
+name = "clap"
+version = "3.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b63edc3f163b3c71ec8aa23f9bd6070f77edbf3d1d198b164afa90ff00e4ec62"
+dependencies = [
+ "atty",
+ "bitflags",
+ "clap_derive",
+ "indexmap",
+ "lazy_static",
+ "os_str_bytes",
+ "strsim 0.10.0",
+ "termcolor",
+ "textwrap 0.14.2",
+]
+
+[[package]]
+name = "clap_derive"
+version = "3.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a1132dc3944b31c20dd8b906b3a9f0a5d0243e092d59171414969657ac6aa85"
+dependencies = [
+ "heck 0.4.0",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -573,7 +603,6 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "drv-hash-api",
  "idol",
  "num-traits",
@@ -604,7 +633,6 @@ dependencies = [
 name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -643,7 +671,6 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -808,7 +835,6 @@ dependencies = [
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -841,7 +867,6 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -1074,6 +1099,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
  "idol",
  "idol-runtime",
  "lpc55-pac",
@@ -1088,7 +1114,6 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -1215,6 +1240,7 @@ dependencies = [
 name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -1265,6 +1291,7 @@ dependencies = [
 name = "gimlet-rot"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -1353,6 +1380,12 @@ checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
 dependencies = [
  "unicode-segmentation",
 ]
+
+[[package]]
+name = "heck"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
 
 [[package]]
 name = "hermit-abi"
@@ -1545,6 +1578,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eee47591d506a22d56bc591abb955176b1ad3c22122c2395a69e426ea76e25ab"
 dependencies = [
  "cortex-m",
+ "cortex-m-rt",
  "vcell",
 ]
 
@@ -1582,6 +1616,7 @@ dependencies = [
 name = "lpc55xpresso"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -1770,6 +1805,15 @@ source = "git+https://github.com/oxidecomputer/ordered-toml#3fdce7ade3610b84e2bb
 dependencies = [
  "indexmap",
  "serde",
+]
+
+[[package]]
+name = "os_str_bytes"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e22443d1643a904602595ba1cd8f7d896afe56d26712531c5ff73a15b2fbf64"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2437,6 +2481,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "stage0"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-rt",
@@ -2527,7 +2572,7 @@ version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40b9788f4202aa75c240ecc9c15c65185e6a39ccdeb0fd5d008b98825464c87c"
 dependencies = [
- "clap",
+ "clap 2.33.3",
  "lazy_static",
  "structopt-derive",
 ]
@@ -2538,7 +2583,7 @@ version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcb5ae327f9cc13b68763b5749770cb9e048a99bd9dfdfa58d0cf05d5f64afe0"
 dependencies = [
- "heck",
+ "heck 0.3.3",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -2739,7 +2784,6 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "drv-i2c-api",
  "idol",
  "num-traits",
@@ -2800,7 +2844,6 @@ dependencies = [
 name = "task-thermal-api"
 version = "0.1.0"
 dependencies = [
- "abi",
  "idol",
  "num-traits",
  "userlib",
@@ -3004,6 +3047,12 @@ checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
 ]
+
+[[package]]
+name = "textwrap"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
 
 [[package]]
 name = "thiserror"
@@ -3252,6 +3301,7 @@ dependencies = [
  "atty",
  "byteorder",
  "cargo_metadata",
+ "clap 3.0.14",
  "ctrlc",
  "dunce",
  "filetime",
@@ -3266,10 +3316,10 @@ dependencies = [
  "serde",
  "serde_json",
  "srec",
- "structopt",
  "termcolor",
  "toml",
  "walkdir",
+ "zerocopy",
  "zip",
 ]
 

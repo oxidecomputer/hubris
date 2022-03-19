@@ -60,9 +60,9 @@ pub enum Functions {
         drv_lpc55_gpio_api::GpioError,
     ),
     #[cfg(feature = "spi")]
-    SpiRead((Task, usize, usize), drv_spi_api::SpiError),
+    SpiRead((Task, u8, usize, usize), drv_spi_api::SpiError),
     #[cfg(feature = "spi")]
-    SpiWrite((Task, usize), drv_spi_api::SpiError),
+    SpiWrite((Task, u8, usize), drv_spi_api::SpiError),
 }
 
 #[cfg(feature = "gpio")]

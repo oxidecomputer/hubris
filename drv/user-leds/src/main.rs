@@ -30,6 +30,7 @@
 #![no_std]
 #![no_main]
 
+use drv_user_leds_api::LedError;
 use idol_runtime::RequestError;
 use userlib::*;
 
@@ -71,17 +72,6 @@ cfg_if::cfg_if! {
             Zero = 0,
             One = 1,
         }
-    }
-}
-
-#[repr(u32)]
-pub enum LedError {
-    NotPresent = 1,
-}
-
-impl From<LedError> for u16 {
-    fn from(rc: LedError) -> Self {
-        rc as u16
     }
 }
 

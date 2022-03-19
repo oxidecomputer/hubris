@@ -5,7 +5,6 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib"}
-abi = {path = "../../sys/abi"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 
