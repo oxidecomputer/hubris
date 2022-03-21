@@ -121,6 +121,24 @@ fn config_to_token(
 /// ]
 /// ```
 ///
+/// This would generate the following Rust code:
+/// ```rust
+/// struct TaskConfig {
+///     count: usize,
+///     leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],
+/// }
+/// const TASK_CONFIG: TaskConfig {
+///     count: 4,
+///     leds: &[
+///         (drv_stm32xx_sys_api::Port::C.pin(6), true),
+///         (drv_stm32xx_sys_api::Port::I.pin(8), false),
+///         (drv_stm32xx_sys_api::Port::I.pin(9), false),
+///         (drv_stm32xx_sys_api::Port::I.pin(10), false),
+///         (drv_stm32xx_sys_api::Port::I.pin(11), false),
+///     ]
+/// }
+/// ```
+///
 /// At the moment, this only supports tasks which are instantiated _once_ and
 /// configured through the global configuration block (e.g. the SPI driver
 /// cannot be configured using this macro).
