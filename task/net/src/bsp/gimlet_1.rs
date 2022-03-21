@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgmt, miim_bridge::MiimBridge, pins};
-use drv_sidecar_seq_api::Sequencer;
+use crate::{mgmt, pins};
+use drv_gimlet_seq_api::Sequencer;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
@@ -52,34 +52,32 @@ pub fn preinit() {
 
 impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
-        let bsp = mgmt::Config {
-            // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
-            power_en: Some(Port::I.pin(11)),
-            slow_power_en: false,
-            power_good: None, // TODO
-            pll_lock: None,   // TODO?
+        Self(
+            mgmt::Config {
+                // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
+                power_en: Some(Port::I.pin(10).and_pin(12)),
+                slow_power_en: false,
+                power_good: None, // TODO
+                pll_lock: None,   // TODO?
 
-            // Based on ordering in app.toml
-            ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
-            // SP_TO_EPE_RESET_L
-            ksz8463_nrst: Port::A.pin(0),
-            ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
+                // Based on ordering in app.toml
+                ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
 
-            // SP_TO_PHY2_COMA_MODE_3V3
-            vsc85x2_coma_mode: Some(Port::I.pin(15)),
-            // SP_TO_PHY2_RESET_3V3_L
-            vsc85x2_nrst: Port::I.pin(14),
-            vsc85x2_base_port: 0,
-        }
-        .build(sys, eth);
+                // SP_TO_MGMT_MUX_RESET_L
+                ksz8463_nrst: Port::C.pin(2),
+                ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
+                ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
 
-        // The VSC8552 on the sidecar has its SIGDET GPIOs pulled down,
-        // for some reason.
-        let rw = &mut MiimBridge::new(eth);
-        bsp.vsc85x2.set_sigdet_polarity(rw, true).unwrap();
+                // SP_TO_MGMT_PHY_COMA_MODE
+                vsc85x2_coma_mode: Some(Port::D.pin(7)),
 
-        Self(bsp)
+                // SP_TO_MGMT_PHY_RESET
+                vsc85x2_nrst: Port::A.pin(8),
+
+                vsc85x2_base_port: 0b11110, // Based on resistor strapping
+            }
+            .build(sys, eth),
+        )
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {

@@ -52,11 +52,13 @@ pub enum VscError {
     InvalidDev1g(u8),
     InvalidDev2g5(u8),
     InvalidDev10g(u8),
+    LcPllInitFailed(u8),
+    CalConfigFailed,
+    RamInitFailed,
+    TooMuchBandwidth(usize),
 
-    /// Mismatch in the `IDENTIFIER_1` PHY register
-    BadPhyId1(u16),
-    /// Mismatch in the `IDENTIFIER_2` PHY register
-    BadPhyId2(u16),
+    /// Mismatch in the `IDENTIFIER_1/2` PHY register
+    BadPhyId(u32),
     /// Indicates that the VSC8504 is not Tesla E silicon
     BadPhyRev,
     /// Indicates that we tried to apply the phy patch to an invalid port;
@@ -66,6 +68,20 @@ pub enum VscError {
     /// an unexpected CRC.
     PhyPatchFailedCrc,
     PhyInitTimeout,
+    /// Returned by functions that support both the VSC8552 and VSC8562, when
+    /// the PHY id doesn't match either.
+    UnknownPhyId(u32),
+
+    /// The MACSEC block failed to finish an operation in time
+    MacSecWaitTimeout,
+    /// The MCB module in the PHY timed out while doing a read
+    McbReadTimeout,
+    /// The MCB module in the PHY timed out while doing a write
+    McbWriteTimeout,
+    /// We timed out while doing a calibration step in a PHY PLL
+    PhyPllCalTimeout,
+    /// We timed out while doing input buffer calibration on a PHY
+    PhyIbCalTimeout,
 
     BadRegAddr(u32),
     InvalidRegisterRead(u32),

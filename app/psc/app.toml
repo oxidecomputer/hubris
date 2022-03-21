@@ -38,6 +38,15 @@ read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
 
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
+
 [tasks.jefe]
 path = "../../task/jefe"
 name = "task-jefe"
@@ -113,6 +122,28 @@ requires = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
 task-slots = ["sys", "hf", "i2c_driver"]
+
+[tasks.net]
+path = "../../task/net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+features = ["mgmt", "h753"]
+requires = {flash = 131072, ram = 8192, sram1 = 16384}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "system_flash"]
+start = true
+interrupts = {"eth.irq" = 0b1}
+task-slots = ["sys", "rcc_driver", { spi_driver = "spi2_driver" }]
+
+[tasks.udpecho]
+path = "../../task/udpecho"
+name = "task-udpecho"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -287,7 +318,7 @@ input = {port = "I", pin = 2, af = 5}
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "A", pin = 0}
+cs = {port = "I", pin = 0}
 
 [config.spi.spi4]
 controller = 4
@@ -303,3 +334,11 @@ mux = "rot"
 cs = {port = "E", pin = 4}
 clock_divider = "DIV16"
 
+
+[config.net]
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

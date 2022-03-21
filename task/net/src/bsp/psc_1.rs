@@ -2,15 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgmt, miim_bridge::MiimBridge, pins};
-use drv_sidecar_seq_api::Sequencer;
+use crate::{mgmt, pins};
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use userlib::{hl::sleep_for, task_slot};
+use userlib::task_slot;
 
 task_slot!(SPI, spi_driver);
-task_slot!(SEQ, seq);
 
 // This system wants to be woken periodically to do logging
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
@@ -43,41 +41,34 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 pub struct Bsp(mgmt::Bsp);
 
 pub fn preinit() {
-    // Wait for the sequencer to turn on the clock
-    let seq = Sequencer::from(SEQ.get_task_id());
-    while seq.is_clock_config_loaded().unwrap() == 0 {
-        sleep_for(10);
-    }
+    // Nothing to do here
 }
 
 impl Bsp {
     pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
         let bsp = mgmt::Config {
-            // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
-            power_en: Some(Port::I.pin(11)),
-            slow_power_en: false,
+            // SP_TO_MGMT_V1P0_EN / SP_TO_MGMT_V2P5_EN
+            // (note that the latter also enables the MGMT_PHY_REFCLK)
+            power_en: Some(Port::I.pin(10).and_pin(12)),
+            slow_power_en: true,
             power_good: None, // TODO
-            pll_lock: None,   // TODO?
+            pll_lock: None,
 
             // Based on ordering in app.toml
             ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
-            // SP_TO_EPE_RESET_L
-            ksz8463_nrst: Port::A.pin(0),
+            ksz8463_nrst: Port::C.pin(2),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
             ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
 
-            // SP_TO_PHY2_COMA_MODE_3V3
-            vsc85x2_coma_mode: Some(Port::I.pin(15)),
-            // SP_TO_PHY2_RESET_3V3_L
-            vsc85x2_nrst: Port::I.pin(14),
-            vsc85x2_base_port: 0,
+            // SP_TO_MGMT_PHY_COMA_MODE
+            vsc85x2_coma_mode: Some(Port::D.pin(7)),
+
+            // SP_TO_MGMT_PHY_RESET
+            vsc85x2_nrst: Port::A.pin(8),
+
+            vsc85x2_base_port: 0b11110, // Based on resistor strapping
         }
         .build(sys, eth);
-
-        // The VSC8552 on the sidecar has its SIGDET GPIOs pulled down,
-        // for some reason.
-        let rw = &mut MiimBridge::new(eth);
-        bsp.vsc85x2.set_sigdet_polarity(rw, true).unwrap();
 
         Self(bsp)
     }

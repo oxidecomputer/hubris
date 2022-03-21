@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "gimlet"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -37,6 +37,15 @@ size = 131072
 read = true
 write = true
 execute = false  # let's assume XN until proven otherwise
+
+# Network buffers are placed in sram1, which is directly accessible by the
+# Ethernet MAC.
+[outputs.sram1]
+address = 0x30000000
+size = 0x20000
+read = true
+write = true
+dma = true
 
 [tasks.jefe]
 path = "../../task/jefe"
@@ -170,6 +179,21 @@ uses = ["quadspi"]
 interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys"]
 
+[tasks.net]
+path = "../../task/net"
+name = "task-net"
+stacksize = 3800
+priority = 2
+features = ["mgmt", "h753", "gimlet"]
+requires = {flash = 131072, ram = 16384, sram1 = 16384}
+sections = {eth_bulk = "sram1"}
+uses = ["eth", "eth_dma", "system_flash"]
+start = true
+interrupts = {"eth.irq" = 0b1}
+task-slots = ["sys", "rcc_driver",
+              { spi_driver = "spi2_driver" },
+              { seq = "gimlet_seq" }]
+
 [tasks.sensor]
 path = "../../task/sensor"
 name = "task-sensor"
@@ -178,6 +202,24 @@ priority = 3
 requires = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
+
+[tasks.udpecho]
+path = "../../task/udpecho"
+name = "task-udpecho"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.udpbroadcast]
+path = "../../task/udpbroadcast"
+name = "task-udpbroadcast"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -533,7 +575,7 @@ cs = {port = "A", pin = 0}
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "A", pin = 0}
+cs = {port = "I", pin = 0}
 # ATTENTION REWORKED CS: Uncomment the below line
 # cs = {port = "H", pin = 2}
 
@@ -556,3 +598,17 @@ mux = "rot"
 cs = {port = "E", pin = 4}
 clock_divider = "DIV16"
 
+[config.net]
+[config.net.sockets.echo]
+kind = "udp"
+owner = {name = "udpecho", notification = 1}
+port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }

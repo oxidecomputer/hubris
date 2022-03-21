@@ -115,13 +115,15 @@ path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-features = ["mgmt", "h753"]
-requires = {flash = 65536, ram = 8192, sram1 = 16384}
+features = ["mgmt", "h753", "sidecar"]
+requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma"]
+uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
-task-slots = ["sys", "rcc_driver", { spi_driver = "spi3_driver" }]
+task-slots = ["sys", "rcc_driver",
+              { spi_driver = "spi3_driver" },
+              { seq = "sidecar_seq" }]
 
 [tasks.udpecho]
 path = "../../task/udpecho"
@@ -132,17 +134,26 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
-##### This requires additional testing before we enable it in the main
-##### Sidecar image.  -Matt
-#[tasks.vsc7448]
-#path = "../../task/vsc7448"
-#name = "task-vsc7448"
-#priority = 3
-#requires = {flash = 131072, ram = 4096}
-#features = ["mgmt"]
-#stacksize = 2048
-#start = true
-#task-slots = ["sys", "net", { spi_driver = "spi2_driver" }]
+[tasks.udpbroadcast]
+path = "../../task/udpbroadcast"
+name = "task-udpbroadcast"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.vsc7448]
+path = "../../task/vsc7448"
+name = "task-vsc7448"
+priority = 3
+requires = {flash = 131072, ram = 8192}
+features = ["mgmt", "sidecar"]
+stacksize = 4096
+start = true
+task-slots = ["sys", "net",
+              { spi_driver = "spi2_driver" },
+              { seq = "sidecar_seq" }]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
@@ -638,10 +649,16 @@ mux = "port_jk"
 cs = {port = "K", pin = 1}
 
 [config.net]
-
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

@@ -97,3 +97,9 @@ pub fn claim_rx_statics() -> (
             [eth::ring::Buffer::new(); _];
     }
 }
+/// Grabs references to the MAC address buffer.  Can only be called once.
+pub fn claim_mac_address() -> &'static mut [u8; 6] {
+    mutable_statics! {
+        static mut MAC_ADDRESS: [u8; 6] = [0; _];
+    }
+}

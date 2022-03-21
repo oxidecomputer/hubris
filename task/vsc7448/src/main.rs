@@ -36,7 +36,7 @@ fn main() -> ! {
     bsp::preinit();
 
     let t0 = sys_get_timer().now;
-    match vsc7448.init() {
+    match vsc7448.init(bsp::REFCLK_SEL, bsp::REFCLK2_SEL) {
         Ok(()) => {
             let t1 = sys_get_timer().now;
             ringbuf_entry!(Trace::ChipInit(t1 - t0));

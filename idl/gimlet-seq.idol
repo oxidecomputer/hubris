@@ -47,5 +47,12 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+        "is_clock_config_loaded": (
+            args: {},
+            reply: Result(
+                ok: "u8",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )

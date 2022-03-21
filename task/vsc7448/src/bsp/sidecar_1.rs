@@ -2,41 +2,62 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use drv_sidecar_seq_api::Sequencer;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{init_vsc8504_phy, Phy, PhyRw};
+use vsc85xx::{vsc8504::Vsc8504, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
+task_slot!(SEQ, seq);
+
+const MAC_SEEN_COUNT: usize = 64;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Vsc8504StatusLink { port: u8, status: u16 },
-    Vsc8504Status100Base { port: u8, status: u16 },
+    Vsc8504ModeStatus { port: u8, status: u16 },
+    Vsc8504MacStatus { port: u8, status: u16 },
+    MacAddress(vsc7448::mac::MacTableEntry),
+    Vsc7448Error(VscError),
+    Vsc8504Error(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+    vsc8504: Vsc8504,
     net: task_net_api::Net,
+    known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
+    vsc8504_mode_status: [u16; 4],
+    vsc8504_mac_status: [u16; 4],
 }
 
-impl<'a, R> PhyRw for Bsp<'a, R> {
+pub const REFCLK_SEL: vsc7448::RefClockFreq =
+    vsc7448::RefClockFreq::Clk156p25MHz;
+pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> = None;
+
+/// For convenience, we implement `PhyRw` on a thin wrapper around the `net`
+/// task handle.  We read and write to PHYs using RPC calls to the `net` task,
+/// which owns the ethernet peripheral containing the MDIO block.
+struct NetPhyRw<'a>(&'a mut task_net_api::Net);
+impl<'a> PhyRw for NetPhyRw<'a> {
+    #[inline(always)]
     fn read_raw<T: From<u16>>(
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-        self.net
+        self.0
             .smi_read(port, reg.addr)
             .map(|r| r.into())
             .map_err(|e| e.into())
     }
 
+    #[inline(always)]
     fn write_raw<T>(
         &mut self,
         port: u8,
@@ -47,21 +68,32 @@ impl<'a, R> PhyRw for Bsp<'a, R> {
         u16: From<T>,
         T: From<u16> + Clone,
     {
-        self.net
+        self.0
             .smi_write(port, reg.addr, value.into())
             .map_err(|e| e.into())
     }
 }
 
 pub fn preinit() {
-    // Nothing to do here
+    // Wait for the sequencer to turn on the clock
+    let seq = Sequencer::from(SEQ.get_task_id());
+    while seq.is_clock_config_loaded().unwrap() == 0 {
+        sleep_for(10);
+    }
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let net = task_net_api::Net::from(NET.get_task_id());
-        let mut out = Bsp { vsc7448, net };
+        let mut out = Bsp {
+            vsc7448,
+            vsc8504: Vsc8504::empty(),
+            net,
+            known_macs: [None; MAC_SEEN_COUNT],
+            vsc8504_mode_status: [0; 4],
+            vsc8504_mac_status: [0; 4],
+        };
         out.init()?;
         Ok(out)
     }
@@ -103,7 +135,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             29, // DEV2G5_21 | SERDES6G_21 | Cubby 27
             30, // DEV2G5_22 | SERDES6G_22 | Cubby 28
             31, // DEV2G5_23 | SERDES6G_23 | Cubby 29
-            48, // Local SP
+            48, // DEV2G5_24 | SERDES1G_0  | Local SP
         ])?;
         self.vsc7448.init_10g_sgmii(&[
             51, // DEV2G5_27 | SERDES10G_2 | Cubby 30   (shadows DEV10G_2)
@@ -111,28 +143,33 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         ])?;
 
         self.phy_init(&sys)?;
-        self.vsc7448.init_qsgmii(&[
-            // Going to an on-board VSC8504 PHY (PHY4, U40), which is
-            // configured over MIIM by the SP.
-            //
-            // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
-            // 41 | DEV1G_17 | SERDES6G_14 | PSC0
-            // 42 | DEV1G_18 | SERDES6G_14 | PSC1
-            // 43 | Unused
-            40,
-            // Going out to the front panel board, where there's a waiting
-            // PHY that is configured by the FPGA.
-            //
-            // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
-            // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
-            // 42 | Unused
-            // 43 | Unused
-            44,
-        ])?;
+        self.vsc7448.init_qsgmii(
+            &[
+                // Going to an on-board VSC8504 PHY (PHY4, U40), which is
+                // configured over MIIM by the SP.
+                //
+                // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
+                // 41 | DEV1G_17 | SERDES6G_14 | PSC0
+                // 42 | DEV1G_18 | SERDES6G_14 | PSC1
+                // 43 | Unused
+                40,
+                // Going out to the front panel board, where there's a waiting
+                // PHY that is configured by the FPGA.
+                //
+                // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
+                // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
+                // 42 | Unused
+                // 43 | Unused
+                44,
+            ],
+            vsc7448::Speed::Speed100M,
+        )?;
 
         self.vsc7448.init_sfi(&[
             49, //  DEV10G_0 | SERDES10G_0 | Tofino 2
         ])?;
+
+        self.vsc7448.apply_calendar()?;
 
         Ok(())
     }
@@ -197,26 +234,89 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         sleep_for(120); // Wait for the chip to come out of reset
 
         // Initialize the PHY, then disable COMA_MODE
-        init_vsc8504_phy(&mut Phy { port: 4, rw: self })?;
+        let rw = &mut NetPhyRw(&mut self.net);
+        self.vsc8504 = Vsc8504::init(4, rw)?;
+
+        // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
+        // for some reason.
+        self.vsc8504.set_sigdet_polarity(rw, true).unwrap();
+
         sys.gpio_reset(coma_mode).unwrap();
 
         Ok(())
     }
 
+    fn step(&mut self) {
+        for port in 0..4 {
+            let rw = &mut NetPhyRw(&mut self.net);
+            let mut vsc8504 = self.vsc8504.phy(port, rw);
+            match vsc8504.phy.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(status) => {
+                    let status = u16::from(status);
+                    if status != self.vsc8504_mode_status[port as usize] {
+                        ringbuf_entry!(Trace::Vsc8504ModeStatus {
+                            port,
+                            status: u16::from(status)
+                        });
+                        self.vsc8504_mode_status[port as usize] = status;
+                    }
+                }
+                Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
+            };
+            match vsc8504.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
+                Ok(status) => {
+                    let status = u16::from(status);
+                    if status != self.vsc8504_mac_status[port as usize] {
+                        ringbuf_entry!(Trace::Vsc8504MacStatus {
+                            port,
+                            status: u16::from(status)
+                        });
+                        self.vsc8504_mac_status[port as usize] = status;
+                    }
+                }
+                Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
+            };
+        }
+
+        // Dump the MAC tables
+        loop {
+            match vsc7448::mac::next_mac(self.vsc7448) {
+                Ok(Some(mac)) => {
+                    // Inefficient but easy way to avoid logging MAC addresses
+                    // repeatedly.  This will fail to scale for larger systems,
+                    // where we'd want some kind of LRU cache, but is nice
+                    // for debugging.
+                    let mut mac_is_new = true;
+                    for m in self.known_macs.iter_mut() {
+                        match m {
+                            Some(m) => {
+                                if *m == mac.mac {
+                                    mac_is_new = false;
+                                    break;
+                                }
+                            }
+                            None => {
+                                *m = Some(mac.mac);
+                                break;
+                            }
+                        }
+                    }
+                    if mac_is_new {
+                        ringbuf_entry!(Trace::MacAddress(mac));
+                    }
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    ringbuf_entry!(Trace::Vsc7448Error(e));
+                    break;
+                }
+            }
+        }
+    }
+
     pub fn run(&mut self) -> ! {
         loop {
-            for port in 4..8 {
-                let mut vsc8504 = Phy { port, rw: self };
-                let status: u16 =
-                    vsc8504.read(phy::STANDARD::MODE_STATUS()).unwrap().into();
-                ringbuf_entry!(Trace::Vsc8504StatusLink { port, status });
-
-                // 100BASE-TX/FX Status Extension register
-                let addr: PhyRegisterAddress<u16> =
-                    PhyRegisterAddress::from_page_and_addr_unchecked(0, 16);
-                let status: u16 = vsc8504.read(addr).unwrap();
-                ringbuf_entry!(Trace::Vsc8504Status100Base { port, status });
-            }
+            self.step();
             sleep_for(100);
         }
     }

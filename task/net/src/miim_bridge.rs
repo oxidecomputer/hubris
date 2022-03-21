@@ -20,6 +20,7 @@ impl<'a> MiimBridge<'a> {
 }
 
 impl PhyRw for MiimBridge<'_> {
+    #[inline(always)]
     fn read_raw<T: From<u16>>(
         &mut self,
         phy: u8,
@@ -27,6 +28,8 @@ impl PhyRw for MiimBridge<'_> {
     ) -> Result<T, VscError> {
         Ok(self.eth.smi_read(phy, reg.addr).into())
     }
+
+    #[inline(always)]
     fn write_raw<T>(
         &mut self,
         phy: u8,

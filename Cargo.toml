@@ -59,16 +59,18 @@ members = [
 
     "drv/stm32xx-sys",
     "drv/stm32xx-sys-api",
+    "drv/stm32xx-uid",
+
     "drv/stm32g0-usart",
 
     "drv/stm32h7-eth",
+    "drv/stm32h7-hash",
+    "drv/stm32h7-i2c-server",
+    "drv/stm32h7-qspi",
     "drv/stm32h7-spi",
     "drv/stm32h7-spi-server",
     "drv/stm32h7-startup",
     "drv/stm32h7-usart",
-    "drv/stm32h7-i2c-server",
-    "drv/stm32h7-qspi",
-    "drv/stm32h7-hash",
 
     "drv/lpc55-romapi",
     "drv/lpc55-syscon",

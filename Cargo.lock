@@ -1106,6 +1106,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32xx-uid"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
+]
+
+[[package]]
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
@@ -1531,7 +1538,6 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
- "drv-stm32xx-sys-api",
  "ringbuf",
  "userlib",
 ]
@@ -2699,9 +2705,12 @@ dependencies = [
  "build-util",
  "cfg-if 1.0.0",
  "cortex-m",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
+ "drv-stm32xx-uid",
  "drv-user-leds-api",
  "hubris-num-tasks",
  "idol",
@@ -2896,6 +2905,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 1.0.0",
+ "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
@@ -3221,7 +3231,7 @@ dependencies = [
 [[package]]
 name = "vsc7448-pac"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/vsc7448#c48345f64739d01ecee4be1aeaf4227bf2464635"
+source = "git+https://github.com/oxidecomputer/vsc7448#873309872f2260672bd875a5c4a4ad5121da52df"
 dependencies = [
  "derive_more",
 ]
