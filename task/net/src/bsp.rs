@@ -12,7 +12,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "sidecar-1")] {
         mod sidecar_1;
         pub use sidecar_1::*;
-    } else if #[cfg(target_board = "gimlet-1")] {
+    } else if #[cfg(any(target_board = "gimlet-a", target_board="gimlet-b"))] {
         mod gimlet_1;
         pub use gimlet_1::*;
     } else if #[cfg(target_board = "psc-1")] {
