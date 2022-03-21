@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-stm32h7 = { version = "0.13.0", default-features = false }
+stm32h7 = { version = "0.14", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
 cfg-if = "0.1.10"

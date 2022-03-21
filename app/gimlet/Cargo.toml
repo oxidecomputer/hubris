@@ -14,7 +14,7 @@ cortex-m-rt = "0.6.12"
 panic-itm = { version = "0.4.1", optional = true }
 panic-semihosting = { version = "0.5.3", optional = true }
 cfg-if = "0.1.10"
-stm32h7 = { version = "0.13.0", default-features = false, features = ["rt", "stm32h753"] }
+stm32h7 = { version = "0.14", default-features = false, features = ["rt", "stm32h753"] }
 drv-stm32h7-startup = {path = "../../drv/stm32h7-startup", features = ["h753"]}
 
 [dependencies.kern]

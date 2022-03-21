@@ -764,7 +764,7 @@ impl<'a> I2cController<'a> {
                     continue;
                 }
 
-                if isr.addr().is_match_() {
+                if isr.addr().is_match() {
                     ringbuf_entry!(Trace::AddrMatch);
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
@@ -797,7 +797,7 @@ impl<'a> I2cController<'a> {
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::RxISR(isr.bits()));
 
-                    if isr.addr().is_match_() {
+                    if isr.addr().is_match() {
                         //
                         // If we have an address match, check to see if this is
                         // change in direction; if it is, break out of our receive
@@ -849,7 +849,7 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(Trace::TxISR(isr.bits()));
 
-                if isr.addr().is_match_() {
+                if isr.addr().is_match() {
                     //
                     // We really aren't expecting this, so kick out to the top
                     // of the loop to try to make sense of it.
