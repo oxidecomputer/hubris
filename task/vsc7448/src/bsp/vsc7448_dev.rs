@@ -91,6 +91,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         )?;
         self.vsc7448.init_sfi(&[49, 50])?;
         self.vsc7448.init_10g_sgmii(&[51, 52])?;
+        self.vsc7448.configure_vlan_optional()?;
 
         self.vsc7448.apply_calendar()?;
 

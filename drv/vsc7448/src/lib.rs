@@ -80,7 +80,8 @@ pub trait Vsc7448Rw {
     }
 
     /// Writes to a port mask, which is assumed to be a pair of adjacent
-    /// registers representing all 53 ports.
+    /// registers representing all 53 ports (e.g. VLAN_PORT_MASK and
+    /// VLAN_PORT_MASK1).
     fn write_port_mask<T>(
         &self,
         mut reg: RegisterAddress<T>,
@@ -90,7 +91,7 @@ pub trait Vsc7448Rw {
         T: From<u32>,
         u32: From<T>,
     {
-        self.write(reg, ((value & 0xFFFFFFFF) as u32).into())?;
+        self.write(reg, (value as u32).into())?;
         reg.addr += 4; // Good luck!
         self.write(reg, (((value >> 32) as u32) & 0x1FFFFF).into())
     }
@@ -486,6 +487,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Configures bandwidth to the given port.  The configuration must
+    /// be applied with [apply_calendar] after all ports have been configured.
     fn set_calendar_bandwidth(
         &self,
         port: u8,
@@ -506,6 +509,10 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Applies the port configuration from repeated calls to
+    /// [set_calendar_bandwidth].  Returns an error if the total bandwidth
+    /// exceeds the chip's limit of 84 Gbps, or if communication to the
+    /// chip fails in some other way.
     pub fn apply_calendar(&self) -> Result<(), VscError> {
         let mut total_bw_mhz = 0;
         for i in 0..4 {
@@ -550,6 +557,160 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         } else {
             Ok(())
         }
+    }
+
+    /// Configures the VLAN for debugging and bringup.  This is pretty
+    /// specific to hardware set up on Matt's desk, but shows all of the
+    /// pieces working together.
+    ///
+    /// This mode expects the following configuration for a VSC7448 dev kit:
+    /// - Router connected on port 1
+    /// - NUC attached on port 3
+    /// - Management network dev board on port 51 (SGMII)
+    ///
+    /// It configures two VLANs:
+    /// - VID 1 allows communication on all ports
+    /// - VID 0x133 allows communication between the NUC and the mgmt dev board
+    ///
+    /// Untagged packets on port 1 and 3 become members of VLAN 1.
+    ///
+    /// Untagged packets on port 51 become members of VLAN 0x133.  Note that
+    /// this means packets from the management network dev kit can't make their
+    /// way back to the router, so pinging the board from a laptop won't work!
+    ///
+    /// Invalid tagged packets are dropped.
+    pub fn configure_vlan_optional(&self) -> Result<(), VscError> {
+        // Enable the VLAN
+        self.write_with(ANA_L3().COMMON().VLAN_CTRL(), |r| r.set_vlan_ena(1))?;
+
+        // By default, there are three VLANs configured in ANA_L3:
+        // 0, 1, and 4095.  We disable 0 and 4095, and leave 1 running (since
+        // it's the default VLAN)
+        for vid in [0, 4095] {
+            self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), 0)?;
+        }
+
+        // Configure VID 0x133 to include the NUC and mgmt dev board
+        self.write_port_mask(
+            ANA_L3().VLAN(0x133).VLAN_MASK_CFG(),
+            (1 << 3) | // NUC
+            (1 << 51), // mgmt dev board
+        )?;
+
+        // Configure the uplink and NUC port
+        for p in [1, 3] {
+            let port = ANA_CL().PORT(p);
+            self.modify(port.VLAN_CTRL(), |r| {
+                // All ports are on the default VID (0x1) at boot
+                r.set_vlan_pop_cnt(1);
+                r.set_vlan_aware_ena(1);
+            })?;
+
+            // Accept TPID 0x8100 and untagged or one-tag frames
+            self.modify(port.VLAN_TPID_CTRL(), |r| {
+                r.set_basic_tpid_aware_dis(0b1110);
+                r.set_rt_tag_ctrl(0b0011);
+            })?;
+        }
+
+        // Configure management network dev kit port as VLAN aware
+        let port = ANA_CL().PORT(51);
+        self.modify(port.VLAN_CTRL(), |r| {
+            r.set_vlan_aware_ena(1);
+            r.set_port_vid(0x133);
+        })?;
+        self.modify(port.VLAN_TPID_CTRL(), |r| {
+            r.set_basic_tpid_aware_dis(0b1110);
+            r.set_rt_tag_ctrl(0b0011);
+        })?;
+
+        // Configure VLAN ingress filtering, so packets that arrive and
+        // aren't part of an appropriate VLAN are dropped.  This occurs
+        // after VLAN classification, so the downstream ports that have
+        // frames classified on ingress should work.
+        self.write_port_mask(
+            ANA_L3().COMMON().VLAN_FILTER_CTRL(),
+            (1 << 53) - 1,
+        )?;
+
+        Ok(())
+    }
+
+    /// Implements the VLAN scheme described in RFD 250.
+    pub fn configure_vlan_strict(&self) -> Result<(), VscError> {
+        const UPLINK: u8 = 49; // DEV10G_0, uplink to the Tofino 2
+
+        // Enable the VLAN
+        self.write_with(ANA_L3().COMMON().VLAN_CTRL(), |r| r.set_vlan_ena(1))?;
+
+        // By default, there are three VLANs configured in ANA_L3:
+        // 0, 1, and 4095.  We disable all of them, since we only want to
+        // allow very specific VIDs.
+        for vid in [0, 1, 4095] {
+            self.write_port_mask(ANA_L3().VLAN(vid).VLAN_MASK_CFG(), 0)?;
+        }
+
+        // Configure the downstream ports, which each have their own VLANs
+        for p in (0..=52).filter(|p| *p != UPLINK) {
+            let port = ANA_CL().PORT(p);
+
+            // Configure the 0x1YY VLAN for this port
+            self.write_port_mask(
+                ANA_L3().VLAN(0x100 + p as u16).VLAN_MASK_CFG(),
+                (1 << p) | (1 << UPLINK),
+            )?;
+
+            // The downstream ports expect untagged frames, and classify
+            // them based on a per-port VID assigned here.
+            self.modify(port.VLAN_CTRL(), |r| {
+                r.set_port_vid(0x100 + p as u32);
+                r.set_vlan_aware_ena(1);
+            })?;
+            // Accept no TPIDs, and only route untagged frames.
+            self.modify(port.VLAN_TPID_CTRL(), |r| {
+                r.set_basic_tpid_aware_dis(0b1111);
+                r.set_rt_tag_ctrl(0b0001);
+            })?;
+            self.modify(REW().PORT(p).TAG_CTRL(), |r| {
+                // "Tag all frames, except when VID=PORT_VLAN_CFG.PORT_ID
+                //  or VID=0"
+                r.set_tag_cfg(1);
+
+                // We don't do anything fancy with VID classification, so
+                // no need to set TAG_VID_CFG here.
+            })?;
+        }
+
+        // The uplink port requires one VLAN tag, and pops it on ingress
+        //
+        // It has a default VID of 0x1, but we removed all ports from
+        // that VLAN, so it will only accept our desired set of VIDs.
+        let port = ANA_CL().PORT(UPLINK);
+        self.modify(port.VLAN_CTRL(), |r| {
+            r.set_vlan_pop_cnt(1);
+            r.set_vlan_aware_ena(1);
+        })?;
+        // Only accept 0x8100 as a valid TPID, to keep things simple,
+        // and only route frames with one accepted tag
+        self.modify(port.VLAN_TPID_CTRL(), |r| {
+            r.set_basic_tpid_aware_dis(0b1110);
+            r.set_rt_tag_ctrl(0b0010);
+        })?;
+        // Discard frames with < 1 tag
+        self.modify(port.VLAN_FILTER_CTRL(0), |r| {
+            r.set_tag_required_ena(1);
+        })?;
+
+        // Configure VLAN ingress filtering, so packets that arrive and
+        // aren't part of an appropriate VLAN are dropped.  This occurs
+        // after VLAN classification, so the downstream ports that have
+        // frames classified on ingress should work.
+        self.write_port_mask(
+            ANA_L3().COMMON().VLAN_FILTER_CTRL(),
+            (1 << 53) - 1,
+        )?;
+
+        Ok(())
     }
 }
 
