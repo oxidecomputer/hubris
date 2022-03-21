@@ -542,7 +542,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -633,7 +633,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -760,6 +760,7 @@ dependencies = [
 name = "drv-lpc55-rng"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "drv-lpc55-syscon-api",
  "lpc55-pac",
  "num-traits",
@@ -928,7 +929,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "cortex-m",
  "smoltcp",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -937,7 +938,7 @@ name = "drv-stm32h7-hash"
 version = "0.1.0"
 dependencies = [
  "drv-hash-api",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "vcell",
  "zerocopy",
@@ -956,7 +957,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -971,7 +972,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -991,7 +992,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -999,7 +1000,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "vcell",
  "zerocopy",
@@ -1011,7 +1012,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "vcell",
  "zerocopy",
 ]
@@ -1035,7 +1036,7 @@ dependencies = [
  "quote",
  "ringbuf",
  "serde",
- "stm32h7 0.13.0",
+ "stm32h7",
  "syn",
  "userlib",
  "zerocopy",
@@ -1047,7 +1048,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1057,7 +1058,7 @@ dependencies = [
  "cortex-m",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1069,7 +1070,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "num-traits",
  "stm32g0",
- "stm32h7 0.14.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1085,7 +1086,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32g0",
- "stm32h7 0.14.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1255,7 +1256,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1306,7 +1307,7 @@ dependencies = [
  "kern",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1337,7 +1338,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -2074,7 +2075,7 @@ dependencies = [
  "kern",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -2413,7 +2414,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -2554,24 +2555,13 @@ dependencies = [
 
 [[package]]
 name = "stm32h7"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b672c837e0ee8158ecc7fce0f9a948dd0693a9c588338e728d14b73307a0b7d"
-dependencies = [
- "bare-metal 0.2.5",
- "cortex-m",
- "cortex-m-rt",
- "vcell",
-]
-
-[[package]]
-name = "stm32h7"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f0faa648e03579befdd7267ab5c669624729028001fcf3c973832f53e310a06"
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
+ "cortex-m-rt",
  "vcell",
 ]
 
@@ -2723,7 +2713,7 @@ dependencies = [
  "serde",
  "smoltcp",
  "ssmarshal",
- "stm32h7 0.13.0",
+ "stm32h7",
  "syn",
  "task-net-api",
  "userlib",
@@ -2832,7 +2822,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "spd",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -2992,7 +2982,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -3064,7 +3054,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
