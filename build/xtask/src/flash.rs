@@ -2,9 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use path_slash::PathBufExt;
 use serde::Serialize;
-use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -205,116 +203,53 @@ pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
     }
 }
 
+fn chip_name(board: &str) -> anyhow::Result<&'static str> {
+    let b = match board {
+        "lpcxpresso55s69" => "LPC55S69JBD100",
+        "gemini-bu-rot-1" | "gimlet-rot-1" => "LPC55S69JBD100",
+        "stm32f3-discovery" => "STM32F303VCTx",
+        "stm32f4-discovery" => "STM32F407VGTx",
+        "nucleo-h743zi2" => "STM32H743ZITx",
+        "nucleo-h753zi" => "STM32H753ZITx",
+        "stm32h7b3i-dk" => "STM32H7B3IITx",
+        "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1" => "STM32H753ZITx",
+        "stm32g031" => "STM32G031Y8Yx",
+         "stm32g070" => "STM32G070KBTx",
+         "stm32g0b1" => anyhow::bail!("This board is not yet supported by probe-rs, please use OpenOCD directly"),
+        _ => anyhow::bail!("unrecognized board {}", board),
+
+    };
+
+    Ok(b)
+}
+
 pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
     ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
 
     let toml = Config::from_file(&cfg)?;
 
-    let mut out = PathBuf::from("target");
-    out.push(toml.name);
-    out.push("dist");
+    let mut archive = PathBuf::from("target");
+    archive.push(&toml.name);
+    archive.push("dist");
+    archive.push(format!("build-{}.zip", &toml.name));
 
-    let config = config(&toml.board.as_str())?;
+    let mut humility = Command::new("humility");
 
-    let (mut flash, reset) = match config.program {
-        FlashProgram::PyOcd(ref reset_args) => {
-            let mut flash = Command::new("pyocd");
-            let mut reset = Command::new("pyocd");
+    humility.arg("-a").arg(archive);
+    humility.arg("-c").arg(chip_name(&toml.board)?);
 
-            for arg in config.args {
-                match arg {
-                    FlashArgument::Direct(ref val) => {
-                        flash.arg(val);
-                    }
-                    FlashArgument::Payload => {
-                        flash.arg(out.join("final.ihex"));
-                    }
-                    _ => {
-                        anyhow::bail!("unexpected pyOCD argument {:?}", arg);
-                    }
-                }
-            }
-
-            for arg in reset_args {
-                if let FlashArgument::Direct(ref val) = arg {
-                    reset.arg(val);
-                } else {
-                    anyhow::bail!("unexpected pyOCD reset argument {:?}", arg);
-                }
-            }
-
-            if let Ok(id) = env::var("PYOCD_PROBE_ID") {
-                flash.arg("-u");
-                flash.arg(&id);
-                reset.arg("-u");
-                reset.arg(&id);
-            }
-
-            if verbose {
-                flash.arg("-v");
-                reset.arg("-v");
-            }
-
-            (flash, Some(reset))
-        }
-
-        FlashProgram::OpenOcd(conf) => {
-            let mut flash = Command::new("openocd");
-
-            // Note that OpenOCD only deals with slash paths, not native paths
-            // (that is, its file arguments are forward-slashed delimited even
-            // when/where the path separator is a back-slash) -- so whenever
-            // dealing with a path that is an argument, we be sure to always
-            // give it a slash path regardless of platform.
-            let path = match conf {
-                FlashProgramConfig::Path(ref path) => path,
-                _ => {
-                    anyhow::bail!("unexpected OpenOCD conf {:?}", conf);
-                }
-            };
-
-            for arg in config.args {
-                match arg {
-                    FlashArgument::Direct(ref val) => {
-                        flash.arg(val);
-                    }
-                    FlashArgument::FormattedPayload(ref pre, ref post) => {
-                        flash.arg(format!(
-                            "{} {} {}",
-                            pre,
-                            out.join("final.srec").to_slash().unwrap(),
-                            post,
-                        ));
-                    }
-                    FlashArgument::Config => {
-                        flash.arg(path.join("/"));
-                    }
-                    _ => {
-                        anyhow::bail!("unexpected OpenOCD argument {:?}", arg);
-                    }
-                }
-            }
-
-            (flash, None)
-        }
-    };
-
-    let status = flash
-        .status()
-        .with_context(|| format!("failed to flash ({:?})", flash))?;
-
-    if !status.success() {
-        anyhow::bail!("flash command ({:?}) failed; see output", flash);
+    if verbose {
+        humility.arg("-v");
     }
 
-    if let Some(mut reset) = reset {
-        let status = reset
-            .status()
-            .with_context(|| format!("failed to reset ({:?})", reset))?;
+    humility.arg("flash").arg("--force");
 
-        if !status.success() {
-            anyhow::bail!("reset command ({:?}) failed; see output", reset);
-        }
+    let status = humility
+        .status()
+        .with_context(|| format!("failed to flash ({:?})", humility))?;
+
+    if !status.success() {
+        anyhow::bail!("flash command ({:?}) failed; see output", humility);
     }
 
     Ok(())
