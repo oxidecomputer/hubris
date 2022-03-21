@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use drv_hash_api::SHA256_SZ;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -14,7 +15,7 @@ use zerocopy::AsBytes;
 ///
 /// This enumeration doesn't include errors that result from configuration
 /// issues, like sending host flash messages to some other task.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum HfError {
     WriteEnableFailed = 1,
     ServerRestarted = 2,
@@ -22,25 +23,6 @@ pub enum HfError {
     HashBadRange = 4,
     HashError = 5,
     HashNotConfigured = 6,
-}
-
-impl From<HfError> for u16 {
-    fn from(rc: HfError) -> Self {
-        rc as u16
-    }
-}
-
-impl From<HfError> for u32 {
-    fn from(rc: HfError) -> Self {
-        rc as u32
-    }
-}
-
-impl core::convert::TryFrom<u32> for HfError {
-    type Error = ();
-    fn try_from(rc: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(rc).ok_or(())
-    }
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]

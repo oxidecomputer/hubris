@@ -14,6 +14,7 @@ members = [
     "sys/num-tasks",
 
     "lib/armv6m-atomic-hack",
+    "lib/derive-idol-err",
     "lib/fixedmap",
     "lib/gnarle",
     "lib/hypocalls",

@@ -110,24 +110,12 @@ task-slots = ["sys"]
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
 priority = 3
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds"]
-
-[tasks.hf]
-path = "../../drv/gimlet-hf-server"
-name = "drv-gimlet-hf-server"
-features = ["h753"]
-priority = 3
-requires = {flash = 8192, ram = 2048 }
-stacksize = 1920
-start = true
-uses = ["quadspi"]
-interrupts = {"quadspi.irq" = 1}
-task-slots = ["sys"]
+task-slots = ["sys", "i2c_driver", "user_leds"]
 
 [tasks.vsc7448]
 path = "../../task/vsc7448"

@@ -6,32 +6,14 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
     DeviceError = 3,
-}
-
-impl From<ThermalError> for u16 {
-    fn from(rc: ThermalError) -> Self {
-        rc as u16
-    }
-}
-
-impl From<ThermalError> for u32 {
-    fn from(rc: ThermalError) -> Self {
-        rc as u32
-    }
-}
-
-impl core::convert::TryFrom<u32> for ThermalError {
-    type Error = ();
-    fn try_from(rc: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(rc).ok_or(())
-    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
