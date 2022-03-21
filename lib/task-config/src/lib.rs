@@ -4,7 +4,6 @@
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use serde::{de::DeserializeOwned, Deserialize};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{parse_macro_input, Field, Ident, Result, Token};
@@ -24,19 +23,11 @@ impl Parse for Config {
     }
 }
 
-fn toml_from_env<T: DeserializeOwned>(var: &str) -> Option<T> {
-    std::env::var(var)
-        .ok()
-        .and_then(|config| toml::from_slice(config.as_bytes()).ok())
-}
-
-/// We assume that there's a local task config which indexes into the global
-/// task config.
-#[derive(Deserialize)]
-struct TaskConfig {
-    global_config: String,
-}
-
+/// Recursively turns a `syn::Type` and `toml::Value` into a `TokenStream`.
+///
+/// The type and value must be compatible, e.g. if the type is an array, then
+/// the value should also be an array.  This supports arrays, tuples, slices,
+/// references, and primitive values.
 fn config_to_token(
     ty: &syn::Type,
     v: &toml::Value,
@@ -100,39 +91,48 @@ fn config_to_token(
                 .expect(&format!("Could not parse {}", v.to_string()))
         }
         _ => {
-            panic!(
-                "Got unhandled type {}\n{:?}",
-                ty.to_token_stream().to_string(),
-                ty
-            );
+            panic!("Got unhandled type {}", ty.to_token_stream().to_string())
         }
     }
 }
 
+/// The `task_config!` macro defines a `struct TASK_CONFIG` which is pulled
+/// from the Hubris app config.
+///
+/// For example, the following definition could live in a task's `main.rs`:
+/// ```rust
+/// task_config::task_config! {
+///     user_leds, // config block name
+///     count: usize,
+///     leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],
+/// }
+/// ```
+///
+/// Then, it would pull from the global config file for the app, e.g.
+/// ```toml
+/// [config.user_leds]
+/// count = 4
+/// leds = [
+///     ["drv_stm32xx_sys_api::Port::C.pin(6)", true],
+///     ["drv_stm32xx_sys_api::Port::I.pin(8)", false],
+///     ["drv_stm32xx_sys_api::Port::I.pin(9)", false],
+///     ["drv_stm32xx_sys_api::Port::I.pin(10)", false],
+///     ["drv_stm32xx_sys_api::Port::I.pin(11)", false],
+/// ]
+/// ```
+///
+/// At the moment, this only supports tasks which are instantiated _once_ and
+/// configured through the global configuration block (e.g. the SPI driver
+/// cannot be configured using this macro).
 #[proc_macro]
 pub fn task_config(tokens: TokenStream) -> TokenStream {
-    // TODO: include_bytes! on app.toml to trigger a recompilation when it
-    // changes.  (Alternatively, `proc_macro::tracked_env::var` works on
-    // nightly to explicitly track environmental variables)
-    //
-    // Right now, it doesn't matter because we do a clean rebuild whenever
-    // app.toml ever changes, but that will change if issue
-    // https://github.com/oxidecomputer/hubris/issues/240 is closed
-
-    let task_config = toml_from_env::<TaskConfig>("HUBRIS_TASK_CONFIG");
-    let global_config = toml_from_env::<toml::Value>("HUBRIS_APP_CONFIG")
-        .expect("Could not find HUBRIS_TASK_CONFIG");
-    let config = if let Some(t) = task_config {
-        &global_config.get(&t.global_config).expect(&format!(
-            "Could not find local config with key {}",
-            t.global_config
-        ))
-    } else {
-        &global_config
-    };
+    let app_config_str = std::env::var("HUBRIS_APP_CONFIG")
+        .expect("Missing HUBRIS_APP_CONFIG variable");
+    let app_config = toml::from_str::<toml::Value>(&app_config_str)
+        .expect("Could not parse HUBRIS_APP_CONFIG");
 
     let input = parse_macro_input!(tokens as Config);
-    let config = config.get(input.name.to_string()).expect(&format!(
+    let config = app_config.get(input.name.to_string()).expect(&format!(
         "Could not find config.{} in app TOML file",
         input.name.to_string()
     ));
@@ -146,14 +146,20 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
                 "Missing parameter in app TOML file: {}",
                 ident.to_string()
             ));
-            let mut out = quote! { #ident: };
-            out.extend(config_to_token(&f.ty, v).into_iter());
-            out
+            let vs = config_to_token(&f.ty, v);
+            quote! { #ident: #vs }
         })
         .collect::<Vec<_>>();
 
+    let app_toml_path = std::env::var("HUBRIS_APP_TOML")
+        .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
     let fields = input.items.iter();
-    let out = quote! {
+
+    // Once `proc_macro::tracked_env::var` is stable, we won't need to use
+    // this hack, but until then, we include the app TOML file to force
+    // rebuilds if it changes (and trust it's optimized out by the compiler)
+    quote! {
+        const APP_TOML_TO_ENSURE_REBUILD: &[u8] = include_bytes!(#app_toml_path);
         struct Config {
             #(#fields),*
         }
@@ -161,7 +167,5 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
             #(#values),*
         };
     }
-    .into();
-
-    out
+    .into()
 }
