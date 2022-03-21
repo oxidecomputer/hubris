@@ -16,6 +16,7 @@ use indexmap::IndexMap;
 mod clippy;
 mod dist;
 mod elf;
+mod expand;
 mod flash;
 mod gdb;
 mod humility;
@@ -107,6 +108,24 @@ enum Xtask {
         /// Request verbosity from tools we shell out to.
         #[clap(short)]
         verbose: bool,
+    },
+
+    /// Runs `rustc -- -Zunpretty=expanded` to expand macros on a specified task
+    Expand {
+        /// Path to the image configuration file, in TOML. Only needed if the
+        /// task under expansion requires it to build; e.g., if it enumerates
+        /// devices.
+        cfg: Option<PathBuf>,
+
+        /// The target to build for; uses [package.metadata.build.target] if not
+        /// passed.
+        #[clap(long)]
+        target: Option<String>,
+
+        /// The package you're trying to build; uses current directory if not
+        /// passed.
+        #[clap(short)]
+        package: Option<String>,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -461,6 +480,17 @@ fn main() -> Result<()> {
             tasks,
         } => {
             dist::package(verbose, edges, &cfg, Some(tasks))?;
+        }
+        Xtask::Expand {
+            cfg,
+            target,
+            package,
+        } => {
+            let requested = RequestedPackages::new(package, target, false);
+            let cfg = cfg.as_ref().map(|p| p.as_path());
+            run_for_packages(requested, |package, target| {
+                expand::run(cfg, package, target)
+            })?;
         }
         Xtask::Flash { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
