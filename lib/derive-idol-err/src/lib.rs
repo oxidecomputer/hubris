@@ -6,11 +6,17 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
+/// Adds three `impl` blocks for the given error type:
+/// - `From<E> for u16` (Idol encoding)
+/// - `From<E> for u32` (Hiffy encoding)
+/// - `TryFrom<u32> for E` (Idol decoding)
+///
+/// The given type must also derive `FromPrimitive`, which is used in the
+/// `TryFrom<u32>` implementation.  Sadly, this cannot be automatically added
+/// to the type by this macro.
 #[proc_macro_derive(IdolError)]
 pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, .. } = parse_macro_input!(input);
-    // We need to implement From for both u16 *and* u32, because Idol uses
-    // one and Hiffy uses the other.
     let output = quote! {
         impl From<#ident> for u16 {
             fn from(v: #ident) -> Self {
