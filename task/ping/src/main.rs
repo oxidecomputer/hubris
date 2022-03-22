@@ -15,8 +15,8 @@ task_slot!(UART, usart_driver);
 #[inline(never)]
 fn nullread() {
     unsafe {
-        // 0 is not in a region we can access; memory fault
-        (0 as *const u8).read_volatile();
+        // This constant is in a region we can't access; memory fault
+        (BAD_ADDRESS as *const u8).read_volatile();
     }
 }
 
@@ -73,3 +73,5 @@ fn uart_send(text: &[u8]) {
 
 #[cfg(not(feature = "uart"))]
 fn uart_send(_: &[u8]) {}
+
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));

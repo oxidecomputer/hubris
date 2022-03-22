@@ -58,9 +58,9 @@ fn illop(_arg: u32) {
 }
 
 #[inline(never)]
-fn badexec(_arg: u32) {
+fn badexec(arg: u32) {
     unsafe {
-        let val: u32 = 1;
+        let val: u32 = arg | 1;
         let f: extern "C" fn() = core::mem::transmute(val);
         f();
     }
