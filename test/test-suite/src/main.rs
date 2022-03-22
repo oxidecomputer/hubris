@@ -82,32 +82,8 @@ test_cases! {
     test_refresh_task_id_basic,
     test_refresh_task_id_off_by_one,
     test_refresh_task_id_off_by_many,
-    test_lpc55_flash_write,
     test_post,
 }
-
-#[cfg(feature = "lpc55")]
-fn test_lpc55_flash_write() {
-    // Minimum write size is 512 bytes
-    let buf: [u8; 512] = [0xdd; 512];
-
-    let result = hypocalls::hypo_write_to_flash(0, &buf);
-
-    assert_eq!(result, hypocalls::FlashStatus::Success);
-
-    // Verify that we reject non-zero ids
-    let result = hypocalls::hypo_write_to_flash(1, &buf);
-    assert_eq!(result, hypocalls::FlashStatus::InvalidArg);
-
-    // Verify that we fail to write smaller buffers
-    let small: [u8; 32] = [0xcc; 32];
-
-    let result = hypocalls::hypo_write_to_flash(0, &small);
-    assert_eq!(result, hypocalls::FlashStatus::AlignmentError);
-}
-
-#[cfg(not(feature = "lpc55"))]
-fn test_lpc55_flash_write() {}
 
 /// Tests that we can send a message to our assistant, and that the assistant
 /// can reply. Technically this is also a test of RECV/REPLY on the assistant
@@ -275,7 +251,7 @@ cfg_if::cfg_if! {
 /// Tests a memory fault, which ensures that the address reporting is correct,
 /// and that the MPU is on.
 fn test_fault_badmem() {
-    let bad_address = 5u32;
+    let bad_address = BAD_ADDRESS;
     let fault = test_fault(AssistOp::BadMemory, bad_address);
 
     assert_fault_eq!(
@@ -316,11 +292,14 @@ fn test_fault_illop() {
 }
 
 fn test_fault_nullexec() {
-    assert_fault_eq!(test_fault(AssistOp::BadExec, 0), FaultInfo::IllegalText);
+    assert_fault_eq!(
+        test_fault(AssistOp::BadExec, BAD_ADDRESS),
+        FaultInfo::IllegalText
+    );
 }
 
 fn test_fault_textoob() {
-    let fault = test_fault(AssistOp::TextOutOfBounds, 0);
+    let fault = test_fault(AssistOp::TextOutOfBounds, BAD_ADDRESS);
 
     match fault {
         FaultInfo::BusError { .. } | FaultInfo::MemoryAccess { .. } => {}
@@ -1093,3 +1072,5 @@ fn main() -> ! {
         )
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));
