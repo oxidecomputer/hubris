@@ -36,7 +36,11 @@ fn main() -> ! {
     // FRO_12MHz.  This is true but only before the Boot ROM runs.  Per
     // §10.2.1, the Boot ROM will read the CMPA to determine what speed
     // to run the cores at with options for 48MHz, 96MHz, and
-    // NMPA.SYSTEM_SPEED_CODE.  Assume the latter which is 48MHz FRO.
+    // NMPA.SYSTEM_SPEED_CODE. With no extra settings the ROM uses
+    // the NMPA setting.
+    //
+    // Importantly, there is an extra divider to determine the CPU
+    // speed which divides the MAINCLKA = 96MHz by 2 to get 48MHz.
     const CYCLES_PER_MS: u32 = 48_000;
 
     unsafe {
@@ -46,6 +50,11 @@ fn main() -> ! {
         //
         let iocon = &*device::IOCON::ptr();
         iocon.pio0_10.modify(|_, w| w.func().alt6());
+
+        // SWO is clocked indepdently of the CPU. Match the CPU
+        // settings by setting the divider
+        let syscon = &*device::SYSCON::ptr();
+        syscon.traceclkdiv.modify(|_, w| w.div().bits(1));
 
         kern::startup::start_kernel(CYCLES_PER_MS)
     }
