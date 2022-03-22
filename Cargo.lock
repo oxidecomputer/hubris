@@ -3080,6 +3080,7 @@ dependencies = [
  "cortex-m",
  "hubris-num-tasks",
  "num-traits",
+ "task-config",
  "test-api",
  "test-idol-api",
  "userlib",
