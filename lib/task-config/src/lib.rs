@@ -135,7 +135,7 @@ fn config_to_token(
 /// ```
 ///
 /// At the moment, this only supports tasks which are instantiated _once_ and
-/// configured through the global configuration block (e.g. the SPI driver
+/// configured through the task configuration block (e.g. the SPI driver
 /// cannot be configured using this macro).
 #[proc_macro]
 pub fn task_config(tokens: TokenStream) -> TokenStream {
