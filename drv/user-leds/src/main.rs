@@ -34,8 +34,6 @@ use drv_user_leds_api::LedError;
 use idol_runtime::RequestError;
 use userlib::*;
 
-///////////////////////////////////////////////////////////////////////////////
-
 cfg_if::cfg_if! {
     // Target boards with 4 leds
     if #[cfg(any(
