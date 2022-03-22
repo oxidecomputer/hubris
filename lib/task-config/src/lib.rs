@@ -6,18 +6,14 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, Field, Ident, Result, Token};
+use syn::{parse_macro_input, Field, Result, Token};
 
 struct Config {
-    name: Ident,
-    _comma: Token![,],
     items: Punctuated<Field, Token![,]>,
 }
 impl Parse for Config {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(Self {
-            name: input.parse()?,
-            _comma: input.parse()?,
             items: input.parse_terminated(Field::parse_named)?,
         })
     }
@@ -97,20 +93,19 @@ fn config_to_token(
 }
 
 /// The `task_config!` macro defines a `struct TASK_CONFIG` which is pulled
-/// from the Hubris app config.
+/// from the Hubris task config.
 ///
 /// For example, the following definition could live in a task's `main.rs`:
 /// ```rust
 /// task_config::task_config! {
-///     user_leds, // config block name
 ///     count: usize,
 ///     leds: &'static [(drv_stm32xx_sys_api::PinSet, bool)],
 /// }
 /// ```
 ///
-/// Then, it would pull from the global config file for the app, e.g.
+/// Then, it look for a `config` block in the `user_leds` task:
 /// ```toml
-/// [config.user_leds]
+/// [tasks.user_leds.config]
 /// count = 4
 /// leds = [
 ///     ["drv_stm32xx_sys_api::Port::C.pin(6)", true],
@@ -144,24 +139,19 @@ fn config_to_token(
 /// cannot be configured using this macro).
 #[proc_macro]
 pub fn task_config(tokens: TokenStream) -> TokenStream {
-    let app_config_str = std::env::var("HUBRIS_APP_CONFIG")
-        .expect("Missing HUBRIS_APP_CONFIG variable");
-    let app_config = toml::from_str::<toml::Value>(&app_config_str)
-        .expect("Could not parse HUBRIS_APP_CONFIG");
+    let task_config_str = std::env::var("HUBRIS_TASK_CONFIG")
+        .expect("Missing HUBRIS_TASK_CONFIG variable");
+    let config = toml::from_str::<toml::Value>(&task_config_str)
+        .expect("Could not parse HUBRIS_TASK_CONFIG");
 
     let input = parse_macro_input!(tokens as Config);
-    let config = app_config.get(input.name.to_string()).expect(&format!(
-        "Could not find config.{} in app TOML file",
-        input.name.to_string()
-    ));
-
     let values = input
         .items
         .iter()
         .map(|f| {
             let ident = f.ident.as_ref().expect("Missing ident");
             let v = config.get(ident.to_string()).expect(&format!(
-                "Missing parameter in app TOML file: {}",
+                "Missing config parameter in TOML file: {}",
                 ident.to_string()
             ));
             let vs = config_to_token(&f.ty, v);
