@@ -671,14 +671,6 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 r.set_basic_tpid_aware_dis(0b1111);
                 r.set_rt_tag_ctrl(0b0001);
             })?;
-            self.modify(REW().PORT(p).TAG_CTRL(), |r| {
-                // "Tag all frames, except when VID=PORT_VLAN_CFG.PORT_ID
-                //  or VID=0"
-                r.set_tag_cfg(1);
-
-                // We don't do anything fancy with VID classification, so
-                // no need to set TAG_VID_CFG here.
-            })?;
         }
 
         // The uplink port requires one VLAN tag, and pops it on ingress
@@ -699,6 +691,12 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         // Discard frames with < 1 tag
         self.modify(port.VLAN_FILTER_CTRL(0), |r| {
             r.set_tag_required_ena(1);
+        })?;
+        let rew = REW().PORT(UPLINK);
+        // Use the rewriter to tag all frames on egress from the upstream port
+        // (using the VID assigned on ingress into a downstream port)
+        self.modify(rew.TAG_CTRL(), |r| {
+            r.set_tag_cfg(1);
         })?;
 
         // Configure VLAN ingress filtering, so packets that arrive and
