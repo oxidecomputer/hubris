@@ -11,9 +11,13 @@
 //!
 //! # The assistant
 //!
-//! This test suite uses a second task, the assistant, to test IPC and
-//! interactions. The assistant must be included in the image with the name
-//! `assist`, but its ID is immaterial.
+//! This test suite uses two other tasks to test IPC and interactions.
+//!
+//! The assistant, `test-assist`, tests raw test IPC and interactions.  It must
+//! be included in the image with the name `assist`, but its ID is immaterial.
+//!
+//! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
+//! included in the image with the name `idol`, but its ID is immaterial.
 
 #![no_std]
 #![no_main]
@@ -83,6 +87,12 @@ test_cases! {
     test_refresh_task_id_off_by_one,
     test_refresh_task_id_off_by_many,
     test_post,
+    test_idol_basic,
+    test_idol_bool_arg,
+    test_idol_bool_ret,
+    test_idol_bool_xor,
+    test_idol_err_ret,
+    test_idol_ssmarshal,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -430,6 +440,78 @@ fn test_panic() {
         },
     );
     restart_assistant();
+}
+
+fn test_idol_basic() {
+    let idol = idol_handle();
+    let r = idol.increment(1);
+    assert_eq!(r, Ok(2));
+}
+
+fn test_idol_bool_arg() {
+    let idol = idol_handle();
+    let r = idol.maybe_increment(5, true);
+    assert_eq!(r, Ok(6));
+
+    let r = idol.maybe_increment(5, false);
+    assert_eq!(r, Ok(5));
+}
+
+fn test_idol_bool_ret() {
+    let idol = idol_handle();
+    let r = idol.bool_not(true);
+    assert_eq!(r, Ok(false));
+
+    let r = idol.bool_not(false);
+    assert_eq!(r, Ok(true));
+}
+
+fn test_idol_bool_xor() {
+    let idol = idol_handle();
+    let r = idol.bool_xor(true, true);
+    assert_eq!(r, Ok(false));
+
+    let r = idol.bool_xor(true, false);
+    assert_eq!(r, Ok(true));
+
+    let r = idol.bool_xor(false, true);
+    assert_eq!(r, Ok(true));
+
+    let r = idol.bool_xor(false, false);
+    assert_eq!(r, Ok(false));
+}
+
+fn test_idol_err_ret() {
+    let idol = idol_handle();
+    let r = idol.return_err_if_true(false);
+    assert_eq!(r, Ok(()));
+    let r = idol.return_err_if_true(true);
+    assert_eq!(r, Err(test_idol_api::IdolTestError::YouAskedForThis));
+}
+
+fn test_idol_ssmarshal() {
+    let idol = idol_handle();
+    let r = idol
+        .fancy_increment(test_idol_api::FancyTestType {
+            u: 133,
+            b: true,
+            f: 1.0,
+        })
+        .unwrap();
+    assert_eq!(r.u, 134);
+    assert_eq!(r.b, true);
+    assert_eq!(r.f, 1.0);
+
+    let r = idol
+        .fancy_increment(test_idol_api::FancyTestType {
+            u: 101,
+            b: false,
+            f: 1.0,
+        })
+        .unwrap();
+    assert_eq!(r.u, 101);
+    assert_eq!(r.b, false);
+    assert_eq!(r.f, 1.0);
 }
 
 /// Tests that task restart works as expected.
@@ -980,6 +1062,9 @@ fn test_post() {
 
 // Identity of our "assistant task" that we require in the image.
 task_slot!(ASSIST, assist);
+// Identity of the Idol server that we require in the image
+task_slot!(IDOL, idol);
+
 // Our own identity
 task_slot!(SUITE, suite);
 task_slot!(RUNNER, runner);
@@ -987,6 +1072,10 @@ task_slot!(RUNNER, runner);
 /// Gets the current expected `TaskId` for the assistant.
 fn assist_task_id() -> TaskId {
     ASSIST.get_task_id()
+}
+
+fn idol_handle() -> test_idol_api::IdolTest {
+    test_idol_api::IdolTest::from(IDOL.get_task_id())
 }
 
 /// Restarts the assistant task.

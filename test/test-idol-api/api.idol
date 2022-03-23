@@ -1,0 +1,69 @@
+// Simple IDOL test suite
+
+Interface(
+    name: "IdolTest",
+    ops: {
+        "increment": (
+            args: {
+                "i": "usize",
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: true,
+        ),
+        "maybe_increment": (
+            args: {
+                "i": "usize",
+                "b": "bool",
+            },
+            reply: Result(
+                ok: "usize",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: true,
+        ),
+        "return_err_if_true": (
+            args: {
+                "b": "bool",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: true,
+        ),
+        "bool_not": (
+            args: {
+                "b": "bool",
+            },
+            reply: Result(
+                ok: "bool",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: true,
+        ),
+        "bool_xor": (
+            args: {
+                "a": "bool",
+                "b": "bool",
+            },
+            reply: Result(
+                ok: "bool",
+                err: CLike("IdolTestError"),
+            ),
+            idempotent: true,
+        ),
+        "fancy_increment": (
+            args: {
+                "a": "FancyTestType",
+            },
+            reply: Result(
+                ok: "FancyTestType",
+                err: CLike("IdolTestError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+    },
+)

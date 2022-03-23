@@ -40,7 +40,7 @@ priority = 2
 requires = {flash = 65536, ram = 4096}
 start = true
 features = ["itm"]
-task-slots = ["assist", "suite", "runner"]
+task-slots = ["assist", "idol", "suite", "runner"]
 
 [tasks.assist]
 path = "../test-assist"
@@ -49,6 +49,14 @@ priority = 1
 requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
 
 [tasks.idle]
 path = "../../task/idle"

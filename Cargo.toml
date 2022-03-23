@@ -107,6 +107,8 @@ members = [
     "test/test-runner",
     "test/test-assist",
     "test/test-suite",
+    "test/test-idol-server",
+    "test/test-idol-api",
 
     "stage0",
 ]

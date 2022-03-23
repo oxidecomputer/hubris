@@ -51,7 +51,7 @@ priority = 2
 requires = {flash = 65536, ram = 2048}
 start = true
 features = ["semihosting"]
-task-slots = ["assist", "suite", "runner"]
+task-slots = ["assist", "idol", "suite", "runner"]
 stacksize = 1504
 
 [tasks.assist]
@@ -62,6 +62,14 @@ requires = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
 stacksize = 1504
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
 
 [tasks.idle]
 path = "../../task/idle"
