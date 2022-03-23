@@ -297,8 +297,15 @@ pub fn package(
     }
 
     // Quick sanity-check if we're trying to build individual tasks which
-    // aren't present in the app.toml.
+    // aren't present in the app.toml, or ran `cargo xtask build ...` without
+    // any specified tasks.
     if let Some(included_names) = &tasks_to_build {
+        if included_names.is_empty() {
+            bail!(
+                "Running `cargo xtask build` without specifying tasks has no effect.
+Did you mean to run `cargo xtask dist`?"
+            );
+        }
         let all_tasks = toml.tasks.keys().collect::<Vec<_>>();
         for name in included_names {
             if !all_tasks.contains(&name) {
