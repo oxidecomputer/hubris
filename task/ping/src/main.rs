@@ -6,7 +6,10 @@
 #![no_main]
 #![feature(asm)]
 
+use ringbuf::*;
 use userlib::*;
+
+ringbuf!(u32, 16, 0);
 
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
@@ -45,13 +48,16 @@ fn main() -> ! {
     let faultme = [nullread, divzero];
 
     let mut response = [0; 16];
+    let mut count = 0;
     loop {
         uart_send(b"Ping!\r\n");
+        ringbuf_entry!(count);
+        count += 1;
 
         let (code, _len) =
             sys_send(peer, PING_OP, b"hello", &mut response, &[]);
 
-        if code % FAULT_EVERY != 0 {
+        if code % FAULT_EVERY != 0 || true {
             continue;
         }
 

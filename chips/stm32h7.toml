@@ -99,3 +99,7 @@ size = 0x20000
 #[cryp]
 #address = 0x48021000
 #size = 4096
+
+[unique_id]
+address = 0x1ff1e800
+size = 16

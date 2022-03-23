@@ -123,7 +123,7 @@ path = "../../task/ping"
 name = "task-ping"
 features = []
 priority = 4
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 8192, ram = 4096}
 start = true
 task-slots = [{peer = "pong"}]
 
@@ -135,26 +135,29 @@ requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
-[tasks.uartecho]
-path = "../../task/uartecho"
-name = "task-uartecho"
+#[tasks.uartecho]
+#path = "../../task/uartecho"
+#name = "task-uartecho"
+#features = ["stm32h743"]
+#priority = 3
+#requires = {flash = 16384, ram = 4096}
+#stacksize = 2048
+#start = true
+#task-slots = ["sys"]
+#uses = ["usart3"]
+#interrupts = {"usart3.irq" = 1}
+
+[tasks.mgs_responder]
+path = "../../task/mgs-responder"
+name = "task-mgs-responder"
 features = ["stm32h743"]
 priority = 3
-requires = {flash = 16384, ram = 4096}
-stacksize = 2048
-start = true
-task-slots = ["sys"]
-uses = ["usart3"]
-interrupts = {"usart3.irq" = 1}
-
-[tasks.udpecho]
-path = "../../task/udpecho"
-name = "task-udpecho"
-priority = 3
-requires = {flash = 16384, ram = 8192}
+requires = {flash = 32768, ram = 8192}
 stacksize = 4096
+uses = ["unique_id", "usart3"]
 start = true
-task-slots = ["net"]
+task-slots = ["net", "sys"]
+interrupts = {"usart3.irq" = 0x02}
 
 [tasks.hiffy]
 path = "../../task/hiffy"
@@ -211,7 +214,7 @@ clock_divider = "DIV16"
 
 [config.net.sockets.echo]
 kind = "udp"
-owner = {name = "udpecho", notification = 1}
+owner = {name = "mgs_responder", notification = 0x01}
 port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

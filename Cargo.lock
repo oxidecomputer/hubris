@@ -1242,6 +1242,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 
 [[package]]
+name = "gateway-messages"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "hubpack",
+ "serde",
+ "serde_repr",
+]
+
+[[package]]
 name = "gemini-bu"
 version = "0.1.0"
 dependencies = [
@@ -1451,6 +1461,25 @@ checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
  "crypto-mac 0.11.1",
  "digest",
+]
+
+[[package]]
+name = "hubpack"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack?branch=main#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+dependencies = [
+ "hubpack_derive",
+ "serde",
+]
+
+[[package]]
+name = "hubpack_derive"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack?branch=main#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2334,18 +2363,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.130"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
+checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.130"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7bc1a1ab1961464eae040d96713baa5a724a8152c1222492465b54322ec508b"
+checksum = "08597e7152fcd306f41838ed3e37be9eaeed2b61c42e2117266a554fab4662f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2361,6 +2390,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_repr"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98d0516900518c29efa217c298fa1f4e6c6ffc85ae29fd7f4ee48f176e1a9ed5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2686,6 +2726,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-mgs-responder"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32h7-usart",
+ "gateway-messages",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "tinyvec",
+ "unwrap-lite",
+ "userlib",
+]
+
+[[package]]
 name = "task-net"
 version = "0.1.0"
 dependencies = [
@@ -2742,6 +2798,7 @@ dependencies = [
  "build-util",
  "cortex-m",
  "drv-user-leds-api",
+ "ringbuf",
  "userlib",
 ]
 

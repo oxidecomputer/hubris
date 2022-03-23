@@ -40,6 +40,7 @@ members = [
     "task/pong",
     "task/idle",
     "task/hiffy",
+    "task/mgs-responder",
     "task/net",
     "task/net-api",
     "task/power",

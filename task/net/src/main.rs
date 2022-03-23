@@ -26,9 +26,13 @@ use stm32h7::stm32h753 as device;
 
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::Sys;
+use ringbuf::{ringbuf, ringbuf_entry};
 use userlib::*;
 
 task_slot!(SYS, sys);
+
+//ringbuf!(IPV6_ADDR, [u8; 16], 1, [0; 16]);
+ringbuf!([u8; 16], 1, [0; 16]);
 
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!
@@ -126,6 +130,8 @@ fn main() -> ! {
     let mac = EthernetAddress::from_bytes(mac_address());
 
     let ipv6_addr = link_local_iface_addr(mac);
+    //ringbuf_entry!(IPV6_ADDR, ipv6_addr.0);
+    ringbuf_entry!(ipv6_addr.0);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
 
     let mut ip_addrs = [ipv6_net];
