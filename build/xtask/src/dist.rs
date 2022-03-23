@@ -177,6 +177,308 @@ impl Packager {
         remap_paths.insert(hubris_dir, "/hubris");
         remap_paths
     }
+
+    /// Returns shared symbols defined by the bootloader, or an empty
+    /// slice if none are present.
+    fn shared_syms(&self) -> &[String] {
+        if let Some(bootloader) = self.config.bootloader.as_ref() {
+            &bootloader.sharedsyms;
+        } else {
+            &[]
+        }
+    }
+
+    fn build_bootloader(&self) -> Result<()> {
+        let mut bootloader_memory = IndexMap::new();
+        let flash = memories.get("bootloader_flash").unwrap();
+        let ram = memories.get("bootloader_ram").unwrap();
+        let sram = memories.get("bootloader_sram").unwrap();
+        let image_flash = if let Some(end) = bootloader
+            .imagea_flash_start
+            .checked_add(bootloader.imagea_flash_size)
+        {
+            bootloader.imagea_flash_start..end
+        } else {
+            bail!("image flash size is incorrect");
+        };
+        let image_ram = if let Some(end) = bootloader
+            .imagea_ram_start
+            .checked_add(bootloader.imagea_ram_size)
+        {
+            bootloader.imagea_ram_start..end
+        } else {
+            bail!("image ram size is incorrect");
+        };
+
+        bootloader_memory.insert(String::from("FLASH"), flash.clone());
+        bootloader_memory.insert(String::from("RAM"), ram.clone());
+        bootloader_memory.insert(String::from("SRAM"), sram.clone());
+        bootloader_memory
+            .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
+        bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
+
+        let kernel_start = allocs.kernel.get("flash").unwrap().start;
+
+        if kernel_start != bootloader_memory.get("FLASH").unwrap().end {
+            bail!("mismatch between bootloader end and hubris start! check app.toml!");
+        }
+
+        shared_syms = Some(&bootloader.sharedsyms);
+
+        generate_bootloader_linker_script(
+            "memory.x",
+            &bootloader_memory,
+            Some(&bootloader.sections),
+            &bootloader.sharedsyms,
+        );
+
+        fs::copy("build/kernel-link.x", "target/link.x")?;
+
+        build(
+            &self.config.target,
+            &toml.board,
+            &src_dir.join(&bootloader.path),
+            &bootloader.name,
+            &bootloader.features,
+            out.join(&bootloader.name),
+            &task_names,
+            &remap_paths,
+            &None,
+            &shared_syms,
+            &None,
+            &toml.config,
+            &[],
+        )?;
+
+        // Need a bootloader binary for signing
+        objcopy_translate_format(
+            "elf32-littlearm",
+            &out.join(&bootloader.name),
+            "binary",
+            &out.join("bootloader.bin"),
+        )?;
+
+        if let Some(signing) = toml.signing.get("bootloader") {
+            do_sign_file(
+                signing,
+                &out,
+                &src_dir,
+                "bootloader",
+                0,
+                &starting_memories,
+            )?;
+        }
+
+        // We need to get the absolute symbols for the non-secure application
+        // to call into the secure application. The easiest approach right now
+        // is to generate the table in a separate section, objcopy just that
+        // section and then re-insert those bits into the application section
+        // via linker.
+
+        objcopy_grab_binary(
+            "elf32-littlearm",
+            &out.join(&bootloader.name),
+            &out.join("addr_blob.bin"),
+        )?;
+
+        let mut f = std::fs::File::open(&out.join("addr_blob.bin"))?;
+
+        let mut bytes = Vec::new();
+
+        f.read_to_end(&mut bytes)?;
+
+        let mut linkscr = File::create(Path::new(&format!("target/table.ld")))?;
+
+        for b in bytes {
+            writeln!(linkscr, "BYTE(0x{:x})", b)?;
+        }
+        Ok(())
+    }
+
+    /// Builds the environment variables for a particular build command
+    fn build_environment(
+        &self,
+        with_task_names: bool,
+        with_secure_separation: bool,
+        with_shared_syms: bool,
+        extra_env: &[(&str, &str)],
+    ) -> IndexMap<String, String> {
+        // This works because we control the environment in which we're about
+        // to invoke cargo, and never modify CARGO_TARGET in that environment.
+        let mut cargo_out = Path::new("target").to_path_buf();
+        let remap_path_prefix: String = Self::remap_paths()
+            .iter()
+            .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
+            .collect();
+
+        let mut env = IndexMap::new();
+        env.insert(
+            "RUSTFLAGS",
+            &format!(
+                "-C link-arg=-Tlink.x \
+                 -L {} \
+                 -C link-arg=-z -C link-arg=common-page-size=0x20 \
+                 -C link-arg=-z -C link-arg=max-page-size=0x20 \
+                 -C llvm-args=--enable-machine-outliner=never \
+                 -C overflow-checks=y \
+                 {}",
+                cargo_out.display(),
+                remap_path_prefix,
+            ),
+        );
+
+        if with_task_names {
+            env.insert(
+                "HUBRIS_TASKS",
+                self.config.tasks.keys().cloned().join(','),
+            );
+        }
+
+        env.insert("HUBRIS_BOARD", self.config.board_name);
+
+        // secure_separation indicates that we have TrustZone enabled.
+        // When TrustZone is enabled, the bootloader is secure and hubris is
+        // not secure.
+        // When TrustZone is not enabled, both the bootloader and Hubris are
+        // secure.
+        if with_secure_separation {
+            env.insert(
+                "HUBRIS_SECURE",
+                if let Some(s) = self.config.secure_separation {
+                    if *s {
+                        "0"
+                    } else {
+                        "1"
+                    }
+                } else {
+                    "1"
+                },
+            );
+        }
+
+        if with_shared_syms {
+            let s = self.shared_syms();
+            if !s.is_empty() {
+                cmd.env("SHARED_SYMS", s.join(","));
+            }
+        }
+
+        for (k, v) in extra_env {
+            env.insert(k.to_owned(), v.to_owned());
+        }
+
+        env
+    }
+
+    fn build(
+        &self,
+        task_name: &str,
+        crate_name: &str,
+        features: &[String],
+        with_task_names: bool,
+        with_secure_separation: bool,
+        with_shared_syms: bool,
+        extra_env: &[(&str, &str)],
+    ) -> Result<()> {
+        println!("building {}", crate_name);
+
+        // NOTE: current_dir's docs suggest that you should use canonicalize for
+        // portability. However, that's for when you're doing stuff like:
+        //
+        // Command::new("../cargo")
+        //
+        // That is, when you have a relative path to the binary being executed. We
+        // are not including a path in the binary name, so everything is peachy. If
+        // you change this line below, make sure to canonicalize path.
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build")
+            .arg("--release")
+            .arg("--no-default-features")
+            .arg("--target")
+            .arg(self.config.target)
+            .arg("-p")
+            .arg(crate_name);
+
+        if self.verbose {
+            cmd.arg("-v");
+        }
+        if !features.is_empty() {
+            cmd.arg("--features");
+            cmd.arg(features.join(","));
+        }
+
+        // This works because we control the environment in which we're about
+        // to invoke cargo, and never modify CARGO_TARGET in that environment.
+        let mut cargo_out = Path::new("target").to_path_buf();
+
+        cmd.current_dir(path);
+
+        if with_task_names {
+            cmd.env("HUBRIS_TASKS", task_names);
+        }
+
+        for (var, value) in self.build_environment(
+            with_task_names,
+            with_secure_separation,
+            with_shared_syms,
+            extra_env,
+        ) {
+            cmd.env(var, value);
+        }
+
+        //
+        // We allow for task- and app-specific configuration to be passed
+        // via environment variables to build.rs scripts that may choose to
+        // incorporate configuration into compilation.
+        //
+        if let Some(config) = self.config.tasks[task_name].config {
+            let env = toml::to_string(&config).unwrap();
+            cmd.env("HUBRIS_TASK_CONFIG", env);
+        }
+
+        if let Some(app_config) = self.config.config {
+            let env = toml::to_string(&app_config).unwrap();
+            cmd.env("HUBRIS_APP_CONFIG", env);
+        }
+
+        if self.edges {
+            let mut tree = Command::new("cargo");
+            tree.arg("tree")
+                .arg("--no-default-features")
+                .arg("--edges")
+                .arg("features")
+                .arg("--verbose");
+            if !features.is_empty() {
+                tree.arg("--features");
+                tree.arg(features.join(","));
+            }
+            tree.current_dir(path);
+            println!("Path: {}\nRunning cargo {:?}", path.display(), tree);
+            let tree_status = tree
+                .status()
+                .context(format!("failed to run edge ({:?})", tree))?;
+            if !tree_status.success() {
+                bail!("tree command failed, see output for details");
+            }
+        }
+
+        let status = cmd
+            .status()
+            .context(format!("failed to run rustc ({:?})", cmd))?;
+
+        if !status.success() {
+            bail!("command failed, see output for details");
+        }
+
+        cargo_out.push(self.config.target);
+        cargo_out.push("release");
+        cargo_out.push(name);
+
+        println!("{} -> {}", cargo_out.display(), dest.display());
+        std::fs::copy(&cargo_out, dest)?;
+
+        Ok(())
+    }
 }
 
 pub fn package(
@@ -242,43 +544,6 @@ pub fn package(
     let mut entry_points = HashMap::<_, _>::default();
 
     let mut shared_syms: Option<&[String]> = None;
-
-    // Panic messages in crates have a long prefix; we'll shorten it using
-    // the --remap-path-prefix argument to reduce message size.  We'll remap
-    // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
-    // dependencies to /git
-    let remap_paths = {
-        let mut remap_paths = BTreeMap::new();
-
-        // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
-        // beginning with "\\hostname\".  However, rustc expects a non-UNC
-        // path for its --remap-path-prefix argument, so we use
-        // `dunce::canonicalize` instead
-        let cargo_home = dunce::canonicalize(std::env::var("CARGO_HOME")?)?;
-        let mut cargo_git = cargo_home.clone();
-        cargo_git.push("git");
-        cargo_git.push("checkouts");
-        remap_paths.insert(cargo_git, "/git");
-
-        // This hash is canonical-ish: Cargo tries hard not to change it
-        // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
-        //
-        // It depends on system architecture, so this won't work on (for example)
-        // a Raspberry Pi, but the only downside is that panic messages will
-        // be longer.
-        let mut cargo_registry = cargo_home;
-        cargo_registry.push("registry");
-        cargo_registry.push("src");
-        cargo_registry.push("github.com-1ecc6299db9ec823");
-        remap_paths.insert(cargo_registry, "/crates.io");
-
-        let mut hubris_dir =
-            dunce::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
-        hubris_dir.pop(); // Remove "build/xtask"
-        hubris_dir.pop();
-        remap_paths.insert(hubris_dir, "/hubris");
-        remap_paths
-    };
 
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
