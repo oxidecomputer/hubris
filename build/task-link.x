@@ -22,10 +22,10 @@ SECTIONS
   {
     *(.rodata .rodata.*);
 
-    /* 4-byte align the end (VMA) of this section.
-       This is required by LLD to ensure the LMA of the following .data
-       section will have the correct alignment. */
-    . = ALIGN(4);
+    /* 32-byte align the end (VMA) of this section.
+       Otherwise, arm-none-eabi-ld will print a warning about the
+       location of addr_table */
+    . = ALIGN(32);
     __erodata = .;
   } > FLASH
 

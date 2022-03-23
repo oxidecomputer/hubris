@@ -257,7 +257,6 @@ struct Bootloader {
 struct Kernel {
     path: PathBuf,
     name: String,
-    requires: IndexMap<String, u32>,
     stacksize: Option<u32>,
     #[serde(default)]
     features: Vec<String>,
@@ -289,7 +288,6 @@ struct Output {
 struct Task {
     path: PathBuf,
     name: String,
-    requires: IndexMap<String, u32>,
     priority: u32,
     stacksize: Option<u32>,
     #[serde(default)]

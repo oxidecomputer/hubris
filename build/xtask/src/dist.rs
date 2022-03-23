@@ -28,6 +28,157 @@ use lpc55_sign::{crc_image, signed_image};
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
+struct Packager {
+    verbose: bool,
+    edges: bool,
+    config: Config,
+}
+
+impl Packager {
+    pub fn init(verbose: bool, edges: bool, cfg: &Path) -> Result<Self> {
+        let mut out = PathBuf::from("target");
+        out.push(&toml.name);
+        out.push("dist");
+        std::fs::create_dir_all(&out)?;
+
+        let config = Config::from_file(&cfg)?;
+        let out = Self {
+            verbose,
+            edges,
+            config,
+        };
+
+        // Clean the build if the app hash has changed
+        if out.needs_rebuild() {
+            out.clean_build()?;
+            std::fs::write(
+                Self::buildstamp_file(),
+                format!("{:x}", toml.buildhash),
+            )?;
+        }
+
+        Ok(out)
+    }
+
+    fn buildstamp_file() -> PathBuf {
+        Path::new("target").join("buildstamp")
+    }
+
+    /// Checks to see whether we need a clean rebuild, based on the buildstamp
+    /// file's presence and hash value.
+    fn needs_rebuild(&self) -> bool {
+        let rebuild = match std::fs::read(Self::buildstamp_file()) {
+            Ok(contents) => {
+                if let Ok(contents) = std::str::from_utf8(&contents) {
+                    if let Ok(cmp) = u64::from_str_radix(contents, 16) {
+                        toml.buildhash != cmp
+                    } else {
+                        println!(
+                            "buildstamp file contents unknown; re-building."
+                        );
+                        true
+                    }
+                } else {
+                    println!("buildstamp file contents corrupt; re-building.");
+                    true
+                }
+            }
+            Err(_) => {
+                println!("no buildstamp file found; re-building.");
+                true
+            }
+        };
+    }
+
+    /// Runs `cargo clean` on all targets (tasks, kernel, and bootloader)
+    fn clean_build(&self) -> Result<()> {
+        // if we need to rebuild, we should clean everything before we start building
+        println!("app.toml has changed; rebuilding all tasks");
+
+        self.cargo_clean(&self.config.kernel.name)?;
+
+        for name in self.config.tasks.keys() {
+            // this feels redundant, don't we already have the name? consider
+            // our supervisor:
+            //
+            // [tasks.jefe]
+            // path = "../task-jefe"
+            // name = "task-jefe"
+            //
+            // the "name" in the key is jefe, but the package name is in
+            // tasks.jefe.name, and that's what we need to give to cargo
+            let task_toml = &self.config.tasks[name];
+
+            self.cargo_clean(&task_toml.name)?;
+        }
+
+        if let Some(bootloader) = self.config.bootloader.as_ref() {
+            self.cargo_clean(&bootloader.name)?;
+        }
+        Ok(())
+    }
+
+    /// Runs `cargo clean` on a particular target
+    fn cargo_clean(name: &str) -> Result<()> {
+        println!("cleaning {}", name);
+
+        let mut cmd = Command::new("cargo");
+        cmd.arg("clean");
+        cmd.arg("-p");
+        cmd.arg(name);
+        cmd.arg("--release");
+        cmd.arg("--target");
+        cmd.arg(self.config.target);
+
+        let status = cmd
+            .status()
+            .context(format!("failed to cargo clean ({:?})", cmd))?;
+
+        if !status.success() {
+            bail!("command failed, see output for details");
+        }
+
+        Ok(())
+    }
+
+    // Panic messages in crates have a long prefix; we'll shorten it using
+    // the --remap-path-prefix argument to reduce message size.  We'll remap
+    // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
+    // dependencies to /git
+    fn remap_paths() -> BTreeMap<String, String> {
+        let mut remap_paths = BTreeMap::new();
+
+        // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
+        // beginning with "\\hostname\".  However, rustc expects a non-UNC
+        // path for its --remap-path-prefix argument, so we use
+        // `dunce::canonicalize` instead
+        let cargo_home = dunce::canonicalize(std::env::var("CARGO_HOME")?)?;
+        let mut cargo_git = cargo_home.clone();
+        cargo_git.push("git");
+        cargo_git.push("checkouts");
+        remap_paths.insert(cargo_git, "/git");
+
+        // This hash is canonical-ish: Cargo tries hard not to change it
+        // https://github.com/rust-lang/cargo/blob/master/src/cargo/core/source/source_id.rs#L607-L630
+        //
+        // It depends on system architecture, so this won't work on (for example)
+        // a Raspberry Pi, but the only downside is that panic messages will
+        // be longer.
+        let mut cargo_registry = cargo_home;
+        cargo_registry.push("registry");
+        cargo_registry.push("src");
+        cargo_registry.push("github.com-1ecc6299db9ec823");
+        remap_paths.insert(cargo_registry, "/crates.io");
+
+        let mut hubris_dir =
+            dunce::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
+        hubris_dir.pop(); // Remove "build/xtask"
+        hubris_dir.pop();
+        remap_paths.insert(hubris_dir, "/hubris");
+        remap_paths
+    }
+}
+
 pub fn package(
     verbose: bool,
     edges: bool,
@@ -47,26 +198,6 @@ pub fn package(
     out.push("dist");
 
     std::fs::create_dir_all(&out)?;
-
-    let rebuild = match std::fs::read(&buildstamp_file) {
-        Ok(contents) => {
-            if let Ok(contents) = std::str::from_utf8(&contents) {
-                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
-                    toml.buildhash != cmp
-                } else {
-                    println!("buildstamp file contents unknown; re-building.");
-                    true
-                }
-            } else {
-                println!("buildstamp file contents corrupt; re-building.");
-                true
-            }
-        }
-        Err(_) => {
-            println!("no buildstamp file found; re-building.");
-            true
-        }
-    };
 
     let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
@@ -110,31 +241,6 @@ pub fn package(
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
 
-    // if we need to rebuild, we should clean everything before we start building
-    if rebuild {
-        println!("app.toml has changed; rebuilding all tasks");
-
-        cargo_clean(&toml.kernel.name, &toml.target)?;
-
-        for name in toml.tasks.keys() {
-            // this feels redundant, don't we already have the name? consider
-            // our supervisor:
-            //
-            // [tasks.jefe]
-            // path = "../task-jefe"
-            // name = "task-jefe"
-            //
-            // the "name" in the key is jefe, but the package name is in
-            // tasks.jefe.name, and that's what we need to give to cargo
-            let task_toml = &toml.tasks[name];
-
-            cargo_clean(&task_toml.name, &toml.target)?;
-        }
-    }
-
-    // now that we're clean, update our buildstamp file; any failure to build
-    // from here on need not trigger a clean
-    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
     let mut shared_syms: Option<&[String]> = None;
 
     // Panic messages in crates have a long prefix; we'll shorten it using
