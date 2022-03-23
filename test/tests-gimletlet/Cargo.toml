@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 readme = "README.md"
-name = "tests-gemini-bu"
+name = "tests-gimletlet"
 version = "0.1.0"
 
 [features]
@@ -27,7 +27,7 @@ build-util = {path = "../../build/util"}
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "tests-gemini-bu"
-path = "../../app/gemini-bu/src/main.rs"
+name = "tests-gimletlet"
+path = "../../app/gimletlet/src/main.rs"
 test = false
 bench = false

@@ -13,7 +13,7 @@
 //!
 //! This test suite uses two other tasks to test IPC and interactions.
 //!
-//! The assistant, `test-assit`, tests raw test IPC and interactions.  It must
+//! The assistant, `test-assist`, tests raw test IPC and interactions.  It must
 //! be included in the image with the name `assist`, but its ID is immaterial.
 //!
 //! The Idol server, `test-idol-server`, tests Idol-mediated IPC.  It must be
