@@ -73,7 +73,7 @@ fn main() -> ! {
     #[cfg(feature = "h7b3")]
     const CLOCK_HZ: u32 = 280_000_000;
     #[cfg(any(feature = "h743", feature = "h753"))]
-    const CLOCK_HZ: u32 = 200_000_000;
+    const CLOCK_HZ: u32 = 100_000_000;
 
     const BAUDRATE: u32 = 115_200;
     const CYCLES_PER_BIT: u32 = (CLOCK_HZ + (BAUDRATE / 2)) / BAUDRATE;

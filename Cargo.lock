@@ -2935,6 +2935,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-uartecho"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cortex-m",
+ "ringbuf",
+ "tinyvec",
+ "usart",
+ "userlib",
+]
+
+[[package]]
 name = "task-udpbroadcast"
 version = "0.1.0"
 dependencies = [
@@ -3197,6 +3209,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyvec"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c1c1d5a42b6245520c249549ec267180beaffcc0615401ac8e31853d4b6d8d2"
+
+[[package]]
 name = "toml"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3238,6 +3256,16 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 [[package]]
 name = "unwrap-lite"
 version = "0.1.0"
+
+[[package]]
+name = "usart"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32xx-sys-api",
+ "stm32h7",
+ "tinyvec",
+ "userlib",
+]
 
 [[package]]
 name = "userlib"

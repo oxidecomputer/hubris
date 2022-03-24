@@ -1,0 +1,24 @@
+[package]
+name = "task-uartecho"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+ringbuf = {path = "../../lib/ringbuf"}
+tinyvec = "1.5.1"
+usart = {path = "../../lib/usart"}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+[features]
+stm32h743 = ["usart/stm32h743"]
+
+[[bin]]
+name = "task-uartecho"
+test = false
+bench = false
