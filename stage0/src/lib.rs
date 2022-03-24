@@ -164,7 +164,7 @@ fn check_system_freq() {
     }
 }
 
-#[entry]
+#[export_name = "main"]
 fn main() -> ! {
     // This is the SYSCON_DIEID register on LPC55 which contains the ROM
     // version. Make sure our configuration matches!

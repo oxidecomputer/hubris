@@ -146,6 +146,8 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &toml.kernel.requires,
     )?;
+    /*
+     * TODO
     for (name, task) in &toml.tasks {
         if !only_suggest {
             println!();
@@ -156,6 +158,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
             &task.requires,
         )?;
     }
+    */
 
     if !suggestions.is_empty() {
         let mut savings: IndexMap<_, u64> = IndexMap::new();

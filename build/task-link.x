@@ -22,10 +22,10 @@ SECTIONS
   {
     *(.rodata .rodata.*);
 
-    /* 32-byte align the end (VMA) of this section.
-       Otherwise, arm-none-eabi-ld will print a warning about the
-       location of addr_table */
-    . = ALIGN(32);
+    /* 4-byte align the end (VMA) of this section.
+       This is required by LLD to ensure the LMA of the following .data
+       section will have the correct alignment. */
+    . = ALIGN(4);
     __erodata = .;
   } > FLASH
 
@@ -34,7 +34,7 @@ SECTIONS
    * table.ld containing the actual bytes is generated at runtime.
    * Note the ALIGN requirement comes from TrustZone requirements.
    */
-  .addr_table __erodata : ALIGN(32) {
+  .addr_table : ALIGN(32) {
     __bootloader_fn_table = .;
     INCLUDE table.ld
     __end_flash = .;

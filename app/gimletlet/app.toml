@@ -5,8 +5,8 @@ chip = "../../chips/stm32h7.toml"
 stacksize = 896
 
 [kernel]
-path = "."
 name = "gimletlet"
+requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace

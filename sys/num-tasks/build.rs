@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut task_enum = vec![];
     if let Ok(task_names) = env::var("HUBRIS_TASKS") {
         println!("HUBRIS_TASKS = {}", task_names);
-        for (i, name) in task_names.split(",").enumerate() {
+        for (i, name) in task_names.split(',').enumerate() {
             task_enum.push(format!("    {} = {},", name, i));
         }
     } else {

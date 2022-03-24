@@ -238,7 +238,6 @@ struct Signing {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Bootloader {
-    path: PathBuf,
     name: String,
     #[serde(default)]
     features: Vec<String>,
@@ -255,9 +254,9 @@ struct Bootloader {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Kernel {
-    path: PathBuf,
     name: String,
     stacksize: Option<u32>,
+    requires: IndexMap<String, u32>,
     #[serde(default)]
     features: Vec<String>,
 }
@@ -286,7 +285,6 @@ struct Output {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Task {
-    path: PathBuf,
     name: String,
     priority: u32,
     stacksize: Option<u32>,
@@ -304,6 +302,14 @@ struct Task {
     task_slots: IndexMap<String, String>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
+}
+
+/// Represents a task along with its required memory, which is calculated
+/// after the task is compiled.
+#[derive(Clone, Debug, Deserialize)]
+struct SizedTask {
+    task: Task,
+    requires: IndexMap<String, u32>,
 }
 
 /// In the common case, task slots map back to a task of the same name (e.g.
