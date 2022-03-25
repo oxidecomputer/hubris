@@ -140,7 +140,7 @@ path = "../../task/uartecho"
 name = "task-uartecho"
 features = ["stm32h743"]
 priority = 3
-requires = {flash = 8192, ram = 4096}
+requires = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
