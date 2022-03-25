@@ -12,10 +12,10 @@
 
 #![no_std]
 
-#[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
+#[cfg(any(feature = "h743", feature = "h753"))]
 pub mod stm32h7;
 
-#[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
+#[cfg(any(feature = "h743", feature = "h753"))]
 use self::stm32h7::Device;
 
 use tinyvec::ArrayVec;
