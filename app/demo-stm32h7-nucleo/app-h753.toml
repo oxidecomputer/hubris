@@ -65,17 +65,6 @@ requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
-[tasks.usart_driver]
-path = "../../drv/stm32h7-usart"
-name = "drv-stm32h7-usart"
-features = ["h753"]
-priority = 2
-requires = {flash = 8192, ram = 1024}
-uses = ["usart3"]
-start = true
-interrupts = {"usart3.irq" = 1}
-task-slots = ["sys"]
-
 [tasks.i2c_driver]
 path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
@@ -130,11 +119,11 @@ task-slots = ["sys"]
 [tasks.ping]
 path = "../../task/ping"
 name = "task-ping"
-features = ["uart"]
+features = []
 priority = 4
 requires = {flash = 8192, ram = 1024}
 start = true
-task-slots = [{peer = "pong"}, "usart_driver"]
+task-slots = [{peer = "pong"}]
 
 [tasks.pong]
 path = "../../task/pong"
