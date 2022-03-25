@@ -1029,7 +1029,16 @@ impl Packager {
                 ("HUBRIS_KCONFIG", &kconfig),
                 ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
             ],
-        )
+        )?;
+
+        let kern_path = Path::new("target")
+            .join(&self.config.target)
+            .join("release")
+            .join(&self.config.kernel.name);
+        std::fs::copy(&kern_path, self.out_file("kernel"))
+            .context(format!("Could not copy {:?} to kernel", kern_path))?;
+
+        Ok(())
     }
 
     /// Generate the application descriptor table that the kernel uses to find
