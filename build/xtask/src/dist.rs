@@ -59,10 +59,12 @@ struct Packager {
     allocations: Allocations,
 }
 
+#[derive(Copy, Clone)]
 struct BuildConfig {
     with_task_names: bool,
     with_secure_separation: bool,
     with_shared_syms: bool,
+    with_link: bool,
 }
 
 impl Packager {
@@ -375,6 +377,9 @@ impl Packager {
     }
 
     /// Returns a set of paths to remap in RUSTFLAGS
+    ///
+    /// This works because we control the environment in which we're about
+    /// to invoke cargo, and never modify CARGO_TARGET in that environment.
     fn remap_paths() -> Result<BTreeMap<PathBuf, &'static str>> {
         // Panic messages in crates have a long prefix; we'll shorten it using
         // the --remap-path-prefix argument to reduce message size.  We'll
@@ -509,6 +514,7 @@ impl Packager {
                 with_task_names: false,
                 with_secure_separation: false,
                 with_shared_syms: true,
+                with_link: true,
             },
             &[],
         )?;
@@ -559,6 +565,7 @@ impl Packager {
                 with_task_names: true,
                 with_secure_separation: true,
                 with_shared_syms: true,
+                with_link: false,
             },
             &[],
         )
@@ -637,36 +644,32 @@ impl Packager {
         options: BuildConfig,
         extra_env: &[(&'static str, &str)],
     ) -> Result<IndexMap<&'static str, String>> {
-        // This works because we control the environment in which we're about
-        // to invoke cargo, and never modify CARGO_TARGET in that environment.
+        let mut env = IndexMap::new();
+
+        // Note that we insert the linker arguments even when building
+        // staticlib targets (which don't use the linker at all).  There are
+        // two reasons for this:
+        // 1) Some of the Cortex-M crates may include assembly, which caresj
+        //    about page sizes.
+        // 2) RUSTFLAGS is part of the fingerprint that Cargo uses to
+        //    determine whether to rebuild downstream crates (e.g. stm32h7).
+        //    By keeping them the same, we avoid extra rebuilds.
         let remap_path_prefix: String = Self::remap_paths()?
             .iter()
             .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
             .collect();
-
-        let mut env = IndexMap::new();
-
-        // Note that we insert the linker arguments even when building
-        // staticlib targets (which don't use the linker at all).  This is
-        // because RUSTFLAGS is part of the fingerprint that Cargo uses to
-        // determine whether to rebuild.  If we built staticlibs without
-        // linker flags, we would end up rebuilding downstream crates
-        // (e.g. stm32h7), because we've still got a few non-staticlib
-        // targets (the bootloader and the kernel).
         env.insert(
             "RUSTFLAGS",
             format!(
-                "-C link-arg=-Tlink.x \
-                 -L {} \
-                 -C link-arg=-z -C link-arg=common-page-size=0x20 \
+                 "-C link-arg=-z -C link-arg=common-page-size=0x20 \
                  -C link-arg=-z -C link-arg=max-page-size=0x20 \
                  -C llvm-args=--enable-machine-outliner=never \
                  -C overflow-checks=y \
                  {}",
-                self.out_dir().to_str().unwrap(),
                 remap_path_prefix,
             ),
         );
+
 
         if options.with_task_names {
             let task_names: Vec<String> =
@@ -758,7 +761,7 @@ impl Packager {
         }
 
         let mut cmd = self.cargo_cmd();
-        cmd.arg("build")
+        cmd.arg("rustc")
             .arg("--release")
             .arg("--no-default-features")
             .arg("--target")
@@ -779,6 +782,14 @@ impl Packager {
             self.build_environment(task_name, config, extra_env)?
         {
             cmd.env(var, value);
+        }
+
+        // If we're expecting to run the linker for this build, then add the
+        // linker script and its path.
+        if config.with_link {
+            cmd.arg("--");
+            cmd.arg("-L").arg(self.out_dir().to_str().unwrap());
+            cmd.arg("-C").arg("link-arg=-Tlink.x");
         }
 
         let status = cmd
@@ -1025,6 +1036,7 @@ impl Packager {
                 with_task_names: false,
                 with_secure_separation: true,
                 with_shared_syms: false,
+                with_link: true,
             },
             &[
                 ("HUBRIS_KCONFIG", &kconfig),
