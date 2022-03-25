@@ -345,11 +345,17 @@ impl Packager {
         Ok(())
     }
 
+    /// Returns a [Command] which invokes `cargo` without going through the
+    /// `rustup` facades (which add significant overhead)
+    fn cargo_cmd(&self) -> Command {
+        Command::new(self.sysroot.join("bin").join("cargo"))
+    }
+
     /// Runs `cargo clean` on a particular target
     fn cargo_clean(&self, crate_name: &str) -> Result<()> {
         println!("cleaning {}", crate_name);
 
-        let mut cmd = Command::new(self.sysroot.join("bin").join("cargo"));
+        let mut cmd = self.cargo_cmd();
         cmd.arg("clean");
         cmd.arg("-p");
         cmd.arg(crate_name);
@@ -730,7 +736,7 @@ impl Packager {
     ) -> Result<()> {
         println!("building {}", crate_name);
         if self.edges {
-            let mut tree = Command::new("cargo");
+            let mut tree = self.cargo_cmd();
             tree.arg("tree")
                 .arg("--no-default-features")
                 .arg("--edges")
@@ -751,7 +757,7 @@ impl Packager {
             }
         }
 
-        let mut cmd = Command::new("cargo");
+        let mut cmd = self.cargo_cmd();
         cmd.arg("build")
             .arg("--release")
             .arg("--no-default-features")
