@@ -9,9 +9,9 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
+use drv_usart::Usart;
 use ringbuf::*;
 use tinyvec::ArrayVec;
-use drv_usart::Usart;
 use userlib::*;
 
 task_slot!(SYS, sys);
