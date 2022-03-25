@@ -498,7 +498,7 @@ impl Packager {
             &bootloader.sharedsyms,
         )?;
 
-        fs::copy("build/kernel-link.x", "target/link.x")
+        fs::copy("build/kernel-link.x", self.out_file("link.x"))
             .context("Could not copy kernel-link.x")?;
 
         self.build(
