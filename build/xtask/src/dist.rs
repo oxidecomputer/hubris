@@ -156,14 +156,23 @@ impl Packager {
         tasks_to_build: &Option<Vec<String>>,
     ) -> Result<bool> {
         if let Some(included_names) = tasks_to_build {
-            let all_tasks = self.config.tasks.keys().collect::<Vec<_>>();
+            if included_names.is_empty() {
+                bail!(
+                    "Running `cargo xtask build` without specifying tasks has no effect.
+Did you mean to run `cargo xtask dist`?"
+                )
+            }
+            let all_tasks =
+                self.config.tasks.keys().cloned().collect::<Vec<String>>();
             if let Some(name) =
                 included_names.iter().find(|n| !all_tasks.contains(n))
             {
-                Err(anyhow!(
-                    "Attempted to build task '{}', which is not in the app",
-                    name
-                ))
+                bail!(
+                    "Attempted to build task '{}', which is not in the app.
+Valid tasks are [{}]",
+                    name,
+                    all_tasks.join(", ")
+                )
             } else {
                 Ok(true)
             }
@@ -661,7 +670,7 @@ impl Packager {
         env.insert(
             "RUSTFLAGS",
             format!(
-                 "-C link-arg=-z -C link-arg=common-page-size=0x20 \
+                "-C link-arg=-z -C link-arg=common-page-size=0x20 \
                  -C link-arg=-z -C link-arg=max-page-size=0x20 \
                  -C llvm-args=--enable-machine-outliner=never \
                  -C overflow-checks=y \
@@ -669,7 +678,6 @@ impl Packager {
                 remap_path_prefix,
             ),
         );
-
 
         if options.with_task_names {
             let task_names: Vec<String> =
