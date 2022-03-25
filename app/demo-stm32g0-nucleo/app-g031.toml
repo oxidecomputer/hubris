@@ -4,7 +4,6 @@ chip = "../../chips/stm32g0.toml"
 board = "stm32g031"
 
 [kernel]
-path = "."
 name = "demo-stm32g0-nucleo"
 requires = {flash = 11928, ram = 1992}
 features = ["g031", "panic-halt"]
@@ -27,57 +26,45 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 368
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 priority = 1
-requires = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
 features = ["g031"]
 stacksize = 256
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 4
-requires = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
 stacksize = 256
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32g0"]
 priority = 3
-requires = {flash = 2048, ram = 256}
 start = true
 task-slots = ["sys"]
 stacksize = 256
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 4
-requires = {flash = 8192, ram = 2048}
 start = true
 task-slots = ["sys"]
 stacksize = 912
 features = ["stm32g0", "gpio", "micro"]
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 128, ram = 64}
 stacksize = 64
 start = true

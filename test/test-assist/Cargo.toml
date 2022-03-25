@@ -19,7 +19,7 @@ build-util = {path = "../../build/util"}
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting"]
 
-[[bin]]
-name = "test-assist"
+[lib]
 test = false
 bench = false
+crate_type = ["staticlib"]

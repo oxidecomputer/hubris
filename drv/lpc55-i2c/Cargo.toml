@@ -11,9 +11,7 @@ drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 num-traits = { version = "0.2.12", default-features = false }
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-i2c"
+[lib]
 test = false
 bench = false
+crate_type = ["staticlib"]

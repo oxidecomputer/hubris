@@ -20,7 +20,7 @@ build-util = {path = "../../build/util"}
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 
-[[bin]]
-name = "test-suite"
+[lib]
 test = false
 bench = false
+crate_type = ["staticlib"]

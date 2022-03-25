@@ -6,7 +6,6 @@ stacksize = 2048
 secure-separation = true
 
 [kernel]
-path = "../../app/lpc55xpresso"
 name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
@@ -65,43 +64,33 @@ imagea-ram-size = 0x18000
 features = ["tz_support"]
 
 [tasks.runner]
-path = "../test-runner"
 name = "test-runner"
 priority = 0
-requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
 
 [tasks.suite]
-path = "../test-suite"
 name = "test-suite"
 priority = 2
-requires = {flash = 65536, ram = 4096}
 start = true
 features = ["itm"]
 stacksize = 2048
 task-slots = ["assist", "idol", "suite", "runner"]
 
 [tasks.assist]
-path = "../test-assist"
 name = "test-assist"
 priority = 1
-requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
 
 [tasks.idol]
-path = "../test-idol-server"
 name = "test-idol-server"
 priority = 1
-requires = {flash = 1024, ram = 256}
 stacksize = 256
 start = true
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 3
-requires = {flash = 256, ram = 256}
 stacksize = 256
 start = true

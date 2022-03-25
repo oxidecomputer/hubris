@@ -5,7 +5,6 @@ chip = "../../chips/stm32h7.toml"
 stacksize = 896
 
 [kernel]
-path = "."
 name = "demo-stm32h7-nucleo"
 requires = {flash = 22000, ram = 4096}
 #
@@ -48,40 +47,32 @@ write = true
 dma = true
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
 [tasks.usart_driver]
-path = "../../drv/stm32h7-usart"
 name = "drv-stm32h7-usart"
 features = ["h753"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
 uses = ["usart3"]
 start = true
 interrupts = {"usart3.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.i2c_driver]
-path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753"]
 priority = 2
-requires = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]
@@ -91,10 +82,8 @@ task-slots = ["sys"]
 "i2c2.error" = 0b0000_0010
 
 [tasks.spi_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 2048}
 features = ["spi1", "h753"]
 uses = ["spi1"]
 start = true
@@ -106,11 +95,9 @@ task-slots = ["sys"]
 global_config = "spi1"
 
 [tasks.net]
-path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-requires = {flash = 131072, ram = 8192, sram1 = 32768}
 features = ["h753"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
@@ -119,56 +106,44 @@ interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", "rcc_driver"]
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
 [tasks.ping]
-path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
 [tasks.udpecho]
-path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-requires = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash"]
 priority = 3
-requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
 
 [tasks.hf]
-path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 3
-requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
 uses = ["quadspi"]
@@ -176,11 +151,9 @@ interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys", "hash_driver"]
 
 [tasks.hash_driver]
-path = "../../drv/stm32h7-hash-server"
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 3
-requires = {flash = 8192, ram=4096 }
 stacksize = 2048
 start = true
 uses = ["hash"]
@@ -188,10 +161,8 @@ interrupts = {"hash.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 

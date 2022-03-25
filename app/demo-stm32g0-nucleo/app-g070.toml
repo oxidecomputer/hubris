@@ -5,7 +5,6 @@ board = "stm32g070"
 stacksize = 944
 
 [kernel]
-path = "."
 name = "demo-stm32g0-nucleo"
 requires = {flash = 32768, ram = 2552}
 features = ["g070", "panic-halt"]
@@ -28,30 +27,24 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 4096, ram = 512}
 start = true
 features = ["log-null"]
 stacksize = 352
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["g070"]
 priority = 1
-requires = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
 stacksize = 256
 
 [tasks.usart_driver]
-path = "../../drv/stm32g0-usart"
 name = "drv-stm32g0-usart"
 features = ["g070"]
 priority = 2
-requires = {flash = 4096, ram = 256}
 uses = ["usart1"]
 start = true
 interrupts = {"usart1.irq" = 1}
@@ -59,45 +52,35 @@ task-slots = ["sys"]
 stacksize = 256
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32g0"]
 priority = 2
-requires = {flash = 2048, ram = 256}
 start = true
 task-slots = ["sys"]
 stacksize = 256
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 1024, ram = 256}
 start = true
 task-slots = ["user_leds"]
 stacksize = 256
 
 [tasks.ping]
-path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 4
-requires = {flash = 8192, ram = 512}
 stacksize = 256
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-requires = {flash = 8192, ram = 8192 }
 start = true
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 5
-requires = {flash = 128, ram = 64}
 stacksize = 64
 start = true

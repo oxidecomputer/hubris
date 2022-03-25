@@ -14,9 +14,7 @@ num-traits = { version = "0.2.12", default-features = false }
 f3 = ["stm32f3/stm32f303"]
 f4 = ["stm32f4/stm32f407"]
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-stm32fx-rcc"
+[lib]
 test = false
 bench = false
+crate_type = ["staticlib"]

@@ -526,6 +526,14 @@ Valid tasks are [{}]",
             &[],
         )?;
 
+        // Copy from Cargo's normal output directory into our target-specific
+        // build folder.
+        let mut lib_path = Path::new("target").join(&self.config.target);
+        lib_path.push("release");
+        lib_path.push(&bootloader.name);
+        std::fs::copy(lib_path, self.out_file(&bootloader.name))
+            .context(format!("Could not copy {}", bootloader.name))?;
+
         // Need a bootloader binary for signing
         objcopy_translate_format(
             "elf32-littlearm",
