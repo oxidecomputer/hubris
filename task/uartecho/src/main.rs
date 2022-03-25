@@ -103,18 +103,28 @@ fn try_push_ringbuf_log<const N: usize>(tx: &mut TxBuf<'_, N>, val: u8) {
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 fn configure_uart_device() -> usart::stm32h7::Device {
+    use usart::stm32h7::device;
+    use usart::stm32h7::drv_stm32xx_sys_api::*;
     use usart::stm32h7::Device;
-    use usart::stm32h7::DeviceId;
-    use usart::stm32h7::Sys;
 
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
 
     const BAUD_RATE: u32 = 115_600;
 
+    // From thin air, pluck a pointer to the USART register block.
+    //
+    // Safety: this is needlessly unsafe in the API. The USART is essentially a
+    // static, and we access it through a & reference so aliasing is not a
+    // concern. Were it literally a static, we could just reference it.
+    let usart = unsafe { &*device::USART3::ptr() };
+
     Device::turn_on(
         &Sys::from(SYS.get_task_id()),
-        DeviceId::Usart3,
+        usart,
+        Peripheral::Usart3,
+        Port::D.pin(8).and_pin(9),
+        Alternate::AF7,
         CLOCK_HZ,
         BAUD_RATE,
     )

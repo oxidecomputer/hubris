@@ -4,49 +4,33 @@
 
 //! STM32H7-specific USART details.
 
-pub use drv_stm32xx_sys_api::Sys;
+pub use drv_stm32xx_sys_api;
 
 #[cfg(feature = "h743")]
-use stm32h7::stm32h743 as device;
+pub use stm32h7::stm32h743 as device;
 
 #[cfg(feature = "h753")]
-use stm32h7::stm32h753 as device;
+pub use stm32h7::stm32h753 as device;
 
-/// Which USART device
-#[derive(Debug, Clone, Copy)]
-pub enum DeviceId {
-    Usart3,
-}
+use drv_stm32xx_sys_api::{Alternate, Peripheral, PinSet, Sys};
+use unwrap_lite::UnwrapLite;
 
 pub struct Device(&'static device::usart1::RegisterBlock);
 
 impl Device {
     /// Turn on the `device` USART with the given baud rate.
-    // TODO passing in a `Sys` seems weird. Should we take the sys task ID
-    // instead?  Something else?
     pub fn turn_on(
         sys: &Sys,
-        device: DeviceId,
+        usart: &'static device::usart1::RegisterBlock,
+        peripheral: Peripheral,
+        tx_rx_mask: PinSet,
+        alternate: Alternate,
         clock_hz: u32,
         baud_rate: u32,
     ) -> Self {
         // Turn the actual peripheral on so that we can interact with it.
-        turn_on_usart(sys, device);
-
-        let usart = match device {
-            DeviceId::Usart3 => {
-                // From thin air, pluck a pointer to the USART register block.
-                //
-                // Safety: this is needlessly unsafe in the API. The USART is
-                // essentially a static, and we access it through a & reference
-                // so aliasing is not a concern. Were it literally a static, we
-                // could just reference it.
-                #[cfg(any(feature = "h743", feature = "h753"))]
-                unsafe {
-                    &*device::USART3::ptr()
-                }
-            }
-        };
+        sys.enable_clock(peripheral);
+        sys.leave_reset(peripheral);
 
         // The UART has clock and is out of reset, but isn't actually on until
         // we:
@@ -59,7 +43,14 @@ impl Device {
             .cr1
             .modify(|_, w| w.ue().enabled().te().enabled().re().enabled());
 
-        configure_pins(sys, device);
+        sys.gpio_configure_alternate(
+            tx_rx_mask,
+            drv_stm32xx_sys_api::OutputType::PushPull,
+            drv_stm32xx_sys_api::Speed::Low,
+            drv_stm32xx_sys_api::Pull::None,
+            alternate,
+        )
+        .unwrap_lite();
 
         Self(usart)
     }
@@ -108,39 +99,4 @@ impl Device {
     pub(super) fn disable_tx_interrupts(&self) {
         self.0.cr1.modify(|_, w| w.txeie().disabled());
     }
-}
-
-fn turn_on_usart(sys: &Sys, device: DeviceId) {
-    use drv_stm32xx_sys_api::Peripheral;
-
-    #[cfg(any(feature = "h743", feature = "h753"))]
-    const PORT_USART3: Peripheral = Peripheral::Usart3;
-
-    match device {
-        DeviceId::Usart3 => {
-            sys.enable_clock(PORT_USART3);
-            sys.leave_reset(PORT_USART3);
-        }
-    }
-}
-
-fn configure_pins(sys: &Sys, device: DeviceId) {
-    use drv_stm32xx_sys_api::*;
-
-    let tx_rx_mask = match device {
-        DeviceId::Usart3 => {
-            // TODO these are really board configs, not SoC configs!
-            #[cfg(any(feature = "h743", feature = "h753"))]
-            Port::D.pin(8).and_pin(9)
-        }
-    };
-
-    sys.gpio_configure_alternate(
-        tx_rx_mask,
-        OutputType::PushPull,
-        Speed::High,
-        Pull::None,
-        Alternate::AF7,
-    )
-    .unwrap();
 }

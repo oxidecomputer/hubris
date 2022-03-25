@@ -1058,6 +1058,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "stm32h7",
  "tinyvec",
+ "unwrap-lite",
  "userlib",
 ]
 

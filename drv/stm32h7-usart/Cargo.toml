@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 tinyvec = { version = "1.5.1", features = ["rustc_1_55"] }
 
