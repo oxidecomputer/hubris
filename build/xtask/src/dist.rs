@@ -59,6 +59,12 @@ struct Packager {
     allocations: Allocations,
 }
 
+struct BuildConfig {
+    with_task_names: bool,
+    with_secure_separation: bool,
+    with_shared_syms: bool,
+}
+
 impl Packager {
     /// Loads the given configuration from a file
     pub fn init(verbose: bool, edges: bool, cfg: &Path) -> Result<Self> {
@@ -492,12 +498,13 @@ impl Packager {
             "bootloader", // TODO?
             &bootloader.name,
             &bootloader.features,
-            false, // with_task_names
-            false, // with_secure_separation
-            true,  // with_shared_syms
+            BuildConfig {
+                with_task_names: false,
+                with_secure_separation: false,
+                with_shared_syms: true,
+            },
             &[],
         )?;
-        self.link(&bootloader.name)?;
 
         // Need a bootloader binary for signing
         objcopy_translate_format(
@@ -541,9 +548,11 @@ impl Packager {
             task_name,
             &task_toml.name,
             &task_toml.features,
-            true,
-            true,
-            true,
+            BuildConfig {
+                with_task_names: true,
+                with_secure_separation: true,
+                with_shared_syms: true,
+            },
             &[],
         )
         .context(format!("failed to build {}", task_name))?;
@@ -618,9 +627,7 @@ impl Packager {
     fn build_environment(
         &self,
         task_name: &str,
-        with_task_names: bool,
-        with_secure_separation: bool,
-        with_shared_syms: bool,
+        options: BuildConfig,
         extra_env: &[(&'static str, &str)],
     ) -> Result<IndexMap<&'static str, String>> {
         // This works because we control the environment in which we're about
@@ -632,6 +639,14 @@ impl Packager {
             .collect();
 
         let mut env = IndexMap::new();
+
+        // Note that we insert the linker arguments even when building
+        // staticlib targets (which don't use the linker at all).  This is
+        // because RUSTFLAGS is part of the fingerprint that Cargo uses to
+        // determine whether to rebuild.  If we built staticlibs without
+        // linker flags, we would end up rebuilding downstream crates
+        // (e.g. stm32h7), because we've still got a few non-staticlib
+        // targets (the bootloader and the kernel).
         env.insert(
             "RUSTFLAGS",
             format!(
@@ -647,7 +662,7 @@ impl Packager {
             ),
         );
 
-        if with_task_names {
+        if options.with_task_names {
             let task_names: Vec<String> =
                 self.config.tasks.keys().cloned().collect();
             env.insert("HUBRIS_TASKS", task_names.join(","));
@@ -656,13 +671,16 @@ impl Packager {
         // We allow for task- and app-specific configuration to be passed
         // via environment variables to build.rs scripts that may choose to
         // incorporate configuration into compilation.
-        if let Some(config) = &self
+        if let Some(task_config) = &self
             .config
             .tasks
             .get(task_name)
             .and_then(|t| t.config.as_ref())
         {
-            env.insert("HUBRIS_TASK_CONFIG", toml::to_string(&config).unwrap());
+            env.insert(
+                "HUBRIS_TASK_CONFIG",
+                toml::to_string(&task_config).unwrap(),
+            );
         }
 
         env.insert("HUBRIS_BOARD", self.config.board.clone());
@@ -672,7 +690,7 @@ impl Packager {
         // not secure.
         // When TrustZone is not enabled, both the bootloader and Hubris are
         // secure.
-        if with_secure_separation {
+        if options.with_secure_separation {
             env.insert(
                 "HUBRIS_SECURE",
                 String::from(match self.config.secure_separation {
@@ -682,7 +700,7 @@ impl Packager {
             );
         }
 
-        if with_shared_syms {
+        if options.with_shared_syms {
             let s = self.shared_syms();
             if !s.is_empty() {
                 env.insert("SHARED_SYMS", s.join(","));
@@ -707,9 +725,7 @@ impl Packager {
         task_name: &str,
         crate_name: &str,
         features: &[String],
-        with_task_names: bool,
-        with_secure_separation: bool,
-        with_shared_syms: bool,
+        config: BuildConfig,
         extra_env: &[(&'static str, &str)],
     ) -> Result<()> {
         println!("building {}", crate_name);
@@ -753,13 +769,9 @@ impl Packager {
         }
 
         // Construct the build environment for this particular task
-        for (var, value) in self.build_environment(
-            task_name,
-            with_task_names,
-            with_secure_separation,
-            with_shared_syms,
-            extra_env,
-        )? {
+        for (var, value) in
+            self.build_environment(task_name, config, extra_env)?
+        {
             cmd.env(var, value);
         }
 
@@ -1002,9 +1014,11 @@ impl Packager {
             "kernel",
             &self.config.kernel.name,
             &self.config.kernel.features,
-            false, // with_task_names
-            true,  // with_secure_separation
-            false, // with_shared_syms
+            BuildConfig {
+                with_task_names: false,
+                with_secure_separation: true,
+                with_shared_syms: false,
+            },
             &[
                 ("HUBRIS_KCONFIG", &kconfig),
                 ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),

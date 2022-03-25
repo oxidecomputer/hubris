@@ -22,8 +22,7 @@ zerocopy = "0.6.1"
 cfg-if = "0.1.10"
 abi = { path = "../sys/abi" }
 
-[lib]
+[[bin]]
 name = "stage0"
 test = false
 bench = false
-crate_type = ["staticlib"]
