@@ -28,6 +28,12 @@ use lpc55_sign::{crc_image, signed_image};
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
 struct Packager {
+    /// Sysroot of the relevant toolchain
+    sysroot: PathBuf,
+
+    /// Host triple, e.g. `aarch64-apple-darwin`
+    host_triple: String,
+
     /// Enables -v when calling subcommands
     verbose: bool,
 
@@ -56,7 +62,30 @@ struct Packager {
 impl Packager {
     /// Loads the given configuration from a file
     pub fn init(verbose: bool, edges: bool, cfg: &Path) -> Result<Self> {
+        let sysroot = Command::new("rustc")
+            .arg("--print")
+            .arg("sysroot")
+            .output()?;
+        if !sysroot.status.success() {
+            bail!("Could not find execute rustc to get sysroot");
+        }
+        let sysroot =
+            PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
+
+        let host = Command::new("rustc").arg("-vV").output()?;
+        if !host.status.success() {
+            bail!("Could not execute rustc to get host");
+        }
+        let host_triple = std::str::from_utf8(&host.stdout)?
+            .split('\n')
+            .flat_map(|line| line.strip_prefix("host: "))
+            .next()
+            .ok_or_else(|| anyhow!("Could not get host from rustc"))?
+            .to_string();
+
         Ok(Self {
+            sysroot,
+            host_triple,
             verbose,
             edges,
             config: Config::from_file(&cfg)?,
@@ -92,7 +121,8 @@ impl Packager {
 
     /// Constructs the output directory for this build, if not present
     fn create_out_dir(&self) -> Result<()> {
-        std::fs::create_dir_all(&self.out_dir())?;
+        std::fs::create_dir_all(&self.out_dir())
+            .context("Could not create output dir")?;
         Ok(())
     }
 
@@ -103,7 +133,8 @@ impl Packager {
             std::fs::write(
                 Self::buildstamp_file(),
                 format!("{:x}", self.config.buildhash),
-            )?;
+            )
+            .context("Could not write buildstamp file")?;
         }
         Ok(())
     }
@@ -189,7 +220,9 @@ impl Packager {
         stacksize: u32,
     ) -> Result<IndexMap<String, u32>> {
         use goblin::Object;
-        let buffer = std::fs::read(self.out_file(task_name))?;
+        let task_elf_file = self.out_file(task_name);
+        let buffer = std::fs::read(&task_elf_file)
+            .context(format!("Could not read task ELF {:?}", task_elf_file))?;
         let elf = match Object::parse(&buffer)? {
             Object::Elf(elf) => elf,
             o => bail!("Invalid Object {:?}", o),
@@ -222,11 +255,11 @@ impl Packager {
             }
         }
         *memory_sizes.entry(String::from("ram")).or_default() += stacksize;
-        println!("Name: {}", task_name);
-        for (name, v) in memory_sizes.iter_mut() {
-            print!("    {}: {} =>", name, v);
+
+        // Round up all memory allocation sizes to be powers of two
+        // TODO: don't do this for chips with other rounding strategies
+        for v in memory_sizes.values_mut() {
             *v = v.checked_next_power_of_two().unwrap();
-            println!("    {}", v);
         }
         Ok(memory_sizes)
     }
@@ -248,7 +281,8 @@ impl Packager {
         // Do a dummy link of each task, just to get the size of the
         // resulting file.
         for (name, task) in &self.config.tasks {
-            fs::copy("build/task-link.x", self.out_file("link.x"))?;
+            fs::copy("build/task-link.x", self.out_file("link.x"))
+                .context("Could not copy task-link.x")?;
             generate_task_linker_script(
                 self.out_file("memory.x"),
                 &infinite_space,
@@ -309,7 +343,7 @@ impl Packager {
     fn cargo_clean(&self, crate_name: &str) -> Result<()> {
         println!("cleaning {}", crate_name);
 
-        let mut cmd = Command::new("cargo");
+        let mut cmd = Command::new(self.sysroot.join("bin").join("cargo"));
         cmd.arg("clean");
         cmd.arg("-p");
         cmd.arg(crate_name);
@@ -451,9 +485,10 @@ impl Packager {
             &bootloader.sharedsyms,
         );
 
-        fs::copy("build/kernel-link.x", "target/link.x")?;
+        fs::copy("build/kernel-link.x", "target/link.x")
+            .context("Could not copy kernel-link.x")?;
 
-        self.build_static(
+        self.build(
             "bootloader", // TODO?
             &bootloader.name,
             &bootloader.features,
@@ -488,8 +523,10 @@ impl Packager {
             &self.out_file("addr_blob.bin"),
         )?;
 
-        let bytes = std::fs::read(&self.out_file("addr_blob.bin"))?;
-        let mut linkscr = File::create(self.out_file("table.ld"))?;
+        let bytes = std::fs::read(&self.out_file("addr_blob.bin"))
+            .context("Could not read addr_blob.bin")?;
+        let mut linkscr = File::create(self.out_file("table.ld"))
+            .context("Could not create table.ld")?;
 
         for b in bytes {
             writeln!(linkscr, "BYTE(0x{:x})", b)?;
@@ -500,7 +537,7 @@ impl Packager {
     /// Compiles a single task based on its task name in `app.toml`
     fn build_static_task(&self, task_name: &str) -> Result<()> {
         let task_toml = &self.config.tasks[task_name];
-        self.build_static(
+        self.build(
             task_name,
             &task_toml.name,
             &task_toml.features,
@@ -509,7 +546,18 @@ impl Packager {
             true,
             &[],
         )
-        .context(format!("failed to build {}", task_name))
+        .context(format!("failed to build {}", task_name))?;
+
+        // Copy from Cargo's normal output directory into our target-specific
+        // build folder.
+        let mut lib_path = Path::new("target").join(&self.config.target);
+        lib_path.push("release");
+        let lib_name = format!("lib{}.a", task_toml.name.replace("-", "_"));
+        lib_path.push(&lib_name);
+        std::fs::copy(lib_path, self.out_file(&format!("{}.a", task_name)))
+            .context(format!("Could not copy {}", lib_name))?;
+
+        Ok(())
     }
 
     fn resolve_task_slots(&self, task_name: &str) -> Result<()> {
@@ -608,7 +656,12 @@ impl Packager {
         // We allow for task- and app-specific configuration to be passed
         // via environment variables to build.rs scripts that may choose to
         // incorporate configuration into compilation.
-        if let Some(config) = &self.config.tasks[task_name].config {
+        if let Some(config) = &self
+            .config
+            .tasks
+            .get(task_name)
+            .and_then(|t| t.config.as_ref())
+        {
             env.insert("HUBRIS_TASK_CONFIG", toml::to_string(&config).unwrap());
         }
 
@@ -649,7 +702,7 @@ impl Packager {
     }
 
     //
-    fn build_static(
+    fn build(
         &self,
         task_name: &str,
         crate_name: &str,
@@ -717,14 +770,6 @@ impl Packager {
         if !status.success() {
             bail!("command failed, see output for details");
         }
-
-        // Copy from Cargo's normal output directory into our target-specific
-        // build folder.
-        let mut lib_path = Path::new("target").join(&self.config.target);
-        lib_path.push("release");
-        lib_path.push(format!("lib{}.a", crate_name.replace("-", "_")));
-        std::fs::copy(lib_path, self.out_file(&format!("{}.a", task_name)))?;
-
         Ok(())
     }
 
@@ -785,7 +830,11 @@ impl Packager {
     /// to exist in the appropriate place (which therefore requires `table.ld`
     /// and `memory.x`)
     fn link(&self, bin_name: &str) -> Result<()> {
-        let mut cmd = Command::new("arm-none-eabi-ld");
+        let mut ld = self.sysroot.clone();
+        for p in ["lib", "rustlib", &self.host_triple, "bin", "gcc-ld", "ld"] {
+            ld.push(p);
+        }
+        let mut cmd = Command::new(ld);
         if self.verbose {
             cmd.arg("--verbose");
         }
@@ -800,6 +849,8 @@ impl Packager {
         cmd.arg("-z");
         cmd.arg("max-page-size=0x20");
         cmd.arg("--gc-sections");
+        cmd.arg("-m");
+        cmd.arg("armelf"); // TODO: make this architecture-appropriate
 
         cmd.current_dir(self.out_dir());
 
@@ -937,8 +988,17 @@ impl Packager {
         let kconfig = self.make_descriptors()?;
         let kconfig = ron::ser::to_string(&kconfig)?;
 
-        // Build the kernel.
-        self.build_static(
+        // Link the kernel
+        generate_kernel_linker_script(
+            "memory.x",
+            &self.allocations.kernel,
+            self.config.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        )?;
+        fs::copy("build/kernel-link.x", "target/link.x")?;
+
+        // Build the kernel. The kernel is a [bin] target, so we don't need
+        // to link it separately afterwards.
+        self.build(
             "kernel",
             &self.config.kernel.name,
             &self.config.kernel.features,
@@ -949,16 +1009,7 @@ impl Packager {
                 ("HUBRIS_KCONFIG", &kconfig),
                 ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
             ],
-        )?;
-
-        // Link the kernel
-        generate_kernel_linker_script(
-            "memory.x",
-            &self.allocations.kernel,
-            self.config.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        )?;
-        fs::copy("build/kernel-link.x", "target/link.x")?;
-        self.link("kernel")
+        )
     }
 
     /// Generate the application descriptor table that the kernel uses to find
