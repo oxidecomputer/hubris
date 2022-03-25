@@ -12,179 +12,128 @@
 
 #![no_std]
 
-#[cfg(any(feature = "h743", feature = "h753"))]
-pub mod stm32h7;
+pub use drv_stm32xx_sys_api;
 
-#[cfg(any(feature = "h743", feature = "h753"))]
-use self::stm32h7::Device;
+#[cfg(feature = "h743")]
+pub use stm32h7::stm32h743 as device;
 
-use tinyvec::ArrayVec;
+#[cfg(feature = "h753")]
+pub use stm32h7::stm32h753 as device;
+
+use drv_stm32xx_sys_api::{Alternate, Peripheral, PinSet, Sys};
+use unwrap_lite::UnwrapLite;
 
 /// Handle to an enabled USART device.
-pub struct Usart<const TX_BUF_LEN: usize, const RX_BUF_LEN: usize> {
-    usart: Device,
-    irq_mask: u32,
-    tx_buf: ArrayVec<[u8; TX_BUF_LEN]>,
-    rx_buf: ArrayVec<[u8; RX_BUF_LEN]>,
-    rx_overrun: bool,
+pub struct Usart {
+    usart: &'static device::usart1::RegisterBlock,
 }
 
-/// Errors detected during rx
-pub enum RxError {
-    /// Data has been lost due to rx buffer overrun
-    Overrun,
-}
-
-impl<const TX_BUF_LEN: usize, const RX_BUF_LEN: usize>
-    Usart<TX_BUF_LEN, RX_BUF_LEN>
-{
-    /// Start managing `device`.
+impl Usart {
+    /// Turn on the `USART` described by `usart`, `peripheral`, `tx_rx_mask`,
+    /// and `alternate`, with the baud rate defined by `clock_hz` and
+    /// `baud_rate`.
     ///
-    /// Enables the `irq` interrupt; the caller is responsible for calling
-    /// [`Usart::handle_interrupt()`] when that interrupt fires.
-    pub fn new(usart: Device, irq_mask: u32) -> Self {
-        // Turn on our interrupt. We haven't enabled any interrupt sources at
-        // the USART side yet, but we will momentarily.
-        userlib::sys_irq_control(irq_mask, true);
+    /// Enables interrupts from the `USART` when bytes are available to receive;
+    /// the caller is responsible for enabling and handling the corresponding
+    /// kernel interrupt.
+    pub fn turn_on(
+        sys: &Sys,
+        usart: &'static device::usart1::RegisterBlock,
+        peripheral: Peripheral,
+        tx_rx_mask: PinSet,
+        alternate: Alternate,
+        clock_hz: u32,
+        baud_rate: u32,
+    ) -> Self {
+        // Turn the actual peripheral on so that we can interact with it.
+        sys.enable_clock(peripheral);
+        sys.leave_reset(peripheral);
+
+        // Set FIFO interrupt thresholds; must be done before enabling the
+        // UART.
+        //
+        // Two TODOs/questions here:
+        // 1. Do we want the caller to be able to choose the threshold?
+        // 2. Do we want a threshold on the RX fifo? for now, use the
+        //    `rxne()` bit to check for nonempty (instead of waiting for the
+        //    FIFO to reach a threshold)
+        //
+        // Safety: 0b11x values are undefined; see RM0433 48.7.4. We're using a
+        // fixed, defined value.
+        unsafe {
+            // 0b101 == interrupt when TX fifo is completely empty
+            usart.cr3.write(|w| w.txftcfg().bits(0b101));
+        }
+
+        // Enable the UART in FIFO mode.
+        usart.cr1.write(|w| w.fifoen().set_bit().ue().enabled());
+
+        // set the baud rate
+        let cycles_per_bit = (clock_hz + (baud_rate / 2)) / baud_rate;
+        usart.brr.write(|w| w.brr().bits(cycles_per_bit as u16));
+
+        // Enable the transmitter and receiver.
+        usart.cr1.modify(|_, w| w.te().enabled().re().enabled());
+
+        sys.gpio_configure_alternate(
+            tx_rx_mask,
+            drv_stm32xx_sys_api::OutputType::PushPull,
+            drv_stm32xx_sys_api::Speed::Low,
+            drv_stm32xx_sys_api::Pull::None,
+            alternate,
+        )
+        .unwrap_lite();
 
         // Enable RX interrupts from the USART side.
-        usart.enable_rx_interrupts();
+        usart.cr1.modify(|_, w| w.rxneie().enabled());
 
-        Self {
-            usart,
-            irq_mask,
-            tx_buf: ArrayVec::new(),
-            rx_buf: ArrayVec::new(),
-            rx_overrun: false,
-        }
+        Self { usart }
     }
 
-    /// Handle (by stepping tx/rx if possible) and then reenable the USART
-    /// interrupt.
-    pub fn handle_interrupt(&mut self) {
-        // See if we have any data to transmit.
-        if let Some(&byte) = self.tx_buf.get(0) {
-            // Write it to the transmitter, if possible.
-            if self.usart.try_write_tx(byte) {
-                // TODO? `remove()` shifts all remaining tx data down; we could
-                // use somehting more ringbuffer-like if this is too expensive.
-                self.tx_buf.remove(0);
-                if self.tx_buf.is_empty() {
-                    self.usart.disable_tx_interrupts();
-                }
-            }
-        }
-
-        // See if any data has come in.
-        if let Some(byte) = self.usart.try_read_rx() {
-            if self.rx_buf.try_push(byte).is_some() {
-                // self.rx_buf is full; we'll treat this the same as a hardware
-                // overrun: discard the byte and return an error later
-                self.rx_overrun = true;
-            }
-        }
-
-        // reenable interrupt
-        userlib::sys_irq_control(self.irq_mask, true);
-    }
-
-    /// Get mutable access to the tx/rx buffers held by `self`.
-    pub fn buffers(
-        &mut self,
-    ) -> (TxBuf<'_, TX_BUF_LEN>, RxBuf<'_, RX_BUF_LEN>) {
-        (
-            TxBuf {
-                usart: &self.usart,
-                buf: &mut self.tx_buf,
-            },
-            RxBuf {
-                usart: &self.usart,
-                buf: &mut self.rx_buf,
-                overrun: &mut self.rx_overrun,
-            },
-        )
-    }
-}
-
-/// Tx buffer owned by a [`Usart`].
-///
-/// Bytes in this buffer will be transmitted as space in the transmitter becomes
-/// available.
-pub struct TxBuf<'a, const N: usize> {
-    usart: &'a Device,
-    buf: &'a mut ArrayVec<[u8; N]>,
-}
-
-impl<const N: usize> TxBuf<'_, N> {
-    /// Truncate the buffer to `new_len`.
-    ///
-    /// Does nothing if the buffer is already shorter than `new_len`.
-    pub fn truncate(&mut self, new_len: usize) {
-        self.buf.truncate(new_len);
-        if self.buf.is_empty() {
-            self.usart.disable_tx_interrupts();
-        }
-    }
-
-    /// Attempt to push `byte` into `self`.
-    ///
-    /// Returns `None` on success, or the value if `self` is full.
-    pub fn try_push(&mut self, byte: u8) -> Option<u8> {
-        if self.buf.is_empty() {
-            self.usart.enable_tx_interrupts();
-        }
-        self.buf.try_push(byte)
-    }
-}
-
-/// Rx buffer owned by a [`Usart`].
-pub struct RxBuf<'a, const N: usize> {
-    usart: &'a Device,
-    buf: &'a mut ArrayVec<[u8; N]>,
-    overrun: &'a mut bool,
-}
-
-impl<'a, const N: usize> RxBuf<'a, N> {
-    /// Drain `self`, returning the bytes it currently contains.
-    ///
-    /// When the returned [`Drain`] is dropped, the underlying buffer will be
-    /// cleared.
-    ///
-    /// Note that the same [`Drain`] is returned in both the success and error
-    /// cases; the error case exists to notify the caller of an error that
-    /// occurred during reception (i.e., an rx overflow).
-    pub fn drain(self) -> Result<Drain<'a, N>, (Drain<'a, N>, RxError)> {
-        if self.usart.check_and_clear_overrun() || *self.overrun {
-            *self.overrun = false;
-            Err((Drain(self.buf), RxError::Overrun))
+    /// Try to push `byte` into the USART's TX FIFO, returning `true` on success
+    /// or `false` if the FIFO is currently full.
+    pub fn try_tx_push(&self, byte: u8) -> bool {
+        // Check if TX fifo is not full
+        if self.usart.isr.read().txe().bit() {
+            // Stuff byte into TX fifo.
+            self.usart.tdr.write(|w| w.tdr().bits(u16::from(byte)));
+            true
         } else {
-            Ok(Drain(self.buf))
+            false
         }
     }
-}
 
-// tinyvec provides an `ArrayVecDrain`, but it's simulatenously more (it
-// implements `Iterator` directly) and less (it requres `[u8; N]` to implement
-// `Default`) flexible than we need. we'll just wrap the array vec, expose the
-// data as a slice, and clear it when we're dropped.
-pub struct Drain<'a, const N: usize>(&'a mut ArrayVec<[u8; N]>);
-
-impl<const N: usize> Drop for Drain<'_, N> {
-    fn drop(&mut self) {
-        self.0.clear();
+    /// Try to pop a byte from the USART's RX FIFO, returning `Some(_)` on
+    /// success or `None` if the FIFO is currently empty.
+    pub fn try_rx_pop(&self) -> Option<u8> {
+        // See if RX register is nonempty
+        if self.usart.isr.read().rxne().bit() {
+            // Read byte from receiver.
+            Some(self.usart.rdr.read().bits() as u8)
+        } else {
+            None
+        }
     }
-}
 
-impl<const N: usize> core::ops::Deref for Drain<'_, N> {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    // TODO Do we need check+clear methods for other error flags?
+    pub fn check_and_clear_rx_overrun(&self) -> bool {
+        // See if the overrun error bit is set
+        if self.usart.isr.read().ore().bit() {
+            // Clear overrun error
+            self.usart.icr.write(|w| w.orecf().set_bit());
+            true
+        } else {
+            false
+        }
     }
-}
 
-impl<const N: usize> Drain<'_, N> {
-    pub fn as_slice(&self) -> &[u8] {
-        &*self
+    // TODO? The name of these methods may be bad if we allow callers to specify
+    // the tx fifo threshold (and can set it to something other than "empty")
+    pub fn enable_tx_fifo_empty_interrupt(&self) {
+        self.usart.cr3.modify(|_, w| w.txftie().set_bit());
+    }
+
+    pub fn disable_tx_fifo_empty_interrupt(&self) {
+        self.usart.cr3.modify(|_, w| w.txftie().clear_bit());
     }
 }

@@ -7,12 +7,11 @@
 #![feature(asm)]
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
-use drv_stm32h7_usart as usart;
+use drv_stm32h7_usart as drv_usart;
 
 use ringbuf::*;
 use tinyvec::ArrayVec;
-use usart::RxError;
-use usart::TxBuf;
+use drv_usart::Usart;
 use userlib::*;
 
 task_slot!(SYS, sys);
@@ -20,92 +19,154 @@ task_slot!(SYS, sys);
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UartLog {
     Tx(u8),
-    TxOverrun(u8),
+    TxFull,
     Rx(u8),
     RxOverrun,
 }
 
-ringbuf!(UartLog, 32, UartLog::Rx(0));
+ringbuf!(UartLog, 64, UartLog::Rx(0));
 
 /// Notification mask for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1;
 
-/// Size in bytes of our in-memory TX/RX buffers.
+/// Size in bytes of our in-memory buffer to store a line to echo back; lines
+/// longer than this will be truncated to this many bytes.
 const BUF_LEN: usize = 32;
 
-type Usart = usart::Usart<BUF_LEN, BUF_LEN>;
+enum NeedToTx {
+    FlushLineStart(&'static [u8]),
+    FlushLine,
+    FlushLineEnd(&'static [u8]),
+    EchoPreviousByte(u8),
+}
 
 #[export_name = "main"]
 fn main() -> ! {
-    let device = configure_uart_device();
-    let mut uart = Usart::new(device, USART_IRQ);
+    let uart = configure_uart_device();
     let mut line_buf = ArrayVec::<[u8; BUF_LEN]>::new();
+    let mut need_to_tx = None;
+
+    sys_irq_control(USART_IRQ, true);
 
     loop {
         // Wait for uart interrupt; if we haven't enabled tx interrupts, this
         // blocks until there's data to receive.
         let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
 
-        // step uart, transmitting the next byte we have to give (if possible
-        // and we have one)
-        uart.handle_interrupt();
-
-        let (mut tx, rx) = uart.buffers();
-        let rx_buf = match rx.drain() {
-            Ok(rx) => rx,
-            Err((rx, RxError::Overrun)) => {
-                ringbuf_entry!(UartLog::RxOverrun);
-                rx
-            }
-        };
-
-        for &rx in rx_buf.as_slice() {
-            ringbuf_entry!(UartLog::Rx(rx));
-
-            // minicom default settings only ever sends `\r` as line
-            // endings, so we only check for that, but we still send it "\r\n"
-            // so the output looks correct
-            if rx == b'\r' {
-                // try send back newline, previous line if we have room
-                try_push_ringbuf_log(&mut tx, b'\r');
-                try_push_ringbuf_log(&mut tx, b'\n');
-                for b in line_buf.drain(..line_buf.len()) {
-                    try_push_ringbuf_log(&mut tx, b);
+        // Walk through our tx state machine to handle echoing lines back; note
+        // that many of these cases intentionally break after refilling
+        // `need_to_tx` if we fill the TX fifo.
+        while let Some(tx_state) = need_to_tx.take() {
+            match tx_state {
+                NeedToTx::FlushLineStart(mut crnl) => {
+                    crnl = &crnl[tx_until_fifo_full(&uart, crnl)..];
+                    if crnl.is_empty() {
+                        need_to_tx = Some(NeedToTx::FlushLine);
+                    } else {
+                        need_to_tx = Some(NeedToTx::FlushLineStart(crnl));
+                        break;
+                    }
+                }
+                NeedToTx::FlushLine => {
+                    let n = tx_until_fifo_full(&uart, &line_buf);
+                    line_buf.drain(..n);
+                    if line_buf.is_empty() {
+                        need_to_tx = Some(NeedToTx::FlushLineEnd(b"\r\n"));
+                    } else {
+                        need_to_tx = Some(NeedToTx::FlushLine);
+                        break;
+                    }
+                }
+                NeedToTx::FlushLineEnd(mut crnl) => {
+                    crnl = &crnl[tx_until_fifo_full(&uart, crnl)..];
+                    if !crnl.is_empty() {
+                        need_to_tx = Some(NeedToTx::FlushLineStart(crnl));
+                    }
+                    break;
                 }
 
-                // always send back a newline, even if we have to drop some
-                // bytes to do so
-                tx.truncate(BUF_LEN - 2);
-                try_push_ringbuf_log(&mut tx, b'\r');
-                try_push_ringbuf_log(&mut tx, b'\n');
-            } else {
-                // not a newline; append to both tx_buf (to immediately echo)
-                // and line_buf (to send back the whole line once we see a
-                // newline)
-                try_push_ringbuf_log(&mut tx, rx);
-                let _ = line_buf.try_push(rx);
+                // this state isn't for line echo; this is the case where we
+                // pulled a byte out of the RX fifo but couldn't immediately put
+                // it back into the TX fifo
+                NeedToTx::EchoPreviousByte(byte) => {
+                    if !try_tx_push(&uart, byte) {
+                        need_to_tx = Some(NeedToTx::EchoPreviousByte(byte));
+                    }
+                    break;
+                }
             }
         }
 
-        // Uncomment this to artifically slow down the task to make it easy to
+        // if we filled the tx fifo but still have more to send, reenable our
+        // interrupts and loop before we try to rx more
+        if need_to_tx.is_some() {
+            sys_irq_control(USART_IRQ, true);
+            continue;
+        }
+
+        // all tx is done; now pull from the rx fifo
+        if uart.check_and_clear_rx_overrun() {
+            ringbuf_entry!(UartLog::RxOverrun);
+        }
+
+        while let Some(byte) = uart.try_rx_pop() {
+            ringbuf_entry!(UartLog::Rx(byte));
+
+            // minicom default settings only ever sends `\r` as line
+            // endings, so we only check for that to decide when to echo a line
+            if byte == b'\r' {
+                uart.enable_tx_fifo_empty_interrupt();
+                need_to_tx = Some(NeedToTx::FlushLineStart(b"\r\n"));
+                break;
+            }
+
+            // not a line end. stash it in `line_buf` if there's room...
+            let _ = line_buf.try_push(byte);
+
+            // ...and echo it back
+            if !try_tx_push(&uart, byte) {
+                uart.enable_tx_fifo_empty_interrupt();
+                need_to_tx = Some(NeedToTx::EchoPreviousByte(byte));
+                break;
+            }
+        }
+
+        // rennable USART interrupts
+        sys_irq_control(USART_IRQ, true);
+
+        // Uncomment this to artifically slow down the task to make it easier to
         // see RxOverrun errors
         //hl::sleep_for(200);
     }
 }
 
-// wrapper around `tx.try_push()` that registers the result in our ringbuf
-fn try_push_ringbuf_log<const N: usize>(tx: &mut TxBuf<'_, N>, val: u8) {
-    match tx.try_push(val) {
-        None => ringbuf_entry!(UartLog::Tx(val)),
-        Some(_) => ringbuf_entry!(UartLog::TxOverrun(val)),
+// push as much of `data` as we can into `uart`'s TX FIFO, returning the number
+// of bytes enqueued
+fn tx_until_fifo_full(uart: &Usart, data: &[u8]) -> usize {
+    for (i, &byte) in data.iter().enumerate() {
+        if !try_tx_push(uart, byte) {
+            return i;
+        }
     }
+    data.len()
+}
+
+// wrapper around `usart.try_tx_push()` that registers the result in our
+// ringbuf
+fn try_tx_push(usart: &Usart, val: u8) -> bool {
+    let ret = usart.try_tx_push(val);
+    if ret {
+        ringbuf_entry!(UartLog::Tx(val));
+    } else {
+        ringbuf_entry!(UartLog::TxFull);
+    }
+    ret
 }
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
-fn configure_uart_device() -> usart::stm32h7::Device {
-    use usart::stm32h7::device;
-    use usart::stm32h7::drv_stm32xx_sys_api::*;
-    use usart::stm32h7::Device;
+fn configure_uart_device() -> Usart {
+    use drv_usart::device;
+    use drv_usart::drv_stm32xx_sys_api::*;
 
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
@@ -119,7 +180,7 @@ fn configure_uart_device() -> usart::stm32h7::Device {
     // concern. Were it literally a static, we could just reference it.
     let usart = unsafe { &*device::USART3::ptr() };
 
-    Device::turn_on(
+    Usart::turn_on(
         &Sys::from(SYS.get_task_id()),
         usart,
         Peripheral::Usart3,
