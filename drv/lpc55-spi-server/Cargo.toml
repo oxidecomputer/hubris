@@ -16,9 +16,7 @@ ringbuf = {path = "../../lib/ringbuf"}
 [features]
 spi0 = []
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-spi-server"
+[lib]
 test = false
 bench = false
+crate_type = ["staticlib"]
