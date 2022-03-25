@@ -20,7 +20,6 @@ members = [
     "lib/hypocalls",
     "lib/ringbuf",
     "lib/unwrap-lite",
-    "lib/usart",
 
     "app/demo-stm32f4-discovery",
     "app/demo-stm32g0-nucleo",
@@ -73,6 +72,7 @@ members = [
     "drv/stm32h7-spi",
     "drv/stm32h7-spi-server",
     "drv/stm32h7-startup",
+    "drv/stm32h7-usart",
 
     "drv/lpc55-romapi",
     "drv/lpc55-syscon",

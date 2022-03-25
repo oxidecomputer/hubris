@@ -1,0 +1,15 @@
+[package]
+name = "drv-stm32h7-usart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+tinyvec = { version = "1.5.1", features = ["rustc_1_55"] }
+
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
+stm32h7 = { version = "0.14", default-features = false }
+
+[features]
+h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]

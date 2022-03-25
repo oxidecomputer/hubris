@@ -1085,6 +1085,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-stm32h7-usart"
+version = "0.1.0"
+dependencies = [
+ "drv-stm32xx-sys-api",
+ "stm32h7",
+ "tinyvec",
+ "userlib",
+]
+
+[[package]]
 name = "drv-stm32xx-gpio-common"
 version = "0.1.0"
 dependencies = [
@@ -2928,9 +2938,9 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
+ "drv-stm32h7-usart",
  "ringbuf",
  "tinyvec",
- "usart",
  "userlib",
 ]
 
@@ -3244,16 +3254,6 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 [[package]]
 name = "unwrap-lite"
 version = "0.1.0"
-
-[[package]]
-name = "usart"
-version = "0.1.0"
-dependencies = [
- "drv-stm32xx-sys-api",
- "stm32h7",
- "tinyvec",
- "userlib",
-]
 
 [[package]]
 name = "userlib"

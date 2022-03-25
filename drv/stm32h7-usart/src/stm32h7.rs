@@ -8,10 +8,10 @@ pub use drv_stm32xx_sys_api::Sys;
 
 use super::BaudRate;
 
-#[cfg(feature = "stm32h743")]
+#[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
-#[cfg(feature = "stm32h753")]
+#[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
 /// Which USART device
@@ -43,7 +43,7 @@ impl Device {
                 // essentially a static, and we access it through a & reference
                 // so aliasing is not a concern. Were it literally a static, we
                 // could just reference it.
-                #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
+                #[cfg(any(feature = "h743", feature = "h753"))]
                 unsafe {
                     &*device::USART3::ptr()
                 }
@@ -116,7 +116,7 @@ impl Device {
 fn turn_on_usart(sys: &Sys, device: DeviceId) {
     use drv_stm32xx_sys_api::Peripheral;
 
-    #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
+    #[cfg(any(feature = "h743", feature = "h753"))]
     const PORT_USART3: Peripheral = Peripheral::Usart3;
 
     match device {
@@ -133,7 +133,7 @@ fn configure_pins(sys: &Sys, device: DeviceId) {
     let tx_rx_mask = match device {
         DeviceId::Usart3 => {
             // TODO these are really board configs, not SoC configs!
-            #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
+            #[cfg(any(feature = "h743", feature = "h753"))]
             Port::D.pin(8).and_pin(9)
         }
     };
