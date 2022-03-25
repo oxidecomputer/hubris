@@ -301,7 +301,7 @@ Valid tasks are [{}]",
             fs::copy("build/task-link.x", self.out_file("link.x"))
                 .context("Could not copy task-link.x")?;
             generate_task_linker_script(
-                self.out_file("memory.x"),
+                &self.out_file("memory.x"),
                 &infinite_space,
                 Some(&task.sections),
                 task.stacksize.or(self.config.stacksize).ok_or_else(|| {
@@ -506,7 +506,7 @@ Valid tasks are [{}]",
         }
 
         generate_bootloader_linker_script(
-            self.out_file("memory.x"),
+            &self.out_file("memory.x"),
             &bootloader_memory,
             Some(&bootloader.sections),
             &bootloader.sharedsyms,
@@ -818,7 +818,7 @@ Valid tasks are [{}]",
         let task_toml = &self.config.tasks[task_name];
         let task_requires = &self.task_requires[task_name];
         generate_task_linker_script(
-            self.out_file("memory.x"),
+            &self.out_file("memory.x"),
             &self.allocations.tasks[task_name],
             Some(&task_toml.sections),
             task_toml
@@ -938,8 +938,8 @@ Valid tasks are [{}]",
 
     fn generate_ecc_header(
         &self,
-        in_binary: &PathBuf,
-        out_binary: &PathBuf,
+        in_binary: &Path,
+        out_binary: &Path,
         header_start: u32,
     ) -> Result<()> {
         use zerocopy::AsBytes;
@@ -1027,7 +1027,7 @@ Valid tasks are [{}]",
 
         // Link the kernel
         generate_kernel_linker_script(
-            self.out_file("memory.x"),
+            &self.out_file("memory.x"),
             &self.allocations.kernel,
             self.config.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         )?;
@@ -1649,12 +1649,12 @@ pub fn package(
 ////////////////////////////////////////////////////////////////////////////////
 
 fn smash_bootloader(
-    bootloader: &PathBuf,
+    bootloader: &Path,
     bootloader_addr: u32,
-    hubris: &PathBuf,
+    hubris: &Path,
     hubris_addr: u32,
     entry: u32,
-    out: &PathBuf,
+    out: &Path,
 ) -> Result<()> {
     let mut srec_out = vec![];
     srec_out.push(srec::Record::S0("hubris+bootloader".to_string()));
@@ -1702,7 +1702,7 @@ fn smash_bootloader(
 }
 
 fn generate_bootloader_linker_script(
-    path: PathBuf,
+    path: &Path,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
     sharedsyms: &[String],
@@ -1787,7 +1787,7 @@ fn generate_bootloader_linker_script(
 }
 
 fn generate_task_linker_script(
-    path: PathBuf,
+    path: &Path,
     map: &BTreeMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: u32,
@@ -1846,7 +1846,7 @@ fn generate_task_linker_script(
 }
 
 fn generate_kernel_linker_script(
-    path: PathBuf,
+    path: &Path,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
 ) -> Result<()> {
