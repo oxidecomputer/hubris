@@ -246,11 +246,10 @@ Valid tasks are [{}]",
         };
 
         // Find the output region that a particular vaddr lives in
+        let memories = self.get_memories()?;
         let output_region = |vaddr: u64| {
-            self.config
-                .outputs
-                .keys()
-                .map(|name| (name, self.get_memory(name).unwrap()))
+            memories
+                .iter()
                 .find(|(_, region)| region.contains(&vaddr.try_into().unwrap()))
                 .map(|(name, _)| name.as_str())
         };
@@ -288,12 +287,7 @@ Valid tasks are [{}]",
 
         // Build an allocations table which gives the entirety of flash
         // and RAM to every task.
-        let infinite_space = self
-            .config
-            .outputs
-            .keys()
-            .map(|name| (name.clone(), self.get_memory(name).unwrap()))
-            .collect::<BTreeMap<_, _>>();
+        let infinite_space = self.get_memories()?;
 
         // Do a dummy link of each task, just to get the size of the
         // resulting file.
@@ -345,12 +339,7 @@ Valid tasks are [{}]",
                 )
             })
             .collect();
-        let mut free = self
-            .config
-            .outputs
-            .keys()
-            .map(|name| (name.clone(), self.get_memory(name).unwrap()))
-            .collect();
+        let mut free = self.get_memories()?;
         self.allocations =
             allocate_all(&self.config.kernel, &tasks, &mut free)?;
         Ok(())
@@ -455,6 +444,15 @@ Valid tasks are [{}]",
                 out.size
             );
         }
+    }
+
+    /// Returns a table of all memories
+    fn get_memories(&self) -> Result<BTreeMap<String, Range<u32>>> {
+        self.config
+            .outputs
+            .keys()
+            .map(|name| self.get_memory(name).map(|v| (name.clone(), v)))
+            .collect()
     }
 
     /// Build the bootloader, if one is present. Builds `target/table.ld`,
@@ -1949,7 +1947,7 @@ struct Allocations {
 fn allocate_all(
     kernel: &crate::Kernel,
     tasks: &IndexMap<String, crate::SizedTask>,
-    free: &mut IndexMap<String, Range<u32>>,
+    free: &mut BTreeMap<String, Range<u32>>,
 ) -> Result<Allocations> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
