@@ -449,7 +449,8 @@ impl Packager {
     /// into the secure application.
     fn build_bootloader(&self) -> Result<()> {
         if self.config.bootloader.is_none() {
-            File::create(self.out_file("table.ld"))?;
+            File::create(self.out_file("table.ld"))
+                .context("Could not create table.ld")?;
             return Ok(());
         }
 
@@ -491,11 +492,11 @@ impl Packager {
         }
 
         generate_bootloader_linker_script(
-            "memory.x",
+            self.out_file("memory.x"),
             &bootloader_memory,
             Some(&bootloader.sections),
             &bootloader.sharedsyms,
-        );
+        )?;
 
         fs::copy("build/kernel-link.x", "target/link.x")
             .context("Could not copy kernel-link.x")?;
@@ -638,7 +639,6 @@ impl Packager {
     ) -> Result<IndexMap<&'static str, String>> {
         // This works because we control the environment in which we're about
         // to invoke cargo, and never modify CARGO_TARGET in that environment.
-        let cargo_out = Path::new("target").to_path_buf();
         let remap_path_prefix: String = Self::remap_paths()?
             .iter()
             .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
@@ -663,7 +663,7 @@ impl Packager {
                  -C llvm-args=--enable-machine-outliner=never \
                  -C overflow-checks=y \
                  {}",
-                cargo_out.display(),
+                self.out_dir().to_str().unwrap(),
                 remap_path_prefix,
             ),
         );
@@ -817,7 +817,7 @@ impl Packager {
             task_name
         ))?;
 
-        fs::copy("build/task-link.x", "target/link.x")?;
+        fs::copy("build/task-link.x", self.out_file("link.x"))?;
 
         self.link(task_name)?;
         self.resolve_task_slots(task_name)?;
@@ -1008,11 +1008,12 @@ impl Packager {
 
         // Link the kernel
         generate_kernel_linker_script(
-            "memory.x",
+            self.out_file("memory.x"),
             &self.allocations.kernel,
             self.config.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         )?;
-        fs::copy("build/kernel-link.x", "target/link.x")?;
+        fs::copy("build/kernel-link.x", self.out_file("link.x"))
+            .context("Could not copy kernel-link.x")?;
 
         // Build the kernel. The kernel is a [bin] target, so we don't need
         // to link it separately afterwards.
@@ -1681,15 +1682,13 @@ fn smash_bootloader(
 }
 
 fn generate_bootloader_linker_script(
-    name: &str,
+    path: PathBuf,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
     sharedsyms: &[String],
-) {
-    // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
-
+) -> Result<()> {
+    let mut linkscr = File::create(path)
+        .context("Could not create bootloader link script")?;
     writeln!(linkscr, "MEMORY\n{{").unwrap();
     for (name, range) in map {
         let start = range.start;
@@ -1764,6 +1763,7 @@ fn generate_bootloader_linker_script(
     writeln!(linkscr, "}} INSERT AFTER .uninit").unwrap();
 
     writeln!(linkscr, "IMAGEA = ORIGIN(IMAGEA_FLASH);").unwrap();
+    Ok(())
 }
 
 fn generate_task_linker_script(
@@ -1826,13 +1826,13 @@ fn generate_task_linker_script(
 }
 
 fn generate_kernel_linker_script(
-    name: &str,
+    path: PathBuf,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
+        File::create(path).context("Could not create kernel linker script")?;
 
     let mut stack_start = None;
     let mut stack_base = None;
