@@ -1052,18 +1052,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-stm32h7-usart"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "drv-stm32xx-sys-api",
- "num-traits",
- "stm32h7",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
 name = "drv-stm32xx-gpio-common"
 version = "0.1.0"
 dependencies = [
