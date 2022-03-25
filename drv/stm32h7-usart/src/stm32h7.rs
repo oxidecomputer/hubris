@@ -6,8 +6,6 @@
 
 pub use drv_stm32xx_sys_api::Sys;
 
-use super::BaudRate;
-
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
 
@@ -30,7 +28,7 @@ impl Device {
         sys: &Sys,
         device: DeviceId,
         clock_hz: u32,
-        baud_rate: BaudRate,
+        baud_rate: u32,
     ) -> Self {
         // Turn the actual peripheral on so that we can interact with it.
         turn_on_usart(sys, device);
@@ -53,7 +51,6 @@ impl Device {
         // The UART has clock and is out of reset, but isn't actually on until
         // we:
         usart.cr1.write(|w| w.ue().enabled());
-        let baud_rate = baud_rate as u32;
         let cycles_per_bit = (clock_hz + (baud_rate / 2)) / baud_rate;
         usart.brr.write(|w| w.brr().bits(cycles_per_bit as u16));
 

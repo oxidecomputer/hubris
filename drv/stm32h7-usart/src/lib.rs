@@ -20,15 +20,6 @@ use self::stm32h7::Device;
 
 use tinyvec::ArrayVec;
 
-/// Supported baud rates
-#[derive(Debug, Clone, Copy)]
-#[repr(u32)]
-pub enum BaudRate {
-    Rate9600 = 9_600,
-    Rate57600 = 57_600,
-    Rate115200 = 115_200,
-}
-
 /// Handle to an enabled USART device.
 pub struct Usart<const TX_BUF_LEN: usize, const RX_BUF_LEN: usize> {
     usart: Device,

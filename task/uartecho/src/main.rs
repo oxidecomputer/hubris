@@ -106,15 +106,16 @@ fn configure_uart_device() -> usart::stm32h7::Device {
     use usart::stm32h7::Device;
     use usart::stm32h7::DeviceId;
     use usart::stm32h7::Sys;
-    use usart::BaudRate;
 
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
+
+    const BAUD_RATE: u32 = 115_600;
 
     Device::turn_on(
         &Sys::from(SYS.get_task_id()),
         DeviceId::Usart3,
         CLOCK_HZ,
-        BaudRate::Rate115200,
+        BAUD_RATE,
     )
 }
