@@ -143,7 +143,7 @@ fn check_system_freq() {
     const EXPECTED_MAINCLKSELA: u32 = 3;
     // corresponds to Main Clock A, see 4.5.45 in user manual
     const EXPECTED_MAINCLKSELB: u32 = 0;
-    // correspinds to divide by 2, see 4.5.50 in user manual
+    // corresponds to divide by 2, see 4.5.50 in user manual
     const EXPECTED_AHBCLKDIV: u32 = 1;
 
     let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
