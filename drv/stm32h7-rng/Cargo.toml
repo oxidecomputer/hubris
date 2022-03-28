@@ -1,0 +1,27 @@
+[package]
+name = "drv-stm32h7-rng"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-rng-api = { path = "../rng-api" }
+drv-stm32xx-sys-api = { path = "../stm32xx-sys-api" }
+idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
+num-traits = { version = "0.2.14", default-features = false }
+stm32h7 = { version = "0.14", default-features = false }
+userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+zerocopy = { version = "0.6" }
+
+[build-dependencies]
+idol = { git = "https://github.com/oxidecomputer/idolatry.git" }
+
+[features]
+h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32h7-rng"
+test = false
+bench = false

@@ -22,6 +22,7 @@ hif = { git = "https://github.com/oxidecomputer/hif" }
 serde = { version = "1.0.114", default-features = false }
 byteorder = { version = "1.3.4", default-features = false }
 armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+drv-rng-api = { path = "../../drv/rng-api", optional = true }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
@@ -44,6 +45,7 @@ h743 = ["stm32h7", "drv-stm32h7-i2c/h743", "build-i2c/h743"]
 h753 = ["stm32h7", "drv-stm32h7-i2c/h753", "build-i2c/h753"]
 micro = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
+rng = ["drv-rng-api"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

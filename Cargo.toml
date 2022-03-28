@@ -67,6 +67,7 @@ members = [
     "drv/stm32h7-hash",
     "drv/stm32h7-i2c-server",
     "drv/stm32h7-qspi",
+    "drv/stm32h7-rng",
     "drv/stm32h7-spi",
     "drv/stm32h7-spi-server",
     "drv/stm32h7-startup",
@@ -95,6 +96,7 @@ members = [
     "drv/vsc-err",
     "drv/hash-api",
     "drv/stm32h7-hash-server",
+    "drv/rng-api",
 
     "drv/sidecar-seq-server",
 

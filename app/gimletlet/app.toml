@@ -129,12 +129,12 @@ task-slots = ["user_leds"]
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng"]
 priority = 3
 requires = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds"]
+task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
@@ -155,6 +155,17 @@ priority = 5
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
+
+[tasks.rng_driver]
+features = ["h753"]
+path = "../../drv/stm32h7-rng"
+name = "drv-stm32h7-rng"
+priority = 2
+requires = {flash = 8192, ram = 512}
+uses = ["rng"]
+start = true
+stacksize = 256
+task-slots = ["sys", "user_leds"]
 
 [config]
 [[config.i2c.controllers]]
