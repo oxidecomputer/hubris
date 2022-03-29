@@ -13,9 +13,12 @@ zerocopy = "0.6.1"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cortex-m-semihosting = { version = "0.3.7", features = ["inline-asm"], optional = true }
 armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+task-jefe-api = {path = "../jefe-api"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 itm = [ "userlib/log-itm" ]

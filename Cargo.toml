@@ -36,6 +36,7 @@ members = [
     "task/template",
 
     "task/jefe",
+    "task/jefe-api",
     "task/ping",
     "task/pong",
     "task/idle",

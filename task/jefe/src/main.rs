@@ -28,6 +28,7 @@
 
 mod external;
 
+use idol_runtime::NotificationHandler;
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -102,6 +103,78 @@ pub enum Disposition {
     Fault,
 }
 
+// In the app config, we require that the kernel-to-supervisor fault
+// notification light up bit 0.
+const FAULT_MASK: u32 = 1 << 0;
+
+// We install a timeout to periodcally check for an external direction
+// of our task disposition (e.g., via Humility).  This timeout should
+// generally be fast for a human but slow for a computer; we pick a
+// value of ~100 ms.  Our timer mask can't conflict with our fault
+// notification, but can otherwise be arbitrary.
+const TIMER_MASK: u32 = 1 << 1;
+const TIMER_INTERVAL: u64 = 100;
+
+struct ServerImpl<'a> {
+    disposition: &'a mut [Disposition; hubris_num_tasks::NUM_TASKS],
+    logged: &'a mut [bool; hubris_num_tasks::NUM_TASKS],
+    deadline: u64,
+}
+
+impl idl::InOrderJefeImpl for ServerImpl<'_> {
+    // Nothing here yet.
+}
+
+impl NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_MASK | FAULT_MASK
+    }
+
+    fn handle_notification(&mut self, bits: u32) {
+        // Check to see if we have any external requests.
+        let changed = external::check(self.disposition);
+
+        // If our timer went off, we need to reestablish it
+        if bits & TIMER_MASK != 0 {
+            self.deadline += TIMER_INTERVAL;
+            sys_set_timer(Some(self.deadline), TIMER_MASK);
+        }
+
+        // If our disposition has changed or if we have been notified of a
+        // faulting task, we need to iterate over all of our tasks.
+        if changed || (bits & FAULT_MASK) != 0 {
+            for i in 0..hubris_num_tasks::NUM_TASKS {
+                match kipc::read_task_status(i) {
+                    abi::TaskState::Faulted { fault, .. } => {
+                        if !self.logged[i] {
+                            log_fault(i, &fault);
+                            self.logged[i] = true;
+                        }
+
+                        if self.disposition[i] == Disposition::Restart {
+                            // Stand it back up
+                            kipc::restart_task(i, true);
+                            self.logged[i] = false;
+                        }
+                    }
+
+                    abi::TaskState::Healthy(abi::SchedState::Stopped) => {
+                        if self.disposition[i] == Disposition::Start {
+                            kipc::restart_task(i, true);
+                        }
+                    }
+
+                    abi::TaskState::Healthy(..) => {
+                        if self.disposition[i] == Disposition::Fault {
+                            kipc::fault_task(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     sys_log!("viva el jefe");
@@ -111,71 +184,24 @@ fn main() -> ! {
     let mut logged: [bool; hubris_num_tasks::NUM_TASKS] =
         [false; hubris_num_tasks::NUM_TASKS];
 
-    // We'll have notification 0 wired up to receive information about task
-    // faults.
-    let fault_mask = 1;
-
-    // We install a timeout to periodcally check for an external direction
-    // of our task disposition (e.g., via Humility).  This timeout should
-    // generally be fast for a human but slow for a computer; we pick a
-    // value of ~100 ms.  Our timer mask can't conflict with our fault
-    // notification, but can otherwise be arbitrary.
-    const TIMER_MASK: u32 = 1 << 1;
-    const TIMER_INTERVAL: u64 = 100;
-    let mut deadline = TIMER_INTERVAL;
+    let deadline = TIMER_INTERVAL;
 
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     external::set_ready();
 
+    let mut server = ServerImpl {
+        disposition: &mut disposition,
+        logged: &mut logged,
+        deadline,
+    };
+
+    let mut msgbuf = [0u8; idl::INCOMING_SIZE];
     loop {
-        let msginfo = sys_recv_open(&mut [], fault_mask | TIMER_MASK);
-
-        if msginfo.sender == TaskId::KERNEL {
-            // Check to see if we have any external requests
-            let changed = external::check(&mut disposition);
-
-            // If our timer went off, we need to reestablish it
-            if msginfo.operation & TIMER_MASK != 0 {
-                deadline += TIMER_INTERVAL;
-                sys_set_timer(Some(deadline), TIMER_MASK);
-            }
-
-            // If our disposition has changed or if we have been notified of
-            // a faulting task, we need to iterate over all of our tasks.
-            if changed || (msginfo.operation & fault_mask) != 0 {
-                for i in 0..hubris_num_tasks::NUM_TASKS {
-                    match kipc::read_task_status(i) {
-                        abi::TaskState::Faulted { fault, .. } => {
-                            if !logged[i] {
-                                log_fault(i, &fault);
-                                logged[i] = true;
-                            }
-
-                            if disposition[i] == Disposition::Restart {
-                                // Stand it back up
-                                kipc::restart_task(i, true);
-                                logged[i] = false;
-                            }
-                        }
-
-                        abi::TaskState::Healthy(abi::SchedState::Stopped) => {
-                            if disposition[i] == Disposition::Start {
-                                kipc::restart_task(i, true);
-                            }
-                        }
-
-                        abi::TaskState::Healthy(..) => {
-                            if disposition[i] == Disposition::Fault {
-                                kipc::fault_task(i);
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            // ...huh. A task has sent a message to us. That seems wrong.
-            sys_log!("Unexpected message from {}", msginfo.sender.0);
-        }
+        idol_runtime::dispatch_n(&mut msgbuf, &mut server);
     }
+}
+
+mod idl {
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

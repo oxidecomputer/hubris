@@ -1,0 +1,7 @@
+// IPC interface to El Jefe
+
+Interface(
+    name: "Jefe",
+    ops: {
+    },
+)
