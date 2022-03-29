@@ -147,13 +147,10 @@ impl Config {
                 power_en,
                 // TODO: how long does this need to be?
                 10,
-                // For some reason, certain boards have longer startup
-                // times than others.
-                if self.slow_power_en {
-                    sleep_for(200);
-                } else {
-                    sleep_for(4);
-                },
+                // Certain boards have longer startup times than others.
+                // See hardware-psc/issues/48 for analysis; it appears to
+                // be an issue with the level shifter rise times.
+                if self.slow_power_en { 200 } else { 4 },
             )
             .unwrap();
         }
