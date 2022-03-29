@@ -265,6 +265,33 @@ impl Sys {
     pub fn gpio_read(&self, pinset: PinSet) -> Result<u16, GpioError> {
         Ok(self.gpio_read_input(pinset.port)? & pinset.pin_mask)
     }
+
+    /// Combines a common sequence of operations to initialize a reset line
+    /// tied to a microcontroller GPIO pin:
+    /// - Set the given GPIO pin(s) as low, to avoid glitches when setting it
+    ///   as an output.
+    /// - Configures the given GPIO pin as a push-pull output.  At this point,
+    ///   the pin is actively driven low.
+    /// - Holds it low for `low_time_ms`
+    /// - Brings it high, then waits for `wait_time_ms`
+    pub fn gpio_init_reset_pulse(
+        &self,
+        pinset: PinSet,
+        low_time_ms: u32,
+        wait_time_ms: u32,
+    ) -> Result<(), GpioError> {
+        self.gpio_reset(pinset)?;
+        self.gpio_configure_output(
+            pinset,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )?;
+        userlib::hl::sleep_for(low_time_ms as u64);
+        self.gpio_set(pinset)?;
+        userlib::hl::sleep_for(wait_time_ms as u64);
+        Ok(())
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

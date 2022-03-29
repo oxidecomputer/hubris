@@ -3,11 +3,13 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{mgmt, miim_bridge::MiimBridge, pins};
-use drv_spi_api::{Spi, SpiError};
+use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use drv_user_leds_api::UserLeds;
-use ksz8463::{MIBCounter, MIBCounterValue, Register as KszRegister};
+use ksz8463::{
+    Error as KszError, MIBCounter, MIBCounterValue, Register as KszRegister,
+};
 use ringbuf::*;
 use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -22,7 +24,7 @@ enum Trace {
     BspConfigured,
 
     KszErr {
-        err: SpiError,
+        err: KszError,
     },
     Ksz8463Status {
         port: u8,

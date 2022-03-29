@@ -10,6 +10,46 @@ use userlib::hl::sleep_for;
 mod registers;
 pub use registers::{MIBCounter, Register};
 
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Error {
+    SpiError(SpiError),
+    WrongChipId(u16),
+}
+
+impl From<SpiError> for Error {
+    fn from(s: SpiError) -> Self {
+        Self::SpiError(s)
+    }
+}
+
+pub enum VLanMode {
+    /// Configure VLAN tags 0x301 and 0x302 for (upstream) ports 1 and 2
+    /// respectively.  Allow untagged frames on any port, but drop tagged
+    /// frames with an _incorrect_ tag.  Do not use any VLAN tags on port 3
+    /// (the downstream port to the SP).
+    Optional,
+
+    /// Require VLAN tags on port 3.  Frames tagged with 0x301/0x302 are sent
+    /// to ports 1 and 2 respectively; the tag is stripped before egress.
+    ///
+    /// Reject tagged frames on ingress into ports 1 and 2.
+    Mandatory,
+
+    /// Don't do any configuration of the VLANs.
+    Off,
+}
+
+pub enum Mode {
+    /// 10/100BASE-TX mode
+    Copper,
+    /// 100BASE-FX mode
+    Fiber,
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
@@ -18,6 +58,8 @@ enum Trace {
     Id(u16),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Data from a management information base (MIB) counter on the chip,
 /// used to monitor port activity for network management.
@@ -62,6 +104,8 @@ pub struct MacTableEntry {
     addr: [u8; 6],
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 pub struct Ksz8463 {
     spi: SpiDevice,
 }
@@ -84,7 +128,7 @@ impl Ksz8463 {
         ((address & 0b1111111100) << 4) | (b << 2)
     }
 
-    pub fn read(&self, r: Register) -> Result<u16, SpiError> {
+    pub fn read(&self, r: Register) -> Result<u16, Error> {
         let cmd = Self::pack_addr(r as u16).to_be_bytes();
         let mut response = [0; 4];
 
@@ -95,7 +139,7 @@ impl Ksz8463 {
         Ok(v)
     }
 
-    pub fn write(&self, r: Register, v: u16) -> Result<(), SpiError> {
+    pub fn write(&self, r: Register, v: u16) -> Result<(), Error> {
         // Yes, the address is big-endian while the data is little-endian.
         //
         // I don't make the rules.
@@ -111,7 +155,7 @@ impl Ksz8463 {
 
     /// Performs a read-modify-write operation on a PHY register
     #[inline(always)]
-    pub fn modify<F>(&self, reg: Register, f: F) -> Result<(), SpiError>
+    pub fn modify<F>(&self, reg: Register, f: F) -> Result<(), Error>
     where
         F: Fn(&mut u16),
     {
@@ -120,15 +164,15 @@ impl Ksz8463 {
         self.write(reg, data)
     }
 
-    pub fn enabled(&self) -> Result<bool, SpiError> {
+    pub fn enabled(&self) -> Result<bool, Error> {
         Ok(self.read(Register::CIDER)? & 0x1 != 0)
     }
 
-    pub fn enable(&self) -> Result<(), SpiError> {
+    pub fn enable(&self) -> Result<(), Error> {
         self.write(Register::CIDER, 1)
     }
 
-    pub fn disable(&self) -> Result<(), SpiError> {
+    pub fn disable(&self) -> Result<(), Error> {
         self.write(Register::CIDER, 0)
     }
 
@@ -140,7 +184,7 @@ impl Ksz8463 {
         &self,
         port: u8,
         offset: MIBCounter,
-    ) -> Result<MIBCounterValue, SpiError> {
+    ) -> Result<MIBCounterValue, Error> {
         let b = match port {
             1 => 0x0,
             2 => 0x20,
@@ -181,7 +225,7 @@ impl Ksz8463 {
     pub fn read_dynamic_mac_table(
         &self,
         addr: u16,
-    ) -> Result<MacTableEntry, SpiError> {
+    ) -> Result<MacTableEntry, Error> {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
@@ -247,7 +291,7 @@ impl Ksz8463 {
         table_entry: u8,
         port_mask: u8,
         vlan_id: u16,
-    ) -> Result<(), SpiError> {
+    ) -> Result<(), Error> {
         assert!(table_entry <= 15);
         assert!(port_mask <= 0b111);
         assert!(vlan_id <= 4096);
@@ -263,17 +307,23 @@ impl Ksz8463 {
 
     /// Disables an entry in the VLAN table.  This is particularly important
     /// to disable VLAN 1, which otherwise is allowed on all ports.
-    fn disable_vlan(&self, table_entry: u8) -> Result<(), SpiError> {
+    fn disable_vlan(&self, table_entry: u8) -> Result<(), Error> {
         self.write(Register::IADR5, 0)?;
         self.write(Register::IADR4, 0)?;
         self.write(Register::IACR, 0x400 | u16::from(table_entry))
     }
 
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
-    pub fn configure(&self, vlan_mode: VLanMode) -> Result<(), SpiError> {
-        let id = self.read(Register::CIDER)?;
-        assert_eq!(id & !1, 0x8452);
+    pub fn configure(
+        &self,
+        mode: Mode,
+        vlan_mode: VLanMode,
+    ) -> Result<(), Error> {
+        let id = self.read(Register::CIDER)? & !1;
         ringbuf_entry!(Trace::Id(id));
+        if id != 0x8452 {
+            return Err(Error::WrongChipId(id));
+        }
 
         // Do a full software reset of the chip to put registers into
         // a known state.
@@ -281,9 +331,14 @@ impl Ksz8463 {
         sleep_for(10);
         self.write(Register::GRR, 0)?;
 
-        // Configure for 100BASE-FX operation
-        self.modify(Register::CFGR, |r| *r &= !0xc0)?;
-        self.modify(Register::DSP_CNTRL_6, |r| *r &= !0x2000)?;
+        match mode {
+            Mode::Fiber => {
+                // Configure for 100BASE-FX operation
+                self.modify(Register::CFGR, |r| *r &= !0xc0)?;
+                self.modify(Register::DSP_CNTRL_6, |r| *r &= !0x2000)?;
+            }
+            Mode::Copper => (), // No changes from defaults
+        }
 
         match vlan_mode {
             // In `VLanMode::Optional`, we allow tags on the upstream ports,
@@ -384,21 +439,4 @@ impl Ksz8463 {
 
         self.enable()
     }
-}
-
-pub enum VLanMode {
-    /// Configure VLAN tags 0x301 and 0x302 for (upstream) ports 1 and 2
-    /// respectively.  Allow untagged frames on any port, but drop tagged
-    /// frames with an _incorrect_ tag.  Do not use any VLAN tags on port 3
-    /// (the downstream port to the SP).
-    Optional,
-
-    /// Require VLAN tags on port 3.  Frames tagged with 0x301/0x302 are sent
-    /// to ports 1 and 2 respectively; the tag is stripped before egress.
-    ///
-    /// Reject tagged frames on ingress into ports 1 and 2.
-    Mandatory,
-
-    /// Don't do any configuration of the VLANs.
-    Off,
 }
