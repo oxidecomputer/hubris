@@ -3,5 +3,21 @@
 Interface(
     name: "Jefe",
     ops: {
+        "get_sequencing_state": (
+            doc: "Reads out the current system sequencing state.",
+            args: {},
+            leases: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "change_sequencing_state": (
+            doc: "Changes the system sequencing state.",
+            args: {
+                "state": "u32",
+            },
+            leases: {},
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )

@@ -28,7 +28,8 @@
 
 mod external;
 
-use idol_runtime::NotificationHandler;
+use idol_runtime::{NotificationHandler, RequestError};
+use core::convert::Infallible;
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -119,10 +120,30 @@ struct ServerImpl<'a> {
     disposition: &'a mut [Disposition; hubris_num_tasks::NUM_TASKS],
     logged: &'a mut [bool; hubris_num_tasks::NUM_TASKS],
     deadline: u64,
+
+    sequencing_state: u32,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
-    // Nothing here yet.
+    fn get_sequencing_state(
+        &mut self,
+        _msg: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.sequencing_state)
+    }
+
+    fn change_sequencing_state(
+        &mut self,
+        _msg: &RecvMessage,
+        state: u32,
+    ) -> Result<(), RequestError<Infallible>> {
+        // TODO: screen message based on sender task index. Doing this will
+        // require configuration for telling which task(s) are permitted to call
+        // this.
+        self.sequencing_state = state;
+        // TODO fire state change notifications.
+        Ok(())
+    }
 }
 
 impl NotificationHandler for ServerImpl<'_> {
@@ -194,6 +215,7 @@ fn main() -> ! {
         disposition: &mut disposition,
         logged: &mut logged,
         deadline,
+        sequencing_state: 0,
     };
 
     let mut msgbuf = [0u8; idl::INCOMING_SIZE];
