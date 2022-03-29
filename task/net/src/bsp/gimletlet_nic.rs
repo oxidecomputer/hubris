@@ -41,9 +41,9 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     pins::RmiiPins {
         refclk: Port::A.pin(1),
         crs_dv: Port::A.pin(7),
-        tx_en: Port::G.pin(11),
-        txd0: Port::G.pin(13),
-        txd1: Port::G.pin(12),
+        tx_en: Port::B.pin(11),
+        txd0: Port::B.pin(12),
+        txd1: Port::B.pin(13),
         rxd0: Port::C.pin(4),
         rxd1: Port::C.pin(5),
         af: Alternate::AF11,
