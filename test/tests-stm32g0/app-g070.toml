@@ -5,7 +5,7 @@ board = "stm32g070"
 [kernel]
 path = "../../app/demo-stm32g0-nucleo"
 name = "demo-stm32g0-nucleo"
-requires = {flash = 17148, ram = 2664}
+requires = {flash = 17148, ram = 2808}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -67,7 +67,7 @@ stacksize = 1504
 path = "../test-idol-server"
 name = "test-idol-server"
 priority = 1
-requires = {flash = 1024, ram = 256}
+requires = {flash = 2048, ram = 256}
 stacksize = 256
 start = true
 
