@@ -26,7 +26,7 @@ impl From<IdolTestError> for u16 {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct FancyTestType {
     pub u: u32,
     pub b: bool,
