@@ -171,7 +171,7 @@ fn configure_uart_device() -> Usart {
     // TODO: this module should _not_ know our clock rate. That's a hack.
     const CLOCK_HZ: u32 = 100_000_000;
 
-    const BAUD_RATE: u32 = 115_600;
+    const BAUD_RATE: u32 = 115_200;
 
     // From thin air, pluck a pointer to the USART register block.
     //
