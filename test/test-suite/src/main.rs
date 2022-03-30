@@ -498,9 +498,13 @@ fn test_idol_ssmarshal() {
             f: 1.0,
         })
         .unwrap();
+
+    // We deliberately avoid using assert_eq! for float comparison, because
+    // it brings in 14K of float formatting code and overflows our smaller
+    // targets.
     assert_eq!(r.u, 134);
     assert_eq!(r.b, true);
-    assert_eq!(r.f, 1.0);
+    assert!(r.f == 1.0);
 
     let r = idol
         .fancy_increment(test_idol_api::FancyTestType {
@@ -511,7 +515,7 @@ fn test_idol_ssmarshal() {
         .unwrap();
     assert_eq!(r.u, 101);
     assert_eq!(r.b, false);
-    assert_eq!(r.f, 1.0);
+    assert!(r.f == 1.0);
 }
 
 /// Tests that task restart works as expected.
