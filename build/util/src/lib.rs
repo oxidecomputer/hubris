@@ -56,11 +56,45 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
     toml_from_env("HUBRIS_TASK_CONFIG")
 }
 
+/// Equivalent to `config` but uses `T::default()` if the environment variable
+/// is missing. If the environment variable fails to parse, this still fails
+/// with `Err`.
+pub fn config_or_default<T: DeserializeOwned + Default>() -> Result<T> {
+    toml_from_env_def("HUBRIS_APP_CONFIG")
+}
+
+/// Equivalent to `task_config` but uses `T::default()` if the environment
+/// variable is missing. If the environment variable fails to parse, this still
+/// fails with `Err`.
+pub fn task_config_or_default<T: DeserializeOwned + Default>() -> Result<T> {
+    toml_from_env_def("HUBRIS_TASK_CONFIG")
+}
+
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<T> {
     let config = env::var(var)?;
     println!("--- toml for ${} ---", var);
     println!("{}", config);
     let rval = toml::from_slice(config.as_bytes())?;
     println!("cargo:rerun-if-env-changed={}", var);
+    Ok(rval)
+}
+
+fn toml_from_env_def<T: DeserializeOwned + Default>(var: &str) -> Result<T> {
+    // We want to emit this whether or not the env var is present, so that we'll
+    // be re-run if it becomes present.
+    println!("cargo:rerun-if-env-changed={}", var);
+
+    let config = match env::var(var) {
+        Ok(text) => {
+            println!("--- toml for ${} ---", var);
+            println!("{}", text);
+            text
+        }
+        Err(_) => {
+            println!("--- var ${} not present, using default ---", var);
+            return Ok(T::default());
+        }
+    };
+    let rval = toml::from_slice(config.as_bytes())?;
     Ok(rval)
 }

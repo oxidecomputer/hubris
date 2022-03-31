@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 abi = {path = "../../sys/abi"}
 userlib = {path = "../../sys/userlib"}
-hubris-num-tasks = {path = "../../sys/num-tasks"}
+hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
@@ -19,6 +19,7 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 [build-dependencies]
 build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+serde = "1"
 
 [features]
 itm = [ "userlib/log-itm" ]

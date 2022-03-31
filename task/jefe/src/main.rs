@@ -140,8 +140,21 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // TODO: screen message based on sender task index. Doing this will
         // require configuration for telling which task(s) are permitted to call
         // this.
+        let changed = state != self.sequencing_state;
         self.sequencing_state = state;
-        // TODO fire state change notifications.
+
+        if changed {
+            // Some subset of tasks have asked to be informed of state changes.
+            // Poke them.
+            for &(task_index, notbits) in NOTIFY_STATE {
+                let tid = TaskId::for_index_and_gen(
+                    task_index,
+                    Generation::ZERO,
+                );
+                let tid = sys_refresh_task_id(tid);
+                sys_post(tid, notbits);
+            }
+        }
         Ok(())
     }
 }
@@ -227,3 +240,5 @@ fn main() -> ! {
 mod idl {
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/jefe_task_config.rs"));
