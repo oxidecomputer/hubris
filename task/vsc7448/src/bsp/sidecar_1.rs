@@ -77,7 +77,7 @@ impl<'a> PhyRw for NetPhyRw<'a> {
 pub fn preinit() {
     // Wait for the sequencer to turn on the clock
     let seq = Sequencer::from(SEQ.get_task_id());
-    while seq.is_clock_config_loaded().unwrap() == 0 {
+    while seq.is_clock_config_loaded().unwrap_or(0) == 0 {
         sleep_for(10);
     }
 }
