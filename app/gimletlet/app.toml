@@ -115,6 +115,18 @@ requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
+[tasks.uartecho]
+path = "../../task/uartecho"
+name = "task-uartecho"
+features = ["stm32h743", "usart2"]
+uses = ["usart2"]
+interrupts = {"usart2.irq" = 1}
+priority = 3
+requires = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = ["sys"]
+
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
