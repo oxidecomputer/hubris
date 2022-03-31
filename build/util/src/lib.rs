@@ -55,7 +55,7 @@ pub fn config<T: DeserializeOwned>() -> Result<T> {
 pub fn task_config<T: DeserializeOwned>() -> Result<T> {
     let section = match env::var("HUBRIS_TASK_NAME") {
         Ok(task_name) => Some(format!("[tasks.{}.config]", task_name)),
-        _ => None
+        _ => None,
     };
     toml_from_env("HUBRIS_TASK_CONFIG", section.as_deref())
 }
