@@ -238,7 +238,7 @@ that also checks that the types match.
 It's polite to provide a _wrapper crate_ that turns your server's IPC API into a
 Rust API. There is also experimental support for an IDL generator called
 https://github.com/oxidecomputer/idolatry[Idolatry]. The general pattern for
-writing these by hands is:
+writing these by hand is:
 
 - Create a crate ending in `-api`, e.g. for the `fnord` service it would be
   `fnord-api` by convention.
