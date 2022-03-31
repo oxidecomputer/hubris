@@ -44,10 +44,45 @@ address = 0x58001400
 size = 1024
 interrupts = { irq = 86 }
 
+[usart1]
+address = 0x40011000
+size = 1024
+interrupts = { irq = 37 }
+
+[usart2]
+address = 0x40004400
+size = 1024
+interrupts = { irq = 38 }
+
 [usart3]
 address = 0x40004800
 size = 1024
 interrupts = { irq = 39 }
+
+[uart4]
+address = 0x40004c00
+size = 1024
+interrupts = { irq = 52 }
+
+[uart5]
+address = 0x40005000
+size = 1024
+interrupts = { irq = 53 }
+
+[usart6]
+address = 0x40011400
+size = 1024
+interrupts = { irq = 71 }
+
+[uart7]
+address = 0x40007800
+size = 1024
+interrupts = { irq = 82 }
+
+[uart8]
+address = 0x40007c00
+size = 1024
+interrupts = { irq = 83 }
 
 [i2c1]
 address = 0x40005400

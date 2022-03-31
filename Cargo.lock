@@ -2937,6 +2937,7 @@ name = "task-uartecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if 1.0.0",
  "cortex-m",
  "drv-stm32h7-usart",
  "ringbuf",

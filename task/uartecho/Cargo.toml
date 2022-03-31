@@ -6,6 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cfg-if = "1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 ringbuf = {path = "../../lib/ringbuf"}
 tinyvec = "1.5.1"
@@ -19,6 +20,13 @@ build-util = {path = "../../build/util"}
 [features]
 stm32h743 = ["drv-stm32h7-usart/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753"]
+usart1 = []
+usart2 = []
+usart3 = []
+uart4 = []
+uart5 = []
+usart6 = []
+uart7 = []
 
 [[bin]]
 name = "task-uartecho"
