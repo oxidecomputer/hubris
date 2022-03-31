@@ -45,7 +45,7 @@ pub struct Bsp(mgmt::Bsp);
 pub fn preinit() {
     // Wait for the sequencer to turn on the clock
     let seq = Sequencer::from(SEQ.get_task_id());
-    while seq.is_clock_config_loaded().map(|b| b == 0).unwrap_or(true) {
+    while seq.is_clock_config_loaded().unwrap_or(0) == 0 {
         sleep_for(10);
     }
 }
