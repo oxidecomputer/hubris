@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -1441,6 +1441,13 @@ fn make_descriptors(
     // efficiently by name later.
     let mut peripheral_index = IndexMap::new();
 
+    // Build a set of all peripheral names used by tasks, which we'll use
+    // to filter out unused peripherals.
+    let used_peripherals = tasks
+        .iter()
+        .flat_map(|(_name, task)| task.uses.iter())
+        .collect::<HashSet<_>>();
+
     // ARMv6-M and ARMv7-M require that memory regions be a power of two.
     // ARMv8-M does not.
     let power_of_two_required = match target {
@@ -1453,6 +1460,11 @@ fn make_descriptors(
     for (name, p) in peripherals.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+        }
+
+        // skip periperhals that aren't in at least one task's `uses`
+        if !used_peripherals.contains(name) {
+            continue;
         }
 
         peripheral_index.insert(name, regions.len());
