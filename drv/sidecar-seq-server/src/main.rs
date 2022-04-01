@@ -46,6 +46,7 @@ struct ServerImpl {
     led: drv_stm32xx_sys_api::PinSet,
     led_on: bool,
     deadline: u64,
+    clock_config_loaded: bool,
 }
 
 impl ServerImpl {
@@ -136,8 +137,15 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 }
             }
         })?;
+        self.clock_config_loaded = true;
 
         Ok(())
+    }
+    fn is_clock_config_loaded(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(self.clock_config_loaded as u8)
     }
 }
 
@@ -174,6 +182,7 @@ fn main() -> ! {
         led: drv_stm32xx_sys_api::Port::C.pin(3),
         led_on: false,
         deadline,
+        clock_config_loaded: false,
     };
 
     server.led_init();

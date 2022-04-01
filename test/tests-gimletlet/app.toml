@@ -1,0 +1,79 @@
+name = "tests-gimletlet"
+target = "thumbv7em-none-eabihf"
+board = "gimletlet-2"
+stacksize = 2048
+
+[kernel]
+path = "../../app/gimletlet"
+name = "gimletlet"
+requires = {flash = 32768, ram = 4096}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["itm"]
+
+[supervisor]
+notification = 1
+
+# Flash sections are mapped into flash bank 1 (of 2).
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.runner]
+path = "../test-runner"
+name = "test-runner"
+priority = 0
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.suite]
+path = "../test-suite"
+name = "test-suite"
+priority = 2
+requires = {flash = 65536, ram = 4096}
+start = true
+features = ["itm"]
+task-slots = ["assist", "idol", "suite", "runner"]
+
+[tasks.assist]
+path = "../test-assist"
+name = "test-assist"
+priority = 1
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 3
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true

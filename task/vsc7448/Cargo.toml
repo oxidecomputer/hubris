@@ -5,19 +5,21 @@ edition = "2021"
 
 [dependencies]
 cfg-if = "1"
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-ringbuf = {path = "../../lib/ringbuf" }
+drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api"}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true }
-vsc7448 = {path = "../../drv/vsc7448" }
-vsc85xx = {path = "../../drv/vsc85xx" }
-vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+ringbuf = {path = "../../lib/ringbuf" }
 task-net-api = { path = "../net-api", optional = true }
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+vsc7448 = {path = "../../drv/vsc7448" }
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
+vsc85xx = {path = "../../drv/vsc85xx" }
 
 [features]
 leds = ["drv-user-leds-api"]
 mgmt = ["task-net-api", "vsc85xx/mgmt", "vsc7448/mgmt"]
+sidecar = ["drv-sidecar-seq-api"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

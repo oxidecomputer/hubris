@@ -325,6 +325,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: PowerState::A2,
         seq,
+        clock_config_loaded: false,
     };
 
     loop {
@@ -336,6 +337,7 @@ fn main() -> ! {
 struct ServerImpl {
     state: PowerState,
     seq: seq_spi::SequencerFpga,
+    clock_config_loaded: bool,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -448,6 +450,16 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
             .unwrap();
         Ok(())
+    }
+
+    //
+    // By the time we are hanging out the shingle, the clock config is loaded.
+    //
+    fn is_clock_config_loaded(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(1)
     }
 }
 

@@ -2,28 +2,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::miim_bridge::MiimBridge;
-
+use crate::{mgmt, miim_bridge::MiimBridge, pins};
 use drv_spi_api::{Spi, SpiError};
 use drv_stm32h7_eth as eth;
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use drv_user_leds_api::UserLeds;
-use ksz8463::{Ksz8463, MIBCounter, MIBOffset, Register as KszRegister};
+use ksz8463::{MIBCounter, MIBCounterValue, Register as KszRegister};
 use ringbuf::*;
-use userlib::{hl::sleep_for, task_slot};
+use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{Phy, VscError};
+use vsc85xx::VscError;
 
 task_slot!(SPI, spi_driver);
 task_slot!(USER_LEDS, user_leds);
 
-const KSZ8463_SPI_DEVICE: u8 = 0; // Based on app.toml ordering
-const VSC8552_PORT: u8 = 0b11100; // Based on resistor strapping
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    Ksz8463Configured,
+    BspConfigured,
+
     KszErr {
         err: SpiError,
     },
@@ -37,11 +34,10 @@ enum Trace {
     },
     Ksz8463Counter {
         port: u8,
-        counter: MIBCounter,
+        counter: MIBCounterValue,
     },
     Ksz8463MacTable(ksz8463::MacTableEntry),
 
-    Vsc8552Configured,
     Vsc8552Status {
         port: u8,
         status: phy::standard::MODE_STATUS,
@@ -85,171 +81,113 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+pub fn preinit() {
+    // Nothing to do here
+}
+
+pub fn configure_ethernet_pins(sys: &Sys) {
+    pins::RmiiPins {
+        refclk: Port::A.pin(1),
+        crs_dv: Port::A.pin(7),
+        tx_en: Port::G.pin(11),
+        txd0: Port::G.pin(13),
+        txd1: Port::G.pin(12),
+        rxd0: Port::C.pin(4),
+        rxd1: Port::C.pin(5),
+        af: Alternate::AF11,
+    }
+    .configure(sys);
+
+    pins::MdioPins {
+        mdio: Port::A.pin(2),
+        mdc: Port::C.pin(1),
+        af: Alternate::AF11,
+    }
+    .configure(sys);
+}
+
 pub struct Bsp {
-    ksz: Ksz8463,
+    mgmt: mgmt::Bsp,
     leds: UserLeds,
 }
 
 impl Bsp {
-    pub fn new() -> Self {
-        let spi = Spi::from(SPI.get_task_id()).device(KSZ8463_SPI_DEVICE);
-        let ksz = Ksz8463::new(
-            spi,
-            sys_api::Port::A.pin(9),
-            ksz8463::ResetSpeed::Slow,
-        );
+    pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
         let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
-        Self { ksz, leds }
-    }
+        // Turn on an LED to indicate that we're configuring
+        leds.led_off(0).unwrap();
+        leds.led_on(3).unwrap();
 
-    pub fn configure_ethernet_pins(&self, sys: &Sys) {
-        // This board's mapping:
-        //
-        // RMII REF CLK     PA1
-        // RMII RX DV       PA7
-        //
-        // RMII RXD0        PC4
-        // RMII RXD1        PC5
-        //
-        // RMII TX EN       PG11
-        // RMII TXD1        PG12
-        // RMII TXD0        PG13
-        //
-        // MDIO             PA2
-        //
-        // MDC              PC1
-        //
-        // (it's _almost_ identical to the STM32H7 Nucleo, except that
-        //  TXD1 is on a different pin)
-        //
-        //  The MDIO/MDC lines run at Speed::Low because otherwise the VSC8504
-        //  refuses to talk.
-        use sys_api::*;
-        let eth_af = Alternate::AF11;
+        let mgmt = mgmt::Config {
+            power_en: None,
+            slow_power_en: false,
+            power_good: None,
+            pll_lock: None,
 
-        // RMII
-        sys.gpio_configure(
-            Port::A,
-            (1 << 1) | (1 << 7),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::C,
-            (1 << 4) | (1 << 5),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::G,
-            (1 << 11) | (1 << 12) | (1 << 13),
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::VeryHigh,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
+            // SPI device is based on ordering in app.toml
+            ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
+            ksz8463_nrst: Port::A.pin(9),
+            ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Slow,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
 
-        // SMI (MDC and MDIO)
-        sys.gpio_configure(
-            Port::A,
-            1 << 2,
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-        sys.gpio_configure(
-            Port::C,
-            1 << 1,
-            Mode::Alternate,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-            eth_af,
-        )
-        .unwrap();
-    }
+            vsc85x2_coma_mode: None,
+            vsc85x2_nrst: Port::A.pin(10),
+            vsc85x2_base_port: 0b11100, // Based on resistor strapping
+        }
+        .build(sys, eth);
+        ringbuf_entry!(Trace::BspConfigured);
 
-    pub fn configure_phy(&self, eth: &mut eth::Ethernet, sys: &Sys) {
-        self.leds.led_off(0).unwrap();
-        self.leds.led_on(3).unwrap();
+        leds.led_on(0).unwrap();
+        leds.led_off(3).unwrap();
 
-        // The KSZ8463 connects to the SP over RMII, then sends data to the
-        // VSC8552 over 100-BASE FX
-        self.ksz.configure(sys);
-        ringbuf_entry!(Trace::Ksz8463Configured);
-
-        // The VSC8552 connects the KSZ switch to the management network
-        // over SGMII
-        configure_vsc8552(eth, sys);
-        ringbuf_entry!(Trace::Vsc8552Configured);
-
-        self.leds.led_on(0).unwrap();
-        self.leds.led_off(3).unwrap();
+        Self { mgmt, leds }
     }
 
     pub fn wake(&self, eth: &mut eth::Ethernet) {
-        // Logging for KSZ8463 port 1
-        ringbuf_entry!(match self.ksz.read(KszRegister::P1MBSR) {
-            Ok(status) => Trace::Ksz8463Status { port: 1, status },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self.ksz.read(KszRegister::P1MBCR) {
-            Ok(control) => Trace::Ksz8463Control { port: 1, control },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self
-            .ksz
-            .read_mib_counter(1, MIBOffset::RxLoPriorityByte)
-        {
-            Ok(counter) => Trace::Ksz8463Counter { port: 1, counter },
-            Err(err) => Trace::KszErr { err },
-        });
+        // Run the BSP wake function, which logs summarized data to a different
+        // ringbuf; we'll still do verbose logging of full registers below.
+        self.mgmt.wake(eth);
 
-        // Logging for KSZ8463 port 2
-        ringbuf_entry!(match self.ksz.read(KszRegister::P2MBSR) {
-            Ok(status) => Trace::Ksz8463Status { port: 2, status },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self.ksz.read(KszRegister::P2MBCR) {
-            Ok(control) => Trace::Ksz8463Control { port: 2, control },
-            Err(err) => Trace::KszErr { err },
-        });
-        ringbuf_entry!(match self
-            .ksz
-            .read_mib_counter(2, MIBOffset::RxLoPriorityByte)
-        {
-            Ok(counter) => Trace::Ksz8463Counter { port: 2, counter },
-            Err(err) => Trace::KszErr { err },
-        });
+        for port in [1, 2] {
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read(KszRegister::PxMBSR(port))
+            {
+                Ok(status) => Trace::Ksz8463Status { port, status },
+                Err(err) => Trace::KszErr { err },
+            });
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read(KszRegister::PxMBCR(port))
+            {
+                Ok(control) => Trace::Ksz8463Control { port, control },
+                Err(err) => Trace::KszErr { err },
+            });
+            ringbuf_entry!(match self
+                .mgmt
+                .ksz8463
+                .read_mib_counter(port, MIBCounter::RxLoPriorityByte)
+            {
+                Ok(counter) => Trace::Ksz8463Counter { port, counter },
+                Err(err) => Trace::KszErr { err },
+            });
+        }
 
         // Read the MAC table for fun
-        ringbuf_entry!(match self.ksz.read_dynamic_mac_table(0) {
+        ringbuf_entry!(match self.mgmt.ksz8463.read_dynamic_mac_table(0) {
             Ok(mac) => Trace::Ksz8463MacTable(mac),
             Err(err) => Trace::KszErr { err },
         });
 
         let mut any_comma = false;
         let mut any_link = false;
+        let rw = &mut MiimBridge::new(eth);
         for i in [0, 1] {
-            let port = VSC8552_PORT + i;
-            let mut phy = Phy {
-                port,
-                rw: &mut MiimBridge::new(eth),
-            };
+            let mut phy = self.mgmt.vsc85x2.phy(i, rw).phy;
+            let port = phy.port;
 
             ringbuf_entry!(match phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(status) => Trace::Vsc8552Status { port, status },
@@ -318,44 +256,4 @@ impl Bsp {
             self.leds.led_off(2).unwrap();
         }
     }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-pub fn configure_vsc8552(eth: &mut eth::Ethernet, sys: &Sys) {
-    use sys_api::*;
-
-    let nrst = Port::A.pin(10);
-
-    // Start with reset low
-    sys.gpio_reset(nrst).unwrap();
-    sys.gpio_configure_output(
-        nrst,
-        OutputType::PushPull,
-        Speed::Low,
-        Pull::None,
-    )
-    .unwrap();
-    sleep_for(4);
-
-    sys.gpio_set(nrst).unwrap();
-    sleep_for(120); // Wait for the chip to come out of reset
-
-    // The VSC8552 patch must be applied to port 0 in the phy
-    let mut phy_rw = MiimBridge::new(eth);
-    let mut phy0 = Phy {
-        port: VSC8552_PORT,
-        rw: &mut phy_rw,
-    };
-    vsc85xx::patch_vsc8552_phy(&mut phy0).unwrap();
-
-    // Port 0 on the PHY is connected to a SFF-8087 Mini-Sas
-    vsc85xx::init_vsc8552_phy(&mut phy0).unwrap();
-
-    // Port 1 on the PHY is connected to SMA connectors
-    let mut phy1 = Phy {
-        port: VSC8552_PORT + 1,
-        rw: &mut phy_rw,
-    };
-    vsc85xx::init_vsc8552_phy(&mut phy1).unwrap();
 }

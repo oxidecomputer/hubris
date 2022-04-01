@@ -81,7 +81,7 @@ start = true
 features = ["itm", "lpc55"]
 uses = ["stage0", "rom", "syscon", "flash"]
 stacksize = 2048
-task-slots = ["assist", "suite", "runner"]
+task-slots = ["assist", "idol", "suite", "runner"]
 
 [tasks.assist]
 path = "../test-assist"
@@ -91,6 +91,14 @@ requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
 uses = ["stage0"]
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
 
 [tasks.idle]
 path = "../../task/idle"

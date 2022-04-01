@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::de::DeserializeOwned;
 use std::env;
 
@@ -48,16 +48,35 @@ pub fn expose_target_board() {
 /// reflect that by having its member (or members) be an `Option` type.
 ///
 pub fn config<T: DeserializeOwned>() -> Result<T> {
-    toml_from_env("HUBRIS_APP_CONFIG")
+    toml_from_env("HUBRIS_APP_CONFIG", Some("[config]"))
 }
 
 /// Pulls the task configuration. See `config` for more details.
 pub fn task_config<T: DeserializeOwned>() -> Result<T> {
-    toml_from_env("HUBRIS_TASK_CONFIG")
+    let section = match env::var("HUBRIS_TASK_NAME") {
+        Ok(task_name) => Some(format!("[tasks.{}.config]", task_name)),
+        _ => None,
+    };
+    toml_from_env("HUBRIS_TASK_CONFIG", section.as_deref())
 }
 
-fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<T> {
-    let config = env::var(var)?;
+/// Parse the contents of an environment variable as toml. `section_name_pattern` is a string
+/// indicating what section of original toml file the variable should have come from to improve error reporting. `{task}` in the pattern is replaced with HUBRIS_TASK_NAME.
+fn toml_from_env<T: DeserializeOwned>(
+    var: &str,
+    section_name: Option<&str>,
+) -> Result<T> {
+    let config = env::var(var).map_err(|err|
+        match err {
+            env::VarError::NotPresent =>
+                match section_name {
+                    Some(section_name) => anyhow!("{} environment variable is undefined, but it should contain toml. Are you missing the {} section in your app.toml?", var, section_name),
+                    None => anyhow!("{} environment variable should contain toml, but it's missing, and we don't know why. Something has gone horribly wrong.", var)
+                },
+            _ => anyhow!(err)
+        }
+    )?;
+
     println!("--- toml for ${} ---", var);
     println!("{}", config);
     let rval = toml::from_slice(config.as_bytes())?;

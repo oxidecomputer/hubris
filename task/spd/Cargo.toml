@@ -13,7 +13,7 @@ drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", features = ["amd_erratum_1394
 drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "0.1.10"
-stm32h7 = { version = "0.13.0", default-features = false }
+stm32h7 = { version = "0.14", default-features = false }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

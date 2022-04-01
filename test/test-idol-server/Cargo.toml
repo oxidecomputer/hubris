@@ -1,0 +1,24 @@
+[package]
+name = "test-idol-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+num-traits = { version = "0.2.12", default-features = false }
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+test-idol-api = {path = "../test-idol-api"}
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "test-idol-server"
+test = false
+bench = false

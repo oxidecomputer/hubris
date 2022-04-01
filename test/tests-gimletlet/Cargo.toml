@@ -1,0 +1,33 @@
+[package]
+edition = "2018"
+readme = "README.md"
+name = "tests-gimletlet"
+version = "0.1.0"
+
+[features]
+itm = ["panic-itm", "kern/klog-itm"]
+semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+h753 = ["stm32h7/stm32h753"]
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.6.12"
+panic-itm = { version = "0.4.1", optional = true }
+panic-halt = { version = "0.2.0", optional = true }
+panic-semihosting = { version = "0.5.3", optional = true }
+cfg-if = "0.1.10"
+stm32h7 = { version = "0.13.0", default-features = false, features = ["rt"] }
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "tests-gimletlet"
+path = "../../app/gimletlet/src/main.rs"
+test = false
+bench = false

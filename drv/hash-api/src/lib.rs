@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use userlib::*;
 
 pub const SHA256_SZ: usize = 32;
@@ -14,32 +15,13 @@ pub const SHA256_SZ: usize = 32;
 ///
 /// This enumeration doesn't include errors that result from configuration
 /// issues, like sending host flash messages to some other task.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum HashError {
     NotInitialized = 1,
     InvalidState = 2,
     Busy = 3, // Some other owner is using the Hash block
     ServerRestarted = 4,
     NoData = 5,
-}
-
-impl From<HashError> for u16 {
-    fn from(rc: HashError) -> Self {
-        rc as u16
-    }
-}
-
-impl From<HashError> for u32 {
-    fn from(rc: HashError) -> Self {
-        rc as u32
-    }
-}
-
-impl core::convert::TryFrom<u32> for HashError {
-    type Error = ();
-    fn try_from(rc: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(rc).ok_or(())
-    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

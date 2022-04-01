@@ -302,6 +302,10 @@ pub fn system_init(config: ClockConfig) -> device::Peripherals {
         // spin
     }
 
+    // set RNG clock to PLL1 clock
+    #[cfg(any(feature = "h743", feature = "h753"))]
+    p.RCC.d2ccip2r.modify(|_, w| w.rngsel().pll1_q());
+
     // Hello from target speed!
 
     // Hand the peripherals back in case the board-specific setup code needs to

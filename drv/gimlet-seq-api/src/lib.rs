@@ -6,28 +6,16 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use userlib::*;
 use zerocopy::AsBytes;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum SeqError {
     IllegalTransition = 1,
     MuxToHostCPUFailed = 2,
     MuxToSPFailed = 3,
     ClockConfigFailed = 4,
-}
-
-impl From<SeqError> for u16 {
-    fn from(rc: SeqError) -> Self {
-        rc as u16
-    }
-}
-
-impl core::convert::TryFrom<u32> for SeqError {
-    type Error = ();
-    fn try_from(rc: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(rc).ok_or(())
-    }
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]

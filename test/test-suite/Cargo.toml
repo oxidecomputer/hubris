@@ -10,7 +10,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks"}
 num-traits = { version = "0.2.12", default-features = false }
 test-api = {path = "../test-api"}
-hypocalls = {path = "../../lib/hypocalls", default-features = false, optional = true }
+test-idol-api = {path = "../test-idol-api"}
 cfg-if = "0.1"
 
 [build-dependencies]
@@ -19,7 +19,6 @@ build-util = {path = "../../build/util"}
 [features]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
-lpc55 = ["hypocalls"]
 
 [[bin]]
 name = "test-suite"

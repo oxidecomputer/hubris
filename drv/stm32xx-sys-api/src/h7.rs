@@ -87,7 +87,7 @@ pub enum Peripheral {
     DfsdmDma = periph(Group::Ahb2, 11), // B3 only
     Sdmmc2 = periph(Group::Ahb2, 9),
 
-    #[cfg(any(feature = "h753"))]
+    #[cfg(any(feature = "h753", feature = "h743"))]
     Rng = periph(Group::Ahb2, 6),
     #[cfg(any(feature = "h753"))]
     Hash = periph(Group::Ahb2, 5),

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
@@ -237,6 +237,7 @@ pub fn package(
             out.join(&bootloader.name),
             verbose,
             edges,
+            None,
             &task_names,
             &remap_paths,
             &None,
@@ -297,8 +298,15 @@ pub fn package(
     }
 
     // Quick sanity-check if we're trying to build individual tasks which
-    // aren't present in the app.toml.
+    // aren't present in the app.toml, or ran `cargo xtask build ...` without
+    // any specified tasks.
     if let Some(included_names) = &tasks_to_build {
+        if included_names.is_empty() {
+            bail!(
+                "Running `cargo xtask build` without specifying tasks has no effect.
+Did you mean to run `cargo xtask dist`?"
+            );
+        }
         let all_tasks = toml.tasks.keys().collect::<Vec<_>>();
         for name in included_names {
             if !all_tasks.contains(&name) {
@@ -344,6 +352,7 @@ pub fn package(
             out.join(name),
             verbose,
             edges,
+            Some(&name),
             &task_names,
             &remap_paths,
             &toml.secure_separation,
@@ -417,6 +426,7 @@ pub fn package(
         out.join("kernel"),
         verbose,
         edges,
+        None,
         "",
         &remap_paths,
         &toml.secure_separation,
@@ -1026,6 +1036,7 @@ fn build(
     dest: PathBuf,
     verbose: bool,
     edges: bool,
+    current_task_name: Option<&str>,
     task_names: &str,
     remap_paths: &BTreeMap<PathBuf, &str>,
     secure_separation: &Option<bool>,
@@ -1125,6 +1136,12 @@ fn build(
     if let Some(app_config) = app_config {
         let env = toml::to_string(&app_config).unwrap();
         cmd.env("HUBRIS_APP_CONFIG", env);
+    }
+
+    // Expose the current task's name to allow for better error messages if
+    // a required configuration section is missing
+    if let Some(current_task_name) = current_task_name {
+        cmd.env("HUBRIS_TASK_NAME", current_task_name);
     }
 
     if edges {
@@ -1424,6 +1441,13 @@ fn make_descriptors(
     // efficiently by name later.
     let mut peripheral_index = IndexMap::new();
 
+    // Build a set of all peripheral names used by tasks, which we'll use
+    // to filter out unused peripherals.
+    let used_peripherals = tasks
+        .iter()
+        .flat_map(|(_name, task)| task.uses.iter())
+        .collect::<HashSet<_>>();
+
     // ARMv6-M and ARMv7-M require that memory regions be a power of two.
     // ARMv8-M does not.
     let power_of_two_required = match target {
@@ -1436,6 +1460,11 @@ fn make_descriptors(
     for (name, p) in peripherals.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+        }
+
+        // skip periperhals that aren't in at least one task's `uses`
+        if !used_peripherals.contains(name) {
+            continue;
         }
 
         peripheral_index.insert(name, regions.len());

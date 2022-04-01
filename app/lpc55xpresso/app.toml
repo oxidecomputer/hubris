@@ -76,11 +76,11 @@ stacksize = 1536
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["lpc55", "gpio"]
+features = ["lpc55", "gpio", "rng"]
 requires = {flash = 16384, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["gpio_driver", "rng_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -144,10 +144,10 @@ task-slots = ["gpio_driver", "syscon_driver"]
 path = "../../drv/lpc55-rng"
 name = "drv-lpc55-rng"
 priority = 2
-requires = {flash = 8192, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
-stacksize = 1000
+stacksize = 2200
 task-slots = ["syscon_driver"]
 
 [tasks.spi0_driver]

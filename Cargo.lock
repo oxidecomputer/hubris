@@ -542,7 +542,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -580,6 +580,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-idol-err"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +611,7 @@ dependencies = [
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "drv-hash-api",
  "idol",
  "num-traits",
@@ -624,7 +633,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -633,6 +642,7 @@ dependencies = [
 name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -671,6 +681,7 @@ dependencies = [
 name = "drv-hash-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -749,9 +760,15 @@ dependencies = [
 name = "drv-lpc55-rng"
 version = "0.1.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "drv-lpc55-syscon-api",
+ "drv-rng-api",
+ "idol",
+ "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "rand_chacha",
+ "rand_core",
  "userlib",
  "zerocopy",
 ]
@@ -832,9 +849,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-rng-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "getrandom",
+ "idol",
+ "num",
+ "num-traits",
+ "rand_core",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -867,6 +899,7 @@ dependencies = [
 name = "drv-spi-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -915,7 +948,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "cortex-m",
  "smoltcp",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -924,7 +957,7 @@ name = "drv-stm32h7-hash"
 version = "0.1.0"
 dependencies = [
  "drv-hash-api",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "vcell",
  "zerocopy",
@@ -943,7 +976,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -958,7 +991,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -978,7 +1011,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -986,9 +1019,23 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-rng"
+version = "0.1.0"
+dependencies = [
+ "drv-rng-api",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7",
+ "userlib",
  "zerocopy",
 ]
 
@@ -998,7 +1045,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "ringbuf",
- "stm32h7 0.13.0",
+ "stm32h7",
  "vcell",
  "zerocopy",
 ]
@@ -1022,7 +1069,7 @@ dependencies = [
  "quote",
  "ringbuf",
  "serde",
- "stm32h7 0.13.0",
+ "stm32h7",
  "syn",
  "userlib",
  "zerocopy",
@@ -1034,7 +1081,7 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1044,7 +1091,7 @@ dependencies = [
  "cortex-m",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1056,7 +1103,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "num-traits",
  "stm32g0",
- "stm32h7 0.14.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1072,7 +1119,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "stm32g0",
- "stm32h7 0.14.0",
+ "stm32h7",
  "userlib",
  "zerocopy",
 ]
@@ -1083,12 +1130,20 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cfg-if 1.0.0",
+ "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
  "unwrap-lite",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32xx-uid"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
 ]
 
 [[package]]
@@ -1114,6 +1169,7 @@ dependencies = [
 name = "drv-user-leds-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -1233,7 +1289,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1284,7 +1340,7 @@ dependencies = [
  "kern",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1315,7 +1371,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -1458,7 +1514,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#478f0b66b9a39e33ca7a726f310cb41304faa5ea"
+source = "git+https://github.com/oxidecomputer/idolatry.git#3f892d17df6bdf2604aba21e04ccc0a2f75591cc"
 dependencies = [
  "indexmap",
  "quote",
@@ -1470,7 +1526,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#478f0b66b9a39e33ca7a726f310cb41304faa5ea"
+source = "git+https://github.com/oxidecomputer/idolatry.git#3f892d17df6bdf2604aba21e04ccc0a2f75591cc"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -1516,7 +1572,6 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
- "drv-stm32xx-sys-api",
  "ringbuf",
  "userlib",
 ]
@@ -1713,6 +1768,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "num"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
+dependencies = [
+ "num-complex",
+ "num-integer",
+ "num-iter",
+ "num-rational",
+ "num-traits",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1742,6 +1810,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-complex"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26873667bbbb7c5182d4a37c1add32cdf09f841af72da53318fdb81543c15085"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "num-derive"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1767,6 +1844,17 @@ name = "num-iter"
 version = "0.1.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2021c8337a54d21aca0d59a92577a029af9431cb59b909b03252b9c164fad59"
+dependencies = [
+ "autocfg 1.0.1",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-rational"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d41702bd167c2df5520b384281bc111a4b5efcf7fbc4c9c222c815b07e0a6a6a"
 dependencies = [
  "autocfg 1.0.1",
  "num-integer",
@@ -2053,7 +2141,7 @@ dependencies = [
  "kern",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -2392,7 +2480,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -2533,24 +2621,13 @@ dependencies = [
 
 [[package]]
 name = "stm32h7"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b672c837e0ee8158ecc7fce0f9a948dd0693a9c588338e728d14b73307a0b7d"
-dependencies = [
- "bare-metal 0.2.5",
- "cortex-m",
- "cortex-m-rt",
- "vcell",
-]
-
-[[package]]
-name = "stm32h7"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f0faa648e03579befdd7267ab5c669624729028001fcf3c973832f53e310a06"
 dependencies = [
  "bare-metal 1.0.0",
  "cortex-m",
+ "cortex-m-rt",
  "vcell",
 ]
 
@@ -2640,6 +2717,7 @@ dependencies = [
  "drv-hash-api",
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
+ "drv-rng-api",
  "drv-spi-api",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
@@ -2684,9 +2762,12 @@ dependencies = [
  "build-util",
  "cfg-if 1.0.0",
  "cortex-m",
+ "drv-gimlet-seq-api",
+ "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32h7-eth",
  "drv-stm32xx-sys-api",
+ "drv-stm32xx-uid",
  "drv-user-leds-api",
  "hubris-num-tasks",
  "idol",
@@ -2699,7 +2780,7 @@ dependencies = [
  "serde",
  "smoltcp",
  "ssmarshal",
- "stm32h7 0.13.0",
+ "stm32h7",
  "syn",
  "task-net-api",
  "userlib",
@@ -2713,6 +2794,7 @@ name = "task-net-api"
 version = "0.1.0"
 dependencies = [
  "build-net",
+ "derive-idol-err",
  "idol",
  "num-traits",
  "serde",
@@ -2784,6 +2866,7 @@ dependencies = [
 name = "task-sensor-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "drv-i2c-api",
  "idol",
  "num-traits",
@@ -2806,7 +2889,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "spd",
- "stm32h7 0.13.0",
+ "stm32h7",
  "userlib",
 ]
 
@@ -2844,6 +2927,7 @@ dependencies = [
 name = "task-thermal-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "idol",
  "num-traits",
  "userlib",
@@ -2878,6 +2962,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 1.0.0",
+ "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
@@ -2922,6 +3007,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-idol-api"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "test-idol-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "test-idol-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
@@ -2945,9 +3057,9 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "hubris-num-tasks",
- "hypocalls",
  "num-traits",
  "test-api",
+ "test-idol-api",
  "userlib",
  "zerocopy",
 ]
@@ -2964,7 +3076,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -3036,7 +3148,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32h7 0.13.0",
+ "stm32h7",
 ]
 
 [[package]]
@@ -3203,7 +3315,7 @@ dependencies = [
 [[package]]
 name = "vsc7448-pac"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/vsc7448#c48345f64739d01ecee4be1aeaf4227bf2464635"
+source = "git+https://github.com/oxidecomputer/vsc7448#873309872f2260672bd875a5c4a4ad5121da52df"
 dependencies = [
  "derive_more",
 ]

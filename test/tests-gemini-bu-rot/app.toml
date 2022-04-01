@@ -69,7 +69,6 @@ priority = 0
 requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
-uses = ["stage0"]
 
 [tasks.suite]
 path = "../test-suite"
@@ -77,10 +76,8 @@ name = "test-suite"
 priority = 2
 requires = {flash = 65536, ram = 4096}
 start = true
-features = ["lpc55"]
-uses = ["stage0", "rom", "syscon", "flash"]
 stacksize = 2048
-task-slots = ["assist", "suite", "runner"]
+task-slots = ["assist", "idol", "suite", "runner"]
 
 [tasks.assist]
 path = "../test-assist"
@@ -89,7 +86,14 @@ priority = 1
 requires = {flash = 16384, ram = 4096}
 start = true
 features = ["itm"]
-uses = ["stage0"]
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
 
 [tasks.idle]
 path = "../../task/idle"
@@ -99,11 +103,3 @@ requires = {flash = 256, ram = 256}
 stacksize = 256
 start = true
 
-# Hmmm put this in a better region?
-[extratext.stage0]
-address = 0x0
-size = 0x8000
-
-[extratext.rom]
-address = 0x13000000
-size = 0x20000

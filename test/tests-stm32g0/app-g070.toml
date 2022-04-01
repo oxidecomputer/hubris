@@ -5,7 +5,7 @@ board = "stm32g070"
 [kernel]
 path = "../../app/demo-stm32g0-nucleo"
 name = "demo-stm32g0-nucleo"
-requires = {flash = 17148, ram = 2664}
+requires = {flash = 17148, ram = 2808}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -51,7 +51,7 @@ priority = 2
 requires = {flash = 65536, ram = 2048}
 start = true
 features = ["semihosting"]
-task-slots = ["assist", "suite", "runner"]
+task-slots = ["assist", "idol", "suite", "runner"]
 stacksize = 1504
 
 [tasks.assist]
@@ -62,6 +62,14 @@ requires = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
 stacksize = 1504
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 2048, ram = 256}
+stacksize = 256
+start = true
 
 [tasks.idle]
 path = "../../task/idle"

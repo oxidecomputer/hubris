@@ -10,21 +10,24 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 num-traits = {version = "0.2.12", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
-stm32h7 = {version = "0.13", default-features = false}
+stm32h7 = {version = "0.14", default-features = false}
 zerocopy = "0.6"
 
-userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
+drv-gimlet-seq-api = {path = "../../drv/gimlet-seq-api", optional = true}
+drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
+drv-spi-api = {path = "../../drv/spi-api", optional = true}
 drv-stm32h7-eth = {path = "../../drv/stm32h7-eth", features = ["with-smoltcp", "ipv6"]}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api"}
+drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true}
-ringbuf = {path = "../../lib/ringbuf"}
+hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
-task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
-vsc85xx = { path = "../../drv/vsc85xx", optional = true }
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
+ringbuf = {path = "../../lib/ringbuf"}
+task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", optional = true}
-drv-spi-api = {path = "../../drv/spi-api", optional = true}
+vsc85xx = { path = "../../drv/vsc85xx", optional = true }
 
 [dependencies.smoltcp]
 version = "0.8.0"
@@ -40,6 +43,8 @@ features = [
 default = ["standalone"]
 standalone = []
 mgmt = ["vsc85xx/mgmt", "vsc7448-pac", "drv-spi-api", "ksz8463", "drv-user-leds-api"]
+gimlet = ["drv-gimlet-seq-api"]
+sidecar = ["drv-sidecar-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
 

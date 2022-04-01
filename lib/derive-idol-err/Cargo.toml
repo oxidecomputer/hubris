@@ -1,0 +1,13 @@
+[package]
+name = "derive-idol-err"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+syn = { version = "1", features = ["full"] }
+quote = "1"
+
+[lib]
+proc-macro = true

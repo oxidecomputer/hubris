@@ -7,12 +7,17 @@
 
 mod bsp;
 mod buf;
+mod pins;
 mod server;
 
 #[cfg(feature = "mgmt")]
 mod miim_bridge;
 
+#[cfg(feature = "mgmt")]
+pub(crate) mod mgmt;
+
 use core::sync::atomic::{AtomicU32, Ordering};
+use zerocopy::AsBytes;
 
 #[cfg(feature = "h743")]
 use stm32h7::stm32h743 as device;
@@ -30,7 +35,29 @@ task_slot!(SYS, sys);
 //
 // Much of this needs to move into the board-level configuration.
 
-static FAKE_MAC: [u8; 6] = [0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C];
+/// Claims and calculates the MAC address.  This can only be called once.
+fn mac_address() -> &'static [u8; 6] {
+    let buf = crate::buf::claim_mac_address();
+    let uid = drv_stm32xx_uid::read_uid();
+    // Jenkins hash
+    let mut hash: u32 = 0;
+    for byte in uid.as_bytes() {
+        hash = hash.wrapping_add(*byte as u32);
+        hash = hash.wrapping_add(hash << 10);
+        hash ^= hash >> 6;
+    }
+    hash = hash.wrapping_add(hash << 3);
+    hash ^= hash >> 11;
+    hash = hash.wrapping_add(hash >> 15);
+
+    // Locally administered, unicast address
+    buf[0] = 0x0e;
+    buf[1] = 0x1d;
+
+    // Set the lower 32-bits based on the hashed UID
+    buf[2..].copy_from_slice(&hash.to_be_bytes());
+    buf
+}
 
 const TX_RING_SZ: usize = 4;
 
@@ -38,6 +65,9 @@ const RX_RING_SZ: usize = 4;
 
 /// Notification mask for our IRQ; must match configuration in app.toml.
 const ETH_IRQ: u32 = 1;
+
+/// Notification mask for optional periodic logging
+const WAKE_IRQ: u32 = 2;
 
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
@@ -54,6 +84,11 @@ fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    // Do any preinit tasks specific to this board.  For hardware which requires
+    // explicit clock configuration, this is where the `net` tasks waits for
+    // the clock to come up.
+    bsp::preinit();
+
     // Turn on the Ethernet power.
     sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Rx);
     sys.enable_clock(drv_stm32xx_sys_api::Peripheral::Eth1Tx);
@@ -64,8 +99,8 @@ fn main() -> ! {
     sys.enter_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
     sys.leave_reset(drv_stm32xx_sys_api::Peripheral::Eth1Mac);
 
-    let bsp = bsp::Bsp::new();
-    bsp.configure_ethernet_pins(&sys);
+    // Do preliminary pin configuration
+    bsp::configure_ethernet_pins(&sys);
 
     // Set up our ring buffers.
     let (tx_storage, tx_buffers) = buf::claim_tx_statics();
@@ -88,7 +123,7 @@ fn main() -> ! {
     use smoltcp::socket::UdpSocket;
     use smoltcp::wire::{EthernetAddress, IpAddress};
 
-    let mac = EthernetAddress::from_bytes(&FAKE_MAC);
+    let mac = EthernetAddress::from_bytes(mac_address());
 
     let ipv6_addr = link_local_iface_addr(mac);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
@@ -123,8 +158,8 @@ fn main() -> ! {
             .unwrap();
     }
 
-    // Board-dependant!
-    bsp.configure_phy(eth.device_mut(), &sys);
+    // Board-dependant initialization (e.g. bringing up the PHYs)
+    let bsp = bsp::Bsp::new(eth.device_mut(), &sys);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
@@ -174,9 +209,8 @@ fn main() -> ! {
                 if now >= wake_target_time {
                     server.wake();
                     wake_target_time = now + wake_interval;
-                } else {
-                    sys_set_timer(Some(wake_target_time - now), 0);
                 }
+                sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
             let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);

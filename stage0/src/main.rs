@@ -92,6 +92,11 @@ unsafe fn branch_to_image(image: Image) -> ! {
     // Write the NS_VTOR
     core::ptr::write_volatile(0xE002ED08 as *mut u32, image.get_vectors());
 
+    // Route all interrupts to the NS world
+    // TODO use only the interrupts we've enabled
+    core::ptr::write_volatile(0xe000e380 as *mut u32, 0xffffffff);
+    core::ptr::write_volatile(0xe000e384 as *mut u32, 0xffffffff);
+
     // For secure we do not set the thumb bit!
     let entry_pt = image.get_pc() & !1u32;
     let stack = image.get_sp();
@@ -138,7 +143,7 @@ fn check_system_freq() {
     const EXPECTED_MAINCLKSELA: u32 = 3;
     // corresponds to Main Clock A, see 4.5.45 in user manual
     const EXPECTED_MAINCLKSELB: u32 = 0;
-    // correspinds to divide by 2, see 4.5.50 in user manual
+    // corresponds to divide by 2, see 4.5.50 in user manual
     const EXPECTED_AHBCLKDIV: u32 = 1;
 
     let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };

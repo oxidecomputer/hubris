@@ -10,7 +10,7 @@ use smoltcp::socket::UdpSocket;
 use task_net_api::{NetError, SocketName, UdpMetadata};
 
 use crate::generated;
-use crate::ETH_IRQ;
+use crate::{ETH_IRQ, WAKE_IRQ};
 
 /// State for the running network server.
 pub struct ServerImpl<'a> {
@@ -187,8 +187,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
 
 impl NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
-        // We're always just listening for our interrupt.
-        ETH_IRQ
+        // We're always listening for our interrupt or the wake (timer) irq
+        ETH_IRQ | WAKE_IRQ
     }
 
     fn handle_notification(&mut self, bits: u32) {
@@ -197,6 +197,7 @@ impl NotificationHandler for ServerImpl<'_> {
             self.eth.device_mut().on_interrupt();
             userlib::sys_irq_control(ETH_IRQ, true);
         }
+        // The wake IRQ is handled in the main `net` loop
     }
 }
 

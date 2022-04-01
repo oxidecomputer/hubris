@@ -6,6 +6,7 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use userlib::*;
 
@@ -55,7 +56,7 @@ impl From<ResponseCode> for NoData {
     }
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum SensorError {
     InvalidSensor = 1,
     NoReading = 2,
@@ -75,25 +76,6 @@ impl From<NoData> for SensorError {
             NoData::DeviceUnavailable => SensorError::DeviceUnavailable,
             NoData::DeviceTimeout => SensorError::DeviceTimeout,
         }
-    }
-}
-
-impl From<SensorError> for u16 {
-    fn from(rc: SensorError) -> Self {
-        rc as u16
-    }
-}
-
-impl From<SensorError> for u32 {
-    fn from(rc: SensorError) -> Self {
-        rc as u32
-    }
-}
-
-impl core::convert::TryFrom<u32> for SensorError {
-    type Error = ();
-    fn try_from(rc: u32) -> Result<Self, Self::Error> {
-        Self::from_u32(rc).ok_or(())
     }
 }
 

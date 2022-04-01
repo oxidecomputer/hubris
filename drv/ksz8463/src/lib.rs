@@ -4,9 +4,11 @@
 #![no_std]
 
 use drv_spi_api::{SpiDevice, SpiError};
-use drv_stm32xx_sys_api::{self as sys_api, PinSet, Sys};
 use ringbuf::*;
 use userlib::hl::sleep_for;
+
+mod registers;
+pub use registers::{MIBCounter, Register};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
@@ -20,10 +22,16 @@ ringbuf!(Trace, 16, Trace::None);
 /// Data from a management information base (MIB) counter on the chip,
 /// used to monitor port activity for network management.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MIBCounter {
-    Invalid,
+pub enum MIBCounterValue {
+    None,
     Count(u32),
     CountOverflow(u32),
+}
+
+impl Default for MIBCounterValue {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -54,181 +62,13 @@ pub struct MacTableEntry {
     addr: [u8; 6],
 }
 
-/// Offsets used to access MIB counters
-/// (see Table 4-200 in the datasheet for details)
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MIBOffset {
-    /// Rx lo-priority (default) octet count, including bad packets.
-    RxLoPriorityByte = 0x0,
-
-    /// Rx hi-priority octet count, including bad packets.
-    RxHiPriorityByte = 0x1,
-
-    /// Rx undersize packets with good CRC.
-    RxUndersizePkt = 0x2,
-
-    /// Rx fragment packets with bad CRC, symbol errors or alignment errors.
-    RxFragments = 0x3,
-
-    /// Rx oversize packets with good CRC (maximum: 2000 bytes).
-    RxOversize = 0x4,
-
-    /// Rx packets longer than 1522 bytes with either CRC errors, alignment errors, or symbol errors (depends on max packet size setting).
-    RxJabbers = 0x5,
-
-    /// Rx packets w/ invalid data symbol and legal packet size.
-    RxSymbolError = 0x6,
-
-    /// Rx packets within (64,1522) bytes w/ an integral number of bytes and a bad CRC (upper limit depends on maximum packet size setting).
-    RxCRCError = 0x7,
-
-    /// Rx packets within (64,1522) bytes w/ a non-integral number of bytes and a bad CRC (upper limit depends on maximum packet size setting).
-    RxAlignmentError = 0x8,
-
-    /// Number of MAC control frames received by a port with 88-08h in Ether- Type field.
-    RxControl8808Pkts = 0x9,
-
-    /// Number of PAUSE frames received by a port. PAUSE frame is qualified with EtherType (88-08h), DA, control opcode (00-01), data length (64B minimum), and a valid CRC.
-    RxPausePkts = 0xA,
-
-    /// Rx good broadcast packets (not including error broadcast packets or valid multicast packets).
-    RxBroadcast = 0xB,
-
-    /// Rx good multicast packets (not including MAC control frames, error multicast packets or valid broadcast packets).
-    RxMulticast = 0xC,
-
-    /// Rx good unicast packets.
-    RxUnicast = 0xD,
-
-    /// Total Rx packets (bad packets included) that were 64 octets in length.
-    Rx64Octets = 0xE,
-
-    /// Total Rx packets (bad packets included) that are between 65 and 127 octets in length.
-    Rx65to127Octets = 0xF,
-
-    /// Total Rx packets (bad packets included) that are between 128 and 255 octets in length.
-    Rx128to255Octets = 0x10,
-
-    /// Total Rx packets (bad packets included) that are between 256 and 511 octets in length.
-    Rx256to511Octets = 0x11,
-
-    /// Total Rx packets (bad packets included) that are between 512 and 1023 octets in length.
-    Rx512to1023Octets = 0x12,
-
-    /// Total Rx packets (bad packets included) that are between 1024 and 2000 octets in length (upper limit depends on max packet size setting).
-    Rx1024to2000Octets = 0x13,
-
-    /// Tx lo-priority good octet count, including PAUSE packets.
-    TxLoPriorityByte = 0x14,
-
-    /// Tx hi-priority good octet count, including PAUSE packets.
-    TxHiPriorityByte = 0x15,
-
-    /// The number of times a collision is detected later than 512 bit-times into the Tx of a packet.
-    TxLateCollision = 0x16,
-
-    /// Number of PAUSE frames transmitted by a port.
-    TxPausePkts = 0x17,
-
-    /// Tx good broadcast packets (not including error broadcast or valid multi- cast packets).
-    TxBroadcastPkts = 0x18,
-
-    /// Tx good multicast packets (not including error multicast packets or valid broadcast packets).
-    TxMulticastPkts = 0x19,
-
-    /// Tx good unicast packets.
-    TxUnicastPkts = 0x1A,
-
-    /// Tx packets by a port for which the 1st Tx attempt is delayed due to the busy medium.
-    TxDeferred = 0x1B,
-
-    /// Tx total collision, half duplex only.
-    TxTotalCollision = 0x1C,
-
-    /// A count of frames for which Tx fails due to excessive collisions.
-    TxExcessiveCollision = 0x1D,
-
-    /// Successfully Tx frames on a port for which Tx is inhibited by exactly one collision.
-    TxSingleCollision = 0x1E,
-
-    /// Successfully Tx frames on a port for which Tx is inhibited by more than one collision.
-    TxMultipleCollision = 0x1F,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum Register {
-    /// Chip ID and enable register
-    CIDER = 0x0,
-    /// Switch global control register 1
-    SGCR1 = 0x2,
-    /// Switch global control register 2
-    SGCR2 = 0x4,
-    /// Switch global control register 3
-    SGCR3 = 0x6,
-    /// Switch global control register 6
-    SGCR6 = 0xc,
-    /// Switch global control register 7
-    SGCR7 = 0xe,
-    /// MAC address register 1
-    MACAR1 = 0x10,
-    /// MAC address register 2
-    MACAR2 = 0x12,
-    /// MAC address register 3
-    MACAR3 = 0x14,
-
-    /// Indirect access data register 1
-    IADR1 = 0x026,
-    /// Indirect access data register 2
-    IADR2 = 0x028,
-    /// Indirect access data register 3
-    IADR3 = 0x02a,
-    /// Indirect access data register 4
-    IADR4 = 0x02c,
-    /// Indirect access data register 5
-    IADR5 = 0x02e,
-    /// Indirect access control register
-    IACR = 0x030,
-
-    /// PHY 1 and MII basic control register
-    P1MBCR = 0x4c,
-    /// PHY 1 and MII basic status register
-    P1MBSR = 0x4e,
-
-    /// PHY 2 and MII basic control register
-    P2MBCR = 0x58,
-    /// PHY 2 and MII basic status register
-    P2MBSR = 0x5a,
-
-    /// PHY 1 special control and status register
-    P1PHYCTRL = 0x066,
-    /// PHY 2 special control and status register
-    P2PHYCTRL = 0x06a,
-
-    /// Configuration status and serial bus mode register
-    CFGR = 0xd8,
-
-    /// DSP control 1 register
-    DSP_CNTRL_6 = 0x734,
-}
-
-pub enum ResetSpeed {
-    Slow,
-    Normal,
-}
 pub struct Ksz8463 {
     spi: SpiDevice,
-    nrst: PinSet,
-    reset_speed: ResetSpeed,
 }
 
 impl Ksz8463 {
-    pub fn new(spi: SpiDevice, nrst: PinSet, reset_speed: ResetSpeed) -> Self {
-        Self {
-            spi,
-            nrst,
-            reset_speed,
-        }
+    pub fn new(spi: SpiDevice) -> Self {
+        Self { spi }
     }
 
     fn pack_addr(address: u16) -> u16 {
@@ -269,14 +109,15 @@ impl Ksz8463 {
         Ok(())
     }
 
-    pub fn write_masked(
-        &self,
-        r: Register,
-        v: u16,
-        mask: u16,
-    ) -> Result<(), SpiError> {
-        let v = (self.read(r)? & !mask) | (v & mask);
-        self.write(r, v)
+    /// Performs a read-modify-write operation on a PHY register
+    #[inline(always)]
+    pub fn modify<F>(&self, reg: Register, f: F) -> Result<(), SpiError>
+    where
+        F: Fn(&mut u16),
+    {
+        let mut data = self.read(reg)?;
+        f(&mut data);
+        self.write(reg, data)
     }
 
     pub fn enabled(&self) -> Result<bool, SpiError> {
@@ -298,8 +139,8 @@ impl Ksz8463 {
     pub fn read_mib_counter(
         &self,
         port: u8,
-        offset: MIBOffset,
-    ) -> Result<MIBCounter, SpiError> {
+        offset: MIBCounter,
+    ) -> Result<MIBCounterValue, SpiError> {
         let b = match port {
             1 => 0x0,
             2 => 0x20,
@@ -313,22 +154,25 @@ impl Ksz8463 {
             offset as u16 + b, // Offset
         )?;
 
-        // Read counter data.
-        let hi = self.read(Register::IADR5)?;
+        // Read counter data, looping until the 'valid' bit is 1
+        let hi = loop {
+            let hi = self.read(Register::IADR5)?;
+            if hi & (1 << 14) != 0 {
+                break hi;
+            }
+        };
+
         let lo = self.read(Register::IADR4)?;
         let value = u32::from(hi) << 16 | u32::from(lo);
 
         // Determine state of the counter, see p. 184 of datasheet.
-        let invalid = ((1 << 30) & value) != 0;
         let overflow = ((1 << 31) & value) != 0;
         let value: u32 = value & 0x3fffffff;
 
-        if invalid {
-            Ok(MIBCounter::Invalid)
-        } else if overflow {
-            Ok(MIBCounter::CountOverflow(value))
+        if overflow {
+            Ok(MIBCounterValue::CountOverflow(value))
         } else {
-            Ok(MIBCounter::Count(value))
+            Ok(MIBCounterValue::Count(value))
         }
     }
 
@@ -387,40 +231,174 @@ impl Ksz8463 {
         })
     }
 
+    /// Configures an entry in the VLAN table.  There are various constraints
+    /// on incoming values:
+    /// ```
+    ///     table_entry <= 15
+    ///     port_mask <= 0b111
+    ///     vlan_id <= 4096
+    /// ```
+    ///
+    /// We assume that `table_entry` is the same as the desired FID.
+    ///
+    /// The function will panic if these constraints are not met.
+    fn write_vlan_table(
+        &self,
+        table_entry: u8,
+        port_mask: u8,
+        vlan_id: u16,
+    ) -> Result<(), SpiError> {
+        assert!(table_entry <= 15);
+        assert!(port_mask <= 0b111);
+        assert!(vlan_id <= 4096);
+
+        let cmd = vlan_id as u32
+            | (u32::from(true) << 19) // valid
+            | (u32::from(port_mask) << 16) // ports
+            | (u32::from(table_entry) << 12); // FID
+        self.write(Register::IADR5, (cmd >> 16) as u16)?;
+        self.write(Register::IADR4, cmd as u16)?;
+        self.write(Register::IACR, 0x400 | u16::from(table_entry))
+    }
+
+    /// Disables an entry in the VLAN table.  This is particularly important
+    /// to disable VLAN 1, which otherwise is allowed on all ports.
+    fn disable_vlan(&self, table_entry: u8) -> Result<(), SpiError> {
+        self.write(Register::IADR5, 0)?;
+        self.write(Register::IADR4, 0)?;
+        self.write(Register::IACR, 0x400 | u16::from(table_entry))
+    }
+
     /// Configures the KSZ8463 switch in 100BASE-FX mode.
-    pub fn configure(&self, sys: &Sys) {
-        use sys_api::*;
-        sys.gpio_reset(self.nrst).unwrap();
-        sys.gpio_configure_output(
-            self.nrst,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-
-        // Toggle the reset line
-        sleep_for(10); // Reset must be held low for 10 ms after power up
-        sys.gpio_set(self.nrst).unwrap();
-
-        // The datasheet recommends a particular combination of diodes and
-        // capacitors which dramatically slow down the rise of the reset
-        // line, meaning you have to wait for extra long here.
-        //
-        // Otherwise, the minimum wait time is 1 µs, so 1 ms is fine.
-        sleep_for(match self.reset_speed {
-            ResetSpeed::Slow => 150,
-            ResetSpeed::Normal => 1,
-        });
-
-        let id = self.read(Register::CIDER).unwrap();
+    pub fn configure(&self, vlan_mode: VLanMode) -> Result<(), SpiError> {
+        let id = self.read(Register::CIDER)?;
         assert_eq!(id & !1, 0x8452);
         ringbuf_entry!(Trace::Id(id));
 
-        // Configure for 100BASE-FX operation
-        self.write_masked(Register::CFGR, 0x0, 0xc0).unwrap();
-        self.write_masked(Register::DSP_CNTRL_6, 0, 0x2000).unwrap();
+        // Do a full software reset of the chip to put registers into
+        // a known state.
+        self.write(Register::GRR, 1)?;
+        sleep_for(10);
+        self.write(Register::GRR, 0)?;
 
-        self.enable().unwrap();
+        // Configure for 100BASE-FX operation
+        self.modify(Register::CFGR, |r| *r &= !0xc0)?;
+        self.modify(Register::DSP_CNTRL_6, |r| *r &= !0x2000)?;
+
+        match vlan_mode {
+            // In `VLanMode::Optional`, we allow tags on the upstream ports,
+            // but strip them before frames are delivered downstream.  This
+            // lets us test the VLAN before the SP netstack supports tags.
+            VLanMode::Optional => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x301, and contains ports 1 and 3
+                // - VLAN 1 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 2 has tag 0x3FF, and contains all ports
+                //
+                // This uses slots 0-2 in the table, and FID 0-2 (same as slot),
+                // then disables the remaining slots in the VLAN table.
+                self.write_vlan_table(0, 0b101, 0x301)?;
+                self.write_vlan_table(1, 0b110, 0x302)?;
+                self.write_vlan_table(2, 0b111, 0x3FF)?;
+                for i in 3..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Assign default VLAN tags to each port
+                self.write(Register::P1VIDCR, 0x301)?;
+                self.write(Register::P2VIDCR, 0x302)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable ingress VLAN filtering on upstream ports
+                for i in [1, 2] {
+                    self.modify(Register::PxCR2(i), |r| *r |= 1 << 14)?;
+                }
+
+                // Enable tag removal on the downstream port
+                self.modify(Register::P3CR1, |r| *r |= 1 << 1)?;
+            }
+            // In `VLanMode::Mandatory`, we expect untagged frames on Port 1/2
+            // and tagged frames on Port 3. Untagged frames arriving on Port 3
+            // are assigned to VLAN 0x3FF, which drops them.
+            VLanMode::Mandatory => {
+                // Configure VLAN table for the device:
+                // - VLAN 0 has tag 0x301, and contains ports 1 and 3
+                // - VLAN 1 has tag 0x302, and contains ports 2 and 3
+                // - VLAN 2 has tag 0x3FF, and contains no ports
+                //
+                // This uses slots 0-2 in the table, and FID 0-2 (same as
+                // slot); all other VLANs are disabled (in particular, VLAN
+                // with VID 1, which by default includes all ports).
+                self.write_vlan_table(0, 0b101, 0x301)?;
+                self.write_vlan_table(1, 0b110, 0x302)?;
+                self.write_vlan_table(2, 0b000, 0x3FF)?;
+                for i in 3..16 {
+                    self.disable_vlan(i)?;
+                }
+
+                // Assign default VLAN tags to each port
+                self.write(Register::P1VIDCR, 0x301)?;
+                self.write(Register::P2VIDCR, 0x302)?;
+                self.write(Register::P3VIDCR, 0x3FF)?;
+
+                // Enable tag removal on both ports
+                for i in [1, 2] {
+                    // For upstream ports, drop tagged ingress packets and
+                    // remove tags on packet egress.  This is because there
+                    // should be no VLAN tags between the VSC7448 on the
+                    // Sidecar and the KSZ8463 on the connected board.
+                    self.modify(Register::PxCR1(i), |r| {
+                        *r |= 1 << 9; // Drop tagged ingress packets
+                        *r |= 1 << 1; // Remove tags on egress
+                    })?;
+                }
+                // Insert tags before egress on Port 3
+                self.modify(Register::P3CR1, |r| *r |= 1 << 2)?;
+
+                // There's a secret bonus register which _actually_ enables
+                // PVID tagging, despite not being mentioned in the VLAN
+                // tagging section of the datasheet.  We enable tagging when
+                // frames come from Ports 1 and 2 and go to Port 3.
+                self.write(Register::SGCR9, (1 << 3) | (1 << 1))?;
+
+                // Enable ingress VLAN filtering on Port 3.  This will cause it
+                // to drop packets that have a tag other than 0x301/0x302 (and
+                // untagged frames will be assigned 0x3FF then unceremoniously
+                // dropped).
+                self.modify(Register::P3CR2, |r| *r |= 1 << 14)?;
+            }
+
+            VLanMode::Off => (),
+        }
+
+        // Enable 802.1Q VLAN mode.  This must happen after the VLAN tables
+        // are configured.
+        match vlan_mode {
+            VLanMode::Optional | VLanMode::Mandatory => {
+                self.modify(Register::SGCR2, |r| {
+                    *r |= 1 << 15;
+                })?
+            }
+            VLanMode::Off => (),
+        }
+
+        self.enable()
     }
+}
+
+pub enum VLanMode {
+    /// Configure VLAN tags 0x301 and 0x302 for (upstream) ports 1 and 2
+    /// respectively.  Allow untagged frames on any port, but drop tagged
+    /// frames with an _incorrect_ tag.  Do not use any VLAN tags on port 3
+    /// (the downstream port to the SP).
+    Optional,
+
+    /// Require VLAN tags on port 3.  Frames tagged with 0x301/0x302 are sent
+    /// to ports 1 and 2 respectively; the tag is stripped before egress.
+    ///
+    /// Reject tagged frames on ingress into ports 1 and 2.
+    Mandatory,
+
+    /// Don't do any configuration of the VLANs.
+    Off,
 }
