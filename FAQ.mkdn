@@ -158,9 +158,8 @@ eventually being able to use stable.
 
 Hubris-the-system primarily targets the ST STM32H74/5 and NXP LPC55S
 systems-on-chip, because we're using them for stuff. We have "second tier"
-support for STM32F3/4 and STM32H7B, because they're available on useful
-evaluation boards. We also have very early Cortex-M0+ support, mostly focused on
-the STM32G0.
+support for STM32F3/4, because they're available on useful evaluation boards.
+We also have very early Cortex-M0+ support, mostly focused on the STM32G0.
 
 Hubris-the-kernel is essentially device-independent and runs on any ARMv6-M
 processor, or any ARMv7E-M or ARMv8-M Main-profile processor with a floating

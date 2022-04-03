@@ -19,9 +19,6 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
-#[cfg(feature = "h7b3")]
-use stm32h7::stm32h7b3 as device;
-
 use userlib::*;
 
 task_slot!(SYS, sys);
@@ -61,18 +58,12 @@ fn main() -> ! {
     // Safety: this is needlessly unsafe in the API. The USART is essentially a
     // static, and we access it through a & reference so aliasing is not a
     // concern. Were it literally a static, we could just reference it.
-    #[cfg(feature = "h7b3")]
-    let usart = unsafe { &*device::USART1::ptr() };
-    #[cfg(any(feature = "h743", feature = "h753"))]
     let usart = unsafe { &*device::USART3::ptr() };
 
     // The UART has clock and is out of reset, but isn't actually on until we:
     usart.cr1.write(|w| w.ue().enabled());
     // Work out our baud rate divisor.
     // TODO: this module should _not_ know our clock rate. That's a hack.
-    #[cfg(feature = "h7b3")]
-    const CLOCK_HZ: u32 = 280_000_000;
-    #[cfg(any(feature = "h743", feature = "h753"))]
     const CLOCK_HZ: u32 = 200_000_000;
 
     const BAUDRATE: u32 = 115_200;

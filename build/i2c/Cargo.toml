@@ -15,4 +15,3 @@ convert_case = "0.4"
 [features]
 h743 = []
 h753 = []
-h7b3 = []
