@@ -47,7 +47,8 @@ enum Trace {
     UartEnabled,
     GetState(TaskId),
     SetState(PowerState, PowerState),
-    ClockConfigSuccess(usize),
+    ClockConfigWrite,
+    ClockConfigSuccess,
     None,
 }
 
@@ -306,19 +307,18 @@ fn main() -> ! {
     //
     // And now load our clock configuration
     //
-    let mut packet = 0;
     let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
 
     payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
         Err(err) => Err(err),
         Ok(_) => {
-            packet += 1;
+            ringbuf_entry!(Trace::ClockConfigWrite);
             Ok(())
         }
     })
     .unwrap();
 
-    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
+    ringbuf_entry!(Trace::ClockConfigSuccess);
     ringbuf_entry!(Trace::A2);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
@@ -528,25 +528,23 @@ cfg_if::cfg_if! {
         // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
         // into the SP3's UART
         //
-        const UART_TX_ENABLE_PIN: (sys_api::Port, u16) =
-            (sys_api::Port::A, 1 << 5);
+        const UART_TX_ENABLE_PIN: sys_api::PinSet = sys_api::PinSet {
+            port: sys_api::Port::A,
+            pin_mask: 1 << 5
+        };
 
         fn uart_sp_to_sp3_enable() {
             let sys = sys_api::Sys::from(SYS.get_task_id());
-            let (port, pin_mask) = UART_TX_ENABLE_PIN;
 
-            sys.gpio_configure(
-                port,
-                pin_mask,
-                sys_api::Mode::Output,
+            sys.gpio_configure_output(
+                UART_TX_ENABLE_PIN,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-                sys_api::Alternate::AF0, // doesn't matter
             )
             .unwrap();
 
-            sys.gpio_set_reset(port, 0, pin_mask).unwrap();
+            sys.gpio_reset(UART_TX_ENABLE_PIN).unwrap();
         }
 
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
