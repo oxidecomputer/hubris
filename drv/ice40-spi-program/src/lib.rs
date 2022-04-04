@@ -32,14 +32,10 @@ use userlib::hl;
 
 /// Wiring configuration for the iCE40 FPGA.
 pub struct Config {
-    /// Port where CRESETB goes.
-    pub creset_port: sys_api::Port,
-    /// Pin mask where CRESETB goes -- should only have one bit set.
-    pub creset_pin_mask: u16,
-    /// Port where CDONE goes.
-    pub cdone_port: sys_api::Port,
-    /// Pin mask where CDONE goes -- should only have one bit set.
-    pub cdone_pin_mask: u16,
+    /// Pin set where CRESETB goes -- should only have one bit set.
+    pub creset: sys_api::PinSet,
+    /// Pin set where CDONE goes -- should only have one bit set.
+    pub cdone: sys_api::PinSet,
 }
 
 /// Things that we can _notice_ going wrong when programming -- the FPGA doesn't
@@ -69,32 +65,21 @@ pub fn configure_pins(sys: &Sys, config: &Config) {
     // Note that the SPI server manages CS for us. We want RESET to be
     // not-asserted but ready to assert. This ensures that we don't glitch RESET
     // low (active!) when we make it an output below.
-    sys.gpio_set_reset(
-        config.creset_port,
-        config.creset_pin_mask, // set = inactive
-        0,
-    )
-    .unwrap();
+    sys.gpio_set(config.creset).unwrap();
+
     // Make RESET an output.
-    sys.gpio_configure(
-        config.creset_port,
-        config.creset_pin_mask,
-        sys_api::Mode::Output,
+    sys.gpio_configure_output(
+        config.creset,
         sys_api::OutputType::PushPull,
         sys_api::Speed::High,
-        sys_api::Pull::None,     // external resistor on net
-        sys_api::Alternate::AF0, // doesn't matter
+        sys_api::Pull::None, // external resistor on net
     )
     .unwrap();
+
     // And finally we need CDONE to be an input.
-    sys.gpio_configure(
-        config.cdone_port,
-        config.cdone_pin_mask,
-        sys_api::Mode::Input,
-        sys_api::OutputType::OpenDrain, // don't care
-        sys_api::Speed::High,           // don't care
-        sys_api::Pull::None,            // don't care
-        sys_api::Alternate::AF0,        // don't care
+    sys.gpio_configure_input(
+        config.cdone,
+        sys_api::Pull::None, // don't care
     )
     .unwrap();
 }
@@ -119,8 +104,7 @@ pub fn begin_bitstream_load(
     // and CDONE. This requires us to have exclusive control over the SPI bus.
 
     // Assert reset (active low).
-    sys.gpio_set_reset(config.creset_port, 0, config.creset_pin_mask)
-        .unwrap();
+    sys.gpio_reset(config.creset).unwrap();
 
     // Lock SPI controller and assert CS.
     spi.lock(spi_api::CsState::Asserted)?;
@@ -130,8 +114,7 @@ pub fn begin_bitstream_load(
     hl::sleep_for(1);
 
     // Deassert reset (active low).
-    sys.gpio_set_reset(config.creset_port, config.creset_pin_mask, 0)
-        .unwrap();
+    sys.gpio_set(config.creset).unwrap();
 
     // Minimum time to stabilize here is either 300us or 800us, depending on
     // which Lattice doc you're reading. Give it 2ms to be sure.
@@ -140,7 +123,7 @@ pub fn begin_bitstream_load(
     // At this point, the iCE40 is _supposed_ to be chilling in programming mode
     // listening for a bitstream. If this is the case it will be asserting
     // (holding low) CDONE. Let's check!
-    if sys.gpio_read_input(config.cdone_port).unwrap() & config.cdone_pin_mask
+    if sys.gpio_read_input(config.cdone.port).unwrap() & config.cdone.pin_mask
         != 0
     {
         // Welp, that sure didn't work.
@@ -185,7 +168,7 @@ pub fn finish_bitstream_load(
     // If we've sent the bitstream successfully, we expect the iCE40 to release
     // CDONE. This is supposed to happen fairly quickly. Give it a bit and
     // check.
-    if sys.gpio_read_input(config.cdone_port).unwrap() & config.cdone_pin_mask
+    if sys.gpio_read_input(config.cdone.port).unwrap() & config.cdone.pin_mask
         == 0
     {
         // aw shucks

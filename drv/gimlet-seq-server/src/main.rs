@@ -67,16 +67,7 @@ fn main() -> ! {
     // Unconditionally set our power-good detects as inputs.
     //
     // This is the expected reset state, but, good to be sure.
-    sys.gpio_configure(
-        PGS_PORT,
-        PG_V1P2_MASK | PG_V3P3_MASK,
-        sys_api::Mode::Input,
-        sys_api::OutputType::PushPull, // doesn't matter
-        sys_api::Speed::High,
-        PGS_PULL,
-        sys_api::Alternate::AF0, // doesn't matter
-    )
-    .unwrap();
+    sys.gpio_configure_input(PGS_PINS, PGS_PULL).unwrap();
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -87,14 +78,11 @@ fn main() -> ! {
     //
     // If it's just our driver that has reset, this will have no effect, and
     // will continue driving the lines at whatever level we left them in.
-    sys.gpio_configure(
-        ENABLES_PORT,
-        ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
-        sys_api::Mode::Output,
+    sys.gpio_configure_output(
+        ENABLES,
         sys_api::OutputType::PushPull,
         sys_api::Speed::High,
         sys_api::Pull::None,
-        sys_api::Alternate::AF0, // doesn't matter
     )
     .unwrap();
 
@@ -113,12 +101,7 @@ fn main() -> ! {
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
     // Flash. TODO: this may cause trouble with hot restarts, test.
-    sys.gpio_set_reset(
-        ICE40_CONFIG.creset_port,
-        0,
-        ICE40_CONFIG.creset_pin_mask,
-    )
-    .unwrap();
+    sys.gpio_reset(ICE40_CONFIG.creset).unwrap();
 
     // Begin, or resume, the power supply sequencing process for the FPGA. We're
     // going to be reading back our enable line states to get the real state
@@ -128,8 +111,7 @@ fn main() -> ! {
     // of ours. Ensuring that it's on by writing the pin is just as cheap as
     // sensing its current state, and less code than _conditionally_ writing the
     // pin, so:
-    sys.gpio_set_reset(ENABLES_PORT, ENABLE_V1P2_MASK, 0)
-        .unwrap();
+    sys.gpio_set(ENABLE_V1P2).unwrap();
 
     // We don't actually know how long ago the regulator turned on. Could have
     // been _just now_ (above) or may have already been on. We'll use the PG pin
@@ -155,8 +137,7 @@ fn main() -> ! {
     }
 
     // We believe V1P2 is good. Now, for V3P3! Set it active (high).
-    sys.gpio_set_reset(ENABLES_PORT, ENABLE_V3P3_MASK, 0)
-        .unwrap();
+    sys.gpio_set(ENABLE_V3P3).unwrap();
 
     // Delay to be sure.
     hl::sleep_for(2);
@@ -498,11 +479,16 @@ cfg_if::cfg_if! {
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
-            creset_port: sys_api::Port::D,
-            creset_pin_mask: 1 << 5,
+            creset: sys_api::PinSet {
+                port: sys_api::Port::D,
+                pin_mask: 1 << 5,
+            },
+
             // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
-            cdone_port: sys_api::Port::B,
-            cdone_pin_mask: 1 << 4,
+            cdone: sys_api::PinSet {
+                port: sys_api::Port::B,
+                pin_mask: 1 << 4,
+            },
         };
 
         const GLOBAL_RESET: Option<(sys_api::Port, u16)> = Some((
@@ -528,7 +514,7 @@ cfg_if::cfg_if! {
         // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
         // into the SP3's UART
         //
-        const UART_TX_ENABLE_PIN: sys_api::PinSet = sys_api::PinSet {
+        const UART_TX_ENABLE: sys_api::PinSet = sys_api::PinSet {
             port: sys_api::Port::A,
             pin_mask: 1 << 5
         };
@@ -537,23 +523,44 @@ cfg_if::cfg_if! {
             let sys = sys_api::Sys::from(SYS.get_task_id());
 
             sys.gpio_configure_output(
-                UART_TX_ENABLE_PIN,
+                UART_TX_ENABLE,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
             )
             .unwrap();
 
-            sys.gpio_reset(UART_TX_ENABLE_PIN).unwrap();
+            sys.gpio_reset(UART_TX_ENABLE).unwrap();
         }
 
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;
         const ENABLE_V3P3_MASK: u16 = 1 << 4;
 
+        const ENABLES: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
+        };
+
+        const ENABLE_V1P2: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V1P2_MASK,
+        };
+
+        const ENABLE_V3P3: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V3P3_MASK,
+        };
+
         const PGS_PORT: sys_api::Port = sys_api::Port::C;
         const PG_V1P2_MASK: u16 = 1 << 7;
         const PG_V3P3_MASK: u16 = 1 << 6;
+
+        const PGS_PINS: sys_api::PinSet = sys_api::PinSet {
+            port: PGS_PORT,
+            pin_mask: PG_V1P2_MASK | PG_V3P3_MASK
+        };
+
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
 

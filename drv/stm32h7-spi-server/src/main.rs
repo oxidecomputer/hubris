@@ -522,7 +522,8 @@ fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &sys_api::Sys) {
     }
     // Switch input pin away from SPI peripheral to a GPIO input, which makes it
     // Hi-Z.
-    gpio.gpio_configure_input(opt.input.0, sys_api::Pull::None).unwrap();
+    gpio.gpio_configure_input(opt.input.0, sys_api::Pull::None)
+        .unwrap();
 }
 
 fn activate_mux_option(
