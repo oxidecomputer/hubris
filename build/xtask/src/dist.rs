@@ -1100,7 +1100,7 @@ fn build(
     );
 
     // We include the path to the configuration TOML file so that proc macros
-    // that using it can easily force a rebuild (using include_bytes!)
+    // that use it can easily force a rebuild (using include_bytes!)
     //
     // This doesn't matter now, because we rebuild _everything_ on app.toml
     // changes, but once #240 is closed, this will be important.
