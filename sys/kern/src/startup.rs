@@ -11,26 +11,17 @@ use core::mem::MaybeUninit;
 /// The main kernel entry point.
 ///
 /// We currently expect an application to provide its own `main`-equivalent
-/// function, which does basic hardware setup and then calls this function with
-/// the location of the `App` header and some kernel-dedicated RAM.
+/// function, which does basic hardware setup and then calls this function.
 ///
 /// Parameters:
 ///
-/// - `app_header_ptr` is the address of the application header, found through
-///   whatever eldritch magic you choose (probably a linker symbol).
-/// - `scratch_ram` and `scratch_ram_size` are the base and extent of a section
-///   of bytes that the kernel will use for its own purposes. Its required size
-///   depends on the number of tasks you allocate. (TODO: we should give more
-///   guidance than that.) It's important for correctness that this *not* be
-///   accessible to any task.
 /// - `tick_divisor`: a platform-specific way of converting "machine ticks" into
 ///   "kernel ticks." On ARM M-profile, this is CPU cycles per tick, where a
 ///   tick is typically a millisecond.
 ///
 /// # Safety
 ///
-/// This can be called exactly once per boot, with valid pointers that don't
-/// alias any other structure or one another.
+/// This can be called exactly once per boot.
 pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     klog!("starting: laziness");
 
