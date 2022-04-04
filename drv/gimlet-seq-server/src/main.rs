@@ -168,42 +168,35 @@ fn main() -> ! {
         // Some boards require certain pins to be put in certain states before
         // we can perform SPI communication with the design (rather than the
         // programming port). If this is such a board, apply those changes:
-        for &(port, pin_mask, is_high) in hacks {
-            sys.gpio_set_reset(
-                port,
-                if is_high { pin_mask } else { 0 },
-                if is_high { 0 } else { pin_mask },
-            )
-            .unwrap();
+        for &(pin, is_high) in hacks {
+            if is_high {
+                sys.gpio_set(pin).unwrap();
+            } else {
+                sys.gpio_reset(pin).unwrap();
+            }
 
-            sys.gpio_configure(
-                port,
-                pin_mask,
-                sys_api::Mode::Output,
+            sys.gpio_configure_output(
+                pin,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-                sys_api::Alternate::AF0, // doesn't matter
             )
             .unwrap();
         }
     }
 
-    if let Some((port, pin_mask)) = GLOBAL_RESET {
+    if let Some(pin) = GLOBAL_RESET {
         // Also configure our design reset net -- the signal that resets the
         // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
         // push-pull because all our boards with reset nets are lacking pullups
         // right now. It's active low, so, set up the pin before exposing the
         // output to ensure we don't glitch.
-        sys.gpio_set_reset(port, pin_mask, 0).unwrap();
-        sys.gpio_configure(
-            port,
-            pin_mask,
-            sys_api::Mode::Output,
+        sys.gpio_set(pin).unwrap();
+        sys.gpio_configure_output(
+            pin,
             sys_api::OutputType::PushPull,
             sys_api::Speed::High,
             sys_api::Pull::None,
-            sys_api::Alternate::AF0, // doesn't matter
         )
         .unwrap();
     }
@@ -218,11 +211,11 @@ fn main() -> ! {
 
     // We only want to reset and reprogram the FPGA when absolutely required.
     if reprogram {
-        if let Some((port, pin_mask)) = GLOBAL_RESET {
+        if let Some(pin) = GLOBAL_RESET {
             // Assert the design reset signal (not the same as the FPGA
             // programming logic reset signal). We do this during reprogramming
             // to avoid weird races that make our brains hurt.
-            sys.gpio_set_reset(port, 0, pin_mask).unwrap();
+            sys.gpio_reset(pin).unwrap();
         }
 
         let mut laps = 0;
@@ -251,10 +244,10 @@ fn main() -> ! {
             }
         }
 
-        if let Some((port, pin_mask)) = GLOBAL_RESET {
+        if let Some(pin) = GLOBAL_RESET {
             // Deassert design reset signal. We set the pin, as it's
             // active low.
-            sys.gpio_set_reset(port, pin_mask, 0).unwrap();
+            sys.gpio_set(pin).unwrap();
         }
     }
 
@@ -491,10 +484,10 @@ cfg_if::cfg_if! {
             },
         };
 
-        const GLOBAL_RESET: Option<(sys_api::Port, u16)> = Some((
-            sys_api::Port::A,
-            1 << 6,
-        ));
+        const GLOBAL_RESET: Option<sys_api::PinSet> = Some(sys_api::PinSet {
+            port: sys_api::Port::A,
+            pin_mask: 1 << 6,
+        });
 
         // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
         // of circuit to be able to program the FPGA, because we accidentally
@@ -502,13 +495,16 @@ cfg_if::cfg_if! {
         //
         // (port, mask, high_flag)
         #[cfg(target_board = "gimlet-a")]
-        const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = Some(&[
+        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = Some(&[
             // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
-            (sys_api::Port::I, 1 << 8, false),
+            (sys_api::PinSet {
+                port: sys_api::Port::I,
+                pin_mask: 1 << 8,
+            }, false),
         ]);
 
         #[cfg(target_board = "gimlet-b")]
-        const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = None;
+        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = None;
 
         //
         // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
