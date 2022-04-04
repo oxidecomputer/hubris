@@ -44,8 +44,8 @@ enum Trace {
     A1Power(u8, u8),
     A0Power(u8),
     RailsOn,
-    Done,
-    GetState,
+    UartEnabled,
+    GetState(TaskId),
     SetState(PowerState, PowerState),
     ClockConfigSuccess(usize),
     None,
@@ -325,11 +325,9 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: PowerState::A2,
         seq,
-        clock_config_loaded: false,
     };
 
     loop {
-        ringbuf_entry!(Trace::Done);
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
@@ -337,15 +335,14 @@ fn main() -> ! {
 struct ServerImpl {
     state: PowerState,
     seq: seq_spi::SequencerFpga,
-    clock_config_loaded: bool,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
-        _: &RecvMessage,
+        rm: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
+        ringbuf_entry!(Trace::GetState(rm.sender));
         Ok(self.state)
     }
 
@@ -407,6 +404,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
                     hl::sleep_for(1);
                 }
+
+                //
+                // Finally, enable transmission to the SP3's UART
+                //
+                uart_sp_to_sp3_enable();
+                ringbuf_entry!(Trace::UartEnabled);
 
                 self.state = PowerState::A0;
                 Ok(())
@@ -520,6 +523,31 @@ cfg_if::cfg_if! {
 
         #[cfg(target_board = "gimlet-b")]
         const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = None;
+
+        //
+        // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
+        // into the SP3's UART
+        //
+        const UART_TX_ENABLE_PIN: (sys_api::Port, u16) =
+            (sys_api::Port::A, 1 << 5);
+
+        fn uart_sp_to_sp3_enable() {
+            let sys = sys_api::Sys::from(SYS.get_task_id());
+            let (port, pin_mask) = UART_TX_ENABLE_PIN;
+
+            sys.gpio_configure(
+                port,
+                pin_mask,
+                sys_api::Mode::Output,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
+                sys_api::Alternate::AF0, // doesn't matter
+            )
+            .unwrap();
+
+            sys.gpio_set_reset(port, 0, pin_mask).unwrap();
+        }
 
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;
