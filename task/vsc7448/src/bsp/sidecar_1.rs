@@ -213,7 +213,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         .unwrap();
 
         // SP_TO_LDO_PHY4_EN (PI6)
-        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4);
+        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4).unwrap();
         // TODO: sleep for PG lines going high here
 
         // Deassert reset line, then wait 120 ms
