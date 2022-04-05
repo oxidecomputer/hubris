@@ -165,7 +165,7 @@ fn muck_with_gpios(syscon: &Syscon) {
     syscon.leave_reset(Peripheral::Iocon);
 
     let gpio_driver = GPIO.get_task_id();
-    let iocon = Gpio::from(gpio_driver);
+    let iocon = Pins::from(gpio_driver);
 
     // This is quite the array!
     // All of these need to be in digital mode. The NXP C driver

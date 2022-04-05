@@ -149,7 +149,7 @@ fn muck_with_gpios(syscon: &Syscon) {
     // maddening so just muck with IOCON manually for now
 
     let gpio_driver = GPIO.get_task_id();
-    let iocon = Gpio::from(gpio_driver);
+    let iocon = Pins::from(gpio_driver);
 
     iocon
         .iocon_configure(

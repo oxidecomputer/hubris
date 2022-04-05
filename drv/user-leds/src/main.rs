@@ -512,7 +512,7 @@ fn enable_led_pins() {
     use drv_lpc55_gpio_api::*;
 
     let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = Gpio::from(gpio_driver);
+    let gpio_driver = Pins::from(gpio_driver);
 
     gpio_driver
         .iocon_configure(
@@ -552,7 +552,7 @@ fn enable_led_pins() {
 #[cfg(feature = "lpc55")]
 fn led_on(led: Led) {
     let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
+    let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
     gpio_driver.set_val(pin, LED_ON_VAL).unwrap();
@@ -561,7 +561,7 @@ fn led_on(led: Led) {
 #[cfg(feature = "lpc55")]
 fn led_off(led: Led) {
     let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
+    let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
     gpio_driver.set_val(pin, LED_OFF_VAL).unwrap();
@@ -570,7 +570,7 @@ fn led_off(led: Led) {
 #[cfg(feature = "lpc55")]
 fn led_toggle(led: Led) {
     let gpio_driver = GPIO.get_task_id();
-    let gpio_driver = drv_lpc55_gpio_api::Gpio::from(gpio_driver);
+    let gpio_driver = drv_lpc55_gpio_api::Pins::from(gpio_driver);
 
     let pin = led_gpio_num(led);
     gpio_driver.toggle(pin).unwrap();
