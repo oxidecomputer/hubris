@@ -731,8 +731,6 @@ dependencies = [
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
- "serde",
- "ssmarshal",
  "userlib",
  "zerocopy",
 ]
@@ -746,8 +744,6 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
- "serde",
- "ssmarshal",
  "userlib",
  "zerocopy",
 ]
@@ -811,6 +807,9 @@ name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "drv-lpc55-syscon-api",
+ "idol",
+ "idol-runtime",
  "lpc55-pac",
  "num-traits",
  "userlib",
@@ -821,6 +820,9 @@ dependencies = [
 name = "drv-lpc55-syscon-api"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "derive-idol-err",
+ "idol",
  "num-traits",
  "userlib",
  "zerocopy",

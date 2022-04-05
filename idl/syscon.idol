@@ -1,0 +1,44 @@
+Interface(
+    name: "Syscon",
+    ops: {
+	"enable_clock": (
+		args : {
+			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("SysconError")
+		),
+	),
+	"disable_clock": (
+		args: {
+			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("SysconError"),
+
+		),
+	),
+	"enter_reset": (
+		args: {
+			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("SysconError")
+
+		),
+	),
+	"leave_reset": (
+		args: {
+			"peripheral": ( type : "Peripheral", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("SysconError"),
+
+		)
+	),
+   }
+)

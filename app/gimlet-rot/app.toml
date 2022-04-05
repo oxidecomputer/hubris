@@ -62,7 +62,7 @@ start = true
 path = "../../drv/lpc55-syscon"
 name = "drv-lpc55-syscon"
 priority = 2
-requires = {flash = 4096, ram = 2048}
+requires = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
 start = true
 

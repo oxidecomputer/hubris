@@ -7,6 +7,12 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
+derive-idol-err = {path = "../../lib/derive-idol-err" }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
