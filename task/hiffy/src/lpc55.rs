@@ -150,7 +150,7 @@ fn gpio_configure(
     };
 
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     match gpio
         .iocon_configure(pin, alt, mode, slew, invert, digimode, opendrain)
@@ -167,7 +167,7 @@ fn gpio_toggle(
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     let pin = gpio_args(stack)?;
 
@@ -184,7 +184,7 @@ fn gpio_direction(
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
@@ -214,7 +214,7 @@ fn gpio_input(
     rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     let pin = gpio_args(stack)?;
 
@@ -234,7 +234,7 @@ fn gpio_set(
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     let pin = gpio_args(stack)?;
 
@@ -251,7 +251,7 @@ fn gpio_reset(
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
     let task = GPIO.get_task_id();
-    let gpio = drv_lpc55_gpio_api::Gpio::from(task);
+    let gpio = drv_lpc55_gpio_api::Pins::from(task);
 
     let pin = gpio_args(stack)?;
 

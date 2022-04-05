@@ -3,10 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_target_board();
-    idol::client::build_client_stub(
+    idol::server::build_server_support(
         "../../idl/lpc55-pins.idol",
-        "client_stub.rs",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
     )?;
+
     Ok(())
 }

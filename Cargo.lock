@@ -727,10 +727,14 @@ version = "0.1.0"
 dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-syscon-api",
- "lpc55-iocon-gen",
+ "idol",
+ "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -739,7 +743,11 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if 0.1.10",
+ "derive-idol-err",
+ "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]

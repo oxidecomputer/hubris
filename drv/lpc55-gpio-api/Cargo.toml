@@ -8,6 +8,8 @@ userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 cfg-if = "0.1.10"
+derive-idol-err = {path = "../../lib/derive-idol-err" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

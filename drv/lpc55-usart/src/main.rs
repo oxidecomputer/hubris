@@ -193,7 +193,7 @@ fn turn_on_flexcomm() {
 
 fn muck_with_gpios() {
     let gpio_driver = GPIO.get_task_id();
-    let iocon = Gpio::from(gpio_driver);
+    let iocon = Pins::from(gpio_driver);
 
     // Our GPIOs are P0_29 and P0_30 and need to be set to AF1
 

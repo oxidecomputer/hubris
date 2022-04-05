@@ -44,24 +44,102 @@ use lpc55_pac as device;
 
 use drv_lpc55_gpio_api::*;
 use drv_lpc55_syscon_api::*;
-use hl;
-use userlib::{FromPrimitive, *};
+use idol_runtime::RequestError;
+use userlib::*;
 
 task_slot!(SYSCON, syscon_driver);
 
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
+struct ServerImpl<'a> {
+    gpio: &'a device::gpio::RegisterBlock,
 }
 
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
+impl idl::InOrderPinsImpl for ServerImpl<'_> {
+    fn set_dir(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+        dir: Direction,
+    ) -> Result<(), RequestError<GpioError>> {
+        let (port, pin) = gpio_port_pin_validate(pin);
+
+        match dir {
+            Direction::Input => self.gpio.dirclr[port]
+                .write(|w| unsafe { w.dirclrp().bits(1 << pin) }),
+            Direction::Output => self.gpio.dirset[port]
+                .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
+        }
+        Ok(())
+    }
+
+    fn set_val(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+        val: Value,
+    ) -> Result<(), RequestError<GpioError>> {
+        let (port, pin) = gpio_port_pin_validate(pin);
+
+        match val {
+            Value::One => self.gpio.set[port]
+                .write(|w| unsafe { w.setp().bits(1 << pin) }),
+            Value::Zero => self.gpio.clr[port]
+                .write(|w| unsafe { w.clrp().bits(1 << pin) }),
+        }
+
+        Ok(())
+    }
+
+    fn read_val(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+    ) -> Result<Value, RequestError<GpioError>> {
+        let (port, pin) = gpio_port_pin_validate(pin);
+
+        let mask = 1 << pin;
+
+        let val = (self.gpio.pin[port].read().port().bits() & mask) == mask;
+
+        if val {
+            Ok(Value::One)
+        } else {
+            Ok(Value::Zero)
+        }
+    }
+
+    fn toggle(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+    ) -> Result<(), RequestError<GpioError>> {
+        let (port, pin) = gpio_port_pin_validate(pin);
+
+        self.gpio.not[port].write(|w| unsafe { w.notp().bits(1 << pin) });
+        Ok(())
+    }
+
+    fn iocon_configure_raw(
+        &mut self,
+        _: &RecvMessage,
+        pin: Pin,
+        conf: u32,
+    ) -> Result<(), RequestError<GpioError>> {
+        // The LPC55 IOCON Rust API has individual functions for each pin.
+        // This is not easily compatible with our API that involves passing
+        // around a representation of each pin. Given we have to pack the
+        // field in order to send it anyway it's much easier just to write
+        // the register manually
+        let iocon_base = device::IOCON::ptr() as *const u32 as u32;
+
+        let base = iocon_base + 4 * (pin as u32);
+
+        unsafe {
+            core::ptr::write_volatile(base as *mut u32, conf);
+        }
+
+        Ok(())
     }
 }
-
-// Generates a gigantic match table for each pin
-lpc55_iocon_gen::gen_iocon_table!();
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -69,119 +147,23 @@ fn main() -> ! {
 
     let gpio = unsafe { &*device::GPIO::ptr() };
 
-    // Handler for received messages.
-    let recv_handler = |op: Op, msg: hl::Message| -> Result<(), ResponseCode> {
-        match op {
-            Op::SetDir => {
-                let (msg, caller) = msg
-                    .fixed::<DirectionRequest, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
-                let dir =
-                    Direction::from_u32(msg.dir).ok_or(ResponseCode::BadArg)?;
+    let mut server = ServerImpl { gpio };
 
-                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
-
-                match dir {
-                    Direction::Input => gpio.dirclr[port]
-                        .write(|w| unsafe { w.dirclrp().bits(1 << pin) }),
-                    Direction::Output => gpio.dirset[port]
-                        .write(|w| unsafe { w.dirsetp().bits(1 << pin) }),
-                }
-                caller.reply(());
-                Ok(())
-            }
-            Op::SetVal => {
-                let (msg, caller) = msg
-                    .fixed::<SetRequest, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
-
-                let val =
-                    Value::from_u32(msg.val).ok_or(ResponseCode::BadArg)?;
-
-                match val {
-                    Value::One => gpio.set[port]
-                        .write(|w| unsafe { w.setp().bits(1 << pin) }),
-                    Value::Zero => gpio.clr[port]
-                        .write(|w| unsafe { w.clrp().bits(1 << pin) }),
-                }
-                caller.reply(());
-                Ok(())
-            }
-            Op::ReadVal => {
-                // Make sure the pin is set in digital mode before trying to
-                // use this function otherwise it will not work!
-                let (msg, caller) = msg
-                    .fixed::<ReadRequest, u8>()
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
-
-                let mask = 1 << pin;
-
-                let val = (gpio.pin[port].read().port().bits() & mask) == mask;
-                caller.reply(val as u8);
-                Ok(())
-            }
-            Op::Toggle => {
-                let (msg, caller) = msg
-                    .fixed::<ToggleRequest, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let (port, pin) = gpio_port_pin_validate(msg.pin)?;
-
-                gpio.not[port].write(|w| unsafe { w.notp().bits(1 << pin) });
-
-                caller.reply(());
-                Ok(())
-            }
-            Op::Configure => {
-                let (msg, caller) = msg
-                    .fixed::<ConfigureRequest, ()>()
-                    .ok_or(ResponseCode::BadArg)?;
-
-                let conf = msg.conf;
-
-                let pin = Pin::from_u32(msg.pin).ok_or(ResponseCode::BadArg)?;
-
-                let func = AltFn::from_u32(conf & 0b1111)
-                    .ok_or(ResponseCode::BadArg)?;
-                let mode = Mode::from_u32((conf >> 4) & 0b11)
-                    .ok_or(ResponseCode::BadArg)?;
-                let slew = Slew::from_u32((conf >> 6) & 1)
-                    .ok_or(ResponseCode::BadArg)?;
-                let invert = Invert::from_u32((conf >> 7) & 1)
-                    .ok_or(ResponseCode::BadArg)?;
-                let digimode = Digimode::from_u32((conf >> 8) & 1)
-                    .ok_or(ResponseCode::BadArg)?;
-                let opendrain = Opendrain::from_u32((conf >> 9) & 1)
-                    .ok_or(ResponseCode::BadArg)?;
-
-                set_iocon(pin, func, mode, slew, invert, digimode, opendrain);
-
-                caller.reply(());
-                Ok(())
-            }
-        }
-    };
-
-    // Field messages.
-    let mut buffer: [u8; 12] = [0; 12];
+    let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
-        hl::recv_without_notification(&mut buffer, recv_handler);
+        idol_runtime::dispatch(&mut incoming, &mut server);
     }
 }
 
-fn gpio_port_pin_validate(pin: u32) -> Result<(usize, usize), ResponseCode> {
-    let _ = Pin::from_u32(pin).ok_or(ResponseCode::BadArg)?;
+fn gpio_port_pin_validate(pin: Pin) -> (usize, usize) {
+    let _pin = pin as u32;
 
     // These are encoded such that port 0 goes to 31 and port 1 goes
     // 32 to 63
-    let port = (pin >> 5) as usize;
-    let pnum = (pin & 0b1_1111) as usize;
+    let port = (_pin >> 5) as usize;
+    let pnum = (_pin & 0b1_1111) as usize;
 
-    Ok((port, pnum))
+    (port, pnum)
 }
 
 fn turn_on_gpio_clocks() {
@@ -195,4 +177,11 @@ fn turn_on_gpio_clocks() {
 
     syscon.enable_clock(Peripheral::Gpio1);
     syscon.leave_reset(Peripheral::Gpio1);
+}
+
+mod idl {
+    use super::GpioError;
+    use drv_lpc55_gpio_api::{Direction, Pin, Value};
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

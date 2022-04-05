@@ -4,9 +4,9 @@
 
 #![no_std]
 
-use core::cell::Cell;
-use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use derive_idol_err::IdolError;
+use userlib::{sys_send, FromPrimitive};
+use zerocopy::AsBytes;
 
 // Only the expresso boards have the full 64 pins, the
 // LPC55S2x variant only has 36
@@ -15,7 +15,7 @@ use zerocopy::{AsBytes, FromBytes};
 // goes 0 - 64
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "lpcxpresso55s69"))] {
-        #[derive(Copy, Clone, Debug, FromPrimitive)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -86,7 +86,7 @@ cfg_if::cfg_if! {
         }
 
     } else {
-        #[derive(Copy, Clone, Debug, FromPrimitive)]
+        #[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
         #[repr(u32)]
         pub enum Pin {
             PIO0_0 = 0,
@@ -211,112 +211,27 @@ pub enum AltFn {
     Alt9 = 9,
 }
 
-#[derive(Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[repr(u32)]
 pub enum Direction {
     Input = 0,
     Output = 1,
 }
 
-#[derive(Debug, FromPrimitive)]
+#[derive(Copy, Clone, Debug, FromPrimitive, AsBytes)]
+#[repr(u8)]
 pub enum Value {
     Zero = 0,
     One = 1,
 }
 
-#[derive(Clone, Debug)]
-pub struct Gpio(Cell<TaskId>);
-
-impl From<TaskId> for Gpio {
-    fn from(t: TaskId) -> Self {
-        Self(Cell::new(t))
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum GpioError {
     BadArg = 2,
 }
 
-impl From<u32> for GpioError {
-    fn from(x: u32) -> Self {
-        match x {
-            2 => GpioError::BadArg,
-            _ => panic!(),
-        }
-    }
-}
-
-impl From<GpioError> for u32 {
-    fn from(rc: GpioError) -> Self {
-        rc as u32
-    }
-}
-
-#[derive(FromBytes, AsBytes)]
-#[repr(C)]
-pub struct ConfigureRequest {
-    pub pin: u32,
-    pub conf: u32,
-}
-
-impl hl::Call for ConfigureRequest {
-    const OP: u16 = Op::Configure as u16;
-    type Response = ();
-    type Err = GpioError;
-}
-
-#[derive(FromBytes, AsBytes)]
-#[repr(C)]
-pub struct DirectionRequest {
-    pub pin: u32,
-    pub dir: u32,
-}
-
-impl hl::Call for DirectionRequest {
-    const OP: u16 = Op::SetDir as u16;
-    type Response = ();
-    type Err = GpioError;
-}
-
-#[derive(FromBytes, AsBytes)]
-#[repr(C)]
-pub struct SetRequest {
-    pub pin: u32,
-    pub val: u32,
-}
-
-impl hl::Call for SetRequest {
-    const OP: u16 = Op::SetVal as u16;
-    type Response = ();
-    type Err = GpioError;
-}
-
-#[derive(FromBytes, AsBytes)]
-#[repr(C)]
-pub struct ReadRequest {
-    pub pin: u32,
-}
-
-impl hl::Call for ReadRequest {
-    const OP: u16 = Op::ReadVal as u16;
-    type Response = u8;
-    type Err = GpioError;
-}
-
-#[derive(FromBytes, AsBytes)]
-#[repr(C)]
-pub struct ToggleRequest {
-    pub pin: u32,
-}
-
-impl hl::Call for ToggleRequest {
-    const OP: u16 = Op::Toggle as u16;
-    type Response = ();
-    type Err = GpioError;
-}
-
-impl Gpio {
+impl Pins {
     pub fn iocon_configure(
         &self,
         pin: Pin,
@@ -336,50 +251,8 @@ impl Gpio {
             | (digimode as u32) << 8
             | (od as u32) << 9;
 
-        hl::send_with_retry(
-            &self.0,
-            &ConfigureRequest {
-                pin: pin as u32,
-                conf,
-            },
-        )
-    }
-
-    // Direction is treated as a property of GPIO as opposed to IOCON which
-    // deals with the raw pins. It's a bit of a odd split but we only use
-    // direction in a few actual places in the code
-    pub fn set_dir(
-        &self,
-        pin: Pin,
-        direction: Direction,
-    ) -> Result<(), GpioError> {
-        hl::send_with_retry(
-            &self.0,
-            &DirectionRequest {
-                pin: pin as u32,
-                dir: direction as u32,
-            },
-        )
-    }
-
-    pub fn set_val(&self, pin: Pin, val: Value) -> Result<(), GpioError> {
-        hl::send_with_retry(
-            &self.0,
-            &SetRequest {
-                pin: pin as u32,
-                val: val as u32,
-            },
-        )
-    }
-
-    pub fn read_val(&self, pin: Pin) -> Result<Value, GpioError> {
-        let result =
-            hl::send_with_retry(&self.0, &ReadRequest { pin: pin as u32 })?;
-
-        Value::from_u8(result).ok_or(GpioError::BadArg)
-    }
-
-    pub fn toggle(&self, pin: Pin) -> Result<(), GpioError> {
-        hl::send_with_retry(&self.0, &ToggleRequest { pin: pin as u32 })
+        self.iocon_configure_raw(pin, conf)
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

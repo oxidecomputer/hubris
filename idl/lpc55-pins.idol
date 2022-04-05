@@ -1,0 +1,54 @@
+Interface(
+    name: "Pins",
+    ops: {
+	"iocon_configure_raw": (
+		args : {
+			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"conf": "u32",
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("GpioError")
+		),
+	),
+	"set_dir": (
+		args: {
+			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"dir": ( type: "Direction", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("GpioError"),
+		),
+	),
+	"set_val": (
+		args: {
+			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+			"val": ( type : "Value", recv: FromPrimitive("u8")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("GpioError"),
+		),
+	),
+	"read_val": (
+		args: {
+			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: (type : "Value", recv: FromPrimitive("u8")),
+			err: CLike("GpioError")
+		)
+	),
+	"toggle": (
+		args: {
+			"pin": ( type : "Pin", recv: FromPrimitive("u32")),
+		},
+		reply: Result(
+			ok: "()",
+			err: CLike("GpioError"),
+		)
+	),
+
+   }
+)
