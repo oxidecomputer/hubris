@@ -187,8 +187,8 @@ fn main() -> ! {
 fn turn_on_flexcomm() {
     let syscon = Syscon::from(SYSCON.get_task_id());
 
-    syscon.enable_clock(Peripheral::Fc0);
-    syscon.leave_reset(Peripheral::Fc0);
+    syscon.enable_clock(Peripheral::Fc0).unwrap_lite();
+    syscon.leave_reset(Peripheral::Fc0).unwrap_lite();
 }
 
 fn muck_with_gpios() {

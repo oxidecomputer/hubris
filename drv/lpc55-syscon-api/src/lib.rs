@@ -10,103 +10,14 @@
 
 #![no_std]
 
+use derive_idol_err::IdolError;
+use userlib::*;
 use zerocopy::AsBytes;
 
-use userlib::*;
-
-#[derive(FromPrimitive)]
-enum Op {
-    EnableClock = 1,
-    DisableClock = 2,
-    EnterReset = 3,
-    LeaveReset = 4,
-}
-
-#[derive(Clone, Debug)]
-pub struct Syscon(TaskId);
-
-impl From<TaskId> for Syscon {
-    fn from(t: TaskId) -> Self {
-        Self(t)
-    }
-}
-
-impl Syscon {
-    /// Requests that the clock to a peripheral be turned on.
-    ///
-    /// # Panics
-    ///
-    /// If the syscon server has died.
-    pub fn enable_clock(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct EnableClock(Peripheral);
-
-        impl hl::Call for EnableClock {
-            const OP: u16 = Op::EnableClock as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &EnableClock(peripheral)).unwrap()
-    }
-
-    /// Requests that the clock to a peripheral be turned off.
-    ///
-    /// # Panics
-    ///
-    /// If the syscon server has died.
-    pub fn disable_clock(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct DisableClock(Peripheral);
-
-        impl hl::Call for DisableClock {
-            const OP: u16 = Op::DisableClock as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &DisableClock(peripheral)).unwrap()
-    }
-
-    /// Requests that the reset line to a peripheral be asserted.
-    ///
-    /// # Panics
-    ///
-    /// If the syscon server has died.
-    pub fn enter_reset(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct EnterReset(Peripheral);
-
-        impl hl::Call for EnterReset {
-            const OP: u16 = Op::EnterReset as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &EnterReset(peripheral)).unwrap()
-    }
-
-    /// Requests that the reset line to a peripheral be deasserted.
-    ///
-    /// # Panics
-    ///
-    /// If the syscon server has died.
-    pub fn leave_reset(&self, peripheral: Peripheral) {
-        #[derive(AsBytes)]
-        #[repr(C)]
-        struct LeaveReset(Peripheral);
-
-        impl hl::Call for LeaveReset {
-            const OP: u16 = Op::LeaveReset as u16;
-            type Response = ();
-            type Err = u32;
-        }
-
-        hl::send(self.0, &LeaveReset(peripheral)).unwrap()
-    }
+#[derive(Debug, FromPrimitive, IdolError)]
+#[repr(u32)]
+pub enum SysconError {
+    BadArg = 1,
 }
 
 /// Peripheral numbering.
@@ -182,3 +93,26 @@ pub enum Peripheral {
     GpioSec = 32 + 32 + 29,
     GpioSecInt = 32 + 32 + 30,
 }
+
+pub enum Reg {
+    R0 = 0,
+    R1 = 1,
+    R2 = 2,
+}
+
+impl Peripheral {
+    pub fn reg_num(&self) -> Reg {
+        match (*self as usize) / 32 {
+            0 => Reg::R0,
+            1 => Reg::R1,
+            2 => Reg::R2,
+            _ => panic!(),
+        }
+    }
+
+    pub fn pmask(&self) -> u32 {
+        1 << ((*self as u32) % 32)
+    }
+}
+
+include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

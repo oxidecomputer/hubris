@@ -110,36 +110,10 @@
 #![no_std]
 #![no_main]
 
+use drv_lpc55_syscon_api::*;
+use idol_runtime::RequestError;
 use lpc55_pac as device;
-use zerocopy::AsBytes;
-
 use userlib::*;
-
-#[derive(FromPrimitive)]
-enum Op {
-    EnableClock = 1,
-    DisableClock = 2,
-    EnterReset = 3,
-    LeaveReset = 4,
-}
-
-#[derive(FromPrimitive)]
-enum Reg {
-    R0 = 0,
-    R1 = 1,
-    R2 = 2,
-}
-
-#[repr(u32)]
-enum ResponseCode {
-    BadArg = 2,
-}
-
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
-    }
-}
 
 macro_rules! set_bit {
     ($reg:expr, $mask:expr) => {
@@ -151,6 +125,73 @@ macro_rules! clear_bit {
     ($reg:expr, $mask:expr) => {
         $reg.modify(|r, w| unsafe { w.bits(r.bits() & !$mask) })
     };
+}
+
+struct ServerImpl<'a> {
+    syscon: &'a device::syscon::RegisterBlock,
+}
+
+impl idl::InOrderSysconImpl for ServerImpl<'_> {
+    fn enable_clock(
+        &mut self,
+        _: &RecvMessage,
+        peripheral: Peripheral,
+    ) -> Result<(), RequestError<SysconError>> {
+        let pmask = peripheral.pmask();
+
+        match peripheral.reg_num() {
+            Reg::R0 => set_bit!(self.syscon.ahbclkctrl0, pmask),
+            Reg::R1 => set_bit!(self.syscon.ahbclkctrl1, pmask),
+            Reg::R2 => set_bit!(self.syscon.ahbclkctrl2, pmask),
+        }
+
+        Ok(())
+    }
+
+    fn disable_clock(
+        &mut self,
+        _: &RecvMessage,
+        peripheral: Peripheral,
+    ) -> Result<(), RequestError<SysconError>> {
+        let pmask = peripheral.pmask();
+        match peripheral.reg_num() {
+            Reg::R0 => clear_bit!(self.syscon.ahbclkctrl0, pmask),
+            Reg::R1 => clear_bit!(self.syscon.ahbclkctrl1, pmask),
+            Reg::R2 => clear_bit!(self.syscon.ahbclkctrl2, pmask),
+        }
+
+        Ok(())
+    }
+
+    fn enter_reset(
+        &mut self,
+        _: &RecvMessage,
+        peripheral: Peripheral,
+    ) -> Result<(), RequestError<SysconError>> {
+        let pmask = peripheral.pmask();
+        match peripheral.reg_num() {
+            Reg::R0 => set_bit!(self.syscon.presetctrl0, pmask),
+            Reg::R1 => set_bit!(self.syscon.presetctrl1, pmask),
+            Reg::R2 => set_bit!(self.syscon.presetctrl2, pmask),
+        }
+
+        Ok(())
+    }
+
+    fn leave_reset(
+        &mut self,
+        _: &RecvMessage,
+        peripheral: Peripheral,
+    ) -> Result<(), RequestError<SysconError>> {
+        let pmask = peripheral.pmask();
+        match peripheral.reg_num() {
+            Reg::R0 => clear_bit!(self.syscon.presetctrl0, pmask),
+            Reg::R1 => clear_bit!(self.syscon.presetctrl1, pmask),
+            Reg::R2 => clear_bit!(self.syscon.presetctrl2, pmask),
+        }
+
+        Ok(())
+    }
 }
 
 #[export_name = "main"]
@@ -166,51 +207,17 @@ fn main() -> ! {
     // turning on PLLs and such
     syscon.hslspiclksel.modify(|_, w| w.sel().enum_0x2());
 
-    // Field messages.
-    // Ensure our buffer is aligned properly for a u32 by declaring it as one.
-    let mut buffer = [0u32; 1];
+    let mut server = ServerImpl { syscon };
+
+    let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
-        hl::recv_without_notification(
-            buffer.as_bytes_mut(),
-            |op, msg| -> Result<(), ResponseCode> {
-                // Every incoming message uses the same payload type and
-                // response type: it's always u32 -> (). So we can do the
-                // check-and-convert here:
-                let (msg, caller) =
-                    msg.fixed::<u32, ()>().ok_or(ResponseCode::BadArg)?;
-                let pmask = 1 << (msg % 32);
-                let chunk = msg / 32;
-
-                let reg = Reg::from_u32(chunk).ok_or(ResponseCode::BadArg)?;
-
-                // Just like the STM32F4 we end up with a lot of duplication
-                // because each register is a different type.
-                match op {
-                    Op::EnableClock => match reg {
-                        Reg::R0 => set_bit!(syscon.ahbclkctrl0, pmask),
-                        Reg::R1 => set_bit!(syscon.ahbclkctrl1, pmask),
-                        Reg::R2 => set_bit!(syscon.ahbclkctrl2, pmask),
-                    },
-                    Op::DisableClock => match reg {
-                        Reg::R0 => clear_bit!(syscon.ahbclkctrl0, pmask),
-                        Reg::R1 => clear_bit!(syscon.ahbclkctrl1, pmask),
-                        Reg::R2 => clear_bit!(syscon.ahbclkctrl2, pmask),
-                    },
-                    Op::EnterReset => match reg {
-                        Reg::R0 => set_bit!(syscon.presetctrl0, pmask),
-                        Reg::R1 => set_bit!(syscon.presetctrl1, pmask),
-                        Reg::R2 => set_bit!(syscon.presetctrl2, pmask),
-                    },
-                    Op::LeaveReset => match reg {
-                        Reg::R0 => clear_bit!(syscon.presetctrl0, pmask),
-                        Reg::R1 => clear_bit!(syscon.presetctrl1, pmask),
-                        Reg::R2 => clear_bit!(syscon.presetctrl2, pmask),
-                    },
-                }
-
-                caller.reply(());
-                Ok(())
-            },
-        );
+        idol_runtime::dispatch(&mut incoming, &mut server);
     }
+}
+
+mod idl {
+    use super::SysconError;
+    use drv_lpc55_syscon_api::Peripheral;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

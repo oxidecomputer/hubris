@@ -153,16 +153,16 @@ fn main() -> ! {
 fn turn_on_flexcomm(syscon: &Syscon) {
     // HSLSPI = High Speed Spi = Flexcomm 8
     // The L stands for Let this just be named consistently for once
-    syscon.enable_clock(Peripheral::HsLspi);
-    syscon.leave_reset(Peripheral::HsLspi);
+    syscon.enable_clock(Peripheral::HsLspi).unwrap_lite();
+    syscon.leave_reset(Peripheral::HsLspi).unwrap_lite();
 
-    syscon.enable_clock(Peripheral::Fc3);
-    syscon.leave_reset(Peripheral::Fc3);
+    syscon.enable_clock(Peripheral::Fc3).unwrap_lite();
+    syscon.leave_reset(Peripheral::Fc3).unwrap_lite();
 }
 
 fn muck_with_gpios(syscon: &Syscon) {
-    syscon.enable_clock(Peripheral::Iocon);
-    syscon.leave_reset(Peripheral::Iocon);
+    syscon.enable_clock(Peripheral::Iocon).unwrap_lite();
+    syscon.leave_reset(Peripheral::Iocon).unwrap_lite();
 
     let gpio_driver = GPIO.get_task_id();
     let iocon = Pins::from(gpio_driver);
@@ -220,6 +220,6 @@ fn muck_with_gpios(syscon: &Syscon) {
     {
         iocon
             .iocon_configure(pin, alt, mode, slew, invert, digi, od)
-            .unwrap();
+            .unwrap_lite();
     }
 }
