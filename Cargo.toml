@@ -48,6 +48,7 @@ members = [
     "task/spd",
     "task/thermal",
     "task/thermal-api",
+    "task/uartecho",
     "task/udpbroadcast",
     "task/udpecho",
     "task/vsc7448",
