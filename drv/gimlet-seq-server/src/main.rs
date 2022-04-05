@@ -218,8 +218,6 @@ fn main() -> ! {
             sys.gpio_reset(pin).unwrap();
         }
 
-        let mut laps = 0;
-
         // Reprogramming will continue until morale improves -- to a point.
         loop {
             let prog = spi.device(ICE40_SPI_DEVICE);
@@ -234,12 +232,6 @@ fn main() -> ! {
                     // don't know if we're still locked, so ignore the
                     // complaint if we're not.
                     let _ = prog.release();
-
-                    laps += 1;
-
-                    if laps >= 3 {
-                        panic!();
-                    }
                 }
             }
         }
@@ -472,22 +464,15 @@ cfg_if::cfg_if! {
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
-            creset: sys_api::PinSet {
-                port: sys_api::Port::D,
-                pin_mask: 1 << 5,
-            },
+            creset: sys_api::Port::D.pin(5),
 
             // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
-            cdone: sys_api::PinSet {
-                port: sys_api::Port::B,
-                pin_mask: 1 << 4,
-            },
+            cdone: sys_api::Port::B.pin(4),
         };
 
-        const GLOBAL_RESET: Option<sys_api::PinSet> = Some(sys_api::PinSet {
-            port: sys_api::Port::A,
-            pin_mask: 1 << 6,
-        });
+        const GLOBAL_RESET: Option<sys_api::PinSet> = Some(
+            sys_api::Port::A.pin(6)
+        );
 
         // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
         // of circuit to be able to program the FPGA, because we accidentally
@@ -497,10 +482,7 @@ cfg_if::cfg_if! {
         #[cfg(target_board = "gimlet-a")]
         const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = Some(&[
             // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
-            (sys_api::PinSet {
-                port: sys_api::Port::I,
-                pin_mask: 1 << 8,
-            }, false),
+            (sys_api::Port::I.pin(8), false),
         ]);
 
         #[cfg(target_board = "gimlet-b")]
@@ -510,10 +492,7 @@ cfg_if::cfg_if! {
         // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
         // into the SP3's UART
         //
-        const UART_TX_ENABLE: sys_api::PinSet = sys_api::PinSet {
-            port: sys_api::Port::A,
-            pin_mask: 1 << 5
-        };
+        const UART_TX_ENABLE: sys_api::PinSet = sys_api::Port::A.pin(5);
 
         fn uart_sp_to_sp3_enable() {
             let sys = sys_api::Sys::from(SYS.get_task_id());
