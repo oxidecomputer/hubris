@@ -554,19 +554,19 @@ swap_data = true
 
 [config.spi.spi2.devices.sequencer]
 mux = "port_b"
-cs = {port = "B", pin = 5}
+cs = [{port = "B", pin = 5}]
 
 [config.spi.spi2.devices.ice40]
 mux = "port_b"
-cs = {port = "B", pin = 5}
+cs = [{port = "B", pin = 5}]
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "I", pin = 0}
+cs = [{port = "I", pin = 0}]
 
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
-cs = {port = "B", pin = 12}
+cs = [{port = "B", pin = 12}]
 
 [config.spi.spi4]
 controller = 4
@@ -579,7 +579,7 @@ input = {port = "E", pin = 5, af = 5}
 
 [config.spi.spi4.devices.rot]
 mux = "rot"
-cs = {port = "E", pin = 4}
+cs = [{port = "E", pin = 4}]
 clock_divider = "DIV16"
 
 [config.net]

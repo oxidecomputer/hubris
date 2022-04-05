@@ -223,7 +223,7 @@ input = {port = "A", pin = 6, af = 5}
 
 [config.spi.spi1.devices.pins]
 mux = "cn7_arduino"
-cs = {port = "D", pin = 14}
+cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]

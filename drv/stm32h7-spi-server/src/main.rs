@@ -32,6 +32,7 @@ use userlib::*;
 
 use drv_stm32h7_spi as spi_core;
 use drv_stm32xx_sys_api as sys_api;
+use sys_api::PinSet;
 
 task_slot!(SYS, sys);
 
@@ -81,18 +82,16 @@ fn main() -> ! {
     // Configure all devices' CS pins to be deasserted (set).
     // We leave them in GPIO output mode from this point forward.
     for device in CONFIG.devices {
-        sys.gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
+        for pin in device.cs {
+            sys.gpio_set(*pin).unwrap();
+            sys.gpio_configure_output(
+                *pin,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::Low,
+                sys_api::Pull::None,
+            )
             .unwrap();
-        sys.gpio_configure(
-            device.cs.port,
-            device.cs.pin_mask,
-            sys_api::Mode::Output,
-            sys_api::OutputType::PushPull,
-            sys_api::Speed::Low,
-            sys_api::Pull::None,
-            sys_api::Alternate::AF1, // doesn't matter in GPIO mode
-        )
-        .unwrap();
+        }
     }
 
     // Initially, configure mux 0. This keeps us from having to deal with a "no
@@ -197,16 +196,16 @@ impl InOrderSpiImpl for ServerImpl {
         // Reject out-of-range devices.
         let device = CONFIG.devices.get(devidx).ok_or(SpiError::BadDevice)?;
 
-        // If we're asserting CS, we want to *reset* the pin. If
-        // we're not, we want to *set* it. Because CS is active low.
-        let pin_mask = device.cs.pin_mask;
-        self.sys
-            .gpio_set_reset(
-                device.cs.port,
-                if cs_asserted { 0 } else { pin_mask },
-                if cs_asserted { pin_mask } else { 0 },
-            )
-            .unwrap();
+        for pin in device.cs {
+            // If we're asserting CS, we want to *reset* the pin. If
+            // we're not, we want to *set* it. Because CS is active low.
+            if cs_asserted {
+                self.sys.gpio_reset(*pin).unwrap();
+            } else {
+                self.sys.gpio_set(*pin).unwrap();
+            }
+        }
+
         self.lock_holder = Some(LockState {
             task: rm.sender,
             device_index: devidx,
@@ -225,11 +224,12 @@ impl InOrderSpiImpl for ServerImpl {
 
             let device = &CONFIG.devices[lockstate.device_index];
 
-            // Deassert CS. If it wasn't asserted, this is a no-op.
-            // If it was, this fixes that.
-            self.sys
-                .gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
-                .unwrap();
+            for pin in device.cs {
+                // Deassert CS. If it wasn't asserted, this is a no-op.
+                // If it was, this fixes that.
+                self.sys.gpio_set(*pin).unwrap();
+            }
+
             self.lock_holder = None;
             Ok(())
         } else {
@@ -351,9 +351,9 @@ impl ServerImpl {
         // We're doing this! Check if we need to control CS.
         let cs_override = self.lock_holder.is_some();
         if !cs_override {
-            self.sys
-                .gpio_set_reset(device.cs.port, 0, device.cs.pin_mask)
-                .unwrap();
+            for pin in device.cs {
+                self.sys.gpio_reset(*pin).unwrap();
+            }
         }
 
         // We use this to exert backpressure on the TX state machine as the RX
@@ -499,9 +499,9 @@ impl ServerImpl {
 
         // Deassert (set) CS, if we asserted it in the first place.
         if !cs_override {
-            self.sys
-                .gpio_set_reset(device.cs.port, device.cs.pin_mask, 0)
-                .unwrap();
+            for pin in device.cs {
+                self.sys.gpio_set(*pin).unwrap();
+            }
         }
 
         Ok(())
@@ -511,30 +511,19 @@ impl ServerImpl {
 fn deactivate_mux_option(opt: &SpiMuxOption, gpio: &sys_api::Sys) {
     // Drive all output pins low.
     for &(pins, _af) in opt.outputs {
-        gpio.gpio_set_reset(pins.port, 0, pins.pin_mask).unwrap();
-        gpio.gpio_configure(
-            pins.port,
-            pins.pin_mask,
-            sys_api::Mode::Output,
+        gpio.gpio_reset(pins).unwrap();
+        gpio.gpio_configure_output(
+            pins,
             sys_api::OutputType::PushPull,
             sys_api::Speed::Low,
             sys_api::Pull::None,
-            sys_api::Alternate::AF0, // doesn't matter in GPIO mode
         )
         .unwrap();
     }
     // Switch input pin away from SPI peripheral to a GPIO input, which makes it
     // Hi-Z.
-    gpio.gpio_configure(
-        opt.input.0.port,
-        opt.input.0.pin_mask,
-        sys_api::Mode::Input,
-        sys_api::OutputType::PushPull, // doesn't matter
-        sys_api::Speed::High,          // doesn't matter
-        sys_api::Pull::None,
-        sys_api::Alternate::AF0, // doesn't matter
-    )
-    .unwrap();
+    gpio.gpio_configure_input(opt.input.0, sys_api::Pull::None)
+        .unwrap();
 }
 
 fn activate_mux_option(
@@ -617,12 +606,6 @@ struct SpiMuxOption {
     swap_data: bool,
 }
 
-#[derive(Copy, Clone, Debug)]
-struct PinSet {
-    port: sys_api::Port,
-    pin_mask: u16,
-}
-
 /// Information about one device attached to the SPI controller.
 #[derive(Copy, Clone, Debug)]
 struct DeviceDescriptor {
@@ -632,7 +615,7 @@ struct DeviceDescriptor {
     mux_index: usize,
     /// Where the CS pin is. While this is a `PinSet`, it should only have one
     /// pin in it, and we check this at startup.
-    cs: PinSet,
+    cs: &'static [PinSet],
     /// Clock divider to apply while speaking with this device. Yes, this says
     /// spi1 no matter which SPI block we're in charge of.
     clock_divider: device::spi1::cfg1::MBR_A,
@@ -678,8 +661,11 @@ fn check_server_config() {
     for dev in CONFIG.devices {
         // Mux index must be valid.
         assert!(dev.mux_index < CONFIG.mux_options.len());
-        // CS pin must designate _exactly one_ pin in its mask.
-        assert!(dev.cs.pin_mask.is_power_of_two());
+
+        for pin in dev.cs {
+            // A CS pin must designate _exactly one_ pin in its mask.
+            assert!(pin.pin_mask.is_power_of_two());
+        }
     }
 }
 

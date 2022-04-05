@@ -173,7 +173,7 @@ input = {port = "C", pin = 11, af = 6}
 
 [config.spi.spi3.devices.spi3_header]
 mux = "port_c"
-cs = {port = "A", pin = 15}
+cs = [{port = "A", pin = 15}]
 
 
 [config.spi.spi4]
@@ -187,7 +187,7 @@ input = {port = "E", pin = 14, af = 5}
 
 [config.spi.spi4.devices.spi4_header]
 mux = "port_e"
-cs = {port = "E", pin = 11}
+cs = [{port = "E", pin = 11}]
 
 [config.spi.spi6]
 controller = 6
@@ -200,4 +200,4 @@ input = {port = "E", pin = 12, af = 5}
 
 [config.spi.spi6.devices.spi6_header]
 mux = "port_g"
-cs = {port = "G", pin = 8}
+cs = [{port = "G", pin = 8}]

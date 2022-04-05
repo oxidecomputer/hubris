@@ -64,12 +64,7 @@ pub fn idt8a3xxxx_payload<E>(
         &[
             0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00,
-        ],
-
-        // ALERT_CFG.SYS_ALERT_MASK = [0]
-        &[
-            0x92, 0x00,
+            0x00, 0x00, 0x00, 0x00,
         ],
 
         // SYS_DPLL_XO.XO_FREQ = [80, 96, 98, 0, 0, 0, 0]
@@ -87,58 +82,41 @@ pub fn idt8a3xxxx_payload<E>(
         // SYS_APLL.SYS_APLL_CP_CTRL_1 = [0]
         // SYS_APLL.SYS_APLL_CP_CTRL_2 = [0]
         // SYS_APLL.SYS_APLL_XTAL_FREQ = [0, 0, 12, fd, ed, 2, ff, ff]
-        // SYS_APLL.SYS_APLL_CTRL = [89]
+        // SYS_APLL.SYS_APLL_CTRL = [89, 40]
         &[
             0x9b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x12, 0xfd, 0xed, 0x02,
-            0xff, 0xff, 0x89,
-        ],
-
-        // SYS_APLL.SYS_APLL_CTRL+0x1 = [40]
-        &[
-            0xad, 0x40,
+            0xff, 0xff, 0x89, 0x40,
         ],
 
         // INPUT[0].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[0].IN_DIV = [0, 0]
         // INPUT[0].IN_PHASE = [0, 0]
         // INPUT[0].IN_SYNC = [0]
-        &[
-            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // INPUT[0].IN_MODE = [0]
         &[
-            0xbd, 0x00,
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // INPUT[1].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[1].IN_DIV = [0, 0]
         // INPUT[1].IN_PHASE = [0, 0]
         // INPUT[1].IN_SYNC = [1]
-        &[
-            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-        ],
-
         // INPUT[1].IN_MODE = [0]
         &[
-            0xcd, 0x00,
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
         ],
 
         // INPUT[2].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[2].IN_DIV = [0, 0]
         // INPUT[2].IN_PHASE = [0, 0]
         // INPUT[2].IN_SYNC = [2]
-        &[
-            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
-        ],
-
         // INPUT[2].IN_MODE = [0]
         &[
-            0xdd, 0x00,
+            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
         ],
 
         // PAGE_ADDR = 0xc200
@@ -150,182 +128,130 @@ pub fn idt8a3xxxx_payload<E>(
         // INPUT[3].IN_DIV = [0, 0]
         // INPUT[3].IN_PHASE = [0, 0]
         // INPUT[3].IN_SYNC = [3]
-        &[
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
-        ],
-
         // INPUT[3].IN_MODE = [0]
         &[
-            0x0d, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00,
         ],
 
         // INPUT[4].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[4].IN_DIV = [0, 0]
         // INPUT[4].IN_PHASE = [0, 0]
         // INPUT[4].IN_SYNC = [4]
-        &[
-            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
-        ],
-
         // INPUT[4].IN_MODE = [0]
         &[
-            0x1d, 0x00,
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00,
         ],
 
         // INPUT[5].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[5].IN_DIV = [0, 0]
         // INPUT[5].IN_PHASE = [0, 0]
         // INPUT[5].IN_SYNC = [5]
-        &[
-            0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x05,
-        ],
-
         // INPUT[5].IN_MODE = [0]
         &[
-            0x2d, 0x00,
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00,
         ],
 
         // INPUT[6].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[6].IN_DIV = [0, 0]
         // INPUT[6].IN_PHASE = [0, 0]
         // INPUT[6].IN_SYNC = [6]
-        &[
-            0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x06,
-        ],
-
         // INPUT[6].IN_MODE = [0]
         &[
-            0x3d, 0x00,
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00,
         ],
 
         // INPUT[7].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[7].IN_DIV = [0, 0]
         // INPUT[7].IN_PHASE = [0, 0]
         // INPUT[7].IN_SYNC = [7]
-        &[
-            0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x07,
-        ],
-
         // INPUT[7].IN_MODE = [20]
         &[
-            0x4d, 0x20,
+            0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x20,
         ],
 
         // INPUT[8].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[8].IN_DIV = [0, 0]
         // INPUT[8].IN_PHASE = [0, 0]
         // INPUT[8].IN_SYNC = [8]
-        &[
-            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
-        ],
-
         // INPUT[8].IN_MODE = [0]
         &[
-            0x5d, 0x00,
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00,
         ],
 
         // INPUT[9].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[9].IN_DIV = [0, 0]
         // INPUT[9].IN_PHASE = [0, 0]
         // INPUT[9].IN_SYNC = [9]
-        &[
-            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
-        ],
-
         // INPUT[9].IN_MODE = [0]
         &[
-            0x6d, 0x00,
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00,
         ],
 
         // INPUT[10].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[10].IN_DIV = [0, 0]
         // INPUT[10].IN_PHASE = [0, 0]
         // INPUT[10].IN_SYNC = [a]
-        &[
-            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a,
-        ],
-
         // INPUT[10].IN_MODE = [0]
         &[
-            0x8d, 0x00,
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x00,
         ],
 
         // INPUT[11].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[11].IN_DIV = [0, 0]
         // INPUT[11].IN_PHASE = [0, 0]
         // INPUT[11].IN_SYNC = [b]
-        &[
-            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0b,
-        ],
-
         // INPUT[11].IN_MODE = [0]
         &[
-            0x9d, 0x00,
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0x00,
         ],
 
         // INPUT[12].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[12].IN_DIV = [0, 0]
         // INPUT[12].IN_PHASE = [0, 0]
         // INPUT[12].IN_SYNC = [c]
-        &[
-            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0c,
-        ],
-
         // INPUT[12].IN_MODE = [0]
         &[
-            0xad, 0x00,
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00,
         ],
 
         // INPUT[13].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[13].IN_DIV = [0, 0]
         // INPUT[13].IN_PHASE = [0, 0]
         // INPUT[13].IN_SYNC = [d]
-        &[
-            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0d,
-        ],
-
         // INPUT[13].IN_MODE = [0]
         &[
-            0xbd, 0x00,
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0d, 0x00,
         ],
 
         // INPUT[14].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[14].IN_DIV = [0, 0]
         // INPUT[14].IN_PHASE = [0, 0]
         // INPUT[14].IN_SYNC = [e]
-        &[
-            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0e,
-        ],
-
         // INPUT[14].IN_MODE = [0]
         &[
-            0xcd, 0x00,
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00,
         ],
 
         // INPUT[15].IN_FREQ = [0, 0, 0, 0, 0, 0, 0, 0]
         // INPUT[15].IN_DIV = [0, 0]
         // INPUT[15].IN_PHASE = [0, 0]
         // INPUT[15].IN_SYNC = [f]
-        &[
-            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0f,
-        ],
-
         // INPUT[15].IN_MODE = [40]
         &[
-            0xdd, 0x40,
+            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x40,
         ],
 
         // REF_MON[0].IN_MON_FREQ_CFG = [0]
@@ -665,12 +591,7 @@ pub fn idt8a3xxxx_payload<E>(
         // Unknown write to 0xc3db
         &[
             0xdb, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x08, 0x08, 0x00, 0x00, 0x00,
-        ],
-
-        // DPLL[0].DPLL_MODE = [30]
-        &[
-            0xe7, 0x30,
+            0x08, 0x08, 0x00, 0x00, 0x00, 0x30,
         ],
 
         // PAGE_ADDR = 0xc400
@@ -723,11 +644,9 @@ pub fn idt8a3xxxx_payload<E>(
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x30, 0x00, 0x00, 0x00,
         ],
 
-        // DPLL[1].DPLL_MODE = [30]
-        // DPLL[2].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-        // DPLL[2].DPLL_CTRL_0 = [0]
         // DPLL[2].DPLL_CTRL_1 = [8]
         // DPLL[2].DPLL_CTRL_2 = [0]
         // DPLL[2].DPLL_UPDATE_RATE_CFG = [0]
@@ -735,8 +654,8 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[2].DPLL_HO_ADVCD_HISTORY = [0]
         // DPLL[2].DPLL_HO_ADVCD_BW = [0, 0]
         // DPLL[2].DPLL_HO_CFG = [0]
-        // DPLL[2].DPLL_LOCK_0 = [0]
-        // DPLL[2].DPLL_LOCK_1 = [0]
+        // DPLL[2].DPLL_LOCK_0 = [a]
+        // DPLL[2].DPLL_LOCK_1 = [1]
         // DPLL[2].DPLL_LOCK_2 = [0]
         // DPLL[2].DPLL_LOCK_3 = [0]
         // DPLL[2].DPLL_REF_PRIORITY_0 = [0]
@@ -764,19 +683,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[2].DPLL_MAX_FREQ_OFFSET = [0]
         // DPLL[2].DPLL_FASTLOCK_PSL = [0]
         &[
-            0x37, 0x30, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,
+            0x3b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x0a, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // DPLL[2].DPLL_MODE = [0]
-        &[
-            0x6f, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // DPLL[3].DPLL_DCO_INC_DEC_SIZE = [0, 0]
@@ -824,11 +737,9 @@ pub fn idt8a3xxxx_payload<E>(
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x30, 0x00, 0x00, 0x00,
         ],
 
-        // DPLL[3].DPLL_MODE = [30]
-        // DPLL[4].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-        // DPLL[4].DPLL_CTRL_0 = [0]
         // DPLL[4].DPLL_CTRL_1 = [4]
         // DPLL[4].DPLL_CTRL_2 = [0]
         // DPLL[4].DPLL_UPDATE_RATE_CFG = [0]
@@ -865,19 +776,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[4].DPLL_MAX_FREQ_OFFSET = [0]
         // DPLL[4].DPLL_FASTLOCK_PSL = [0]
         &[
-            0xb7, 0x30, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
+            0xbb, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x0a, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // DPLL[4].DPLL_MODE = [0]
-        &[
-            0xef, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xc500
@@ -930,11 +835,9 @@ pub fn idt8a3xxxx_payload<E>(
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
         ],
 
-        // DPLL[5].DPLL_MODE = [0]
-        // DPLL[6].DPLL_DCO_INC_DEC_SIZE = [0, 0]
-        // DPLL[6].DPLL_CTRL_0 = [0]
         // DPLL[6].DPLL_CTRL_1 = [4]
         // DPLL[6].DPLL_CTRL_2 = [0]
         // DPLL[6].DPLL_UPDATE_RATE_CFG = [0]
@@ -971,19 +874,13 @@ pub fn idt8a3xxxx_payload<E>(
         // DPLL[6].DPLL_MAX_FREQ_OFFSET = [0]
         // DPLL[6].DPLL_FASTLOCK_PSL = [0]
         &[
-            0x37, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
+            0x3b, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x0a, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // DPLL[6].DPLL_MODE = [0]
-        &[
-            0x6f, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // DPLL[7].DPLL_DCO_INC_DEC_SIZE = [0, 0]
@@ -1031,12 +928,9 @@ pub fn idt8a3xxxx_payload<E>(
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
         ],
 
-        // DPLL[7].DPLL_MODE = [0]
-        // SYS_DPLL.SYS_DPLL_CTRL_0 = [0]
-        // SYS_DPLL.SYS_DPLL_UPDATE_RATE_CFG = [0]
-        // SYS_DPLL.SYS_DPLL_FILTER_STATUS_UPDATE_CFG = [0]
         // SYS_DPLL.SYS_DPLL_LOCK_0 = [a]
         // SYS_DPLL.SYS_DPLL_LOCK_1 = [1]
         // SYS_DPLL.SYS_DPLL_LOCK_2 = [0]
@@ -1061,15 +955,10 @@ pub fn idt8a3xxxx_payload<E>(
         // SYS_DPLL.SYS_DPLL_REF_PRIORITY_17 = [0]
         // SYS_DPLL.SYS_DPLL_REF_PRIORITY_18 = [0]
         &[
-            0xb7, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x01, 0x00,
-            0x00, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0xbb, 0x0a, 0x01, 0x00, 0x00, 0x25, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // SYS_DPLL.SYS_DPLL_MODE = [0]
-        &[
-            0xd4, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xc600
@@ -2156,9 +2045,9 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // DPLL_PHASE_PULL_IN[7].DPLL_PHASE_PULL_IN_CTRL = [0]
-        // GPIO_CFG.GPIO_CFG_GBL = [1]
+        // GPIO_CFG.GPIO_CFG_GBL = [0]
         &[
-            0xbf, 0x00, 0x01,
+            0xbf, 0x00, 0x00,
         ],
 
         // GPIO[0].GPIO_DCO_INC_DEC = [2]
@@ -2181,14 +2070,10 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[0].GPIO_SLAVE = [0]
         // GPIO[0].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[0].GPIO_TOD_NOTIFICATION_CFG = [0]
-        &[
-            0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-        ],
-
         // GPIO[0].GPIO_CTRL = [0]
         &[
-            0xd2, 0x00,
+            0xc7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // GPIO[1].GPIO_DCO_INC_DEC = [2]
@@ -2207,15 +2092,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[1].GPIO_SLAVE = [0]
         // GPIO[1].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[1].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[1].GPIO_CTRL = [0]
         &[
             0xd4, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[1].GPIO_CTRL = [0]
-        &[
-            0xe4, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[2].GPIO_DCO_INC_DEC = [2]
@@ -2234,15 +2115,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[2].GPIO_SLAVE = [0]
         // GPIO[2].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[2].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[2].GPIO_CTRL = [0]
         &[
             0xe6, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[2].GPIO_CTRL = [0]
-        &[
-            0xf6, 0x00,
+            0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xc900
@@ -2266,15 +2143,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[3].GPIO_SLAVE = [0]
         // GPIO[3].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[3].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[3].GPIO_CTRL = [0]
         &[
             0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[3].GPIO_CTRL = [0]
-        &[
-            0x10, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[4].GPIO_DCO_INC_DEC = [2]
@@ -2293,15 +2166,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[4].GPIO_SLAVE = [0]
         // GPIO[4].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[4].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[4].GPIO_CTRL = [0]
         &[
             0x12, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[4].GPIO_CTRL = [0]
-        &[
-            0x22, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[5].GPIO_DCO_INC_DEC = [2]
@@ -2320,15 +2189,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[5].GPIO_SLAVE = [0]
         // GPIO[5].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[5].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[5].GPIO_CTRL = [0]
         &[
             0x24, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[5].GPIO_CTRL = [0]
-        &[
-            0x34, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[6].GPIO_DCO_INC_DEC = [0]
@@ -2347,15 +2212,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[6].GPIO_SLAVE = [0]
         // GPIO[6].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[6].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[6].GPIO_CTRL = [0]
         &[
             0x36, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[6].GPIO_CTRL = [0]
-        &[
-            0x46, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[7].GPIO_DCO_INC_DEC = [0]
@@ -2374,20 +2235,16 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[7].GPIO_SLAVE = [0]
         // GPIO[7].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[7].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[7].GPIO_CTRL = [0]
         &[
             0x48, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[7].GPIO_CTRL = [0]
-        &[
-            0x58, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[8].GPIO_DCO_INC_DEC = [2]
         // GPIO[8].GPIO_OUT_CTRL_0 = [0]
-        // GPIO[8].GPIO_OUT_CTRL_1 = [4]
+        // GPIO[8].GPIO_OUT_CTRL_1 = [0]
         // GPIO[8].GPIO_TOD_TRIG = [0]
         // GPIO[8].GPIO_DPLL_INDICATOR = [2]
         // GPIO[8].GPIO_LOS_INDICATOR = [0]
@@ -2401,15 +2258,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[8].GPIO_SLAVE = [0]
         // GPIO[8].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[8].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[8].GPIO_CTRL = [0]
         &[
-            0x5a, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00,
+            0x5a, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[8].GPIO_CTRL = [91]
-        &[
-            0x6a, 0x91,
+            0x00, 0x00,
         ],
 
         // GPIO[9].GPIO_DCO_INC_DEC = [2]
@@ -2428,15 +2281,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[9].GPIO_SLAVE = [0]
         // GPIO[9].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[9].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[9].GPIO_CTRL = [0]
         &[
             0x80, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[9].GPIO_CTRL = [0]
-        &[
-            0x90, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[10].GPIO_DCO_INC_DEC = [0]
@@ -2455,15 +2304,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[10].GPIO_SLAVE = [0]
         // GPIO[10].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[10].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[10].GPIO_CTRL = [0]
         &[
             0x92, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[10].GPIO_CTRL = [0]
-        &[
-            0xa2, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[11].GPIO_DCO_INC_DEC = [0]
@@ -2482,15 +2327,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[11].GPIO_SLAVE = [0]
         // GPIO[11].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[11].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[11].GPIO_CTRL = [0]
         &[
             0xa4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[11].GPIO_CTRL = [0]
-        &[
-            0xb4, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[12].GPIO_DCO_INC_DEC = [0]
@@ -2509,15 +2350,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[12].GPIO_SLAVE = [0]
         // GPIO[12].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[12].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[12].GPIO_CTRL = [0]
         &[
             0xb6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[12].GPIO_CTRL = [0]
-        &[
-            0xc6, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[13].GPIO_DCO_INC_DEC = [0]
@@ -2536,15 +2373,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[13].GPIO_SLAVE = [0]
         // GPIO[13].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[13].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[13].GPIO_CTRL = [0]
         &[
             0xc8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[13].GPIO_CTRL = [0]
-        &[
-            0xd8, 0x00,
+            0x00, 0x00,
         ],
 
         // GPIO[14].GPIO_DCO_INC_DEC = [0]
@@ -2563,15 +2396,11 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[14].GPIO_SLAVE = [0]
         // GPIO[14].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[14].GPIO_TOD_NOTIFICATION_CFG = [0]
+        // GPIO[14].GPIO_CTRL = [0]
         &[
             0xda, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
-        // GPIO[14].GPIO_CTRL = [0]
-        &[
-            0xea, 0x00,
+            0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xca00
@@ -2595,35 +2424,22 @@ pub fn idt8a3xxxx_payload<E>(
         // GPIO[15].GPIO_SLAVE = [0]
         // GPIO[15].GPIO_ALERT_OUT_CFG = [0]
         // GPIO[15].GPIO_TOD_NOTIFICATION_CFG = [0]
-        &[
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,
-        ],
-
         // GPIO[15].GPIO_CTRL = [0]
         &[
-            0x10, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
         ],
 
-        // OUT_DIV_MUX.OUT_DIV8_MUX = [1]
+        // OUT_DIV_MUX.OUT_DIV8_MUX = [0]
         // OUT_DIV_MUX.OUT_DIV11_MUX = [0]
-        // OUTPUT[0].OUT_DIV = [0, 0, 0]
-        &[
-            0x12, 0x01, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // OUTPUT[0].OUT_DIV+0x3 = [0]
-        // OUTPUT[0].OUT_DUTY_CYCLE_HIGH = [0, 0, 0]
-        &[
-            0x17, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // OUTPUT[0].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
+        // OUTPUT[0].OUT_DIV = [0, 0, 0, 0]
+        // OUTPUT[0].OUT_DUTY_CYCLE_HIGH = [0, 0, 0, 0]
         // OUTPUT[0].OUT_CTRL_0 = [0]
         // OUTPUT[0].OUT_CTRL_1 = [0]
         &[
-            0x1b, 0x00, 0x00, 0x00,
+            0x12, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // OUTPUT[0].OUT_PHASE_ADJ = [0, 0]
@@ -2813,9 +2629,9 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // OUTPUT[7].OUT_PHASE_ADJ+0x3 = [0]
-        // OUTPUT[8].OUT_DIV = [4, 0]
+        // OUTPUT[8].OUT_DIV = [0, 0]
         &[
-            0x9f, 0x00, 0x04, 0x00,
+            0x9f, 0x00, 0x00, 0x00,
         ],
 
         // OUTPUT[8].OUT_DIV+0x2 = [0]
@@ -2830,10 +2646,10 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // OUTPUT[8].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-        // OUTPUT[8].OUT_CTRL_0 = [41]
-        // OUTPUT[8].OUT_CTRL_1 = [24]
+        // OUTPUT[8].OUT_CTRL_0 = [0]
+        // OUTPUT[8].OUT_CTRL_1 = [0]
         &[
-            0xa7, 0x00, 0x41, 0x24,
+            0xa7, 0x00, 0x00, 0x00,
         ],
 
         // OUTPUT[8].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2887,10 +2703,10 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // OUTPUT[10].OUT_DUTY_CYCLE_HIGH+0x3 = [0]
-        // OUTPUT[10].OUT_CTRL_0 = [11]
-        // OUTPUT[10].OUT_CTRL_1 = [24]
+        // OUTPUT[10].OUT_CTRL_0 = [41]
+        // OUTPUT[10].OUT_CTRL_1 = [20]
         &[
-            0xc7, 0x00, 0x11, 0x24,
+            0xc7, 0x00, 0x41, 0x20,
         ],
 
         // OUTPUT[10].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2915,10 +2731,10 @@ pub fn idt8a3xxxx_payload<E>(
             0xd7, 0x00,
         ],
 
-        // OUTPUT[11].OUT_CTRL_0 = [2]
+        // OUTPUT[11].OUT_CTRL_0 = [3]
         // OUTPUT[11].OUT_CTRL_1 = [24]
         &[
-            0xd8, 0x02, 0x24,
+            0xd8, 0x03, 0x24,
         ],
 
         // OUTPUT[11].OUT_PHASE_ADJ = [0, 0, 0]
@@ -2929,13 +2745,21 @@ pub fn idt8a3xxxx_payload<E>(
         // OUTPUT[11].OUT_PHASE_ADJ+0x3 = [0]
         // SERIAL.I2CM = [0]
         &[
-            0xdf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00,
+            0xdf, 0x00, 0x00, 0x00, 0x00,
         ],
 
+        // SERIAL.SER0_SPI = [0]
+        // SERIAL.SER0_I2C = [0]
+        // SERIAL.SER1 = [0]
+        // SERIAL.SER1_SPI = [0]
+        &[
+            0xe3, 0x00, 0x00, 0x00, 0x00,
+        ],
+
+        // SERIAL.SER1_I2C = [0]
         // SERIAL.SER_APPLY_CONFIG = [0]
         &[
-            0xe8, 0x00,
+            0xe7, 0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xcb00
@@ -2947,114 +2771,77 @@ pub fn idt8a3xxxx_payload<E>(
         // PWM_ENCODER[0].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[0].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[0].PWM_ENCODER_CMD = [0]
         &[
-            0x04, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[1].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[1].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[1].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x08, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[1].PWM_ENCODER_CMD = [0]
         &[
-            0x0c, 0x00,
+            0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[2].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[2].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[2].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x10, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[2].PWM_ENCODER_CMD = [0]
         &[
-            0x14, 0x00,
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[3].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[3].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[3].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x18, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[3].PWM_ENCODER_CMD = [0]
         &[
-            0x1c, 0x00,
+            0x18, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[4].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[4].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[4].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x20, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[4].PWM_ENCODER_CMD = [0]
         &[
-            0x24, 0x00,
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[5].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[5].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[5].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x28, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[5].PWM_ENCODER_CMD = [0]
         &[
-            0x2c, 0x00,
+            0x28, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[6].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[6].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[6].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x30, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[6].PWM_ENCODER_CMD = [0]
         &[
-            0x34, 0x00,
+            0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_ENCODER[7].PWM_ENCODER_ID = [0]
         // PWM_ENCODER[7].PWM_ENCODER_CNFG = [0]
         // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_0 = [0]
         // PWM_ENCODER[7].PWM_ENCODER_SIGNATURE_1 = [0]
-        &[
-            0x38, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_ENCODER[7].PWM_ENCODER_CMD = [0]
         &[
-            0x3c, 0x00,
+            0x38, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[0].PWM_DECODER_CNFG = [0]
         &[
-            0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[0].PWM_DECODER_CMD = [0]
-        &[
-            0x45, 0x00,
+            0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[1].PWM_DECODER_CNFG = [0]
@@ -3064,12 +2851,7 @@ pub fn idt8a3xxxx_payload<E>(
 
         // Unknown write to 0xcb49
         &[
-            0x49, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[1].PWM_DECODER_CMD = [0]
-        &[
-            0x4d, 0x00,
+            0x49, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[2].PWM_DECODER_CNFG = [0]
@@ -3079,13 +2861,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[2].PWM_DECODER_SIGNATURE_0 = [0]
         // PWM_DECODER[2].PWM_DECODER_SIGNATURE_1 = [0]
-        &[
-            0x53, 0x00, 0x00,
-        ],
-
         // PWM_DECODER[2].PWM_DECODER_CMD = [0]
         &[
-            0x55, 0x00,
+            0x53, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[3].PWM_DECODER_CNFG = [0]
@@ -3100,22 +2878,12 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[4].PWM_DECODER_CNFG = [0]
         &[
-            0x60, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[4].PWM_DECODER_CMD = [0]
-        &[
-            0x65, 0x00,
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[5].PWM_DECODER_CNFG = [0]
         &[
-            0x68, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[5].PWM_DECODER_CMD = [0]
-        &[
-            0x6d, 0x00,
+            0x68, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[6].PWM_DECODER_CNFG = [0]
@@ -3135,12 +2903,7 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[7].PWM_DECODER_CNFG = [0]
         &[
-            0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[7].PWM_DECODER_CMD = [0]
-        &[
-            0x85, 0x00,
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[8].PWM_DECODER_CNFG = [0]
@@ -3150,12 +2913,7 @@ pub fn idt8a3xxxx_payload<E>(
 
         // Unknown write to 0xcb89
         &[
-            0x89, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[8].PWM_DECODER_CMD = [0]
-        &[
-            0x8d, 0x00,
+            0x89, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[9].PWM_DECODER_CNFG = [0]
@@ -3165,13 +2923,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[9].PWM_DECODER_SIGNATURE_0 = [0]
         // PWM_DECODER[9].PWM_DECODER_SIGNATURE_1 = [0]
-        &[
-            0x93, 0x00, 0x00,
-        ],
-
         // PWM_DECODER[9].PWM_DECODER_CMD = [0]
         &[
-            0x95, 0x00,
+            0x93, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[10].PWM_DECODER_CNFG = [0]
@@ -3186,22 +2940,12 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[11].PWM_DECODER_CNFG = [0]
         &[
-            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[11].PWM_DECODER_CMD = [0]
-        &[
-            0xa5, 0x00,
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[12].PWM_DECODER_CNFG = [0]
         &[
-            0xa8, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[12].PWM_DECODER_CMD = [0]
-        &[
-            0xad, 0x00,
+            0xa8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[13].PWM_DECODER_CNFG = [0]
@@ -3211,12 +2955,7 @@ pub fn idt8a3xxxx_payload<E>(
 
         // Unknown write to 0xcbb1
         &[
-            0xb1, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // PWM_DECODER[13].PWM_DECODER_CMD = [0]
-        &[
-            0xb5, 0x00,
+            0xb1, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[14].PWM_DECODER_CNFG = [0]
@@ -3226,13 +2965,9 @@ pub fn idt8a3xxxx_payload<E>(
 
         // PWM_DECODER[14].PWM_DECODER_SIGNATURE_0 = [0]
         // PWM_DECODER[14].PWM_DECODER_SIGNATURE_1 = [0]
-        &[
-            0xbb, 0x00, 0x00,
-        ],
-
         // PWM_DECODER[14].PWM_DECODER_CMD = [0]
         &[
-            0xbd, 0x00,
+            0xbb, 0x00, 0x00, 0x00,
         ],
 
         // PWM_DECODER[15].PWM_DECODER_CNFG = [0]
@@ -3248,14 +2983,10 @@ pub fn idt8a3xxxx_payload<E>(
         // PWM_USER_DATA.PWM_SRC_ENCODER_ID = [0]
         // PWM_USER_DATA.PWM_DST_DECODER_ID = [0]
         // PWM_USER_DATA.PWM_USER_DATA_SIZE = [0]
-        &[
-            0xc8, 0x00, 0x00, 0x00,
-        ],
-
         // PWM_USER_DATA.PWM_USER_DATA_CMD_STS = [0]
         // TOD[0].TOD_CFG = [0]
         &[
-            0xcb, 0x00, 0x00,
+            0xc8, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD[1].TOD_CFG = [0]
@@ -3278,10 +3009,30 @@ pub fn idt8a3xxxx_payload<E>(
             0xfc, 0x00, 0xcc, 0x10, 0x20,
         ],
 
-        // TOD_WRITE[0].TOD_WRITE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        // TOD_WRITE[0].TOD_WRITE = [0]
         &[
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE+0x1 = [0, 0]
+        &[
+            0x01, 0x00, 0x00,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE+0x3 = [0, 0]
+        &[
+            0x03, 0x00, 0x00,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE+0x5 = [0, 0]
+        &[
+            0x05, 0x00, 0x00,
+        ],
+
+        // TOD_WRITE[0].TOD_WRITE+0x7 = [0, 0, 0, 0]
+        &[
+            0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
         ],
 
         // TOD_WRITE[0].TOD_WRITE_CMD = [0]
@@ -3313,123 +3064,88 @@ pub fn idt8a3xxxx_payload<E>(
         // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_COUNTER = [0]
         // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
         // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
+        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_CMD = [0]
         &[
             0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
-        // TOD_READ_PRIMARY[0].TOD_READ_PRIMARY_CMD = [0]
-        &[
-            0x4e, 0x00,
+            0x00,
         ],
 
         // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_COUNTER = [0]
         // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
         // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-        &[
-            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_PRIMARY[1].TOD_READ_PRIMARY_CMD = [0]
         &[
-            0x5e, 0x00,
+            0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_COUNTER = [0]
         // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
         // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-        &[
-            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_PRIMARY[2].TOD_READ_PRIMARY_CMD = [0]
         &[
-            0x6e, 0x00,
+            0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_COUNTER = [0]
         // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_0 = [0]
         // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_SEL_CFG_1 = [0]
-        &[
-            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_PRIMARY[3].TOD_READ_PRIMARY_CMD = [0]
         &[
-            0x8e, 0x00,
+            0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_COUNTER = [0]
         // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
         // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-        &[
-            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_SECONDARY[0].TOD_READ_SECONDARY_CMD = [0]
         &[
-            0x9e, 0x00,
+            0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_COUNTER = [0]
         // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
         // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-        &[
-            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_SECONDARY[1].TOD_READ_SECONDARY_CMD = [0]
         &[
-            0xae, 0x00,
+            0xa0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_COUNTER = [0]
         // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
         // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-        &[
-            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_SECONDARY[2].TOD_READ_SECONDARY_CMD = [0]
         &[
-            0xbe, 0x00,
+            0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_COUNTER = [0]
         // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_0 = [0]
         // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_SEL_CFG_1 = [0]
-        &[
-            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // TOD_READ_SECONDARY[3].TOD_READ_SECONDARY_CMD = [0]
         &[
-            0xce, 0x00,
+            0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_0 = [0, 0]
         // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_1 = [0, 0]
-        &[
-            0xd0, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // OUTPUT_TDC_CFG.OUTPUT_TDC_CFG_GBL_2 = [0]
         &[
-            0xd4, 0x00,
+            0xd0, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // PAGE_ADDR = 0xcd00
@@ -3439,63 +3155,42 @@ pub fn idt8a3xxxx_payload<E>(
 
         // Unknown write to 0xcd00
         &[
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-        ],
-
-        // Unknown write to 0xcd06
-        &[
-            0x06, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x00,
         ],
 
         // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_0 = [0, 0]
         // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_1 = [0, 0]
         // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_2 = [0]
         // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_3 = [22]
-        &[
-            0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-        ],
-
         // OUTPUT_TDC[0].OUTPUT_TDC_CTRL_4 = [0]
         &[
-            0x0e, 0x00,
+            0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x00,
         ],
 
         // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_0 = [0, 0]
         // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_1 = [0, 0]
         // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_2 = [0]
         // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_3 = [22]
-        &[
-            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-        ],
-
         // OUTPUT_TDC[1].OUTPUT_TDC_CTRL_4 = [0]
         &[
-            0x16, 0x00,
+            0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x00,
         ],
 
         // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_0 = [0, 0]
         // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_1 = [0, 0]
         // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_2 = [0]
         // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_3 = [22]
-        &[
-            0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22,
-        ],
-
         // OUTPUT_TDC[2].OUTPUT_TDC_CTRL_4 = [0]
         &[
-            0x1e, 0x00,
+            0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x00,
         ],
 
         // INPUT_TDC.INPUT_TDC_SDM_FRAC = [0, 0]
         // INPUT_TDC.INPUT_TDC_SDM_MOD = [0, 0]
         // INPUT_TDC.INPUT_TDC_FBD_CTRL = [0]
-        &[
-            0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ],
-
         // INPUT_TDC.INPUT_TDC_CTRL = [0]
         &[
-            0x25, 0x00,
+            0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ],
 
         // Unknown write to 0xcd80
@@ -3788,20 +3483,22 @@ pub fn idt8a3xxxx_payload<E>(
         ],
 
         // SCRATCH.SCRATCH2+0x3 = [0]
-        // SCRATCH.SCRATCH3 = [0, 0, 0]
+        // SCRATCH.SCRATCH3 = [0, 0, 0, 0]
         &[
-            0x5b, 0x00, 0x00, 0x00, 0x00,
+            0x5b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00,
         ],
 
-        // SCRATCH.SCRATCH3+0x3 = [0]
+        // Unknown write to 0xcf63
         &[
-            0x5f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x01,
+            0x63, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+            0x00,
         ],
 
-        // Unknown write to 0xcf67
+        // EEPROM.EEPROM_OFFSET+0x1 = [0]
+        // EEPROM.EEPROM_CMD = [0]
         &[
-            0x67, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x6b, 0x00, 0x00,
         ],
 
         // EEPROM.EEPROM_CMD+0x1 = [0]

@@ -617,8 +617,7 @@ input = {port = "I", pin = 2, af = 5}
 
 [config.spi.spi2.devices.vsc7448]
 mux = "port_i"
-cs = {port = "I", pin = 0}
-
+cs = [{port = "I", pin = 0}]
 
 [config.spi.spi3]
 controller = 3
@@ -631,7 +630,7 @@ input = {port = "C", pin = 11, af = 6}
 
 [config.spi.spi3.devices.ksz8463]
 mux = "port_c"
-cs = {port = "A", pin = 4}
+cs = [{port = "A", pin = 4}]
 
 
 [config.spi.spi5]
@@ -646,7 +645,7 @@ input = {port = "J", pin = 11, af = 5}
 
 [config.spi.spi5.devices.seq_fpga]
 mux = "port_jk"
-cs = {port = "K", pin = 1}
+cs = [{port = "K", pin = 1}]
 
 [config.net]
 [config.net.sockets.echo]

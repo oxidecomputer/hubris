@@ -300,7 +300,7 @@ input = {port = "I", pin = 2, af = 5}
 
 [config.spi.spi2.devices.header]
 mux = "port_i"
-cs = {port = "I", pin = 0}
+cs = [{port = "I", pin = 0}]
 
 
 [config.spi.spi4]
@@ -314,4 +314,4 @@ input = {port = "E", pin = 5, af = 5}
 
 [config.spi.spi4.devices.rot]
 mux = "port_e"
-cs = {port = "E", pin = 4}
+cs = [{port = "E", pin = 4}]

@@ -14,7 +14,6 @@ use userlib::*;
 
 use drv_gimlet_hf_api as hf_api;
 use drv_gimlet_seq_api::{PowerState, SeqError};
-use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
@@ -45,13 +44,11 @@ enum Trace {
     A1Power(u8, u8),
     A0Power(u8),
     RailsOn,
-    Done,
-    GetState,
+    UartEnabled,
+    GetState(TaskId),
     SetState(PowerState, PowerState),
-    LoadClockConfig,
-    ClockConfigWrite(usize),
-    ClockConfigSuccess(usize),
-    ClockConfigFailed(usize, ResponseCode),
+    ClockConfigWrite,
+    ClockConfigSuccess,
     None,
 }
 
@@ -70,16 +67,7 @@ fn main() -> ! {
     // Unconditionally set our power-good detects as inputs.
     //
     // This is the expected reset state, but, good to be sure.
-    sys.gpio_configure(
-        PGS_PORT,
-        PG_V1P2_MASK | PG_V3P3_MASK,
-        sys_api::Mode::Input,
-        sys_api::OutputType::PushPull, // doesn't matter
-        sys_api::Speed::High,
-        PGS_PULL,
-        sys_api::Alternate::AF0, // doesn't matter
-    )
-    .unwrap();
+    sys.gpio_configure_input(PGS_PINS, PGS_PULL).unwrap();
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -90,14 +78,11 @@ fn main() -> ! {
     //
     // If it's just our driver that has reset, this will have no effect, and
     // will continue driving the lines at whatever level we left them in.
-    sys.gpio_configure(
-        ENABLES_PORT,
-        ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
-        sys_api::Mode::Output,
+    sys.gpio_configure_output(
+        ENABLES,
         sys_api::OutputType::PushPull,
         sys_api::Speed::High,
         sys_api::Pull::None,
-        sys_api::Alternate::AF0, // doesn't matter
     )
     .unwrap();
 
@@ -116,12 +101,7 @@ fn main() -> ! {
     // Force iCE40 CRESETB low before turning power on. This is nice because it
     // prevents the iCE40 from racing us and deciding it should try to load from
     // Flash. TODO: this may cause trouble with hot restarts, test.
-    sys.gpio_set_reset(
-        ICE40_CONFIG.creset_port,
-        0,
-        ICE40_CONFIG.creset_pin_mask,
-    )
-    .unwrap();
+    sys.gpio_reset(ICE40_CONFIG.creset).unwrap();
 
     // Begin, or resume, the power supply sequencing process for the FPGA. We're
     // going to be reading back our enable line states to get the real state
@@ -131,8 +111,7 @@ fn main() -> ! {
     // of ours. Ensuring that it's on by writing the pin is just as cheap as
     // sensing its current state, and less code than _conditionally_ writing the
     // pin, so:
-    sys.gpio_set_reset(ENABLES_PORT, ENABLE_V1P2_MASK, 0)
-        .unwrap();
+    sys.gpio_set(ENABLE_V1P2).unwrap();
 
     // We don't actually know how long ago the regulator turned on. Could have
     // been _just now_ (above) or may have already been on. We'll use the PG pin
@@ -158,8 +137,7 @@ fn main() -> ! {
     }
 
     // We believe V1P2 is good. Now, for V3P3! Set it active (high).
-    sys.gpio_set_reset(ENABLES_PORT, ENABLE_V3P3_MASK, 0)
-        .unwrap();
+    sys.gpio_set(ENABLE_V3P3).unwrap();
 
     // Delay to be sure.
     hl::sleep_for(2);
@@ -190,42 +168,35 @@ fn main() -> ! {
         // Some boards require certain pins to be put in certain states before
         // we can perform SPI communication with the design (rather than the
         // programming port). If this is such a board, apply those changes:
-        for &(port, pin_mask, is_high) in hacks {
-            sys.gpio_set_reset(
-                port,
-                if is_high { pin_mask } else { 0 },
-                if is_high { 0 } else { pin_mask },
-            )
-            .unwrap();
+        for &(pin, is_high) in hacks {
+            if is_high {
+                sys.gpio_set(pin).unwrap();
+            } else {
+                sys.gpio_reset(pin).unwrap();
+            }
 
-            sys.gpio_configure(
-                port,
-                pin_mask,
-                sys_api::Mode::Output,
+            sys.gpio_configure_output(
+                pin,
                 sys_api::OutputType::PushPull,
                 sys_api::Speed::High,
                 sys_api::Pull::None,
-                sys_api::Alternate::AF0, // doesn't matter
             )
             .unwrap();
         }
     }
 
-    if let Some((port, pin_mask)) = GLOBAL_RESET {
+    if let Some(pin) = GLOBAL_RESET {
         // Also configure our design reset net -- the signal that resets the
         // logic _inside_ the FPGA instead of the FPGA itself. We're assuming
         // push-pull because all our boards with reset nets are lacking pullups
         // right now. It's active low, so, set up the pin before exposing the
         // output to ensure we don't glitch.
-        sys.gpio_set_reset(port, pin_mask, 0).unwrap();
-        sys.gpio_configure(
-            port,
-            pin_mask,
-            sys_api::Mode::Output,
+        sys.gpio_set(pin).unwrap();
+        sys.gpio_configure_output(
+            pin,
             sys_api::OutputType::PushPull,
             sys_api::Speed::High,
             sys_api::Pull::None,
-            sys_api::Alternate::AF0, // doesn't matter
         )
         .unwrap();
     }
@@ -240,14 +211,12 @@ fn main() -> ! {
 
     // We only want to reset and reprogram the FPGA when absolutely required.
     if reprogram {
-        if let Some((port, pin_mask)) = GLOBAL_RESET {
+        if let Some(pin) = GLOBAL_RESET {
             // Assert the design reset signal (not the same as the FPGA
             // programming logic reset signal). We do this during reprogramming
             // to avoid weird races that make our brains hurt.
-            sys.gpio_set_reset(port, 0, pin_mask).unwrap();
+            sys.gpio_reset(pin).unwrap();
         }
-
-        let mut laps = 0;
 
         // Reprogramming will continue until morale improves -- to a point.
         loop {
@@ -263,26 +232,14 @@ fn main() -> ! {
                     // don't know if we're still locked, so ignore the
                     // complaint if we're not.
                     let _ = prog.release();
-
-                    laps += 1;
-
-                    if laps >= 3 {
-                        panic!(
-                            "could not reprogram FPGA after {} \
-                            attempts; if CS has been reworked, \
-                            look for \
-                            \"ATTENTION REWORKED CS\" in app.toml",
-                            laps
-                        );
-                    }
                 }
             }
         }
 
-        if let Some((port, pin_mask)) = GLOBAL_RESET {
+        if let Some(pin) = GLOBAL_RESET {
             // Deassert design reset signal. We set the pin, as it's
             // active low.
-            sys.gpio_set_reset(port, pin_mask, 0).unwrap();
+            sys.gpio_set(pin).unwrap();
         }
     }
 
@@ -307,35 +264,51 @@ fn main() -> ! {
         hl::sleep_for(1);
     }
 
+    //
+    // If our clock generator is configured to load from external EEPROM,
+    // we need to wait for up to 150 ms here (!).
+    //
+    hl::sleep_for(150);
+
+    //
+    // And now load our clock configuration
+    //
+    let clockgen = i2c_config::devices::idt8a34003(I2C.get_task_id())[0];
+
+    payload::idt8a3xxxx_payload(|buf| match clockgen.write(buf) {
+        Err(err) => Err(err),
+        Ok(_) => {
+            ringbuf_entry!(Trace::ClockConfigWrite);
+            Ok(())
+        }
+    })
+    .unwrap();
+
+    ringbuf_entry!(Trace::ClockConfigSuccess);
     ringbuf_entry!(Trace::A2);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
-        clockgen: i2c_config::devices::idt8a34003(I2C.get_task_id())[0],
         seq,
-        clock_config_loaded: false,
     };
 
     loop {
-        ringbuf_entry!(Trace::Done);
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
 }
 
 struct ServerImpl {
     state: PowerState,
-    clockgen: I2cDevice,
     seq: seq_spi::SequencerFpga,
-    clock_config_loaded: bool,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
-        _: &RecvMessage,
+        rm: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
+        ringbuf_entry!(Trace::GetState(rm.sender));
         Ok(self.state)
     }
 
@@ -398,6 +371,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                     hl::sleep_for(1);
                 }
 
+                //
+                // Finally, enable transmission to the SP3's UART
+                //
+                uart_sp_to_sp3_enable();
+                ringbuf_entry!(Trace::UartEnabled);
+
                 self.state = PowerState::A0;
                 Ok(())
             }
@@ -442,39 +421,14 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         Ok(())
     }
 
-    fn load_clock_config(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::LoadClockConfig);
-
-        let mut packet = 0;
-
-        payload::idt8a3xxxx_payload(|buf| {
-            ringbuf_entry!(Trace::ClockConfigWrite(packet));
-            match self.clockgen.write(buf) {
-                Err(err) => {
-                    ringbuf_entry!(Trace::ClockConfigFailed(packet, err));
-                    Err(SeqError::ClockConfigFailed)
-                }
-
-                Ok(_) => {
-                    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
-                    packet += 1;
-                    Ok(())
-                }
-            }
-        })?;
-        self.clock_config_loaded = true;
-
-        Ok(())
-    }
-
+    //
+    // By the time we are hanging out the shingle, the clock config is loaded.
+    //
     fn is_clock_config_loaded(
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<SeqError>> {
-        Ok(self.clock_config_loaded as u8)
+        Ok(1)
     }
 }
 
@@ -510,17 +464,15 @@ cfg_if::cfg_if! {
 
         const ICE40_CONFIG: ice40::Config = ice40::Config {
             // CRESET net is SEQ_TO_SP_CRESET_L and hits PD5.
-            creset_port: sys_api::Port::D,
-            creset_pin_mask: 1 << 5,
+            creset: sys_api::Port::D.pin(5),
+
             // CDONE net is SEQ_TO_SP_CDONE_L and hits PB4.
-            cdone_port: sys_api::Port::B,
-            cdone_pin_mask: 1 << 4,
+            cdone: sys_api::Port::B.pin(4),
         };
 
-        const GLOBAL_RESET: Option<(sys_api::Port, u16)> = Some((
-            sys_api::Port::A,
-            1 << 6,
-        ));
+        const GLOBAL_RESET: Option<sys_api::PinSet> = Some(
+            sys_api::Port::A.pin(6)
+        );
 
         // gimlet-a needs to have a pin flipped to mux the iCE40 SPI flash out
         // of circuit to be able to program the FPGA, because we accidentally
@@ -528,21 +480,62 @@ cfg_if::cfg_if! {
         //
         // (port, mask, high_flag)
         #[cfg(target_board = "gimlet-a")]
-        const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = Some(&[
+        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = Some(&[
             // SEQ_TO_SEQ_MUX_SEL, pulled high, we drive it low
-            (sys_api::Port::I, 1 << 8, false),
+            (sys_api::Port::I.pin(8), false),
         ]);
 
         #[cfg(target_board = "gimlet-b")]
-        const FPGA_HACK_PINS: Option<&[(sys_api::Port, u16, bool)]> = None;
+        const FPGA_HACK_PINS: Option<&[(sys_api::PinSet, bool)]> = None;
+
+        //
+        // SP_TO_SP3_UARTA_OE_L must be driven low to allow for transmission
+        // into the SP3's UART
+        //
+        const UART_TX_ENABLE: sys_api::PinSet = sys_api::Port::A.pin(5);
+
+        fn uart_sp_to_sp3_enable() {
+            let sys = sys_api::Sys::from(SYS.get_task_id());
+
+            sys.gpio_configure_output(
+                UART_TX_ENABLE,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
+            )
+            .unwrap();
+
+            sys.gpio_reset(UART_TX_ENABLE).unwrap();
+        }
 
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;
         const ENABLE_V3P3_MASK: u16 = 1 << 4;
 
+        const ENABLES: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V1P2_MASK | ENABLE_V3P3_MASK,
+        };
+
+        const ENABLE_V1P2: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V1P2_MASK,
+        };
+
+        const ENABLE_V3P3: sys_api::PinSet = sys_api::PinSet {
+            port: ENABLES_PORT,
+            pin_mask: ENABLE_V3P3_MASK,
+        };
+
         const PGS_PORT: sys_api::Port = sys_api::Port::C;
         const PG_V1P2_MASK: u16 = 1 << 7;
         const PG_V3P3_MASK: u16 = 1 << 6;
+
+        const PGS_PINS: sys_api::PinSet = sys_api::PinSet {
+            port: PGS_PORT,
+            pin_mask: PG_V1P2_MASK | PG_V3P3_MASK
+        };
+
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
 

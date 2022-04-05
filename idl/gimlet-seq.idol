@@ -40,13 +40,6 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
-        "load_clock_config": (
-            args: {},
-            reply: Result(
-                ok: "()",
-                err: CLike("SeqError"),
-            ),
-        ),
         "is_clock_config_loaded": (
             args: {},
             reply: Result(

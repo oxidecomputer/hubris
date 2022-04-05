@@ -550,39 +550,27 @@ input = {port = "B", pin = 15, af = 5}
 swap_data = true
 
 #
-# ATTENTION REWORKED CS
-#
-# On a very small number of EVT1 Gimlets, one of the pins used for chip
-# select was found to be damaged and needed to be reworked to be a different
-# pin.  If you find yourself on one of these Gimlets, the borked CS pin
-# (port A, pin 0) is connected to nothing and the sequencer won't correctly
-# program -- and the sequencer task will explicitly panic with a message
-# directing the user here.  To fix this, you will need to comment out the
-# lines below marked "Uncomment the below line" -- and it should go without
-# saying that this change should NOT be checked back in!
+# Rev A Gimlets had a bit of an annoying habit of blowing their chip select
+# pins on the FPGA.  Most Rev A Gimlets have been reworked to prevent this
+# from happening, but on Gimlets with a busted sequencer CS (port A, pin 0),
+# another (unused) pin has been reworked into CS (port H, pin 2).  We
+# therefore always use both CSs on Rev A.
 #
 [config.spi.spi2.devices.sequencer]
 mux = "port_b"
-cs = {port = "A", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = [{port = "A", pin = 0}, {port = "H", pin = 2}]
 
 [config.spi.spi2.devices.ice40]
 mux = "port_b"
-cs = {port = "A", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = [{port = "A", pin = 0}, {port = "H", pin = 2}]
 
 [config.spi.spi2.devices.ksz8463]
 mux = "port_i"
-cs = {port = "I", pin = 0}
-# ATTENTION REWORKED CS: Uncomment the below line
-# cs = {port = "H", pin = 2}
+cs = [{port = "I", pin = 0}, {port = "H", pin = 2}]
 
 [config.spi.spi2.devices.local_flash]
 mux = "port_b"
-cs = {port = "B", pin = 12}
-
+cs = [{port = "B", pin = 12}]
 
 [config.spi.spi4]
 controller = 4
@@ -595,7 +583,7 @@ input = {port = "E", pin = 5, af = 5}
 
 [config.spi.spi4.devices.rot]
 mux = "rot"
-cs = {port = "E", pin = 4}
+cs = [{port = "E", pin = 4}]
 clock_divider = "DIV16"
 
 [config.net]
