@@ -3,10 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::miim_bridge::MiimBridge;
-use drv_spi_api::{SpiDevice, SpiError};
+use drv_spi_api::SpiDevice;
 use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
-use ksz8463::{Ksz8463, Register as KszRegister};
+use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
@@ -44,7 +44,7 @@ pub struct Status {
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    Ksz8463Err { port: u8, err: SpiError },
+    Ksz8463Err { port: u8, err: KszError },
     Vsc85x2Err { port: u8, err: VscError },
     Status(Status),
 }
@@ -92,34 +92,28 @@ impl Config {
     }
 
     fn configure_ksz8463(self, sys: &Sys) -> ksz8463::Ksz8463 {
-        sys.gpio_reset(self.ksz8463_nrst).unwrap();
-        sys.gpio_configure_output(
-            self.ksz8463_nrst,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-
-        // Toggle the reset line
-        sleep_for(10); // Reset must be held low for 10 ms after power up
-        sys.gpio_set(self.ksz8463_nrst).unwrap();
-
         // The datasheet recommends a particular combination of diodes and
         // capacitors which dramatically slow down the rise of the reset
         // line, meaning you have to wait for extra long here.
         //
         // Otherwise, the minimum wait time is 1 µs, so 1 ms is fine.
-        sleep_for(match self.ksz8463_rst_type {
-            Ksz8463ResetSpeed::Slow => 150,
-            Ksz8463ResetSpeed::Normal => 1,
-        });
+        sys.gpio_init_reset_pulse(
+            self.ksz8463_nrst,
+            10,
+            match self.ksz8463_rst_type {
+                Ksz8463ResetSpeed::Slow => 150,
+                Ksz8463ResetSpeed::Normal => 1,
+            },
+        )
+        .unwrap();
 
         let ksz8463 = Ksz8463::new(self.ksz8463_spi);
 
         // The KSZ8463 connects to the SP over RMII, then sends data to the
         // VSC8552 over 100-BASE FX
-        ksz8463.configure(self.ksz8463_vlan_mode).unwrap();
+        ksz8463
+            .configure(ksz8463::Mode::Fiber, self.ksz8463_vlan_mode)
+            .unwrap();
         ksz8463
     }
 
@@ -149,25 +143,16 @@ impl Config {
 
         // Do a hard reset of power, if that's present on this board
         if let Some(power_en) = self.power_en {
-            sys.gpio_reset(power_en).unwrap();
-            sys.gpio_configure_output(
+            sys.gpio_init_reset_pulse(
                 power_en,
-                OutputType::PushPull,
-                Speed::Low,
-                Pull::None,
+                // TODO: how long does this need to be?
+                10,
+                // Certain boards have longer startup times than others.
+                // See hardware-psc/issues/48 for analysis; it appears to
+                // be an issue with the level shifter rise times.
+                if self.slow_power_en { 200 } else { 4 },
             )
             .unwrap();
-            sys.gpio_reset(power_en).unwrap();
-            sleep_for(10); // TODO: how long does this need to be?
-
-            // Power on, then sleep.  For some reason, certain boards are
-            // much slower to come up than others, so we have a flag for that.
-            sys.gpio_set(power_en).unwrap();
-            if self.slow_power_en {
-                sleep_for(200);
-            } else {
-                sleep_for(4);
-            }
         }
 
         // TODO: sleep for PG lines going high here

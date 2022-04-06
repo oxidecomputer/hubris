@@ -181,9 +181,9 @@ controller = 4
 
 [config.spi.spi4.mux_options.port_e]
 outputs = [
-    {port = "E", pins = [12, 13], af = 5},
+    {port = "E", pins = [12, 14], af = 5},
 ]
-input = {port = "E", pin = 14, af = 5}
+input = {port = "E", pin = 13, af = 5}
 
 [config.spi.spi4.devices.spi4_header]
 mux = "port_e"

@@ -200,7 +200,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         .unwrap();
         sys.gpio_reset(coma_mode).unwrap();
 
-        // Make NRST low then switch it to output mode
+        // Make NRST low then switch it to output mode, before resetting
+        // power to the chip.
         let nrst = Port::I.pin(9);
         sys.gpio_reset(nrst).unwrap();
         sys.gpio_configure_output(
@@ -211,25 +212,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         )
         .unwrap();
 
-        // Jiggle reset line, then wait 120 ms
         // SP_TO_LDO_PHY4_EN (PI6)
-        let phy4_pwr_en = Port::I.pin(6);
-        sys.gpio_reset(phy4_pwr_en).unwrap();
-        sys.gpio_configure_output(
-            phy4_pwr_en,
-            OutputType::PushPull,
-            Speed::Low,
-            Pull::None,
-        )
-        .unwrap();
-        sys.gpio_reset(phy4_pwr_en).unwrap();
-        sleep_for(10);
-
-        // Power on!
-        sys.gpio_set(phy4_pwr_en).unwrap();
-        sleep_for(4);
+        sys.gpio_init_reset_pulse(Port::I.pin(6), 10, 4).unwrap();
         // TODO: sleep for PG lines going high here
 
+        // Deassert reset line, then wait 120 ms
         sys.gpio_set(nrst).unwrap();
         sleep_for(120); // Wait for the chip to come out of reset
 
