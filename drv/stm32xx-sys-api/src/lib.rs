@@ -19,7 +19,6 @@ cfg_if::cfg_if! {
 }
 
 use derive_idol_err::IdolError;
-use unwrap_lite::UnwrapLite;
 use userlib::*;
 
 pub use drv_stm32xx_gpio_common::{
