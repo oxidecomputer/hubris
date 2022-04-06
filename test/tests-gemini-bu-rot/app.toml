@@ -79,6 +79,13 @@ start = true
 stacksize = 2048
 task-slots = ["assist", "idol", "suite", "runner"]
 
+# This block is used to test the task_config macro
+[tasks.suite.config]
+foo = '"Hello, world"'
+bar = 42
+baz = [1, 2, 3, 4]
+tup = [[1, true], [2, true], [3, false]]
+
 [tasks.assist]
 path = "../test-assist"
 name = "test-assist"

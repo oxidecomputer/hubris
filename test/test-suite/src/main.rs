@@ -40,6 +40,15 @@ macro_rules! test_cases {
     };
 }
 
+// Test the `task_config!` macro, in cooperation with `test_task_config` below
+// and the `[tests.suite.config]` block in the `app.toml` file.
+task_config::task_config! {
+    foo: &'static str,
+    bar: u32,
+    baz: &'static [u8],
+    tup: &'static [(u32, bool)],
+}
+
 // Actual list of functions with their names.
 test_cases! {
     test_send,
@@ -81,6 +90,7 @@ test_cases! {
     test_timer_advance,
     test_timer_notify,
     test_timer_notify_past,
+    test_task_config,
     test_task_status,
     test_task_fault_injection,
     test_refresh_task_id_basic,
@@ -929,6 +939,16 @@ fn test_floating_point_highregs() {
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point_fault() {
     test_fault(AssistOp::PiAndDie, 0);
+}
+
+fn test_task_config() {
+    // The TASK_CONFIG struct is constructed by the `task_config!` macro in
+    // cooperation with the `app.toml` file.  These values are hard-coded
+    // in `app.toml`, so this tests that they were correctly injected.
+    assert_eq!(TASK_CONFIG.foo, "Hello, world");
+    assert_eq!(TASK_CONFIG.bar, 42);
+    assert_eq!(TASK_CONFIG.baz, [1, 2, 3, 4]);
+    assert_eq!(TASK_CONFIG.tup, [(1, true), (2, true), (3, false)]);
 }
 
 fn test_task_status() {
