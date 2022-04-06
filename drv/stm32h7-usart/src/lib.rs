@@ -40,8 +40,7 @@ impl Usart {
         sys: &Sys,
         usart: &'static device::usart1::RegisterBlock,
         peripheral: Peripheral,
-        tx_rx_mask: PinSet,
-        alternate: Alternate,
+        pins: &[(PinSet, Alternate)],
         clock_hz: u32,
         baud_rate: u32,
     ) -> Self {
@@ -75,14 +74,16 @@ impl Usart {
         // Enable the transmitter and receiver.
         usart.cr1.modify(|_, w| w.te().enabled().re().enabled());
 
-        sys.gpio_configure_alternate(
-            tx_rx_mask,
-            drv_stm32xx_sys_api::OutputType::PushPull,
-            drv_stm32xx_sys_api::Speed::Low,
-            drv_stm32xx_sys_api::Pull::None,
-            alternate,
-        )
-        .unwrap_lite();
+        for &(mask, alternate) in pins {
+            sys.gpio_configure_alternate(
+                mask,
+                drv_stm32xx_sys_api::OutputType::PushPull,
+                drv_stm32xx_sys_api::Speed::Low,
+                drv_stm32xx_sys_api::Pull::None,
+                alternate,
+            )
+            .unwrap_lite();
+        }
 
         // Enable RX interrupts from the USART side.
         usart.cr1.modify(|_, w| w.rxneie().enabled());

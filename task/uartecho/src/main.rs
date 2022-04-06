@@ -173,19 +173,79 @@ fn configure_uart_device() -> Usart {
 
     const BAUD_RATE: u32 = 115_200;
 
-    // From thin air, pluck a pointer to the USART register block.
-    //
-    // Safety: this is needlessly unsafe in the API. The USART is essentially a
-    // static, and we access it through a & reference so aliasing is not a
-    // concern. Were it literally a static, we could just reference it.
-    let usart = unsafe { &*device::USART3::ptr() };
+    let usart;
+    let peripheral;
+    let pins;
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "usart1")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::B.pin(6), Alternate::AF7),
+                (Port::B.pin(15), Alternate::AF4),
+            ];
+
+            // From thin air, pluck a pointer to the USART register block.
+            //
+            // Safety: this is needlessly unsafe in the API. The USART is
+            // essentially a static, and we access it through a & reference so
+            // aliasing is not a concern. Were it literally a static, we could
+            // just reference it.
+            usart = unsafe { &*device::USART1::ptr() };
+            peripheral = Peripheral::Usart1;
+            pins = PINS;
+        } else if #[cfg(feature = "usart2")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::D.pin(5).and_pin(6), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::USART2::ptr() };
+            peripheral = Peripheral::Usart2;
+            pins = PINS;
+        } else if #[cfg(feature = "usart3")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::D.pin(8).and_pin(9), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::USART3::ptr() };
+            peripheral = Peripheral::Usart3;
+            pins = PINS;
+        } else if #[cfg(feature = "uart4")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::D.pin(0).and_pin(1), Alternate::AF8),
+            ];
+            usart = unsafe { &*device::UART4::ptr() };
+            peripheral = Peripheral::Uart4;
+            pins = PINS;
+        } else if #[cfg(feature = "uart5")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::C.pin(12), Alternate::AF8),
+                (Port::D.pin(2), Alternate::AF8),
+            ];
+            usart = unsafe { &*device::UART5::ptr() };
+            peripheral = Peripheral::Uart5;
+            pins = PINS;
+        } else if #[cfg(feature = "usart6")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::C.pin(6).and_pin(7), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::USART6::ptr() };
+            peripheral = Peripheral::Usart6;
+            pins = PINS;
+        } else if #[cfg(feature = "uart7")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::E.pin(7).and_pin(8), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::UART7::ptr() };
+            peripheral = Peripheral::Uart7;
+            pins = PINS;
+        } else {
+            compiler_error!("no usartX/uartX feature specified");
+        }
+    }
 
     Usart::turn_on(
         &Sys::from(SYS.get_task_id()),
         usart,
-        Peripheral::Usart3,
-        Port::D.pin(8).and_pin(9),
-        Alternate::AF7,
+        peripheral,
+        pins,
         CLOCK_HZ,
         BAUD_RATE,
     )

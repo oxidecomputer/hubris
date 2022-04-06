@@ -7,7 +7,8 @@ stacksize = 896
 [kernel]
 path = "."
 name = "demo-stm32h7-nucleo"
-requires = {flash = 22000, ram = 4096}
+requires = {flash = 21376, ram = 4096}
+
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -138,14 +139,14 @@ task-slots = ["user_leds"]
 [tasks.uartecho]
 path = "../../task/uartecho"
 name = "task-uartecho"
-features = ["stm32h743"]
+features = ["stm32h743", "usart3"]
+uses = ["usart3"]
+interrupts = {"usart3.irq" = 1}
 priority = 3
 requires = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
-uses = ["usart3"]
-interrupts = {"usart3.irq" = 1}
 
 [tasks.udpecho]
 path = "../../task/udpecho"
