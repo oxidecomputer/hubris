@@ -3079,6 +3079,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "hubris-num-tasks",
+ "hypocalls",
  "num-traits",
  "task-config",
  "test-api",
