@@ -7,8 +7,9 @@
 
 mod bsp;
 mod buf;
-mod pins;
 mod server;
+
+pub mod pins;
 
 #[cfg(feature = "mgmt")]
 mod miim_bridge;
