@@ -180,8 +180,7 @@ fn configure_uart_device() -> Usart {
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
             const PINS: &[(PinSet, Alternate)] = &[
-                (Port::B.pin(6), Alternate::AF7),
-                (Port::B.pin(15), Alternate::AF4),
+                (Port::B.pin(6).and_pin(7), Alternate::AF7),
             ];
 
             // From thin air, pluck a pointer to the USART register block.
