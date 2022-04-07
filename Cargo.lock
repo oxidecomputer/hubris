@@ -1090,7 +1090,6 @@ version = "0.1.0"
 dependencies = [
  "drv-stm32xx-sys-api",
  "stm32h7",
- "unwrap-lite",
  "userlib",
 ]
 
@@ -1132,7 +1131,6 @@ dependencies = [
  "drv-stm32xx-gpio-common",
  "idol",
  "num-traits",
- "unwrap-lite",
  "userlib",
  "zerocopy",
 ]
