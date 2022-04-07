@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-unwrap-lite = { path = "../../lib/unwrap-lite" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}

@@ -4,7 +4,7 @@
 
 //! Operations implemented by IPC with the kernel task.
 
-use unwrap_lite::UnwrapLite;
+use crate::UnwrapLite;
 use zerocopy::AsBytes;
 
 use crate::*;

@@ -21,7 +21,7 @@ pub use stm32h7::stm32h743 as device;
 pub use stm32h7::stm32h753 as device;
 
 use drv_stm32xx_sys_api::{Alternate, Peripheral, PinSet, Sys};
-use unwrap_lite::UnwrapLite;
+use userlib::UnwrapLite;
 
 /// Handle to an enabled USART device.
 pub struct Usart {
