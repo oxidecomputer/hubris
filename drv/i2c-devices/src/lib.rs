@@ -8,6 +8,7 @@
 //!
 //! - [`adm1272`]: ADM1272 hot swap controller
 //! - [`adt7420`]: ADT7420 temperature sensor
+//! - [`at24csw080`]: AT24CSW080 serial EEPROM
 //! - [`ds2482`]: DS2482-100 1-wire initiator
 //! - [`isl68224`]: ISL68224 power controller
 //! - [`max6634`]: MAX6634 temperature sensor
@@ -107,6 +108,7 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
 
 pub mod adm1272;
 pub mod adt7420;
+pub mod at24csw080;
 pub mod bmr491;
 pub mod ds2482;
 pub mod isl68224;
