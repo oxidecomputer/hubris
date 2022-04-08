@@ -123,6 +123,18 @@ max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
+[tasks.sprockets_sp]
+path = "../../task/sprockets-sp"
+name = "task-sprockets-sp"
+features = ["stm32h743", "usart1"]
+uses = ["usart1"]
+interrupts = {"usart1.irq" = 1}
+priority = 3
+requires = {flash = 65536, ram = 32768}
+stacksize = 16384
+start = true
+task-slots = ["sys"]
+
 [tasks.hf]
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
