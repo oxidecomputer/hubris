@@ -1,0 +1,12 @@
+# minicom config
+
+Using a Nucleo STM32H743, the following `minicom` config allows interaction with
+the `uartecho` task:
+
+```
+pu port             /dev/ttyACM0
+pu baudrate         115200
+pu bits             8
+pu parity           N
+pu stopbits         1
+```

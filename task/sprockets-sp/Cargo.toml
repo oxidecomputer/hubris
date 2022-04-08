@@ -1,0 +1,38 @@
+[package]
+name = "task-sprockets-sp"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cfg-if = "1"
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+ringbuf = {path = "../../lib/ringbuf"}
+tinyvec = "1.5.1"
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+
+drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
+sprockets-common = {path = "../../../sprockets/common"}
+sprockets-rot = {path = "../../../sprockets/rot", default-features = false}
+corncobs = "0.1.1"
+hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+[features]
+stm32h743 = ["drv-stm32h7-usart/h743"]
+stm32h753 = ["drv-stm32h7-usart/h753"]
+usart1 = []
+usart2 = []
+usart3 = []
+uart4 = []
+uart5 = []
+usart6 = []
+uart7 = []
+
+[[bin]]
+name = "task-sprockets-sp"
+test = false
+bench = false
