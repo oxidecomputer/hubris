@@ -124,6 +124,9 @@ enum Xtask {
         /// check all packages, not only one
         #[clap(long)]
         all: bool,
+
+        /// Extra options to pass to clippy
+        options: Vec<String>,
     },
 
     /// Show a task's .task_slot_table contents
@@ -493,9 +496,10 @@ fn main() -> Result<()> {
             package,
             target,
             all,
+            options,
         } => {
             let requested = RequestedPackages::new(package, target, all);
-            run_for_packages(requested, clippy::run)?;
+            run_for_packages(requested, |p, t| clippy::run(p, t, &options))?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
