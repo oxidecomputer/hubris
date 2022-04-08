@@ -19,7 +19,7 @@ use hubpack::{deserialize, serialize, SerializedSize};
 use sprockets_common::msgs::{
     RotError, RotOp, RotRequest, RotResponse, RotResult,
 };
-use sprockets_rot::{RotConfig, RotSprocket};
+use sprockets_rot::{RotConfig, RotSprocket, RotSprocketError};
 
 task_slot!(SYS, sys);
 
@@ -33,6 +33,9 @@ enum UartLog {
     JunkReq,
     AboutToDecode,
     TooLarge,
+    FailedToHandle,
+    RotRequestSize(usize),
+    RotSprocketErr(RotSprocketError),
 }
 
 ringbuf!(UartLog, 64, UartLog::Rx(0));
@@ -49,7 +52,7 @@ fn main() -> ! {
     // This is not a COBS encoded buffer. We are using corncobs::encode_iter to
     // write bytes over tx. Therefore there is no need for the extra space
     // required for COBS.
-    let mut rsp_buf_backing = [0u8; RotRequest::MAX_SIZE];
+    let mut rsp_buf_backing = [0u8; RotResponse::MAX_SIZE];
 
     let mut rsp_buf_encoded_backing =
         [0u8; corncobs::max_encoded_len(RotResponse::MAX_SIZE)];
@@ -122,6 +125,7 @@ fn main() -> ! {
                 );
                 rsp_buf_encoded.set_len(size);
                 need_to_tx = Some((&rsp_buf_encoded, 0));
+                req_buf.clear();
                 break;
             }
 
@@ -138,6 +142,7 @@ fn main() -> ! {
                 );
                 rsp_buf_encoded.set_len(size);
                 need_to_tx = Some((&mut rsp_buf_encoded, 0));
+                req_buf.clear();
                 break;
             }
         }
@@ -166,7 +171,11 @@ fn handle_req(
             rsp_buf.set_len(size);
             ringbuf_entry!(UartLog::ValidReq);
         }
-        Err(_) => bad_encoding_rsp(rsp_buf),
+        Err(e) => {
+            ringbuf_entry!(UartLog::RotSprocketErr(e));
+            ringbuf_entry!(UartLog::FailedToHandle);
+            bad_encoding_rsp(rsp_buf)
+        }
     }
 }
 
@@ -190,6 +199,7 @@ fn decode_frame(req_buf: &mut SliceVec<u8>) -> Result<(), RotError> {
     let size = corncobs::decode_in_place(req_buf.as_mut_slice())
         .map_err(|_| RotError::BadEncoding)?;
     req_buf.set_len(size);
+    ringbuf_entry!(UartLog::RotRequestSize(size));
     Ok(())
 }
 
