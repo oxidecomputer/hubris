@@ -58,10 +58,7 @@ impl Tmp116 {
     fn read_reg(&self, reg: Register) -> Result<(u8, u8), Error> {
         match self.device.read_reg::<u8, [u8; 2]>(reg as u8) {
             Ok(buf) => Ok((buf[0], buf[1])),
-            Err(code) => Err(Error::BadRegisterRead {
-                reg: reg,
-                code: code,
-            }),
+            Err(code) => Err(Error::BadRegisterRead { reg, code }),
         }
     }
 }

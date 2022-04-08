@@ -22,7 +22,7 @@ pub enum Error {
 
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err: err }
+        Error::InvalidData { err }
     }
 }
 
@@ -184,12 +184,12 @@ impl Adm1272 {
         ringbuf_entry!(Trace::Coefficients(power));
 
         self.coefficients = Some(Coefficients {
-            voltage: voltage,
-            current: current,
-            power: power,
+            voltage,
+            current,
+            power,
         });
 
-        Ok(&self.coefficients.as_ref().unwrap())
+        Ok(self.coefficients.as_ref().unwrap())
     }
 
     fn enable_vin_sampling(&mut self) -> Result<(), Error> {

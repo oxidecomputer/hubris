@@ -24,7 +24,7 @@ pub fn restart_task(task: usize, start: bool) {
     let msg = (task as u32, start);
     let mut buf = [0; core::mem::size_of::<(u32, bool)>()];
     ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
-    let (rc, _len) = sys_send(TaskId::KERNEL, 2, &mut buf, &mut [], &[]);
+    let (rc, _len) = sys_send(TaskId::KERNEL, 2, &buf, &mut [], &[]);
     assert_eq!(rc, 0);
 }
 

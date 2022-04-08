@@ -40,7 +40,7 @@ impl From<Error> for ResponseCode {
 
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err: err }
+        Error::InvalidData { err }
     }
 }
 
@@ -48,7 +48,7 @@ impl Isl68224 {
     pub fn new(device: &I2cDevice, rail: u8) -> Self {
         Isl68224 {
             device: *device,
-            rail: rail,
+            rail,
             mode: None,
         }
     }

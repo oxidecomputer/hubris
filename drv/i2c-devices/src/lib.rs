@@ -30,7 +30,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -48,7 +48,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -68,7 +68,7 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
         }
@@ -82,7 +82,7 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
         }

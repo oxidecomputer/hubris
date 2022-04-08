@@ -74,8 +74,8 @@ impl Adt7420 {
     pub fn validate(&self) -> Result<(), Error> {
         match self.device.read_reg::<u8, u8>(Register::ID as u8) {
             Ok(id) if id == ADT7420_ID => Ok(()),
-            Ok(id) => Err(Error::BadID { id: id }),
-            Err(code) => Err(Error::BadValidate { code: code }),
+            Ok(id) => Err(Error::BadID { id }),
+            Err(code) => Err(Error::BadValidate { code }),
         }
     }
 }
@@ -84,7 +84,7 @@ impl TempSensor<Error> for Adt7420 {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {
         match self.device.read_reg::<u8, [u8; 2]>(Register::TempMSB as u8) {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
-            Err(code) => Err(Error::BadTempRead { code: code }),
+            Err(code) => Err(Error::BadTempRead { code }),
         }
     }
 }
