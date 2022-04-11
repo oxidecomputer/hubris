@@ -7,6 +7,7 @@ members = [
     "build/net",
     "build/util",
     "build/xtask",
+    "build/lpc55pins",
 
     "sys/abi",
     "sys/kern",
