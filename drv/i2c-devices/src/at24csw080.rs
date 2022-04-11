@@ -47,6 +47,12 @@ impl core::fmt::Display for At24csw080 {
 }
 
 impl At24csw080 {
+    pub fn new(dev: I2cDevice) -> Self {
+        Self {
+            device: handle::DeviceHandle::new(dev),
+        }
+    }
+
     /// Reads a single value of type `V` from the EEPROM.
     ///
     /// `addr` and `addr + sizeof(V)` must be below 1024; otherwise this
@@ -276,6 +282,10 @@ mod handle {
     /// for the AT23CSW084.
     pub(super) struct DeviceHandle(I2cDevice);
     impl DeviceHandle {
+        pub(super) fn new(dev: I2cDevice) -> Self {
+            Self(dev)
+        }
+
         /// Returns an `I2cDevice` to read or write the EEPROM at the given
         /// address.  This device has to be dynamically generated because the
         /// I2C device address includes two EEPROM address bits.

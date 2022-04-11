@@ -1,0 +1,29 @@
+// EEPROM IPC interface
+
+Interface(
+    name: "Eeprom",
+    ops: {
+        "read_byte": (
+            doc: "Reads a single byte from the EEPROM",
+            args: {
+                "addr": "u16",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("ResponseCode"),
+            ),
+        ),
+        "write_byte": (
+            doc: "Writes a single byte to the EEPROM",
+            args: {
+                "addr": "u16",
+                "value": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ResponseCode"),
+            ),
+        ),
+    },
+)
+

@@ -780,29 +780,31 @@ impl ConfigGenerator {
             }
         }
 
-        write!(
-            &mut self.output,
-            r##"
+        if !byrail.is_empty() {
+            write!(
+                &mut self.output,
+                r##"
     pub mod pmbus {{
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
         use userlib::TaskId;
 "##
-        )?;
-
-        for (rail, (device, index)) in &byrail {
-            write!(
-                &mut self.output,
-                r##"
-        #[allow(dead_code)]
-        pub fn {}(task: TaskId) -> (I2cDevice, u8) {{"##,
-                rail.to_lowercase(),
             )?;
 
-            let out = self.generate_device(device);
-            writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
-        }
+            for (rail, (device, index)) in &byrail {
+                write!(
+                    &mut self.output,
+                    r##"
+        #[allow(dead_code)]
+        pub fn {}(task: TaskId) -> (I2cDevice, u8) {{"##,
+                    rail.to_lowercase(),
+                )?;
 
-        writeln!(&mut self.output, "    }}")?;
+                let out = self.generate_device(device);
+                writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
+            }
+
+            writeln!(&mut self.output, "    }}")?;
+        }
         Ok(())
     }
 
