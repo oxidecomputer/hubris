@@ -7,7 +7,11 @@ use std::process::Command;
 
 use anyhow::{bail, Result};
 
-pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
+pub fn run(
+    package: Option<String>,
+    target: Option<String>,
+    options: &[String],
+) -> Result<()> {
     let package = package.unwrap_or_else(|| {
         let path = env::current_dir().unwrap();
         let manifest_path = path.join("Cargo.toml");
@@ -52,6 +56,10 @@ pub fn run(package: Option<String>, target: Option<String>) -> Result<()> {
     cmd.arg("clippy::identity_op");
     cmd.arg("-A");
     cmd.arg("clippy::too_many_arguments");
+
+    for opt in options {
+        cmd.arg(opt);
+    }
 
     // this is only actually used for demo-stm32h7 but is harmless to include, so let's do
     // it unconditionally
