@@ -13,6 +13,8 @@ use userlib::*;
 
 #[cfg(feature = "gpio")]
 task_slot!(GPIO, gpio_driver);
+#[cfg(feature = "spctrl")]
+task_slot!(SP_CTRL, swd);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
@@ -65,6 +67,94 @@ pub enum Functions {
     SpiRead((Task, u8, usize, usize), drv_spi_api::SpiError),
     #[cfg(feature = "spi")]
     SpiWrite((Task, u8, usize), drv_spi_api::SpiError),
+    #[cfg(feature = "spctrl")]
+    WriteToSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
+    #[cfg(feature = "spctrl")]
+    ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
+    #[cfg(feature = "spctrl")]
+    SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
+}
+
+#[cfg(feature = "spctrl")]
+pub(crate) fn sp_ctrl_init(
+    _stack: &[Option<u32>],
+    _data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let task = SP_CTRL.get_task_id();
+    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
+
+    match sp_ctrl.setup() {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "spctrl")]
+fn sp_ctrl_args(stack: &[Option<u32>]) -> Result<(u32, usize), Failure> {
+    if stack.len() < 2 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 2;
+
+    let addr = match stack[fp + 0] {
+        Some(addr) => addr,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(0)));
+        }
+    };
+
+    let len = match stack[fp + 1] {
+        Some(len) => len as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(1)));
+        }
+    };
+
+    Ok((addr, len))
+}
+
+#[cfg(feature = "spctrl")]
+pub(crate) fn write_to_sp(
+    stack: &[Option<u32>],
+    data: &[u8],
+    _rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (addr, len) = sp_ctrl_args(stack)?;
+
+    if len > data.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let task = SP_CTRL.get_task_id();
+    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
+
+    match sp_ctrl.write(addr, &data[0..len]) {
+        Ok(_) => Ok(0),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
+}
+
+#[cfg(feature = "spctrl")]
+pub(crate) fn read_from_sp(
+    stack: &[Option<u32>],
+    _data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    let (addr, len) = sp_ctrl_args(stack)?;
+
+    if len > rval.len() {
+        return Err(Failure::Fault(Fault::AccessOutOfBounds));
+    }
+
+    let task = SP_CTRL.get_task_id();
+    let sp_ctrl = drv_sp_ctrl_api::SpCtrl::from(task);
+
+    match sp_ctrl.read(addr, &mut rval[0..len]) {
+        Ok(_) => Ok(len),
+        Err(err) => Err(Failure::FunctionError(err.into())),
+    }
 }
 
 #[cfg(feature = "gpio")]
@@ -282,6 +372,12 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     spi_read,
     #[cfg(feature = "spi")]
     spi_write,
+    #[cfg(feature = "spctrl")]
+    write_to_sp,
+    #[cfg(feature = "spctrl")]
+    read_from_sp,
+    #[cfg(feature = "spctrl")]
+    sp_ctrl_init,
 ];
 
 //
