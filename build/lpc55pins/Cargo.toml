@@ -1,0 +1,18 @@
+[package]
+name = "build-lpc55pins"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+build-util = {path = "../util"}
+serde = { version = "1", features = ["derive"] }
+indexmap = { version = "1.4.0", features = ["serde-1"] }
+anyhow = "1.0.31"
+cfg-if = "0.1.10"
+multimap = "0.8.3"
+convert_case = "0.4"
+syn = {version = "1", features = ["parsing"]}
+proc-macro2 = "1"
+quote = "1"
+
+[features]

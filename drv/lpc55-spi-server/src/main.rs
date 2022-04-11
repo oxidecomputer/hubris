@@ -4,27 +4,10 @@
 
 //! A driver for the LPC55 HighSpeed SPI interface.
 //!
-//! Mostly for demonstration purposes, write is verified read is not
-//!
-//! # IPC protocol
-//!
-//! ## `read` (1)
-//!
-//! Reads the buffer into lease #0. Returns when completed
-//!
-//!
-//! ## `write` (2)
-//!
-//! Sends the contents of lease #0. Returns when completed.
-//!
-//! ## `exchange` (3)
-//!
-//! Sends the contents of lease #0 and writes received data into lease #1
 
 #![no_std]
 #![no_main]
 
-use drv_lpc55_gpio_api::*;
 use drv_lpc55_spi as spi_core;
 use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use lpc55_pac as device;
@@ -51,7 +34,9 @@ fn main() -> ! {
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_flexcomm(&syscon);
 
-    muck_with_gpios(&syscon);
+    let gpio_driver = GPIO.get_task_id();
+
+    setup_pins(gpio_driver).unwrap_lite();
 
     // We have two blocks to worry about: the FLEXCOMM for switching
     // between modes and the actual SPI block. These are technically
@@ -160,66 +145,4 @@ fn turn_on_flexcomm(syscon: &Syscon) {
     syscon.leave_reset(Peripheral::Fc3).unwrap_lite();
 }
 
-fn muck_with_gpios(syscon: &Syscon) {
-    syscon.enable_clock(Peripheral::Iocon).unwrap_lite();
-    syscon.leave_reset(Peripheral::Iocon).unwrap_lite();
-
-    let gpio_driver = GPIO.get_task_id();
-    let iocon = Pins::from(gpio_driver);
-
-    // This is quite the array!
-    // All of these need to be in digital mode. The NXP C driver
-    // also sets the pull-up resistor
-
-    let pin_settings = [
-        // HS_SPI_MOSI = P0_26 = FUN9
-        (
-            Pin::PIO0_26,
-            AltFn::Alt9,
-            Mode::PullUp,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        ),
-        // HS_SPI_MISO = P1_3 = FUN6
-        (
-            Pin::PIO1_3,
-            AltFn::Alt6,
-            Mode::PullUp,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        ),
-        // HS_SPI_SCK = P1_2 = FUN6
-        (
-            Pin::PIO1_2,
-            AltFn::Alt6,
-            Mode::PullUp,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        ),
-        // HS_SPI_SSEL1 = P1_1 = FUN5
-        // Note that SSEL0, SSEL2 and SSEL3 are not used in the current design
-        (
-            Pin::PIO1_1,
-            AltFn::Alt5,
-            Mode::PullUp,
-            Slew::Standard,
-            Invert::Disable,
-            Digimode::Digital,
-            Opendrain::Normal,
-        ),
-    ];
-
-    for (pin, alt, mode, slew, invert, digi, od) in
-        core::array::IntoIter::new(pin_settings)
-    {
-        iocon
-            .iocon_configure(pin, alt, mode, slew, invert, digi, od)
-            .unwrap_lite();
-    }
-}
+include!(concat!(env!("OUT_DIR"), "/pin_config.rs"));

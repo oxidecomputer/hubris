@@ -10,6 +10,13 @@ lpc55-pac = "0.3.0"
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+build-lpc55pins = {path = "../../build/lpc55pins"}
+serde = "1"
+anyhow = "1.0.31"
+
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
