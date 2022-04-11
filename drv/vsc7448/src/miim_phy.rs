@@ -45,7 +45,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448MiimPhy<'a, R> {
                 return Ok(());
             }
         }
-        return Err(VscError::MiimIdleTimeout);
+        Err(VscError::MiimIdleTimeout)
     }
 
     /// Waits for the STAT_BUSY bit to go low, indicating that a read has
@@ -59,7 +59,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448MiimPhy<'a, R> {
                 return Ok(());
             }
         }
-        return Err(VscError::MiimReadTimeout);
+        Err(VscError::MiimReadTimeout)
     }
 }
 

@@ -21,6 +21,14 @@ pub struct FixedMap<K: Copy + PartialEq, V: Copy, const N: usize> {
     contents: [Option<(K, V)>; N],
 }
 
+impl<K: Copy + PartialEq, V: Copy, const N: usize> Default
+    for FixedMap<K, V, { N }>
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
     ///
     /// Create a new `FixedMap`.
@@ -93,10 +101,8 @@ impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
                 Some((k, _)) => {
                     if k == key {
                         found = Some(i);
-                    } else {
-                        if found.is_some() {
-                            swap = Some(i);
-                        }
+                    } else if found.is_some() {
+                        swap = Some(i);
                     }
                 }
             }

@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(shared_syms) = env::var("SHARED_SYMS") {
         writeln!(task_file, "#[repr(C)]").unwrap();
         writeln!(task_file, "pub struct BootloaderSyms {{").unwrap();
-        for s in shared_syms.split(",") {
+        for s in shared_syms.split(',') {
             writeln!(task_file, "    pub {} : usize,", s).unwrap();
         }
         writeln!(task_file, "}}").unwrap();

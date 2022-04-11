@@ -46,28 +46,24 @@ impl DevGeneric {
     /// chip is configured.
     pub fn port(&self) -> u8 {
         match *self {
-            DevGeneric::Dev1g(d) => {
-                if d < 8 {
-                    d
-                } else {
-                    // DEV1G_8-23 are only available in QSGMII mode, where
-                    // they map to ports 32-47 (Table 8)
-                    d + 24
-                }
-            }
-            DevGeneric::Dev2g5(d) => {
-                if d < 24 {
-                    d + 8
-                } else if d == 24 {
-                    // DEV2G5_24 is the NPI port, configured through SERDES1G_0
-                    48
-                } else {
-                    // DEV2G5_25-28 are only available when running through
-                    // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
-                    // 49-52, using SERDES10G_0-3 (Table 9)
-                    d + 24
-                }
-            }
+            DevGeneric::Dev1g(d) => match d {
+                0..=7 => d,
+
+                // DEV1G_8-23 are only available in QSGMII mode, where
+                // they map to ports 32-47 (Table 8)
+                _ => d + 24,
+            },
+            DevGeneric::Dev2g5(d) => match d {
+                0..=23 => d + 8,
+
+                // DEV2G5_24 is the NPI port, configured through SERDES1G_0
+                24 => 48,
+
+                // DEV2G5_25-28 are only available when running through
+                // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
+                // 49-52, using SERDES10G_0-3 (Table 9)
+                _ => d + 24,
+            },
         }
     }
     /// Returns the register block for this device.  This is always a DEV1G

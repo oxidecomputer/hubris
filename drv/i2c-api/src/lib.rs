@@ -21,6 +21,8 @@
 //!
 
 #![no_std]
+// We use 7-bit addresses written as 0b0000_000 in this module
+#![allow(clippy::unusual_byte_groupings)]
 
 use zerocopy::{AsBytes, FromBytes};
 
