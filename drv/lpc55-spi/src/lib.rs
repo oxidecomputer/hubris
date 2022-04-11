@@ -129,6 +129,10 @@ impl Spi {
         self.reg.cfg.modify(|_, w| w.enable().enabled());
     }
 
+    pub fn mstidle(&self) -> bool {
+        self.reg.stat.read().mstidle().bit_is_set()
+    }
+
     pub fn can_tx(&self) -> bool {
         self.reg.fifostat.read().txnotfull().bit_is_set()
     }
@@ -153,6 +157,18 @@ impl Spi {
         self.reg.fifointenclr.write(|w| w.rxlvl().set_bit());
     }
 
+    pub fn mstidle_enable(&mut self) {
+        self.reg.intenset.write(|w| w.mstidleen().set_bit());
+    }
+
+    pub fn mstidle_disable(&mut self) {
+        self.reg.intenclr.write(|w| w.mstidle().set_bit());
+    }
+
+    pub fn send_u8_no_rx(&mut self, byte: u8) {
+        self.send_raw_data(byte as u16, true, true, 8)
+    }
+
     pub fn send_u8(&mut self, byte: u8) {
         self.reg.fifowr.write(|w| unsafe {
             w.len()
@@ -172,6 +188,39 @@ impl Spi {
         });
     }
 
+    pub fn send_raw_data(
+        &mut self,
+        data: u16,
+        eot: bool,
+        rxignore: bool,
+        len_bits: u8,
+    ) {
+        if len_bits > 16 || len_bits < 4 {
+            panic!()
+        }
+
+        self.reg.fifowr.write(|w| unsafe {
+            w.len()
+                // Data length, per NXP docs:
+                //
+                // 0x0-2 = Reserved.
+                // 0x3 = Data transfer is 4 bits in length.
+                // 0x4 = Data transfer is 5 bits in length.
+                // ...
+                // 0xF = Data transfer is 16 bits in length.
+                .bits(len_bits - 1)
+                // Don't wait for RX while we're TX (may need to change)
+                .rxignore()
+                .bit(rxignore)
+                // We need to make sure this gets deasserted so that we can
+                // know when MST goes idle
+                .eot()
+                .bit(eot)
+                .txdata()
+                .bits(data)
+        });
+    }
+
     pub fn get_fifostat(&self) -> u32 {
         self.reg.fifointstat.read().bits()
     }
@@ -181,5 +230,12 @@ impl Spi {
         // "This flag will be 1 if this is the first data after the
         // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u8
+    }
+
+    pub fn read_u16(&mut self) -> u16 {
+        // TODO Do something with the Start of Transfer Flag?
+        // "This flag will be 1 if this is the first data after the
+        // SSELs went from de-asserted to asserted"
+        self.reg.fiford.read().rxdata().bits() as u16
     }
 }

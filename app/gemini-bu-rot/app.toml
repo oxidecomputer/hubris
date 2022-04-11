@@ -153,6 +153,39 @@ pins = [
 { pin = { port = 1, pin = 1}, alt = 5},
 ]
 
+[tasks.swd]
+path = "../../drv/lpc55-swd"
+name = "drv-lpc55-swd"
+priority = 2
+requires = {flash = 16384, ram = 4096}
+uses = ["flexcomm3"]
+start = true
+stacksize = 1000
+task-slots = ["gpio_driver", "syscon_driver"]
+interrupts = {"flexcomm3.irq" = 1}
+
+[tasks.swd.config]
+# MOSI = PIO0_3
+# MISO = PIO0_2
+
+# Out = MOSI on, MISO off
+out_cfg = [
+{ pin = { port = 0, pin = 3 }, alt = 1 },
+{ pin = { port = 0, pin = 2 }, alt = 0, mode = "PullDown" },
+]
+# In = MISO on, MOSI off
+in_cfg = [
+{ pin = { port = 0, pin = 2 }, alt = 1 },
+{ pin = { port = 0, pin = 3 }, alt = 0, mode = "PullDown" },
+]
+pins = [
+# SCK
+{ pin =  { port = 0, pin = 6 }, alt = 1 },
+# CS, not strictly necessary but handy for debugging
+{ pin = {port = 0, pin = 20}, alt =  1},
+]
+spi_num = 3
+
 [tasks.ping]
 path = "../../task/ping"
 name = "task-ping"
@@ -174,9 +207,10 @@ task-slots = ["user_leds"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["lpc55", "gpio", "spi"]
+features = ["lpc55", "gpio", "spi", "spctrl"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["gpio_driver", "swd"]
+
 
