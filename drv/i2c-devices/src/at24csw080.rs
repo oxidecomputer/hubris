@@ -9,6 +9,9 @@ use drv_i2c_api::*;
 use userlib::hl::sleep_for;
 use zerocopy::{AsBytes, FromBytes};
 
+/// Number of bytes stored in the EEPROM
+const EEPROM_SIZE: u16 = 1024;
+
 /// The AT23CSW080/4 is an I2C EEPROM used as the FRU ID. It includes 8-Kbit of
 /// memory (arranged as 1024 x 8), software write protection, a 256-bit
 /// Security Register, and various other useful features.
@@ -89,14 +92,14 @@ impl At24csw080 {
 
     /// Reads a single value of type `V` from the EEPROM.
     ///
-    /// `addr` and `addr + sizeof(V)` must be below 1024; otherwise this
-    /// function will return an error.
+    /// `addr` and `addr + sizeof(V)` must be below `EEPROM_SIZE`; otherwise
+    /// this function will return an error.
     pub fn read<V: Default + AsBytes + FromBytes>(
         &self,
         addr: u16,
     ) -> Result<V, Error> {
         // Address validation
-        if addr >= 1024 {
+        if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
         let obj_size = core::mem::size_of::<V>();
@@ -107,7 +110,7 @@ impl At24csw080 {
                     .map_err(|_| Error::InvalidObjectSize(obj_size))?,
             )
             .unwrap_or(u16::MAX);
-        if end_addr > 1024 {
+        if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
 
@@ -122,7 +125,7 @@ impl At24csw080 {
     /// On success, sleeps for 5 ms (the EEPROM's write cycle time) before
     /// returning `Ok(())`
     pub fn write_byte(&self, addr: u16, val: u8) -> Result<(), Error> {
-        if addr >= 1024 {
+        if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
 
@@ -136,7 +139,7 @@ impl At24csw080 {
     /// Writes up to 16 bytes to a page.
     ///
     /// `addr` must be 16-byte aligned (i.e. the four lowest bits must be 0)
-    /// and less than 1024.
+    /// and less than `EEPROM_SIZE`.
     ///
     /// `buf` must be 16 bytes or less.
     ///
@@ -146,7 +149,7 @@ impl At24csw080 {
     /// On success, sleeps for 5 ms (the EEPROM's write cycle time) before
     /// returning `Ok(())`
     fn write_page(&self, addr: u16, buf: &[u8]) -> Result<(), Error> {
-        if addr >= 1024 {
+        if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         } else if addr & 0b1111 != 0 {
             return Err(Error::MisalignedPage(addr));
@@ -168,11 +171,11 @@ impl At24csw080 {
     /// Writes a buffer to the EEPROM at the specified address, taking
     /// advantage of page writes when possible.
     ///
-    /// `addr` and `addr + buf.len()` must be < 1024; otherwise, this function
-    /// returns an error
+    /// `addr` and `addr + buf.len()` must be < `EEPROM_SIZE`; otherwise, this
+    /// function returns an error
     fn write_buffer(&self, mut addr: u16, mut buf: &[u8]) -> Result<(), Error> {
         // Address validation
-        if addr >= 1024 {
+        if addr >= EEPROM_SIZE {
             return Err(Error::InvalidAddress(addr));
         }
         let end_addr = addr
@@ -182,7 +185,7 @@ impl At24csw080 {
                     .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
             )
             .unwrap_or(u16::MAX);
-        if end_addr > 1024 {
+        if end_addr > EEPROM_SIZE {
             return Err(Error::InvalidEndAddress(end_addr));
         }
 
@@ -207,8 +210,8 @@ impl At24csw080 {
     /// Serializes the given value to bytes then writes it to the given
     /// address.
     ///
-    /// `addr` and `addr + sizeof(V)` must be < 1024; otherwise this function
-    /// panics.
+    /// `addr` and `addr + sizeof(V)` must be < `EEPROM_SIZE`; otherwise this
+    /// function panics.
     pub fn write<V: Default + AsBytes + FromBytes>(
         &self,
         addr: u16,
@@ -362,8 +365,11 @@ mod handle {
         /// Returns an `I2cDevice` to read or write the EEPROM at the given
         /// address.  This device has to be dynamically generated because the
         /// I2C device address includes two EEPROM address bits.
+        ///
+        /// `addr` must be < `EEPROM_SIZE`; otherwise this function will panic.
+        /// This should be checked by the caller beforehand.
         pub(super) fn eeprom(&self, addr: u16) -> I2cDevice {
-            assert!(addr < 1024);
+            assert!(addr < EEPROM_SIZE);
             let a_9_8 = ((addr >> 8) & 0b11) as u8;
             I2cDevice {
                 address: self.0.address | a_9_8,

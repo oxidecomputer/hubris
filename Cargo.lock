@@ -628,25 +628,12 @@ name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
  "build-i2c",
- "drv-eeprom-api",
+ "derive-idol-err",
  "drv-i2c-api",
  "drv-i2c-devices",
  "idol",
  "idol-runtime",
  "num-traits",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "drv-eeprom-api"
-version = "0.1.0"
-dependencies = [
- "derive-idol-err",
- "drv-i2c-devices",
- "idol",
- "num-traits",
- "serde",
  "userlib",
  "zerocopy",
 ]

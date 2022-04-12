@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-num-traits = { version = "0.2.12", default-features = false }
-idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
+derive-idol-err = {path = "../../lib/derive-idol-err" }
 drv-i2c-api = {path = "../i2c-api"}
-drv-eeprom-api = {path = "../eeprom-api"}
 drv-i2c-devices = { path = "../../drv/i2c-devices" }
+idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
+num-traits = { version = "0.2.12", default-features = false }
+userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 
 [build-dependencies]
