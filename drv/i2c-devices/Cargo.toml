@@ -4,14 +4,15 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
-ringbuf = {path = "../../lib/ringbuf" }
-zerocopy = "0.6.1"
-num-traits = { version = "0.2.12", default-features = false }
-drv-onewire = {path = "../onewire"}
-drv-i2c-api = {path = "../i2c-api"}
-pmbus = { git = "https://github.com/oxidecomputer/pmbus" }
 bitfield = "0.13"
+derive-idol-err = {path = "../../lib/derive-idol-err" }
+drv-i2c-api = {path = "../i2c-api"}
+drv-onewire = {path = "../onewire"}
+num-traits = { version = "0.2.12", default-features = false }
+pmbus = { git = "https://github.com/oxidecomputer/pmbus" }
+ringbuf = {path = "../../lib/ringbuf" }
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

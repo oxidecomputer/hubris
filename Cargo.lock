@@ -642,7 +642,8 @@ dependencies = [
 name = "drv-eeprom-api"
 version = "0.1.0"
 dependencies = [
- "drv-i2c-api",
+ "derive-idol-err",
+ "drv-i2c-devices",
  "idol",
  "num-traits",
  "serde",
@@ -747,6 +748,7 @@ name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield",
+ "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
  "num-traits",

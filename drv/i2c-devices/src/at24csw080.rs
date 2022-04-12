@@ -4,6 +4,7 @@
 
 //! Driver for the AT24CSW080/4 I2C EEPROM
 
+use core::convert::TryInto;
 use drv_i2c_api::*;
 use userlib::hl::sleep_for;
 use zerocopy::{AsBytes, FromBytes};
@@ -22,6 +23,39 @@ pub struct At24csw080 {
     /// of this API to call either the `eeprom()` or `registers()`, since
     /// the I2C address must be dynamically generated.
     device: handle::DeviceHandle,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Error {
+    /// The low-level I2C communication returned an error
+    I2cError(ResponseCode),
+
+    /// The starting address is out of range for the EEPROM
+    InvalidAddress(u16),
+
+    /// In a multi-byte read or write, the end address is out of range
+    InvalidEndAddress(u16),
+
+    /// The object or buffer's size cannot be converted to a `u16`
+    InvalidObjectSize(usize),
+
+    /// In a page write, the start address is misaligned
+    MisalignedPage(u16),
+
+    /// In a page write, the data is more than a single page (16 bytes)
+    InvalidPageSize(usize),
+
+    /// Requested an invalid security register byte when reading (>= 32)
+    InvalidSecurityRegisterReadByte(u8),
+
+    /// Requested an invalid security register byte when writing (0-15 or >= 32)
+    InvalidSecurityRegisterWriteByte(u8),
+}
+
+impl From<ResponseCode> for Error {
+    fn from(err: ResponseCode) -> Self {
+        Error::I2cError(err)
+    }
 }
 
 /// Word address for the write-protect register
@@ -56,20 +90,42 @@ impl At24csw080 {
     /// Reads a single value of type `V` from the EEPROM.
     ///
     /// `addr` and `addr + sizeof(V)` must be below 1024; otherwise this
-    /// function will panic.
+    /// function will return an error.
     pub fn read<V: Default + AsBytes + FromBytes>(
         &self,
         addr: u16,
-    ) -> Result<V, ResponseCode> {
-        assert!(addr as usize + core::mem::size_of::<V>() < 1024);
-        self.device.eeprom(addr).read_reg(addr as u8)
+    ) -> Result<V, Error> {
+        // Address validation
+        if addr >= 1024 {
+            return Err(Error::InvalidAddress(addr));
+        }
+        let obj_size = core::mem::size_of::<V>();
+        let end_addr = addr
+            .checked_add(
+                obj_size
+                    .try_into()
+                    .map_err(|_| Error::InvalidObjectSize(obj_size))?,
+            )
+            .unwrap_or(u16::MAX);
+        if end_addr > 1024 {
+            return Err(Error::InvalidEndAddress(end_addr));
+        }
+
+        self.device
+            .eeprom(addr)
+            .read_reg(addr as u8)
+            .map_err(Into::into)
     }
 
     /// Writes a single byte to the EEPROM at the given address
     ///
     /// On success, sleeps for 5 ms (the EEPROM's write cycle time) before
     /// returning `Ok(())`
-    pub fn write_byte(&self, addr: u16, val: u8) -> Result<(), ResponseCode> {
+    pub fn write_byte(&self, addr: u16, val: u8) -> Result<(), Error> {
+        if addr >= 1024 {
+            return Err(Error::InvalidAddress(addr));
+        }
+
         // Write the low byte of the address followed by the actual value
         let buffer = [addr as u8, val];
         self.device.eeprom(addr).write(&buffer)?;
@@ -84,13 +140,20 @@ impl At24csw080 {
     ///
     /// `buf` must be 16 bytes or less.
     ///
-    /// This function will panic if either of those conditions is violated
+    /// This function will return an error if either of those conditions is
+    /// violated
     ///
     /// On success, sleeps for 5 ms (the EEPROM's write cycle time) before
     /// returning `Ok(())`
-    fn write_page(&self, addr: u16, buf: &[u8]) -> Result<(), ResponseCode> {
-        assert!(addr & 0b1111 == 0);
-        assert!(buf.len() <= 16);
+    fn write_page(&self, addr: u16, buf: &[u8]) -> Result<(), Error> {
+        if addr >= 1024 {
+            return Err(Error::InvalidAddress(addr));
+        } else if addr & 0b1111 != 0 {
+            return Err(Error::MisalignedPage(addr));
+        } else if buf.len() > 16 {
+            return Err(Error::InvalidPageSize(buf.len()));
+        }
+
         let mut out: [u8; 17] = [0; 17];
 
         // Write the low byte of the address followed by up to 16 bytes of
@@ -106,13 +169,22 @@ impl At24csw080 {
     /// advantage of page writes when possible.
     ///
     /// `addr` and `addr + buf.len()` must be < 1024; otherwise, this function
-    /// panics.
-    fn write_buffer(
-        &self,
-        mut addr: u16,
-        mut buf: &[u8],
-    ) -> Result<(), ResponseCode> {
-        assert!(addr as usize + buf.len() < 1024);
+    /// returns an error
+    fn write_buffer(&self, mut addr: u16, mut buf: &[u8]) -> Result<(), Error> {
+        // Address validation
+        if addr >= 1024 {
+            return Err(Error::InvalidAddress(addr));
+        }
+        let end_addr = addr
+            .checked_add(
+                buf.len()
+                    .try_into()
+                    .map_err(|_| Error::InvalidObjectSize(buf.len()))?,
+            )
+            .unwrap_or(u16::MAX);
+        if end_addr > 1024 {
+            return Err(Error::InvalidEndAddress(end_addr));
+        }
 
         // Write single bytes until we reach an aligned address or run out
         // of buffer data to write. Note that the datasheet says we need
@@ -141,7 +213,7 @@ impl At24csw080 {
         &self,
         addr: u16,
         val: V,
-    ) -> Result<(), ResponseCode> {
+    ) -> Result<(), Error> {
         self.write_buffer(addr, val.as_bytes())
     }
 
@@ -150,14 +222,16 @@ impl At24csw080 {
     /// The security register has 16 read-only bytes (addresses 0-15), followed
     /// by 16 user-programmable bytes.
     ///
-    /// Panics if `addr >= 32`
-    pub fn read_security_register_byte(
-        &self,
-        addr: u8,
-    ) -> Result<u8, ResponseCode> {
-        assert!(addr < 32);
+    /// Returns an error if `addr >= 32`
+    pub fn read_security_register_byte(&self, addr: u8) -> Result<u8, Error> {
+        if addr >= 32 {
+            return Err(Error::InvalidSecurityRegisterReadByte(addr));
+        }
         let reg_addr = 0b1000_0000 | addr;
-        self.device.registers().read_reg(reg_addr)
+        self.device
+            .registers()
+            .read_reg(reg_addr)
+            .map_err(Into::into)
     }
     /// Writes a byte to the user-programmable region of the the 32-byte
     /// security register.
@@ -170,9 +244,10 @@ impl At24csw080 {
         &self,
         addr: u8,
         val: u8,
-    ) -> Result<(), ResponseCode> {
-        assert!(addr >= 16);
-        assert!(addr < 32);
+    ) -> Result<(), Error> {
+        if addr < 16 || addr >= 32 {
+            return Err(Error::InvalidSecurityRegisterWriteByte(addr));
+        }
         let reg_addr = 0b1000_0000 | addr;
         let cmd = [reg_addr, val];
         self.device.registers().write(&cmd)?;
@@ -187,7 +262,7 @@ impl At24csw080 {
     /// the security register is locked and `false` otherwise.
     ///
     /// This may incorrectly return `true` if the chip is not present.
-    pub fn is_security_register_locked(&self) -> Result<bool, ResponseCode> {
+    pub fn is_security_register_locked(&self) -> Result<bool, Error> {
         // Write a single byte (after the device address)
         let cmd = [SECURITY_REGISTER_WORD_ADDR];
         let out = self.device.registers().write(&cmd);
@@ -198,16 +273,14 @@ impl At24csw080 {
         match out {
             Ok(()) => Ok(false),
             Err(ResponseCode::NoDevice) => Ok(true),
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
         }
     }
 
     /// Locks the security register. *THIS CANNOT BE UNDONE.*
-    pub fn permanently_lock_security_register(
-        &self,
-    ) -> Result<(), ResponseCode> {
+    pub fn permanently_lock_security_register(&self) -> Result<(), Error> {
         let cmd = [SECURITY_REGISTER_WORD_ADDR, 0];
-        self.device.registers().write(&cmd)
+        self.device.registers().write(&cmd).map_err(Into::into)
     }
 
     /// Enables EEPROM write protection. This can be undone by calling
@@ -215,27 +288,27 @@ impl At24csw080 {
     pub fn enable_eeprom_write_protection(
         &self,
         b: WriteProtectBlock,
-    ) -> Result<(), ResponseCode> {
+    ) -> Result<(), Error> {
         let cmd = [WPR_WORD_ADDR, (b.wpb() << 1) | WPR_WRITE | WPR_ENABLE];
-        self.device.registers().write(&cmd)
+        self.device.registers().write(&cmd).map_err(Into::into)
     }
 
     /// Disables EEPROM write protection (assuming it wasn't set permanently)
-    pub fn disable_eeprom_write_protection(&self) -> Result<(), ResponseCode> {
+    pub fn disable_eeprom_write_protection(&self) -> Result<(), Error> {
         let cmd = [WPR_WORD_ADDR, WPR_WRITE];
-        self.device.registers().write(&cmd)
+        self.device.registers().write(&cmd).map_err(Into::into)
     }
 
     /// Enables EEPROM write protection. *THIS CANNOT BE UNDONE.*
     pub fn permanently_enable_eeprom_write_protection(
         &self,
         b: WriteProtectBlock,
-    ) -> Result<(), ResponseCode> {
+    ) -> Result<(), Error> {
         let cmd = [
             WPR_WORD_ADDR,
             (b.wpb() << 1) | WPR_WRITE | WPR_ENABLE | WPR_PERMANENTLY_LOCK,
         ];
-        self.device.registers().write(&cmd)
+        self.device.registers().write(&cmd).map_err(Into::into)
     }
 }
 

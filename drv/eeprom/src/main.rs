@@ -9,7 +9,7 @@
 #![no_std]
 #![no_main]
 
-use drv_i2c_api::ResponseCode;
+use drv_eeprom_api::EepromError;
 use drv_i2c_devices::at24csw080::*;
 use idol_runtime::RequestError;
 use userlib::*;
@@ -30,8 +30,10 @@ impl idl::InOrderEepromImpl for EepromServer {
         &mut self,
         _msg: &userlib::RecvMessage,
         addr: u16,
-    ) -> Result<u8, RequestError<ResponseCode>> {
-        self.dev.read::<u8>(addr).map_err(|e| e.into())
+    ) -> Result<u8, RequestError<EepromError>> {
+        self.dev
+            .read::<u8>(addr)
+            .map_err(|e| EepromError::from(e).into())
     }
 
     fn write_byte(
@@ -39,8 +41,9 @@ impl idl::InOrderEepromImpl for EepromServer {
         _msg: &userlib::RecvMessage,
         addr: u16,
         value: u8,
-    ) -> Result<(), RequestError<ResponseCode>> {
-        self.dev.write_byte(addr, value).map_err(|e| e.into())
+    ) -> Result<(), RequestError<EepromError>> {
+        self.dev.write_byte(addr, value)
+            .map_err(|e| EepromError::from(e).into())
     }
 }
 
@@ -57,7 +60,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use drv_i2c_api::ResponseCode;
+    use super::EepromError;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

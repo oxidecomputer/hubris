@@ -10,7 +10,7 @@ Interface(
             },
             reply: Result(
                 ok: "u8",
-                err: CLike("ResponseCode"),
+                err: CLike("EepromError"),
             ),
         ),
         "write_byte": (
@@ -21,7 +21,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("ResponseCode"),
+                err: CLike("EepromError"),
             ),
         ),
     },
