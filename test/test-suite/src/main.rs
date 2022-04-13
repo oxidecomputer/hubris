@@ -583,10 +583,11 @@ task_slot!(I2C, i2c_driver);
 #[cfg(feature = "fru-id-eeprom")]
 mod at24csw080 {
     use super::*;
-    use core::convert::TryInto;
     use drv_i2c_devices::at24csw080::Error;
     use drv_i2c_devices::at24csw080::*;
-    use zerocopy::{AsBytes, FromBytes};
+
+    const EEPROM_SIZE: u16 = 1024;
+    const PAGE_SIZE: u16 = 16;
 
     pub(super) fn test_at24csw080() {
         let i2c_task = I2C.get_task_id();
@@ -616,9 +617,17 @@ mod at24csw080 {
             0x0A => {
                 dev.write_byte(0, 0xFF).unwrap();
                 validate_eeprom(&dev, 0x0A).unwrap();
+                test_eeprom(&dev, 0x0B).unwrap();
+                validate_eeprom(&dev, 0x0B).unwrap();
+            }
+            0x0B => {
+                dev.write_byte(0, 0xFF).unwrap();
+                validate_eeprom(&dev, 0x0B).unwrap();
+                test_eeprom(&dev, 0x0A).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
             }
             _ => {
-                write_eeprom(&dev, 0x0A).unwrap();
+                test_eeprom(&dev, 0x0A).unwrap();
                 validate_eeprom(&dev, 0x0A).unwrap();
             }
         }
@@ -630,97 +639,105 @@ mod at24csw080 {
         *i
     }
 
-    /// This is a 12-byte struct with 4-byte alignment
-    #[derive(AsBytes, FromBytes, Copy, Clone, Default, Debug, PartialEq)]
-    #[repr(C)]
-    struct SmallStruct {
-        temperature: u16,
-        mac: [u8; 6],
-        flavor: u32,
-    }
-    impl SmallStruct {
-        fn from_seed(seed: &mut u8) -> Self {
-            let mut mac = [0; 6];
-            for i in 0..6 {
-                mac[i] = next(seed);
-            }
-            Self {
-                mac,
-                temperature: next(seed) as u16,
-                flavor: next(seed) as u32,
-            }
-        }
-    }
-
-    fn write_eeprom(dev: &At24csw080, mut seed: u8) -> Result<(), Error> {
+    fn test_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
         assert!(seed != 0);
-        dev.write(0, seed)?;
 
-        // Write the full first page with the seed value
-        for addr in 1..16 {
+        // Write random bytes unevenly spaced through memory, then read them
+        // back and check their values.
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize + 1) {
+            dev.write(addr, next(&mut i))?;
+        }
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize + 1) {
+            assert_eq!(dev.read::<u8>(addr)?, next(&mut i));
+        }
+
+        // We'll try writing this buffer to places with various alignments.
+        const BUF_SIZE: u16 = 31;
+        type BufType = [u8; BUF_SIZE as usize];
+        let buf = {
+            let mut buf: BufType = BufType::default();
+            let mut i = seed;
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            buf
+        };
+
+        // Write the buffer halfway through a word, then to the previous
+        // spot in memory to see if there's any issues with word clearing
+        // and page writes across address region boundaries
+        for addr in [69, 254, 510] {
+            dev.write(addr, buf)?;
+            assert!(dev.read::<BufType>(addr)? == buf);
+            dev.write(addr + BUF_SIZE, buf)?;
+            assert!(dev.read::<BufType>(addr)? == buf);
+            assert!(dev.read::<BufType>(addr + BUF_SIZE)? == buf);
+            dev.write(addr - BUF_SIZE, buf)?;
+            assert!(dev.read::<BufType>(addr - BUF_SIZE)? == buf);
+            assert!(dev.read::<BufType>(addr + BUF_SIZE)? == buf);
+            assert!(dev.read::<BufType>(addr)? == buf);
+        }
+
+        // To finish, write most of the EEPROM with a pseudorandom pattern.
+        // We'll check this in `validate_eeprom` to make sure it persists
+        // through power-off.
+        //
+        // This should use page writes, so it should be fast (about 320 ms)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize) {
+            let mut buf = [0u8; PAGE_SIZE as usize];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            dev.write(addr, buf)?;
+        }
+
+        // Write the full first page with the seed value. We do this last
+        // because if previous writes fail, we don't want to have byte 0
+        // indicate that we're valid (i.e. it should be left at 0xFF).
+        for addr in 0..PAGE_SIZE {
             dev.write(addr, seed)?;
         }
-
-        for addr in 16..1024 {
-            dev.write(addr, next(&mut seed))?;
-        }
-        /*
-        // We'll write three structs in a row to get a variety of page-spanning
-        // behavior, after sanity-checking our assumptions about SmallStruct
-        let mut addr = 16u16;
-        let struct_size: u16 =
-            core::mem::size_of::<SmallStruct>().try_into().unwrap();
-        assert_eq!(struct_size, 12);
-        assert_eq!(core::mem::align_of::<SmallStruct>(), 4);
-
-        for _ in 0..3 {
-            let a = SmallStruct::from_seed(&mut seed);
-            dev.write(addr, a)?;
-            addr += struct_size;
-        }
-
-        // At this point, addr = 52.  Let's write two more SmallStructs, out
-        // of order to make sure that we don't see any weird overwriting
-        let mut addr = 69;
-        dev.write(addr, SmallStruct::from_seed(&mut seed))?;
-        dev.write(addr - struct_size, SmallStruct::from_seed(&mut seed))?;
-        */
 
         Ok(())
     }
 
-    fn validate_eeprom(dev: &At24csw080, mut seed: u8) -> Result<(), Error> {
+    fn validate_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
         // At this point, we have already overwritten byte 0 with 0xFF
         // to avoid getting stuck in a bad validation state.
 
-        for addr in 1..16 {
-            assert_eq!(dev.read::<u8>(addr)?, seed);
+        for addr in 1..PAGE_SIZE {
+            assert_eq!((addr, dev.read::<u8>(addr)?), (addr, seed));
         }
 
-        for addr in 16..1024 {
-            assert_eq!(dev.read::<u8>(addr)?, next(&mut seed));
-        }
-        /*
-
-        let struct_size: u16 =
-            core::mem::size_of::<SmallStruct>().try_into().unwrap();
-        let mut addr = 16u16;
-        for _ in 0..3 {
-            let a = dev.read::<SmallStruct>(addr)?;
-            let b = SmallStruct::from_seed(&mut seed);
-            assert!(a == b);
-            addr += struct_size;
+        // Test single-byte reads
+        let mut i = seed;
+        for addr in PAGE_SIZE..EEPROM_SIZE {
+            assert_eq!((addr, dev.read::<u8>(addr)?), (addr, next(&mut i)));
         }
 
-        let addr = 69;
-        let a = dev.read::<SmallStruct>(addr)?;
-        let b = SmallStruct::from_seed(&mut seed);
-        assert!(a == b);
+        // Test multi-byte reads (page-aligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(4) {
+            let mut buf = [0u8; 4];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
 
-        let a = dev.read::<SmallStruct>(addr - struct_size)?;
-        let b = SmallStruct::from_seed(&mut seed);
-        assert!(a == b);
-        */
+            assert_eq!(dev.read::<[u8; 4]>(addr)?, buf);
+        }
+
+        // Test multi-byte reads (misaligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE - 17).step_by(17) {
+            let mut buf = [0u8; 17];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            assert_eq!(dev.read::<[u8; 17]>(addr)?, buf);
+        }
+
+        // Test multi-byte reads (misaligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE - 31).step_by(31) {
+            let mut buf = [0u8; 31];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            assert_eq!(dev.read::<[u8; 31]>(addr)?, buf);
+        }
 
         Ok(())
     }
