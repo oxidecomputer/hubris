@@ -163,7 +163,7 @@ impl At24csw080 {
         // buffer data.
         out[0] = addr as u8;
         out[1..=buf.len()].copy_from_slice(buf);
-        self.device.eeprom(addr).write(&out)?;
+        self.device.eeprom(addr).write(&out[0..=buf.len()])?;
         sleep_for(5);
         Ok(())
     }
