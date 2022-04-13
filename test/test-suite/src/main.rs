@@ -656,6 +656,23 @@ mod at24csw080 {
     fn test_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
         assert!(seed != 0);
 
+        // If the security register is (permanently) locked, then we won't be
+        // able to run part of this test, so fail early.
+        assert!(!dev.is_security_register_locked()?);
+
+        // If the write protection register is locked, then we're going to have
+        // a bad time, so fail early as well.
+        //
+        // It's possible for the write protection register to be (temporarily)
+        // enabled if someone pulls power to the EEPROM at just the right point
+        // in the test suite; in that case, we disable write protection but
+        // don't fail the test suite.
+        let wpr = dev.read_eeprom_write_protect()?;
+        assert!(!wpr.locked);
+        if wpr.block.is_some() {
+            dev.disable_eeprom_write_protection()?;
+        }
+
         // Write random bytes unevenly spaced through memory, then read them
         // back and check their values.
         let mut i = seed;
@@ -667,7 +684,7 @@ mod at24csw080 {
             assert_eq!(dev.read::<u8>(addr)?, next(&mut i));
         }
 
-        // We'll try writing this buffer to places with various alignments.
+        // Generate a pseudo-random buffer, which we'll write in various places
         const BUF_SIZE: u16 = 31;
         type BufType = [u8; BUF_SIZE as usize];
         let buf = {
@@ -677,9 +694,8 @@ mod at24csw080 {
             buf
         };
 
-        // Write the buffer halfway through a word, then to the previous
-        // spot in memory to see if there's any issues with word clearing
-        // and page writes across address region boundaries
+        // Write the buffer in a variety of page-straddling locations then
+        // read it back and look for issues.
         for addr in [69, 254, 510] {
             dev.write(addr, buf)?;
             assert!(dev.read::<BufType>(addr)? == buf);
@@ -694,7 +710,7 @@ mod at24csw080 {
 
         // Write the upper 16 bytes of the security register based on the lower
         // 16 bytes and the seed, then read back values to test.  We'll read
-        // back these values in validate_eeprom, since this should be
+        // back these values in `validate_eeprom`, since this should be
         // persistent through power cycles.
         let mut h = seed;
         for i in 0..16 {
@@ -702,23 +718,39 @@ mod at24csw080 {
             dev.write_security_register_byte(i + 16, v)?;
         }
 
-        assert!(!dev.is_security_register_locked()?);
+        // Make sure that the EEPROM write protection register works
+        // (only enabling it temporarily, do not fear)
+        let addr = 760;
+        dev.write(addr, buf)?;
+        assert!(dev.read::<BufType>(addr)? == buf);
+        dev.enable_eeprom_write_protection(WriteProtectBlock::Upper256Bytes)?;
+        assert!(dev.read::<BufType>(addr)? == buf);
+        dev.write(addr, BufType::default())?;
+        // At this point, we expect the bottom 8 bytes to be cleared (because
+        // they're in the unprotected region), and the remaining bytes to be
+        // the same as before
+        let v = dev.read::<BufType>(addr)?;
+        assert!(v[0..8] == [0; 8]);
+        assert!(v[8..] == buf[8..]);
+        // Now disable write protection; clear that chunk of memory, and
+        // confirm that the clearing worked on the entire buffer.
+        dev.disable_eeprom_write_protection()?;
+        dev.write(addr, BufType::default())?;
+        assert!(dev.read::<BufType>(addr)? == BufType::default());
 
         // To finish, write most of the EEPROM with a pseudorandom pattern.
         // We'll check this in `validate_eeprom` to make sure it persists
         // through power-off.
-        //
-        // This should use page writes, so it should be fast (about 320 ms)
         let mut i = seed;
         for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize) {
+            // Using page-size writes to minimize the number of 5ms waits
             let mut buf = [0u8; PAGE_SIZE as usize];
             buf.iter_mut().for_each(|b| *b = next(&mut i));
             dev.write(addr, buf)?;
         }
 
-        // Write the full first page with the seed value. We do this last
-        // because if previous writes fail, we don't want to have byte 0
-        // indicate that we're valid (i.e. it should be left at 0xFF).
+        // Fill the first page with the seed value, except byte 0, which is
+        // only written after _everything_ is confirmed to be happy.
         for addr in 1..PAGE_SIZE {
             dev.write(addr, seed)?;
         }

@@ -6,11 +6,14 @@
 
 use core::convert::TryInto;
 use drv_i2c_api::*;
-use userlib::hl::sleep_for;
+use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 /// Number of bytes stored in the EEPROM
 const EEPROM_SIZE: u16 = 1024;
+
+/// Wait time after performing a write
+const WRITE_TIME_MS: u64 = 5;
 
 /// The AT23CSW080/4 is an I2C EEPROM used as the FRU ID. It includes 8-Kbit of
 /// memory (arranged as 1024 x 8), software write protection, a 256-bit
@@ -132,7 +135,7 @@ impl At24csw080 {
         // Write the low byte of the address followed by the actual value
         let buffer = [addr as u8, val];
         self.device.eeprom(addr).write(&buffer)?;
-        sleep_for(5);
+        sleep_for(WRITE_TIME_MS);
         Ok(())
     }
 
@@ -164,7 +167,7 @@ impl At24csw080 {
         out[0] = addr as u8;
         out[1..=buf.len()].copy_from_slice(buf);
         self.device.eeprom(addr).write(&out[0..=buf.len()])?;
-        sleep_for(5);
+        sleep_for(WRITE_TIME_MS);
         Ok(())
     }
 
@@ -258,9 +261,9 @@ impl At24csw080 {
         let cmd = [reg_addr, val];
         self.device.registers().write(&cmd)?;
 
-        // It's unclear if this is needed for the registers (vs the EEPROM),
-        // but better safe than sorry.
-        sleep_for(5);
+        // The datasheet doesn't specify whether the 5ms wait also applies
+        // to registers, but experimentally, it does.
+        sleep_for(WRITE_TIME_MS);
         Ok(())
     }
 
@@ -295,14 +298,37 @@ impl At24csw080 {
         &self,
         b: WriteProtectBlock,
     ) -> Result<(), Error> {
-        let cmd = [WPR_WORD_ADDR, (b.wpb() << 1) | WPR_WRITE | WPR_ENABLE];
-        self.device.registers().write(&cmd).map_err(Into::into)
+        let cmd = [
+            WPR_WORD_ADDR,
+            (b.to_u8().unwrap() << 1) | WPR_WRITE | WPR_ENABLE,
+        ];
+        self.device.registers().write(&cmd)?;
+        sleep_for(WRITE_TIME_MS);
+        Ok(())
     }
 
     /// Disables EEPROM write protection (assuming it wasn't set permanently)
     pub fn disable_eeprom_write_protection(&self) -> Result<(), Error> {
         let cmd = [WPR_WORD_ADDR, WPR_WRITE];
-        self.device.registers().write(&cmd).map_err(Into::into)
+        self.device.registers().write(&cmd)?;
+        sleep_for(WRITE_TIME_MS);
+        Ok(())
+    }
+
+    pub fn read_eeprom_write_protect(
+        &self,
+    ) -> Result<WriteProtectState, Error> {
+        let out: u8 = self.device.registers().read_reg(WPR_WORD_ADDR)?;
+        let block = WriteProtectBlock::from_u8((out >> 1) & 0b11).unwrap();
+
+        Ok(WriteProtectState {
+            block: if out & (1 << 3) != 0 {
+                Some(block)
+            } else {
+                None
+            },
+            locked: (out & 1) != 0,
+        })
     }
 
     /// Enables EEPROM write protection. *THIS CANNOT BE UNDONE.*
@@ -312,30 +338,34 @@ impl At24csw080 {
     ) -> Result<(), Error> {
         let cmd = [
             WPR_WORD_ADDR,
-            (b.wpb() << 1) | WPR_WRITE | WPR_ENABLE | WPR_PERMANENTLY_LOCK,
+            (b.to_u8().unwrap() << 1)
+                | WPR_WRITE
+                | WPR_ENABLE
+                | WPR_PERMANENTLY_LOCK,
         ];
-        self.device.registers().write(&cmd).map_err(Into::into)
+        self.device.registers().write(&cmd)?;
+        sleep_for(WRITE_TIME_MS);
+        Ok(())
     }
 }
 
 /// Represents a range of the EEPROM that can be write-protected.
+/// The raw enum value is the value of the WPB bits in the WPR register
+#[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive)]
 pub enum WriteProtectBlock {
-    Upper256Bytes,
-    Upper512Bytes,
-    Upper768Bytes,
-    AllMemory,
+    Upper256Bytes = 0b00,
+    Upper512Bytes = 0b01,
+    Upper768Bytes = 0b10,
+    AllMemory = 0b11,
 }
 
-impl WriteProtectBlock {
-    /// Returns the two-bit WPB value corresponding to a particular region
-    fn wpb(&self) -> u8 {
-        match self {
-            Self::Upper256Bytes => 0b00,
-            Self::Upper512Bytes => 0b01,
-            Self::Upper768Bytes => 0b10,
-            Self::AllMemory => 0b11,
-        }
-    }
+/// Represents the state of the write protection register
+pub struct WriteProtectState {
+    /// `None` if write protection is disabled; `Some(...)` if it's enabled
+    pub block: Option<WriteProtectBlock>,
+
+    /// `true` if the WPR is permanently locked
+    pub locked: bool,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
