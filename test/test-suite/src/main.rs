@@ -105,6 +105,8 @@ test_cases! {
     test_idol_ssmarshal,
     test_idol_ssmarshal_multiarg,
     test_idol_ssmarshal_multiarg_enum,
+    #[cfg(feature = "fru-id-eeprom")]
+    at24csw080::test_at24csw080,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -568,6 +570,160 @@ fn test_idol_ssmarshal_multiarg_enum() {
         .unwrap();
 
     assert_eq!(r, 14);
+}
+
+#[cfg(feature = "i2c-devices")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+#[cfg(feature = "i2c-devices")]
+task_slot!(I2C, i2c_driver);
+
+// Put the FRU ID tests into their own module, so it can be enabled with
+// a single cfg block
+#[cfg(feature = "fru-id-eeprom")]
+mod at24csw080 {
+    use super::*;
+    use core::convert::TryInto;
+    use drv_i2c_devices::at24csw080::Error;
+    use drv_i2c_devices::at24csw080::*;
+    use zerocopy::{AsBytes, FromBytes};
+
+    pub(super) fn test_at24csw080() {
+        let i2c_task = I2C.get_task_id();
+        let dev =
+            At24csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
+
+        // The FRU ID EEPROM is 1KByte.  Because we want to exercise the
+        // ability to rewrite the EEPROM (and have that persist through power
+        // loss), we define two different patterns based on the first byte.
+        //
+        // Depending on the value of the first byte in the EEPROM, we make the
+        // following choices:
+        //
+        //  If the byte is 0x0A, indicating pattern A
+        //      Write the byte to 0xFF, indicating that the pattern is empty
+        //      Validate the previously-written pattern (ignoring the first
+        //      byte)
+        //  Otherwise (indicating the EEPROM is empty or doing something else)
+        //      Write the A pattern, then validate it
+        //
+        //  Notice that we write the first byte of the EEPROM _before_ doing
+        //  validation. This ensures that if validation fails, the EEPROM is
+        //  left in a state where it falls back to the default case, instead
+        //  of getting stuck.
+        let seed = dev.read::<u8>(0).unwrap();
+        match seed {
+            0x0A => {
+                dev.write_byte(0, 0xFF).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
+            }
+            _ => {
+                write_eeprom(&dev, 0x0A).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
+            }
+        }
+    }
+
+    /// Simple maximal LFSR to generate a stream of pseudo-random bytes
+    fn next(i: &mut u8) -> u8 {
+        *i = (*i << 1) | ((*i & 0b10110100).count_ones() as u8 & 1);
+        *i
+    }
+
+    /// This is a 12-byte struct with 4-byte alignment
+    #[derive(AsBytes, FromBytes, Copy, Clone, Default, Debug, PartialEq)]
+    #[repr(C)]
+    struct SmallStruct {
+        temperature: u16,
+        mac: [u8; 6],
+        flavor: u32,
+    }
+    impl SmallStruct {
+        fn from_seed(seed: &mut u8) -> Self {
+            let mut mac = [0; 6];
+            for i in 0..6 {
+                mac[i] = next(seed);
+            }
+            Self {
+                mac,
+                temperature: next(seed) as u16,
+                flavor: next(seed) as u32,
+            }
+        }
+    }
+
+    fn write_eeprom(dev: &At24csw080, mut seed: u8) -> Result<(), Error> {
+        assert!(seed != 0);
+        dev.write(0, seed)?;
+
+        // Write the full first page with the seed value
+        for addr in 1..16 {
+            dev.write(addr, seed)?;
+        }
+
+        for addr in 16..1024 {
+            dev.write(addr, next(&mut seed))?;
+        }
+        /*
+        // We'll write three structs in a row to get a variety of page-spanning
+        // behavior, after sanity-checking our assumptions about SmallStruct
+        let mut addr = 16u16;
+        let struct_size: u16 =
+            core::mem::size_of::<SmallStruct>().try_into().unwrap();
+        assert_eq!(struct_size, 12);
+        assert_eq!(core::mem::align_of::<SmallStruct>(), 4);
+
+        for _ in 0..3 {
+            let a = SmallStruct::from_seed(&mut seed);
+            dev.write(addr, a)?;
+            addr += struct_size;
+        }
+
+        // At this point, addr = 52.  Let's write two more SmallStructs, out
+        // of order to make sure that we don't see any weird overwriting
+        let mut addr = 69;
+        dev.write(addr, SmallStruct::from_seed(&mut seed))?;
+        dev.write(addr - struct_size, SmallStruct::from_seed(&mut seed))?;
+        */
+
+        Ok(())
+    }
+
+    fn validate_eeprom(dev: &At24csw080, mut seed: u8) -> Result<(), Error> {
+        // At this point, we have already overwritten byte 0 with 0xFF
+        // to avoid getting stuck in a bad validation state.
+
+        for addr in 1..16 {
+            assert_eq!(dev.read::<u8>(addr)?, seed);
+        }
+
+        for addr in 16..1024 {
+            assert_eq!(dev.read::<u8>(addr)?, next(&mut seed));
+        }
+        /*
+
+        let struct_size: u16 =
+            core::mem::size_of::<SmallStruct>().try_into().unwrap();
+        let mut addr = 16u16;
+        for _ in 0..3 {
+            let a = dev.read::<SmallStruct>(addr)?;
+            let b = SmallStruct::from_seed(&mut seed);
+            assert!(a == b);
+            addr += struct_size;
+        }
+
+        let addr = 69;
+        let a = dev.read::<SmallStruct>(addr)?;
+        let b = SmallStruct::from_seed(&mut seed);
+        assert!(a == b);
+
+        let a = dev.read::<SmallStruct>(addr - struct_size)?;
+        let b = SmallStruct::from_seed(&mut seed);
+        assert!(a == b);
+        */
+
+        Ok(())
+    }
 }
 
 /// Tests that task restart works as expected.

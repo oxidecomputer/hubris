@@ -1,0 +1,136 @@
+name = "tests-psc"
+target = "thumbv7em-none-eabihf"
+chip = "../../chips/stm32h7.toml"
+board = "psc-1"
+stacksize = 896
+
+[kernel]
+path = "../../app/psc"
+name = "psc"
+requires = {flash = 32768, ram = 4096}
+#
+# For the kernel (and for any task that logs), we are required to enable
+# either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
+# Macrocell) or "semihosting" (denoting logging/panicking via ARM
+# semihosting).  We are biased to ITM because semihosting is excruciatingly
+# slow (it is breakpoint based) and has an undesirable failure mode if logging
+# output is generated and debugger is not attached (namely, the target stops).
+# If one does choose to change this to semihosting for purposes of
+# development, be sure to also change it in every task of interest.
+#
+features = ["itm"]
+
+[supervisor]
+notification = 1
+
+# Flash sections are mapped into flash bank 1 (of 2).
+[outputs.flash]
+address = 0x08000000
+size = 1048576
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTCM, a small but fast SRAM.
+[outputs.ram]
+address = 0x20000000
+size = 131072
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.runner]
+path = "../test-runner"
+name = "test-runner"
+priority = 0
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.suite]
+path = "../test-suite"
+name = "test-suite"
+priority = 2
+requires = {flash = 65536, ram = 4096}
+start = true
+stacksize = 2048
+features = ["itm", "fru-id-eeprom"]
+task-slots = ["assist", "idol", "suite", "runner", "i2c_driver"]
+
+# This block is used to test the task_config macro
+[tasks.suite.config]
+foo = '"Hello, world"'
+bar = 42
+baz = [1, 2, 3, 4]
+tup = [[1, true], [2, true], [3, false]]
+
+[tasks.assist]
+path = "../test-assist"
+name = "test-assist"
+priority = 1
+requires = {flash = 16384, ram = 4096}
+start = true
+features = ["itm"]
+
+[tasks.idol]
+path = "../test-idol-server"
+name = "test-idol-server"
+priority = 1
+requires = {flash = 1024, ram = 256}
+stacksize = 256
+start = true
+
+[tasks.sys]
+path = "../../drv/stm32xx-sys"
+name = "drv-stm32xx-sys"
+features = ["h753"]
+priority = 1
+requires = {flash = 2048, ram = 1024}
+uses = ["rcc", "gpios1", "gpios2", "gpios3"]
+start = true
+
+[tasks.i2c_driver]
+path = "../../drv/stm32h7-i2c-server"
+name = "drv-stm32h7-i2c-server"
+features = ["h753", "itm"]
+priority = 2
+requires = {flash = 16384, ram = 2048}
+uses = ["i2c2", "i2c3", "i2c4"]
+start = true
+task-slots = ["sys"]
+
+[tasks.i2c_driver.interrupts]
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
+"i2c3.event" = 0b0000_0100
+"i2c3.error" = 0b0000_0100
+"i2c4.event" = 0b0000_1000
+"i2c4.error" = 0b0000_1000
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 3
+requires = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+
+[config]
+#
+# I2C2: Local bus
+#
+[[config.i2c.controllers]]
+controller = 2
+
+# SP_I2C_LOCAL_SDA
+# SP_I2C_LOCAL_SCL
+[config.i2c.controllers.ports.F]
+name = "local"
+description = "Local bus"
+pins = [ { pins = [ 0, 1 ], af = 4 } ]
+
+[[config.i2c.devices]]
+bus = "local"
+address = 0b1010_000
+device = "at24csw080"
+description = "FRU ID EEPROM"

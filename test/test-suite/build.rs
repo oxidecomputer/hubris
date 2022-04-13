@@ -10,6 +10,9 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_m_profile();
 
+    #[cfg(feature = "i2c-devices")]
+    build_i2c::codegen(build_i2c::Disposition::Devices)?;
+
     generate_consts()?;
     Ok(())
 }
