@@ -603,12 +603,22 @@ mod at24csw080 {
         //
         //  If the byte is 0x0A, indicating pattern A
         //      Write the byte to 0xFF, indicating that the pattern is empty
-        //      Validate the previously-written pattern (ignoring the first
-        //      byte)
-        //  Otherwise (indicating the EEPROM is empty or doing something else)
-        //      Write the A pattern, then validate it
+        //      Validate pattern A (ignoring the first byte)
+        //      Write pattern B (leaving the first byte at 0xFF)
+        //      Validate pattern B (ignoring the first byte)
+        //      Write the first byte to 0x0B
+        //  If the byte is 0x0B, indicating pattern B
+        //      Write the byte to 0xFF, indicating that the pattern is empty
+        //      Validate pattern B (ignoring the first byte)
+        //      Write pattern A (leaving the first byte at 0xFF)
+        //      Validate pattern A (ignoring the first byte)
+        //      Write the first byte to 0x0A
+        //  Otherwise, the EEPROM is empty or has an invalid pattern
+        //      Write pattern A (leaving the first byte at 0xFF)
+        //      Validate the A pattern
+        //      Write the first byte to 0x0A
         //
-        //  Notice that we write the first byte of the EEPROM _before_ doing
+        //  Notice that we clear the first byte of the EEPROM _before_ doing
         //  validation. This ensures that if validation fails, the EEPROM is
         //  left in a state where it falls back to the default case, instead
         //  of getting stuck.
@@ -619,18 +629,22 @@ mod at24csw080 {
                 validate_eeprom(&dev, 0x0A).unwrap();
                 test_eeprom(&dev, 0x0B).unwrap();
                 validate_eeprom(&dev, 0x0B).unwrap();
+                dev.write(0, 0x0Bu8).unwrap();
             }
             0x0B => {
                 dev.write_byte(0, 0xFF).unwrap();
                 validate_eeprom(&dev, 0x0B).unwrap();
                 test_eeprom(&dev, 0x0A).unwrap();
                 validate_eeprom(&dev, 0x0A).unwrap();
+                dev.write(0, 0x0A_u8).unwrap();
             }
             _ => {
                 test_eeprom(&dev, 0x0A).unwrap();
                 validate_eeprom(&dev, 0x0A).unwrap();
+                dev.write(0, 0x0A_u8).unwrap();
             }
         }
+        sys_log!("Completed EEPROM test with seed {}", seed);
     }
 
     /// Simple maximal LFSR to generate a stream of pseudo-random bytes
@@ -688,6 +702,8 @@ mod at24csw080 {
             dev.write_security_register_byte(i + 16, v)?;
         }
 
+        assert!(!dev.is_security_register_locked()?);
+
         // To finish, write most of the EEPROM with a pseudorandom pattern.
         // We'll check this in `validate_eeprom` to make sure it persists
         // through power-off.
@@ -703,7 +719,7 @@ mod at24csw080 {
         // Write the full first page with the seed value. We do this last
         // because if previous writes fail, we don't want to have byte 0
         // indicate that we're valid (i.e. it should be left at 0xFF).
-        for addr in 0..PAGE_SIZE {
+        for addr in 1..PAGE_SIZE {
             dev.write(addr, seed)?;
         }
 

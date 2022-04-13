@@ -212,6 +212,9 @@ impl At24csw080 {
     ///
     /// `addr` and `addr + sizeof(V)` must be < `EEPROM_SIZE`; otherwise this
     /// function panics.
+    ///
+    /// **Be careful** when using this value with integer literals:
+    /// `write(addr, 0x01)` will write a 4-byte value!
     pub fn write<V: Default + AsBytes + FromBytes>(
         &self,
         addr: u16,
