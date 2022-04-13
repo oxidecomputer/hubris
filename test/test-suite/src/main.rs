@@ -678,6 +678,16 @@ mod at24csw080 {
             assert!(dev.read::<BufType>(addr)? == buf);
         }
 
+        // Write the upper 16 bytes of the security register based on the lower
+        // 16 bytes and the seed, then read back values to test.  We'll read
+        // back these values in validate_eeprom, since this should be
+        // persistent through power cycles.
+        let mut h = seed;
+        for i in 0..16 {
+            let v = dev.read_security_register_byte(i)? ^ next(&mut h);
+            dev.write_security_register_byte(i + 16, v)?;
+        }
+
         // To finish, write most of the EEPROM with a pseudorandom pattern.
         // We'll check this in `validate_eeprom` to make sure it persists
         // through power-off.
@@ -737,6 +747,14 @@ mod at24csw080 {
             let mut buf = [0u8; 31];
             buf.iter_mut().for_each(|b| *b = next(&mut i));
             assert_eq!(dev.read::<[u8; 31]>(addr)?, buf);
+        }
+
+        // Check the security register bytes, which should have a
+        // pseudorandom pattern based on the seed.
+        let mut h = seed;
+        for i in 0..16 {
+            let v = dev.read_security_register_byte(i)? ^ next(&mut h);
+            assert_eq!(v, dev.read_security_register_byte(i + 16)?);
         }
 
         Ok(())
