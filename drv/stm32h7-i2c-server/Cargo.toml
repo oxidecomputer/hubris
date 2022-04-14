@@ -26,28 +26,6 @@ h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743",
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
 itm = [ "userlib/log-itm" ]
 
-# These options allow for external muxes on the Gemini bringup board:
-#
-# - external-max7358 assumes an external MAX7358 on I2C4 port D
-# - external-pca9548 assumes an external PCA9548 on I2C4 port H
-#
-# Both options may be set, but neither option should be set when the part that
-# it denotes isn't present.
-external-max7358 = []
-external-pca9548 = []
-
-#
-# This option allows for the Nucleo to be used as an initiator for the
-# purposes of testing the spd-proxy
-#
-external-spd = []
-
-#
-# This option will -- on Gimletlet -- leave I2C2 available to be used by
-# SPD proxy
-#
-target-enable = []
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
