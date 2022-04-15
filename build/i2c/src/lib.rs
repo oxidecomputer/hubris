@@ -625,6 +625,22 @@ impl ConfigGenerator {
             },
         };
 
+        let segment = match (d.mux, d.segment) {
+            (Some(mux), Some(segment)) => {
+                format!(
+                    "Some((drv_i2c_api::Mux::M{}, drv_i2c_api::Segment::S{}))",
+                    mux, segment
+                )
+            }
+            (None, None) => "None".to_owned(),
+            (Some(_), None) => {
+                panic!("device {} specifies a mux but no segment", d.device)
+            }
+            (None, Some(_)) => {
+                panic!("device {} specifies a segment but no mux", d.device)
+            }
+        };
+
         format!(
             r##"
             // {description}
@@ -637,7 +653,7 @@ impl ConfigGenerator {
             description = d.description,
             controller = controller,
             port = port,
-            segment = "None",
+            segment = segment,
             address = d.address,
         )
     }
