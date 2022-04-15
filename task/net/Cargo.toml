@@ -40,8 +40,6 @@ features = [
 ]
 
 [features]
-default = ["standalone"]
-standalone = []
 mgmt = ["vsc85xx/mgmt", "vsc7448-pac", "drv-spi-api", "ksz8463", "drv-user-leds-api"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
