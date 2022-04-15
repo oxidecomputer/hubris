@@ -18,6 +18,21 @@ pub struct GlobalConfig {
 pub struct NetConfig {
     /// Sockets known to the system, indexed by name.
     pub sockets: BTreeMap<String, SocketConfig>,
+
+    /// Address of the lowest VLAN
+    pub vlan_start: Option<u16>,
+
+    /// Number of VLANs
+    pub vlan_count: Option<u16>,
+}
+
+impl NetConfig {
+    pub fn instances(&self) -> usize {
+        match self.vlan_count {
+            Some(i) => i as usize,
+            None => 1,
+        }
+    }
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum

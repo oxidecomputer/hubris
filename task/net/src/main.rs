@@ -80,6 +80,21 @@ const NEIGHBORS: usize = 4;
 /// debugger.
 static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 
+struct EthernetFacade<'a>(&'a eth::Ethernet);
+impl<'a, 'b> smoltcp::phy::Device<'a> for EthernetFacade<'b> {
+    type RxToken = eth::OurRxToken<'a>;
+    type TxToken = eth::OurTxToken<'a>;
+    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+        self.0.receive()
+    }
+    fn transmit(&'a mut self) -> Option<Self::TxToken> {
+        self.0.transmit()
+    }
+    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+        self.0.capabilities()
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let sys = SYS.get_task_id();
@@ -130,43 +145,63 @@ fn main() -> ! {
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
 
     let mut ip_addrs = [ipv6_net];
-    let mut neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; NEIGHBORS] =
-        [None; NEIGHBORS];
-    let neighbor_cache =
-        smoltcp::iface::NeighborCache::new(&mut neighbor_cache_storage[..]);
 
-    let mut socket_storage =
-        [smoltcp::iface::SocketStorage::EMPTY; generated::SOCKET_COUNT];
-    let mut eth =
-        smoltcp::iface::InterfaceBuilder::new(eth, &mut socket_storage[..])
-            .hardware_addr(mac.into())
-            .neighbor_cache(neighbor_cache)
-            .ip_addrs(&mut ip_addrs[..])
-            .finalize();
+    type NeighborStorage = [Option<(IpAddress, Neighbor)>; NEIGHBORS];
+    let mut neighbor_cache_storage: [NeighborStorage;
+        generated::INSTANCE_COUNT] =
+        [[None; NEIGHBORS]; generated::INSTANCE_COUNT];
 
-    // Create sockets and associate them with the interface.
+    let mut socket_storage = [[smoltcp::iface::SocketStorage::EMPTY;
+        generated::SOCKET_COUNT];
+        generated::INSTANCE_COUNT];
+
+    // Create sockets
     let sockets = generated::construct_sockets();
-    let mut socket_handles = [None; generated::SOCKET_COUNT];
-    for (socket, h) in sockets.0.into_iter().zip(&mut socket_handles) {
-        *h = Some(eth.add_socket(socket));
+    let mut socket_handles = [[smoltcp::iface::SocketHandle::default();
+        generated::SOCKET_COUNT];
+        generated::INSTANCE_COUNT];
+
+    let eths = [None; generated::INSTANCE_COUNT];
+    for i in 0..generated::INSTANCE_COUNT {
+        let neighbor_cache = smoltcp::iface::NeighborCache::new(
+            &mut neighbor_cache_storage[i][..],
+        );
+        let eth = smoltcp::iface::InterfaceBuilder::new(
+            EthernetFacade(&eth),
+            &mut socket_storage[i][..],
+        )
+        .hardware_addr(mac.into())
+        .neighbor_cache(neighbor_cache)
+        .ip_addrs(&mut ip_addrs[..])
+        .finalize();
+
+        // Associate them with the interface.
+        for (socket, h) in sockets.0[i].into_iter().zip(&mut socket_handles[i])
+        {
+            *h = eth.add_socket(socket);
+        }
+        // Bind sockets to their ports.
+        for (&h, &port) in
+            socket_handles[i].iter().zip(&generated::SOCKET_PORTS)
+        {
+            eth.get_socket::<UdpSocket>(h)
+                .bind((ipv6_addr, port))
+                .map_err(|_| ())
+                .unwrap();
+        }
+        eths[i] = Some(eth);
     }
-    let socket_handles = socket_handles.map(|h| h.unwrap());
-    // Bind sockets to their ports.
-    for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
-        eth.get_socket::<UdpSocket>(h)
-            .bind((ipv6_addr, port))
-            .map_err(|_| ())
-            .unwrap();
-    }
+
+    let eths = eths.map(|e| e.unwrap());
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(eth.device_mut(), &sys);
+    let bsp = bsp::Bsp::new(&mut eth, &sys);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
 
     // Move resources into the server impl.
-    let mut server = server::ServerImpl::new(socket_handles, eth, bsp);
+    let mut server = server::ServerImpl::new(socket_handles, eths, bsp);
 
     // Some of the BSPs include a 'wake' function which allows for periodic
     // logging.  We schedule a wake-up before entering the idol_runtime dispatch

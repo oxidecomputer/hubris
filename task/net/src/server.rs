@@ -13,39 +13,48 @@ use crate::generated;
 use crate::{ETH_IRQ, WAKE_IRQ};
 
 /// State for the running network server.
-pub struct ServerImpl<'a> {
-    socket_handles: [SocketHandle; generated::SOCKET_COUNT],
-    eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+pub struct ServerImpl<'a, E>
+where
+    E: for<'d> smoltcp::phy::Device<'d>,
+{
+    socket_handles:
+        [[SocketHandle; generated::SOCKET_COUNT]; generated::INSTANCE_COUNT],
+    eths: [Interface<'a, E>; generated::INSTANCE_COUNT],
     bsp: crate::bsp::Bsp,
 }
 
-impl<'a> ServerImpl<'a> {
+impl<'a, E> ServerImpl<'a, E>
+where
+    E: for<'d> smoltcp::phy::Device<'d>,
+{
     /// Size of buffer that must be allocated to use `dispatch`.
     pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
     /// Moves bits required by the server into a new `ServerImpl`.
     pub fn new(
-        socket_handles: [SocketHandle; generated::SOCKET_COUNT],
-        eth: Interface<'a, drv_stm32h7_eth::Ethernet>,
+        socket_handles: [[SocketHandle; generated::SOCKET_COUNT];
+            generated::INSTANCE_COUNT],
+        eths: [Interface<'a, E>; generated::INSTANCE_COUNT],
         bsp: crate::bsp::Bsp,
     ) -> Self {
         Self {
             socket_handles,
-            eth,
+            eths,
             bsp,
         }
     }
 
     /// Borrows a direct reference to the `smoltcp` `Interface` inside the
     /// server. This is exposed for use by the driver loop in main.
-    pub fn interface_mut(
-        &mut self,
-    ) -> &mut Interface<'a, drv_stm32h7_eth::Ethernet> {
-        &mut self.eth
+    pub fn interface_mut(&mut self) -> &mut Interface<'a, E> {
+        &mut self.eths[0] // TODO
     }
 }
 
-impl<'a> ServerImpl<'a> {
+impl<'a, E> ServerImpl<'a, E>
+where
+    E: for<'d> smoltcp::phy::Device<'d>,
+{
     /// Gets the socket handle for socket `index`. If `index` is out of range,
     /// returns `BadMessage`.
     ///
@@ -55,8 +64,9 @@ impl<'a> ServerImpl<'a> {
     fn get_handle(
         &self,
         index: usize,
+        instance: usize,
     ) -> Result<SocketHandle, RequestError<NetError>> {
-        self.socket_handles
+        self.socket_handles[instance]
             .get(index)
             .cloned()
             .ok_or(RequestError::Fail(ClientError::BadMessageContents))
@@ -70,7 +80,9 @@ impl<'a> ServerImpl<'a> {
         &mut self,
         index: usize,
     ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
-        Ok(self.eth.get_socket::<UdpSocket>(self.get_handle(index)?))
+        let instance = 0; // TODO
+        Ok(self.eths[instance]
+            .get_socket::<UdpSocket>(self.get_handle(index, instance)?))
     }
 
     /// Calls the `wake` function on the BSP, which handles things like
@@ -81,7 +93,10 @@ impl<'a> ServerImpl<'a> {
 }
 
 /// Implementation of the Net Idol interface.
-impl idl::InOrderNetImpl for ServerImpl<'_> {
+impl<E> idl::InOrderNetImpl for ServerImpl<'_, E>
+where
+    E: for<'d> smoltcp::phy::Device<'d>,
+{
     /// Requests that a packet waiting in the rx queue of `socket` be delivered
     /// into loaned memory at `payload`.
     ///
@@ -185,7 +200,10 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
     }
 }
 
-impl NotificationHandler for ServerImpl<'_> {
+impl<E> NotificationHandler for ServerImpl<'_, E>
+where
+    E: for<'d> smoltcp::phy::Device<'d>,
+{
     fn current_notification_mask(&self) -> u32 {
         // We're always listening for our interrupt or the wake (timer) irq
         ETH_IRQ | WAKE_IRQ
