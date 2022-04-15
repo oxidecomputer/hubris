@@ -154,7 +154,7 @@ fn main() -> ! {
     // Bind sockets to their ports.
     for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
         eth.get_socket::<UdpSocket>(h)
-            .bind(port)
+            .bind((ipv6_addr, port))
             .map_err(|_| ())
             .unwrap();
     }
