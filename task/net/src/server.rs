@@ -4,6 +4,8 @@
 
 //! Network IPC server implementation.
 
+use drv_stm32h7_eth as eth;
+
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use smoltcp::iface::{Interface, SocketHandle};
 use smoltcp::socket::UdpSocket;
@@ -17,9 +19,10 @@ pub struct ServerImpl<'a, E>
 where
     E: for<'d> smoltcp::phy::Device<'d>,
 {
+    eth: &'a eth::Ethernet,
     socket_handles:
         [[SocketHandle; generated::SOCKET_COUNT]; generated::INSTANCE_COUNT],
-    eths: [Interface<'a, E>; generated::INSTANCE_COUNT],
+    ifaces: [Interface<'a, E>; generated::INSTANCE_COUNT],
     bsp: crate::bsp::Bsp,
 }
 
@@ -32,14 +35,16 @@ where
 
     /// Moves bits required by the server into a new `ServerImpl`.
     pub fn new(
+        eth: &'a eth::Ethernet,
         socket_handles: [[SocketHandle; generated::SOCKET_COUNT];
             generated::INSTANCE_COUNT],
-        eths: [Interface<'a, E>; generated::INSTANCE_COUNT],
+        ifaces: [Interface<'a, E>; generated::INSTANCE_COUNT],
         bsp: crate::bsp::Bsp,
     ) -> Self {
         Self {
+            eth,
             socket_handles,
-            eths,
+            ifaces,
             bsp,
         }
     }
@@ -47,7 +52,8 @@ where
     /// Borrows a direct reference to the `smoltcp` `Interface` inside the
     /// server. This is exposed for use by the driver loop in main.
     pub fn interface_mut(&mut self) -> &mut Interface<'a, E> {
-        &mut self.eths[0] // TODO
+        let interface = 0; // TODO
+        &mut self.ifaces[interface]
     }
 }
 
@@ -81,14 +87,14 @@ where
         index: usize,
     ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
         let instance = 0; // TODO
-        Ok(self.eths[instance]
+        Ok(self.ifaces[instance]
             .get_socket::<UdpSocket>(self.get_handle(index, instance)?))
     }
 
     /// Calls the `wake` function on the BSP, which handles things like
     /// periodic logging and monitoring of ports.
-    pub fn wake(&mut self) {
-        self.bsp.wake(self.eth.device_mut());
+    pub fn wake(&self) {
+        self.bsp.wake(self.eth);
     }
 }
 
@@ -185,7 +191,7 @@ where
         register: u8,
     ) -> Result<u16, RequestError<NetError>> {
         // TODO: this should not be open to all callers!
-        Ok(self.eth.device_mut().smi_read(phy, register))
+        Ok(self.eth.smi_read(phy, register))
     }
 
     fn smi_write(
@@ -196,7 +202,7 @@ where
         value: u16,
     ) -> Result<(), RequestError<NetError>> {
         // TODO: this should not be open to all callers!
-        Ok(self.eth.device_mut().smi_write(phy, register, value))
+        Ok(self.eth.smi_write(phy, register, value))
     }
 }
 
@@ -212,7 +218,7 @@ where
     fn handle_notification(&mut self, bits: u32) {
         // Interrupt dispatch.
         if bits & ETH_IRQ != 0 {
-            self.eth.device_mut().on_interrupt();
+            self.eth.on_interrupt();
             userlib::sys_irq_control(ETH_IRQ, true);
         }
         // The wake IRQ is handled in the main `net` loop

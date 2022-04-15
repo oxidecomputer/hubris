@@ -146,7 +146,7 @@ impl Bsp {
         Self { mgmt, leds }
     }
 
-    pub fn wake(&self, eth: &mut eth::Ethernet) {
+    pub fn wake(&self, eth: &eth::Ethernet) {
         // Run the BSP wake function, which logs summarized data to a different
         // ringbuf; we'll still do verbose logging of full registers below.
         self.mgmt.wake(eth);

@@ -79,7 +79,7 @@ impl Bsp {
         Self { ksz8463 }
     }
 
-    pub fn wake(&self, _eth: &mut eth::Ethernet) {
+    pub fn wake(&self, _eth: &eth::Ethernet) {
         for port in [1, 2] {
             ringbuf_entry!(
                 match self.ksz8463.read(KszRegister::PxMBSR(port)) {

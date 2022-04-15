@@ -66,7 +66,7 @@ impl Bsp {
         Self {}
     }
 
-    pub fn wake(&self, _eth: &mut eth::Ethernet) {
+    pub fn wake(&self, _eth: &eth::Ethernet) {
         panic!("Wake should never be called, because WAKE_INTERVAL is None");
     }
 }

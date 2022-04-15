@@ -161,7 +161,7 @@ fn main() -> ! {
         generated::SOCKET_COUNT];
         generated::INSTANCE_COUNT];
 
-    let eths = [None; generated::INSTANCE_COUNT];
+    let ifaces = [None; generated::INSTANCE_COUNT];
     for i in 0..generated::INSTANCE_COUNT {
         let neighbor_cache = smoltcp::iface::NeighborCache::new(
             &mut neighbor_cache_storage[i][..],
@@ -189,10 +189,10 @@ fn main() -> ! {
                 .map_err(|_| ())
                 .unwrap();
         }
-        eths[i] = Some(eth);
+        ifaces[i] = Some(eth);
     }
 
-    let eths = eths.map(|e| e.unwrap());
+    let ifaces = ifaces.map(|e| e.unwrap());
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = bsp::Bsp::new(&mut eth, &sys);
@@ -201,7 +201,7 @@ fn main() -> ! {
     userlib::sys_irq_control(ETH_IRQ, true);
 
     // Move resources into the server impl.
-    let mut server = server::ServerImpl::new(socket_handles, eths, bsp);
+    let mut server = server::ServerImpl::new(&eth, socket_handles, ifaces, bsp);
 
     // Some of the BSPs include a 'wake' function which allows for periodic
     // logging.  We schedule a wake-up before entering the idol_runtime dispatch
@@ -248,7 +248,8 @@ fn main() -> ! {
                 }
                 sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
-            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
+            let mut msgbuf =
+                [0u8; server::ServerImpl::<EthernetFacade>::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

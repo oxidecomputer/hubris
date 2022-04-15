@@ -321,7 +321,7 @@ impl Ethernet {
     /// register (31); if you are using the `PhyRw` trait, then the extended
     /// page access register may not be set to 0, so this could return values
     /// from a register on an extended page!
-    pub fn smi_write(&mut self, phy: u8, register: impl Into<u8>, value: u16) {
+    pub fn smi_write(&self, phy: u8, register: impl Into<u8>, value: u16) {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 
@@ -350,7 +350,7 @@ impl Ethernet {
     /// register (31); if you are using the `PhyRw` trait, then the extended
     /// page access register may not be set to 0, so this could return values
     /// from a register on an extended page!
-    pub fn smi_read(&mut self, phy: u8, register: impl Into<u8>) -> u16 {
+    pub fn smi_read(&self, phy: u8, register: impl Into<u8>) -> u16 {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 

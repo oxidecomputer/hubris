@@ -80,7 +80,7 @@ impl Bsp {
         )
     }
 
-    pub fn wake(&self, eth: &mut eth::Ethernet) {
+    pub fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
     }
 }
