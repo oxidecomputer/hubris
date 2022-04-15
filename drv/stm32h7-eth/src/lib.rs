@@ -414,6 +414,13 @@ impl From<SmiClause22Register> for u8 {
 pub struct OurRxToken<'a>(&'a Ethernet);
 
 #[cfg(feature = "with-smoltcp")]
+impl<'a> OurRxToken<'a> {
+    pub fn new(eth: &'a Ethernet) -> Self {
+        Self(eth)
+    }
+}
+
+#[cfg(feature = "with-smoltcp")]
 impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
     fn consume<R, F>(
         self,
@@ -431,6 +438,13 @@ impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
 
 #[cfg(feature = "with-smoltcp")]
 pub struct OurTxToken<'a>(&'a Ethernet);
+
+#[cfg(feature = "with-smoltcp")]
+impl<'a> OurTxToken<'a> {
+    pub fn new(eth: &'a Ethernet) -> Self {
+        Self(eth)
+    }
+}
 
 #[cfg(feature = "with-smoltcp")]
 impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {

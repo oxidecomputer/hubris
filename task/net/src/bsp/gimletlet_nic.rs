@@ -56,7 +56,7 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    pub fn new(_eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(_eth: &eth::Ethernet, sys: &Sys) -> Self {
         let ksz8463 = loop {
             // SPI device is based on ordering in app.toml
             let ksz8463_spi = Spi::from(SPI.get_task_id()).device(0);

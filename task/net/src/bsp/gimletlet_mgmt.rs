@@ -114,7 +114,7 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
         // Turn on an LED to indicate that we're configuring

@@ -81,14 +81,23 @@ const NEIGHBORS: usize = 4;
 static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 
 struct EthernetFacade<'a>(&'a eth::Ethernet);
+use eth::{OurRxToken, OurTxToken};
 impl<'a, 'b> smoltcp::phy::Device<'a> for EthernetFacade<'b> {
-    type RxToken = eth::OurRxToken<'a>;
-    type TxToken = eth::OurTxToken<'a>;
+    type RxToken = OurRxToken<'a>;
+    type TxToken = OurTxToken<'a>;
     fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        self.0.receive()
+        if self.0.can_recv() && self.0.can_send() {
+            Some((OurRxToken::new(self.0), OurTxToken::new(self.0)))
+        } else {
+            None
+        }
     }
     fn transmit(&'a mut self) -> Option<Self::TxToken> {
-        self.0.transmit()
+        if self.0.can_send() {
+            Some(OurTxToken::new(self.0))
+        } else {
+            None
+        }
     }
     fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
         self.0.capabilities()
@@ -144,16 +153,19 @@ fn main() -> ! {
     let ipv6_addr = link_local_iface_addr(mac);
     let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
 
-    let mut ip_addrs = [ipv6_net];
+    let mut ip_addrs = [ipv6_net; generated::INSTANCE_COUNT];
+    let mut ip_addr_slice = &mut ip_addrs[..];
 
     type NeighborStorage = [Option<(IpAddress, Neighbor)>; NEIGHBORS];
     let mut neighbor_cache_storage: [NeighborStorage;
         generated::INSTANCE_COUNT] =
         [[None; NEIGHBORS]; generated::INSTANCE_COUNT];
+    let mut neighbor_cache_slice = &mut neighbor_cache_storage[..];
 
     let mut socket_storage = [[smoltcp::iface::SocketStorage::EMPTY;
         generated::SOCKET_COUNT];
         generated::INSTANCE_COUNT];
+    let mut socket_slice = &mut socket_storage[..];
 
     // Create sockets
     let sockets = generated::construct_sockets();
@@ -161,24 +173,32 @@ fn main() -> ! {
         generated::SOCKET_COUNT];
         generated::INSTANCE_COUNT];
 
-    let ifaces = [None; generated::INSTANCE_COUNT];
+    let mut ifaces = [None; generated::INSTANCE_COUNT];
+
     for i in 0..generated::INSTANCE_COUNT {
-        let neighbor_cache = smoltcp::iface::NeighborCache::new(
-            &mut neighbor_cache_storage[i][..],
-        );
-        let eth = smoltcp::iface::InterfaceBuilder::new(
+        let (first, rest) = neighbor_cache_slice.split_at_mut(1);
+        neighbor_cache_slice = rest;
+        let neighbor_cache =
+            smoltcp::iface::NeighborCache::new(&mut first[0][..]);
+
+        let (first, rest) = socket_slice.split_at_mut(1);
+        socket_slice = rest;
+        let builder = smoltcp::iface::InterfaceBuilder::new(
             EthernetFacade(&eth),
-            &mut socket_storage[i][..],
-        )
-        .hardware_addr(mac.into())
-        .neighbor_cache(neighbor_cache)
-        .ip_addrs(&mut ip_addrs[..])
-        .finalize();
+            &mut first[0][..],
+        );
+
+        let (first, rest) = ip_addr_slice.split_at_mut(1);
+        ip_addr_slice = rest;
+        let mut eth = builder
+            .hardware_addr(mac.into())
+            .neighbor_cache(neighbor_cache)
+            .ip_addrs(first)
+            .finalize();
 
         // Associate them with the interface.
-        for (socket, h) in sockets.0[i].into_iter().zip(&mut socket_handles[i])
-        {
-            *h = eth.add_socket(socket);
+        for (socket, h) in sockets.0[i].iter().zip(&mut socket_handles[i]) {
+            *h = eth.add_socket(*socket);
         }
         // Bind sockets to their ports.
         for (&h, &port) in
@@ -195,7 +215,7 @@ fn main() -> ! {
     let ifaces = ifaces.map(|e| e.unwrap());
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(&mut eth, &sys);
+    let bsp = bsp::Bsp::new(&eth, &sys);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);

@@ -14,7 +14,7 @@ pub struct MiimBridge<'a> {
 }
 
 impl<'a> MiimBridge<'a> {
-    pub fn new(eth: &'a mut eth::Ethernet) -> Self {
+    pub fn new(eth: &'a eth::Ethernet) -> Self {
         Self { eth }
     }
 }

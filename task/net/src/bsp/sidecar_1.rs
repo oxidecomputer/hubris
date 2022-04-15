@@ -51,7 +51,7 @@ pub fn preinit() {
 }
 
 impl Bsp {
-    pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let bsp = mgmt::Config {
             // SP_TO_LDO_PHY2_EN (turns on both P2V5 and P1V0)
             power_en: Some(Port::I.pin(11)),

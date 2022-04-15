@@ -42,7 +42,7 @@ pub fn preinit() {
 // Empty handle
 pub struct Bsp;
 impl Bsp {
-    pub fn new(eth: &mut eth::Ethernet, _sys: &Sys) -> Self {
+    pub fn new(eth: &eth::Ethernet, _sys: &Sys) -> Self {
         // Set up the PHY.
         let mii_basic_control =
             eth.smi_read(PHYADDR, eth::SmiClause22Register::Control);
