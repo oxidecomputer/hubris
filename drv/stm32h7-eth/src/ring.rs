@@ -44,8 +44,15 @@ impl Buffer {
 ///
 /// This is deliberately opaque to viewers outside this module, so that we can
 /// carefully control accesses to its contents.
+///
+/// When using VLANs, we always pair a Tx descriptor with a context descriptor
+/// that sets the VLAN tag.
 #[repr(transparent)]
 pub struct TxDesc {
+    #[cfg(feature = "vlan")]
+    cdes: [AtomicU32; 4],
+
+    /// Transmit descriptor
     tdes: [AtomicU32; 4],
 }
 

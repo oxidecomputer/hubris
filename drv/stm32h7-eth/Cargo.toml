@@ -10,6 +10,7 @@ h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
 ipv4 = []
 ipv6 = []
+vlan = []
 
 [dependencies]
 cfg-if = "1"
