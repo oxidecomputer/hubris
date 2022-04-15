@@ -98,6 +98,13 @@ enum DState {
     /// We're in a run, we are going to produce the given byte N times, where
     /// the count on the right is `N-1`.
     Repeating(u8, RunType),
+    /// We encountered an escape byte, keep track of this fact in the event that
+    /// the input is exhausted before the full run sequence was read.
+    AwaitingByte,
+    /// An escape byte and the byte to be produced was read, keep track of this
+    /// fact in the event that the input is exhausted before the full run
+    /// sequence was read.
+    AwaitingCount(u8),
 }
 
 /// Decompresses a chunk of data `input`, writing results to the start of
@@ -140,17 +147,23 @@ pub fn decompress<'a>(
             }
             DState::Copying => match take_byte(input) {
                 Some(ESC) => {
-                    let actual_byte = take_byte(input);
-                    let count = take_byte(input);
-                    if let (Some(ab), Some(c)) = (actual_byte, count) {
-                        state.0 = DState::Repeating(ab, c);
-                    } else {
-                        break;
-                    }
+                    state.0 = DState::AwaitingByte;
                 }
                 Some(byte) => {
                     output[n] = byte;
                     n += 1;
+                }
+                None => break,
+            },
+            DState::AwaitingByte => match take_byte(input) {
+                Some(byte) => {
+                    state.0 = DState::AwaitingCount(byte);
+                }
+                None => break,
+            },
+            DState::AwaitingCount(byte) => match take_byte(input) {
+                Some(count) => {
+                    state.0 = DState::Repeating(*byte, count);
                 }
                 None => break,
             },
