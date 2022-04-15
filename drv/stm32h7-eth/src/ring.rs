@@ -218,6 +218,15 @@ impl TxRing {
             Some(result)
         }
     }
+
+    pub fn vlan_try_with_next<R>(
+        &self,
+        len: usize,
+        vid: u16,
+        body: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        unimplemented!()
+    }
 }
 
 /// Receive descriptor record.
@@ -414,6 +423,14 @@ impl RxRing {
                 }
             }
         }
+    }
+
+    pub fn vlan_try_with_next<R>(
+        &self,
+        vid: u16,
+        body: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        unimplemented!()
     }
 
     /// Programs the words in `d` to prepare to receive into `buffer` and sets

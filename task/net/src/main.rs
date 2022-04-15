@@ -7,6 +7,7 @@
 
 mod bsp;
 mod buf;
+mod handle;
 mod server;
 
 pub mod pins;
@@ -80,30 +81,6 @@ const NEIGHBORS: usize = 4;
 /// debugger.
 static ITER_COUNT: AtomicU32 = AtomicU32::new(0);
 
-struct EthernetFacade<'a>(&'a eth::Ethernet);
-use eth::{OurRxToken, OurTxToken};
-impl<'a, 'b> smoltcp::phy::Device<'a> for EthernetFacade<'b> {
-    type RxToken = OurRxToken<'a>;
-    type TxToken = OurTxToken<'a>;
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        if self.0.can_recv() && self.0.can_send() {
-            Some((OurRxToken::new(self.0), OurTxToken::new(self.0)))
-        } else {
-            None
-        }
-    }
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
-        if self.0.can_send() {
-            Some(OurTxToken::new(self.0))
-        } else {
-            None
-        }
-    }
-    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
-        self.0.capabilities()
-    }
-}
-
 #[export_name = "main"]
 fn main() -> ! {
     let sys = SYS.get_task_id();
@@ -175,7 +152,9 @@ fn main() -> ! {
 
     let mut ifaces = [None; generated::INSTANCE_COUNT];
 
-    for i in 0..generated::INSTANCE_COUNT {
+    for (i, (sockets, socket_handles)) in
+        sockets.0.into_iter().zip(&mut socket_handles).enumerate()
+    {
         let (first, rest) = neighbor_cache_slice.split_at_mut(1);
         neighbor_cache_slice = rest;
         let neighbor_cache =
@@ -184,7 +163,12 @@ fn main() -> ! {
         let (first, rest) = socket_slice.split_at_mut(1);
         socket_slice = rest;
         let builder = smoltcp::iface::InterfaceBuilder::new(
-            EthernetFacade(&eth),
+            handle::EthernetHandle {
+                eth: &eth,
+
+                #[cfg(feature = "vlan")]
+                vid: generated::VLAN_START + i,
+            },
             &mut first[0][..],
         );
 
@@ -197,13 +181,11 @@ fn main() -> ! {
             .finalize();
 
         // Associate them with the interface.
-        for (socket, h) in sockets.0[i].iter().zip(&mut socket_handles[i]) {
-            *h = eth.add_socket(*socket);
+        for (socket, h) in sockets.into_iter().zip(socket_handles.iter_mut()) {
+            *h = eth.add_socket(socket);
         }
         // Bind sockets to their ports.
-        for (&h, &port) in
-            socket_handles[i].iter().zip(&generated::SOCKET_PORTS)
-        {
+        for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
             eth.get_socket::<UdpSocket>(h)
                 .bind((ipv6_addr, port))
                 .map_err(|_| ())
@@ -268,8 +250,8 @@ fn main() -> ! {
                 }
                 sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
-            let mut msgbuf =
-                [0u8; server::ServerImpl::<EthernetFacade>::INCOMING_SIZE];
+            let mut msgbuf = [0u8;
+                server::ServerImpl::<handle::EthernetHandle>::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

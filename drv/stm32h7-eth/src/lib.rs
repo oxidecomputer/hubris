@@ -237,6 +237,21 @@ impl Ethernet {
         });
         Some(result)
     }
+    /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
+    /// packet (if present)
+    pub fn vlan_try_send<R>(
+        &self,
+        len: usize,
+        vid: u16,
+        fillout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        self.dma.dmactx_dtpr.write(|w| unsafe {
+            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+        });
+        Some(result)
+    }
 
     pub fn can_recv(&self) -> bool {
         self.rx_ring.is_next_free()
@@ -261,6 +276,21 @@ impl Ethernet {
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
         // Poke the tail pointer so the hardware knows to recheck (dropping two
         // bottom bits because svd2rust)
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
+        Some(result)
+    }
+
+    /// Same as `try_recv`, but only receiving packets that match a particular
+    /// VLAN tag.
+    pub fn vlan_try_recv<R>(
+        &self,
+        vid: u16,
+        readout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.rx_ring.vlan_try_with_next(vid, readout)?;
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
         self.dma.dmacrx_dtpr.write(|w| unsafe {
             w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
         });
@@ -411,7 +441,7 @@ impl From<SmiClause22Register> for u8 {
 }
 
 #[cfg(feature = "with-smoltcp")]
-pub struct OurRxToken<'a>(&'a Ethernet);
+pub struct OurRxToken<'a>(pub &'a Ethernet);
 
 #[cfg(feature = "with-smoltcp")]
 impl<'a> OurRxToken<'a> {
@@ -437,7 +467,7 @@ impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
 }
 
 #[cfg(feature = "with-smoltcp")]
-pub struct OurTxToken<'a>(&'a Ethernet);
+pub struct OurTxToken<'a>(pub &'a Ethernet);
 
 #[cfg(feature = "with-smoltcp")]
 impl<'a> OurTxToken<'a> {
