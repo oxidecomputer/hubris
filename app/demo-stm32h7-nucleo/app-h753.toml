@@ -137,6 +137,7 @@ task-slots = ["user_leds"]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
+features = ["vlan"]
 requires = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true

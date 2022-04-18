@@ -22,6 +22,9 @@ pub struct UdpMetadata {
     pub addr: Address,
     pub port: u16,
     pub size: u32,
+
+    #[cfg(feature = "vlan")]
+    pub vid: u16,
 }
 
 #[cfg(feature = "use-smoltcp")]

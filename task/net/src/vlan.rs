@@ -207,13 +207,51 @@ impl<'a> ServerImpl<'a> {
         unimplemented!()
     }
 
-    /// Iterate over sockets, waking any that can do work.
+    /// Iterate over sockets, waking any that can do work.  A task can do work
+    /// if all of the (internal) VLAN sockets can receive a packet, since
+    /// we don't know which VLAN it will write to.
     pub fn wake_sockets(&mut self) {
-        unimplemented!()
+        for i in 0..SOCKET_COUNT {
+            if (0..VLAN_COUNT)
+                .all(|v| self.get_socket_mut(i, v).unwrap().can_recv())
+            {
+                let (task_id, notification) = generated::SOCKET_OWNERS[i];
+                let task_id = sys_refresh_task_id(task_id);
+                sys_post(task_id, notification);
+            }
+        }
     }
 
     pub fn wake(&self) {
         self.bsp.wake(&self.eth)
+    }
+
+    fn get_handle(
+        &self,
+        index: usize,
+        vlan_index: usize,
+    ) -> Result<SocketHandle, RequestError<NetError>> {
+        self.socket_handles
+            .get(vlan_index)
+            .ok_or(RequestError::Fail(ClientError::BadMessageContents))
+            .and_then(|s| {
+                s.get(index)
+                    .cloned()
+                    .ok_or(RequestError::Fail(ClientError::BadMessageContents))
+            })
+    }
+
+    /// Gets the socket `index`. If `index` is out of range, returns
+    /// `BadMessage`.
+    ///
+    /// Sockets are currently assumed to be UDP.
+    fn get_socket_mut(
+        &mut self,
+        index: usize,
+        vlan_index: usize,
+    ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
+        Ok(self.ifaces[vlan_index]
+            .get_socket::<UdpSocket>(self.get_handle(index, vlan_index)?))
     }
 }
 
