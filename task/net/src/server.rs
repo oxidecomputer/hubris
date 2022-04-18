@@ -35,7 +35,7 @@ impl<'a> ServerStorage<'a> {
         Self {
             eth,
             neighbor_cache_storage: [None; NEIGHBORS],
-            socket_storage: [SocketStorage::default(); SOCKET_COUNT],
+            socket_storage: Default::default(),
             ipv6_net: [Ipv6Cidr::default().into()],
         }
     }
