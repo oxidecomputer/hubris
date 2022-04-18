@@ -27,6 +27,11 @@ cfg_if::cfg_if! {
     }
 }
 
+mod idl {
+    use task_net_api::{NetError, SocketName, UdpMetadata};
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
+
 use core::sync::atomic::{AtomicU32, Ordering};
 use zerocopy::AsBytes;
 
@@ -132,13 +137,14 @@ fn main() -> ! {
     use smoltcp::wire::EthernetAddress;
     let mac = EthernetAddress::from_bytes(mac_address());
 
-    // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(&eth, &sys);
-
     // Configure the server and its local storage arrays (on the stack)
     let ipv6_addr = link_local_iface_addr(mac);
-    let mut storage = ServerStorage::new(ipv6_addr);
-    let mut server = ServerImpl::new(eth, mac, &mut storage, bsp);
+    let mut storage = ServerStorage::new(eth, ipv6_addr);
+
+    // Board-dependant initialization (e.g. bringing up the PHYs)
+    let bsp = bsp::Bsp::new(&storage.eth, &sys);
+
+    let mut server = ServerImpl::new(&mut storage, mac, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
@@ -170,7 +176,7 @@ fn main() -> ! {
                 }
                 sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
-            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
+            let mut msgbuf = [0u8; ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

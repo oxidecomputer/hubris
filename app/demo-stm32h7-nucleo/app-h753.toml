@@ -99,8 +99,8 @@ path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 2
-requires = {flash = 131072, ram = 8192, sram1 = 32768}
-features = ["h753"]
+requires = {flash = 131072, ram = 16384, sram1 = 32768}
+features = ["h753", "h7-vlan"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -227,6 +227,8 @@ cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]
+vlan_start = 0x301
+vlan_count = 2
 
 [config.net.sockets.echo]
 kind = "udp"

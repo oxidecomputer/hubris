@@ -16,7 +16,7 @@ use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
-use crate::{ETH_IRQ, NEIGHBORS, WAKE_IRQ};
+use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 /// Storage required to run a single [ServerImpl]. This should be allocated
 /// on the stack and passed into the constructor for the [ServerImpl].
@@ -271,10 +271,4 @@ impl NotificationHandler for ServerImpl<'_> {
         }
         // The wake IRQ is handled in the main `net` loop
     }
-}
-
-mod idl {
-    use task_net_api::{NetError, SocketName, UdpMetadata};
-
-    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

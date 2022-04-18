@@ -20,16 +20,10 @@ pub struct NetConfig {
     pub sockets: BTreeMap<String, SocketConfig>,
 
     /// Address of the lowest VLAN
-    pub vlan_start: Option<u16>,
+    pub vlan_start: Option<usize>,
 
     /// Number of VLANs
-    pub vlan_count: Option<u16>,
-}
-
-impl NetConfig {
-    pub fn instances(&self) -> Option<usize> {
-        self.vlan_count.map(|i| i as usize)
-    }
+    pub vlan_count: Option<usize>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -57,7 +51,30 @@ pub struct TaskNote {
 }
 
 pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
-    Ok(build_util::config::<GlobalConfig>()?.net)
+    let cfg = build_util::config::<GlobalConfig>()?.net;
+
+    #[cfg(feature = "vlan")]
+    {
+        if cfg.vlan_count.is_none() {
+            panic!("VLAN feature is enabled, but vlan_count is missing from config");
+        } else if cfg.vlan_start.is_none() {
+            panic!("VLAN feature is enabled, but vlan_start is missing from config");
+        }
+    }
+    #[cfg(not(feature = "vlan"))]
+    {
+        if cfg.vlan_count.is_some() {
+            panic!(
+                "VLAN feature is disabled, but vlan_count is present in config"
+            );
+        } else if cfg.vlan_start.is_some() {
+            panic!(
+                "VLAN feature is disabled, but vlan_start is present in config"
+            );
+        }
+    }
+
+    Ok(cfg)
 }
 
 pub fn generate_socket_enum(
