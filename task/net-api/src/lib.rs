@@ -15,6 +15,7 @@ use userlib::*;
 pub enum NetError {
     QueueEmpty = 1,
     NotYours = 2,
+    InvalidVLan = 3,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

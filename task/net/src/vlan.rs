@@ -20,7 +20,7 @@ use smoltcp::wire::{
 use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
-use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT};
+use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_START};
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
@@ -269,8 +269,46 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         socket: SocketName,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<UdpMetadata, RequestError<NetError>> {
-        unimplemented!()
+        let socket_index = socket as usize;
+
+        if generated::SOCKET_OWNERS[socket_index].0.index()
+            != msg.sender.index()
+        {
+            return Err(NetError::NotYours.into());
+        }
+
+        // Iterate over all of the per-VLAN sockets, returning the first
+        // available packet with a bonus `vid` tag attached in the metadata.
+        for v in 0..VLAN_COUNT {
+            let socket = self.get_socket_mut(socket_index, v)?;
+            match socket.recv() {
+                Ok((body, endp)) => {
+                    if payload.len() < body.len() {
+                        return Err(RequestError::Fail(ClientError::BadLease));
+                    }
+                    payload
+                        .write_range(0..body.len(), body)
+                        .map_err(|_| RequestError::went_away())?;
+
+                    return Ok(UdpMetadata {
+                        port: endp.port,
+                        size: body.len() as u32,
+                        addr: endp.addr.try_into().map_err(|_| ()).unwrap(),
+                        vid: (v as usize + VLAN_START).try_into().unwrap(),
+                    });
+                }
+                Err(smoltcp::Error::Exhausted) => {
+                    // Keep iterating
+                }
+                Err(_) => {
+                    // uhhhh TODO
+                    // (keep iterating in the meantime)
+                }
+            }
+        }
+        Err(NetError::QueueEmpty.into())
     }
+
     /// Requests to copy a packet into the tx queue of socket `socket`,
     /// described by `metadata` and containing the bytes loaned in `payload`.
     fn send_packet(
@@ -280,7 +318,38 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         metadata: UdpMetadata,
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
     ) -> Result<(), RequestError<NetError>> {
-        unimplemented!()
+        let socket_index = socket as usize;
+        if generated::SOCKET_OWNERS[socket_index].0.index()
+            != msg.sender.index()
+        {
+            return Err(NetError::NotYours.into());
+        }
+
+        let vlan_index = (metadata.vid as usize)
+            .checked_sub(VLAN_START)
+            .ok_or(NetError::InvalidVLan)?;
+        if vlan_index >= VLAN_COUNT {
+            return Err(NetError::InvalidVLan.into());
+        }
+
+        let socket = self.get_socket_mut(socket_index, vlan_index)?;
+        match socket.send(payload.len(), metadata.into()) {
+            Ok(buf) => {
+                payload
+                    .read_range(0..payload.len(), buf)
+                    .map_err(|_| RequestError::went_away())?;
+                Ok(())
+            }
+            Err(smoltcp::Error::Exhausted) => {
+                // TODO this is not quite right
+                Err(NetError::QueueEmpty.into())
+            }
+            Err(_e) => {
+                // uhhhh TODO
+                // TODO this is not quite right
+                Err(NetError::QueueEmpty.into())
+            }
+        }
     }
 
     fn smi_read(
