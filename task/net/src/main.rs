@@ -7,16 +7,25 @@
 
 mod bsp;
 mod buf;
-mod handle;
-mod server;
 
 pub mod pins;
 
-#[cfg(feature = "mgmt")]
-mod miim_bridge;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "vlan")] {
+        mod vlan;
+        use vlan::{ServerImpl, ServerStorage};
+    } else {
+        mod server;
+        use server::{ServerImpl, ServerStorage};
+    }
+}
 
-#[cfg(feature = "mgmt")]
-pub(crate) mod mgmt;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "mgmt")] {
+        mod miim_bridge;
+        pub(crate) mod mgmt;
+    }
+}
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use zerocopy::AsBytes;
@@ -120,90 +129,19 @@ fn main() -> ! {
     );
 
     // Set up the network stack.
-
-    use smoltcp::iface::Neighbor;
-    use smoltcp::socket::UdpSocket;
-    use smoltcp::wire::{EthernetAddress, IpAddress};
-
+    use smoltcp::wire::EthernetAddress;
     let mac = EthernetAddress::from_bytes(mac_address());
-
-    let ipv6_addr = link_local_iface_addr(mac);
-    let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
-
-    let mut ip_addrs = [ipv6_net; generated::INSTANCE_COUNT];
-    let mut ip_addr_slice = &mut ip_addrs[..];
-
-    type NeighborStorage = [Option<(IpAddress, Neighbor)>; NEIGHBORS];
-    let mut neighbor_cache_storage: [NeighborStorage;
-        generated::INSTANCE_COUNT] =
-        [[None; NEIGHBORS]; generated::INSTANCE_COUNT];
-    let mut neighbor_cache_slice = &mut neighbor_cache_storage[..];
-
-    let mut socket_storage = [[smoltcp::iface::SocketStorage::EMPTY;
-        generated::SOCKET_COUNT];
-        generated::INSTANCE_COUNT];
-    let mut socket_slice = &mut socket_storage[..];
-
-    // Create sockets
-    let sockets = generated::construct_sockets();
-    let mut socket_handles = [[smoltcp::iface::SocketHandle::default();
-        generated::SOCKET_COUNT];
-        generated::INSTANCE_COUNT];
-
-    let mut ifaces = [None; generated::INSTANCE_COUNT];
-
-    for (i, (sockets, socket_handles)) in
-        sockets.0.into_iter().zip(&mut socket_handles).enumerate()
-    {
-        let (first, rest) = neighbor_cache_slice.split_at_mut(1);
-        neighbor_cache_slice = rest;
-        let neighbor_cache =
-            smoltcp::iface::NeighborCache::new(&mut first[0][..]);
-
-        let (first, rest) = socket_slice.split_at_mut(1);
-        socket_slice = rest;
-        let builder = smoltcp::iface::InterfaceBuilder::new(
-            handle::EthernetHandle {
-                eth: &eth,
-
-                #[cfg(feature = "vlan")]
-                vid: generated::VLAN_START + i,
-            },
-            &mut first[0][..],
-        );
-
-        let (first, rest) = ip_addr_slice.split_at_mut(1);
-        ip_addr_slice = rest;
-        let mut eth = builder
-            .hardware_addr(mac.into())
-            .neighbor_cache(neighbor_cache)
-            .ip_addrs(first)
-            .finalize();
-
-        // Associate them with the interface.
-        for (socket, h) in sockets.into_iter().zip(socket_handles.iter_mut()) {
-            *h = eth.add_socket(socket);
-        }
-        // Bind sockets to their ports.
-        for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
-            eth.get_socket::<UdpSocket>(h)
-                .bind((ipv6_addr, port))
-                .map_err(|_| ())
-                .unwrap();
-        }
-        ifaces[i] = Some(eth);
-    }
-
-    let ifaces = ifaces.map(|e| e.unwrap());
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
     let bsp = bsp::Bsp::new(&eth, &sys);
 
+    // Configure the server and its local storage arrays (on the stack)
+    let ipv6_addr = link_local_iface_addr(mac);
+    let mut storage = ServerStorage::new(ipv6_addr);
+    let mut server = ServerImpl::new(eth, mac, &mut storage, bsp);
+
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
-
-    // Move resources into the server impl.
-    let mut server = server::ServerImpl::new(&eth, socket_handles, ifaces, bsp);
 
     // Some of the BSPs include a 'wake' function which allows for periodic
     // logging.  We schedule a wake-up before entering the idol_runtime dispatch
@@ -215,30 +153,12 @@ fn main() -> ! {
         ITER_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // Call into smoltcp.
-        let poll_result =
-            server
-                .interface_mut()
-                .poll(smoltcp::time::Instant::from_millis(
-                    userlib::sys_get_timer().now as i64,
-                ));
-
+        let poll_result = server.poll(userlib::sys_get_timer().now);
         let any_activity = poll_result.unwrap_or(true);
 
         if any_activity {
-            // There's something to do. Iterate over sockets looking for work.
-            // TODO making every packet O(n) in the number of sockets is super
-            // lame; provide a Waker to fix this.
-            for i in 0..generated::SOCKET_COUNT {
-                if server.get_socket_mut(i).unwrap().can_recv() {
-                    // Make sure the owner knows about this. This can
-                    // technically cause spurious wakeups if the owner is
-                    // already waiting in our incoming queue to recv. Maybe we
-                    // fix this later.
-                    let (task_id, notification) = generated::SOCKET_OWNERS[i];
-                    let task_id = sys_refresh_task_id(task_id);
-                    sys_post(task_id, notification);
-                }
-            }
+            // Ask the server to iterate over sockets looking for work
+            server.wake_sockets();
         } else {
             // No work to do immediately. Wait for an ethernet IRQ or an
             // incoming message, or for a certain amount of time to pass.
@@ -250,8 +170,7 @@ fn main() -> ! {
                 }
                 sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
-            let mut msgbuf = [0u8;
-                server::ServerImpl::<handle::EthernetHandle>::INCOMING_SIZE];
+            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

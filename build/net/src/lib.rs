@@ -27,11 +27,8 @@ pub struct NetConfig {
 }
 
 impl NetConfig {
-    pub fn instances(&self) -> usize {
-        match self.vlan_count {
-            Some(i) => i as usize,
-            None => 1,
-        }
+    pub fn instances(&self) -> Option<usize> {
+        self.vlan_count.map(|i| i as usize)
     }
 }
 

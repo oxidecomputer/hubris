@@ -30,7 +30,6 @@ fn generate_net_config(
     let mut out = std::fs::File::create(&dest_path)?;
 
     let socket_count = config.sockets.len();
-    let instances = config.instances();
     writeln!(
         out,
         "{}",
@@ -39,16 +38,23 @@ fn generate_net_config(
             use smoltcp::socket::{UdpPacketMetadata, UdpSocket, UdpSocketBuffer};
 
             pub const SOCKET_COUNT: usize = #socket_count;
-            pub const INSTANCE_COUNT: usize = #instances;
         }
     )?;
 
-    for (name, socket) in &config.sockets {
+    // If we're configured for VLAN, then write an instance count
+    let instances = config.instances();
+    if let Some(instances) = instances {
         writeln!(
             out,
             "{}",
-            generate_socket_state(name, socket, config.instances())?
+            quote::quote! {
+                pub const INSTANCE_COUNT: usize = #instances;
+            }
         )?;
+    }
+
+    for (name, socket) in &config.sockets {
+        writeln!(out, "{}", generate_socket_state(name, socket, instances)?)?;
     }
     writeln!(out, "{}", generate_state_struct(&config)?)?;
     writeln!(out, "{}", generate_constructor(&config)?)?;
@@ -110,7 +116,7 @@ fn generate_owner_info(
 fn generate_socket_state(
     name: &str,
     config: &SocketConfig,
-    instances: usize,
+    instances: Option<usize>,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     if config.kind != "udp" {
         return Err("unsupported socket kind".into());
@@ -128,7 +134,7 @@ fn generate_buffers(
     name: &str,
     dir: &str,
     config: &BufSize,
-    instances: usize,
+    instances: Option<usize>,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     let pktcnt = config.packets;
     let bytecnt = config.bytes;
@@ -137,11 +143,19 @@ fn generate_buffers(
         syn::parse_str(&format!("SOCK_{}_HDR_{}", dir, upname)).unwrap();
     let bufname: syn::Ident =
         syn::parse_str(&format!("SOCK_{}_DAT_{}", dir, upname)).unwrap();
-    Ok(quote::quote! {
-        static mut #hdrname: [[UdpPacketMetadata; #pktcnt]; #instances] = [
-            [UdpPacketMetadata::EMPTY; #pktcnt]; #instances
-        ];
-        static mut #bufname: [[u8; #bytecnt]; #instances] = [[0u8; #bytecnt]; #instances];
+    Ok(if let Some(instances) = instances {
+        quote::quote! {
+            static mut #hdrname: [[UdpPacketMetadata; #pktcnt]; #instances] = [
+                [UdpPacketMetadata::EMPTY; #pktcnt]; #instances
+            ];
+            static mut #bufname: [[u8; #bytecnt]; #instances] = [[0u8; #bytecnt]; #instances];
+        }
+    } else {
+        quote::quote! {
+            static mut #hdrname: [UdpPacketMetadata; #pktcnt] =
+                [UdpPacketMetadata::EMPTY; #pktcnt];
+            static mut #bufname: [u8; #bytecnt] = [0u8; #bytecnt];
+        }
     })
 }
 
@@ -149,50 +163,66 @@ fn generate_state_struct(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     let n = config.sockets.len();
-    let instances = config.instances();
-    Ok(quote::quote! {
-        pub(crate) struct Sockets<'a>(pub [[UdpSocket<'a>; #n]; #instances]);
+    Ok(if let Some(instances) = config.instances() {
+        quote::quote! {
+            pub(crate) struct Sockets<'a>(pub [[UdpSocket<'a>; #n]; #instances]);
+        }
+    } else {
+        quote::quote! {
+            pub(crate) struct Sockets<'a>(pub [UdpSocket<'a>; #n]);
+        }
     })
 }
 
 fn generate_constructor(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
-    let sockets = (0..config.instances()).map(|i| {
-        let s = config
-            .sockets
-            .keys()
-            .map(|name| {
-                let upname = name.to_ascii_uppercase();
-                let rxhdrs: syn::Ident =
-                    syn::parse_str(&format!("SOCK_RX_HDR_{}", upname)).unwrap();
-                let rxbytes: syn::Ident =
-                    syn::parse_str(&format!("SOCK_RX_DAT_{}", upname)).unwrap();
-                let txhdrs: syn::Ident =
-                    syn::parse_str(&format!("SOCK_TX_HDR_{}", upname)).unwrap();
-                let txbytes: syn::Ident =
-                    syn::parse_str(&format!("SOCK_TX_DAT_{}", upname)).unwrap();
+    let name_to_sockets = |name: &String| {
+        let upname = name.to_ascii_uppercase();
+        let rxhdrs: syn::Ident =
+            syn::parse_str(&format!("SOCK_RX_HDR_{}", upname)).unwrap();
+        let rxbytes: syn::Ident =
+            syn::parse_str(&format!("SOCK_RX_DAT_{}", upname)).unwrap();
+        let txhdrs: syn::Ident =
+            syn::parse_str(&format!("SOCK_TX_HDR_{}", upname)).unwrap();
+        let txbytes: syn::Ident =
+            syn::parse_str(&format!("SOCK_TX_DAT_{}", upname)).unwrap();
 
+        quote::quote! {
+           UdpSocket::new(
+               UdpSocketBuffer::new(
+                   unsafe { &mut #rxhdrs[..] },
+                   unsafe { &mut #rxbytes[..] },
+               ),
+               UdpSocketBuffer::new(
+                   unsafe { &mut #txhdrs[..] },
+                   unsafe { &mut #txbytes[..] },
+               ),
+           )
+        }
+    };
+    let sockets = if let Some(instances) = config.instances() {
+        (0..instances)
+            .map(|_i| {
+                let s = config
+                    .sockets
+                    .keys()
+                    .map(name_to_sockets)
+                    .collect::<Vec<_>>();
                 quote::quote! {
-                    UdpSocket::new(
-                        UdpSocketBuffer::new(
-                            unsafe { &mut #rxhdrs[#i][..] },
-                            unsafe { &mut #rxbytes[#i][..] },
-                        ),
-                        UdpSocketBuffer::new(
-                            unsafe { &mut #txhdrs[#i][..] },
-                            unsafe { &mut #txbytes[#i][..] },
-                        ),
-                    )
+                    [
+                        #( #s ),*
+                    ]
                 }
             })
-            .collect::<Vec<_>>();
-        quote::quote! {
-            [
-                #( #s ),*
-            ]
-        }
-    });
+            .collect::<Vec<_>>()
+    } else {
+        config
+            .sockets
+            .keys()
+            .map(name_to_sockets)
+            .collect::<Vec<_>>()
+    };
     Ok(quote::quote! {
         static CTOR_FLAG: AtomicBool = AtomicBool::new(false);
         pub(crate) fn construct_sockets() -> Sockets<'static> {
