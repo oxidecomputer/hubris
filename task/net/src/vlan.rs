@@ -204,7 +204,12 @@ impl<'a> ServerImpl<'a> {
     }
 
     pub fn poll(&mut self, t: u64) -> smoltcp::Result<bool> {
-        unimplemented!()
+        let t = smoltcp::time::Instant::from_millis(t as i64);
+        let mut any_activity = false;
+        for iface in &mut self.ifaces {
+            any_activity |= iface.poll(t)?;
+        }
+        Ok(any_activity)
     }
 
     /// Iterate over sockets, waking any that can do work.  A task can do work
