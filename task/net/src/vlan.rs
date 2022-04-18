@@ -29,7 +29,7 @@ type NeighborStorage = Option<(IpAddress, Neighbor)>;
 /// on the stack and passed into the constructor for the [ServerImpl].
 pub struct ServerStorage<'a> {
     pub eth: eth::Ethernet,
-    neighbor_cache_storage: [[NeighborCache; NEIGHBORS]; VLAN_COUNT],
+    neighbor_cache_storage: [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
     socket_storage: [[SocketStorage<'a>; SOCKET_COUNT]; VLAN_COUNT],
     ipv6_net: [IpCidr; VLAN_COUNT],
 }

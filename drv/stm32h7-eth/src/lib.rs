@@ -268,6 +268,8 @@ impl Ethernet {
     ///
     /// If there are no packets waiting in the RX ring, this returns `None`
     /// without calling `readout`.
+    ///
+    /// TODO: disable this if the VLAN feature isn't enabled
     pub fn try_recv<R>(
         &self,
         readout: impl FnOnce(&mut [u8]) -> R,
