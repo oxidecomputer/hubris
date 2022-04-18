@@ -209,6 +209,8 @@ impl<'a> ServerImpl<'a> {
         for iface in &mut self.ifaces {
             any_activity |= iface.poll(t)?;
         }
+        // TODO: scavenge packets that aren't attached to a valid VLAN
+        // so they don't clog up the queue forever.
         Ok(any_activity)
     }
 
