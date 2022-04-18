@@ -14,34 +14,33 @@ use drv_stm32h7_eth as eth;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
-use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Address};
+use smoltcp::wire::{
+    EthernetAddress, IpAddress, IpCidr, Ipv6Address, Ipv6Cidr,
+};
 use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT};
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
+type NeighborStorage = Option<(IpAddress, Neighbor)>;
+
 /// Storage required to run a single [ServerImpl]. This should be allocated
 /// on the stack and passed into the constructor for the [ServerImpl].
 pub struct ServerStorage<'a> {
     pub eth: eth::Ethernet,
-
-    ipv6_addr: Ipv6Address,
-    neighbor_cache_storage:
-        [[Option<(IpAddress, Neighbor)>; NEIGHBORS]; VLAN_COUNT],
+    neighbor_cache_storage: [[NeighborCache; NEIGHBORS]; VLAN_COUNT],
     socket_storage: [[SocketStorage<'a>; SOCKET_COUNT]; VLAN_COUNT],
     ipv6_net: [IpCidr; VLAN_COUNT],
 }
 
 impl<'a> ServerStorage<'a> {
-    pub fn new(eth: eth::Ethernet, ipv6_addr: Ipv6Address) -> Self {
-        let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
+    pub fn new(eth: eth::Ethernet) -> Self {
         Self {
             eth,
-            ipv6_addr,
-            neighbor_cache_storage: [[None; NEIGHBORS]; VLAN_COUNT],
+            neighbor_cache_storage: Default::default(),
             socket_storage: Default::default(),
-            ipv6_net: [ipv6_net; VLAN_COUNT],
+            ipv6_net: [Ipv6Cidr::default().into(); VLAN_COUNT],
         }
     }
 }
@@ -132,6 +131,7 @@ impl<'a> ServerImpl<'a> {
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
         storage: &'a mut ServerStorage<'a>,
+        ipv6_addr: Ipv6Address,
         mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
@@ -151,6 +151,7 @@ impl<'a> ServerImpl<'a> {
         for (i, (sockets, socket_handles)) in
             sockets.0.into_iter().zip(&mut socket_handles).enumerate()
         {
+            ip_addr_slice[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
             let (first, rest) = neighbor_cache_slice.split_at_mut(1);
             neighbor_cache_slice = rest;
             let neighbor_cache =

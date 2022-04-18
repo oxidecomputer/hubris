@@ -11,7 +11,9 @@ use drv_stm32h7_eth as eth;
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
-use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr, Ipv6Address};
+use smoltcp::wire::{
+    EthernetAddress, IpAddress, IpCidr, Ipv6Address, Ipv6Cidr,
+};
 use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
@@ -21,20 +23,20 @@ use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 /// Storage required to run a single [ServerImpl]. This should be allocated
 /// on the stack and passed into the constructor for the [ServerImpl].
 pub struct ServerStorage<'a> {
-    ipv6_addr: Ipv6Address,
+    pub eth: eth::Ethernet,
+
     neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; NEIGHBORS],
     socket_storage: [SocketStorage<'a>; SOCKET_COUNT],
     ipv6_net: [IpCidr; 1],
 }
 
 impl<'a> ServerStorage<'a> {
-    pub fn new(ipv6_addr: Ipv6Address) -> Self {
-        let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
+    pub fn new(eth: eth::Ethernet) -> Self {
         Self {
-            ipv6_addr,
+            eth,
             neighbor_cache_storage: [None; NEIGHBORS],
             socket_storage: [SocketStorage::default(); SOCKET_COUNT],
-            ipv6_net: [ipv6_net],
+            ipv6_net: [Ipv6Cidr::default().into()],
         }
     }
 }
@@ -44,7 +46,7 @@ impl<'a> ServerStorage<'a> {
 /// State for the running network server.
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; SOCKET_COUNT],
-    iface: Interface<'a, eth::Ethernet>,
+    iface: Interface<'a, &'a eth::Ethernet>,
     bsp: crate::bsp::Bsp,
 }
 
@@ -54,16 +56,17 @@ impl<'a> ServerImpl<'a> {
 
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
-        eth: eth::Ethernet,
-        mac: EthernetAddress,
         storage: &'a mut ServerStorage<'a>,
+        ipv6_addr: Ipv6Address,
+        mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
+        storage.ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
         let neighbor_cache = smoltcp::iface::NeighborCache::new(
             &mut storage.neighbor_cache_storage[..],
         );
         let mut iface = smoltcp::iface::InterfaceBuilder::new(
-            eth,
+            &storage.eth,
             &mut storage.socket_storage[..],
         )
         .hardware_addr(mac.into())
@@ -82,7 +85,7 @@ impl<'a> ServerImpl<'a> {
         for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
             iface
                 .get_socket::<UdpSocket>(h)
-                .bind((storage.ipv6_addr, port))
+                .bind((ipv6_addr, port))
                 .map_err(|_| ())
                 .unwrap();
         }

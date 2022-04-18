@@ -237,8 +237,10 @@ impl Ethernet {
         });
         Some(result)
     }
+
     /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
     /// packet (if present)
+    #[cfg(feature = "vlan")]
     pub fn vlan_try_send<R>(
         &self,
         len: usize,
@@ -284,6 +286,7 @@ impl Ethernet {
 
     /// Same as `try_recv`, but only receiving packets that match a particular
     /// VLAN tag.
+    #[cfg(feature = "vlan")]
     pub fn vlan_try_recv<R>(
         &self,
         vid: u16,
@@ -494,7 +497,7 @@ impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
 }
 
 #[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::Device<'a> for Ethernet {
+impl<'a> smoltcp::phy::Device<'a> for &Ethernet {
     type RxToken = OurRxToken<'a>;
     type TxToken = OurTxToken<'a>;
 

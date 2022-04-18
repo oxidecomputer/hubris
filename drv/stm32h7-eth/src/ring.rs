@@ -213,6 +213,7 @@ impl TxRing {
         }
     }
 
+    #[cfg(feature = "vlan")]
     pub fn vlan_try_with_next<R>(
         &self,
         len: usize,
@@ -419,6 +420,7 @@ impl RxRing {
         }
     }
 
+    #[cfg(feature = "vlan")]
     pub fn vlan_try_with_next<R>(
         &self,
         vid: u16,
