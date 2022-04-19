@@ -110,7 +110,7 @@ jobs:
           args: dist ${{ matrix.app_toml}}
 
       - name: Fetch Humility 
-        uses: dsaltares/fetch-gh-release-asset@master
+        uses: dsaltares/fetch-gh-release-asset@0.0.8
         if: matrix.os == 'ubuntu-latest'
         with:
           repo: "oxidecomputer/humility"
