@@ -97,9 +97,9 @@ global_config = "spi1"
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 3800
+stacksize = 8192
 priority = 2
-requires = {flash = 131072, ram = 16384, sram1 = 32768}
+requires = {flash = 131072, ram = 32768, sram1 = 32768}
 features = ["h753", "h7-vlan"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
