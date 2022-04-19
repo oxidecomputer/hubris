@@ -169,7 +169,6 @@ impl TxRing {
     #[cfg(feature = "vlan")]
     pub fn is_next_free(&self) -> bool {
         let d = &self.storage[self.next.get()];
-
         // Check whether the hardware has released both the context descriptor
         // and the following transmit descriptor.
         //
