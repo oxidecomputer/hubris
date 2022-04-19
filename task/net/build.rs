@@ -41,18 +41,8 @@ fn generate_net_config(
         }
     )?;
 
-    // If we're configured for VLAN, then write an instance count
-    if let Some(vlan_count) = config.vlan_count {
-        let vlan_start = config.vlan_start.unwrap();
-        writeln!(
-            out,
-            "{}",
-            quote::quote! {
-                pub const VLAN_START: usize = #vlan_start;
-                pub const VLAN_COUNT: usize = #vlan_count;
-            }
-        )?;
-    }
+    #[cfg(feature = "vlan")]
+    generate_vlan_consts(&config, &mut out)?;
 
     for (name, socket) in &config.sockets {
         writeln!(

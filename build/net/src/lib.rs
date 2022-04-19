@@ -77,6 +77,18 @@ pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
     Ok(cfg)
 }
 
+pub fn generate_vlan_consts(
+    config: &NetConfig,
+    mut out: impl std::io::Write,
+) -> Result<(), std::io::Error> {
+    writeln!(
+        out,
+        "pub const VLAN_START: usize = {}; pub const VLAN_COUNT: usize = {};",
+        config.vlan_start.unwrap(),
+        config.vlan_count.unwrap()
+    )
+}
+
 pub fn generate_socket_enum(
     config: &NetConfig,
     mut out: impl std::io::Write,

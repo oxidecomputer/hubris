@@ -9,9 +9,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let dest_path = std::path::Path::new(&out_dir).join("net_config.rs");
     let net_config = build_net::load_net_config()?;
 
-    build_net::generate_socket_enum(
-        &net_config,
-        std::fs::File::create(dest_path)?,
-    )?;
+    let mut out = std::fs::File::create(dest_path)?;
+
+    #[cfg(feature = "vlan")]
+    build_net::generate_vlan_consts(&net_config, &mut out)?;
+
+    build_net::generate_socket_enum(&net_config, &mut out)?;
     Ok(())
 }

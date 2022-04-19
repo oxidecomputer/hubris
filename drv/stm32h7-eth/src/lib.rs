@@ -192,6 +192,28 @@ impl Ethernet {
                 .ipc()
                 .set_bit()
         });
+
+        #[cfg(feature = "vlan")]
+        {
+            // If we're in VLAN mode, we _only_ support VLAN operation.
+            // Every incoming packet should be tagged with a VID, and we
+            // expect to insert a VID in front of every outgoing packet.
+            mac.macvtr.write(|w| unsafe {
+                w.evls()
+                    .bits(0b11) // Always strip VLAN tag on receive
+                    .evlrxs()
+                    .set_bit() // Enable VLAN tag in Rx status
+            });
+
+            // Configure the Tx path to insert the VLAN tag based on the
+            // context descriptor. This is confusing, because different parts
+            // of the datasheet disagree whether VLTI should be set or cleared;
+            // this is checked experimentally.
+            mac.macvir.write(
+                |w| w.vlti().set_bit(), // insert tag from context descriptor
+            );
+        }
+
         // The peripheral seems to want this to be done in a separate write to
         // MACCR, so:
         // Enable transmit and receive.

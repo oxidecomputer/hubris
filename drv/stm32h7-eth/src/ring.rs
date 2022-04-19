@@ -70,6 +70,8 @@ impl TxDesc {
 
 /// Index of OWN bit indicating that a descriptor is in use by the hardware.
 const TDES3_OWN_BIT: u32 = 31;
+/// Index of CTXT bit indicating that this is a context descriptor.
+const TDES3_CTXT_BIT: u32 = 30;
 /// Index of First Descriptor bit, indicating that a descriptor is the start of
 /// a new packet. We always set this and Last Descriptor, below.
 const TDES3_FD_BIT: u32 = 29;
@@ -79,8 +81,15 @@ const TDES3_LD_BIT: u32 = 28;
 
 /// Index of Checksum Insertion Control field.
 const TDES3_CIC_BIT: u32 = 16;
+/// Index of VLAN Tag Valid bit in a Tx Context descriptor.
+const TDES3_VLTV_BIT: u32 = 16;
 /// CIC value for enabling all checksum offloading.
 const TDES3_CIC_CHECKSUMS_ENABLED: u32 = 0b11;
+
+/// Index of VLAN Tag Insertion or Replacement field.
+const TDES2_VTIR_BIT: u32 = 14;
+/// VTIR value for inserting a VLAN tag.
+const TDES2_VTIR_INSERT: u32 = 0b10;
 
 /// Control block for a ring of `TxDesc` records and associated `Buffer`s.
 pub struct TxRing {
@@ -252,7 +261,65 @@ impl TxRing {
         vid: u16,
         body: impl FnOnce(&mut [u8]) -> R,
     ) -> Option<R> {
-        unimplemented!()
+        let d = &self.storage[self.next.get()];
+        // Check whether the hardware has released both the Context and Tx
+        // descriptors.
+        let tdes3 = d.tdes[3].load(Ordering::Acquire);
+        let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+
+        let tdes3 = d.tdes[7].load(Ordering::Acquire);
+        let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+        if own1 || own2 {
+            None
+        } else {
+            // Descriptor is free. Since we keep the descriptors paired with
+            // their corresponding buffers, and only lend out the buffers
+            // temporarily (like we're about to do), this means the buffer is
+            // also free.
+            let buffer = self.buffers[self.next.get()].0.get();
+            // Safety: we're dereferencing a raw *mut to get a &mut into the
+            // buffer. We must ensure that the pointer is valid (which we can
+            // tell trivially from the fact that we got it from an UnsafeCell)
+            // and that there is no aliasing. We can say there's no aliasing
+            // because the descriptor is free (above), so we're about to produce
+            // the sole reference to it, which won't outlive this block.
+            let buffer = unsafe { &mut *buffer };
+            let buffer = &mut buffer[..len];
+
+            let result = body(buffer);
+
+            // Program the context descriptor to configure the VLAN tag. We
+            // program carefully to ensure that the memory accesses happen
+            // in the right order: the entire descriptor must be written before
+            // the OWN bit is set in TDES3 using a RELEASE store.
+            let tdes3 = 1 << TDES3_OWN_BIT
+                | 1 << TDES3_CTXT_BIT
+                | 1 << TDES3_VLTV_BIT
+                | u32::from(vid);
+            d.tdes[3].store(tdes3, Ordering::Release); // <-- release
+
+            // Program the tx descriptor to represent the packet, using the
+            // same strategy as above for memory access ordering.
+            const OFFSET: usize = 4;
+            d.tdes[OFFSET].store(buffer.as_ptr() as u32, Ordering::Relaxed);
+            d.tdes[OFFSET + 1].store(0, Ordering::Relaxed);
+            let tdes2 = TDES2_VTIR_INSERT << TDES2_VTIR_BIT | len as u32;
+            d.tdes[OFFSET + 2].store(tdes2, Ordering::Relaxed);
+            let tdes3 = 1 << TDES3_OWN_BIT
+                | 1 << TDES3_FD_BIT
+                | 1 << TDES3_LD_BIT
+                | TDES3_CIC_CHECKSUMS_ENABLED << TDES3_CIC_BIT
+                | len as u32;
+            d.tdes[OFFSET + 3].store(tdes3, Ordering::Release); // <-- release
+
+            self.next.set(if self.next.get() + 1 == self.storage.len() {
+                0
+            } else {
+                self.next.get() + 1
+            });
+
+            Some(result)
+        }
     }
 }
 
@@ -274,7 +341,7 @@ impl RxDesc {
 }
 
 /// Amount to shift RDES0 to read out the VLAN ID as a `u16`
-const RDES0_OUTER_VID_SHIFT: u32 = 16;
+const RDES0_OUTER_VID_BIT: u32 = 16;
 /// Index of OWN bit indicating that a descriptor is in use by the hardware.
 const RDES3_OWN_BIT: u32 = 31;
 /// Index of Error Summary bit, which rolls up all the other error bits.
@@ -514,7 +581,7 @@ impl RxRing {
                 let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
                 if rdes0_valid {
                     let rdes0 = d.rdes[0].load(Ordering::Relaxed); // XXX is this right?
-                    let this_vid = (rdes0 >> RDES0_OUTER_VID_SHIFT) as u16;
+                    let this_vid = (rdes0 >> RDES0_OUTER_VID_BIT) as u16;
                     // If there is a VLAN mismatch, stop processing and trust
                     // that another instance will handle it
                     if this_vid != vid {
