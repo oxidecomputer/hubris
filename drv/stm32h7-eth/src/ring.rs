@@ -273,6 +273,8 @@ impl RxDesc {
     }
 }
 
+/// Amount to shift RDES0 to read out the VLAN ID as a `u16`
+const RDES0_OUTER_VID_SHIFT: u32 = 16;
 /// Index of OWN bit indicating that a descriptor is in use by the hardware.
 const RDES3_OWN_BIT: u32 = 31;
 /// Index of Error Summary bit, which rolls up all the other error bits.
@@ -290,6 +292,9 @@ const RDES3_LD_BIT: u32 = 28;
 /// Index of Buffer 1 Valid bit, indicating that we have furnished a valid
 /// pointer for buffer 1 in this descriptor.
 const RDES3_BUF1_VALID_BIT: u32 = 24;
+/// Index of Receive Status RDES0 Valid bit, indicating that RDES0 is valid and
+/// has been written by the DMA.
+const RDES3_RS0V_BIT: u32 = 25;
 /// Mask for the Packet Length portion of RDES3.
 const RDES3_PL_MASK: u32 = (1 << 15) - 1;
 
@@ -453,13 +458,109 @@ impl RxRing {
         }
     }
 
+    /// Attempts to grab the next filled-out RX buffer in the ring that
+    /// matches the given VLAN id `vid` and show it to you.
+    ///
+    /// If the next buffer in the ring is holding a pending packet with
+    /// a matching VLAN id, this will borrow it and call `body` with the valid
+    /// prefix of the buffer, based on the received length. Once `body`
+    /// returns, this routine restores the ring entry to empty so that it can
+    /// be used to receive another packet.
+    ///
+    /// If the next buffer in the ring is empty, that means there are no
+    /// received packets waiting for us.  In that case, this will return `None`
+    /// without invoking `body`.
+    ///
+    /// If the next buffer in the ring contains a packet with a non-matching
+    /// VLAN id, then we return `None`, trusting that another `smoltcp`
+    /// instance will call this function with a matching vid and the packet
+    /// will be handled there.
+    ///
+    /// `body` is allowed to return a value, of some type `R`. If we
+    /// successfully grab a packet and call `body`, we'll return its result.
+    /// This may or may not prove useful.
     #[cfg(feature = "vlan")]
     pub fn vlan_try_with_next<R>(
         &self,
         vid: u16,
         body: impl FnOnce(&mut [u8]) -> R,
     ) -> Option<R> {
-        unimplemented!()
+        // body is a FnOnce, so calling it destroys it. In the loop below, the
+        // compiler is not convinced that we call it only once. This adds a
+        // runtime flag to pacify the compiler.
+        let mut body = Some(body);
+        // We loop here so that we can skip over error descriptors and only hand
+        // back real packets.
+        loop {
+            let d = &self.storage[self.next.get()];
+            // Check whether the hardware has released this.
+            let rdes3 = d.rdes[3].load(Ordering::Acquire);
+            let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
+            if own {
+                break None;
+            } else {
+                // Descriptor is free. Since we keep the descriptors paired with
+                // their corresponding buffers, and only lend out the buffers
+                // temporarily (like we're about to do), this means the buffer is
+                // also free.
+
+                // What sort of descriptor is this?
+                let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+                let first_and_last = rdes3
+                    & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+                    == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+
+                // If RDES0 is valid, then check for a VLAN match
+                let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
+                if rdes0_valid {
+                    let rdes0 = d.rdes[0].load(Ordering::Relaxed); // XXX is this right?
+                    let this_vid = (rdes0 >> RDES0_OUTER_VID_SHIFT) as u16;
+                    // If there is a VLAN mismatch, stop processing and trust
+                    // that another instance will handle it
+                    if this_vid != vid {
+                        break None;
+                    }
+                }
+
+                let buffer = self.buffers[self.next.get()].0.get();
+
+                let retval = if errors || !first_and_last {
+                    // Skip this but keep processing packets
+                    None
+                } else {
+                    // Safety: because the descriptor is free we keep them
+                    // paired, we know the buffer is not aliased, so we're going
+                    // to dereference this raw pointer to produce the only
+                    // reference to its contents. And then discard it at the end
+                    // of this block.
+                    let buffer = unsafe { &mut *buffer };
+
+                    // Work out the valid slice of the packet.
+                    let packet_len = (rdes3 & RDES3_PL_MASK) as usize;
+
+                    // Pass in the initialized prefix of the packet.
+                    Some((body.take().unwrap())(&mut buffer[..packet_len]))
+                };
+
+                // We need to consume this descriptor whether or not we handed
+                // it off. Rewrite it as an empty rx descriptor:
+                Self::set_descriptor(d, buffer);
+                // At this point the descriptor is no longer free, the buffer is
+                // potentially in use, and we must not access either.
+
+                // Bump index forward.
+                self.next.set(if self.next.get() + 1 == self.storage.len() {
+                    0
+                } else {
+                    self.next.get() + 1
+                });
+
+                // Now break out only if we succeeded.
+                if let Some(result) = retval {
+                    break Some(result);
+                }
+            }
+        }
     }
 
     /// Programs the words in `d` to prepare to receive into `buffer` and sets
