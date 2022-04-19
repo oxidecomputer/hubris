@@ -77,6 +77,14 @@ enum Xtask {
         verbose: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
+
+        /// Compare this to a previously saved file of sizes
+        #[clap(long)]
+        compare: bool,
+
+        /// Write JSON out to a file?
+        #[clap(long)]
+        save: bool,
     },
 
     /// Runs `humility`, passing any arguments
@@ -161,7 +169,7 @@ fn run(xtask: Xtask) -> Result<()> {
             cfg,
         } => {
             dist::package(verbose, edges, &cfg, None)?;
-            sizes::run(&cfg, true)?;
+            sizes::run(&cfg, true, false, false)?;
         }
         Xtask::Build {
             verbose,
@@ -178,9 +186,14 @@ fn run(xtask: Xtask) -> Result<()> {
             args.extra_options.push("--force".to_string());
             humility::run(&args, &chip, Some("flash"), false)?;
         }
-        Xtask::Sizes { verbose, cfg } => {
+        Xtask::Sizes {
+            verbose,
+            cfg,
+            compare,
+            save,
+        } => {
             dist::package(verbose, false, &cfg, None)?;
-            sizes::run(&cfg, false)?;
+            sizes::run(&cfg, false, compare, save)?;
         }
         Xtask::Humility { args } => {
             humility::run(&args, &[], None, true)?;
