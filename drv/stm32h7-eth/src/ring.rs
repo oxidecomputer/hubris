@@ -44,16 +44,26 @@ impl Buffer {
 ///
 /// This is deliberately opaque to viewers outside this module, so that we can
 /// carefully control accesses to its contents.
+///
+/// When configured in VLAN mode, we write _two_ descriptors (each 4 bytes):
+/// the configuration descriptor (which sets the VLAN for the following
+/// packet), actual packet transmit descriptor.
 #[repr(transparent)]
 pub struct TxDesc {
     /// Transmit descriptor
+    #[cfg(not(feature = "vlan"))]
     tdes: [AtomicU32; 4],
+    #[cfg(feature = "vlan")]
+    tdes: [AtomicU32; 8],
 }
 
 impl TxDesc {
     pub const fn new() -> Self {
         Self {
+            #[cfg(not(feature = "vlan"))]
             tdes: [ATOMIC_ZERO; 4],
+            #[cfg(feature = "vlan")]
+            tdes: [ATOMIC_ZERO; 8],
         }
     }
 }
@@ -108,6 +118,8 @@ impl TxRing {
         // ensure that they're owned by us (not the hardware).
         for desc in storage {
             desc.tdes[3].store(0, Ordering::Release);
+            #[cfg(feature = "vlan")]
+            desc.tdes[7].store(0, Ordering::Release);
         }
         Self {
             storage,
@@ -136,12 +148,31 @@ impl TxRing {
         self.storage.len()
     }
 
+    #[cfg(not(feature = "vlan"))]
     pub fn is_next_free(&self) -> bool {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let tdes3 = d.tdes[3].load(Ordering::Acquire);
         let own = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         !own
+    }
+
+    #[cfg(feature = "vlan")]
+    pub fn is_next_free(&self) -> bool {
+        let d = &self.storage[self.next.get()];
+
+        // Check whether the hardware has released both the context descriptor
+        // and the following transmit descriptor.
+        //
+        // TODO: could we use `Ordering::Relaxed` for the first load, since the
+        // second one is `Acquire`?
+        let tdes3 = d.tdes[3].load(Ordering::Acquire);
+        let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+
+        let tdes3 = d.tdes[7].load(Ordering::Acquire);
+        let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+
+        !(own1 || own2)
     }
 
     /// Attempts to grab the next unused TX buffer in the ring and deposit a
@@ -161,6 +192,7 @@ impl TxRing {
     ///
     /// If a buffer is available, and we call `body`, and `body` returns a valid
     /// length larger than `BUFSZ`. Because that's obviously wrong.
+    #[cfg(not(feature = "vlan"))]
     pub fn try_with_next<R>(
         &self,
         len: usize,
@@ -350,6 +382,7 @@ impl RxRing {
     /// `body` is allowed to return a value, of some type `R`. If we
     /// successfully grab a packet and call `body`, we'll return its result.
     /// This may or may not prove useful.
+    #[cfg(not(feature = "vlan"))]
     pub fn try_with_next<R>(
         &self,
         body: impl FnOnce(&mut [u8]) -> R,

@@ -221,6 +221,7 @@ impl Ethernet {
     ///
     /// If the TX ring is full, this will return `None` without calling
     /// `fillout`.
+    #[cfg(not(feature = "vlan"))]
     pub fn try_send<R>(
         &self,
         len: usize,
@@ -268,8 +269,7 @@ impl Ethernet {
     ///
     /// If there are no packets waiting in the RX ring, this returns `None`
     /// without calling `readout`.
-    ///
-    /// TODO: disable this if the VLAN feature isn't enabled
+    #[cfg(not(feature = "vlan"))]
     pub fn try_recv<R>(
         &self,
         readout: impl FnOnce(&mut [u8]) -> R,
@@ -445,87 +445,91 @@ impl From<SmiClause22Register> for u8 {
     }
 }
 
-#[cfg(feature = "with-smoltcp")]
-pub struct OurRxToken<'a>(pub &'a Ethernet);
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> OurRxToken<'a> {
-    pub fn new(eth: &'a Ethernet) -> Self {
-        Self(eth)
+#[cfg(all(not(feature = "vlan"), feature = "with-smoltcp"))]
+mod tokens {
+    use super::Ethernet;
+    pub struct OurRxToken<'a>(pub &'a Ethernet);
+    impl<'a> OurRxToken<'a> {
+        pub fn new(eth: &'a Ethernet) -> Self {
+            Self(eth)
+        }
     }
-}
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        f: F,
-    ) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        self.0
-            .try_recv(f)
-            .expect("we checked RX availability earlier")
-    }
-}
-
-#[cfg(feature = "with-smoltcp")]
-pub struct OurTxToken<'a>(pub &'a Ethernet);
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> OurTxToken<'a> {
-    pub fn new(eth: &'a Ethernet) -> Self {
-        Self(eth)
-    }
-}
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        len: usize,
-        f: F,
-    ) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        self.0
-            .try_send(len, f)
-            .expect("TX token existed without descriptor available")
-    }
-}
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::Device<'a> for &Ethernet {
-    type RxToken = OurRxToken<'a>;
-    type TxToken = OurTxToken<'a>;
-
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        // Note: smoltcp wants a transmit token every time it receives a packet,
-        // so if the tx queue fills up, we stop being able to receive. I'm ...
-        // not sure why this is desirable, but there we go.
-        //
-        // Note that the can_recv and can_send checks remain valid because the
-        // token mutably borrows the phy.
-        if self.can_recv() && self.can_send() {
-            Some((OurRxToken(self), OurTxToken(self)))
-        } else {
-            None
+    impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
+        fn consume<R, F>(
+            self,
+            _timestamp: smoltcp::time::Instant,
+            f: F,
+        ) -> smoltcp::Result<R>
+        where
+            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        {
+            self.0
+                .try_recv(f)
+                .expect("we checked RX availability earlier")
         }
     }
 
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
-        if self.can_send() {
-            Some(OurTxToken(self))
-        } else {
-            None
+    pub struct OurTxToken<'a>(pub &'a Ethernet);
+    impl<'a> OurTxToken<'a> {
+        pub fn new(eth: &'a Ethernet) -> Self {
+            Self(eth)
+        }
+    }
+    impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
+        fn consume<R, F>(
+            self,
+            _timestamp: smoltcp::time::Instant,
+            len: usize,
+            f: F,
+        ) -> smoltcp::Result<R>
+        where
+            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        {
+            self.0
+                .try_send(len, f)
+                .expect("TX token existed without descriptor available")
         }
     }
 
-    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+    impl<'a> smoltcp::phy::Device<'a> for &Ethernet {
+        type RxToken = OurRxToken<'a>;
+        type TxToken = OurTxToken<'a>;
+
+        fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+            // Note: smoltcp wants a transmit token every time it receives a
+            // packet, so if the tx queue fills up, we stop being able to
+            // receive. I'm ... not sure why this is desirable, but there we
+            // go.
+            //
+            // Note that the can_recv and can_send checks remain valid because
+            // the token mutably borrows the phy.
+            if self.can_recv() && self.can_send() {
+                Some((OurRxToken(self), OurTxToken(self)))
+            } else {
+                None
+            }
+        }
+
+        fn transmit(&'a mut self) -> Option<Self::TxToken> {
+            if self.can_send() {
+                Some(OurTxToken(self))
+            } else {
+                None
+            }
+        }
+
+        fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+            (self as &Ethernet).capabilities()
+        }
+    }
+}
+
+// This function wants to be called in both VLAN and non-VLAN modes, so we
+// implement it as part of the struct, then call this function in the
+// `impl Device` block.
+#[cfg(feature = "with-smoltcp")]
+impl Ethernet {
+    pub fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
         let mut caps = smoltcp::phy::DeviceCapabilities::default();
         caps.max_transmission_unit = 1514;
         caps.max_burst_size = Some(1514 * self.tx_ring.len());
