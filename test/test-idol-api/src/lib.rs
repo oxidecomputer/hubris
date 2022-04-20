@@ -34,11 +34,27 @@ pub struct FancyTestType {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// The struct below is used to replicate an Idolatry bug related to
-// serialization of multiple arguments through ssmarshal
+// The structs below replicate an Idolatry bug related to serialization
+// using ssmarshal
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum SocketName {
+    Echo = 1,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Ipv6Address(pub [u8; 16]);
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum Address {
+    Ipv6(Ipv6Address),
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct UdpMetadata {
-    pub addr: [u8; 16],
+    pub addr: Address,
     pub port: u16,
     pub size: u32,
     pub vid: u16,
