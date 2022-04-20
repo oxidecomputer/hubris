@@ -65,5 +65,16 @@ Interface(
             ),
             encoding: Ssmarshal,
         ),
+        "extract_vid": (
+            args: {
+                "a": "u8",
+                "b": "UdpMetadata",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("IdolTestError"),
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )

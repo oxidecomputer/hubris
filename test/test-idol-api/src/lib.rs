@@ -33,4 +33,15 @@ pub struct FancyTestType {
     pub f: f32,
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// The struct below is used to replicate an Idolatry bug related to
+// serialization of multiple arguments through ssmarshal
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct UdpMetadata {
+    pub addr: [u8; 16],
+    pub port: u16,
+    pub size: u32,
+    pub vid: u16,
+}
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
