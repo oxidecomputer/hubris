@@ -154,7 +154,12 @@ impl TxRing {
     /// Returns the count of entries in the descriptor ring / buffers in the
     /// pool.
     pub fn len(&self) -> usize {
-        self.storage.len()
+        #[cfg(feature = "vlan")]
+        const TX_DESC_PER_SLOT: usize = 2;
+        #[cfg(not(feature = "vlan"))]
+        const TX_DESC_PER_SLOT: usize = 1;
+
+        self.storage.len() * TX_DESC_PER_SLOT
     }
 
     #[cfg(not(feature = "vlan"))]
@@ -263,10 +268,11 @@ impl TxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released both the Context and Tx
         // descriptors.
+        const OFFSET: usize = 4;
         let tdes3 = d.tdes[3].load(Ordering::Acquire);
         let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
 
-        let tdes3 = d.tdes[7].load(Ordering::Acquire);
+        let tdes3 = d.tdes[OFFSET + 3].load(Ordering::Acquire);
         let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         if own1 || own2 {
             None
@@ -299,7 +305,6 @@ impl TxRing {
 
             // Program the tx descriptor to represent the packet, using the
             // same strategy as above for memory access ordering.
-            const OFFSET: usize = 4;
             d.tdes[OFFSET].store(buffer.as_ptr() as u32, Ordering::Relaxed);
             d.tdes[OFFSET + 1].store(0, Ordering::Relaxed);
             let tdes2 = TDES2_VTIR_INSERT << TDES2_VTIR_BIT | len as u32;

@@ -135,63 +135,68 @@ impl<'a> ServerImpl<'a> {
         mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
-        let mut neighbor_cache_slice = &mut storage.neighbor_cache_storage[..];
-        let mut socket_slice = &mut storage.socket_storage[..];
-        let mut ip_addr_slice = &mut storage.ipv6_net[..];
-
-        // Create sockets
-        let sockets = generated::construct_sockets();
-        let mut socket_handles = [[smoltcp::iface::SocketHandle::default();
-            generated::SOCKET_COUNT];
+        // Local storage; this will end up owned by the returned ServerImpl.
+        let mut socket_handles = [[Default::default(); generated::SOCKET_COUNT];
             generated::VLAN_COUNT];
-
         let mut ifaces: [Option<Interface<'a, VLanEthernet<'a>>>; VLAN_COUNT] =
             Default::default();
 
-        for (i, (sockets, socket_handles)) in
-            sockets.0.into_iter().zip(&mut socket_handles).enumerate()
-        {
-            ip_addr_slice[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
-            let (first, rest) = neighbor_cache_slice.split_at_mut(1);
-            neighbor_cache_slice = rest;
-            let neighbor_cache =
-                smoltcp::iface::NeighborCache::new(&mut first[0][..]);
+        // We're iterating over a bunch of things together.  The standard
+        // library doesn't have a great multi-element zip, so we'll just
+        // manually use mutable iterators.
+        let mut neighbor_cache_iter = storage.neighbor_cache_storage.iter_mut();
+        let mut socket_storage_iter = storage.socket_storage.iter_mut();
+        let mut socket_handles_iter = socket_handles.iter_mut();
+        let mut ifaces_iter = ifaces.iter_mut();
+        let mut ip_addr_slice = &mut storage.ipv6_net[..];
 
-            let (first, rest) = socket_slice.split_at_mut(1);
-            socket_slice = rest;
+        // Create a VLAN_COUNT x SOCKET_COUNT nested array of sockets
+        let sockets = generated::construct_sockets();
+        assert_eq!(sockets.0.len(), VLAN_COUNT);
+
+        for (i, sockets) in sockets.0.into_iter().enumerate() {
+            let neighbor_cache_storage = neighbor_cache_iter.next().unwrap();
+            let neighbor_cache = smoltcp::iface::NeighborCache::new(
+                &mut neighbor_cache_storage[..],
+            );
+
+            let socket_storage = socket_storage_iter.next().unwrap();
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
                     eth: &storage.eth,
                     vid: (generated::VLAN_START + i).try_into().unwrap(),
                 },
-                &mut first[0][..],
+                &mut socket_storage[..],
             );
 
-            let (first, rest) = ip_addr_slice.split_at_mut(1);
+            let (ipv6_net, rest) = ip_addr_slice.split_at_mut(1);
             ip_addr_slice = rest;
+            ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
             let mut iface = builder
                 .hardware_addr(mac.into())
                 .neighbor_cache(neighbor_cache)
-                .ip_addrs(first)
+                .ip_addrs(ipv6_net)
                 .finalize();
 
-            // Associate them with the interface.
-            for (socket, h) in
-                sockets.into_iter().zip(socket_handles.iter_mut())
-            {
-                *h = iface.add_socket(socket);
+            // Associate sockets with this interface.
+            let socket_handles = socket_handles_iter.next().unwrap();
+            assert_eq!(sockets.len(), SOCKET_COUNT);
+            for (s, h) in sockets.into_iter().zip(&mut socket_handles[..]) {
+                *h = iface.add_socket(s);
             }
             // Bind sockets to their ports.
+            assert_eq!(socket_handles.len(), SOCKET_COUNT);
+            assert_eq!(generated::SOCKET_PORTS.len(), SOCKET_COUNT);
             for (&h, &port) in
                 socket_handles.iter().zip(&generated::SOCKET_PORTS)
             {
                 iface
                     .get_socket::<UdpSocket>(h)
-                    .bind(port)
+                    .bind((ipv6_addr, port))
                     .map_err(|_| ())
                     .unwrap();
             }
-            ifaces[i] = Some(iface);
+            *ifaces_iter.next().unwrap() = Some(iface);
         }
 
         let ifaces = ifaces.map(|e| e.unwrap());
