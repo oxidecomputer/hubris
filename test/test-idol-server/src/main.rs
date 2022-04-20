@@ -6,7 +6,7 @@
 #![no_main]
 
 use idol_runtime::RequestError;
-use test_idol_api::{FancyTestType, IdolTestError};
+use test_idol_api::{FancyTestType, IdolTestError, SocketName, UdpMetadata};
 use userlib::*;
 
 struct ServerImpl;
@@ -63,6 +63,22 @@ impl idl::InOrderIdolTestImpl for ServerImpl {
             ..a
         })
     }
+    fn extract_vid(
+        &mut self,
+        _: &RecvMessage,
+        _a: u8,
+        b: UdpMetadata,
+    ) -> Result<u16, RequestError<IdolTestError>> {
+        Ok(b.vid)
+    }
+    fn extract_vid_enum(
+        &mut self,
+        _: &RecvMessage,
+        _a: SocketName,
+        b: UdpMetadata,
+    ) -> Result<u16, RequestError<IdolTestError>> {
+        Ok(b.vid)
+    }
 }
 
 #[export_name = "main"]
@@ -76,7 +92,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{FancyTestType, IdolTestError};
+    use super::*;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

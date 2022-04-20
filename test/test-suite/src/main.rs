@@ -103,6 +103,8 @@ test_cases! {
     test_idol_bool_xor,
     test_idol_err_ret,
     test_idol_ssmarshal,
+    test_idol_ssmarshal_multiarg,
+    test_idol_ssmarshal_multiarg_enum,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -526,6 +528,46 @@ fn test_idol_ssmarshal() {
     assert_eq!(r.u, 101);
     assert_eq!(r.b, false);
     assert!(r.f == 1.0);
+}
+
+fn test_idol_ssmarshal_multiarg() {
+    use test_idol_api::*;
+    let idol = idol_handle();
+    let r = idol
+        .extract_vid(
+            0xAA,
+            UdpMetadata {
+                addr: Address::Ipv6(Ipv6Address([
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 1, 2, 2, 3, 3, 4, 4,
+                ])),
+                port: 1021,
+                size: 1,
+                vid: 12,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(r, 12);
+}
+
+fn test_idol_ssmarshal_multiarg_enum() {
+    use test_idol_api::*;
+    let idol = idol_handle();
+    let r = idol
+        .extract_vid_enum(
+            SocketName::Echo,
+            UdpMetadata {
+                addr: Address::Ipv6(Ipv6Address([
+                    1, 2, 3, 4, 5, 6, 7, 8, 1, 1, 2, 2, 3, 3, 4, 4,
+                ])),
+                port: 1021,
+                size: 1,
+                vid: 14,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(r, 14);
 }
 
 /// Tests that task restart works as expected.
