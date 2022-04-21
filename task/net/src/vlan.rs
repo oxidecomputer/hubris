@@ -129,8 +129,8 @@ impl<'a> ServerImpl<'a> {
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
         storage: &'a mut ServerStorage<'a>,
-        ipv6_addr: Ipv6Address,
-        mac: EthernetAddress,
+        mut ipv6_addr: Ipv6Address,
+        mut mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
         // Local storage; this will end up owned by the returned ServerImpl.
@@ -196,6 +196,11 @@ impl<'a> ServerImpl<'a> {
                     .unwrap();
             }
             *ifaces_iter.next().unwrap() = Some(iface);
+
+            // Increment the MAC and IP addresses so that each VLAN has
+            // a unique address.
+            ipv6_addr.0[15] += 1;
+            mac.0[5] += 1;
         }
 
         let ifaces = ifaces.map(|e| e.unwrap());
