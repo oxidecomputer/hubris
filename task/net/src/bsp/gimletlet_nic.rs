@@ -65,7 +65,7 @@ impl Bsp {
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1).unwrap();
             let ksz8463 = Ksz8463::new(ksz8463_spi);
             match ksz8463
-                .configure(ksz8463::Mode::Copper, ksz8463::VLanMode::Optional)
+                .configure(ksz8463::Mode::Copper, ksz8463::VLanMode::Mandatory)
             {
                 Err(err) => {
                     ringbuf_entry!(Trace::KszErr { err });

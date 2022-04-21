@@ -21,7 +21,8 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "gimletlet-1")] {
         mod gimletlet_mgmt;
         pub use gimletlet_mgmt::*;
-    } else if #[cfg(target_board = "gimletlet-2")] {
+    } else if #[cfg(all(feature = "gimletlet-nic",
+                        target_board = "gimletlet-2"))] {
         mod gimletlet_nic;
         pub use gimletlet_nic::*;
     } else {

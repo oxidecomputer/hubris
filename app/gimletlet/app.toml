@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "gimletlet"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -61,7 +61,7 @@ path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
@@ -112,7 +112,7 @@ path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
@@ -120,7 +120,7 @@ task-slots = ["sys"]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
@@ -131,7 +131,7 @@ features = ["stm32h743", "usart2"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 1}
 priority = 3
-requires = {flash = 16384, ram = 4096}
+requires = {flash = 8192, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
@@ -161,10 +161,10 @@ task-slots = ["sys"]
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 3800
+stacksize = 8192
 priority = 2
-features = ["h753", "gimletlet-nic"]
-requires = {flash = 131072, ram = 16384, sram1 = 16384}
+features = ["h753", "h7-vlan", "gimletlet-nic"]
+requires = {flash = 65536, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -175,10 +175,22 @@ task-slots = ["sys", "spi_driver" ]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-requires = {flash = 16384, ram = 8192}
+requires = {flash = 8192, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpbroadcast]
+path = "../../task/udpbroadcast"
+name = "task-udpbroadcast"
+priority = 3
+features = ["vlan"]
+requires = {flash = 8192, ram = 8192}
+stacksize = 4096
+start = false
+task-slots = ["net"]
+
 
 [tasks.idle]
 path = "../../task/idle"
@@ -265,9 +277,19 @@ mux = "port_e"
 cs = [{port = "E", pin = 11}]
 
 [config.net]
+vlan_start = 0x301
+vlan_count = 2
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

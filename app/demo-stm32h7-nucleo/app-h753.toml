@@ -238,9 +238,6 @@ cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]
-vlan_start = 0x301
-vlan_count = 2
-
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
