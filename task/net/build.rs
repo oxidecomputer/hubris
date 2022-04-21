@@ -48,7 +48,7 @@ fn generate_net_config(
         writeln!(
             out,
             "{}",
-            generate_socket_state(name, socket, config.vlan_count)?
+            generate_socket_state(name, socket, config.vlan.map(|v| v.count))?
         )?;
     }
     writeln!(out, "{}", generate_state_struct(&config)?)?;
@@ -158,7 +158,7 @@ fn generate_state_struct(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
     let n = config.sockets.len();
-    Ok(if let Some(vlan_count) = config.vlan_count {
+    Ok(if let Some(vlan_count) = config.vlan.map(|v| v.count) {
         quote::quote! {
             pub(crate) struct Sockets<'a>(pub [[UdpSocket<'a>; #n]; #vlan_count]);
         }
@@ -211,7 +211,7 @@ fn generate_constructor(
             }
         }
     };
-    let sockets = if let Some(vlan_count) = config.vlan_count {
+    let sockets = if let Some(vlan_count) = config.vlan.map(|v| v.count) {
         (0..vlan_count)
             .map(|i| {
                 let s = config

@@ -228,115 +228,10 @@ impl Ethernet {
         }
     }
 
+    // This function is identical in the VLAN and non-VLAN cases, so it lives
+    // in the main impl block
     pub fn can_send(&self) -> bool {
         self.tx_ring.is_next_free()
-    }
-
-    /// Tries to send a packet, if TX buffer space is available.
-    ///
-    /// This will attempt to get a free descriptor/buffer from the TX ring. If
-    /// successful, it will call `fillout` with the address of the buffer, so
-    /// that it can be filled out. `fillout` is expected to overwrite the
-    /// (arbitrary) contents of the packet buffer. This routine will then
-    /// arrange for the hardware to notice an outgoing packet and return
-    /// `Some`.
-    ///
-    /// If the TX ring is full, this will return `None` without calling
-    /// `fillout`.
-    #[cfg(not(feature = "vlan"))]
-    pub fn try_send<R>(
-        &self,
-        len: usize,
-        fillout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.tx_ring.try_with_next(len, fillout)?;
-        // We have enqueued a packet! The hardware may be suspended after
-        // discovering no packets to process. Wake it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
-    }
-
-    /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
-    /// packet (if present)
-    #[cfg(feature = "vlan")]
-    pub fn vlan_try_send<R>(
-        &self,
-        len: usize,
-        vid: u16,
-        fillout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
-    }
-
-    pub fn can_recv(&self) -> bool {
-        self.rx_ring.is_next_free()
-    }
-
-    /// Checks whether the next slot on the Rx buffer is owned by userspace
-    /// and has a matching VLAN id. Packets without a VID or with a
-    /// non-matching VID are dropped by the Rx ring during this function
-    /// to prevent them from clogging up the system.
-    #[cfg(feature = "vlan")]
-    pub fn vlan_can_recv(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> bool {
-        self.rx_ring.vlan_is_next_free(vid, vid_range)
-    }
-
-    /// Tries to receive a packet, if one is present in the RX ring.
-    ///
-    /// This will attempt to get a filled-out descriptor/buffer from the RX
-    /// ring. If successful, it will call `readout` with the packet's slice.
-    /// `readout` can produce a value of some type `R`; after it completes, this
-    /// routine will mark the descriptor as empty and return `Some(r)`.
-    ///
-    /// If there are no packets waiting in the RX ring, this returns `None`
-    /// without calling `readout`.
-    #[cfg(not(feature = "vlan"))]
-    pub fn try_recv<R>(
-        &self,
-        readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.rx_ring.try_with_next(readout)?;
-        // We have dequeued a packet! The hardware might not realize there is
-        // room in the RX queue now. Poke it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
-    }
-
-    /// Same as `try_recv`, but only receiving packets that match a particular
-    /// VLAN tag. This is only expected to be called from an `RxToken`,
-    /// meaning we know that there's already a valid packet in the buffer;
-    /// it will panic if this requirement is broken.
-    #[cfg(feature = "vlan")]
-    pub fn vlan_recv<R>(
-        &self,
-        vid: u16,
-        readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> R {
-        let result = self.rx_ring.vlan_with_next(vid, readout);
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
-        result
     }
 
     /// Pokes at the controller interrupt status registers to handle and clear
@@ -450,6 +345,115 @@ impl Ethernet {
     }
 }
 
+#[cfg(not(feature = "vlan"))]
+impl Ethernet {
+    /// Tries to send a packet, if TX buffer space is available.
+    ///
+    /// This will attempt to get a free descriptor/buffer from the TX ring. If
+    /// successful, it will call `fillout` with the address of the buffer, so
+    /// that it can be filled out. `fillout` is expected to overwrite the
+    /// (arbitrary) contents of the packet buffer. This routine will then
+    /// arrange for the hardware to notice an outgoing packet and return
+    /// `Some`.
+    ///
+    /// If the TX ring is full, this will return `None` without calling
+    /// `fillout`.
+    pub fn try_send<R>(
+        &self,
+        len: usize,
+        fillout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.tx_ring.try_with_next(len, fillout)?;
+        // We have enqueued a packet! The hardware may be suspended after
+        // discovering no packets to process. Wake it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmactx_dtpr.write(|w| unsafe {
+            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+        });
+        Some(result)
+    }
+
+    pub fn can_recv(&self) -> bool {
+        self.rx_ring.is_next_free()
+    }
+
+    /// Tries to receive a packet, if one is present in the RX ring.
+    ///
+    /// This will attempt to get a filled-out descriptor/buffer from the RX
+    /// ring. If successful, it will call `readout` with the packet's slice.
+    /// `readout` can produce a value of some type `R`; after it completes, this
+    /// routine will mark the descriptor as empty and return `Some(r)`.
+    ///
+    /// If there are no packets waiting in the RX ring, this returns `None`
+    /// without calling `readout`.
+    pub fn try_recv<R>(
+        &self,
+        readout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.rx_ring.try_with_next(readout)?;
+        // We have dequeued a packet! The hardware might not realize there is
+        // room in the RX queue now. Poke it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
+        Some(result)
+    }
+}
+
+#[cfg(feature = "vlan")]
+impl Ethernet {
+    /// Same as `try_recv`, but only receiving packets that match a particular
+    /// VLAN tag. This is only expected to be called from an `RxToken`,
+    /// meaning we know that there's already a valid packet in the buffer;
+    /// it will panic if this requirement is broken.
+    pub fn vlan_recv<R>(
+        &self,
+        vid: u16,
+        readout: impl FnOnce(&mut [u8]) -> R,
+    ) -> R {
+        let result = self.rx_ring.vlan_with_next(vid, readout);
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
+        result
+    }
+
+    /// Checks whether the next slot on the Rx buffer is owned by userspace
+    /// and has a matching VLAN id. Packets without a VID or with a
+    /// non-matching VID are dropped by the Rx ring during this function
+    /// to prevent them from clogging up the system.
+    pub fn vlan_can_recv(
+        &self,
+        vid: u16,
+        vid_range: core::ops::Range<u16>,
+    ) -> bool {
+        self.rx_ring.vlan_is_next_free(vid, vid_range)
+    }
+
+    /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
+    /// packet (if present)
+    #[cfg(feature = "vlan")]
+    pub fn vlan_try_send<R>(
+        &self,
+        len: usize,
+        vid: u16,
+        fillout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        self.dma.dmactx_dtpr.write(|w| unsafe {
+            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+        });
+        Some(result)
+    }
+}
+
 /// Standard MDIO registers laid out in IEEE 802.3 standard clause 22. Vendors
 /// often add to this set in the 16+ range.
 ///
@@ -534,9 +538,9 @@ mod tokens {
 
         fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
             // Note: smoltcp wants a transmit token every time it receives a
-            // packet, so if the tx queue fills up, we stop being able to
-            // receive. I'm ... not sure why this is desirable, but there we
-            // go.
+            // packet. This is because it automatically handles stuff like
+            // NDP by itself, but means that if the tx queue fills up, we stop
+            // being able to receive.
             //
             // Note that the can_recv and can_send checks remain valid because
             // the token mutably borrows the phy.

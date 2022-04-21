@@ -46,13 +46,15 @@ impl Buffer {
 /// carefully control accesses to its contents.
 ///
 /// When configured in VLAN mode, we write _two_ descriptors (each 4 bytes):
-/// the configuration descriptor (which sets the VLAN for the following
-/// packet), actual packet transmit descriptor.
+/// - the configuration descriptor, which sets the VLAN for subsequent packets
+/// - the actual packet transmit descriptor
 #[repr(transparent)]
 pub struct TxDesc {
     /// Transmit descriptor
     #[cfg(not(feature = "vlan"))]
     tdes: [AtomicU32; 4],
+
+    /// Context and transmit descriptors, packed together
     #[cfg(feature = "vlan")]
     tdes: [AtomicU32; 8],
 }
@@ -70,8 +72,6 @@ impl TxDesc {
 
 /// Index of OWN bit indicating that a descriptor is in use by the hardware.
 const TDES3_OWN_BIT: u32 = 31;
-/// Index of CTXT bit indicating that this is a context descriptor.
-const TDES3_CTXT_BIT: u32 = 30;
 /// Index of First Descriptor bit, indicating that a descriptor is the start of
 /// a new packet. We always set this and Last Descriptor, below.
 const TDES3_FD_BIT: u32 = 29;
@@ -81,15 +81,22 @@ const TDES3_LD_BIT: u32 = 28;
 
 /// Index of Checksum Insertion Control field.
 const TDES3_CIC_BIT: u32 = 16;
-/// Index of VLAN Tag Valid bit in a Tx Context descriptor.
-const TDES3_VLTV_BIT: u32 = 16;
 /// CIC value for enabling all checksum offloading.
 const TDES3_CIC_CHECKSUMS_ENABLED: u32 = 0b11;
 
-/// Index of VLAN Tag Insertion or Replacement field.
-const TDES2_VTIR_BIT: u32 = 14;
-/// VTIR value for inserting a VLAN tag.
-const TDES2_VTIR_INSERT: u32 = 0b10;
+// TDES bits which are only used in VLAN code, gated to avoid compiler warnings
+cfg_if::cfg_if! {
+    if #[cfg(feature = "vlan")] {
+        /// Index of CTXT bit indicating that this is a context descriptor.
+        const TDES3_CTXT_BIT: u32 = 30;
+        /// Index of VLAN Tag Valid bit in a Tx Context descriptor.
+        const TDES3_VLTV_BIT: u32 = 16;
+        /// Index of VLAN Tag Insertion or Replacement field.
+        const TDES2_VTIR_BIT: u32 = 14;
+        /// VTIR value for inserting a VLAN tag.
+        const TDES2_VTIR_INSERT: u32 = 0b10;
+    }
+}
 
 /// Control block for a ring of `TxDesc` records and associated `Buffer`s.
 pub struct TxRing {
@@ -150,39 +157,22 @@ impl TxRing {
     pub fn tail_ptr(&self) -> *const TxDesc {
         self.storage.as_ptr_range().end
     }
+}
 
+#[cfg(not(feature = "vlan"))]
+impl TxRing {
     /// Returns the count of entries in the descriptor ring / buffers in the
     /// pool.
     pub fn len(&self) -> usize {
-        #[cfg(feature = "vlan")]
-        const TX_DESC_PER_SLOT: usize = 2;
-        #[cfg(not(feature = "vlan"))]
-        const TX_DESC_PER_SLOT: usize = 1;
-
-        self.storage.len() * TX_DESC_PER_SLOT
+        self.storage.len()
     }
 
-    #[cfg(not(feature = "vlan"))]
     pub fn is_next_free(&self) -> bool {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let tdes3 = d.tdes[3].load(Ordering::Acquire);
         let own = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         !own
-    }
-
-    #[cfg(feature = "vlan")]
-    pub fn is_next_free(&self) -> bool {
-        let d = &self.storage[self.next.get()];
-        // Check whether the hardware has released both the context descriptor
-        // and the following transmit descriptor.
-        let tdes3 = d.tdes[3].load(Ordering::Acquire);
-        let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
-
-        let tdes3 = d.tdes[7].load(Ordering::Relaxed);
-        let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
-
-        !(own1 || own2)
     }
 
     /// Attempts to grab the next unused TX buffer in the ring and deposit a
@@ -202,7 +192,6 @@ impl TxRing {
     ///
     /// If a buffer is available, and we call `body`, and `body` returns a valid
     /// length larger than `BUFSZ`. Because that's obviously wrong.
-    #[cfg(not(feature = "vlan"))]
     pub fn try_with_next<R>(
         &self,
         len: usize,
@@ -254,8 +243,29 @@ impl TxRing {
             Some(result)
         }
     }
+}
 
-    #[cfg(feature = "vlan")]
+#[cfg(feature = "vlan")]
+impl TxRing {
+    /// Returns the count of entries in the descriptor ring / buffers in the
+    /// pool.
+    pub fn len(&self) -> usize {
+        self.storage.len() * 2 // Two descriptors per slot!
+    }
+
+    pub fn is_next_free(&self) -> bool {
+        let d = &self.storage[self.next.get()];
+        // Check whether the hardware has released both the context descriptor
+        // and the following transmit descriptor.
+        let tdes3 = d.tdes[3].load(Ordering::Acquire);
+        let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+
+        let tdes3 = d.tdes[7].load(Ordering::Relaxed);
+        let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
+
+        !(own1 || own2)
+    }
+
     pub fn vlan_try_with_next<R>(
         &self,
         len: usize,
@@ -341,8 +351,6 @@ impl RxDesc {
     }
 }
 
-/// Amount to shift RDES0 to read out the VLAN ID as a `u16`
-const RDES0_OUTER_VID_BIT: u32 = 0;
 /// Index of OWN bit indicating that a descriptor is in use by the hardware.
 const RDES3_OWN_BIT: u32 = 31;
 /// Index of Error Summary bit, which rolls up all the other error bits.
@@ -360,11 +368,19 @@ const RDES3_LD_BIT: u32 = 28;
 /// Index of Buffer 1 Valid bit, indicating that we have furnished a valid
 /// pointer for buffer 1 in this descriptor.
 const RDES3_BUF1_VALID_BIT: u32 = 24;
-/// Index of Receive Status RDES0 Valid bit, indicating that RDES0 is valid and
-/// has been written by the DMA.
-const RDES3_RS0V_BIT: u32 = 25;
 /// Mask for the Packet Length portion of RDES3.
 const RDES3_PL_MASK: u32 = (1 << 15) - 1;
+
+// RDES bits which are only used in VLAN code, gated to avoid compiler warnings
+cfg_if::cfg_if! {
+    if #[cfg(feature = "vlan")] {
+        /// Amount to shift RDES0 to read out the VLAN ID as a `u16`
+        const RDES0_OUTER_VID_BIT: u32 = 0;
+        /// Index of Receive Status RDES0 Valid bit, indicating that RDES0 is
+        /// valid and has been written by the DMA.
+        const RDES3_RS0V_BIT: u32 = 25;
+    }
+}
 
 /// Control block for a ring of `RxDesc` records and associated `Buffer`s.
 pub struct RxRing {
@@ -432,74 +448,27 @@ impl RxRing {
         self.storage.len()
     }
 
+    /// Programs the words in `d` to prepare to receive into `buffer` and sets
+    /// `d` accessible to hardware. The final write to make it accessible is
+    /// performed with Release ordering to get a barrier.
+    fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
+        d.rdes[0].store(buffer as u32, Ordering::Relaxed);
+        d.rdes[1].store(0, Ordering::Relaxed);
+        d.rdes[2].store(0, Ordering::Relaxed);
+        let rdes3 =
+            1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
+        d.rdes[3].store(rdes3, Ordering::Release); // <-- release
+    }
+}
+
+#[cfg(not(feature = "vlan"))]
+impl RxRing {
     pub fn is_next_free(&self) -> bool {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released this.
         let rdes3 = d.rdes[3].load(Ordering::Acquire);
         let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
         !own
-    }
-
-    /// Check whether the next Rx slot is available to read (from userland)
-    /// and has a matching VID. This function also quietly drops invalid
-    /// packets from the Rx ring, to avoid blocking the queue.
-    #[cfg(feature = "vlan")]
-    pub fn vlan_is_next_free(
-        &self,
-        vid: u16,
-        vid_range: core::ops::Range<u16>,
-    ) -> bool {
-        loop {
-            let d = &self.storage[self.next.get()];
-
-            // Check whether the hardware has released this.
-            let rdes3 = d.rdes[3].load(Ordering::Acquire);
-            // If the hardware still owns this descriptor, then return right
-            // away (and wait for the hardware to do more stuff).
-            if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
-                return false;
-            }
-
-            // Check to see if this is an error descriptor.  If so (or if it's
-            // not a complete packet, which shouldn't happen), then drop it.
-            let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
-            let first_and_last = rdes3
-                & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
-                == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
-            let packet_okay = !errors && first_and_last;
-
-            // If RDES0 is valid, then check for a VLAN match
-            let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
-            if packet_okay && rdes0_valid {
-                let rdes0 = d.rdes[0].load(Ordering::Relaxed);
-                let this_vid = (rdes0 >> RDES0_OUTER_VID_BIT) as u16;
-
-                if this_vid == vid {
-                    // If this matches our target VLAN, then we're good!
-                    return true;
-                } else if vid_range.contains(&this_vid) {
-                    // If this matches a _different_ valid VLAN, then return
-                    // and trust that another instance will handle it.
-                    return false;
-                }
-            }
-
-            // If we've gotten to this point in the code, the packet is
-            //  (a) owned by userspace and
-            //  (b) either has no VID or has an invalid VID
-            // so we're going to drop it to avoid clogging the queue.
-
-            // Rewrite to an empty rx descriptor (owned by DMA)
-            let buffer = self.buffers[self.next.get()].0.get();
-            Self::set_descriptor(d, buffer);
-
-            // Bump index forward.
-            self.next.set(if self.next.get() + 1 == self.storage.len() {
-                0
-            } else {
-                self.next.get() + 1
-            });
-        }
     }
 
     /// Attempts to grab the next filled-out RX buffer in the ring and show it
@@ -519,7 +488,6 @@ impl RxRing {
     /// `body` is allowed to return a value, of some type `R`. If we
     /// successfully grab a packet and call `body`, we'll return its result.
     /// This may or may not prove useful.
-    #[cfg(not(feature = "vlan"))]
     pub fn try_with_next<R>(
         &self,
         body: impl FnOnce(&mut [u8]) -> R,
@@ -589,7 +557,70 @@ impl RxRing {
             }
         }
     }
+}
 
+#[cfg(feature = "vlan")]
+impl RxRing {
+    /// Check whether the next Rx slot is available to read (from userland)
+    /// and has a matching VID. This function also quietly drops invalid
+    /// packets from the Rx ring, to avoid blocking the queue.
+    pub fn vlan_is_next_free(
+        &self,
+        vid: u16,
+        vid_range: core::ops::Range<u16>,
+    ) -> bool {
+        loop {
+            let d = &self.storage[self.next.get()];
+
+            // Check whether the hardware has released this.
+            let rdes3 = d.rdes[3].load(Ordering::Acquire);
+            // If the hardware still owns this descriptor, then return right
+            // away (and wait for the hardware to do more stuff).
+            if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
+                return false;
+            }
+
+            // Check to see if this is an error descriptor.  If so (or if it's
+            // not a complete packet, which shouldn't happen), then drop it.
+            let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+            let first_and_last = rdes3
+                & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+                == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+            let packet_okay = !errors && first_and_last;
+
+            // If RDES0 is valid, then check for a VLAN match
+            let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
+            if packet_okay && rdes0_valid {
+                let rdes0 = d.rdes[0].load(Ordering::Relaxed);
+                let this_vid = (rdes0 >> RDES0_OUTER_VID_BIT) as u16;
+
+                if this_vid == vid {
+                    // If this matches our target VLAN, then we're good!
+                    return true;
+                } else if vid_range.contains(&this_vid) {
+                    // If this matches a _different_ valid VLAN, then return
+                    // and trust that another instance will handle it.
+                    return false;
+                }
+            }
+
+            // If we've gotten to this point in the code, the packet is
+            //  (a) owned by userspace and
+            //  (b) either has no VID or has an invalid VID
+            // so we're going to drop it to avoid clogging the queue.
+
+            // Rewrite to an empty rx descriptor (owned by DMA)
+            let buffer = self.buffers[self.next.get()].0.get();
+            Self::set_descriptor(d, buffer);
+
+            // Bump index forward.
+            self.next.set(if self.next.get() + 1 == self.storage.len() {
+                0
+            } else {
+                self.next.get() + 1
+            });
+        }
+    }
     /// Attempts to grab the next filled-out RX buffer in the ring that
     /// matches the given VLAN id `vid` and show it to you.
     ///
@@ -597,7 +628,6 @@ impl RxRing {
     /// has confirmed that it's valid to receive a packet.
     ///
     /// Otherwise, this function will panic.
-    #[cfg(feature = "vlan")]
     pub fn vlan_with_next<R>(
         &self,
         vid: u16,
@@ -660,17 +690,5 @@ impl RxRing {
         });
 
         retval
-    }
-
-    /// Programs the words in `d` to prepare to receive into `buffer` and sets
-    /// `d` accessible to hardware. The final write to make it accessible is
-    /// performed with Release ordering to get a barrier.
-    fn set_descriptor(d: &RxDesc, buffer: *mut [u8; BUFSZ]) {
-        d.rdes[0].store(buffer as u32, Ordering::Relaxed);
-        d.rdes[1].store(0, Ordering::Relaxed);
-        d.rdes[2].store(0, Ordering::Relaxed);
-        let rdes3 =
-            1 << RDES3_OWN_BIT | 1 << RDES3_IOC_BIT | 1 << RDES3_BUF1_VALID_BIT;
-        d.rdes[3].store(rdes3, Ordering::Release); // <-- release
     }
 }

@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "gimletlet"
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 32768, ram = 4096}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -164,7 +164,7 @@ name = "task-net"
 stacksize = 8192
 priority = 2
 features = ["h753", "h7-vlan", "gimletlet-nic"]
-requires = {flash = 65536, ram = 32768, sram1 = 16384}
+requires = {flash = 65536, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -180,17 +180,6 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 features = ["vlan"]
-
-[tasks.udpbroadcast]
-path = "../../task/udpbroadcast"
-name = "task-udpbroadcast"
-priority = 3
-features = ["vlan"]
-requires = {flash = 8192, ram = 8192}
-stacksize = 4096
-start = false
-task-slots = ["net"]
-
 
 [tasks.idle]
 path = "../../task/idle"
@@ -277,19 +266,11 @@ mux = "port_e"
 cs = [{port = "E", pin = 11}]
 
 [config.net]
-vlan_start = 0x301
-vlan_count = 2
+vlan = { start = 0x301, count = 2 }
 
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
-
-[config.net.sockets.broadcast]
-kind = "udp"
-owner = {name = "udpbroadcast", notification = 1}
-port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

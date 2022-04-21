@@ -19,11 +19,10 @@ pub struct NetConfig {
     /// Sockets known to the system, indexed by name.
     pub sockets: BTreeMap<String, SocketConfig>,
 
-    /// Address of the lowest VLAN
-    pub vlan_start: Option<usize>,
-
-    /// Number of VLANs
-    pub vlan_count: Option<usize>,
+    /// VLAN configuration, or None. This is checked against enabled features
+    /// during the `net` build, so it must be present iff the `vlan` feature
+    /// is turned on.
+    pub vlan: Option<VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -36,6 +35,14 @@ pub struct SocketConfig {
     pub port: u16,
     pub tx: BufSize,
     pub rx: BufSize,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct VLanConfig {
+    /// Address of the 0-index VLAN
+    pub start: usize,
+    /// Number of VLANs
+    pub count: usize,
 }
 
 #[derive(Deserialize)]
@@ -53,25 +60,14 @@ pub struct TaskNote {
 pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
     let cfg = build_util::config::<GlobalConfig>()?.net;
 
-    #[cfg(feature = "vlan")]
-    {
-        if cfg.vlan_count.is_none() {
-            panic!("VLAN feature is enabled, but vlan_count is missing from config");
-        } else if cfg.vlan_start.is_none() {
-            panic!("VLAN feature is enabled, but vlan_start is missing from config");
+    match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {
+        (true, false) => {
+            panic!("VLAN feature is enabled, but vlan is missing from config")
         }
-    }
-    #[cfg(not(feature = "vlan"))]
-    {
-        if cfg.vlan_count.is_some() {
-            panic!(
-                "VLAN feature is disabled, but vlan_count is present in config"
-            );
-        } else if cfg.vlan_start.is_some() {
-            panic!(
-                "VLAN feature is disabled, but vlan_start is present in config"
-            );
+        (false, true) => {
+            panic!("VLAN feature is disabled, but vlan is present in config")
         }
+        _ => (),
     }
 
     Ok(cfg)
@@ -81,16 +77,15 @@ pub fn generate_vlan_consts(
     config: &NetConfig,
     mut out: impl std::io::Write,
 ) -> Result<(), std::io::Error> {
-    let start = config.vlan_start.unwrap();
-    let count = config.vlan_count.unwrap();
-    let end = start + count;
+    let vlan = config.vlan.unwrap();
+    let end = vlan.start + vlan.count;
     writeln!(
         out,
         "
 pub const VLAN_RANGE: core::ops::Range<u16> = {:#x}..{:#x};
 pub const VLAN_COUNT: usize = {};
 ",
-        start, end, count
+        vlan.start, end, vlan.count
     )
 }
 
