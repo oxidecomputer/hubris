@@ -97,10 +97,10 @@ global_config = "spi1"
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 8192
+stacksize = 3800
 priority = 2
-requires = {flash = 131072, ram = 32768, sram1 = 32768}
-features = ["h753", "h7-vlan"]
+requires = {flash = 131072, ram = 8192, sram1 = 32768}
+features = ["h753"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -137,20 +137,9 @@ task-slots = ["user_leds"]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-features = ["vlan"]
 requires = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
-task-slots = ["net"]
-
-[tasks.udpbroadcast]
-path = "../../task/udpbroadcast"
-name = "task-udpbroadcast"
-priority = 3
-features = ["vlan"]
-requires = {flash = 16384, ram = 8192}
-stacksize = 4096
-start = false
 task-slots = ["net"]
 
 [tasks.hiffy]
@@ -238,16 +227,10 @@ cs = [{port = "D", pin = 14}]
 clock_divider = "DIV32"
 
 [config.net]
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
-
-[config.net.sockets.broadcast]
-kind = "udp"
-owner = {name = "udpbroadcast", notification = 1}
-port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
