@@ -20,6 +20,11 @@ use core::sync::atomic::{AtomicU32, Ordering};
 /// Believe it!
 const ATOMIC_ZERO: AtomicU32 = AtomicU32::new(0);
 
+/// Similarly, we have to make this intermediate array to store an array of
+/// arrays of AtomicZero
+#[cfg(feature = "vlan")]
+const ATOMIC_ZERO_FOUR: [AtomicU32; 4] = [ATOMIC_ZERO; 4];
+
 /// Size of buffer used with the Ethernet DMA. This can be changed but must
 /// remain under 64kiB -- the driver initialization code refers to this constant
 /// when setting up the controller.
@@ -56,7 +61,7 @@ pub struct TxDesc {
 
     /// Context and transmit descriptors, packed together
     #[cfg(feature = "vlan")]
-    tdes: [AtomicU32; 8],
+    tdes: [[AtomicU32; 4]; 2],
 }
 
 impl TxDesc {
@@ -65,7 +70,7 @@ impl TxDesc {
             #[cfg(not(feature = "vlan"))]
             tdes: [ATOMIC_ZERO; 4],
             #[cfg(feature = "vlan")]
-            tdes: [ATOMIC_ZERO; 8],
+            tdes: [ATOMIC_ZERO_FOUR; 2],
         }
     }
 }
@@ -133,9 +138,14 @@ impl TxRing {
         // Initialize all TxDesc records to a known state, and in particular,
         // ensure that they're owned by us (not the hardware).
         for desc in storage {
+            #[cfg(not(feature = "vlan"))]
             desc.tdes[3].store(0, Ordering::Release);
+
             #[cfg(feature = "vlan")]
-            desc.tdes[7].store(0, Ordering::Release);
+            {
+                desc.tdes[0][3].store(0, Ordering::Release);
+                desc.tdes[1][3].store(0, Ordering::Release);
+            }
         }
         Self {
             storage,
@@ -257,10 +267,10 @@ impl TxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released both the context descriptor
         // and the following transmit descriptor.
-        let tdes3 = d.tdes[3].load(Ordering::Acquire);
+        let tdes3 = d.tdes[0][3].load(Ordering::Acquire);
         let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
 
-        let tdes3 = d.tdes[7].load(Ordering::Relaxed);
+        let tdes3 = d.tdes[1][3].load(Ordering::Relaxed);
         let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
 
         !(own1 || own2)
@@ -275,11 +285,10 @@ impl TxRing {
         let d = &self.storage[self.next.get()];
         // Check whether the hardware has released both the Context and Tx
         // descriptors.
-        const OFFSET: usize = 4;
-        let tdes3 = d.tdes[3].load(Ordering::Acquire);
+        let tdes3 = d.tdes[0][3].load(Ordering::Acquire);
         let own1 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
 
-        let tdes3 = d.tdes[OFFSET + 3].load(Ordering::Acquire);
+        let tdes3 = d.tdes[1][3].load(Ordering::Acquire);
         let own2 = tdes3 & (1 << TDES3_OWN_BIT) != 0;
         if own1 || own2 {
             None
@@ -308,20 +317,20 @@ impl TxRing {
                 | 1 << TDES3_CTXT_BIT
                 | 1 << TDES3_VLTV_BIT
                 | u32::from(vid);
-            d.tdes[3].store(tdes3, Ordering::Release); // <-- release
+            d.tdes[0][3].store(tdes3, Ordering::Release); // <-- release
 
             // Program the tx descriptor to represent the packet, using the
             // same strategy as above for memory access ordering.
-            d.tdes[OFFSET].store(buffer.as_ptr() as u32, Ordering::Relaxed);
-            d.tdes[OFFSET + 1].store(0, Ordering::Relaxed);
+            d.tdes[1][0].store(buffer.as_ptr() as u32, Ordering::Relaxed);
+            d.tdes[1][1].store(0, Ordering::Relaxed);
             let tdes2 = TDES2_VTIR_INSERT << TDES2_VTIR_BIT | len as u32;
-            d.tdes[OFFSET + 2].store(tdes2, Ordering::Relaxed);
+            d.tdes[1][2].store(tdes2, Ordering::Relaxed);
             let tdes3 = 1 << TDES3_OWN_BIT
                 | 1 << TDES3_FD_BIT
                 | 1 << TDES3_LD_BIT
                 | TDES3_CIC_CHECKSUMS_ENABLED << TDES3_CIC_BIT
                 | len as u32;
-            d.tdes[OFFSET + 3].store(tdes3, Ordering::Release); // <-- release
+            d.tdes[1][3].store(tdes3, Ordering::Release); // <-- release
 
             self.next.set(if self.next.get() + 1 == self.storage.len() {
                 0
