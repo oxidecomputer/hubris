@@ -26,8 +26,8 @@ const WRITE_TIME_MS: u64 = 5;
 /// which has more room for confusion.
 pub struct At24csw080 {
     /// We store a `DeviceHandle` instead of an `I2cDevice` to force users
-    /// of this API to call either the `eeprom()` or `registers()`, since
-    /// the I2C address must be dynamically generated.
+    /// of this API to call either `eeprom()` or `registers()`, since the I2C
+    /// address must be dynamically generated.
     device: handle::DeviceHandle,
 }
 
@@ -66,8 +66,8 @@ impl From<ResponseCode> for Error {
 
 /// Word address for the write-protect register
 ///
-/// According to the datasheet, this is `11xx_xxxx`; we're filling the ignored
-/// bits with zeros.
+/// According to the datasheet (Table 8-3), this is `11xx_xxxx`; we're filling
+/// the ignored bits with zeros.
 const WPR_WORD_ADDR: u8 = 0b1100_0000;
 
 const WPR_WRITE: u8 = 0b0100_0000;
