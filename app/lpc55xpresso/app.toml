@@ -130,6 +130,12 @@ interrupts = {"flexcomm0.irq" = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
 
+[tasks.usart_driver.config]
+pins = [
+{ pin = { port = 0, pin = 29}, alt = 1},
+{ pin = { port = 0, pin = 30}, alt = 1}
+]
+
 [tasks.i2c_driver]
 path = "../../drv/lpc55-i2c"
 name = "drv-lpc55-i2c"
@@ -162,6 +168,18 @@ interrupts = {"flexcomm8.hs_spi" = 1}
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
 
+[tasks.spi0_driver.config]
+pins = [
+# HS_SPI_MOSI = P0_26 = FUN9
+{ pin = { port = 0, pin = 26}, alt = 9},
+# HS_SPI_MISO = P1_3 = FUN6
+{ pin = { port = 1, pin = 3}, alt = 6},
+# HS_SPI_SCK = P1_2 = FUN6
+{ pin = { port = 1, pin = 2}, alt = 6},
+# HS_SSEL1 = P1_1 = FUN5
+{ pin = { port = 1, pin = 1}, alt = 5},
+]
+
 [tasks.ping]
 path = "../../task/ping"
 name = "task-ping"
@@ -180,3 +198,4 @@ requires = {flash = 8192, ram = 2048}
 start = true
 stacksize = 1000
 task-slots = ["user_leds"]
+

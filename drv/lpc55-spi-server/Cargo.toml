@@ -13,6 +13,11 @@ num-traits = { version = "0.2.12", default-features = false }
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 ringbuf = {path = "../../lib/ringbuf"}
 
+[build-dependencies]
+build-util = {path = "../../build/util"}
+build-lpc55pins = {path = "../../build/lpc55pins"}
+serde = "1"
+
 [features]
 spi0 = []
 
