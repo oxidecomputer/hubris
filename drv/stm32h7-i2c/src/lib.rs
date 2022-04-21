@@ -740,7 +740,7 @@ impl<'a> I2cController<'a> {
         i2c.cr1.modify(|_, w| w.pe().set_bit());
     }
 
-    pub fn operate_as_target<'b>(
+    pub fn operate_as_target(
         &self,
         ctrl: &I2cControl,
         mut initiate: impl FnMut(u8) -> bool,

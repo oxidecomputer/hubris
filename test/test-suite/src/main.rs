@@ -105,6 +105,8 @@ test_cases! {
     test_idol_ssmarshal,
     test_idol_ssmarshal_multiarg,
     test_idol_ssmarshal_multiarg_enum,
+    #[cfg(feature = "fru-id-eeprom")]
+    at24csw080::test_at24csw080,
 }
 
 /// Tests that we can send a message to our assistant, and that the assistant
@@ -568,6 +570,272 @@ fn test_idol_ssmarshal_multiarg_enum() {
         .unwrap();
 
     assert_eq!(r, 14);
+}
+
+#[cfg(feature = "i2c-devices")]
+include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+#[cfg(feature = "i2c-devices")]
+task_slot!(I2C, i2c_driver);
+
+// Put the FRU ID tests into their own module, so it can be enabled with
+// a single cfg block
+#[cfg(feature = "fru-id-eeprom")]
+mod at24csw080 {
+    use super::*;
+    use drv_i2c_devices::at24csw080::Error;
+    use drv_i2c_devices::at24csw080::*;
+
+    const EEPROM_SIZE: u16 = 1024;
+    const PAGE_SIZE: u16 = 16;
+
+    pub(super) fn test_at24csw080() {
+        let i2c_task = I2C.get_task_id();
+        let dev =
+            At24csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
+
+        // The FRU ID EEPROM is 1KByte.  Because we want to exercise the
+        // ability to rewrite the EEPROM (and have that persist through power
+        // loss), we define two different patterns based on the first byte.
+        //
+        // Depending on the value of the first byte in the EEPROM, we make the
+        // following choices:
+        //
+        //  If the byte is 0x0A, indicating pattern A
+        //      Write the byte to 0xFF, indicating that the pattern is empty
+        //      Validate pattern A (ignoring the first byte)
+        //      Write pattern B (leaving the first byte at 0xFF)
+        //      Validate pattern B (ignoring the first byte)
+        //      Write the first byte to 0x0B
+        //  If the byte is 0x0B, indicating pattern B
+        //      Write the byte to 0xFF, indicating that the pattern is empty
+        //      Validate pattern B (ignoring the first byte)
+        //      Write pattern A (leaving the first byte at 0xFF)
+        //      Validate pattern A (ignoring the first byte)
+        //      Write the first byte to 0x0A
+        //  Otherwise, the EEPROM is empty or has an invalid pattern
+        //      Write pattern A (leaving the first byte at 0xFF)
+        //      Validate the A pattern
+        //      Write the first byte to 0x0A
+        //
+        //  Notice that we clear the first byte of the EEPROM _before_ doing
+        //  validation. This ensures that if validation fails, the EEPROM is
+        //  left in a state where it falls back to the default case, instead
+        //  of getting stuck.
+        let seed = dev.read::<u8>(0).unwrap();
+        match seed {
+            0x0A => {
+                dev.write_byte(0, 0xFF).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
+                test_eeprom(&dev, 0x0B).unwrap();
+                validate_eeprom(&dev, 0x0B).unwrap();
+                dev.write(0, 0x0Bu8).unwrap();
+            }
+            0x0B => {
+                dev.write_byte(0, 0xFF).unwrap();
+                validate_eeprom(&dev, 0x0B).unwrap();
+                test_eeprom(&dev, 0x0A).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
+                dev.write(0, 0x0A_u8).unwrap();
+            }
+            _ => {
+                test_eeprom(&dev, 0x0A).unwrap();
+                validate_eeprom(&dev, 0x0A).unwrap();
+                dev.write(0, 0x0A_u8).unwrap();
+            }
+        }
+        sys_log!("Completed EEPROM test with seed {}", seed);
+    }
+
+    /// Simple maximal LFSR to generate a stream of pseudo-random bytes
+    fn next(i: &mut u8) -> u8 {
+        *i = (*i << 1) | ((*i & 0b10110100).count_ones() as u8 & 1);
+        *i
+    }
+
+    fn test_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
+        assert!(seed != 0);
+
+        // If the security register is (permanently) locked, then we won't be
+        // able to run part of this test, so fail early.
+        assert!(!dev.is_security_register_locked()?);
+
+        // If the write protection register is locked, then we're going to have
+        // a bad time, so fail early as well.
+        //
+        // It's possible for the write protection register to be (temporarily)
+        // enabled if someone pulls power to the EEPROM at just the right point
+        // in the test suite; in that case, we disable write protection but
+        // don't fail the test suite.
+        let wpr = dev.read_eeprom_write_protect()?;
+        assert!(!wpr.locked);
+        if wpr.block.is_some() {
+            dev.disable_eeprom_write_protection()?;
+        }
+
+        // Test error handling in the driver itself by doing a bunch of
+        // operations that should be invalid
+        //
+        // There are a few errors that we can't easily test
+        // - InvalidObjectSize requires a single object that's > 64K, which is
+        //   unlikely in our embedded system.
+        // - MisalignedPage and InvalidPageSize are both only generated by
+        //   a private function (write_page)
+        assert_eq!(
+            dev.write(1028, 0x1234_u32),
+            Err(Error::InvalidAddress(1028))
+        );
+        assert_eq!(
+            dev.write(1022, 0x1234_u32),
+            Err(Error::InvalidEndAddress(1026))
+        );
+        assert_eq!(
+            dev.write_security_register_byte(0, 1),
+            Err(Error::InvalidSecurityRegisterWriteByte(0))
+        );
+        assert_eq!(
+            dev.write_security_register_byte(33, 1),
+            Err(Error::InvalidSecurityRegisterWriteByte(33))
+        );
+        assert_eq!(
+            dev.read_security_register_byte(33),
+            Err(Error::InvalidSecurityRegisterReadByte(33))
+        );
+
+        // Write random bytes unevenly spaced through memory, then read them
+        // back and check their values.
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize + 1) {
+            dev.write(addr, next(&mut i))?;
+        }
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize + 1) {
+            assert_eq!(dev.read::<u8>(addr)?, next(&mut i));
+        }
+
+        // Generate a pseudo-random buffer, which we'll write in various places
+        const BUF_SIZE: u16 = 31;
+        type BufType = [u8; BUF_SIZE as usize];
+        let buf = {
+            let mut buf: BufType = BufType::default();
+            let mut i = seed;
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            buf
+        };
+
+        // Write the buffer in a variety of page-straddling locations then
+        // read it back and look for issues.
+        for addr in [69, 254, 510] {
+            dev.write(addr, buf)?;
+            assert!(dev.read::<BufType>(addr)? == buf);
+            dev.write(addr + BUF_SIZE, buf)?;
+            assert!(dev.read::<BufType>(addr)? == buf);
+            assert!(dev.read::<BufType>(addr + BUF_SIZE)? == buf);
+            dev.write(addr - BUF_SIZE, buf)?;
+            assert!(dev.read::<BufType>(addr - BUF_SIZE)? == buf);
+            assert!(dev.read::<BufType>(addr + BUF_SIZE)? == buf);
+            assert!(dev.read::<BufType>(addr)? == buf);
+        }
+
+        // Write the upper 16 bytes of the security register based on the lower
+        // 16 bytes and the seed, then read back values to test.  We'll read
+        // back these values in `validate_eeprom`, since this should be
+        // persistent through power cycles.
+        let mut h = seed;
+        for i in 0..16 {
+            let v = dev.read_security_register_byte(i)? ^ next(&mut h);
+            dev.write_security_register_byte(i + 16, v)?;
+        }
+
+        // Make sure that the EEPROM write protection register works
+        // (only enabling it temporarily, do not fear)
+        let addr = 760;
+        dev.write(addr, buf)?;
+        assert!(dev.read::<BufType>(addr)? == buf);
+        dev.enable_eeprom_write_protection(WriteProtectBlock::Upper256Bytes)?;
+        assert!(dev.read::<BufType>(addr)? == buf);
+        dev.write(addr, BufType::default())?;
+        // At this point, we expect the bottom 8 bytes to be cleared (because
+        // they're in the unprotected region), and the remaining bytes to be
+        // the same as before
+        let v = dev.read::<BufType>(addr)?;
+        assert!(v[0..8] == [0; 8]);
+        assert!(v[8..] == buf[8..]);
+        // Now disable write protection; clear that chunk of memory, and
+        // confirm that the clearing worked on the entire buffer.
+        dev.disable_eeprom_write_protection()?;
+        dev.write(addr, BufType::default())?;
+        assert!(dev.read::<BufType>(addr)? == BufType::default());
+
+        // To finish, write most of the EEPROM with a pseudorandom pattern.
+        // We'll check this in `validate_eeprom` to make sure it persists
+        // through power-off.
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(PAGE_SIZE as usize) {
+            // Using page-size writes to minimize the number of 5ms waits
+            let mut buf = [0u8; PAGE_SIZE as usize];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            dev.write(addr, buf)?;
+        }
+
+        // Fill the first page with the seed value, except byte 0, which is
+        // only written after _everything_ is confirmed to be happy.
+        for addr in 1..PAGE_SIZE {
+            dev.write(addr, seed)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
+        // At this point, we have already overwritten byte 0 with 0xFF
+        // to avoid getting stuck in a bad validation state.
+
+        for addr in 1..PAGE_SIZE {
+            assert_eq!((addr, dev.read::<u8>(addr)?), (addr, seed));
+        }
+
+        // Test single-byte reads
+        let mut i = seed;
+        for addr in PAGE_SIZE..EEPROM_SIZE {
+            assert_eq!((addr, dev.read::<u8>(addr)?), (addr, next(&mut i)));
+        }
+
+        // Test multi-byte reads (page-aligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE).step_by(4) {
+            let mut buf = [0u8; 4];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+
+            assert_eq!(dev.read::<[u8; 4]>(addr)?, buf);
+        }
+
+        // Test multi-byte reads (misaligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE - 17).step_by(17) {
+            let mut buf = [0u8; 17];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            assert_eq!(dev.read::<[u8; 17]>(addr)?, buf);
+        }
+
+        // Test multi-byte reads (misaligned)
+        let mut i = seed;
+        for addr in (PAGE_SIZE..EEPROM_SIZE - 31).step_by(31) {
+            let mut buf = [0u8; 31];
+            buf.iter_mut().for_each(|b| *b = next(&mut i));
+            assert_eq!(dev.read::<[u8; 31]>(addr)?, buf);
+        }
+
+        // Check the security register bytes, which should have a
+        // pseudorandom pattern based on the seed.
+        let mut h = seed;
+        for i in 0..16 {
+            let v = dev.read_security_register_byte(i)? ^ next(&mut h);
+            assert_eq!(v, dev.read_security_register_byte(i + 16)?);
+        }
+
+        Ok(())
+    }
 }
 
 /// Tests that task restart works as expected.

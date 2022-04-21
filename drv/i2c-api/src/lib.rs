@@ -24,6 +24,7 @@
 
 use zerocopy::{AsBytes, FromBytes};
 
+use derive_idol_err::IdolError;
 use userlib::*;
 
 #[derive(FromPrimitive, PartialEq)]
@@ -36,7 +37,7 @@ pub enum Op {
 /// the case of [`ResponseCode::Dead`]).  These response codes pretty specific,
 /// not because the caller is expected to necessarily handle them differently,
 /// but to give upstack software some modicum of context surrounding the error.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Server has died
@@ -260,12 +261,6 @@ impl I2cDevice {
             segment: segment,
             address: address,
         }
-    }
-}
-
-impl From<ResponseCode> for u32 {
-    fn from(rc: ResponseCode) -> Self {
-        rc as u32
     }
 }
 

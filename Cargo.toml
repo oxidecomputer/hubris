@@ -98,6 +98,7 @@ members = [
     "drv/vsc85xx",
     "drv/vsc-err",
     "drv/hash-api",
+    "drv/eeprom",
     "drv/stm32h7-hash-server",
     "drv/rng-api",
 

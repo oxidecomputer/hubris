@@ -624,6 +624,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-eeprom"
+version = "0.1.0"
+dependencies = [
+ "build-i2c",
+ "derive-idol-err",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
@@ -708,6 +723,7 @@ dependencies = [
 name = "drv-i2c-api"
 version = "0.1.0"
 dependencies = [
+ "derive-idol-err",
  "num-traits",
  "ringbuf",
  "userlib",
@@ -719,6 +735,7 @@ name = "drv-i2c-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield",
+ "derive-idol-err",
  "drv-i2c-api",
  "drv-onewire",
  "num-traits",
@@ -3106,9 +3123,12 @@ dependencies = [
 name = "test-suite"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
  "cfg-if 0.1.10",
  "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "hubris-num-tasks",
  "hypocalls",
  "num-traits",
