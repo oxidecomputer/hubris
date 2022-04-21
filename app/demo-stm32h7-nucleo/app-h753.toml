@@ -150,7 +150,7 @@ priority = 3
 features = ["vlan"]
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
-start = true
+start = false
 task-slots = ["net"]
 
 [tasks.hiffy]

@@ -19,7 +19,9 @@ fn main() -> ! {
 
     // If this system is running in VLAN mode, then we broadcast to each
     // possible VLAN in turn.  Otherwise, broadcast normal packets.
-    let mut _v = 0;
+    #[cfg(feature = "vlan")]
+    let mut vid_iter = VLAN_RANGE.cycle();
+
     loop {
         let tx_bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
         let meta = UdpMetadata {
@@ -30,9 +32,8 @@ fn main() -> ! {
             port: 8,
             size: tx_bytes.len() as u32,
             #[cfg(feature = "vlan")]
-            vid: ((_v % VLAN_COUNT) + VLAN_START) as u16,
+            vid: vid_iter.next().unwrap(),
         };
-        _v += 1;
 
         hl::sleep_for(500);
         net.send_packet(SOCKET, meta, &tx_bytes).unwrap();

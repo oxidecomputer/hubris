@@ -20,7 +20,7 @@ use smoltcp::wire::{
 use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
-use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_START};
+use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
@@ -57,7 +57,7 @@ impl<'a, 'b> smoltcp::phy::Device<'a> for VLanEthernet<'b> {
     type TxToken = VLanTxToken<'a>;
 
     fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        if self.eth.can_recv() && self.eth.can_send() {
+        if self.eth.vlan_can_recv(self.vid, VLAN_RANGE) && self.eth.can_send() {
             Some((
                 VLanRxToken(self.eth, self.vid),
                 VLanTxToken(self.eth, self.vid),
@@ -90,9 +90,7 @@ impl<'a> smoltcp::phy::RxToken for VLanRxToken<'a> {
     where
         F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
     {
-        self.0
-            .vlan_try_recv(self.1, f)
-            .expect("we checked RX availability earlier")
+        self.0.vlan_recv(self.1, f)
     }
 }
 
@@ -147,6 +145,7 @@ impl<'a> ServerImpl<'a> {
         let mut neighbor_cache_iter = storage.neighbor_cache_storage.iter_mut();
         let mut socket_storage_iter = storage.socket_storage.iter_mut();
         let mut socket_handles_iter = socket_handles.iter_mut();
+        let mut vid_iter = generated::VLAN_RANGE;
         let mut ifaces_iter = ifaces.iter_mut();
         let mut ip_addr_slice = &mut storage.ipv6_net[..];
 
@@ -154,7 +153,7 @@ impl<'a> ServerImpl<'a> {
         let sockets = generated::construct_sockets();
         assert_eq!(sockets.0.len(), VLAN_COUNT);
 
-        for (i, sockets) in sockets.0.into_iter().enumerate() {
+        for sockets in sockets.0.into_iter() {
             let neighbor_cache_storage = neighbor_cache_iter.next().unwrap();
             let neighbor_cache = smoltcp::iface::NeighborCache::new(
                 &mut neighbor_cache_storage[..],
@@ -164,7 +163,7 @@ impl<'a> ServerImpl<'a> {
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
                     eth: &storage.eth,
-                    vid: (generated::VLAN_START + i).try_into().unwrap(),
+                    vid: vid_iter.next().unwrap(),
                 },
                 &mut socket_storage[..],
             );
@@ -291,8 +290,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
 
         // Iterate over all of the per-VLAN sockets, returning the first
         // available packet with a bonus `vid` tag attached in the metadata.
-        for v in 0..VLAN_COUNT {
-            let socket = self.get_socket_mut(socket_index, v)?;
+        for (i, vid) in VLAN_RANGE.enumerate() {
+            let socket = self.get_socket_mut(socket_index, i)?;
             match socket.recv() {
                 Ok((body, endp)) => {
                     if payload.len() < body.len() {
@@ -306,7 +305,7 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
                         port: endp.port,
                         size: body.len() as u32,
                         addr: endp.addr.try_into().map_err(|_| ()).unwrap(),
-                        vid: (v as usize + VLAN_START).try_into().unwrap(),
+                        vid,
                     });
                 }
                 Err(smoltcp::Error::Exhausted) => {
@@ -337,14 +336,16 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
             return Err(NetError::NotYours.into());
         }
 
-        let vlan_index = (metadata.vid as usize)
-            .checked_sub(VLAN_START)
-            .ok_or(NetError::InvalidVLan)?;
-        if vlan_index >= VLAN_COUNT {
+        // Convert from absolute VID to an index in our VLAN array
+        if !VLAN_RANGE.contains(&metadata.vid) {
             return Err(NetError::InvalidVLan.into());
         }
+        let vlan_index = metadata
+            .vid
+            .checked_sub(VLAN_RANGE.start)
+            .ok_or(NetError::InvalidVLan)?;
 
-        let socket = self.get_socket_mut(socket_index, vlan_index)?;
+        let socket = self.get_socket_mut(socket_index, vlan_index as usize)?;
         match socket.send(payload.len(), metadata.into()) {
             Ok(buf) => {
                 payload

@@ -282,6 +282,19 @@ impl Ethernet {
         self.rx_ring.is_next_free()
     }
 
+    /// Checks whether the next slot on the Rx buffer is owned by userspace
+    /// and has a matching VLAN id. Packets without a VID or with a
+    /// non-matching VID are dropped by the Rx ring during this function
+    /// to prevent them from clogging up the system.
+    #[cfg(feature = "vlan")]
+    pub fn vlan_can_recv(
+        &self,
+        vid: u16,
+        vid_range: core::ops::Range<u16>,
+    ) -> bool {
+        self.rx_ring.vlan_is_next_free(vid, vid_range)
+    }
+
     /// Tries to receive a packet, if one is present in the RX ring.
     ///
     /// This will attempt to get a filled-out descriptor/buffer from the RX
@@ -309,19 +322,21 @@ impl Ethernet {
     }
 
     /// Same as `try_recv`, but only receiving packets that match a particular
-    /// VLAN tag.
+    /// VLAN tag. This is only expected to be called from an `RxToken`,
+    /// meaning we know that there's already a valid packet in the buffer;
+    /// it will panic if this requirement is broken.
     #[cfg(feature = "vlan")]
-    pub fn vlan_try_recv<R>(
+    pub fn vlan_recv<R>(
         &self,
         vid: u16,
         readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.rx_ring.vlan_try_with_next(vid, readout)?;
+    ) -> R {
+        let result = self.rx_ring.vlan_with_next(vid, readout);
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
         self.dma.dmacrx_dtpr.write(|w| unsafe {
             w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
         });
-        Some(result)
+        result
     }
 
     /// Pokes at the controller interrupt status registers to handle and clear

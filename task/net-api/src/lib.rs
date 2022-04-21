@@ -38,7 +38,10 @@ impl From<UdpMetadata> for smoltcp::wire::IpEndpoint {
     }
 }
 
+// This must be repr(C); otherwise Rust cleverly optimizes out the enum tag,
+// which breaks ssmarshal's assumptions about struct sizes.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub enum Address {
     Ipv6(Ipv6Address),
 }

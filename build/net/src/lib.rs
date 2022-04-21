@@ -81,11 +81,16 @@ pub fn generate_vlan_consts(
     config: &NetConfig,
     mut out: impl std::io::Write,
 ) -> Result<(), std::io::Error> {
+    let start = config.vlan_start.unwrap();
+    let count = config.vlan_count.unwrap();
+    let end = start + count;
     writeln!(
         out,
-        "pub const VLAN_START: usize = {}; pub const VLAN_COUNT: usize = {};",
-        config.vlan_start.unwrap(),
-        config.vlan_count.unwrap()
+        "
+pub const VLAN_RANGE: core::ops::Range<u16> = {:#x}..{:#x};
+pub const VLAN_COUNT: usize = {};
+",
+        start, end, count
     )
 }
 
