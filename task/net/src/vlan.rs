@@ -213,8 +213,6 @@ impl<'a> ServerImpl<'a> {
         for iface in &mut self.ifaces {
             any_activity |= iface.poll(t)?;
         }
-        // TODO: scavenge packets that aren't attached to a valid VLAN
-        // so they don't clog up the queue forever.
         Ok(any_activity)
     }
 
@@ -224,7 +222,7 @@ impl<'a> ServerImpl<'a> {
     pub fn wake_sockets(&mut self) {
         for i in 0..SOCKET_COUNT {
             if (0..VLAN_COUNT)
-                .all(|v| self.get_socket_mut(i, v).unwrap().can_recv())
+                .any(|v| self.get_socket_mut(i, v).unwrap().can_recv())
             {
                 let (task_id, notification) = generated::SOCKET_OWNERS[i];
                 let task_id = sys_refresh_task_id(task_id);
