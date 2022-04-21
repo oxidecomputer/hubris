@@ -38,7 +38,7 @@ enum Trace {
     Ice40PowerGoodV1P2(bool),
     Ice40PowerGoodV3P3(bool),
     RailsOff,
-    Ident(u32),
+    Ident(u16),
     A1Status(u8),
     A2,
     A1Power(u8, u8),

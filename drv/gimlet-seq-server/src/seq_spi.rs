@@ -21,7 +21,7 @@ pub enum Cmd {
 
 include!(concat!(env!("OUT_DIR"), "/gimlet_regs.rs"));
 
-pub const EXPECTED_IDENT: u32 = 0x1DE_AA55;
+pub const EXPECTED_IDENT: u16 = 0x1DE;
 
 pub struct SequencerFpga {
     spi: spi_api::SpiDevice,
@@ -32,8 +32,8 @@ impl SequencerFpga {
         Self { spi }
     }
 
-    /// Reads the IDENT0:3 registers as a big-endian 32-bit integer.
-    pub fn read_ident(&self) -> Result<u32, spi_api::SpiError> {
+    /// Reads the IDENT0:1 registers as a big-endian 16-bit integer.
+    pub fn read_ident(&self) -> Result<u16, spi_api::SpiError> {
         let mut ident = 0;
         self.read_bytes(Addr::ID0, ident.as_bytes_mut())?;
         Ok(ident)
