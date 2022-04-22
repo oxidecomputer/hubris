@@ -228,12 +228,12 @@ impl core::fmt::Display for I2cDevice {
 
         match self.segment {
             None => {
-                write!(f, "{:?}:{:?} 0x{:x}", self.controller, self.port, addr)
+                write!(f, "{:?}:{:?} {:#x}", self.controller, self.port, addr)
             }
             Some((mux, segment)) => {
                 write!(
                     f,
-                    "{:?}:{:?}, {:?}:{:?} 0x{:x}",
+                    "{:?}:{:?}, {:?}:{:?} {:#x}",
                     self.controller, self.port, mux, segment, addr
                 )
             }

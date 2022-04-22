@@ -1553,7 +1553,7 @@ unsafe extern "C" fn handle_fault(
         // for either FaultType or u8.
         panic!(
             "Kernel fault {}: \
-            CFSR=0x{:08x}, MMFAR=0x{:08x}, BFAR=0x{:08x}",
+            CFSR={:#08x}, MMFAR={:#08x}, BFAR={:#08x}",
             (fault_type as u8) as u32,
             cfsr.bits(),
             scb.mmfar.read(),

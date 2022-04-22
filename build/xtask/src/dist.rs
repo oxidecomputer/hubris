@@ -84,7 +84,7 @@ pub fn package(
         }
     }
     for (name, range) in &memories {
-        println!("{:<5} = 0x{:0>8x}..0x{:0>8x}", name, range.start, range.end);
+        println!("{:<5} = {:0>#8x}..{:0>#8x}", name, range.start, range.end);
     }
     let starting_memories = memories.clone();
 
@@ -96,7 +96,7 @@ pub fn package(
         let orig_range = &starting_memories[name];
         let size = new_range.start - orig_range.start;
         let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} 0x{:x} ({}%)", format!("{}:", name), size, percent);
+        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
     }
 
     let mut infofile = File::create(out.join("allocations.txt"))?;
@@ -289,7 +289,7 @@ pub fn package(
             File::create(Path::new(&format!("target/table.ld"))).unwrap();
 
         for b in bytes {
-            writeln!(linkscr, "BYTE(0x{:x})", b).unwrap();
+            writeln!(linkscr, "BYTE({:#x})", b).unwrap();
         }
 
         drop(linkscr);
@@ -843,7 +843,7 @@ fn generate_bootloader_linker_script(
         let name = name.to_ascii_uppercase();
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
             name,
             start,
             end - start
@@ -924,7 +924,7 @@ fn generate_task_linker_script(
     fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
             sec, o, l
         )?;
         Ok(())
@@ -1001,7 +1001,7 @@ fn generate_kernel_linker_script(
             stack_base = Some(start);
             writeln!(
                 linkscr,
-                "STACK (rw) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+                "STACK (rw) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
                 start, stacksize,
             )?;
             start += stacksize;
@@ -1014,7 +1014,7 @@ fn generate_kernel_linker_script(
 
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = 0x{:08x}, LENGTH = 0x{:08x}",
+            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
             name,
             start,
             end - start
@@ -1023,9 +1023,8 @@ fn generate_kernel_linker_script(
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
-    writeln!(linkscr, "_stack_base = 0x{:08x};", stack_base.unwrap()).unwrap();
-    writeln!(linkscr, "_stack_start = 0x{:08x};", stack_start.unwrap())
-        .unwrap();
+    writeln!(linkscr, "_stack_base = {:#08x};", stack_base.unwrap()).unwrap();
+    writeln!(linkscr, "_stack_start = {:#08x};", stack_start.unwrap()).unwrap();
 
     Ok(())
 }
@@ -2064,7 +2063,7 @@ fn resolve_task_slots(
 
         if verbose {
             println!(
-                "Task '{}' task_slot '{}' changed from task index 0x{:x} to task index 0x{:x}",
+                "Task '{}' task_slot '{}' changed from task index {:#x} to task index {:#x}",
                 task_name, entry.slot_name, in_task_idx, target_task_idx
             );
         }

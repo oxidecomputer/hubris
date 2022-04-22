@@ -79,7 +79,7 @@ pub enum Addr {{"##
             ..
         } = child
         {
-            writeln!(&mut output, "    {} = 0x{:x},", inst_name, addr_offset)?;
+            writeln!(&mut output, "    {} = {:#x},", inst_name, addr_offset)?;
         } else {
             panic!("unexpected child {:?}", child);
         }
