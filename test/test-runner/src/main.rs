@@ -320,7 +320,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
     match fault {
         FaultInfo::MemoryAccess { address, .. } => match address {
             Some(a) => {
-                sys_log!("Task #{} Memory fault at address 0x{:x}", t, a);
+                sys_log!("Task #{} Memory fault at address {:#x}", t, a);
             }
 
             None => {
@@ -330,7 +330,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
 
         FaultInfo::BusError { address, .. } => match address {
             Some(a) => {
-                sys_log!("Task #{} Bus error at address 0x{:x}", t, a);
+                sys_log!("Task #{} Bus error at address {:#x}", t, a);
             }
 
             None => {
@@ -339,7 +339,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
         },
 
         FaultInfo::StackOverflow { address, .. } => {
-            sys_log!("Task #{} Stack overflow at address 0x{:x}", t, address);
+            sys_log!("Task #{} Stack overflow at address {:#x}", t, address);
         }
 
         FaultInfo::DivideByZero => {
@@ -355,7 +355,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
         }
 
         FaultInfo::InvalidOperation(details) => {
-            sys_log!("Task #{} Invalid operation: 0x{:08x}", t, details);
+            sys_log!("Task #{} Invalid operation: {:#010x}", t, details);
         }
 
         FaultInfo::SyscallUsage(e) => {

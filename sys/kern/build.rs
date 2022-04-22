@@ -92,8 +92,8 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
             writeln!(file, "            {},", region)?;
         }
         writeln!(file, "        ],")?;
-        writeln!(file, "        entry_point: 0x{:08x},", task.entry_point)?;
-        writeln!(file, "        initial_stack: 0x{:08x},", task.initial_stack)?;
+        writeln!(file, "        entry_point: {:#010x},", task.entry_point)?;
+        writeln!(file, "        initial_stack: {:#010x},", task.initial_stack)?;
         writeln!(file, "        priority: {},", task.priority)?;
         writeln!(
             file,
@@ -127,8 +127,8 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     for region in &kconfig.regions {
         writeln!(file, "    abi::RegionDesc {{")?;
-        writeln!(file, "        base: 0x{:08x},", region.base)?;
-        writeln!(file, "        size: 0x{:08x},", region.size)?;
+        writeln!(file, "        base: {:#010x},", region.base)?;
+        writeln!(file, "        size: {:#010x},", region.size)?;
         writeln!(
             file,
             "        attributes: unsafe {{ \

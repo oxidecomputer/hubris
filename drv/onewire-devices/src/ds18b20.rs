@@ -55,7 +55,7 @@ pub struct Ds18b20 {
 
 impl core::fmt::Display for Ds18b20 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "ds18b20 0x{:012x}", (self.id >> 8) & 0xff_ffff_ffff)
+        write!(f, "ds18b20 {:#014x}", (self.id >> 8) & 0xff_ffff_ffff)
     }
 }
 

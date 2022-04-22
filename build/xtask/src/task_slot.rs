@@ -49,7 +49,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
             match crate::elf::get_section_by_vma(&elf, taskidx_address) {
                 Some(x) => x,
                 _ => bail!(
-                    "slot '{}' points to a non-existant address 0x{:x}",
+                    "slot '{}' points to a non-existant address {:#x}",
                     slot_name,
                     taskidx_address
                 ),
@@ -111,7 +111,7 @@ pub fn dump_task_slot_table(task_path: &PathBuf) -> Result<()> {
         )?;
 
         println!(
-            "{:16}   0x{:08x}   0x{:08x}    0x{:04x}",
+            "{:16}   {:#010x}   {:#010x}    {:#04x}",
             entry.slot_name,
             entry.taskidx_address,
             entry.taskidx_file_offset as usize,

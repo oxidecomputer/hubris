@@ -273,21 +273,21 @@ impl ConfigGenerator {
                 match (d.controller, d.bus.as_ref()) {
                     (None, None) => {
                         panic!(
-                            "device {} at address 0x{:x} must have \
+                            "device {} at address {:#x} must have \
                             a bus or controller",
                             d.device, d.address
                         );
                     }
                     (Some(_), Some(_)) => {
                         panic!(
-                            "device {} at address 0x{:x} has both \
+                            "device {} at address {:#x} has both \
                             a bus and a controller",
                             d.device, d.address
                         );
                     }
                     (_, Some(bus)) if buses.get(bus).is_none() => {
                         panic!(
-                            "device {} at address 0x{:x} specifies \
+                            "device {} at address {:#x} specifies \
                             unknown bus \"{}\"",
                             d.device, d.address, bus
                         );
@@ -562,7 +562,7 @@ impl ConfigGenerator {
                 id: Mux::M{mindex},
                 driver: &drv_stm32h7_i2c::{driver}::{driver_struct},
                 enable: {enable},
-                address: 0x{address:x},
+                address: {address:#x},
             }},"##,
                         controller = c.controller,
                         i2c_port = index,
@@ -648,7 +648,7 @@ impl ConfigGenerator {
                 Controller::I2C{controller},
                 PortIndex({port}),
                 {segment},
-                0x{address:x}
+                {address:#x}
             )"##,
             description = d.description,
             controller = controller,
