@@ -1,0 +1,18 @@
+[package]
+name = "drv-fpga-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+drv-spi-api = {path = "../../drv/spi-api"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+num-traits = {version = "0.2.12", default-features = false}
+zerocopy = "0.6.1"
+
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

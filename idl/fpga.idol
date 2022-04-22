@@ -1,0 +1,133 @@
+// FPGA server IPC interface
+
+Interface(
+    name: "Fpga",
+    ops: {
+        "device_enabled": (
+            doc: "Return true if the FPGA is enabled, false otherwise",
+            reply: Result(
+                ok: "u8",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "set_device_enable": (
+            doc: "Enable or disable the FPGA",
+            args: {
+                "enabled": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "reset_device": (
+            doc: "Reset the FPGA",
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "device_state": (
+            doc: "Return the current device state",
+            reply: Result(
+                ok: (
+                    type: "DeviceState",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "device_id": (
+            doc: "Return the device id, if applicable",
+            reply: Result(
+                ok: "u32",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "start_bitstream_load": (
+            doc: "Prepare the device to load a bitstream",
+            args: {
+                "bitstream_type": (
+                    type: "BitstreamType",
+                    recv: FromPrimitive("u8"),
+                )
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "continue_bitstream_load": (
+            doc: "Load the next chunk of the bitstream",
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(128)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "finish_bitstream_load": (
+            doc: "Finish loading a bitstream",
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+
+        "application_enabled": (
+            doc: "Return true if the application reset is released, false otherwise",
+            reply: Result(
+                ok: "u8",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "set_application_enable": (
+            doc: "Set the reset state for the application",
+            args: {
+                "enabled": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "reset_application": (
+            doc: "Reset the application",
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "application_read": (
+            doc: "Read N bytes from the application, starting at the given address",
+            args: {
+                "addr": "u16",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(128)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            )
+        ),
+        "application_write": (
+            doc: "Write N bytes to the application, starting at the given address",
+            args: {
+                "op": (
+                    type: "WriteOp",
+                    recv: FromPrimitive("u8"),
+                ),
+                "addr": "u16",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(128)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            )
+        ),
+    },
+)

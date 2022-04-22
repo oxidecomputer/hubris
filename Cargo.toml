@@ -94,6 +94,10 @@ members = [
     "drv/lpc55-rng",
     "drv/lpc55-swd",
 
+    "drv/fpga-api",
+    "drv/fpga-devices",
+    "drv/fpga-server",
+
     "drv/user-leds",
     "drv/user-leds-api",
     "drv/ice40-spi-program",
