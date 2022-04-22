@@ -45,8 +45,6 @@ fn main() -> ! {
                 program_n: sys_api::Port::J.pin(13),
                 design_reset_n: sys_api::Port::J.pin(14),
             };
-            driver.configure_gpio();
-            let ecp5 = Ecp5::from(driver);
         } else if #[cfg(target_board = "gimletlet-2")] {
             let driver = Ecp5UsingSpi {
                 sys,
@@ -56,16 +54,15 @@ fn main() -> ! {
                 program_n: sys_api::Port::B.pin(10),
                 design_reset_n: sys_api::Port::D.pin(11),
             };
-            driver.configure_gpio();
-            let ecp5 = Ecp5::from(driver);
         } else {
             compile_error!("Board is not supported by the task/fpga");
         }
     }
+    driver.configure_gpio();
 
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
-        device: ecp5,
+        device: Ecp5::from(driver),
         device_reset_ticks: ecp5::DEVICE_RESET_DURATION,
         application: Spi::from(SPI.get_task_id()).device(1),
         application_reset_ticks: ecp5::APPLICATION_RESET_DURATION,
@@ -96,16 +93,19 @@ type ReadDataLease = LenLimit<Leased<R, [u8]>, 128>;
 type WriteDataLease = LenLimit<Leased<W, [u8]>, 128>;
 
 impl<FpgaT: Fpga> idl::InOrderFpgaImpl for ServerImpl<FpgaT> {
-    fn device_enabled(&mut self, _: &RecvMessage) -> Result<u8, RequestError> {
-        Ok(self.device.device_enabled()? as u8)
+    fn device_enabled(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<bool, RequestError> {
+        Ok(self.device.device_enabled()?)
     }
 
     fn set_device_enable(
         &mut self,
         _: &RecvMessage,
-        enabled: u8,
+        enabled: bool,
     ) -> Result<(), RequestError> {
-        Ok(self.device.set_device_enable(enabled != 0)?)
+        Ok(self.device.set_device_enable(enabled)?)
     }
 
     fn reset_device(&mut self, _: &RecvMessage) -> Result<(), RequestError> {
@@ -126,16 +126,16 @@ impl<FpgaT: Fpga> idl::InOrderFpgaImpl for ServerImpl<FpgaT> {
     fn application_enabled(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<u8, RequestError> {
-        Ok(self.device.application_enabled()? as u8)
+    ) -> Result<bool, RequestError> {
+        Ok(self.device.application_enabled()?)
     }
 
     fn set_application_enable(
         &mut self,
         _: &RecvMessage,
-        enabled: u8,
+        enabled: bool,
     ) -> Result<(), RequestError> {
-        Ok(self.device.set_application_enable(enabled != 0)?)
+        Ok(self.device.set_application_enable(enabled)?)
     }
 
     fn reset_application(
@@ -200,7 +200,7 @@ impl<FpgaT: Fpga> idl::InOrderFpgaImpl for ServerImpl<FpgaT> {
         Ok(())
     }
 
-    fn application_read(
+    fn application_read_raw(
         &mut self,
         _: &userlib::RecvMessage,
         addr: u16,
@@ -228,7 +228,7 @@ impl<FpgaT: Fpga> idl::InOrderFpgaImpl for ServerImpl<FpgaT> {
         Ok(())
     }
 
-    fn application_write(
+    fn application_write_raw(
         &mut self,
         _: &userlib::RecvMessage,
         op: WriteOp,

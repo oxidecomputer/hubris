@@ -6,14 +6,14 @@ Interface(
         "device_enabled": (
             doc: "Return true if the FPGA is enabled, false otherwise",
             reply: Result(
-                ok: "u8",
+                ok: "bool",
                 err: CLike("FpgaError"),
             ),
         ),
         "set_device_enable": (
             doc: "Enable or disable the FPGA",
             args: {
-                "enabled": "u8",
+                "enabled": "bool",
             },
             reply: Result(
                 ok: "()",
@@ -78,14 +78,14 @@ Interface(
         "application_enabled": (
             doc: "Return true if the application reset is released, false otherwise",
             reply: Result(
-                ok: "u8",
+                ok: "bool",
                 err: CLike("FpgaError"),
             ),
         ),
         "set_application_enable": (
             doc: "Set the reset state for the application",
             args: {
-                "enabled": "u8",
+                "enabled": "bool",
             },
             reply: Result(
                 ok: "()",
@@ -99,7 +99,7 @@ Interface(
                 err: CLike("FpgaError"),
             ),
         ),
-        "application_read": (
+        "application_read_raw": (
             doc: "Read N bytes from the application, starting at the given address",
             args: {
                 "addr": "u16",
@@ -112,7 +112,7 @@ Interface(
                 err: CLike("FpgaError"),
             )
         ),
-        "application_write": (
+        "application_write_raw": (
             doc: "Write N bytes to the application, starting at the given address",
             args: {
                 "op": (

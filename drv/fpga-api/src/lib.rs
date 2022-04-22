@@ -8,10 +8,9 @@
 
 use drv_spi_api::SpiError;
 use userlib::*;
-use zerocopy::AsBytes;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u16)]
 pub enum FpgaError {
     ImplError(u8),
     BitstreamError(u8),
@@ -51,8 +50,14 @@ impl core::convert::TryFrom<u16> for FpgaError {
 
     fn try_from(v: u16) -> Result<Self, Self::Error> {
         match v & 0xff00 {
-            0x0100 => Ok(FpgaError::ImplError((v & 0x00ff) as u8)),
-            _ => Err(()),
+            0x0100 => Ok(FpgaError::ImplError(v as u8)),
+            0x0200 => Ok(FpgaError::BitstreamError(v as u8)),
+            _ => match v {
+                0x0300 => Ok(FpgaError::InvalidState),
+                0x0301 => Ok(FpgaError::InvalidValue),
+                0x0400 => Ok(FpgaError::PortDisabled),
+                _ => Err(()),
+            },
         }
     }
 }
@@ -61,7 +66,8 @@ impl core::convert::TryFrom<u32> for FpgaError {
     type Error = ();
 
     fn try_from(v: u32) -> Result<Self, Self::Error> {
-        Self::try_from(v as u16)
+        let v: u16 = v.try_into().map_err(|_| ())?;
+        Self::try_from(v)
     }
 }
 
@@ -86,6 +92,8 @@ pub enum BitstreamType {
 #[repr(u8)]
 pub enum WriteOp {
     Write = 0,
+    // This maps onto a generic Op type in Bluespec which defines Read = 1. The
+    // read/write split obviates the need for that operation.
     BitSet = 2,
     BitClear = 3,
 }
@@ -99,30 +107,27 @@ impl From<WriteOp> for u8 {
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
 
 impl Fpga {
-    pub fn application_read8(
+    pub fn application_read<T>(
         &self,
         addr: impl Into<u16>,
-    ) -> Result<u8, FpgaError> {
-        let mut v = 0u8;
-        self.application_read(addr.into(), v.as_bytes_mut())?;
+    ) -> Result<T, FpgaError>
+    where
+        T: AsBytes + Default + FromBytes,
+    {
+        let mut v = T::default();
+        self.application_read_raw(addr.into(), v.as_bytes_mut())?;
         Ok(v)
     }
 
-    pub fn application_read32(
-        &self,
-        addr: impl Into<u16>,
-    ) -> Result<u32, FpgaError> {
-        let mut v = 0u32;
-        self.application_read(addr.into(), v.as_bytes_mut())?;
-        Ok(v)
-    }
-
-    pub fn application_write8(
+    pub fn application_write<T>(
         &self,
         op: WriteOp,
         addr: impl Into<u16>,
-        value: u8,
-    ) -> Result<(), FpgaError> {
-        self.application_write(op, addr.into(), value.as_bytes())
+        value: T,
+    ) -> Result<(), FpgaError>
+    where
+        T: AsBytes + FromBytes,
+    {
+        Ok(self.application_write_raw(op, addr.into(), value.as_bytes())?)
     }
 }
