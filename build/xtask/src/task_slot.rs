@@ -111,7 +111,7 @@ pub fn dump_task_slot_table(task_path: &PathBuf) -> Result<()> {
         )?;
 
         println!(
-            "{:16}   {:#08x}   {:#08x}    {:#04x}",
+            "{:16}   {:#010x}   {:#010x}    {:#04x}",
             entry.slot_name,
             entry.taskidx_address,
             entry.taskidx_file_offset as usize,

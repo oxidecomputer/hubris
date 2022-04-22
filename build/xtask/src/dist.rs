@@ -84,7 +84,7 @@ pub fn package(
         }
     }
     for (name, range) in &memories {
-        println!("{:<5} = {:0>#8x}..{:0>#8x}", name, range.start, range.end);
+        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
     }
     let starting_memories = memories.clone();
 
@@ -843,7 +843,7 @@ fn generate_bootloader_linker_script(
         let name = name.to_ascii_uppercase();
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
+            "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
             name,
             start,
             end - start
@@ -924,7 +924,7 @@ fn generate_task_linker_script(
     fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
+            "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
             sec, o, l
         )?;
         Ok(())
@@ -1001,7 +1001,7 @@ fn generate_kernel_linker_script(
             stack_base = Some(start);
             writeln!(
                 linkscr,
-                "STACK (rw) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
+                "STACK (rw) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
                 start, stacksize,
             )?;
             start += stacksize;
@@ -1014,7 +1014,7 @@ fn generate_kernel_linker_script(
 
         writeln!(
             linkscr,
-            "{} (rwx) : ORIGIN = {:#08x}, LENGTH = {:#08x}",
+            "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
             name,
             start,
             end - start
@@ -1023,8 +1023,9 @@ fn generate_kernel_linker_script(
     }
     writeln!(linkscr, "}}").unwrap();
     writeln!(linkscr, "__eheap = ORIGIN(RAM) + LENGTH(RAM);").unwrap();
-    writeln!(linkscr, "_stack_base = {:#08x};", stack_base.unwrap()).unwrap();
-    writeln!(linkscr, "_stack_start = {:#08x};", stack_start.unwrap()).unwrap();
+    writeln!(linkscr, "_stack_base = {:#010x};", stack_base.unwrap()).unwrap();
+    writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
+        .unwrap();
 
     Ok(())
 }

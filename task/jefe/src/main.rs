@@ -69,7 +69,7 @@ fn log_fault(t: usize, fault: &abi::FaultInfo) {
         }
 
         abi::FaultInfo::InvalidOperation(details) => {
-            sys_log!("Task #{} Invalid operation: {:#08x}", t, details);
+            sys_log!("Task #{} Invalid operation: {:#010x}", t, details);
         }
 
         abi::FaultInfo::SyscallUsage(e) => {

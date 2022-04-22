@@ -355,7 +355,7 @@ fn log_fault(t: usize, fault: &FaultInfo) {
         }
 
         FaultInfo::InvalidOperation(details) => {
-            sys_log!("Task #{} Invalid operation: {:#08x}", t, details);
+            sys_log!("Task #{} Invalid operation: {:#010x}", t, details);
         }
 
         FaultInfo::SyscallUsage(e) => {
