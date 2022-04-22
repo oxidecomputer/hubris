@@ -425,9 +425,11 @@ impl Ethernet {
     }
 
     /// Checks whether the next slot on the Rx buffer is owned by userspace
-    /// and has a matching VLAN id. Packets without a VID or with a
-    /// non-matching VID are dropped by the Rx ring during this function
-    /// to prevent them from clogging up the system.
+    /// and has a matching VLAN id. Packets without a VID or with a VID
+    /// that isn't valid for _any VLAN_ are dropped by the Rx ring during this
+    /// function to prevent them from clogging up the system. Packets with
+    /// a VID that doesn't match `vid` but is in `vid_range` will not be
+    /// dropped, but this function will return `false` in that case.
     pub fn vlan_can_recv(
         &self,
         vid: u16,

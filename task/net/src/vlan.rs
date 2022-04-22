@@ -147,7 +147,7 @@ impl<'a> ServerImpl<'a> {
         let mut socket_handles_iter = socket_handles.iter_mut();
         let mut vid_iter = generated::VLAN_RANGE;
         let mut ifaces_iter = ifaces.iter_mut();
-        let mut ip_addr_slice = &mut storage.ipv6_net[..];
+        let mut ip_addr_iter = storage.ipv6_net.chunks_mut(1);
 
         // Create a VLAN_COUNT x SOCKET_COUNT nested array of sockets
         let sockets = generated::construct_sockets();
@@ -168,8 +168,7 @@ impl<'a> ServerImpl<'a> {
                 &mut socket_storage[..],
             );
 
-            let (ipv6_net, rest) = ip_addr_slice.split_at_mut(1);
-            ip_addr_slice = rest;
+            let ipv6_net = ip_addr_iter.next().unwrap();
             ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
             let mut iface = builder
                 .hardware_addr(mac.into())
@@ -256,7 +255,9 @@ impl<'a> ServerImpl<'a> {
     }
 
     /// Gets the socket `index`. If `index` is out of range, returns
-    /// `BadMessage`.
+    /// `BadMessage`. Panics if `vlan_index` is out of range, which should
+    /// never happen (because messages with invalid VIDs are dropped in
+    /// RxRing).
     ///
     /// Sockets are currently assumed to be UDP.
     fn get_socket_mut(
@@ -343,10 +344,7 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         if !VLAN_RANGE.contains(&metadata.vid) {
             return Err(NetError::InvalidVLan.into());
         }
-        let vlan_index = metadata
-            .vid
-            .checked_sub(VLAN_RANGE.start)
-            .ok_or(NetError::InvalidVLan)?;
+        let vlan_index = metadata.vid - VLAN_RANGE.start;
 
         let socket = self.get_socket_mut(socket_index, vlan_index as usize)?;
         match socket.send(payload.len(), metadata.into()) {
