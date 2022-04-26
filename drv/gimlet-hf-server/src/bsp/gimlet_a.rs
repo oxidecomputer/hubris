@@ -52,7 +52,7 @@ pub(crate) fn init(qspi: &Qspi, sys: &sys_api::Sys) -> Config {
     Config {
         sp_host_mux_select: sys_api::Port::B.pin(1),
         reset: sys_api::Port::B.pin(2),
-        flash_select: None,
+        flash_dev_select: None,
         clock,
     }
 }

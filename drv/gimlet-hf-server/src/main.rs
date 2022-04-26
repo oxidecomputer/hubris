@@ -31,7 +31,7 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
-use drv_gimlet_hf_api::{HfError, HfMuxState};
+use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState};
 
 task_slot!(SYS, sys);
 #[cfg(feature = "hash")]
@@ -42,14 +42,17 @@ const QSPI_IRQ: u32 = 1;
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
     pub reset: sys_api::PinSet,
-    pub flash_select: Option<sys_api::PinSet>,
+    pub flash_dev_select: Option<sys_api::PinSet>,
     pub clock: u8,
 }
 
 impl Config {
     fn init(&self, sys: &sys_api::Sys) {
-        for p in [self.reset, self.sp_host_mux_select] {
-            // start reset and select off low
+        // start with reset, mux select, and dev select all low
+        for &p in [self.reset, self.sp_host_mux_select]
+            .iter()
+            .chain(self.flash_dev_select.as_ref().into_iter())
+        {
             sys.gpio_reset(p).unwrap();
 
             sys.gpio_configure_output(
@@ -133,7 +136,9 @@ fn main() -> ! {
         qspi,
         block: [0; 256],
         mux_state: HfMuxState::SP,
-        sp_host_mux_select_pin: cfg.sp_host_mux_select,
+        dev_state: HfDevSelect::Flash0,
+        mux_select_pin: cfg.sp_host_mux_select,
+        dev_select_pin: cfg.flash_dev_select,
     };
 
     loop {
@@ -144,8 +149,14 @@ fn main() -> ! {
 struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
+
+    /// Selects between the SP and SP3 talking to the QSPI flash
     mux_state: HfMuxState,
-    sp_host_mux_select_pin: sys_api::PinSet,
+    mux_select_pin: sys_api::PinSet,
+
+    /// Selects between QSPI flash chips 1 and 2 (if present)
+    dev_state: HfDevSelect,
+    dev_select_pin: Option<sys_api::PinSet>,
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -233,14 +244,44 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let rv = match state {
-            HfMuxState::SP => sys.gpio_reset(self.sp_host_mux_select_pin),
-            HfMuxState::HostCPU => sys.gpio_set(self.sp_host_mux_select_pin),
+            HfMuxState::SP => sys.gpio_reset(self.mux_select_pin),
+            HfMuxState::HostCPU => sys.gpio_set(self.mux_select_pin),
         };
 
         match rv {
             Err(_) => Err(HfError::MuxFailed.into()),
             Ok(_) => {
                 self.mux_state = state;
+                Ok(())
+            }
+        }
+    }
+
+    fn get_dev(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<HfDevSelect, RequestError<HfError>> {
+        Ok(self.dev_state)
+    }
+
+    fn set_dev(
+        &mut self,
+        _: &RecvMessage,
+        state: HfDevSelect,
+    ) -> Result<(), RequestError<HfError>> {
+        // Return early if the dev select pin is missing
+        let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
+
+        let sys = sys_api::Sys::from(SYS.get_task_id());
+        let rv = match state {
+            HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
+            HfDevSelect::Flash1 => sys.gpio_set(dev_select_pin),
+        };
+
+        match rv {
+            Err(_) => Err(HfError::DevSelectFailed.into()),
+            Ok(_) => {
+                self.dev_state = state;
                 Ok(())
             }
         }
@@ -331,7 +372,7 @@ fn poll_for_write_complete(qspi: &Qspi) {
 }
 
 mod idl {
-    use super::{HfError, HfMuxState};
+    use super::{HfDevSelect, HfError, HfMuxState};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
