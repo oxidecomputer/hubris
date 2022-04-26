@@ -2078,9 +2078,9 @@ dependencies = [
 
 [[package]]
 name = "lpc55-pac"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee47591d506a22d56bc591abb955176b1ad3c22122c2395a69e426ea76e25ab"
+checksum = "cf1b5b32d313af526145882f5115a55177f479e9328ca667a84aaaa1ae6d65d3"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",

@@ -10,7 +10,7 @@ log-itm = []
 log-semihosting = []
 
 [dependencies]
-lpc55-pac = "0.3.0"
+lpc55-pac = "0.4"
 num-derive = "0.3.3"
 num-traits = { version = "0.2", default-features = false }
 cfg-if = "1"
