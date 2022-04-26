@@ -10,6 +10,8 @@
 #![no_std]
 #![no_main]
 
+mod bsp;
+
 use userlib::*;
 
 use drv_stm32h7_qspi::Qspi;
@@ -37,6 +39,30 @@ task_slot!(HASH, hash_driver);
 
 const QSPI_IRQ: u32 = 1;
 
+struct Config {
+    pub sp_host_mux_select: sys_api::PinSet,
+    pub reset: sys_api::PinSet,
+    pub flash_select: Option<sys_api::PinSet>,
+    pub clock: u8,
+}
+
+impl Config {
+    fn init(&self, sys: &sys_api::Sys) {
+        for p in [self.reset, self.sp_host_mux_select] {
+            // start reset and select off low
+            sys.gpio_reset(p).unwrap();
+
+            sys.gpio_configure_output(
+                p,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::High,
+                sys_api::Pull::None,
+            )
+            .unwrap();
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let sys = sys_api::Sys::from(SYS.get_task_id());
@@ -46,246 +72,10 @@ fn main() -> ! {
 
     let reg = unsafe { &*device::QUADSPI::ptr() };
     let qspi = Qspi::new(reg, QSPI_IRQ);
-    // Board specific goo
-    cfg_if::cfg_if! {
-        if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
-            let clock = 5; // 200MHz kernel / 5 = 40MHz clock
-            qspi.configure(
-                clock,
-                25, // 2**25 = 32MiB = 256Mib
-            );
-            // Gimlet pin mapping
-            // PF6 SP_QSPI1_IO3
-            // PF7 SP_QSPI1_IO2
-            // PF8 SP_QSPI1_IO0
-            // PF9 SP_QSPI1_IO1
-            // PF10 SP_QSPI1_CLK
-            //
-            // PG6 SP_QSPI1_CS
-            //
-            // PB2 SP_FLASH_TO_SP_RESET_L
-            // PB1 SP_TO_SP3_FLASH_MUX_SELECT <-- low means us
-            //
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(8).and_pin(9),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::G.pin(6),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
 
-            // start reset and select off low
-            sys.gpio_reset(sys_api::Port::B.pin(1).and_pin(2)).unwrap();
-
-            sys.gpio_configure_output(
-                sys_api::Port::B.pin(1).and_pin(2),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
-                sys_api::Pull::None,
-            ).unwrap();
-
-            let select_pin = sys_api::Port::B.pin(1);
-            let reset_pin = sys_api::Port::B.pin(2);
-        } else if #[cfg(target_board = "gimletlet-2")] {
-            let clock = 5; // 200MHz kernel / 5 = 40MHz clock
-            qspi.configure(
-                clock,
-                25, // 2**25 = 32MiB = 256Mib
-            );
-            // Gimletlet pin mapping
-            // PF6 SP_QSPI1_IO3
-            // PF7 SP_QSPI1_IO2
-            // PF8 SP_QSPI1_IO0
-            // PF9 SP_QSPI1_IO1
-            // PF10 SP_QSPI1_CLK
-            //
-            // PG6 SP_QSPI1_CS
-            //
-            // TODO check these if I have a quadspimux board
-            // PF4 SP_FLASH_TO_SP_RESET_L
-            // PF5 SP_TO_SP3_FLASH_MUX_SELECT <-- low means us
-            //
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(8).and_pin(9),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::G.pin(6),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::VeryHigh,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-
-            // start reset and select off low
-            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
-
-            sys.gpio_configure_output(
-                sys_api::Port::F.pin(4).and_pin(5),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
-                sys_api::Pull::None,
-            ).unwrap();
-
-            let select_pin = sys_api::Port::F.pin(5);
-            let reset_pin = sys_api::Port::F.pin(4);
-        } else if #[cfg(target_board = "gemini-bu-1")] {
-            // PF4 HOST_ACCESS
-            // PF5 RESET
-            // PF6:AF9 IO3
-            // PF7:AF9 IO2
-            // PF8:AF10 IO0
-            // PF9:AF10 IO1
-            // PF10:AF9 CLK
-            // PB6:AF10 CS
-            let clock = 200 / 25; // 200MHz kernel clock / $x MHz SPI clock = divisor
-            qspi.configure(
-                clock,
-                25, // 2**25 = 32MiB = 256Mib
-            );
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(6).and_pin(7).and_pin(10),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::F.pin(8).and_pin(9),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::B.pin(6),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-
-            // start reset and select off low
-            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
-
-            sys.gpio_configure_output(
-                sys_api::Port::F.pin(4).and_pin(5),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-            ).unwrap();
-            let select_pin = sys_api::Port::F.pin(4);
-            let reset_pin = sys_api::Port::F.pin(5);
-        } else if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
-            // Nucleo-h743zi2/h753zi pin mappings
-            // These development boards are often wired by hand.
-            // Although there are several choices for pin assignment,
-            // the CN10 connector on the board has a marked "QSPI" block
-            // of pins. Use those. Use two pull-up resistors and a
-            // decoupling capacitor if needed.
-            //
-            // CNxx- Pin   MT25QL256xxx
-            // pin   Fn    Pin           Signal   Notes
-            // ----- ---   ------------, -------, ------
-            // 10-07 PF4,  3,            RESET#,  10K ohm to Vcc
-            // 10-09 PF5,  ---           nc,
-            // 10-11 PF6,  ---           nc,
-            // 10-13 PG6,  7,            CS#,     10K ohm to Vcc
-            // 10-15 PB2,  16,           CLK,
-            // 10-17 GND,  10,           GND,
-            // 10-19 PD13, 1,            IO3,
-            // 10-21 PD12, 8,            IO1,
-            // 10-23 PD11, 15,           IO0,
-            // 10-25 PE2,  9,            IO2,
-            // 10-27 GND,  ---           nc,
-            // 10-29 PA0,  ---           nc,
-            // 10-31 PB0,  ---           nc,
-            // 10-33 PE0,  ---           nc,
-            //
-            // 08-07 3V3,  2,            Vcc,     100nF to GND
-            let clock = 8; // 200MHz kernel / 8 = 25MHz clock
-            qspi.configure(
-                clock,
-                25, // 2**25 = 32MiB = 256Mib
-            );
-            // Nucleo-144 pin mapping
-            // PB2 SP_QSPI1_CLK
-            // PD11 SP_QSPI1_IO0
-            // PD12 SP_QSPI1_IO1
-            // PD13 SP_QSPI1_IO3
-            // PE2 SP_QSPI1_IO2
-            //
-            // PG6 SP_QSPI1_CS
-            //
-            sys.gpio_configure_alternate(
-                sys_api::Port::B.pin(2),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::D.pin(11).and_pin(12).and_pin(13),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::E.pin(2),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF9,
-            ).unwrap();
-            sys.gpio_configure_alternate(
-                sys_api::Port::G.pin(6),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-                sys_api::Alternate::AF10,
-            ).unwrap();
-
-            // start reset and select off low
-            sys.gpio_reset(sys_api::Port::F.pin(4).and_pin(5)).unwrap();
-
-            sys.gpio_configure_output(
-                sys_api::Port::F.pin(4).and_pin(5),
-                sys_api::OutputType::PushPull,
-                sys_api::Speed::Low,
-                sys_api::Pull::None,
-            ).unwrap();
-
-            let select_pin = sys_api::Port::F.pin(5);
-            let reset_pin = sys_api::Port::F.pin(4);
-        } else {
-            compile_error!("unsupported board");
-        }
-    }
+    // Build a pin struct using a board-specific init function
+    let cfg = bsp::init(&qspi, &sys);
+    cfg.init(&sys);
 
     // TODO: The best clock frequency to use can vary based on the flash
     // part, the command used, and signal integrity limits of the board.
@@ -295,7 +85,7 @@ fn main() -> ! {
     hl::sleep_for(1);
 
     // Release reset and let it stabilize.
-    sys.gpio_set(reset_pin).unwrap();
+    sys.gpio_set(cfg.reset).unwrap();
     hl::sleep_for(10);
 
     // Check the ID.
@@ -336,14 +126,14 @@ fn main() -> ! {
         }
     }
     let capacity = capacity.unwrap();
-    qspi.configure(clock, capacity);
+    qspi.configure(cfg.clock, capacity);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         qspi,
         block: [0; 256],
         mux_state: HfMuxState::SP,
-        select_pin,
+        sp_host_mux_select_pin: cfg.sp_host_mux_select,
     };
 
     loop {
@@ -355,7 +145,7 @@ struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
     mux_state: HfMuxState,
-    select_pin: drv_stm32xx_sys_api::PinSet,
+    sp_host_mux_select_pin: sys_api::PinSet,
 }
 
 impl idl::InOrderHostFlashImpl for ServerImpl {
@@ -443,8 +233,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         let sys = sys_api::Sys::from(SYS.get_task_id());
 
         let rv = match state {
-            HfMuxState::SP => sys.gpio_reset(self.select_pin),
-            HfMuxState::HostCPU => sys.gpio_set(self.select_pin),
+            HfMuxState::SP => sys.gpio_reset(self.sp_host_mux_select_pin),
+            HfMuxState::HostCPU => sys.gpio_set(self.sp_host_mux_select_pin),
         };
 
         match rv {
