@@ -472,99 +472,118 @@ impl RxRing {
 
 #[cfg(not(feature = "vlan"))]
 impl RxRing {
-    pub fn is_next_free(&self) -> bool {
-        let d = &self.storage[self.next.get()];
-        // Check whether the hardware has released this.
-        let rdes3 = d.rdes[3].load(Ordering::Acquire);
-        let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
-        !own
-    }
-
-    /// Attempts to grab the next filled-out RX buffer in the ring and show it
-    /// to you.
-    ///
-    /// If the next buffer in the ring is holding a pending packet, this will
-    /// borrow it and call `body` with the valid prefix of the buffer, based on
-    /// the received length. Once `body` returns, this routine restores the ring
-    /// entry to empty so that it can be used to receive another packet.
-    ///
-    /// If the next buffer in the ring is empty, that means there are no
-    /// received packets waiting for us.  In that case, this will return `None`
-    /// without invoking `body`. This should never happen, because `can_recv`
-    /// checks whether packets are available; if it happens, the caller will
-    /// probably crash with `.expect(...)`.
-    ///
-    /// `body` is allowed to return a value, of some type `R`. If we
-    /// successfully grab a packet and call `body`, we'll return its result.
-    /// This may or may not prove useful.
-    pub fn try_with_next<R>(
-        &self,
-        body: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        // body is a FnOnce, so calling it destroys it. In the loop below, the
-        // compiler is not convinced that we call it only once. This adds a
-        // runtime flag to pacify the compiler.
-        let mut body = Some(body);
-        // We loop here so that we can skip over error descriptors and only hand
-        // back real packets.
+    /// Checks whether the next Rx slot is available to read (from userland).
+    /// Drops invalid packets from the Rx ring, to prevent them from clogging
+    /// things up. Returns a tuple `(next_free, any_dropped)`; if packets have
+    /// been dropped, the caller should poke the DMA registers to inform them.
+    pub fn is_next_free(&self) -> (bool, bool) {
+        let mut any_dropped = false;
         loop {
             let d = &self.storage[self.next.get()];
             // Check whether the hardware has released this.
             let rdes3 = d.rdes[3].load(Ordering::Acquire);
-            let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
-            if own {
-                break None;
-            } else {
-                // Descriptor is free. Since we keep the descriptors paired with
-                // their corresponding buffers, and only lend out the buffers
-                // temporarily (like we're about to do), this means the buffer is
-                // also free.
 
-                // What sort of descriptor is this?
-                let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
-                let first_and_last = rdes3
-                    & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
-                    == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
-
-                let buffer = self.buffers[self.next.get()].0.get();
-
-                let retval = if errors || !first_and_last {
-                    // Skip this
-                    None
-                } else {
-                    // Safety: because the descriptor is free we keep them
-                    // paired, we know the buffer is not aliased, so we're going
-                    // to dereference this raw pointer to produce the only
-                    // reference to its contents. And then discard it at the end
-                    // of this block.
-                    let buffer = unsafe { &mut *buffer };
-
-                    // Work out the valid slice of the packet.
-                    let packet_len = (rdes3 & RDES3_PL_MASK) as usize;
-
-                    // Pass in the initialized prefix of the packet.
-                    Some((body.take().unwrap())(&mut buffer[..packet_len]))
-                };
-
-                // We need to consume this descriptor whether or not we handed
-                // it off. Rewrite it as an empty rx descriptor:
-                Self::set_descriptor(d, buffer);
-                // At this point the descriptor is no longer free, the buffer is
-                // potentially in use, and we must not access either.
-
-                // Bump index forward.
-                self.next.set(if self.next.get() + 1 == self.storage.len() {
-                    0
-                } else {
-                    self.next.get() + 1
-                });
-
-                // Now break out only if we succeeded.
-                if let Some(result) = retval {
-                    break Some(result);
-                }
+            // If the hardware still owns this descriptor, then return right
+            // away (and wait for the hardware to do more stuff).
+            if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
+                return (false, any_dropped);
             }
+
+            // What sort of descriptor is this?
+            let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+            let first_and_last = rdes3
+                & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+                == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+
+            // If this descriptor is error-free and represents a complete
+            // packet, then return true so that the netstack loads it
+            if !errors && first_and_last {
+                return (true, any_dropped);
+            }
+
+            // Otherwise, drop the packet by bumping our index
+            self.next.set(if self.next.get() + 1 == self.storage.len() {
+                0
+            } else {
+                self.next.get() + 1
+            });
+            any_dropped = true;
         }
+    }
+
+    /// Grabs the next filled-out RX buffer in the ring and shows it to you
+    ///
+    /// The next buffer in the ring should be holding a valid pending packet,
+    /// as checked by `is_next_free`.  This will borrow it and call `body` with
+    /// the valid prefix of the buffer, based on the received length. Once
+    /// `body` returns, this routine restores the ring entry to empty so that
+    /// it can be used to receive another packet.
+    ///
+    /// This should only be called from an `RxToken`, to ensure that it's only
+    /// called when a packet is available.
+    ///
+    /// `body` is allowed to return a value, of some type `R`. If we
+    /// successfully grab a packet and call `body`, we'll return its result.
+    /// This may or may not prove useful.
+    ///
+    /// # Panics
+    /// If this function is called when the next packet in the queue is
+    /// (a) owned by the DMA hardware or
+    /// (b) not valid (i.e. an error descriptor)
+    /// this function will panic.
+    ///
+    /// This should never happen in correctly-written code, as this function
+    /// should only be called from an `RxToken`, which is only constructed
+    /// after confirming that the next packet is available and valid.
+    pub fn with_next<R>(&self, body: impl FnOnce(&mut [u8]) -> R) -> R {
+        let d = &self.storage[self.next.get()];
+        // Check whether the hardware has released this.
+        let rdes3 = d.rdes[3].load(Ordering::Acquire);
+        let own = rdes3 & (1 << RDES3_OWN_BIT) != 0;
+        assert!(!own);
+
+        // Descriptor is free. Since we keep the descriptors paired with
+        // their corresponding buffers, and only lend out the buffers
+        // temporarily (like we're about to do), this means the buffer is
+        // also free.
+
+        // What sort of descriptor is this?
+        let errors = rdes3 & (1 << RDES3_ES_BIT) != 0;
+        let first_and_last = rdes3
+            & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
+            == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+        assert!(!errors);
+        assert!(first_and_last);
+
+        let buffer = self.buffers[self.next.get()].0.get();
+
+        // Safety: because the descriptor is free we keep them
+        // paired, we know the buffer is not aliased, so we're going
+        // to dereference this raw pointer to produce the only
+        // reference to its contents. And then discard it at the end
+        // of this block.
+        let buffer = unsafe { &mut *buffer };
+
+        // Work out the valid slice of the packet.
+        let packet_len = (rdes3 & RDES3_PL_MASK) as usize;
+
+        // Pass in the initialized prefix of the packet.
+        let result = (body)(&mut buffer[..packet_len]);
+
+        // We need to consume this descriptor whether or not we handed
+        // it off. Rewrite it as an empty rx descriptor:
+        Self::set_descriptor(d, buffer);
+        // At this point the descriptor is no longer free, the buffer is
+        // potentially in use, and we must not access either.
+
+        // Bump index forward.
+        self.next.set(if self.next.get() + 1 == self.storage.len() {
+            0
+        } else {
+            self.next.get() + 1
+        });
+
+        result
     }
 }
 
@@ -572,12 +591,15 @@ impl RxRing {
 impl RxRing {
     /// Check whether the next Rx slot is available to read (from userland)
     /// and has a matching VID. This function also quietly drops invalid
-    /// packets from the Rx ring, to avoid blocking the queue.
+    /// packets from the Rx ring, to avoid blocking the queue.  It returns a
+    /// tuple of `(next_free, any_dropped)`. If packets have been dropped, the
+    /// caller should poke the DMA registers to inform them.
     pub fn vlan_is_next_free(
         &self,
         vid: u16,
         vid_range: core::ops::Range<u16>,
-    ) -> bool {
+    ) -> (bool, bool) {
+        let mut any_dropped = false;
         loop {
             let d = &self.storage[self.next.get()];
 
@@ -586,7 +608,7 @@ impl RxRing {
             // If the hardware still owns this descriptor, then return right
             // away (and wait for the hardware to do more stuff).
             if rdes3 & (1 << RDES3_OWN_BIT) != 0 {
-                return false;
+                return (false, any_dropped);
             }
 
             // Check to see if this is an error descriptor.  If so (or if it's
@@ -605,11 +627,11 @@ impl RxRing {
 
                 if this_vid == vid {
                     // If this matches our target VLAN, then we're good!
-                    return true;
+                    return (true, any_dropped);
                 } else if vid_range.contains(&this_vid) {
                     // If this matches a _different_ valid VLAN, then return
                     // and trust that another instance will handle it.
-                    return false;
+                    return (false, any_dropped);
                 }
             }
 
@@ -628,6 +650,7 @@ impl RxRing {
             } else {
                 self.next.get() + 1
             });
+            any_dropped = true;
         }
     }
     /// Attempts to grab the next filled-out RX buffer in the ring that

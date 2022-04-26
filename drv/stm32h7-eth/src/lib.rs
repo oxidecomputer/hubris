@@ -278,6 +278,30 @@ impl Ethernet {
         (packet_transmitted, packet_received)
     }
 
+    /// Notifies the DMA hardware that space is available in the Rx ring
+    fn rx_notify(&self) {
+        // We have dequeued a packet! The hardware might not realize there is
+        // room in the RX queue now. Poke it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
+    }
+
+    /// Notifies the DMA hardware that a packet is available in the Tx ring
+    fn tx_notify(&self) {
+        // We have enqueued a packet! The hardware may be suspended after
+        // discovering no packets to process. Wake it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmactx_dtpr.write(|w| unsafe {
+            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+        });
+    }
+
     /// Kicks off a SMI write of `value` to PHY address `phy`, register number
     /// `register`. When this function returns, the write has started. It will
     /// complete asynchronously, so feel free to do other things. Any attempt to
@@ -364,44 +388,28 @@ impl Ethernet {
         fillout: impl FnOnce(&mut [u8]) -> R,
     ) -> Option<R> {
         let result = self.tx_ring.try_with_next(len, fillout)?;
-        // We have enqueued a packet! The hardware may be suspended after
-        // discovering no packets to process. Wake it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
-        });
+        self.tx_notify();
         Some(result)
     }
 
     pub fn can_recv(&self) -> bool {
-        self.rx_ring.is_next_free()
+        let (can_recv, any_dropped) = self.rx_ring.is_next_free();
+        if any_dropped {
+            self.rx_notify();
+        }
+        can_recv
     }
 
-    /// Tries to receive a packet, if one is present in the RX ring.
+    /// Receives a packet from the Rx ring, calling `readout` on it and
+    /// returning its value.
     ///
-    /// This will attempt to get a filled-out descriptor/buffer from the RX
-    /// ring. If successful, it will call `readout` with the packet's slice.
-    /// `readout` can produce a value of some type `R`; after it completes, this
-    /// routine will mark the descriptor as empty and return `Some(r)`.
-    ///
-    /// If there are no packets waiting in the RX ring, this returns `None`
-    /// without calling `readout`.
-    pub fn try_recv<R>(
-        &self,
-        readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.rx_ring.try_with_next(readout)?;
-        // We have dequeued a packet! The hardware might not realize there is
-        // room in the RX queue now. Poke it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
+    /// This function must only be called when there is a valid (owned,
+    /// non-error) descriptor at the front of the ring, as checked by
+    /// `can_recv`.  Otherwise, it will panic.
+    pub fn recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
+        let result = self.rx_ring.with_next(readout);
+        self.rx_notify();
+        result
     }
 }
 
@@ -417,10 +425,7 @@ impl Ethernet {
         readout: impl FnOnce(&mut [u8]) -> R,
     ) -> R {
         let result = self.rx_ring.vlan_with_next(vid, readout);
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
+        self.rx_notify();
         result
     }
 
@@ -435,7 +440,12 @@ impl Ethernet {
         vid: u16,
         vid_range: core::ops::Range<u16>,
     ) -> bool {
-        self.rx_ring.vlan_is_next_free(vid, vid_range)
+        let (can_recv, any_dropped) =
+            self.rx_ring.vlan_is_next_free(vid, vid_range);
+        if any_dropped {
+            self.rx_notify();
+        }
+        can_recv
     }
 
     /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
@@ -448,10 +458,7 @@ impl Ethernet {
         fillout: impl FnOnce(&mut [u8]) -> R,
     ) -> Option<R> {
         let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
-        });
+        self.tx_notify();
         Some(result)
     }
 }
@@ -506,9 +513,7 @@ mod tokens {
         where
             F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
         {
-            self.0
-                .try_recv(f)
-                .expect("we checked RX availability earlier")
+            self.0.recv(f)
         }
     }
 
