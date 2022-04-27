@@ -80,6 +80,29 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "get_dev": (
+            doc: "Returns the selected device",
+            reply: Result(
+                ok: (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("HfError"),
+            ),
+        ),
+        "set_dev": (
+            doc: "Sets the selected device",
+            args: {
+                "dev": (
+                    type: "HfDevSelect",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("HfError"),
+            ),
+        ),
         "hash": (
             args: {
                 "address": "u32",
