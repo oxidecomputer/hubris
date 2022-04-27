@@ -3509,6 +3509,7 @@ dependencies = [
  "serde",
  "serde_json",
  "srec",
+ "strsim 0.10.0",
  "termcolor",
  "toml",
  "walkdir",

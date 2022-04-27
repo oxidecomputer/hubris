@@ -111,21 +111,19 @@ enum Xtask {
 
     /// Runs `cargo clippy` on a specified task
     Clippy {
-        /// the target to build for, uses [package.metadata.build.target] if not
-        /// passed
-        #[clap(long)]
-        target: Option<String>,
-
-        /// the package you're trying to build, uses current directory if not
-        /// passed
+        /// Request verbosity from tools we shell out to.
         #[clap(short)]
-        package: Option<String>,
+        verbose: bool,
 
-        /// check all packages, not only one
-        #[clap(long)]
-        all: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+
+        /// Name of task(s) to check.
+        #[clap(min_values = 1)]
+        tasks: Vec<String>,
 
         /// Extra options to pass to clippy
+        #[clap(last = true)]
         options: Vec<String>,
     },
 
@@ -227,6 +225,31 @@ impl Config {
             config: toml.config,
             buildhash,
         })
+    }
+
+    pub fn task_name_suggestion(&self, name: &str) -> String {
+        // Suggest only for very small differences
+        // High number can result in inaccurate suggestions for short queries e.g. `rls`
+        const MAX_DISTANCE: usize = 3;
+
+        let mut scored: Vec<_> = self
+            .tasks
+            .keys()
+            .filter_map(|s| {
+                let distance = strsim::damerau_levenshtein(name, s);
+                if distance <= MAX_DISTANCE {
+                    Some((distance, s))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        scored.sort();
+        let mut out = format!("'{}' is not a valid task name.", name);
+        if let Some((_, s)) = scored.get(0) {
+            out.push_str(&format!(" Did you mean '{}'?", s));
+        }
+        out
     }
 }
 
@@ -377,74 +400,6 @@ struct LoadSegment {
 
 // For commands which may execute on specific packages, this enum
 // identifies the set of packages that should be operated upon.
-enum RequestedPackages {
-    // Specifies a single specific (Package, Target) pair.
-    Specific(Option<String>, Option<String>),
-    // Specifies the command should operate on all packages.
-    All,
-}
-
-impl RequestedPackages {
-    fn new(package: Option<String>, target: Option<String>, all: bool) -> Self {
-        if all {
-            RequestedPackages::All
-        } else {
-            RequestedPackages::Specific(package, target)
-        }
-    }
-}
-
-// Runs a function on the a requested set of packages.
-//
-// # Arguments
-//
-// * `requested` - The requested packages to operate upon.
-// * `func` - The function to execute for requested packages,
-//            acting on a (Package, Target) pair.
-fn run_for_packages<F>(requested: RequestedPackages, func: F) -> Result<()>
-where
-    F: Fn(Option<String>, Option<String>) -> Result<()>,
-{
-    match requested {
-        RequestedPackages::Specific(package, target) => func(package, target)?,
-        RequestedPackages::All => {
-            use cargo_metadata::MetadataCommand;
-
-            let metadata = MetadataCommand::new()
-                .manifest_path("./Cargo.toml")
-                .exec()
-                .unwrap();
-
-            #[derive(Debug, Deserialize)]
-            struct CustomMetadata {
-                build: Option<BuildMetadata>,
-            }
-
-            #[derive(Debug, Deserialize)]
-            struct BuildMetadata {
-                target: Option<String>,
-            }
-
-            for id in &metadata.workspace_members {
-                let package = metadata
-                    .packages
-                    .iter()
-                    .find(|p| &p.id == id)
-                    .unwrap()
-                    .clone();
-
-                let m: Option<CustomMetadata> =
-                    serde_json::from_value(package.metadata)?;
-
-                let target = (|| m?.build?.target)();
-
-                func(Some(package.name), target)?;
-            }
-        }
-    }
-    Ok(())
-}
-
 fn main() -> Result<()> {
     let xtask = Xtask::parse();
 
@@ -493,13 +448,12 @@ fn main() -> Result<()> {
             test::run(verbose, &cfg)?;
         }
         Xtask::Clippy {
-            package,
-            target,
-            all,
+            verbose,
+            cfg,
+            tasks,
             options,
         } => {
-            let requested = RequestedPackages::new(package, target, all);
-            run_for_packages(requested, |p, t| clippy::run(p, t, &options))?;
+            clippy::run(verbose, cfg, tasks, options)?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;

@@ -311,10 +311,7 @@ Did you mean to run `cargo xtask dist`?"
         let all_tasks = toml.tasks.keys().collect::<Vec<_>>();
         for name in included_names {
             if !all_tasks.contains(&name) {
-                bail!(
-                    "Attempted to build task '{}', which is not in the app",
-                    name
-                );
+                bail!(toml.task_name_suggestion(name));
             }
         }
     }
@@ -1030,6 +1027,122 @@ fn generate_kernel_linker_script(
     Ok(())
 }
 
+/// Stores arguments and environment variables to run on a particular task.
+pub struct BuildConfig {
+    args: Vec<String>,
+    env: BTreeMap<String, String>,
+}
+
+impl BuildConfig {
+    pub fn new(
+        app_toml_path: &Path,
+        target: &str,
+        board_name: &str,
+        verbose: bool,
+        current_task_name: Option<&str>,
+        features: &[String],
+        task_names: &str,
+        secure_separation: &Option<bool>,
+        shared_syms: &Option<&[String]>,
+        config: &Option<ordered_toml::Value>,
+        app_config: &Option<ordered_toml::Value>,
+        extra_env: &[(&str, &str)],
+    ) -> Self {
+        let mut args = Vec::new();
+        args.push("--no-default-features".to_string());
+        args.push("--target".to_string());
+        args.push(target.to_string());
+        if verbose {
+            args.push("-v".to_string());
+        }
+
+        if !features.is_empty() {
+            args.push("--features".to_string());
+            args.push(features.join(","));
+        }
+
+        let mut env = BTreeMap::new();
+        // We include the path to the configuration TOML file so that proc macros
+        // that use it can easily force a rebuild (using include_bytes!)
+        //
+        // This doesn't matter now, because we rebuild _everything_ on app.toml
+        // changes, but once #240 is closed, this will be important.
+        let app_toml_path = app_toml_path
+            .canonicalize()
+            .expect("Could not canonicalize path to app TOML file");
+
+        env.insert("HUBRIS_TASKS".to_string(), task_names.to_string());
+        env.insert("HUBRIS_BOARD".to_string(), board_name.to_string());
+        env.insert(
+            "HUBRIS_APP_TOML".to_string(),
+            app_toml_path.to_str().unwrap().to_string(),
+        );
+
+        for (var, value) in extra_env {
+            env.insert(var.to_string(), value.to_string());
+        }
+
+        if let Some(s) = shared_syms {
+            if !s.is_empty() {
+                env.insert("SHARED_SYMS".to_string(), s.join(","));
+            }
+        }
+
+        // secure_separation indicates that we have TrustZone enabled.
+        // When TrustZone is enabled, the bootloader is secure and hubris is
+        // not secure.
+        // When TrustZone is not enabled, both the bootloader and Hubris are
+        // secure.
+        if let Some(s) = secure_separation {
+            if *s {
+                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
+            } else {
+                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
+            }
+        } else {
+            env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
+        }
+
+        //
+        // We allow for task- and app-specific configuration to be passed
+        // via environment variables to build.rs scripts that may choose to
+        // incorporate configuration into compilation.
+        //
+        if let Some(config) = config {
+            let task_config = toml::to_string(&config).unwrap();
+            env.insert(
+                "HUBRIS_TASK_CONFIG".to_string(),
+                task_config.to_string(),
+            );
+        }
+
+        if let Some(app_config) = app_config {
+            let app_config = toml::to_string(&app_config).unwrap();
+            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config.to_string());
+        }
+
+        // Expose the current task's name to allow for better error messages if
+        // a required configuration section is missing
+        if let Some(current_task_name) = current_task_name {
+            env.insert(
+                "HUBRIS_TASK_NAME".to_string(),
+                current_task_name.to_string(),
+            );
+        }
+        Self { args, env }
+    }
+
+    /// Applies the arguments and environment to a given Command
+    pub fn apply(&self, cmd: &mut Command) {
+        for a in &self.args {
+            cmd.arg(a);
+        }
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
+    }
+}
+
 fn build(
     app_toml_path: &Path,
     target: &str,
@@ -1051,6 +1164,21 @@ fn build(
 ) -> Result<()> {
     println!("building path {}", path.display());
 
+    let build_config = BuildConfig::new(
+        app_toml_path,
+        target,
+        board_name,
+        verbose,
+        current_task_name,
+        features,
+        task_names,
+        secure_separation,
+        shared_syms,
+        config,
+        app_config,
+        extra_env,
+    );
+
     // NOTE: current_dir's docs suggest that you should use canonicalize for
     // portability. However, that's for when you're doing stuff like:
     //
@@ -1060,19 +1188,10 @@ fn build(
     // are not including a path in the binary name, so everything is peachy. If
     // you change this line below, make sure to canonicalize path.
     let mut cmd = Command::new("cargo");
-    cmd.arg("rustc")
-        .arg("--release")
-        .arg("--no-default-features")
-        .arg("--target")
-        .arg(target);
+    cmd.arg("rustc").arg("--release");
+    cmd.current_dir(path);
 
-    if verbose {
-        cmd.arg("-v");
-    }
-    if !features.is_empty() {
-        cmd.arg("--features");
-        cmd.arg(features.join(","));
-    }
+    build_config.apply(&mut cmd);
 
     // This works because we control the environment in which we're about
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
@@ -1082,7 +1201,6 @@ fn build(
         .iter()
         .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
         .collect();
-    cmd.current_dir(path);
     cmd.env(
         "RUSTFLAGS",
         &format!(
@@ -1098,65 +1216,6 @@ fn build(
             remap_path_prefix,
         ),
     );
-
-    // We include the path to the configuration TOML file so that proc macros
-    // that use it can easily force a rebuild (using include_bytes!)
-    //
-    // This doesn't matter now, because we rebuild _everything_ on app.toml
-    // changes, but once #240 is closed, this will be important.
-    let app_toml_path = app_toml_path
-        .canonicalize()
-        .expect("Could not canonicalize path to app TOML file");
-
-    cmd.env("HUBRIS_TASKS", task_names);
-    cmd.env("HUBRIS_BOARD", board_name);
-    cmd.env("HUBRIS_APP_TOML", app_toml_path);
-
-    for (var, value) in extra_env {
-        cmd.env(var, value);
-    }
-
-    if let Some(s) = shared_syms {
-        if !s.is_empty() {
-            cmd.env("SHARED_SYMS", s.join(","));
-        }
-    }
-
-    // secure_separation indicates that we have TrustZone enabled.
-    // When TrustZone is enabled, the bootloader is secure and hubris is
-    // not secure.
-    // When TrustZone is not enabled, both the bootloader and Hubris are
-    // secure.
-    if let Some(s) = secure_separation {
-        if *s {
-            cmd.env("HUBRIS_SECURE", "0");
-        } else {
-            cmd.env("HUBRIS_SECURE", "1");
-        }
-    } else {
-        cmd.env("HUBRIS_SECURE", "1");
-    }
-
-    //
-    // We allow for task- and app-specific configuration to be passed
-    // via environment variables to build.rs scripts that may choose to
-    // incorporate configuration into compilation.
-    //
-    if let Some(config) = config {
-        let env = toml::to_string(&config).unwrap();
-        cmd.env("HUBRIS_TASK_CONFIG", env);
-    }
-
-    if let Some(app_config) = app_config {
-        let env = toml::to_string(&app_config).unwrap();
-        cmd.env("HUBRIS_APP_CONFIG", env);
-    }
-
-    // Expose the current task's name to allow for better error messages if
-    // a required configuration section is missing
-    if let Some(current_task_name) = current_task_name {
-        cmd.env("HUBRIS_TASK_NAME", current_task_name);
-    }
 
     if edges {
         let mut tree = Command::new("cargo");
