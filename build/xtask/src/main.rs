@@ -453,7 +453,7 @@ fn main() -> Result<()> {
             tasks,
             extra_options,
         } => {
-            clippy::run(verbose, cfg, tasks, extra_options)?;
+            clippy::run(verbose, cfg, &tasks, &extra_options)?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;

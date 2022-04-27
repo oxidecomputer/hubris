@@ -12,8 +12,8 @@ use crate::{dist::BuildConfig, Config};
 pub fn run(
     verbose: bool,
     cfg: PathBuf,
-    tasks: Vec<String>,
-    options: Vec<String>,
+    tasks: &[String],
+    options: &[String],
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
     let task_names = toml.tasks.keys().cloned().collect::<Vec<_>>().join(",");
@@ -27,7 +27,7 @@ pub fn run(
         bail!("Must provide one or more task names");
     }
 
-    for name in &tasks {
+    for name in tasks {
         if !toml.tasks.contains_key(name) {
             bail!("{}", toml.task_name_suggestion(name));
         }
@@ -73,7 +73,7 @@ pub fn run(
         cmd.arg("-A");
         cmd.arg("clippy::too_many_arguments");
 
-        for opt in &options {
+        for opt in options {
             cmd.arg(opt);
         }
 
