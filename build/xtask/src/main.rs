@@ -124,7 +124,7 @@ enum Xtask {
 
         /// Extra options to pass to clippy
         #[clap(last = true)]
-        options: Vec<String>,
+        extra_options: Vec<String>,
     },
 
     /// Show a task's .task_slot_table contents
@@ -451,9 +451,9 @@ fn main() -> Result<()> {
             verbose,
             cfg,
             tasks,
-            options,
+            extra_options,
         } => {
-            clippy::run(verbose, cfg, tasks, options)?;
+            clippy::run(verbose, cfg, tasks, extra_options)?;
         }
         Xtask::TaskSlots { task_bin } => {
             task_slot::dump_task_slot_table(&task_bin)?;
