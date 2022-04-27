@@ -17,8 +17,8 @@ use path_slash::PathBufExt;
 use serde::Serialize;
 
 use crate::{
-    elf, task_slot, Config, LoadSegment, Output, Peripheral, Signing,
-    Supervisor, Task,
+    config::{Config, Kernel, Output, Peripheral, Signing, Supervisor, Task},
+    elf, task_slot, LoadSegment,
 };
 
 use lpc55_sign::{crc_image, signed_image};
@@ -1299,8 +1299,8 @@ struct Allocations {
 /// This means that the algorithm needs to keep track of a queue of pending
 /// requests per alignment size.
 fn allocate_all(
-    kernel: &crate::Kernel,
-    tasks: &IndexMap<String, crate::Task>,
+    kernel: &Kernel,
+    tasks: &IndexMap<String, Task>,
     free: &mut IndexMap<String, Range<u32>>,
 ) -> Result<Allocations> {
     // Collect all allocation requests into queues, one per memory type, indexed
