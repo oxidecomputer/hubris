@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::hash::Hash;
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -130,12 +129,6 @@ enum Xtask {
         /// Path to task executable
         task_bin: PathBuf,
     },
-}
-
-#[derive(Debug, Hash)]
-struct LoadSegment {
-    source_file: PathBuf,
-    data: Vec<u8>,
 }
 
 // For commands which may execute on specific packages, this enum

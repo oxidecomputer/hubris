@@ -56,6 +56,7 @@ pub struct Config {
     pub supervisor: Option<Supervisor>,
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
+    pub app_toml_path: PathBuf,
 }
 
 impl Config {
@@ -100,6 +101,7 @@ impl Config {
             supervisor: toml.supervisor,
             config: toml.config,
             buildhash,
+            app_toml_path: cfg.to_owned(),
         })
     }
 
@@ -126,6 +128,162 @@ impl Config {
             out.push_str(&format!(" Did you mean '{}'?", s));
         }
         out
+    }
+
+    fn common_build_config(
+        &self,
+        verbose: bool,
+        crate_name: &str,
+        relative_path: &Path,
+        features: &[String],
+        shared_syms: Option<&[String]>,
+    ) -> BuildConfig {
+        let mut args = Vec::new();
+        args.push("--no-default-features".to_string());
+        args.push("--target".to_string());
+        args.push(self.target.to_string());
+        if verbose {
+            args.push("-v".to_string());
+        }
+
+        if !features.is_empty() {
+            args.push("--features".to_string());
+            args.push(features.join(","));
+        }
+
+        let mut env = BTreeMap::new();
+
+        // We include the path to the configuration TOML file so that proc macros
+        // that use it can easily force a rebuild (using include_bytes!)
+        //
+        // This doesn't matter now, because we rebuild _everything_ on app.toml
+        // changes, but once #240 is closed, this will be important.
+        let app_toml_path = self
+            .app_toml_path
+            .canonicalize()
+            .expect("Could not canonicalize path to app TOML file");
+
+        let task_names =
+            self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
+        env.insert("HUBRIS_TASKS".to_string(), task_names.to_string());
+        env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
+        env.insert(
+            "HUBRIS_APP_TOML".to_string(),
+            app_toml_path.to_str().unwrap().to_string(),
+        );
+
+        if let Some(s) = shared_syms {
+            if !s.is_empty() {
+                env.insert("SHARED_SYMS".to_string(), s.join(","));
+            }
+        }
+
+        // secure_separation indicates that we have TrustZone enabled.
+        // When TrustZone is enabled, the bootloader is secure and hubris is
+        // not secure.
+        // When TrustZone is not enabled, both the bootloader and Hubris are
+        // secure.
+        if let Some(s) = self.secure_separation {
+            if s {
+                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
+            } else {
+                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
+            }
+        } else {
+            env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
+        }
+
+        if let Some(app_config) = &self.config {
+            let app_config = toml::to_string(&app_config).unwrap();
+            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config.to_string());
+        }
+
+        let mut crate_path = self.app_toml_path.clone();
+        crate_path.pop();
+        crate_path.push(relative_path);
+
+        let mut out_path = Path::new("").to_path_buf();
+        out_path.push(&self.target);
+        out_path.push("release");
+        out_path.push(crate_name);
+
+        BuildConfig {
+            args,
+            env,
+            crate_path,
+            out_path,
+        }
+    }
+
+    pub fn kernel_build_config(
+        &self,
+        verbose: bool,
+        extra_env: &[(&str, &str)],
+    ) -> BuildConfig {
+        let mut out = self.common_build_config(
+            verbose,
+            &self.kernel.name,
+            &self.kernel.path,
+            &self.kernel.features,
+            None,
+        );
+        for (var, value) in extra_env {
+            out.env.insert(var.to_string(), value.to_string());
+        }
+        out
+    }
+
+    pub fn bootloader_build_config(
+        &self,
+        verbose: bool,
+    ) -> Option<BuildConfig> {
+        self.bootloader.as_ref().map(|bootloader| {
+            self.common_build_config(
+                verbose,
+                &bootloader.name,
+                &bootloader.path,
+                &bootloader.features,
+                Some(&bootloader.sharedsyms),
+            )
+        })
+    }
+
+    pub fn task_build_config(
+        &self,
+        task_name: &str,
+        verbose: bool,
+    ) -> Result<BuildConfig, String> {
+        let task_toml = self
+            .tasks
+            .get(task_name)
+            .ok_or_else(|| self.task_name_suggestion(task_name))?;
+        let mut out = self.common_build_config(
+            verbose,
+            &task_toml.name,
+            &task_toml.path,
+            &task_toml.features,
+            self.bootloader.as_ref().map(|b| b.sharedsyms.as_slice()),
+        );
+
+        //
+        // We allow for task- and app-specific configuration to be passed
+        // via environment variables to build.rs scripts that may choose to
+        // incorporate configuration into compilation.
+        //
+        if let Some(config) = &task_toml.config {
+            let task_config = toml::to_string(&config).unwrap();
+            out.env.insert(
+                "HUBRIS_TASK_CONFIG".to_string(),
+                task_config.to_string(),
+            );
+        }
+
+        // Expose the current task's name to allow for better error messages if
+        // a required configuration section is missing
+        out.env
+            .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
+
+        Ok(out)
     }
 }
 
@@ -266,4 +424,37 @@ where
         }
     }
     Ok(out)
+}
+
+/// Stores arguments and environment variables to run on a particular task.
+pub struct BuildConfig {
+    args: Vec<String>,
+    env: BTreeMap<String, String>,
+    pub crate_path: PathBuf,
+    pub out_path: PathBuf,
+}
+
+impl BuildConfig {
+    /// Applies the arguments and environment to a given Command
+    pub fn cmd(&self, subcommand: &str) -> std::process::Command {
+        // NOTE: current_dir's docs suggest that you should use canonicalize
+        // for portability. However, that's for when you're doing stuff like:
+        //
+        // Command::new("../cargo")
+        //
+        // That is, when you have a relative path to the binary being executed.
+        // We are not including a path in the binary name, so everything is
+        // peachy. If you change this line below, make sure to canonicalize
+        // path.
+        let mut cmd = std::process::Command::new("cargo");
+        cmd.arg(subcommand);
+        for a in &self.args {
+            cmd.arg(a);
+        }
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
+        cmd.current_dir(&self.crate_path);
+        cmd
+    }
 }

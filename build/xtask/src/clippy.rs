@@ -3,11 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::path::PathBuf;
-use std::process::Command;
 
 use anyhow::{bail, Result};
 
-use crate::{dist::BuildConfig, Config};
+use crate::config::Config;
 
 pub fn run(
     verbose: bool,
@@ -16,8 +15,6 @@ pub fn run(
     options: &[String],
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
-    let task_names = toml.tasks.keys().cloned().collect::<Vec<_>>().join(",");
-    let shared_syms: Option<&[String]> = None;
 
     let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
@@ -45,23 +42,8 @@ pub fn run(
             );
         }
 
-        let build_config = BuildConfig::new(
-            &cfg,
-            &toml.target,
-            &toml.board,
-            verbose,
-            Some(&task_toml.name),
-            &task_toml.features,
-            &task_names,
-            &toml.secure_separation,
-            &shared_syms,
-            &task_toml.config,
-            &toml.config,
-            &[],
-        );
-        let mut cmd = Command::new("cargo");
-        cmd.arg("clippy");
-        build_config.apply(&mut cmd);
+        let build_config = toml.task_build_config(name, verbose).unwrap();
+        let mut cmd = build_config.cmd("clippy");
 
         cmd.arg("--");
         cmd.arg("-W");

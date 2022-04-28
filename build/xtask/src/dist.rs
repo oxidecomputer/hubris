@@ -17,8 +17,11 @@ use path_slash::PathBufExt;
 use serde::Serialize;
 
 use crate::{
-    config::{Config, Kernel, Output, Peripheral, Signing, Supervisor, Task},
-    elf, task_slot, LoadSegment,
+    config::{
+        BuildConfig, Config, Kernel, Output, Peripheral, Signing, Supervisor,
+        Task,
+    },
+    elf, task_slot,
 };
 
 use lpc55_sign::{crc_image, signed_image};
@@ -27,6 +30,12 @@ use lpc55_sign::{crc_image, signed_image};
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
+
+#[derive(Debug, Hash)]
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
+}
 
 pub fn package(
     verbose: bool,
@@ -105,8 +114,6 @@ pub fn package(
     drop(infofile);
 
     // Build each task.
-    let task_names = toml.tasks.keys().cloned().collect::<Vec<_>>();
-    let task_names = task_names.join(",");
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
 
@@ -135,7 +142,6 @@ pub fn package(
     // now that we're clean, update our buildstamp file; any failure to build
     // from here on need not trigger a clean
     std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
-    let mut shared_syms: Option<&[String]> = None;
 
     // Panic messages in crates have a long prefix; we'll shorten it using
     // the --remap-path-prefix argument to reduce message size.  We'll remap
@@ -217,8 +223,6 @@ pub fn package(
             panic!("mismatch between bootloader end and hubris start! check app.toml!");
         }
 
-        shared_syms = Some(&bootloader.sharedsyms);
-
         generate_bootloader_linker_script(
             "memory.x",
             &bootloader_memory,
@@ -228,24 +232,12 @@ pub fn package(
 
         fs::copy("build/kernel-link.x", "target/link.x")?;
 
+        let build_config = toml.bootloader_build_config(verbose).unwrap();
         build(
-            cfg,
-            &toml.target,
-            &toml.board,
-            &src_dir.join(&bootloader.path),
-            &bootloader.name,
-            &bootloader.features,
+            build_config,
             out.join(&bootloader.name),
-            verbose,
             edges,
-            None,
-            &task_names,
             &remap_paths,
-            &None,
-            &shared_syms,
-            &None,
-            &toml.config,
-            &[],
         )?;
 
         // Need a bootloader binary for signing
@@ -341,26 +333,9 @@ Did you mean to run `cargo xtask dist`?"
 
         fs::copy("build/task-link.x", "target/link.x")?;
 
-        build(
-            cfg,
-            &toml.target,
-            &toml.board,
-            &src_dir.join(&task_toml.path),
-            &task_toml.name,
-            &task_toml.features,
-            out.join(name),
-            verbose,
-            edges,
-            Some(&name),
-            &task_names,
-            &remap_paths,
-            &toml.secure_separation,
-            &shared_syms,
-            &task_toml.config,
-            &toml.config,
-            &[],
-        )
-        .context(format!("failed to build {}", name))?;
+        let build_config = toml.task_build_config(name, verbose).unwrap();
+        build(build_config, out.join(name), edges, &remap_paths)
+            .context(format!("failed to build {}", name))?;
 
         resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
 
@@ -416,28 +391,14 @@ Did you mean to run `cargo xtask dist`?"
     fs::copy("build/kernel-link.x", "target/link.x")?;
 
     // Build the kernel.
-    build(
-        cfg,
-        &toml.target,
-        &toml.board,
-        &src_dir.join(&toml.kernel.path),
-        &toml.kernel.name,
-        &toml.kernel.features,
-        out.join("kernel"),
+    let build_config = toml.kernel_build_config(
         verbose,
-        edges,
-        None,
-        "",
-        &remap_paths,
-        &toml.secure_separation,
-        &None,
-        &None,
-        &toml.config,
         &[
             ("HUBRIS_KCONFIG", &kconfig),
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
         ],
-    )?;
+    );
+    build(build_config, out.join("kernel"), edges, &remap_paths)?;
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
@@ -1027,171 +988,16 @@ fn generate_kernel_linker_script(
     Ok(())
 }
 
-/// Stores arguments and environment variables to run on a particular task.
-pub struct BuildConfig {
-    args: Vec<String>,
-    env: BTreeMap<String, String>,
-}
-
-impl BuildConfig {
-    pub fn new(
-        app_toml_path: &Path,
-        target: &str,
-        board_name: &str,
-        verbose: bool,
-        current_task_name: Option<&str>,
-        features: &[String],
-        task_names: &str,
-        secure_separation: &Option<bool>,
-        shared_syms: &Option<&[String]>,
-        config: &Option<ordered_toml::Value>,
-        app_config: &Option<ordered_toml::Value>,
-        extra_env: &[(&str, &str)],
-    ) -> Self {
-        let mut args = Vec::new();
-        args.push("--no-default-features".to_string());
-        args.push("--target".to_string());
-        args.push(target.to_string());
-        if verbose {
-            args.push("-v".to_string());
-        }
-
-        if !features.is_empty() {
-            args.push("--features".to_string());
-            args.push(features.join(","));
-        }
-
-        let mut env = BTreeMap::new();
-        // We include the path to the configuration TOML file so that proc macros
-        // that use it can easily force a rebuild (using include_bytes!)
-        //
-        // This doesn't matter now, because we rebuild _everything_ on app.toml
-        // changes, but once #240 is closed, this will be important.
-        let app_toml_path = app_toml_path
-            .canonicalize()
-            .expect("Could not canonicalize path to app TOML file");
-
-        env.insert("HUBRIS_TASKS".to_string(), task_names.to_string());
-        env.insert("HUBRIS_BOARD".to_string(), board_name.to_string());
-        env.insert(
-            "HUBRIS_APP_TOML".to_string(),
-            app_toml_path.to_str().unwrap().to_string(),
-        );
-
-        for (var, value) in extra_env {
-            env.insert(var.to_string(), value.to_string());
-        }
-
-        if let Some(s) = shared_syms {
-            if !s.is_empty() {
-                env.insert("SHARED_SYMS".to_string(), s.join(","));
-            }
-        }
-
-        // secure_separation indicates that we have TrustZone enabled.
-        // When TrustZone is enabled, the bootloader is secure and hubris is
-        // not secure.
-        // When TrustZone is not enabled, both the bootloader and Hubris are
-        // secure.
-        if let Some(s) = secure_separation {
-            if *s {
-                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
-            } else {
-                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-            }
-        } else {
-            env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-        }
-
-        //
-        // We allow for task- and app-specific configuration to be passed
-        // via environment variables to build.rs scripts that may choose to
-        // incorporate configuration into compilation.
-        //
-        if let Some(config) = config {
-            let task_config = toml::to_string(&config).unwrap();
-            env.insert(
-                "HUBRIS_TASK_CONFIG".to_string(),
-                task_config.to_string(),
-            );
-        }
-
-        if let Some(app_config) = app_config {
-            let app_config = toml::to_string(&app_config).unwrap();
-            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config.to_string());
-        }
-
-        // Expose the current task's name to allow for better error messages if
-        // a required configuration section is missing
-        if let Some(current_task_name) = current_task_name {
-            env.insert(
-                "HUBRIS_TASK_NAME".to_string(),
-                current_task_name.to_string(),
-            );
-        }
-        Self { args, env }
-    }
-
-    /// Applies the arguments and environment to a given Command
-    pub fn apply(&self, cmd: &mut Command) {
-        for a in &self.args {
-            cmd.arg(a);
-        }
-        for (k, v) in &self.env {
-            cmd.env(k, v);
-        }
-    }
-}
-
 fn build(
-    app_toml_path: &Path,
-    target: &str,
-    board_name: &str,
-    path: &Path,
-    name: &str,
-    features: &[String],
+    build_config: BuildConfig,
     dest: PathBuf,
-    verbose: bool,
     edges: bool,
-    current_task_name: Option<&str>,
-    task_names: &str,
     remap_paths: &BTreeMap<PathBuf, &str>,
-    secure_separation: &Option<bool>,
-    shared_syms: &Option<&[String]>,
-    config: &Option<ordered_toml::Value>,
-    app_config: &Option<ordered_toml::Value>,
-    extra_env: &[(&str, &str)],
 ) -> Result<()> {
-    println!("building path {}", path.display());
+    println!("building path {}", build_config.crate_path.display());
 
-    let build_config = BuildConfig::new(
-        app_toml_path,
-        target,
-        board_name,
-        verbose,
-        current_task_name,
-        features,
-        task_names,
-        secure_separation,
-        shared_syms,
-        config,
-        app_config,
-        extra_env,
-    );
-
-    // NOTE: current_dir's docs suggest that you should use canonicalize for
-    // portability. However, that's for when you're doing stuff like:
-    //
-    // Command::new("../cargo")
-    //
-    // That is, when you have a relative path to the binary being executed. We
-    // are not including a path in the binary name, so everything is peachy. If
-    // you change this line below, make sure to canonicalize path.
-    let mut cmd = Command::new("cargo");
-    cmd.arg("rustc").arg("--release");
-    cmd.current_dir(path);
-
-    build_config.apply(&mut cmd);
+    let mut cmd = build_config.cmd("rustc");
+    cmd.arg("--release");
 
     // This works because we control the environment in which we're about
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
@@ -1218,18 +1024,16 @@ fn build(
     );
 
     if edges {
-        let mut tree = Command::new("cargo");
-        tree.arg("tree")
-            .arg("--no-default-features")
+        let mut tree = build_config.cmd("tree");
+        tree.arg("--no-default-features")
             .arg("--edges")
             .arg("features")
             .arg("--verbose");
-        if !features.is_empty() {
-            tree.arg("--features");
-            tree.arg(features.join(","));
-        }
-        tree.current_dir(path);
-        println!("Path: {}\nRunning cargo {:?}", path.display(), tree);
+        println!(
+            "Path: {}\nRunning cargo {:?}",
+            build_config.crate_path.display(),
+            tree
+        );
         let tree_status = tree
             .status()
             .context(format!("failed to run edge ({:?})", tree))?;
@@ -1246,9 +1050,7 @@ fn build(
         bail!("command failed, see output for details");
     }
 
-    cargo_out.push(target);
-    cargo_out.push("release");
-    cargo_out.push(name);
+    cargo_out.push(build_config.out_path);
 
     println!("{} -> {}", cargo_out.display(), dest.display());
     std::fs::copy(&cargo_out, dest)?;
