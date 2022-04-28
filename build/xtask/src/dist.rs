@@ -1025,10 +1025,7 @@ fn build(
 
     if edges {
         let mut tree = build_config.cmd("tree");
-        tree.arg("--no-default-features")
-            .arg("--edges")
-            .arg("features")
-            .arg("--verbose");
+        tree.arg("--edges").arg("features").arg("--verbose");
         println!(
             "Path: {}\nRunning cargo {:?}",
             build_config.crate_path.display(),
