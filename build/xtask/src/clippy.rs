@@ -2,74 +2,68 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::env;
-use std::process::Command;
+use std::path::PathBuf;
 
 use anyhow::{bail, Result};
 
+use crate::config::Config;
+
 pub fn run(
-    package: Option<String>,
-    target: Option<String>,
+    verbose: bool,
+    cfg: PathBuf,
+    tasks: &[String],
     options: &[String],
 ) -> Result<()> {
-    let package = package.unwrap_or_else(|| {
-        let path = env::current_dir().unwrap();
-        let manifest_path = path.join("Cargo.toml");
-        let contents = std::fs::read(manifest_path).unwrap();
-        let toml: toml::Value = toml::from_slice(&contents).unwrap();
+    let toml = Config::from_file(&cfg)?;
 
-        // someday, try blocks will be stable...
-        toml.get("package")
-            .and_then(|v| v.get("name"))
-            .and_then(|v| v.as_str())
-            .expect("Couldn't find [package.name]; pass -p <package> to run clippy on a specific package or --all to check all packages")
-            .to_string()
-    });
+    let mut src_dir = cfg.to_path_buf();
+    src_dir.pop();
+    let src_dir = src_dir;
 
-    println!("Running clippy on: {}", package);
-
-    let mut cmd = Command::new("cargo");
-    cmd.arg("clippy");
-    // TODO: Remove this argument once resolved on stable:
-    //
-    // https://github.com/rust-lang/rust-clippy/issues/4612
-    //
-    // TL;DR: Switching back and forth between "clippy" and "check"
-    // caches the results from one execution. This means a succeeding
-    // "check" execution may hide a failing "clippy" execution.
-    cmd.arg("-Zunstable-options");
-    cmd.arg("-p");
-    cmd.arg(&package);
-
-    if let Some(target) = target {
-        cmd.arg("--target");
-        cmd.arg(target);
+    if tasks.is_empty() {
+        bail!("Must provide one or more task names");
     }
 
-    // Clippy arguments
-    cmd.arg("--");
-    cmd.arg("-D");
-    cmd.arg("clippy::all");
-    cmd.arg("-A");
-    cmd.arg("clippy::missing_safety_doc");
-    cmd.arg("-A");
-    cmd.arg("clippy::identity_op");
-    cmd.arg("-A");
-    cmd.arg("clippy::too_many_arguments");
-
-    for opt in options {
-        cmd.arg(opt);
+    for name in tasks {
+        if !toml.tasks.contains_key(name) {
+            bail!("{}", toml.task_name_suggestion(name));
+        }
     }
 
-    // this is only actually used for demo-stm32h7 but is harmless to include, so let's do
-    // it unconditionally
-    cmd.env("HUBRIS_BOARD", "nucleo-h743zi2");
+    for (i, name) in tasks.iter().enumerate() {
+        let task_toml = &toml.tasks[name];
+        if tasks.len() > 1 {
+            if i > 0 {
+                println!();
+            }
+            println!(
+                "================== {} [{}] ==================",
+                name, task_toml.name
+            );
+        }
 
-    let status = cmd.status()?;
+        let build_config = toml.task_build_config(name, verbose).unwrap();
+        let mut cmd = build_config.cmd("clippy");
 
-    if !status.success() {
-        bail!("Could not build {}", package);
+        cmd.arg("--");
+        cmd.arg("-W");
+        cmd.arg("clippy::all");
+        cmd.arg("-A");
+        cmd.arg("clippy::missing_safety_doc");
+        cmd.arg("-A");
+        cmd.arg("clippy::identity_op");
+        cmd.arg("-A");
+        cmd.arg("clippy::too_many_arguments");
+
+        for opt in options {
+            cmd.arg(opt);
+        }
+
+        cmd.current_dir(&src_dir.join(&task_toml.path));
+        let status = cmd.status()?;
+        if !status.success() {
+            bail!("`cargo clippy` failed, see output for details");
+        }
     }
-
     Ok(())
 }
