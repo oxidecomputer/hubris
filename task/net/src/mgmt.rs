@@ -79,7 +79,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(self, sys: &Sys, eth: &mut Ethernet) -> Bsp {
+    pub fn build(self, sys: &Sys, eth: &Ethernet) -> Bsp {
         // The VSC8552 connects the KSZ switch to the management network
         // over SGMII
         let vsc85x2 = self.configure_vsc85x2(sys, eth);
@@ -117,7 +117,7 @@ impl Config {
         ksz8463
     }
 
-    fn configure_vsc85x2(&self, sys: &Sys, eth: &mut Ethernet) -> Vsc85x2 {
+    fn configure_vsc85x2(&self, sys: &Sys, eth: &Ethernet) -> Vsc85x2 {
         // TODO: wait for PLL lock to happen here
 
         // Start with reset low and COMA_MODE high
@@ -179,7 +179,7 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    pub fn wake(&self, eth: &mut Ethernet) {
+    pub fn wake(&self, eth: &Ethernet) {
         let mut s = Status::default();
         let rw = &mut MiimBridge::new(eth);
         for i in 0..2 {

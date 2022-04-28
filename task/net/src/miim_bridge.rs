@@ -10,11 +10,11 @@ use vsc85xx::{PhyRw, VscError};
 /// `eth`'s MIIM registers.  This allows us to use functions that expect
 /// that trait, e.g. VSC85xx PHY initialization.
 pub struct MiimBridge<'a> {
-    eth: &'a mut eth::Ethernet,
+    eth: &'a eth::Ethernet,
 }
 
 impl<'a> MiimBridge<'a> {
-    pub fn new(eth: &'a mut eth::Ethernet) -> Self {
+    pub fn new(eth: &'a eth::Ethernet) -> Self {
         Self { eth }
     }
 }

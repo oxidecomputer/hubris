@@ -56,7 +56,7 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    pub fn new(_eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(_eth: &eth::Ethernet, sys: &Sys) -> Self {
         let ksz8463 = loop {
             // SPI device is based on ordering in app.toml
             let ksz8463_spi = Spi::from(SPI.get_task_id()).device(0);
@@ -65,7 +65,7 @@ impl Bsp {
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1).unwrap();
             let ksz8463 = Ksz8463::new(ksz8463_spi);
             match ksz8463
-                .configure(ksz8463::Mode::Copper, ksz8463::VLanMode::Optional)
+                .configure(ksz8463::Mode::Copper, ksz8463::VLanMode::Mandatory)
             {
                 Err(err) => {
                     ringbuf_entry!(Trace::KszErr { err });
@@ -79,7 +79,7 @@ impl Bsp {
         Self { ksz8463 }
     }
 
-    pub fn wake(&self, _eth: &mut eth::Ethernet) {
+    pub fn wake(&self, _eth: &eth::Ethernet) {
         for port in [1, 2] {
             ringbuf_entry!(
                 match self.ksz8463.read(KszRegister::PxMBSR(port)) {

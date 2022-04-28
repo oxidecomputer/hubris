@@ -61,7 +61,7 @@ path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
@@ -112,7 +112,7 @@ path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
@@ -120,7 +120,7 @@ task-slots = ["sys"]
 path = "../../task/pong"
 name = "task-pong"
 priority = 3
-requires = {flash = 8192, ram = 1024}
+requires = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
@@ -131,7 +131,7 @@ features = ["stm32h743", "usart2"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 1}
 priority = 3
-requires = {flash = 16384, ram = 4096}
+requires = {flash = 8192, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
@@ -161,10 +161,10 @@ task-slots = ["sys"]
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 3800
+stacksize = 4320
 priority = 2
-features = ["h753", "gimletlet-nic"]
-requires = {flash = 131072, ram = 16384, sram1 = 16384}
+features = ["h753", "h7-vlan", "gimletlet-nic"]
+requires = {flash = 65536, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -175,10 +175,11 @@ task-slots = ["sys", "spi_driver" ]
 path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 3
-requires = {flash = 16384, ram = 8192}
+requires = {flash = 8192, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -265,6 +266,8 @@ mux = "port_e"
 cs = [{port = "E", pin = 11}]
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}

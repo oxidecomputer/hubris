@@ -114,7 +114,7 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         let leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
         // Turn on an LED to indicate that we're configuring
@@ -146,7 +146,7 @@ impl Bsp {
         Self { mgmt, leds }
     }
 
-    pub fn wake(&self, eth: &mut eth::Ethernet) {
+    pub fn wake(&self, eth: &eth::Ethernet) {
         // Run the BSP wake function, which logs summarized data to a different
         // ringbuf; we'll still do verbose logging of full registers below.
         self.mgmt.wake(eth);

@@ -7,15 +7,30 @@
 
 mod bsp;
 mod buf;
-mod server;
 
 pub mod pins;
 
-#[cfg(feature = "mgmt")]
-mod miim_bridge;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "vlan")] {
+        mod vlan;
+        use vlan::{ServerImpl, ServerStorage};
+    } else {
+        mod server;
+        use server::{ServerImpl, ServerStorage};
+    }
+}
 
-#[cfg(feature = "mgmt")]
-pub(crate) mod mgmt;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "mgmt")] {
+        mod miim_bridge;
+        pub(crate) mod mgmt;
+    }
+}
+
+mod idl {
+    use task_net_api::{NetError, SocketName, UdpMetadata};
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use zerocopy::AsBytes;
@@ -119,54 +134,20 @@ fn main() -> ! {
     );
 
     // Set up the network stack.
-
-    use smoltcp::iface::Neighbor;
-    use smoltcp::socket::UdpSocket;
-    use smoltcp::wire::{EthernetAddress, IpAddress};
-
+    use smoltcp::wire::EthernetAddress;
     let mac = EthernetAddress::from_bytes(mac_address());
 
+    // Configure the server and its local storage arrays (on the stack)
     let ipv6_addr = link_local_iface_addr(mac);
-    let ipv6_net = smoltcp::wire::Ipv6Cidr::new(ipv6_addr, 64).into();
-
-    let mut ip_addrs = [ipv6_net];
-    let mut neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; NEIGHBORS] =
-        [None; NEIGHBORS];
-    let neighbor_cache =
-        smoltcp::iface::NeighborCache::new(&mut neighbor_cache_storage[..]);
-
-    let mut socket_storage =
-        [smoltcp::iface::SocketStorage::EMPTY; generated::SOCKET_COUNT];
-    let mut eth =
-        smoltcp::iface::InterfaceBuilder::new(eth, &mut socket_storage[..])
-            .hardware_addr(mac.into())
-            .neighbor_cache(neighbor_cache)
-            .ip_addrs(&mut ip_addrs[..])
-            .finalize();
-
-    // Create sockets and associate them with the interface.
-    let sockets = generated::construct_sockets();
-    let mut socket_handles = [None; generated::SOCKET_COUNT];
-    for (socket, h) in sockets.0.into_iter().zip(&mut socket_handles) {
-        *h = Some(eth.add_socket(socket));
-    }
-    let socket_handles = socket_handles.map(|h| h.unwrap());
-    // Bind sockets to their ports.
-    for (&h, &port) in socket_handles.iter().zip(&generated::SOCKET_PORTS) {
-        eth.get_socket::<UdpSocket>(h)
-            .bind((ipv6_addr, port))
-            .map_err(|_| ())
-            .unwrap();
-    }
+    let mut storage = ServerStorage::new(eth);
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(eth.device_mut(), &sys);
+    let bsp = bsp::Bsp::new(&storage.eth, &sys);
+
+    let mut server = ServerImpl::new(&mut storage, ipv6_addr, mac, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
-
-    // Move resources into the server impl.
-    let mut server = server::ServerImpl::new(socket_handles, eth, bsp);
 
     // Some of the BSPs include a 'wake' function which allows for periodic
     // logging.  We schedule a wake-up before entering the idol_runtime dispatch
@@ -178,30 +159,12 @@ fn main() -> ! {
         ITER_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // Call into smoltcp.
-        let poll_result =
-            server
-                .interface_mut()
-                .poll(smoltcp::time::Instant::from_millis(
-                    userlib::sys_get_timer().now as i64,
-                ));
-
+        let poll_result = server.poll(userlib::sys_get_timer().now);
         let any_activity = poll_result.unwrap_or(true);
 
         if any_activity {
-            // There's something to do. Iterate over sockets looking for work.
-            // TODO making every packet O(n) in the number of sockets is super
-            // lame; provide a Waker to fix this.
-            for i in 0..generated::SOCKET_COUNT {
-                if server.get_socket_mut(i).unwrap().can_recv() {
-                    // Make sure the owner knows about this. This can
-                    // technically cause spurious wakeups if the owner is
-                    // already waiting in our incoming queue to recv. Maybe we
-                    // fix this later.
-                    let (task_id, notification) = generated::SOCKET_OWNERS[i];
-                    let task_id = sys_refresh_task_id(task_id);
-                    sys_post(task_id, notification);
-                }
-            }
+            // Ask the server to iterate over sockets looking for work
+            server.wake_sockets();
         } else {
             // No work to do immediately. Wait for an ethernet IRQ or an
             // incoming message, or for a certain amount of time to pass.
@@ -213,7 +176,7 @@ fn main() -> ! {
                 }
                 sys_set_timer(Some(wake_target_time), WAKE_IRQ);
             }
-            let mut msgbuf = [0u8; server::ServerImpl::INCOMING_SIZE];
+            let mut msgbuf = [0u8; ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }
     }

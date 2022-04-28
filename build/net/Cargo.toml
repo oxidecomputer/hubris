@@ -3,6 +3,9 @@ name = "build-net"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+vlan = []
+
 [dependencies]
 build-util = {path = "../util"}
 serde = { version = "1.0.114", features = ["derive"] }

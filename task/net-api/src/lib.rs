@@ -15,6 +15,7 @@ use userlib::*;
 pub enum NetError {
     QueueEmpty = 1,
     NotYours = 2,
+    InvalidVLan = 3,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -22,6 +23,9 @@ pub struct UdpMetadata {
     pub addr: Address,
     pub port: u16,
     pub size: u32,
+
+    #[cfg(feature = "vlan")]
+    pub vid: u16,
 }
 
 #[cfg(feature = "use-smoltcp")]
@@ -34,7 +38,10 @@ impl From<UdpMetadata> for smoltcp::wire::IpEndpoint {
     }
 }
 
+// This must be repr(C); otherwise Rust cleverly optimizes out the enum tag,
+// which breaks ssmarshal's assumptions about struct sizes.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub enum Address {
     Ipv6(Ipv6Address),
 }

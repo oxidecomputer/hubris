@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 use-smoltcp = ["smoltcp"]
+vlan = ["build-net/vlan"]
 
 [dependencies]
 derive-idol-err = {path = "../../lib/derive-idol-err" }
