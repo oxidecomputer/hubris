@@ -689,7 +689,7 @@ impl RxRing {
         let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
         assert!(rdes0_valid);
 
-        let rdes0 = d.rdes[0].load(Ordering::Relaxed); // XXX is this right?
+        let rdes0 = d.rdes[0].load(Ordering::Relaxed);
         let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
         assert_eq!(this_vid, vid);
 
