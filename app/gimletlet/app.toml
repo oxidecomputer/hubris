@@ -161,7 +161,7 @@ task-slots = ["sys"]
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 8192
+stacksize = 4320
 priority = 2
 features = ["h753", "h7-vlan", "gimletlet-nic"]
 requires = {flash = 65536, ram = 16384, sram1 = 16384}
