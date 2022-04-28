@@ -623,7 +623,7 @@ impl RxRing {
             let rdes0_valid = rdes3 & (1 << RDES3_RS0V_BIT) != 0;
             if packet_okay && rdes0_valid {
                 let rdes0 = d.rdes[0].load(Ordering::Relaxed);
-                let this_vid = (rdes0 >> RDES0_OUTER_VID_BIT) as u16;
+                let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
 
                 if this_vid == vid {
                     // If this matches our target VLAN, then we're good!
@@ -690,7 +690,7 @@ impl RxRing {
         assert!(rdes0_valid);
 
         let rdes0 = d.rdes[0].load(Ordering::Relaxed); // XXX is this right?
-        let this_vid = (rdes0 >> RDES0_OUTER_VID_BIT) as u16;
+        let this_vid = ((rdes0 >> RDES0_OUTER_VID_BIT) & 0xFFF) as u16;
         assert_eq!(this_vid, vid);
 
         let buffer = self.buffers[self.next.get()].0.get();

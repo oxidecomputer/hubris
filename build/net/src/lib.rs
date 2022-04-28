@@ -79,6 +79,9 @@ pub fn generate_vlan_consts(
 ) -> Result<(), std::io::Error> {
     let vlan = config.vlan.unwrap();
     let end = vlan.start + vlan.count;
+    if end > 0xFFF {
+        panic!("Invalid VLAN range (must be < 4096)");
+    }
     writeln!(
         out,
         "
