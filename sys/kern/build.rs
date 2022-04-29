@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -153,6 +154,42 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(file, "    }},")?;
     }
     writeln!(file, "];")?;
+
+    writeln!(file, "\nuse phash::*;")?;
+    let irq_nums = kconfig.irqs.iter().map(|k| k.irq).collect::<Vec<u32>>();
+
+    let (ty, val) = phash_gen::generate_hash(&irq_nums).unwrap().codegen_with(
+        "abi::Interrupt",
+        |i| {
+            let irq = &kconfig.irqs[i];
+            format!(
+                "abi::Interrupt {{ irq: {}, task: {}, notification: 0b{:b} }}",
+                irq.irq, irq.task, irq.notification
+            )
+        },
+    );
+    writeln!(file, "pub static HUBRIS_IRQ_TASK_LOOKUP: {} = {};", ty, val)?;
+    let mut per_task_irqs: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
+    for irq in &kconfig.irqs {
+        per_task_irqs
+            .entry((irq.task, irq.notification))
+            .or_default()
+            .push(irq.irq)
+    }
+    let per_task_irqs = per_task_irqs.into_iter().collect::<Vec<_>>();
+    let task_mask = per_task_irqs
+        .iter()
+        .map(|p| p.0)
+        .collect::<Vec<(u32, u32)>>();
+    let (ty, val) = phash_gen::generate_hash(&task_mask)
+        .unwrap()
+        .codegen_with("abi::InterruptSet", |i| {
+            let ((task, notification), irqs) = &per_task_irqs[i];
+            format!(
+                "abi::InterruptSet {{ task: {}, notification: 0b{:b}, irqs: &{:?} }}",
+                task, notification, irqs)
+        });
+    writeln!(file, "pub static HUBRIS_TASK_IRQ_LOOKUP: {} = {};", ty, val)?;
 
     Ok(())
 }

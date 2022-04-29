@@ -248,6 +248,18 @@ pub struct Interrupt {
     pub notification: u32,
 }
 
+/// Description of multiple interrupts with a single task + notification
+#[derive(Clone, Debug)]
+#[repr(C)]
+pub struct InterruptSet {
+    /// Which interrupt numbers are being hooked.
+    pub irqs: &'static [u32],
+    /// Which task to notify, by index.
+    pub task: u32,
+    /// Which notification bits to set.
+    pub notification: u32,
+}
+
 /// Structure describing a lease in task memory.
 ///
 /// At SEND, the task gives us the base and length of a section of memory that
