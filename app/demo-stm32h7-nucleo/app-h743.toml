@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "demo-stm32h7-nucleo"
-requires = {flash = 21376, ram = 4096}
+requires = {flash = 21728, ram = 4096}
 
 #
 # For the kernel (and for any task that logs), we are required to enable
