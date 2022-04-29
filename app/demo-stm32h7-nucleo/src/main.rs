@@ -87,5 +87,125 @@ fn main() -> ! {
 
     system_init(CLOCKS);
 
+    // Turn on profiling. We're sneaking around behind the GPIO driver's back
+    // for this, but, it's a debug feature.
+    //
+    // We use the even pins (inside row) of CN8 for this. In order from board
+    // north to south,
+    // - 2 = PC8 = syscall number [0]
+    // - 4 = PC9 = syscall number [1]
+    // - 6 = PC10 = syscall number [2]
+    // - 8 = PC11 = syscall number [3]
+    // - 10 = PC12 = syscall active
+    // - 12 = PD2 = pendsv
+    // - 14 = PG2 = systick
+    // - 16 = PG3 = general isr
+    //
+    // Using PC8:12 for this because it's available on even pins 2:12 of CN8,
+    // labeled SDMMC.
+    let rcc = unsafe { &*device::RCC::ptr() };
+    #[rustfmt::skip]
+    rcc.ahb4enr.modify(|_, w| {
+        w.gpiocen().set_bit()
+            .gpioden().set_bit()
+            .gpiogen().set_bit()
+    });
+    cortex_m::asm::dmb();
+    let gpioc = unsafe { &*device::GPIOC::ptr() };
+    #[rustfmt::skip]
+    gpioc.moder.modify(|_, w| {
+        w.moder8().output()
+            .moder9().output()
+            .moder10().output()
+            .moder11().output()
+            .moder12().output()
+    });
+    let gpiod = unsafe { &*device::GPIOD::ptr() };
+    #[rustfmt::skip]
+    gpiod.moder.modify(|_, w| {
+        w.moder2().output()
+    });
+    let gpiog = unsafe { &*device::GPIOG::ptr() };
+    #[rustfmt::skip]
+    gpiog.moder.modify(|_, w| {
+        w.moder2().output()
+            .moder3().output()
+    });
+
+    kern::profiling::configure_events_table(&PROFILING);
+
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }
+
+fn syscall_enter(nr: u32) {
+    let gpioc = unsafe { &*device::GPIOC::ptr() };
+    gpioc.bsrr.write(|w| {
+        if nr & 1 != 0 {
+            w.bs8().set_bit();
+        }
+        if nr & 2 != 0 {
+            w.bs9().set_bit();
+        }
+        if nr & 4 != 0 {
+            w.bs10().set_bit();
+        }
+        if nr & 8 != 0 {
+            w.bs11().set_bit();
+        }
+        w.bs12().set_bit();
+        w
+    });
+}
+
+fn syscall_exit() {
+    let gpioc = unsafe { &*device::GPIOC::ptr() };
+    #[rustfmt::skip]
+    gpioc.bsrr.write(|w| {
+        w.br8().set_bit()
+            .br9().set_bit()
+            .br10().set_bit()
+            .br11().set_bit()
+            .br12().set_bit()
+    });
+}
+
+fn secondary_syscall_enter() {
+    let gpiod = unsafe { &*device::GPIOD::ptr() };
+    gpiod.bsrr.write(|w| w.bs2().set_bit());
+}
+
+fn secondary_syscall_exit() {
+    let gpiod = unsafe { &*device::GPIOD::ptr() };
+    gpiod.bsrr.write(|w| w.br2().set_bit());
+}
+
+fn isr_enter() {
+    let gpiog = unsafe { &*device::GPIOG::ptr() };
+    gpiog.bsrr.write(|w| w.bs3().set_bit());
+}
+
+fn isr_exit() {
+    let gpiog = unsafe { &*device::GPIOG::ptr() };
+    gpiog.bsrr.write(|w| w.br3().set_bit());
+}
+
+fn timer_isr_enter() {
+    let gpiog = unsafe { &*device::GPIOG::ptr() };
+    gpiog.bsrr.write(|w| w.bs2().set_bit());
+}
+
+fn timer_isr_exit() {
+    let gpiog = unsafe { &*device::GPIOG::ptr() };
+    gpiog.bsrr.write(|w| w.br2().set_bit());
+}
+
+static PROFILING: kern::profiling::EventsTable = kern::profiling::EventsTable {
+    syscall_enter,
+    syscall_exit,
+    secondary_syscall_enter,
+    secondary_syscall_exit,
+    isr_enter,
+    isr_exit,
+    timer_isr_enter,
+    timer_isr_exit,
+};
