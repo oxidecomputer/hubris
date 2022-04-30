@@ -1016,24 +1016,6 @@ pub unsafe fn with_task_table<R>(
     body(tasks)
 }
 
-/// Manufacture a shared reference to the interrupt action table from thin air
-/// and hand it to `body`. This bypasses borrow checking and should only be used
-/// at kernel entry points, then passed around.
-///
-/// Because the lifetime of the reference passed into `body` is anonymous, the
-/// reference can't easily be stored, which is deliberate.
-pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R {
-    // Safety: as long as a legit pointer was stored in IRQ_TABLE_BASE, or no
-    // pointer has been stored, we can do this safely.
-    let table = unsafe {
-        core::slice::from_raw_parts(
-            IRQ_TABLE_BASE.expect("kernel not started").as_ptr(),
-            IRQ_TABLE_SIZE,
-        )
-    };
-    body(table)
-}
-
 /// Records the address of `task` as the current user task.
 ///
 /// # Safety
@@ -1243,30 +1225,18 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
+            let entry = crate::startup::HUBRIS_IRQ_TASK_LOOKUP.get(irq_num);
             let switch = with_task_table(|tasks| {
-                with_irq_table(|irqs| {
-                    // TODO: in case it isn't obvious, looping over the entire
-                    // interrupt redirector table on every interrupt is not the
-                    // fastest way to handle interrupts. But it sure is
-                    // expedient! If you would like to speed up interrupt
-                    // response, change the irq_table data structure to
-                    // something we can access in O(1), or at least O(log n),
-                    // time.
-                    for entry in irqs {
-                        if entry.irq == irq_num {
-                            // Early exit on the first (and should be sole)
-                            // match.
+                if entry.irq == irq_num {
+                    disable_irq(irq_num);
 
-                            disable_irq(irq_num);
-
-                            // Now, post the notification and return the
-                            // scheduling hint.
-                            let n = task::NotificationSet(entry.notification);
-                            return Ok(tasks[entry.task as usize].post(n));
-                        }
-                    }
+                    // Now, post the notification and return the
+                    // scheduling hint.
+                    let n = task::NotificationSet(entry.notification);
+                    Ok(tasks[entry.task as usize].post(n))
+                } else {
                     Err(())
-                })
+                }
             });
             match switch {
                 Ok(true) => pend_context_switch_from_isr(),

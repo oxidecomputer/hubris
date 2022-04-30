@@ -699,18 +699,12 @@ fn irq_control(
         }
     };
 
-    if crate::arch::with_irq_table(|irqs| {
-        let mut found = false;
-
-        for irq in irqs {
-            if irq.task == caller as u32 && irq.notification == bitmask {
-                operation(irq.irq);
-                found = true;
-            }
+    let caller = caller as u32;
+    let irq_set = crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get((caller, bitmask));
+    if irq_set.task == caller && irq_set.notification == bitmask {
+        for i in irq_set.irqs {
+            operation(*i);
         }
-
-        found
-    }) {
         Ok(NextTask::Same)
     } else {
         Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
