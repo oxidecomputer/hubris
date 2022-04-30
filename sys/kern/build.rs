@@ -167,6 +167,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
                 irq.irq, irq.task, irq.notification
             )
         },
+        "abi::Interrupt { irq: 0, task: u32::MAX, notification: 0 }",
     );
     writeln!(file, "pub static HUBRIS_IRQ_TASK_LOOKUP: {} = {};", ty, val)?;
     let mut per_task_irqs: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
@@ -188,7 +189,10 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
             format!(
                 "abi::InterruptSet {{ task: {}, notification: 0b{:b}, irqs: &{:?} }}",
                 task, notification, irqs)
-        });
+        },
+
+        "abi::InterruptSet { task: u32::MAX, notification: 0, irqs: &[] }",
+        );
     writeln!(file, "pub static HUBRIS_TASK_IRQ_LOOKUP: {} = {};", ty, val)?;
 
     Ok(())
