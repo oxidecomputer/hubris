@@ -237,7 +237,9 @@ bitflags::bitflags! {
 }
 
 /// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, FromBytes, Serialize, Deserialize, Eq, PartialEq, Hash,
+)]
 #[repr(C)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.

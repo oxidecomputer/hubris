@@ -29,14 +29,23 @@ impl Reduce for (u32, u32) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct PerfectHash<'a, T, V> {
-    pub m: T,
+pub struct PerfectHash<'a, K, V> {
+    pub m: K,
     pub values: &'a [V],
 }
 
-impl<'a, T: Copy + Reduce, V> PerfectHash<'a, T, V> {
+impl<'a, K: Copy + Reduce, V> PerfectHash<'a, K, V> {
+    /// Looks up a value in the table by key.
+    ///
+    /// If the value associated with the `key` argument _was not_ stored in the
+    /// table, this will still return _something_. It's up to the caller
+    /// to check whether the returned value matches the key.
+    ///
+    /// In practice, this means that the value should probably contain the
+    /// key, but the specific implementation is left as an exercise for
+    /// the reader.
     #[inline(always)]
-    pub fn get(&self, key: T) -> &V {
+    pub fn get(&self, key: K) -> &V {
         let i = key.reduce(self.m) as usize % self.values.len();
         &self.values[i]
     }
