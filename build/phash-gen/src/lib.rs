@@ -12,80 +12,40 @@ use phash::Reduce;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub enum PerfectHash<T> {
-    Flat(FlatPerfectHash<T>),
-    Nested(NestedPerfectHash<T>),
-}
-
-impl<T: std::fmt::Debug> PerfectHash<T> {
-    pub fn codegen_with<F: Fn(usize) -> String>(
-        &self,
-        ty: &str,
-        gen: F,
-        invalid: &str,
-    ) -> (String, String) {
-        match self {
-            Self::Flat(f) => (
-                format!(
-                    "FlatPerfectHash::<{}, {}>",
-                    std::any::type_name::<T>(),
-                    ty
-                ),
-                f.codegen_with(gen, invalid),
-            ),
-            Self::Nested(f) => (
-                format!(
-                    "NestedPerfectHash::<{}, {}>",
-                    std::any::type_name::<T>(),
-                    ty
-                ),
-                f.codegen_with(gen),
-            ),
-        }
-    }
-    pub fn codegen(&self) -> (String, String) {
-        self.codegen_with("u32", |i| format!("{}", i), "usize::MAX")
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-pub struct FlatPerfectHash<T> {
+pub struct PerfectHash<T> {
     m: T,
     values: Vec<Option<usize>>,
 }
 
-impl<T: std::fmt::Debug> FlatPerfectHash<T> {
-    fn codegen_with<F: Fn(usize) -> String>(
+impl<T: std::fmt::Debug> PerfectHash<T> {
+    pub fn codegen_with<F: Fn(Option<usize>) -> String>(
         &self,
-        gen: F,
-        invalid: &str,
+        index_to_string: F,
     ) -> String {
         let mut out = format!(
-            "FlatPerfectHash {{
+            "PerfectHash {{
     m: {:?},
     values: &[",
             self.m
         );
-        for v in &self.values {
-            out += &format!(
-                "\n        {},",
-                match v {
-                    Some(v) => gen(*v),
-                    None => invalid.to_string(),
-                }
-            );
+        for &v in &self.values {
+            out += &format!("\n        {},", index_to_string(v));
         }
         out += "\n    ],\n}";
         out
     }
-}
 
-////////////////////////////////////////////////////////////////////////////////
+    pub fn codegen(&self) -> String {
+        self.codegen_with(|i| {
+            i.map(|i| format!("{}", i))
+                .unwrap_or_else(|| "u32::MAX".to_string())
+        })
+    }
+}
 
 /// The simplest perfect hash is (A * B) % C
 /// This only works for very small sets of data
-impl<T> FlatPerfectHash<T>
+impl<T> PerfectHash<T>
 where
     T: Copy + Clone + Reduce,
     rand::distributions::Standard: Distribution<T>,
@@ -108,90 +68,7 @@ where
         if indexes.iter().filter(|p| p.is_some()).count() != values.len() {
             return None;
         }
-        Some(FlatPerfectHash { m, values: indexes })
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// Perfect hash with one level of indirection
-pub struct NestedPerfectHash<T> {
-    m: T,
-    g: Vec<T>,
-    values: Vec<Vec<usize>>,
-}
-
-impl<T: std::fmt::Debug> NestedPerfectHash<T> {
-    fn codegen_with<F: Fn(usize) -> String>(&self, gen: F) -> String {
-        let mut out = format!(
-            "NestedPerfectHash {{
-    m: {:?},
-    g: &{:?},
-    values: &[
-",
-            self.m, self.g
-        );
-        for v in &self.values {
-            out += "        &[";
-            for w in v {
-                out += &format!("\n            {},", gen(*w));
-            }
-            out += "\n        ],\n";
-        }
-        out += "    ],\n}";
-        out
-    }
-}
-
-impl<T> NestedPerfectHash<T>
-where
-    T: Copy + Clone + Reduce,
-    rand::distributions::Standard: Distribution<T>,
-{
-    fn try_gen<R: rand::Rng>(
-        values: &[T],
-        n: usize,
-        rng: &mut R,
-    ) -> Option<Self> {
-        // First stage: reduce to `n` slots
-        let m: T = rng.gen::<T>();
-        if n != values
-            .iter()
-            .map(|v| (v.reduce(m) as usize) % n)
-            .collect::<HashSet<usize>>()
-            .len()
-        {
-            return None;
-        }
-
-        // Second stage: reduce the subset of items in each slot
-        let g = (0..n).map(|_| rng.gen::<T>()).collect::<Vec<_>>();
-        let mut out = vec![];
-        for (i, g) in g.iter().enumerate() {
-            let vs = values
-                .iter()
-                .copied()
-                .enumerate()
-                .filter(|(_, v)| (v.reduce(m) as usize) % n == i)
-                .collect::<Vec<(usize, T)>>();
-
-            let mut indexes = vec![0; vs.len()];
-            if vs.len()
-                != vs
-                    .iter()
-                    .map(|(j, v)| {
-                        let index = v.reduce(*g) as usize % vs.len();
-                        indexes[index] = *j;
-                        index
-                    })
-                    .collect::<HashSet<_>>()
-                    .len()
-            {
-                return None;
-            }
-            out.push(indexes);
-        }
-        Some(NestedPerfectHash { m, g, values: out })
+        Some(PerfectHash { m, values: indexes })
     }
 }
 
@@ -206,42 +83,17 @@ where
     if values.iter().clone().collect::<HashSet<_>>().len() != values.len() {
         bail!("Cannot build a perfect hash with duplicate elements");
     }
-    println!("Hashing {:?}", values);
 
-    const TRY_COUNT: usize = 1_000_000;
-
+    const TRY_COUNT: usize = 10_000;
     let mut rng = ChaCha20Rng::seed_from_u64(0x1de);
-    for i in 0..TRY_COUNT {
-        if let Some(out) =
-            FlatPerfectHash::try_gen(values, values.len(), &mut rng)
-        {
-            println!("Got flat map in {} attempts", i);
-            return Ok(PerfectHash::Flat(out));
-        }
-    }
-
-    const PRIMES: [usize; 25] = [
-        2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
-        71, 73, 79, 83, 89, 97,
-    ];
-    for &p in PRIMES.iter().filter(|p| **p >= values.len()).take(3) {
-        for i in 0..TRY_COUNT {
-            if let Some(out) = FlatPerfectHash::try_gen(values, p, &mut rng) {
-                println!("Got flat map in {} attempts", i);
-                return Ok(PerfectHash::Flat(out));
+    for p in values.len()..(2 * values.len()) {
+        for _ in 0..TRY_COUNT {
+            if let Some(out) = PerfectHash::try_gen(values, p, &mut rng) {
+                return Ok(out);
             }
         }
     }
 
-    // Try to pick the minimum table size, but don't try _too_ hard
-    for &p in PRIMES.iter().filter(|p| **p < values.len()) {
-        for i in 0..TRY_COUNT {
-            if let Some(out) = NestedPerfectHash::try_gen(values, p, &mut rng) {
-                println!("Got nested map in {} attempts", i);
-                return Ok(PerfectHash::Nested(out));
-            }
-        }
-    }
     bail!("Could not generate perfect hash");
 }
 
@@ -251,10 +103,10 @@ mod tests {
     #[test]
     fn it_works() {
         let irqs = [36, 51, 13, 14];
-        println!("{}", generate_hash(&irqs).unwrap().codegen().1);
+        println!("{}", generate_hash(&irqs).unwrap().codegen());
 
         let irqs = [36, 51, 85, 61, 31, 32, 33, 34, 72, 73, 95, 96];
-        println!("{}", generate_hash(&irqs).unwrap().codegen().1);
+        println!("{}", generate_hash(&irqs).unwrap().codegen());
 
         let tuples = [
             (2, 0b1),
@@ -266,10 +118,10 @@ mod tests {
             (9, 0b100),
             (9, 0b1000),
         ];
-        println!("{}", generate_hash(&tuples).unwrap().codegen().1);
-        println!("{}", generate_hash(&tuples).unwrap().codegen().1);
+        println!("{}", generate_hash(&tuples).unwrap().codegen());
+        println!("{}", generate_hash(&tuples).unwrap().codegen());
 
         let tuples = [5, 7];
-        println!("{}", generate_hash(&tuples).unwrap().codegen().1);
+        println!("{}", generate_hash(&tuples).unwrap().codegen());
     }
 }

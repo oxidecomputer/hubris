@@ -155,21 +155,23 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(file, "];")?;
 
-    writeln!(file, "\nuse phash::*;")?;
     let irq_nums = kconfig.irqs.iter().map(|k| k.irq).collect::<Vec<u32>>();
 
-    let (ty, val) = phash_gen::generate_hash(&irq_nums).unwrap().codegen_with(
-        "abi::Interrupt",
-        |i| {
-            let irq = &kconfig.irqs[i];
-            format!(
+    let irq_task_code = phash_gen::generate_hash(&irq_nums)
+        .unwrap()
+        .codegen_with(|i| match i {
+            Some(i) => {
+                let irq = &kconfig.irqs[i];
+                format!(
                 "abi::Interrupt {{ irq: {}, task: {}, notification: 0b{:b} }}",
                 irq.irq, irq.task, irq.notification
             )
-        },
-        "abi::Interrupt { irq: 0, task: u32::MAX, notification: 0 }",
-    );
-    writeln!(file, "pub static HUBRIS_IRQ_TASK_LOOKUP: {} = {};", ty, val)?;
+            }
+            None => {
+                "abi::Interrupt { irq: 0, task: u32::MAX, notification: 0 }"
+                    .to_string()
+            }
+        });
     let mut per_task_irqs: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
     for irq in &kconfig.irqs {
         per_task_irqs
@@ -182,18 +184,25 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|p| p.0)
         .collect::<Vec<(u32, u32)>>();
-    let (ty, val) = phash_gen::generate_hash(&task_mask)
+    let task_irq_code = phash_gen::generate_hash(&task_mask)
         .unwrap()
-        .codegen_with("abi::InterruptSet", |i| {
-            let ((task, notification), irqs) = &per_task_irqs[i];
-            format!(
-                "abi::InterruptSet {{ task: {}, notification: 0b{:b}, irqs: &{:?} }}",
-                task, notification, irqs)
-        },
-
-        "abi::InterruptSet { task: u32::MAX, notification: 0, irqs: &[] }",
+        .codegen_with(|i|
+            match i {
+                Some(i) => {
+                    let ((task, notification), irqs) = &per_task_irqs[i];
+                    format!(
+                        "abi::InterruptSet {{ task: {}, notification: 0b{:b}, irqs: &{:?} }}",
+                        task, notification, irqs)
+                },
+                None => "abi::InterruptSet { task: u32::MAX, notification: 0, irqs: &[] }".to_string(),
+            }
         );
-    writeln!(file, "pub static HUBRIS_TASK_IRQ_LOOKUP: {} = {};", ty, val)?;
+
+    write!(file, "
+use phash::PerfectHash;
+pub static HUBRIS_IRQ_TASK_LOOKUP: PerfectHash::<u32, abi::Interrupt> = {};
+pub static HUBRIS_TASK_IRQ_LOOKUP: PerfectHash::<(u32, u32), abi::InterruptSet> = {};",
+        irq_task_code, task_irq_code)?;
 
     Ok(())
 }

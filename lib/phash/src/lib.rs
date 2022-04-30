@@ -29,27 +29,12 @@ impl Reduce for (u32, u32) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub struct NestedPerfectHash<'a, T, V> {
-    pub m: T,
-    pub g: &'a [T],
-    pub values: &'a [&'a [V]],
-}
-
-impl<'a, T: Copy + Reduce, V> NestedPerfectHash<'a, T, V> {
-    #[inline(always)]
-    pub fn get(&self, key: T) -> &V {
-        let i = key.reduce(self.m) as usize % self.g.len();
-        let j = key.reduce(self.g[i]) as usize % self.values[i].len();
-        &self.values[i][j]
-    }
-}
-
-pub struct FlatPerfectHash<'a, T, V> {
+pub struct PerfectHash<'a, T, V> {
     pub m: T,
     pub values: &'a [V],
 }
 
-impl<'a, T: Copy + Reduce, V> FlatPerfectHash<'a, T, V> {
+impl<'a, T: Copy + Reduce, V> PerfectHash<'a, T, V> {
     #[inline(always)]
     pub fn get(&self, key: T) -> &V {
         let i = key.reduce(self.m) as usize % self.values.len();
