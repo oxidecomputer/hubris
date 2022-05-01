@@ -153,12 +153,6 @@ static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
 #[no_mangle]
 static mut TASK_TABLE_SIZE: usize = 0;
 
-/// On ARMvx-M we use a global to record the interrupt table position and extent.
-#[no_mangle]
-static mut IRQ_TABLE_BASE: Option<NonNull<abi::Interrupt>> = None;
-#[no_mangle]
-static mut IRQ_TABLE_SIZE: usize = 0;
-
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
 #[no_mangle]
@@ -339,17 +333,6 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
     uassert_eq!(prev_task_table, None);
     // Record length as well.
     TASK_TABLE_SIZE = tasks.len();
-}
-
-pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
-    let prev_table = core::mem::replace(
-        &mut IRQ_TABLE_BASE,
-        Some(NonNull::new_unchecked(irqs.as_ptr() as *mut abi::Interrupt)),
-    );
-    // Catch double-uses of this function.
-    uassert_eq!(prev_table, None);
-    // Record length as well.
-    IRQ_TABLE_SIZE = irqs.len();
 }
 
 // Because debuggers need to know the clock frequency to set the SWO clock
@@ -1225,23 +1208,19 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
-            let entry = crate::startup::HUBRIS_IRQ_TASK_LOOKUP.get(irq_num);
+            let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+                .get(abi::InterruptNum(irq_num))
+                .unwrap_or_else(|| panic!("unhandled IRQ {}", irq_num));
             let switch = with_task_table(|tasks| {
-                if entry.irq == irq_num {
-                    disable_irq(irq_num);
+                disable_irq(irq_num);
 
-                    // Now, post the notification and return the
-                    // scheduling hint.
-                    let n = task::NotificationSet(entry.notification);
-                    Ok(tasks[entry.task as usize].post(n))
-                } else {
-                    Err(())
-                }
+                // Now, post the notification and return the
+                // scheduling hint.
+                let n = task::NotificationSet(owner.notification);
+                tasks[owner.task as usize].post(n)
             });
-            match switch {
-                Ok(true) => pend_context_switch_from_isr(),
-                Ok(false) => (),
-                Err(_) => panic!("unhandled IRQ {}", irq_num),
+            if switch {
+                pend_context_switch_from_isr()
             }
         }
 

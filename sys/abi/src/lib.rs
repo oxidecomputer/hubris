@@ -236,30 +236,45 @@ bitflags::bitflags! {
     }
 }
 
-/// Description of one interrupt response.
+/// Newtype wrapper for an interrupt index
 #[derive(
-    Clone, Debug, FromBytes, Serialize, Deserialize, Eq, PartialEq, Hash,
+    Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
+)]
+#[repr(transparent)]
+pub struct InterruptNum(pub u32);
+impl phash::PerfectHash for InterruptNum {
+    fn phash(&self, v: u32) -> usize {
+        self.0.wrapping_mul(v) as usize
+    }
+}
+
+/// Newtype wrapper for an interrupt index
+#[derive(
+    Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
 )]
 #[repr(C)]
-pub struct Interrupt {
-    /// Which interrupt number is being hooked.
-    pub irq: u32,
+pub struct InterruptOwner {
     /// Which task to notify, by index.
     pub task: u32,
     /// Which notification bits to set.
     pub notification: u32,
 }
+impl phash::PerfectHash for InterruptOwner {
+    fn phash(&self, v: u32) -> usize {
+        self.task
+            .wrapping_mul(v)
+            .wrapping_add(self.notification.wrapping_mul(!v)) as usize
+    }
+}
 
-/// Description of multiple interrupts with a single task + notification
-#[derive(Clone, Debug)]
+/// Description of one interrupt response.
+#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
 #[repr(C)]
-pub struct InterruptSet {
-    /// Which interrupt numbers are being hooked.
-    pub irqs: &'static [u32],
-    /// Which task to notify, by index.
-    pub task: u32,
-    /// Which notification bits to set.
-    pub notification: u32,
+pub struct Interrupt {
+    /// Which interrupt number is being hooked.
+    pub irq: InterruptNum,
+    /// The owner of this interrupt.
+    pub owner: InterruptOwner,
 }
 
 /// Structure describing a lease in task memory.

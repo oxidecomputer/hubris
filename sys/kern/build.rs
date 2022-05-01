@@ -141,20 +141,6 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(file, "];")?;
 
-    writeln!(
-        file,
-        "static HUBRIS_INTERRUPTS: [abi::Interrupt; {}] = [",
-        kconfig.irqs.len()
-    )?;
-    for irq in &kconfig.irqs {
-        writeln!(file, "    abi::Interrupt {{")?;
-        writeln!(file, "        irq: {},", irq.irq)?;
-        writeln!(file, "        task: {},", irq.task)?;
-        writeln!(file, "        notification: 0b{:b},", irq.notification)?;
-        writeln!(file, "    }},")?;
-    }
-    writeln!(file, "];")?;
-
     // Now, we generate two perfect hashes:
     //  irq num => abi::Interrupt
     //  (task, notifications) => abi::InterruptSet
@@ -166,61 +152,53 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     // The second table allows for efficient implementation of `irq_control`,
     // where a task enables or disables one or more IRQS based on notification
     // masks.
-    let irq_task_map =
-        phash_gen::generate_hash(kconfig.irqs.clone(), |irq| irq.irq).unwrap();
+    let irq_task_map = phash_gen::OwnedPerfectHashMap::build(
+        kconfig
+            .irqs
+            .iter()
+            .map(|irq| (irq.irq, irq.owner))
+            .collect(),
+    )
+    .unwrap();
 
-    #[derive(Debug, Eq, PartialEq, Hash)]
-    struct OwnedInterruptSet {
-        pub task: u32,
-        pub notification: u32,
-        pub irqs: Vec<u32>,
-    }
-    let mut per_task_irqs: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
+    let mut per_task_irqs: HashMap<_, Vec<_>> = HashMap::new();
     for irq in &kconfig.irqs {
-        per_task_irqs
-            .entry((irq.task, irq.notification))
-            .or_default()
-            .push(irq.irq)
+        per_task_irqs.entry(irq.owner).or_default().push(irq.irq)
     }
-    let per_task_irqs = per_task_irqs
-        .into_iter()
-        .map(|((task, notification), irqs)| OwnedInterruptSet {
-            task,
-            notification,
-            irqs,
-        })
-        .collect();
-    let task_irq_map =
-        phash_gen::generate_hash(per_task_irqs, |i| (i.task, i.notification))
-            .unwrap();
+    let task_irq_map = phash_gen::OwnedPerfectHashMap::build(
+        per_task_irqs.into_iter().collect(),
+    )
+    .unwrap();
 
     // Generate text for the Interrupt and InterruptSet tables stored in the
     // PerfectHashes
     let irq_task_value = irq_task_map
         .values
         .iter()
-        .map(|irq| match irq {
-            Some(irq) => format!(
-                "abi::Interrupt {{ irq: {}, task: {}, notification: 0b{:b} }}",
-                irq.irq, irq.task, irq.notification
+        .map(|v| match v {
+            Some((irq, owner)) => format!(
+                "(abi::InterruptNum({}), abi::InterruptOwner {{ task: {}, notification: 0b{:b} }})",
+                irq.0, owner.task, owner.notification
             ),
-            None => {
-                "abi::Interrupt { irq: 0, task: u32::MAX, notification: 0 }"
-                    .to_string()
-            }
+            None => "(abi::InterruptNum(u32::MAX), abi::InterruptOwner { task: u32::MAX, notification: 0 })"
+                .to_string(),
         })
         .collect::<Vec<String>>()
         .join(",\n        ");
     let task_irq_value = task_irq_map
         .values
         .iter()
-        .map(|irq| match irq {
-            Some(irq) => format!(
-                "abi::InterruptSet {{ task: {}, notification: 0b{:b}, irqs: &{:?} }}",
-                irq.task, irq.notification, irq.irqs
+        .map(|v| match v {
+            Some((owner, irqs)) => format!(
+                "(abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}, &[{}])",
+                owner.task, owner.notification,
+                irqs.iter()
+                    .map(|i| format!("abi::InterruptNum({})", i.0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ),
             None => {
-                "abi::InterruptSet { task: u32::MAX, notification: 0, irqs: &[] }"
+                "(abi::InterruptOwner { task: u32::MAX, notification: 0}, &[])"
                     .to_string()
             }
         })
@@ -228,14 +206,14 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         .join(",\n        ");
 
     write!(file, "
-use phash::PerfectHash;
-pub static HUBRIS_IRQ_TASK_LOOKUP: PerfectHash::<u32, abi::Interrupt> = PerfectHash {{
+use phash::PerfectHashMap;
+pub static HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
     m: {},
     values: &[
         {},
     ],
 }};
-pub static HUBRIS_TASK_IRQ_LOOKUP: PerfectHash::<(u32, u32), abi::InterruptSet> = PerfectHash {{
+pub static HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
     m: {:?},
     values: &[
         {},

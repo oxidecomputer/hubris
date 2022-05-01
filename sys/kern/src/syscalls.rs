@@ -700,17 +700,18 @@ fn irq_control(
     };
 
     let caller = caller as u32;
-    let irq_set = crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get((caller, bitmask));
-    if irq_set.task == caller && irq_set.notification == bitmask {
-        for i in irq_set.irqs {
-            operation(*i);
-        }
-        Ok(NextTask::Same)
-    } else {
-        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: caller,
+            notification: bitmask,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
             UsageError::NoIrq,
-        )))
+        )))?;
+    for i in irqs.iter() {
+        operation(i.0);
     }
+    Ok(NextTask::Same)
 }
 
 fn explicit_panic(

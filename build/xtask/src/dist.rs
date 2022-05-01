@@ -1482,9 +1482,11 @@ fn make_descriptors(
                     }
 
                     irqs.push(abi::Interrupt {
-                        irq: irq_num,
-                        task: i as u32,
-                        notification,
+                        irq: abi::InterruptNum(irq_num),
+                        owner: abi::InterruptOwner {
+                            task: i as u32,
+                            notification,
+                        },
                     });
                 }
                 Err(_) => {
@@ -1522,9 +1524,11 @@ fn make_descriptors(
                                 )
                             })?;
                         irqs.push(abi::Interrupt {
-                            irq: *irq_num,
-                            task: i as u32,
-                            notification,
+                            irq: abi::InterruptNum(*irq_num),
+                            owner: abi::InterruptOwner {
+                                task: i as u32,
+                                notification,
+                            },
                         });
                     } else {
                         bail!(
