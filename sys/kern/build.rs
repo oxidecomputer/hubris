@@ -208,13 +208,13 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     write!(file, "
 use phash::PerfectHashMap;
 pub static HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
-    m: {},
+    m: {:#x},
     values: &[
         {},
     ],
 }};
 pub static HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
-    m: {:?},
+    m: {:#x},
     values: &[
         {},
     ],

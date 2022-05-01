@@ -24,45 +24,21 @@ impl<K, V> OwnedPerfectHashMap<K, V>
 where
     K: PerfectHash + Hash + Eq,
 {
-    /// Tries to generate a perfect hash, returning the hash on success and
-    /// the input `Vec` on failure (so it can be reused).
-    ///
-    /// - `values` is data that will be owned by the resulting hash
-    /// - `key` is a function which derives a key from a value
-    /// - `n` is the number of slots in the resulting hash; this must be
-    ///   `>= values.len()`
-    /// - `rng` is a random number generator
-    fn try_gen<R: rand::Rng>(
-        values: Vec<(K, V)>,
-        n: usize,
-        rng: &mut R,
-    ) -> Result<Self, Vec<(K, V)>> {
-        assert!(n >= values.len());
-
-        let m = rng.gen();
+    /// Checks if `m` creates a valid perfect hash with some number of slots
+    fn check(values: &[(K, V)], slots: usize, m: u32) -> bool {
+        assert!(slots >= values.len());
 
         let mut vs = values
             .iter()
-            .map(|v| v.0.phash(m) as usize % n)
+            .map(|v| v.0.phash(m) as usize % slots)
             .collect::<Vec<usize>>();
         vs.sort_unstable();
         vs.dedup();
-        if vs.len() != values.len() {
-            return Err(values);
-        }
-
-        let mut out = (0..n).map(|_| None).collect::<Vec<_>>();
-        for v in values.into_iter() {
-            let index = v.0.phash(m) as usize % n;
-            assert!(out[index].is_none());
-            out[index] = Some(v);
-        }
-
-        Ok(OwnedPerfectHashMap { m, values: out })
+        vs.len() == values.len()
     }
 
     /// Attempt to generate a perfect hash for the given input data
-    pub fn build(mut values: Vec<(K, V)>) -> Result<Self> {
+    pub fn build(values: Vec<(K, V)>) -> Result<Self> {
         if values.iter().map(|v| &v.0).collect::<HashSet<_>>().len()
             != values.len()
         {
@@ -71,13 +47,17 @@ where
 
         const TRY_COUNT: usize = 10_000;
         let mut rng = ChaCha20Rng::seed_from_u64(0x1de);
-        for p in values.len()..(2 * values.len()) {
+        for slots in values.len()..(2 * values.len()) {
             for _ in 0..TRY_COUNT {
-                let mut tmp_values = vec![];
-                std::mem::swap(&mut values, &mut tmp_values);
-                match OwnedPerfectHashMap::try_gen(tmp_values, p, &mut rng) {
-                    Ok(out) => return Ok(out),
-                    Err(vs) => values = vs,
+                let m = rng.gen();
+                if Self::check(&values, slots, m) {
+                    let mut out = (0..slots).map(|_| None).collect::<Vec<_>>();
+                    for v in values.into_iter() {
+                        let index = v.0.phash(m) as usize % slots;
+                        assert!(out[index].is_none());
+                        out[index] = Some(v);
+                    }
+                    return Ok(OwnedPerfectHashMap { m, values: out });
                 }
             }
         }
