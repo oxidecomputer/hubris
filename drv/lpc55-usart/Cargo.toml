@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+lib-lpc55-usart = {path = "../../lib/lpc55-usart"}
+nb = "1.0"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 zerocopy = "0.6.1"
 lpc55-pac = "0.3.0"
