@@ -37,4 +37,13 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> PerfectHashMap<'a, K, V> {
             None
         }
     }
+
+    /// Looks up a value in the table by key, using a linear search.
+    ///
+    /// This is slower than [Self::get] in most cases, but is faster for small
+    /// tables on a system without hardware division.
+    #[inline(always)]
+    pub fn get_linear(&self, key: K) -> Option<&V> {
+        self.values.iter().find(|v| v.0 == key).map(|v| &v.1)
+    }
 }

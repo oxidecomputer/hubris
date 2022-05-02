@@ -1208,9 +1208,15 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
+            #[cfg(armv6m)]
             let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
-                .get(abi::InterruptNum(irq_num))
-                .unwrap_or_else(|| panic!("unhandled IRQ {}", irq_num));
+                .get_linear(abi::InterruptNum(irq_num));
+            #[cfg(any(armv7m, armv8m))]
+            let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+                .get(abi::InterruptNum(irq_num));
+
+            let owner =
+                owner.unwrap_or_else(|| panic!("unhandled IRQ {}", irq_num));
             let switch = with_task_table(|tasks| {
                 disable_irq(irq_num);
 
@@ -1227,6 +1233,18 @@ pub unsafe extern "C" fn DefaultHandler() {
         _ => panic!("unknown exception {}", exception_num),
     }
     crate::profiling::event_isr_exit();
+}
+
+pub fn get_irqs_by_owner(
+    owner: abi::InterruptOwner,
+) -> Option<&'static [abi::InterruptNum]> {
+    #[cfg(armv6m)]
+    let out = crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get_linear(owner);
+
+    #[cfg(any(armv7m, armv8m))]
+    let out = crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get(owner);
+
+    out.map(|o| *o)
 }
 
 pub fn disable_irq(n: u32) {
