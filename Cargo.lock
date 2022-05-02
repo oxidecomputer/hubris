@@ -1889,6 +1889,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib-lpc55-usart"
+version = "0.1.0"
+dependencies = [
+ "embedded-hal",
+ "lpc55-pac",
+ "nb 1.0.0",
+ "unwrap-lite",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
