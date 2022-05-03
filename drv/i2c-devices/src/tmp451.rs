@@ -96,6 +96,6 @@ impl TempSensor<Error> for Tmp451 {
         // Reading the high byte locks the low register byte until it is read
         let hi = self.read_reg(hi)?;
         let lo = self.read_reg(lo)?;
-        Ok(Celsius(f32::from(hi) + f32::from(lo) * 0.0625f32))
+        Ok(Celsius(f32::from(hi) + f32::from(lo >> 4) * 0.0625f32))
     }
 }
