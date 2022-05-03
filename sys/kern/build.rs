@@ -177,20 +177,20 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .map(|v| match v {
             Some((irq, owner)) => format!(
-                "(abi::InterruptNum({}), abi::InterruptOwner {{ task: {}, notification: 0b{:b} }})",
+                "(abi::InterruptNum({}), abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}),",
                 irq.0, owner.task, owner.notification
             ),
-            None => "(abi::InterruptNum(u32::MAX), abi::InterruptOwner { task: u32::MAX, notification: 0 })"
+            None => "(abi::InterruptNum(u32::MAX), abi::InterruptOwner { task: u32::MAX, notification: 0 }),"
                 .to_string(),
         })
         .collect::<Vec<String>>()
-        .join(",\n        ");
+        .join("\n        ");
     let task_irq_value = task_irq_map
         .values
         .iter()
         .map(|v| match v {
             Some((owner, irqs)) => format!(
-                "(abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}, &[{}])",
+                "(abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}, &[{}]),",
                 owner.task, owner.notification,
                 irqs.iter()
                     .map(|i| format!("abi::InterruptNum({})", i.0))
@@ -198,12 +198,12 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
                     .join(", ")
             ),
             None => {
-                "(abi::InterruptOwner { task: u32::MAX, notification: 0}, &[])"
+                "(abi::InterruptOwner { task: u32::MAX, notification: 0}, &[]),"
                     .to_string()
             }
         })
         .collect::<Vec<String>>()
-        .join(",\n        ");
+        .join("\n        ");
 
     write!(file, "
 use phash::PerfectHashMap;
