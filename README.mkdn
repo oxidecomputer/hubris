@@ -461,6 +461,9 @@ ID ADDR     TASK               GEN STATE
  6 200003a8 idle                 0 Healthy(Runnable)         
 ```
 
+If the `humility` binary is not available on your `$PATH`, the `HUMILITY_PATH` environment
+variable may be used to provide the path to the binary.
+
 ## Testing
 
 The Hubris kernel is tested with a dedicated _test image_ that includes a test
