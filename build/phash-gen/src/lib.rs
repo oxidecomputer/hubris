@@ -47,7 +47,7 @@ where
 
         const TRY_COUNT: usize = 10_000;
         let mut rng = ChaCha20Rng::seed_from_u64(0x1de);
-        for slots in values.len()..(2 * values.len()) {
+        for slots in values.len()..(2 * values.len() + 1) {
             for _ in 0..TRY_COUNT {
                 let m = rng.gen();
                 if Self::check(&values, slots, m) {

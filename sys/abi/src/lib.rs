@@ -252,7 +252,6 @@ impl phash::PerfectHash for InterruptNum {
 #[derive(
     Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
 )]
-#[repr(C)]
 pub struct InterruptOwner {
     /// Which task to notify, by index.
     pub task: u32,
@@ -269,7 +268,6 @@ impl phash::PerfectHash for InterruptOwner {
 
 /// Description of one interrupt response.
 #[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
-#[repr(C)]
 pub struct Interrupt {
     /// Which interrupt number is being hooked.
     pub irq: InterruptNum,

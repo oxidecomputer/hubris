@@ -210,13 +210,13 @@ use phash::PerfectHashMap;
 pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
     m: {:#x},
     values: &[
-        {},
+        {}
     ],
 }};
 pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
     m: {:#x},
     values: &[
-        {},
+        {}
     ],
 }};",
         irq_task_map.m, irq_task_value, task_irq_map.m, task_irq_value)?;
