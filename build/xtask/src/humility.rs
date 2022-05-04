@@ -18,7 +18,7 @@ pub fn run(cfg: &Path, options: &Vec<String>) -> anyhow::Result<()> {
     archive.push("dist");
     archive.push(format!("build-{}.zip", &toml.name));
 
-    let humility_path = match env::var("HUMILITY_PATH") {
+    let humility_path = match env::var("HUBRIS_HUMILITY_PATH") {
         Ok(path) => path,
         _ => "humility".to_string(),
     };
