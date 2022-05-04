@@ -14,7 +14,8 @@ extern crate panic_halt;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
 
-mod hypo;
+// FIXME Need to fixup the secure interface calls
+//mod hypo;
 mod image_header;
 
 use crate::image_header::Image;

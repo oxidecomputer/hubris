@@ -136,7 +136,6 @@ impl Config {
         crate_name: &str,
         relative_path: &Path,
         features: &[String],
-        shared_syms: Option<&[String]>,
     ) -> BuildConfig {
         let mut args = Vec::new();
         args.push("--no-default-features".to_string());
@@ -171,12 +170,6 @@ impl Config {
             "HUBRIS_APP_TOML".to_string(),
             app_toml_path.to_str().unwrap().to_string(),
         );
-
-        if let Some(s) = shared_syms {
-            if !s.is_empty() {
-                env.insert("SHARED_SYMS".to_string(), s.join(","));
-            }
-        }
 
         // secure_separation indicates that we have TrustZone enabled.
         // When TrustZone is enabled, the bootloader is secure and hubris is
@@ -225,7 +218,6 @@ impl Config {
             &self.kernel.name,
             &self.kernel.path,
             &self.kernel.features,
-            None,
         );
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
@@ -243,7 +235,6 @@ impl Config {
                 &bootloader.name,
                 &bootloader.path,
                 &bootloader.features,
-                Some(&bootloader.sharedsyms),
             )
         })
     }
@@ -262,7 +253,6 @@ impl Config {
             &task_toml.name,
             &task_toml.path,
             &task_toml.features,
-            self.bootloader.as_ref().map(|b| b.sharedsyms.as_slice()),
         );
 
         //
@@ -305,7 +295,6 @@ pub struct Bootloader {
     #[serde(default)]
     pub sections: IndexMap<String, String>,
     #[serde(default)]
-    pub sharedsyms: Vec<String>,
     pub imagea_flash_start: u32,
     pub imagea_flash_size: u32,
     pub imagea_ram_start: u32,

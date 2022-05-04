@@ -227,7 +227,6 @@ pub fn package(
             "memory.x",
             &bootloader_memory,
             Some(&bootloader.sections),
-            &bootloader.sharedsyms,
         );
 
         fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -788,7 +787,6 @@ fn generate_bootloader_linker_script(
     name: &str,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-    sharedsyms: &[String],
 ) {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -834,38 +832,6 @@ fn generate_bootloader_linker_script(
         }
         writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
     }
-
-    // Symbol addresses to be exported to tasks. This gets stripped
-    // later
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, "  .fake_output : ALIGN(32) {{").unwrap();
-
-    for s in sharedsyms {
-        writeln!(linkscr, "    LONG({});", s).unwrap();
-    }
-    writeln!(linkscr, "  }} > FLASH").unwrap();
-
-    writeln!(linkscr, "  .symbol_defs : {{").unwrap();
-
-    writeln!(linkscr, "  PROVIDE(address_of_imagea_flash = .);").unwrap();
-    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_FLASH));").unwrap();
-    writeln!(linkscr, "  PROVIDE(address_of_imagea_ram = .);").unwrap();
-    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_RAM));").unwrap();
-    writeln!(linkscr, "  PROVIDE(address_of_test_region = .);").unwrap();
-    writeln!(
-        linkscr,
-        "  LONG(ORIGIN(IMAGEA_FLASH) + LENGTH(IMAGEA_FLASH));"
-    )
-    .unwrap();
-    writeln!(linkscr, "  }} > FLASH").unwrap();
-
-    writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
-
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, "  .attest (NOLOAD) : {{").unwrap();
-    writeln!(linkscr, "  KEEP(*(.attestation .attestation.*))").unwrap();
-    writeln!(linkscr, "  }} > SRAM").unwrap();
-    writeln!(linkscr, "}} INSERT AFTER .uninit").unwrap();
 
     writeln!(linkscr, "IMAGEA = ORIGIN(IMAGEA_FLASH);").unwrap();
 }
