@@ -158,7 +158,6 @@ struct Version1DriverInterface {
         value: &mut u32,
     ) -> u32,
     // Why yes these two structures differ by several reserved words!
-    #[cfg(not(feature = "0A-hardware"))]
     reserved: [u32; 3],
     /// ffr_init: Initialize the FFR structure (needs to run before other
     /// functions)
@@ -522,22 +521,10 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
         .version1_flash_driver
         .ffr_init)(&mut f))?;
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "0A-hardware")] {
-                // NXP table is incorrect
-                let func = core::mem::transmute::<
-                    usize,
-                    fn(&mut FlashConfig, u32, u32, u32) -> u32,>(0x1300413b);
-                handle_flash_status(func(&mut f, addr, len, ERASE_KEY))
-
-        } else  {
-            handle_flash_status((bootloader_tree()
-                .flash_driver
-                .version1_flash_driver
-                .flash_erase)(&mut f, addr, len, ERASE_KEY))
-        }
-
-    }
+    handle_flash_status((bootloader_tree()
+        .flash_driver
+        .version1_flash_driver
+        .flash_erase)(&mut f, addr, len, ERASE_KEY))
 }
 
 pub unsafe fn flash_write(
@@ -564,23 +551,10 @@ pub unsafe fn flash_write(
 
     // XXX so much more validation needed
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "0A-hardware")] {
-
-                // NXP's function table is incorrect
-                let func = core::mem::transmute::<
-                    usize,
-                    fn(&mut FlashConfig, u32, *mut u32, u32) -> u32,
-                >(0x1300419d);
-                handle_flash_status(func(&mut f, addr, buffer, len))
-
-        } else {
-            handle_flash_status((bootloader_tree()
-                .flash_driver
-                .version1_flash_driver
-                .flash_program)(&mut f, addr, buffer, len))
-        }
-    }
+    handle_flash_status((bootloader_tree()
+        .flash_driver
+        .version1_flash_driver
+        .flash_program)(&mut f, addr, buffer, len))
 }
 
 /*
