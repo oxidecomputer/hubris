@@ -106,6 +106,12 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_vout(&mut self) -> Result<userlib::units::Volts, T>;
 }
 
+pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    fn validate(device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
+        Ok(false)
+    }
+}
+
 pub mod adm1272;
 pub mod adt7420;
 pub mod at24csw080;

@@ -171,6 +171,8 @@ pub struct Max31790 {
     pub device: I2cDevice,
 }
 
+impl crate::Validate<ResponseCode> for Max31790 {}
+
 pub const MAX_FANS: u8 = 6;
 
 #[derive(Copy, Clone, Debug, PartialEq)]

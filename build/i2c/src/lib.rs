@@ -773,7 +773,15 @@ impl ConfigGenerator {
             r##"
     pub mod validation {{
         use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
+        use drv_i2c_devices::Validate;
         use userlib::TaskId;
+
+        pub enum I2cValidation {{
+            RawReadOk,
+            Good,
+            Bad,
+        }}
+
 "##
         )?;
 
@@ -817,19 +825,33 @@ impl ConfigGenerator {
         pub fn validate(
             task: TaskId,
             index: usize,
-        ) -> Result<(), drv_i2c_api::ResponseCode> {{
+        ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {{
             match index {{"##)?;
 
         for (index, device) in self.devices.iter().enumerate() {
-            if false && drivers.get(&device.device).is_some() {
-                bail!("we have a {} driver", device.device);
+            if drivers.get(&device.device).is_some() {
+                let driver = device.device.to_case(Case::UpperCamel);
+                let out = self.generate_device(device, 24);
+
+                write!(
+                    &mut self.output,
+                    r##"
+                {} => {{
+                    if drv_i2c_devices::{}::{}::validate(&{})? {{
+                        Ok(I2cValidation::Good)
+                    }} else {{
+                        Ok(I2cValidation::Bad)
+                    }}
+                }}"##,
+                    index, device.device, driver, out
+                )?;
             } else {
                 let out = self.generate_device(device, 20);
                 write!(
                     &mut self.output,
                     r##"
                 {} => {{{}.read::<u8>()?;
-                    Ok(())
+                    Ok(I2cValidation::RawReadOk)
                 }}"##,
                     index, out
                 )?;
