@@ -71,26 +71,17 @@ name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
 requires = {flash = 16384, ram = 2048}
-uses = ["i2c3", "i2c4"]
+uses = ["i2c2", "i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]
 
 [tasks.i2c_driver.interrupts]
+"i2c2.event" = 0b0000_0010
+"i2c2.error" = 0b0000_0010
 "i2c3.event" = 0b0000_0100
 "i2c3.error" = 0b0000_0100
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
-
-[tasks.spd]
-path = "../../task/spd"
-name = "task-spd"
-features = ["h753", "itm"]
-priority = 2
-requires = {flash = 16384, ram = 16384}
-uses = ["i2c2"]
-start = true
-interrupts = {"i2c2.event" = 0b0000_0010, "i2c2.error" = 0b0000_0010}
-task-slots = ["sys", "i2c_driver"]
 
 [tasks.spi_driver]
 path = "../../drv/stm32h7-spi-server"
@@ -180,6 +171,15 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
+[tasks.validate]
+path = "../../task/validate"
+name = "task-validate"
+priority = 3
+requires = {flash = 32768, ram = 4096}
+stacksize = 1024 
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
@@ -202,7 +202,6 @@ task-slots = ["sys", "user_leds"]
 [config]
 [[config.i2c.controllers]]
 controller = 2
-target = true
 
 [[config.i2c.controllers.ports.F.pins]]
 pins = [ 0, 1 ]
@@ -235,7 +234,6 @@ controller = 4
 [[config.i2c.controllers.ports.F.pins]]
 pins = [ 14, 15 ]
 af = 4
-
 
 [config.spi.spi3]
 controller = 3
