@@ -248,7 +248,8 @@ impl phash::PerfectHash for InterruptNum {
     }
 }
 
-/// Newtype wrapper for an interrupt index
+/// Struct containing the task which waits for an interrupt, and the expected
+/// notification mask associated with the IRQ.
 #[derive(
     Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
 )]
