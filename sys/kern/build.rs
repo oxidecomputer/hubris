@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -140,19 +141,85 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(file, "];")?;
 
-    writeln!(
-        file,
-        "static HUBRIS_INTERRUPTS: [abi::Interrupt; {}] = [",
-        kconfig.irqs.len()
-    )?;
+    // Now, we generate two perfect hashes:
+    //  irq num => abi::Interrupt
+    //  (task, notifications) => abi::InterruptSet
+    //
+    // The first table allows for efficient implementation of the default
+    // interrupt handle, with O(1) lookup of the task which owns a particular
+    // interrupt.
+    //
+    // The second table allows for efficient implementation of `irq_control`,
+    // where a task enables or disables one or more IRQS based on notification
+    // masks.
+    let irq_task_map = phash_gen::OwnedPerfectHashMap::build(
+        kconfig
+            .irqs
+            .iter()
+            .map(|irq| (irq.irq, irq.owner))
+            .collect(),
+    )
+    .unwrap();
+
+    let mut per_task_irqs: HashMap<_, Vec<_>> = HashMap::new();
     for irq in &kconfig.irqs {
-        writeln!(file, "    abi::Interrupt {{")?;
-        writeln!(file, "        irq: {},", irq.irq)?;
-        writeln!(file, "        task: {},", irq.task)?;
-        writeln!(file, "        notification: 0b{:b},", irq.notification)?;
-        writeln!(file, "    }},")?;
+        per_task_irqs.entry(irq.owner).or_default().push(irq.irq)
     }
-    writeln!(file, "];")?;
+    let task_irq_map = phash_gen::OwnedPerfectHashMap::build(
+        per_task_irqs.into_iter().collect(),
+    )
+    .unwrap();
+
+    // Generate text for the Interrupt and InterruptSet tables stored in the
+    // PerfectHashes
+    let irq_task_value = irq_task_map
+        .values
+        .iter()
+        .map(|v| match v {
+            Some((irq, owner)) => format!(
+                "(abi::InterruptNum({}), abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}),",
+                irq.0, owner.task, owner.notification
+            ),
+            None => "(abi::InterruptNum(u32::MAX), abi::InterruptOwner { task: u32::MAX, notification: 0 }),"
+                .to_string(),
+        })
+        .collect::<Vec<String>>()
+        .join("\n        ");
+    let task_irq_value = task_irq_map
+        .values
+        .iter()
+        .map(|v| match v {
+            Some((owner, irqs)) => format!(
+                "(abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}, &[{}]),",
+                owner.task, owner.notification,
+                irqs.iter()
+                    .map(|i| format!("abi::InterruptNum({})", i.0))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            None => {
+                "(abi::InterruptOwner { task: u32::MAX, notification: 0}, &[]),"
+                    .to_string()
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("\n        ");
+
+    write!(file, "
+use phash::PerfectHashMap;
+pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
+    m: {:#x},
+    values: &[
+        {}
+    ],
+}};
+pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
+    m: {:#x},
+    values: &[
+        {}
+    ],
+}};",
+        irq_task_map.m, irq_task_value, task_irq_map.m, task_irq_value)?;
 
     Ok(())
 }

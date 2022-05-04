@@ -699,24 +699,18 @@ fn irq_control(
         }
     };
 
-    if crate::arch::with_irq_table(|irqs| {
-        let mut found = false;
-
-        for irq in irqs {
-            if irq.task == caller as u32 && irq.notification == bitmask {
-                operation(irq.irq);
-                found = true;
-            }
-        }
-
-        found
-    }) {
-        Ok(NextTask::Same)
-    } else {
-        Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-            UsageError::NoIrq,
-        )))
+    let caller = caller as u32;
+    let irqs = crate::arch::get_irqs_by_owner(abi::InterruptOwner {
+        task: caller,
+        notification: bitmask,
+    })
+    .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+        UsageError::NoIrq,
+    )))?;
+    for i in irqs.iter() {
+        operation(i.0);
     }
+    Ok(NextTask::Same)
 }
 
 fn explicit_panic(

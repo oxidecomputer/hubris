@@ -19,12 +19,14 @@ cortex-m-semihosting = { version = "0.3.7", features = ["inline-asm"], optional 
 serde = { version = "1.0.114", default-features = false }
 ssmarshal = { version = "1.0.0", default-features = false }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
+phash = { path = "../../lib/phash" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 serde = "1"
 ron = "0.7"
 abi = {path = "../abi"}
+phash-gen = {path = "../../build/phash-gen"}
 
 [lib]
 test = false
