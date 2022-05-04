@@ -18,6 +18,11 @@ pub struct GlobalConfig {
 pub struct NetConfig {
     /// Sockets known to the system, indexed by name.
     pub sockets: BTreeMap<String, SocketConfig>,
+
+    /// VLAN configuration, or None. This is checked against enabled features
+    /// during the `net` build, so it must be present iff the `vlan` feature
+    /// is turned on.
+    pub vlan: Option<VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
@@ -30,6 +35,14 @@ pub struct SocketConfig {
     pub port: u16,
     pub tx: BufSize,
     pub rx: BufSize,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize)]
+pub struct VLanConfig {
+    /// Address of the 0-index VLAN
+    pub start: usize,
+    /// Number of VLANs
+    pub count: usize,
 }
 
 #[derive(Deserialize)]
@@ -45,7 +58,38 @@ pub struct TaskNote {
 }
 
 pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
-    Ok(build_util::config::<GlobalConfig>()?.net)
+    let cfg = build_util::config::<GlobalConfig>()?.net;
+
+    match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {
+        (true, false) => {
+            panic!("VLAN feature is enabled, but vlan is missing from config")
+        }
+        (false, true) => {
+            panic!("VLAN feature is disabled, but vlan is present in config")
+        }
+        _ => (),
+    }
+
+    Ok(cfg)
+}
+
+pub fn generate_vlan_consts(
+    config: &NetConfig,
+    mut out: impl std::io::Write,
+) -> Result<(), std::io::Error> {
+    let vlan = config.vlan.unwrap();
+    let end = vlan.start + vlan.count;
+    if end > 0xFFF {
+        panic!("Invalid VLAN range (must be < 4096)");
+    }
+    writeln!(
+        out,
+        "
+pub const VLAN_RANGE: core::ops::Range<u16> = {:#x}..{:#x};
+pub const VLAN_COUNT: usize = {};
+",
+        vlan.start, end, vlan.count
+    )
 }
 
 pub fn generate_socket_enum(

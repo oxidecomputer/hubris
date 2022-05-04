@@ -192,6 +192,28 @@ impl Ethernet {
                 .ipc()
                 .set_bit()
         });
+
+        #[cfg(feature = "vlan")]
+        {
+            // If we're in VLAN mode, we _only_ support VLAN operation.
+            // Every incoming packet should be tagged with a VID, and we
+            // expect to insert a VID in front of every outgoing packet.
+            mac.macvtr.write(|w| unsafe {
+                w.evls()
+                    .bits(0b11) // Always strip VLAN tag on receive
+                    .evlrxs()
+                    .set_bit() // Enable VLAN tag in Rx status
+            });
+
+            // Configure the Tx path to insert the VLAN tag based on the
+            // context descriptor. This is confusing, because different parts
+            // of the datasheet disagree whether VLTI should be set or cleared;
+            // this is checked experimentally.
+            mac.macvir.write(
+                |w| w.vlti().set_bit(), // insert tag from context descriptor
+            );
+        }
+
         // The peripheral seems to want this to be done in a separate write to
         // MACCR, so:
         // Enable transmit and receive.
@@ -206,65 +228,10 @@ impl Ethernet {
         }
     }
 
+    // This function is identical in the VLAN and non-VLAN cases, so it lives
+    // in the main impl block
     pub fn can_send(&self) -> bool {
         self.tx_ring.is_next_free()
-    }
-
-    /// Tries to send a packet, if TX buffer space is available.
-    ///
-    /// This will attempt to get a free descriptor/buffer from the TX ring. If
-    /// successful, it will call `fillout` with the address of the buffer, so
-    /// that it can be filled out. `fillout` is expected to overwrite the
-    /// (arbitrary) contents of the packet buffer. This routine will then
-    /// arrange for the hardware to notice an outgoing packet and return
-    /// `Some`.
-    ///
-    /// If the TX ring is full, this will return `None` without calling
-    /// `fillout`.
-    pub fn try_send<R>(
-        &self,
-        len: usize,
-        fillout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.tx_ring.try_with_next(len, fillout)?;
-        // We have enqueued a packet! The hardware may be suspended after
-        // discovering no packets to process. Wake it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmactx_dtpr.write(|w| unsafe {
-            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
-    }
-
-    pub fn can_recv(&self) -> bool {
-        self.rx_ring.is_next_free()
-    }
-
-    /// Tries to receive a packet, if one is present in the RX ring.
-    ///
-    /// This will attempt to get a filled-out descriptor/buffer from the RX
-    /// ring. If successful, it will call `readout` with the packet's slice.
-    /// `readout` can produce a value of some type `R`; after it completes, this
-    /// routine will mark the descriptor as empty and return `Some(r)`.
-    ///
-    /// If there are no packets waiting in the RX ring, this returns `None`
-    /// without calling `readout`.
-    pub fn try_recv<R>(
-        &self,
-        readout: impl FnOnce(&mut [u8]) -> R,
-    ) -> Option<R> {
-        let result = self.rx_ring.try_with_next(readout)?;
-        // We have dequeued a packet! The hardware might not realize there is
-        // room in the RX queue now. Poke it.
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        // Poke the tail pointer so the hardware knows to recheck (dropping two
-        // bottom bits because svd2rust)
-        self.dma.dmacrx_dtpr.write(|w| unsafe {
-            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
-        });
-        Some(result)
     }
 
     /// Pokes at the controller interrupt status registers to handle and clear
@@ -311,6 +278,30 @@ impl Ethernet {
         (packet_transmitted, packet_received)
     }
 
+    /// Notifies the DMA hardware that space is available in the Rx ring
+    fn rx_notify(&self) {
+        // We have dequeued a packet! The hardware might not realize there is
+        // room in the RX queue now. Poke it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmacrx_dtpr.write(|w| unsafe {
+            w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
+        });
+    }
+
+    /// Notifies the DMA hardware that a packet is available in the Tx ring
+    fn tx_notify(&self) {
+        // We have enqueued a packet! The hardware may be suspended after
+        // discovering no packets to process. Wake it.
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        // Poke the tail pointer so the hardware knows to recheck (dropping two
+        // bottom bits because svd2rust)
+        self.dma.dmactx_dtpr.write(|w| unsafe {
+            w.tdt().bits(self.tx_ring.tail_ptr() as u32 >> 2)
+        });
+    }
+
     /// Kicks off a SMI write of `value` to PHY address `phy`, register number
     /// `register`. When this function returns, the write has started. It will
     /// complete asynchronously, so feel free to do other things. Any attempt to
@@ -321,7 +312,7 @@ impl Ethernet {
     /// register (31); if you are using the `PhyRw` trait, then the extended
     /// page access register may not be set to 0, so this could return values
     /// from a register on an extended page!
-    pub fn smi_write(&mut self, phy: u8, register: impl Into<u8>, value: u16) {
+    pub fn smi_write(&self, phy: u8, register: impl Into<u8>, value: u16) {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 
@@ -350,7 +341,7 @@ impl Ethernet {
     /// register (31); if you are using the `PhyRw` trait, then the extended
     /// page access register may not be set to 0, so this could return values
     /// from a register on an extended page!
-    pub fn smi_read(&mut self, phy: u8, register: impl Into<u8>) -> u16 {
+    pub fn smi_read(&self, phy: u8, register: impl Into<u8>) -> u16 {
         // Wait until peripheral is free.
         crappy_spin_until(|| !self.is_smi_busy());
 
@@ -375,6 +366,100 @@ impl Ethernet {
 
     fn is_smi_busy(&self) -> bool {
         self.mac.macmdioar.read().mb().bit()
+    }
+}
+
+#[cfg(not(feature = "vlan"))]
+impl Ethernet {
+    /// Tries to send a packet, if TX buffer space is available.
+    ///
+    /// This will attempt to get a free descriptor/buffer from the TX ring. If
+    /// successful, it will call `fillout` with the address of the buffer, so
+    /// that it can be filled out. `fillout` is expected to overwrite the
+    /// (arbitrary) contents of the packet buffer. This routine will then
+    /// arrange for the hardware to notice an outgoing packet and return
+    /// `Some`.
+    ///
+    /// If the TX ring is full, this will return `None` without calling
+    /// `fillout`.
+    pub fn try_send<R>(
+        &self,
+        len: usize,
+        fillout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.tx_ring.try_with_next(len, fillout)?;
+        self.tx_notify();
+        Some(result)
+    }
+
+    pub fn can_recv(&self) -> bool {
+        let (can_recv, any_dropped) = self.rx_ring.is_next_free();
+        if any_dropped {
+            self.rx_notify();
+        }
+        can_recv
+    }
+
+    /// Receives a packet from the Rx ring, calling `readout` on it and
+    /// returning its value.
+    ///
+    /// This function must only be called when there is a valid (owned,
+    /// non-error) descriptor at the front of the ring, as checked by
+    /// `can_recv`.  Otherwise, it will panic.
+    pub fn recv<R>(&self, readout: impl FnOnce(&mut [u8]) -> R) -> R {
+        let result = self.rx_ring.with_next(readout);
+        self.rx_notify();
+        result
+    }
+}
+
+#[cfg(feature = "vlan")]
+impl Ethernet {
+    /// Same as `try_recv`, but only receiving packets that match a particular
+    /// VLAN tag. This is only expected to be called from an `RxToken`,
+    /// meaning we know that there's already a valid packet in the buffer;
+    /// it will panic if this requirement is broken.
+    pub fn vlan_recv<R>(
+        &self,
+        vid: u16,
+        readout: impl FnOnce(&mut [u8]) -> R,
+    ) -> R {
+        let result = self.rx_ring.vlan_with_next(vid, readout);
+        self.rx_notify();
+        result
+    }
+
+    /// Checks whether the next slot on the Rx buffer is owned by userspace
+    /// and has a matching VLAN id. Packets without a VID or with a VID
+    /// that isn't valid for _any VLAN_ are dropped by the Rx ring during this
+    /// function to prevent them from clogging up the system. Packets with
+    /// a VID that doesn't match `vid` but is in `vid_range` will not be
+    /// dropped, but this function will return `false` in that case.
+    pub fn vlan_can_recv(
+        &self,
+        vid: u16,
+        vid_range: core::ops::Range<u16>,
+    ) -> bool {
+        let (can_recv, any_dropped) =
+            self.rx_ring.vlan_is_next_free(vid, vid_range);
+        if any_dropped {
+            self.rx_notify();
+        }
+        can_recv
+    }
+
+    /// Same as `try_send`, but attaching the given VLAN tag to the outgoing
+    /// packet (if present)
+    #[cfg(feature = "vlan")]
+    pub fn vlan_try_send<R>(
+        &self,
+        len: usize,
+        vid: u16,
+        fillout: impl FnOnce(&mut [u8]) -> R,
+    ) -> Option<R> {
+        let result = self.tx_ring.vlan_try_with_next(len, vid, fillout)?;
+        self.tx_notify();
+        Some(result)
     }
 }
 
@@ -410,73 +495,89 @@ impl From<SmiClause22Register> for u8 {
     }
 }
 
-#[cfg(feature = "with-smoltcp")]
-pub struct OurRxToken<'a>(&'a Ethernet);
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        f: F,
-    ) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        self.0
-            .try_recv(f)
-            .expect("we checked RX availability earlier")
+#[cfg(all(not(feature = "vlan"), feature = "with-smoltcp"))]
+mod tokens {
+    use super::Ethernet;
+    pub struct OurRxToken<'a>(pub &'a Ethernet);
+    impl<'a> OurRxToken<'a> {
+        pub fn new(eth: &'a Ethernet) -> Self {
+            Self(eth)
+        }
     }
-}
-
-#[cfg(feature = "with-smoltcp")]
-pub struct OurTxToken<'a>(&'a Ethernet);
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
-    fn consume<R, F>(
-        self,
-        _timestamp: smoltcp::time::Instant,
-        len: usize,
-        f: F,
-    ) -> smoltcp::Result<R>
-    where
-        F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
-    {
-        self.0
-            .try_send(len, f)
-            .expect("TX token existed without descriptor available")
-    }
-}
-
-#[cfg(feature = "with-smoltcp")]
-impl<'a> smoltcp::phy::Device<'a> for Ethernet {
-    type RxToken = OurRxToken<'a>;
-    type TxToken = OurTxToken<'a>;
-
-    fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
-        // Note: smoltcp wants a transmit token every time it receives a packet,
-        // so if the tx queue fills up, we stop being able to receive. I'm ...
-        // not sure why this is desirable, but there we go.
-        //
-        // Note that the can_recv and can_send checks remain valid because the
-        // token mutably borrows the phy.
-        if self.can_recv() && self.can_send() {
-            Some((OurRxToken(self), OurTxToken(self)))
-        } else {
-            None
+    impl<'a> smoltcp::phy::RxToken for OurRxToken<'a> {
+        fn consume<R, F>(
+            self,
+            _timestamp: smoltcp::time::Instant,
+            f: F,
+        ) -> smoltcp::Result<R>
+        where
+            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        {
+            self.0.recv(f)
         }
     }
 
-    fn transmit(&'a mut self) -> Option<Self::TxToken> {
-        if self.can_send() {
-            Some(OurTxToken(self))
-        } else {
-            None
+    pub struct OurTxToken<'a>(pub &'a Ethernet);
+    impl<'a> OurTxToken<'a> {
+        pub fn new(eth: &'a Ethernet) -> Self {
+            Self(eth)
+        }
+    }
+    impl<'a> smoltcp::phy::TxToken for OurTxToken<'a> {
+        fn consume<R, F>(
+            self,
+            _timestamp: smoltcp::time::Instant,
+            len: usize,
+            f: F,
+        ) -> smoltcp::Result<R>
+        where
+            F: FnOnce(&mut [u8]) -> smoltcp::Result<R>,
+        {
+            self.0
+                .try_send(len, f)
+                .expect("TX token existed without descriptor available")
         }
     }
 
-    fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+    impl<'a> smoltcp::phy::Device<'a> for &Ethernet {
+        type RxToken = OurRxToken<'a>;
+        type TxToken = OurTxToken<'a>;
+
+        fn receive(&'a mut self) -> Option<(Self::RxToken, Self::TxToken)> {
+            // Note: smoltcp wants a transmit token every time it receives a
+            // packet. This is because it automatically handles stuff like
+            // NDP by itself, but means that if the tx queue fills up, we stop
+            // being able to receive.
+            //
+            // Note that the can_recv and can_send checks remain valid because
+            // the token mutably borrows the phy.
+            if self.can_recv() && self.can_send() {
+                Some((OurRxToken(self), OurTxToken(self)))
+            } else {
+                None
+            }
+        }
+
+        fn transmit(&'a mut self) -> Option<Self::TxToken> {
+            if self.can_send() {
+                Some(OurTxToken(self))
+            } else {
+                None
+            }
+        }
+
+        fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
+            (self as &Ethernet).capabilities()
+        }
+    }
+}
+
+// This function wants to be called in both VLAN and non-VLAN modes, so we
+// implement it as part of the struct, then call this function in the
+// `impl Device` block.
+#[cfg(feature = "with-smoltcp")]
+impl Ethernet {
+    pub fn capabilities(&self) -> smoltcp::phy::DeviceCapabilities {
         let mut caps = smoltcp::phy::DeviceCapabilities::default();
         caps.max_transmission_unit = 1514;
         caps.max_burst_size = Some(1514 * self.tx_ring.len());

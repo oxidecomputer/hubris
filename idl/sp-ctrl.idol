@@ -1,0 +1,43 @@
+// Interface for RoT to SP control
+
+Interface(
+    name: "SpCtrl",
+    ops: {
+        "read": (
+            doc: "Read bytes from device `device_index` into `sink`, shifting out 1s.",
+            args: {
+                "addr": "u32",
+            },
+            leases: {
+                "sink": (type: "[u8]", write: true, max_len: Some(4096)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "write": (
+            doc: "Write bytes from `source` and to device `device_index`, ignoring whatever's sent back.",
+            args: {
+                "addr": "u32",
+            },
+            leases: {
+                "source": (type: "[u8]", read: true, max_len: Some(4096)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "setup": (
+            doc: "Perform initialization necessary for SP control. Must be called before other commands",
+            args: {
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+
+    }
+)

@@ -1061,12 +1061,14 @@ static mut TICKS: u64 = 0;
 #[allow(non_snake_case)]
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {
+    crate::profiling::event_timer_isr_enter();
     // We configure this interrupt to have the same priority as SVC, which means
     // there's no way this can preempt the kernel -- it will only preempt user
     // code. As a result, we can manufacture exclusive references to various
     // bits of kernel state.
     let ticks = &mut TICKS;
     with_task_table(|tasks| safe_sys_tick_handler(ticks, tasks));
+    crate::profiling::event_timer_isr_exit();
 }
 
 /// The meat of the systick handler, after we do the unsafe things.
@@ -1193,6 +1195,7 @@ pub unsafe extern "C" fn PendSV() {
 /// saved somewhere predictable.
 #[no_mangle]
 unsafe extern "C" fn pendsv_entry() {
+    crate::profiling::event_secondary_syscall_enter();
     with_task_table(|tasks| {
         let current = CURRENT_TASK_PTR
             .expect("irq before kernel started?")
@@ -1205,11 +1208,13 @@ unsafe extern "C" fn pendsv_entry() {
         apply_memory_protection(next);
         set_current_task(next);
     });
+    crate::profiling::event_secondary_syscall_exit();
 }
 
 #[allow(non_snake_case)]
 #[no_mangle]
 pub unsafe extern "C" fn DefaultHandler() {
+    crate::profiling::event_isr_enter();
     // We can cheaply get the identity of the interrupt that called us from the
     // bottom 9 bits of IPSR.
     let mut ipsr: u32;
@@ -1272,6 +1277,7 @@ pub unsafe extern "C" fn DefaultHandler() {
 
         _ => panic!("unknown exception {}", exception_num),
     }
+    crate::profiling::event_isr_exit();
 }
 
 pub fn disable_irq(n: u32) {

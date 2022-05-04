@@ -89,6 +89,7 @@ members = [
     "drv/lpc55-spi",
     "drv/lpc55-spi-server",
     "drv/lpc55-rng",
+    "drv/lpc55-swd",
 
     "drv/user-leds",
     "drv/user-leds-api",
@@ -103,6 +104,7 @@ members = [
     "drv/eeprom",
     "drv/stm32h7-hash-server",
     "drv/rng-api",
+    "drv/sp-ctrl-api",
 
     "drv/sidecar-seq-server",
 

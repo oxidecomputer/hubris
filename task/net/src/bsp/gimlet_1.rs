@@ -51,7 +51,7 @@ pub fn preinit() {
 }
 
 impl Bsp {
-    pub fn new(eth: &mut eth::Ethernet, sys: &Sys) -> Self {
+    pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
         Self(
             mgmt::Config {
                 // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
@@ -80,7 +80,7 @@ impl Bsp {
         )
     }
 
-    pub fn wake(&self, eth: &mut eth::Ethernet) {
+    pub fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
     }
 }

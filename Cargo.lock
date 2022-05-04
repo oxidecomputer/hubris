@@ -840,6 +840,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-lpc55-swd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-lpc55pins",
+ "build-util",
+ "cortex-m",
+ "drv-lpc55-gpio-api",
+ "drv-lpc55-spi",
+ "drv-lpc55-syscon-api",
+ "drv-sp-ctrl-api",
+ "idol",
+ "idol-runtime",
+ "lpc55-pac",
+ "num-traits",
+ "quote",
+ "ringbuf",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-syscon"
 version = "0.1.0"
 dependencies = [
@@ -942,6 +965,17 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-sp-ctrl-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
@@ -2776,6 +2810,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-lpc55-gpio-api",
  "drv-rng-api",
+ "drv-sp-ctrl-api",
  "drv-spi-api",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
@@ -3542,6 +3577,7 @@ dependencies = [
  "serde",
  "serde_json",
  "srec",
+ "strsim 0.10.0",
  "termcolor",
  "toml",
  "walkdir",

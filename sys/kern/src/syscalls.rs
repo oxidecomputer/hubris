@@ -51,6 +51,8 @@ use crate::umem::{safe_copy, ULease, USlice};
 /// `task` is a pointer to the current Task.
 #[no_mangle]
 pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
+    crate::profiling::event_syscall_enter(nr);
+
     // The task pointer is about to alias our task table, at which point it
     // could not be dereferenced -- so we'll shed our ability to dereference it.
     let task = task as usize;
@@ -73,7 +75,9 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
                 switch_to(&mut tasks[next])
             }
         }
-    })
+    });
+
+    crate::profiling::event_syscall_exit();
 }
 
 /// Factored out of `syscall_entry` to encapsulate the bits that don't need

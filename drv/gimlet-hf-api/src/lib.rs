@@ -23,13 +23,25 @@ pub enum HfError {
     HashBadRange = 4,
     HashError = 5,
     HashNotConfigured = 6,
+    NoDevSelect = 7,
+    DevSelectFailed = 8,
 }
 
+/// Controls whether the SP or host CPU has access to flash
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum HfMuxState {
     SP = 1,
     HostCPU = 2,
+}
+
+/// Selects between multiple flash chips. This is not used on all hardware
+/// revisions; it was added in Gimlet rev B.
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[repr(u8)]
+pub enum HfDevSelect {
+    Flash0 = 0,
+    Flash1 = 1,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

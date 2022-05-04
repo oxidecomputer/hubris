@@ -22,6 +22,7 @@ interrupts = { irq = 14 }
 [flexcomm3]
 address = 0x40089000
 size = 4096
+interrupts = { irq = 17 }
 
 [flexcomm4]
 address = 0x4008A000

@@ -198,10 +198,17 @@ impl idl::InOrderSysconImpl for ServerImpl<'_> {
 fn main() -> ! {
     let syscon = unsafe { &*device::SYSCON::ptr() };
 
+    // Turn on the 1Mhz clock for use with SWD SPI
+    syscon
+        .clock_ctrl
+        .modify(|_, w| w.fro1mhz_clk_ena().set_bit());
+
     // Just set our Flexcom0 i.e. UART0 to be 12Mhz
     syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
     // Flexcom4 (the DAC i2c) is also set to 12Mhz
     syscon.fcclksel4().modify(|_, w| w.sel().enum_0x2());
+    // Flexcom 3 is the the SPI for use with SWD, set to 1Mhz
+    syscon.fcclksel3().modify(|_, w| w.sel().enum_0x4());
     // The high speed SPI AKA Flexcomm8 is also set to 12Mhz
     // Note this can definitely go higher but that involves
     // turning on PLLs and such

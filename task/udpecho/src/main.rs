@@ -36,6 +36,7 @@ fn main() -> ! {
                 sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap();
             }
             Err(NetError::NotYours) => panic!(),
+            Err(NetError::InvalidVLan) => panic!(),
         }
 
         // Try again.
