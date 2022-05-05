@@ -6,6 +6,7 @@
 
 use crate::Validate;
 use bitfield::bitfield;
+use core::convert::TryFrom;
 use drv_i2c_api::*;
 use userlib::units::*;
 use userlib::*;
@@ -184,17 +185,15 @@ pub const MAX_FANS: u8 = 6;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Fan(u8);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PWMDuty(pub u8);
-
-impl From<u8> for Fan {
+impl TryFrom<u8> for Fan {
+    type Error = ();
     /// Fans are based on a 0-based index. This should *not* be the number
     /// of the fan (the fan numbers have a 1-based index)
-    fn from(index: u8) -> Self {
+    fn try_from(index: u8) -> Result<Self, Self::Error> {
         if index >= MAX_FANS {
-            panic!();
+            Err(())
         } else {
-            Self(index)
+            Ok(Self(index))
         }
     }
 }
@@ -262,7 +261,7 @@ impl Max31790 {
         )?);
 
         for fan in 0..MAX_FANS {
-            let fan = Fan::from(fan);
+            let fan = Fan::try_from(fan).unwrap();
             let reg = fan.configuration();
 
             let mut config = FanConfiguration(read_reg8(device, reg)?);

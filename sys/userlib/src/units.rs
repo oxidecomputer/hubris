@@ -14,6 +14,13 @@ pub struct Celsius(pub f32);
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Rpm(pub u16);
 
+/// PWM duty cycle (0-100)
+#[derive(
+    Copy, Clone, Debug, PartialEq, crate::FromPrimitive, zerocopy::AsBytes,
+)]
+#[repr(transparent)]
+pub struct PWMDuty(pub u8);
+
 /// Volts of potential
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug)]
 pub struct Volts(pub f32);

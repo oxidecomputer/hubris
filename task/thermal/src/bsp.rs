@@ -30,12 +30,10 @@ cfg_if::cfg_if! {
 // target board.
 impl Bsp {
     pub fn controller(&mut self, sensor_api: SensorApi) -> ThermalControl {
+        let fctrl = self.fctrl();
         ThermalControl {
             inputs: &mut self.inputs,
-            outputs: OutputFans {
-                fctrl: &self.fctrl,
-                fans: &self.fans,
-            },
+            outputs: OutputFans::new(fctrl, &self.fans),
             misc_sensors: &mut self.misc_sensors,
             sensor_api,
             hysteresis: Celsius(2.0f32),
