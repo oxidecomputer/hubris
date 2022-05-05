@@ -2,32 +2,71 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Fan, FanControl, PWMDuty, TemperatureSensor};
+use crate::{Fan, FanControl, TemperatureSensor, ThermalError};
+use drv_i2c_api::ResponseCode;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
-use userlib::units::Celsius;
+use userlib::units::{Celsius, PWMDuty};
 
 pub(crate) struct InputChannel {
     /// Temperature sensor
-    pub sensor: TemperatureSensor,
+    sensor: TemperatureSensor,
 
     /// Maximum temperature for this part
-    pub max_temp: Celsius,
+    max_temp: Celsius,
 }
+
+impl InputChannel {
+    pub fn new(sensor: TemperatureSensor, max_temp: Celsius) -> Self {
+        Self { sensor, max_temp }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct OutputFans<'a> {
     /// Handle to the specific fan control IC
-    pub fctrl: &'a FanControl,
+    fctrl: FanControl,
 
     /// List of fans (by fan id) and their matching RPM sensor ID.
-    pub fans: &'a [(Fan, SensorId)],
+    fans: &'a [(Fan, SensorId)],
 }
 
 impl<'a> OutputFans<'a> {
-    fn set_pwm(&self, pwm: PWMDuty) {
+    pub fn new(fctrl: FanControl, fans: &'a [(Fan, SensorId)]) -> Self {
+        Self { fctrl, fans }
+    }
+
+    /// Attempts to set the PWM duty cycle of every fan in this group.
+    ///
+    /// Returns the last error if one occurred, but does not short circuit
+    /// (i.e. attempts to set *all* fan duty cycles, even if one fails)
+    pub fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ThermalError> {
+        if pwm.0 > 100 {
+            return Err(ThermalError::InvalidPWM);
+        }
+        let mut last_err = None;
         for (fan_id, _sensor_id) in self.fans {
-            self.fctrl.set_pwm(*fan_id, pwm);
+            if let Err(e) = self.set_fan_pwm(*fan_id, pwm) {
+                last_err = Some(e);
+            }
+        }
+        if last_err.is_some() {
+            Err(ThermalError::DeviceError)
+        } else {
+            Ok(())
         }
     }
+
+    /// Sets the PWM for a single fan
+    pub fn set_fan_pwm(
+        &self,
+        fan: Fan,
+        pwm: PWMDuty,
+    ) -> Result<(), ResponseCode> {
+        self.fctrl.set_pwm(fan, pwm)
+    }
+
+    /// Reads fan RPM values, posting them to the sensor task API
     fn read_fans(&self, sensor_api: &SensorApi) {
         for (fan, sensor_id) in self.fans {
             match self.fctrl.fan_rpm(*fan) {
@@ -39,6 +78,8 @@ impl<'a> OutputFans<'a> {
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// The thermal control loop.
 ///
@@ -71,26 +112,47 @@ pub(crate) struct ThermalControl<'a> {
     pub target_pwm: u8,
 }
 
-enum Command {
-    IncreaseRpm,
-    DecreaseRpm,
-    NoChange,
-}
-
 impl<'a> ThermalControl<'a> {
-    /// An extremely simple thermal control loop.
-    pub fn step(&mut self) {
+    /// Reads all temperature and fan RPM sensors, posting their results
+    /// to the sensors task API. Returns the worst margin; positive means
+    /// all parts are happily below their max temperatures, while negative
+    /// means someone is overheating.
+    ///
+    /// Returns an error if any of the *controlled* sensors fails to read.
+    /// Note that monitored sensors may fail to read and the sensor post
+    /// may fail without this returning an error; an error means that the
+    /// integrity of the control loop is threatened.
+    pub fn read_sensors(&mut self) -> Result<f32, ResponseCode> {
         self.outputs.read_fans(&self.sensor_api);
 
-        // Margin represents the difference between max and current temperature
-        // for the worst-case part.  Positive margin means that all parts are
-        // below their max temperature; negative means someone is overheating.
+        let mut read_failed = 0;
+        let mut post_failed = 0;
+        for s in self.misc_sensors.iter_mut() {
+            match s.read_temp() {
+                Ok(v) => {
+                    if self.sensor_api.post(s.id, v.0).is_err() {
+                        post_failed += 1;
+                    }
+                }
+                Err(e) => {
+                    if self.sensor_api.nodata(s.id, e.into()).is_err() {
+                        post_failed += 1;
+                    }
+                    read_failed += 1;
+                }
+            }
+        }
+
+        // Remember, positive margin means that all parts are happily below
+        // their max temperature; negative means someone is overheating.
         let mut worst_margin = None;
         let mut last_err = None;
         for s in self.inputs.iter_mut() {
             match s.sensor.read_temp() {
                 Ok(v) => {
-                    self.sensor_api.post(s.sensor.id, v.0).unwrap();
+                    if self.sensor_api.post(s.sensor.id, v.0).is_err() {
+                        post_failed += 1;
+                    }
                     let margin = s.max_temp.0 - v.0;
                     worst_margin = Some(match worst_margin {
                         Some(m) => margin.min(m),
@@ -98,38 +160,60 @@ impl<'a> ThermalControl<'a> {
                     });
                 }
                 Err(e) => {
-                    self.sensor_api.nodata(s.sensor.id, e.into()).unwrap();
+                    if self.sensor_api.nodata(s.sensor.id, e.into()).is_err() {
+                        post_failed += 1;
+                    }
                     last_err = Some(e);
                 }
             }
         }
 
-        // Calculate the desired RPM change based on worst-case sensor
-        let cmd = if let Some(m) = worst_margin {
-            if m >= self.target_margin.0 + self.hysteresis.0 {
-                Command::DecreaseRpm
-            } else if m < self.target_margin.0 {
-                Command::IncreaseRpm
-            } else {
-                Command::NoChange
-            }
-        } else {
-            Command::IncreaseRpm
-        };
+        // TODO: something with post_failed and read_failed
 
-        // Apply RPM change
-        match cmd {
-            Command::IncreaseRpm => {
-                self.target_pwm += 10;
-            }
-            Command::DecreaseRpm => {
-                self.target_pwm = self.target_pwm.saturating_sub(1);
-            }
-            Command::NoChange => (),
+        // Prioritize returning errors, because they indicate that something is
+        // wrong with the sensors that are critical to the control loop.
+        if let Some(err) = last_err {
+            Err(err)
+        } else {
+            // `worst_margin` is assigned whenever `last_err` is unassigned,
+            // so this should not crash.  The exception is if there are
+            // no sensors in `self.inputs`, but that's a pathological case,
+            // so it's fine to crash.
+            Ok(worst_margin.unwrap())
+        }
+    }
+
+    /// An extremely simple thermal control loop.
+    ///
+    /// Returns an error if the control loop failed to read critical sensors;
+    /// the caller should set us to some kind of fail-safe mode if this
+    /// occurs.
+    pub fn run_control(&mut self) -> Result<(), ThermalError> {
+        let worst_margin =
+            self.read_sensors().map_err(|_| ThermalError::DeviceError)?;
+
+        // Calculate the desired RPM change based on worst-case sensor
+        if worst_margin >= self.target_margin.0 + self.hysteresis.0 {
+            self.target_pwm = self.target_pwm.saturating_sub(1);
+        } else if worst_margin < self.target_margin.0 {
+            self.target_pwm += 10;
+        } else {
+            // Don't modify PWM
         }
         self.target_pwm = self.target_pwm.clamp(0, 100);
 
         // Send the new RPM to all of our fans
-        self.outputs.set_pwm(PWMDuty(self.target_pwm));
+        self.outputs.set_pwm(PWMDuty(self.target_pwm))
+    }
+
+    /// Resets internal controller state, using the new PWM as the current
+    /// output value. This does not actually send the new PWM to the fans;
+    /// that will occur on the next call to [run_control]
+    pub fn reset(&mut self, initial_pwm: PWMDuty) -> Result<(), ThermalError> {
+        if initial_pwm.0 > 100 {
+            return Err(ThermalError::InvalidPWM);
+        }
+        self.target_pwm = initial_pwm.0;
+        Ok(())
     }
 }
