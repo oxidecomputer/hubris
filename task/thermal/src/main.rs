@@ -12,27 +12,28 @@
 #![no_std]
 #![no_main]
 
+mod bsp;
+mod control;
+
+use crate::{bsp::Bsp, control::ThermalControl};
 use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::max31790::*;
-use drv_i2c_devices::sbtsi::*;
-use drv_i2c_devices::tmp117::*;
-use drv_i2c_devices::tmp451::*;
-use drv_i2c_devices::tse2004av::*;
+use drv_i2c_devices::max31790::Max31790;
+pub use drv_i2c_devices::max31790::{Fan, PWMDuty};
 use drv_i2c_devices::TempSensor;
+use drv_i2c_devices::{
+    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
+};
 use idol_runtime::{NotificationHandler, RequestError};
-use task_sensor_api as sensor_api;
 use task_thermal_api::ThermalError;
 use userlib::units::*;
 use userlib::*;
 
-use sensor_api::SensorId;
+use task_sensor_api::{Sensor as SensorApi, SensorId};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
 
-include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-use i2c_config::devices;
-use i2c_config::sensors;
+////////////////////////////////////////////////////////////////////////////////
 
 enum Zone {
     East,
@@ -48,224 +49,65 @@ enum Device {
     Dimm(Tse2004Av),
 }
 
-struct Sensor {
+struct TemperatureSensor {
     device: Device,
     id: SensorId,
 }
 
-fn temp_read<E, T: TempSensor<E>>(
-    device: &mut T,
-) -> Result<Celsius, ResponseCode>
-where
-    ResponseCode: From<E>,
-{
-    match device.read_temperature() {
-        Ok(reading) => Ok(reading),
-        Err(err) => {
-            let err: ResponseCode = err.into();
-            Err(err)
-        }
-    }
-}
-
-impl Sensor {
+impl TemperatureSensor {
     fn read_temp(&mut self) -> Result<Celsius, ResponseCode> {
         match &mut self.device {
-            Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
-            Device::T6Nic(dev) => temp_read(dev),
-            Device::CPU(dev) => temp_read(dev),
-            Device::Dimm(dev) => temp_read(dev),
+            Device::North(_, dev) | Device::South(_, dev) => {
+                dev.read_temperature().map_err(Into::into)
+            }
+            Device::CPU(dev) => dev.read_temperature().map_err(Into::into),
+            Device::T6Nic(dev) => dev.read_temperature().map_err(Into::into),
+            Device::Dimm(dev) => dev.read_temperature().map_err(Into::into),
         }
     }
 }
 
-const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS
-    + sensors::NUM_TMP451_TEMPERATURE_SENSORS
-    + sensors::NUM_SBTSI_TEMPERATURE_SENSORS
-    + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS;
+////////////////////////////////////////////////////////////////////////////////
 
-fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
-    let task = I2C.get_task_id();
-
-    [
-        // North and south zones are inverted with respect to one another;
-        // see Gimlet issue #1302 for details.
-        Sensor {
-            device: Device::North(
-                Zone::East,
-                Tmp117::new(&devices::tmp117_northeast(task)),
-            ),
-            id: sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::North(
-                Zone::Central,
-                Tmp117::new(&devices::tmp117_north(task)),
-            ),
-            id: sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::North(
-                Zone::West,
-                Tmp117::new(&devices::tmp117_northwest(task)),
-            ),
-            id: sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::South(
-                Zone::East,
-                Tmp117::new(&devices::tmp117_southeast(task)),
-            ),
-            id: sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::South(
-                Zone::Central,
-                Tmp117::new(&devices::tmp117_south(task)),
-            ),
-            id: sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::South(
-                Zone::West,
-                Tmp117::new(&devices::tmp117_southwest(task)),
-            ),
-            id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::CPU(Sbtsi::new(&devices::sbtsi(task)[0])),
-            id: sensors::SBTSI_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::T6Nic(Tmp451::new(
-                &devices::tmp451(task)[0],
-                Target::Remote,
-            )),
-            id: sensors::TMP451_TEMPERATURE_SENSOR,
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[0])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[1])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[2])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[3])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[4])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[5])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[6])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[7])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[8])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[9])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[10])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[11])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[12])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[13])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[14])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
-        },
-        Sensor {
-            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[15])),
-            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
-        },
-    ]
+enum FanControl {
+    Max31790(Max31790),
 }
 
-struct ServerImpl {
-    sensor: sensor_api::Sensor,
-    sensors: [Sensor; NUM_TEMPERATURE_SENSORS],
-    fctrl: Max31790,
+impl FanControl {
+    fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.set_pwm(fan, pwm),
+        }
+    }
+    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.fan_rpm(fan),
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct ServerImpl<'a> {
+    control: ThermalControl<'a>,
     deadline: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
-impl ServerImpl {
-    fn read_fans(&self) {
-        let ids = &sensors::MAX31790_SPEED_SENSORS;
-
-        for ndx in 0..MAX_FANS {
-            let fan = Fan::from(ndx);
-
-            match self.fctrl.fan_rpm(fan) {
-                Ok(reading) => {
-                    self.sensor
-                        .post(ids[ndx as usize], reading.0.into())
-                        .unwrap();
-                }
-                Err(e) => {
-                    self.sensor.nodata(ids[ndx as usize], e.into()).unwrap()
-                }
-            }
-        }
-    }
-}
-
-impl idl::InOrderThermalImpl for ServerImpl {
+impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     fn set_fan_pwm(
         &mut self,
         _: &RecvMessage,
         index: u8,
         pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
-        if index < MAX_FANS {
-            let fan = Fan::from(index);
-
-            if pwm <= 100 {
-                match self.fctrl.set_pwm(fan, PWMDuty(pwm)) {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(ThermalError::DeviceError.into()),
-                }
-            } else {
-                Err(ThermalError::InvalidPWM.into())
-            }
-        } else {
-            Err(ThermalError::InvalidFan.into())
-        }
+        unimplemented!()
     }
 }
 
-impl NotificationHandler for ServerImpl {
+impl<'a> NotificationHandler for ServerImpl<'a> {
     fn current_notification_mask(&self) -> u32 {
         TIMER_MASK
     }
@@ -274,50 +116,23 @@ impl NotificationHandler for ServerImpl {
         self.deadline += TIMER_INTERVAL;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
 
-        self.read_fans();
-
-        for s in &mut self.sensors {
-            match s.read_temp() {
-                Ok(reading) => {
-                    self.sensor.post(s.id, reading.0).unwrap();
-                }
-                Err(e) => self.sensor.nodata(s.id, e.into()).unwrap(),
-            };
-        }
+        self.control.step();
     }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = I2C.get_task_id();
+    let i2c_task = I2C.get_task_id();
+    let sensor_api = SensorApi::from(SENSOR.get_task_id());
 
-    cfg_if::cfg_if! {
-        if #[cfg(any(
-            target_board = "gimlet-a",
-            target_board = "gimlet-b",
-        ))] {
-            let fctrl = Max31790::new(&devices::max31790(task)[0]);
-        } else {
-            compile_error!("unknown board");
-        }
-    }
+    let mut bsp = Bsp::new(i2c_task);
+    let control = bsp.controller(sensor_api);
 
-    fctrl.initialize().unwrap();
-
-    let deadline = sys_get_timer().now;
-
-    //
     // This will put our timer in the past, and should immediately kick us.
-    //
+    let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), TIMER_MASK);
 
-    let mut server = ServerImpl {
-        sensor: sensor_api::Sensor::from(SENSOR.get_task_id()),
-        sensors: temperature_sensors(),
-        fctrl: fctrl,
-        deadline,
-    };
-
+    let mut server = ServerImpl { control, deadline };
     let mut buffer = [0; idl::INCOMING_SIZE];
 
     loop {
