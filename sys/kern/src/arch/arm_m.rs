@@ -153,12 +153,6 @@ static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
 #[no_mangle]
 static mut TASK_TABLE_SIZE: usize = 0;
 
-/// On ARMvx-M we use a global to record the interrupt table position and extent.
-#[no_mangle]
-static mut IRQ_TABLE_BASE: Option<NonNull<abi::Interrupt>> = None;
-#[no_mangle]
-static mut IRQ_TABLE_SIZE: usize = 0;
-
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
 #[no_mangle]
@@ -339,17 +333,6 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
     uassert_eq!(prev_task_table, None);
     // Record length as well.
     TASK_TABLE_SIZE = tasks.len();
-}
-
-pub unsafe fn set_irq_table(irqs: &[abi::Interrupt]) {
-    let prev_table = core::mem::replace(
-        &mut IRQ_TABLE_BASE,
-        Some(NonNull::new_unchecked(irqs.as_ptr() as *mut abi::Interrupt)),
-    );
-    // Catch double-uses of this function.
-    uassert_eq!(prev_table, None);
-    // Record length as well.
-    IRQ_TABLE_SIZE = irqs.len();
 }
 
 // Because debuggers need to know the clock frequency to set the SWO clock
@@ -1016,24 +999,6 @@ pub unsafe fn with_task_table<R>(
     body(tasks)
 }
 
-/// Manufacture a shared reference to the interrupt action table from thin air
-/// and hand it to `body`. This bypasses borrow checking and should only be used
-/// at kernel entry points, then passed around.
-///
-/// Because the lifetime of the reference passed into `body` is anonymous, the
-/// reference can't easily be stored, which is deliberate.
-pub fn with_irq_table<R>(body: impl FnOnce(&[abi::Interrupt]) -> R) -> R {
-    // Safety: as long as a legit pointer was stored in IRQ_TABLE_BASE, or no
-    // pointer has been stored, we can do this safely.
-    let table = unsafe {
-        core::slice::from_raw_parts(
-            IRQ_TABLE_BASE.expect("kernel not started").as_ptr(),
-            IRQ_TABLE_SIZE,
-        )
-    };
-    body(table)
-}
-
 /// Records the address of `task` as the current user task.
 ///
 /// # Safety
@@ -1243,41 +1208,46 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
+            let owner = if cfg!(armv6m) {
+                crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+                    .get_linear(abi::InterruptNum(irq_num))
+            } else if cfg!(any(armv7m, armv8m)) {
+                crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+                    .get(abi::InterruptNum(irq_num))
+            } else {
+                panic!("No IRQ lookup strategy specified for arch")
+            }
+            .unwrap_or_else(|| panic!("unhandled IRQ {}", irq_num));
+
             let switch = with_task_table(|tasks| {
-                with_irq_table(|irqs| {
-                    // TODO: in case it isn't obvious, looping over the entire
-                    // interrupt redirector table on every interrupt is not the
-                    // fastest way to handle interrupts. But it sure is
-                    // expedient! If you would like to speed up interrupt
-                    // response, change the irq_table data structure to
-                    // something we can access in O(1), or at least O(log n),
-                    // time.
-                    for entry in irqs {
-                        if entry.irq == irq_num {
-                            // Early exit on the first (and should be sole)
-                            // match.
+                disable_irq(irq_num);
 
-                            disable_irq(irq_num);
-
-                            // Now, post the notification and return the
-                            // scheduling hint.
-                            let n = task::NotificationSet(entry.notification);
-                            return Ok(tasks[entry.task as usize].post(n));
-                        }
-                    }
-                    Err(())
-                })
+                // Now, post the notification and return the
+                // scheduling hint.
+                let n = task::NotificationSet(owner.notification);
+                tasks[owner.task as usize].post(n)
             });
-            match switch {
-                Ok(true) => pend_context_switch_from_isr(),
-                Ok(false) => (),
-                Err(_) => panic!("unhandled IRQ {}", irq_num),
+            if switch {
+                pend_context_switch_from_isr()
             }
         }
 
         _ => panic!("unknown exception {}", exception_num),
     }
     crate::profiling::event_isr_exit();
+}
+
+pub fn get_irqs_by_owner(
+    owner: abi::InterruptOwner,
+) -> Option<&'static [abi::InterruptNum]> {
+    if cfg!(armv6m) {
+        crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get_linear(owner)
+    } else if cfg!(any(armv7m, armv8m)) {
+        crate::startup::HUBRIS_TASK_IRQ_LOOKUP.get(owner)
+    } else {
+        panic!("No IRQ lookup strategy specified for arch")
+    }
+    .cloned()
 }
 
 pub fn disable_irq(n: u32) {

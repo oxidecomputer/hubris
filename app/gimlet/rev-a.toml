@@ -1,4 +1,4 @@
-name = "gimlet"
+name = "gimlet-a"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-a"
 chip = "../../chips/stm32h7.toml"
@@ -166,6 +166,10 @@ requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
+
+[tasks.gimlet_seq.config]
+fpga_image = "fpga.bin"
+register_defs = "gimlet_regs.json"
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"

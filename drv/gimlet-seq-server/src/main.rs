@@ -455,7 +455,7 @@ fn reprogram_fpga(
 }
 
 static COMPRESSED_BITSTREAM: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
+    include_bytes!(env!("GIMLET_FPGA_IMAGE_PATH"));
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {

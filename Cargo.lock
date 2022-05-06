@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "byteorder",
+ "phash",
  "serde",
  "zerocopy",
 ]
@@ -1641,6 +1642,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "cortex-m",
  "cortex-m-semihosting",
+ "phash",
+ "phash-gen",
  "ron 0.7.0",
  "serde",
  "ssmarshal",
@@ -2071,6 +2074,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f4872ae94d7b90ae48754df22fd42ad52ce740b8f370b03da4835417403e53"
 dependencies = [
  "ucd-trie",
+]
+
+[[package]]
+name = "phash"
+version = "0.1.0"
+
+[[package]]
+name = "phash-gen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "phash",
+ "rand",
+ "rand_chacha",
 ]
 
 [[package]]

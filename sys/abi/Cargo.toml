@@ -10,6 +10,7 @@ zerocopy = "0.6.1"
 bitflags = "1.2.1"
 byteorder = { version = "1.3.4", default-features = false }
 serde = { version = "1.0.114", default-features = false, features = ["derive"] }
+phash = { path = "../../lib/phash" }
 
 [lib]
 test = false

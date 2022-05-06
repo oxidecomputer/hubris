@@ -6,15 +6,35 @@ use serde::Deserialize;
 use std::fmt::Write;
 use std::{env, fs, path::PathBuf};
 
+#[derive(serde::Deserialize)]
+struct Config {
+    fpga_image: String,
+    register_defs: String,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
-    let fpga_image = fs::read("fpga.bin")?;
+    let config = build_util::task_config::<Config>()?;
+
+    let fpga_image_path = PathBuf::from(&config.fpga_image);
+
+    if fpga_image_path.components().count() != 1 {
+        panic!("fpga_image path mustn't contain a slash, sorry.");
+    }
+
+    let fpga_image = fs::read(&fpga_image_path)?;
     let compressed = compress(&fpga_image);
 
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    fs::write(out.join("fpga.bin.rle"), compressed)?;
-    println!("cargo:rerun-if-changed=fpga.bin");
+    let compressed_path = out.join(fpga_image_path.with_extension("bin.rle"));
+    fs::write(&compressed_path, compressed)?;
+    println!("cargo:rerun-if-changed={}", config.fpga_image);
+
+    println!(
+        "cargo:rustc-env=GIMLET_FPGA_IMAGE_PATH={}",
+        compressed_path.display()
+    );
 
     let disposition = build_i2c::Disposition::Devices;
 
@@ -23,7 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    fs::write(out.join("gimlet_regs.rs"), regs()?)?;
+    let regs_in = PathBuf::from(config.register_defs);
+    let regs_out = out.join(regs_in.with_extension("rs"));
+    fs::write(&regs_out, regs(regs_in)?)?;
+    println!("cargo:rustc-env=GIMLET_FPGA_REGS={}", regs_out.display());
 
     idol::server::build_server_support(
         "../../idl/gimlet-seq.idol",
@@ -53,11 +76,13 @@ enum Node {
     },
 }
 
-fn regs() -> Result<String, Box<dyn std::error::Error>> {
-    let mut output = String::new();
-    let regs = include_str!("gimlet_regs.json");
+fn regs(defs: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
+    println!("cargo:rerun-if-changed={}", defs.display());
+    let input = String::from_utf8(fs::read(&defs)?)?;
 
-    let node: Node = serde_json::from_str(regs)?;
+    let mut output = String::new();
+
+    let node: Node = serde_json::from_str(&input)?;
 
     let children = if let Node::Addrmap { children } = node {
         children

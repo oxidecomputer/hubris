@@ -14,7 +14,8 @@ extern crate panic_halt;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
 
-mod hypo;
+// FIXME Need to fixup the secure interface calls
+//mod hypo;
 mod image_header;
 
 use crate::image_header::Image;
@@ -46,11 +47,6 @@ pub unsafe extern "C" fn SecureFault() {
     loop {}
 }
 
-// These correspond to REV_ID in the SYSCON_DIEID field
-#[cfg(feature = "0A-hardware")]
-const ROM_VER: u32 = 0;
-
-#[cfg(not(feature = "0A-hardware"))]
 const ROM_VER: u32 = 1;
 
 #[cfg(feature = "tz_support")]

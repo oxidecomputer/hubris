@@ -30,7 +30,6 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     let regions = &HUBRIS_REGION_DESCS;
     let tasks = &HUBRIS_TASK_DESCS;
-    let interrupts = &HUBRIS_INTERRUPTS;
 
     // Validate regions first, since tasks will use them.
     for region in regions {
@@ -77,9 +76,15 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     }
 
     // Finally, check interrupts.
-    for irq in interrupts {
-        // Valid task index?
-        uassert!(irq.task < tasks.len() as u32);
+    for (irq, owner) in HUBRIS_IRQ_TASK_LOOKUP.values {
+        if irq.0 != u32::MAX {
+            uassert!(owner.task < tasks.len() as u32);
+        }
+    }
+    for (owner, irqs) in HUBRIS_TASK_IRQ_LOOKUP.values {
+        if !irqs.is_empty() {
+            uassert!(owner.task < tasks.len() as u32);
+        }
     }
 
     // Okay, we're pretty sure this is all legitimate. Grab the TCB RAM and
@@ -87,7 +92,6 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     safe_start_kernel(
         tasks,
         regions,
-        interrupts,
         &mut HUBRIS_TASK_TABLE_SPACE,
         &mut HUBRIS_REGION_TABLE_SPACE,
         tick_divisor,
@@ -97,7 +101,6 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 fn safe_start_kernel(
     task_descs: &'static [app::TaskDesc],
     region_descs: &'static [app::RegionDesc],
-    interrupts: &'static [app::Interrupt],
     task_table: &'static mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>,
     region_tables: &'static mut MaybeUninit<
         [[&'static app::RegionDesc; app::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
@@ -167,7 +170,6 @@ fn safe_start_kernel(
     unsafe {
         // TODO: these could be done by the linker...
         crate::arch::set_task_table(task_table);
-        crate::arch::set_irq_table(interrupts);
     }
     // TODO: this could be constant-folded now.
     task::set_fault_notification(HUBRIS_FAULT_NOTIFICATION);
