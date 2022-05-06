@@ -169,6 +169,7 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
 
 [tasks.gimlet_seq.config]
 fpga_image = "fpga.bin"
+register_defs = "gimlet_regs.json"
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
