@@ -25,6 +25,7 @@ enum Trace {
     Ksz8463Control { port: u8, control: u16 },
     Ksz8463Counter { port: u8, counter: MIBCounterValue },
     Ksz8463MacTable(ksz8463::MacTableEntry),
+    Ksz8463EmptyMacTable,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -103,7 +104,8 @@ impl Bsp {
 
             // Read the MAC table for fun
             ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
-                Ok(mac) => Trace::Ksz8463MacTable(mac),
+                Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
+                Ok(None) => Trace::Ksz8463EmptyMacTable,
                 Err(err) => Trace::KszErr { err },
             });
         }
