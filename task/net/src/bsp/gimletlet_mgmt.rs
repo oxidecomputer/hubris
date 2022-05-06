@@ -179,8 +179,9 @@ impl Bsp {
         }
 
         // Read the MAC table for fun
-        ringbuf_entry!(match self.mgmt.ksz8463.read_dynamic_mac_table(0) {
-            Ok(mac) => Trace::Ksz8463MacTable(mac),
+        ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
+            Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
+            Ok(None) => Trace::Ksz8463EmptyMacTable,
             Err(err) => Trace::KszErr { err },
         });
 
