@@ -85,10 +85,7 @@ pub enum SourcePort {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MacTableEntry {
-    /// Specifies that there are no valid entries in the table
-    empty: bool,
-
-    /// Number of valid entries in the table, minus 1 (check `empty` as well)
+    /// Number of valid entries in the table
     count: u32,
 
     /// Two-bit counter for internal aging
@@ -225,7 +222,7 @@ impl Ksz8463 {
     pub fn read_dynamic_mac_table(
         &self,
         addr: u16,
-    ) -> Result<MacTableEntry, Error> {
+    ) -> Result<Option<MacTableEntry>, Error> {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
@@ -243,6 +240,9 @@ impl Ksz8463 {
         let d_15_0 = self.read(Register::IADR4)?;
 
         let empty = (d_71_64 & 4) != 0;
+        if empty {
+            return Ok(None);
+        }
 
         // Awkwardly stradling the line between two words...
         let count = (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xF0) >> 8;
@@ -265,14 +265,13 @@ impl Ksz8463 {
             d_15_0 as u8,
         ];
 
-        Ok(MacTableEntry {
-            empty,
-            count,
+        Ok(Some(MacTableEntry {
+            count: count + 1, // table is non-empty
             timestamp,
             source,
             fid,
             addr,
-        })
+        }))
     }
 
     /// Configures an entry in the VLAN table.  There are various constraints
