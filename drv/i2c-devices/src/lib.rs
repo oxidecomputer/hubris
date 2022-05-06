@@ -90,6 +90,42 @@ macro_rules! pmbus_write {
     }};
 }
 
+macro_rules! pmbus_validate {
+    ($device:expr, $dev:ident::$cmd:ident, $expected:ident) => {{
+        let mut id = [0u8; 16];
+
+        match $device.read_block::<u8>(
+            $dev::CommandCode::$cmd as u8,
+            &mut id
+        ) {
+            Ok(size) => {
+                Ok(size == $expected.len() && id[0..$expected.len()] == $expected)
+            }
+            Err(code) => Err(Error::BadValidation {
+                cmd: CommandCode::$cmd as u8,
+                code: code,
+            })
+        }
+    }};
+
+    ($device:expr, $cmd:ident, $expected:ident) => {{
+        let mut id = [0u8; 16];
+
+        match $device.read_block::<u8>(
+            CommandCode::$cmd as u8,
+            &mut id
+        ) {
+            Ok(size) => {
+                Ok(size == $expected.len() && id[0..$expected.len()] == $expected)
+            }
+            Err(code) => Err(Error::BadValidation {
+                cmd: CommandCode::$cmd as u8,
+                code: code,
+            })
+        }
+    }};
+}
+
 pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_temperature(&mut self) -> Result<userlib::units::Celsius, T>;
 }
@@ -107,7 +143,7 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
 }
 
 pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn validate(device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
+    fn validate(_device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
         Ok(false)
     }
 }

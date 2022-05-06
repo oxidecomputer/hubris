@@ -41,7 +41,7 @@ enum Zone {
 enum Device {
     North(Zone, Tmp116),
     South(Zone, Tmp116),
-    CPU(SbTsi),
+    CPU(Sbtsi),
 }
 
 struct Sensor {
@@ -125,7 +125,7 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
             id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
-            device: Device::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
+            device: Device::CPU(Sbtsi::new(&devices::sbtsi(task)[0])),
             id: sensors::SBTSI_TEMPERATURE_SENSOR,
         },
     ]

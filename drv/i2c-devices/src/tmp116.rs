@@ -4,7 +4,7 @@
 
 //! Driver for the TMP116 temperature sensor
 
-use crate::TempSensor;
+use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -65,6 +65,8 @@ impl Tmp116 {
         }
     }
 }
+
+impl Validate<Error> for Tmp116 {}
 
 impl TempSensor<Error> for Tmp116 {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {

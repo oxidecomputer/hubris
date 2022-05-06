@@ -795,15 +795,21 @@ impl ConfigGenerator {
         //
         use cargo_metadata::MetadataCommand;
 
-        let metadata =
-            MetadataCommand::new().manifest_path("./Cargo.toml").exec().unwrap();
+        let metadata = MetadataCommand::new()
+            .manifest_path("./Cargo.toml")
+            .exec()
+            .unwrap();
 
-        let pkg = metadata.packages.iter()
+        let pkg = metadata
+            .packages
+            .iter()
             .find(|p| p.name == "drv-i2c-devices")
             .context("failed to find drv-i2c-devices")?;
 
-        let dir = pkg.manifest_path.parent()
-             .context("failed to get i2c device path")?;
+        let dir = pkg
+            .manifest_path
+            .parent()
+            .context("failed to get i2c device path")?;
 
         let mut drivers = std::collections::HashSet::new();
 
@@ -826,7 +832,8 @@ impl ConfigGenerator {
             task: TaskId,
             index: usize,
         ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {{
-            match index {{"##)?;
+            match index {{"##
+        )?;
 
         for (index, device) in self.devices.iter().enumerate() {
             if drivers.get(&device.device).is_some() {
@@ -864,7 +871,8 @@ impl ConfigGenerator {
                 _ => Err(drv_i2c_api::ResponseCode::BadArg)
             }}
         }}
-    }}"##)?;
+    }}"##
+        )?;
 
         Ok(())
     }

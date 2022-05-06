@@ -4,7 +4,7 @@
 
 //! Driver for AMD SB-TSI interface
 
-use crate::TempSensor;
+use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -43,7 +43,7 @@ impl From<Error> for ResponseCode {
     }
 }
 
-pub struct SbTsi {
+pub struct Sbtsi {
     device: I2cDevice,
 }
 
@@ -51,13 +51,13 @@ fn convert(i: u8, d: u8) -> Celsius {
     Celsius(f32::from(i) + (f32::from(d >> 5) / 8.0))
 }
 
-impl core::fmt::Display for SbTsi {
+impl core::fmt::Display for Sbtsi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "sbtsi: {}", &self.device)
     }
 }
 
-impl SbTsi {
+impl Sbtsi {
     pub fn new(device: &I2cDevice) -> Self {
         Self { device: *device }
     }
@@ -73,7 +73,7 @@ impl SbTsi {
     }
 }
 
-impl TempSensor<Error> for SbTsi {
+impl TempSensor<Error> for Sbtsi {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {
         // Reading the integer portion latches the decimal portion; we need
         // to read it first, and then immediately read the decimal portion.
@@ -83,3 +83,5 @@ impl TempSensor<Error> for SbTsi {
         Ok(convert(i, d))
     }
 }
+
+impl Validate<Error> for Sbtsi {}

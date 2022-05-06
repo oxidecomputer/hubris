@@ -4,7 +4,7 @@
 
 //! Driver for the ADM1272 hot-swap controller
 
-use crate::{CurrentSensor, TempSensor, VoltageSensor};
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
@@ -16,6 +16,7 @@ pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
     InvalidConfig,
 }
@@ -243,6 +244,13 @@ impl Adm1272 {
     pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
+    }
+}
+
+impl Validate<Error> for Adm1272 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let id = [0x41, 0x44, 0x4d, 0x31, 0x32, 0x37, 0x32, 0x2d, 0x32, 0x41];
+        pmbus_validate!(device, MFR_MODEL, id)
     }
 }
 

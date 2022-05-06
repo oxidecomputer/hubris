@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{CurrentSensor, TempSensor, VoltageSensor};
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::raa229618::*;
+use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
@@ -25,6 +26,7 @@ pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
 }
 
@@ -81,6 +83,13 @@ impl Raa229618 {
         let mut operation = pmbus_read!(self.device, OPERATION)?;
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
+    }
+}
+
+impl Validate<Error> for Raa229618 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let expected = [0x00, 0x99, 0xd2, 0x49];
+        pmbus_validate!(device, IC_DEVICE_ID, expected)
     }
 }
 
