@@ -357,7 +357,7 @@ impl ServerImpl {
     }
 
     fn wait_to_tx(&mut self) {
-        if !self.spi.can_tx() {
+        while !self.spi.can_tx() {
             self.spi.enable_tx();
             sys_irq_control(IRQ_MASK, true);
             let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
@@ -366,7 +366,7 @@ impl ServerImpl {
     }
 
     fn wait_for_rx(&mut self) {
-        if !self.spi.has_byte() {
+        while !self.spi.has_byte() {
             self.spi.enable_rx();
             sys_irq_control(IRQ_MASK, true);
             let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
@@ -375,7 +375,7 @@ impl ServerImpl {
     }
 
     fn wait_for_mstidle(&mut self) {
-        if !self.spi.mstidle() {
+        while !self.spi.mstidle() {
             self.spi.mstidle_enable();
             sys_irq_control(IRQ_MASK, true);
             let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
