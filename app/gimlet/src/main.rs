@@ -36,6 +36,28 @@ fn main() -> ! {
 }
 
 fn system_init() {
+    let cp = cortex_m::Peripherals::take().unwrap();
+    let p = device::Peripherals::take().unwrap();
+
+    // Check the package we've been flashed on. Gimlet boards use BGA240.
+    // Gimletlet boards are very similar but use QFPs. This is designed to fail
+    // a Gimlet firmware that was accidentally flashed onto a Gimletlet.
+    //
+    // We need to turn the SYSCFG block on to do this.
+    p.RCC.apb4enr.modify(|_, w| w.syscfgen().enabled());
+    cortex_m::asm::dsb();
+    // Now, we can read the appropriately-named package register to find out
+    // what package we're on.
+    match p.SYSCFG.pkgr.read().pkg().bits() {
+        0b1000 => {
+            // TFBGA240, yay
+        }
+        _ => {
+            // uh
+            panic!();
+        }
+    }
+
     // Gimlet, starting at Rev B, has resistors strapping three pins to indicate
     // the board revision. Rev A left the pins floating, so, we have a
     // backwards-compatibility scheme where we use our internal pull-up
@@ -51,8 +73,6 @@ fn system_init() {
     // you've flashed the wrong one, only.
     //
     // The revision is on pins PG[2:0], with PG2 as the MSB.
-    let cp = cortex_m::Peripherals::take().unwrap();
-    let p = device::Peripherals::take().unwrap();
 
     // Un-gate the clock to GPIO bank G.
     p.RCC.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
