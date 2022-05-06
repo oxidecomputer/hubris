@@ -167,6 +167,9 @@ stacksize = 1600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
 
+[tasks.gimlet_seq.config]
+fpga_image = "fpga.bin"
+
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
