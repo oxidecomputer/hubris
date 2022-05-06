@@ -9,6 +9,7 @@ use std::{env, fs, path::PathBuf};
 #[derive(serde::Deserialize)]
 struct Config {
     fpga_image: String,
+    register_defs: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,7 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    fs::write(out.join("gimlet_regs.rs"), regs()?)?;
+    let regs_in = PathBuf::from(config.register_defs);
+    let regs_out = out.join(regs_in.with_extension("rs"));
+    fs::write(&regs_out, regs(regs_in)?)?;
+    println!("cargo:rustc-env=GIMLET_FPGA_REGS={}", regs_out.display());
 
     idol::server::build_server_support(
         "../../idl/gimlet-seq.idol",
@@ -72,11 +76,13 @@ enum Node {
     },
 }
 
-fn regs() -> Result<String, Box<dyn std::error::Error>> {
-    let mut output = String::new();
-    let regs = include_str!("gimlet_regs.json");
+fn regs(defs: PathBuf) -> Result<String, Box<dyn std::error::Error>> {
+    println!("cargo:rerun-if-changed={}", defs.display());
+    let input = String::from_utf8(fs::read(&defs)?)?;
 
-    let node: Node = serde_json::from_str(regs)?;
+    let mut output = String::new();
+
+    let node: Node = serde_json::from_str(&input)?;
 
     let children = if let Node::Addrmap { children } = node {
         children
