@@ -40,14 +40,14 @@ pub(crate) struct Bsp {
 }
 
 impl BspT for Bsp {
-    fn data(&mut self) -> BspData {
+    fn data(&self) -> BspData {
         // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790::new(&devices::max31790(self.i2c_task)[0]);
         fctrl.initialize().unwrap();
 
         BspData {
-            inputs: &mut self.inputs,
-            misc_sensors: &mut self.misc_sensors,
+            inputs: &self.inputs,
+            misc_sensors: &self.misc_sensors,
             fans: &self.fans,
             fctrl: FanControl::Max31790(fctrl),
         }

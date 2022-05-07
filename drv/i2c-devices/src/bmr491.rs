@@ -73,7 +73,7 @@ impl Validate<Error> for Bmr491 {
 }
 
 impl TempSensor<Error> for Bmr491 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         let temp = pmbus_read!(self.device, bmr491::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }

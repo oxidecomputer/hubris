@@ -68,7 +68,7 @@ impl Validate<Error> for Tps546B24A {
 }
 
 impl TempSensor<Error> for Tps546B24A {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         let temp = pmbus_read!(self.device, tps546b24a::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }

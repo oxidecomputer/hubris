@@ -125,7 +125,7 @@ macro_rules! pmbus_validate {
 }
 
 pub trait TempSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
-    fn read_temperature(&mut self) -> Result<userlib::units::Celsius, T>;
+    fn read_temperature(&self) -> Result<userlib::units::Celsius, T>;
 }
 
 pub trait PowerSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {

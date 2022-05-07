@@ -18,15 +18,15 @@ const _: () = {
 };
 
 pub(crate) struct BspData<'a> {
-    pub inputs: &'a mut [crate::control::InputChannel],
-    pub misc_sensors: &'a mut [crate::TemperatureSensor],
+    pub inputs: &'a [crate::control::InputChannel],
+    pub misc_sensors: &'a [crate::TemperatureSensor],
     pub fans:
         &'a [(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)],
     pub fctrl: crate::FanControl,
 }
 
 pub(crate) trait BspT {
-    fn data(&mut self) -> BspData;
+    fn data(&self) -> BspData;
     fn new(i2c_task: userlib::TaskId) -> Self;
 }
 

@@ -5,6 +5,7 @@
 //! Driver for the ADM1272 hot-swap controller
 
 use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
+use core::cell::Cell;
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
@@ -53,7 +54,7 @@ pub struct Adm1272 {
     /// Our (cached) coefficients
     coefficients: Option<Coefficients>,
     /// Our (cached) configuration
-    config: Option<adm1272::PMON_CONFIG::CommandData>,
+    config: Cell<Option<adm1272::PMON_CONFIG::CommandData>>,
 }
 
 impl core::fmt::Display for Adm1272 {
@@ -78,30 +79,34 @@ impl Adm1272 {
             device: *device,
             rsense: (rsense.0 * 1000.0).round() as i32,
             coefficients: None,
-            config: None,
+            config: Cell::new(None),
         }
     }
 
-    fn read_config(
-        &mut self,
-    ) -> Result<adm1272::PMON_CONFIG::CommandData, Error> {
-        if let Some(ref config) = self.config {
+    fn read_config(&self) -> Result<adm1272::PMON_CONFIG::CommandData, Error> {
+        if let Some(ref config) = self.config.get() {
             return Ok(*config);
         }
 
         let config = pmbus_read!(self.device, adm1272::PMON_CONFIG)?;
         ringbuf_entry!(Trace::Config(config));
-        self.config = Some(config);
+        self.config.set(Some(config));
 
         Ok(config)
     }
 
     fn write_config(
-        &mut self,
+        &self,
         config: adm1272::PMON_CONFIG::CommandData,
     ) -> Result<(), Error> {
         ringbuf_entry!(Trace::WriteConfig(config));
-        pmbus_write!(self.device, adm1272::PMON_CONFIG, config)
+        let out = pmbus_write!(self.device, adm1272::PMON_CONFIG, config);
+        if out.is_err() {
+            // If the write fails, invalidate the cache, since we don't
+            // know exactly what state the remote system ended up in.
+            self.config.set(None);
+        }
+        out
     }
 
     //
@@ -194,7 +199,7 @@ impl Adm1272 {
         Ok(&self.coefficients.as_ref().unwrap())
     }
 
-    fn enable_vin_sampling(&mut self) -> Result<(), Error> {
+    fn enable_vin_sampling(&self) -> Result<(), Error> {
         use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
@@ -208,7 +213,7 @@ impl Adm1272 {
         }
     }
 
-    fn enable_vout_sampling(&mut self) -> Result<(), Error> {
+    fn enable_vout_sampling(&self) -> Result<(), Error> {
         use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
@@ -222,7 +227,7 @@ impl Adm1272 {
         }
     }
 
-    fn enable_temp1_sampling(&mut self) -> Result<(), Error> {
+    fn enable_temp1_sampling(&self) -> Result<(), Error> {
         use adm1272::PMON_CONFIG::*;
         let mut config = self.read_config()?;
 
@@ -256,7 +261,7 @@ impl Validate<Error> for Adm1272 {
 }
 
 impl TempSensor<Error> for Adm1272 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         self.enable_temp1_sampling()?;
         let temp = pmbus_read!(self.device, adm1272::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
