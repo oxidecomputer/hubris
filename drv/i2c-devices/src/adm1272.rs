@@ -4,8 +4,9 @@
 
 //! Driver for the ADM1272 hot-swap controller
 
-use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use core::cell::Cell;
+
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use num_traits::float::FloatCore;
 use pmbus::commands::*;
@@ -39,6 +40,7 @@ impl From<Error> for ResponseCode {
     }
 }
 
+#[derive(Copy, Clone)]
 #[allow(dead_code)]
 struct Coefficients {
     voltage: pmbus::Coefficients,
@@ -52,7 +54,7 @@ pub struct Adm1272 {
     /// Value of the rsense resistor, in milliohms
     rsense: i32,
     /// Our (cached) coefficients
-    coefficients: Option<Coefficients>,
+    coefficients: Cell<Option<Coefficients>>,
     /// Our (cached) configuration
     config: Cell<Option<adm1272::PMON_CONFIG::CommandData>>,
 }
@@ -78,7 +80,7 @@ impl Adm1272 {
         Self {
             device: *device,
             rsense: (rsense.0 * 1000.0).round() as i32,
-            coefficients: None,
+            coefficients: Cell::new(None),
             config: Cell::new(None),
         }
     }
@@ -114,10 +116,10 @@ impl Adm1272 {
     // coefficients for the ADM1272 depends on the mode of the device.  We
     // therefore determine these dynamically -- but cache the results.
     //
-    fn load_coefficients(&mut self) -> Result<&Coefficients, Error> {
+    fn load_coefficients(&self) -> Result<Coefficients, Error> {
         use adm1272::PMON_CONFIG::*;
 
-        if let Some(ref coefficients) = self.coefficients {
+        if let Some(coefficients) = self.coefficients.get() {
             return Ok(coefficients);
         }
 
@@ -190,13 +192,12 @@ impl Adm1272 {
 
         ringbuf_entry!(Trace::Coefficients(power));
 
-        self.coefficients = Some(Coefficients {
-            voltage: voltage,
-            current: current,
-            power: power,
-        });
-
-        Ok(&self.coefficients.as_ref().unwrap())
+        self.coefficients.set(Some(Coefficients {
+            voltage,
+            current,
+            power,
+        }));
+        Ok(self.coefficients.get().unwrap())
     }
 
     fn enable_vin_sampling(&self) -> Result<(), Error> {
@@ -241,13 +242,13 @@ impl Adm1272 {
         }
     }
 
-    pub fn read_vin(&mut self) -> Result<Volts, Error> {
+    pub fn read_vin(&self) -> Result<Volts, Error> {
         self.enable_vin_sampling()?;
         let vin = pmbus_read!(self.device, adm1272::READ_VIN)?;
         Ok(Volts(vin.get(&self.load_coefficients()?.voltage)?.0))
     }
 
-    pub fn peak_iout(&mut self) -> Result<Amperes, Error> {
+    pub fn peak_iout(&self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::PEAK_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
@@ -269,14 +270,14 @@ impl TempSensor<Error> for Adm1272 {
 }
 
 impl CurrentSensor<Error> for Adm1272 {
-    fn read_iout(&mut self) -> Result<Amperes, Error> {
+    fn read_iout(&self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, adm1272::READ_IOUT)?;
         Ok(Amperes(iout.get(&self.load_coefficients()?.current)?.0))
     }
 }
 
 impl VoltageSensor<Error> for Adm1272 {
-    fn read_vout(&mut self) -> Result<Volts, Error> {
+    fn read_vout(&self) -> Result<Volts, Error> {
         self.enable_vout_sampling()?;
         let vout = pmbus_read!(self.device, adm1272::READ_VOUT)?;
         Ok(Volts(vout.get(&self.load_coefficients()?.voltage)?.0))

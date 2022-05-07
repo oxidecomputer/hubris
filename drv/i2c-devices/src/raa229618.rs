@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::cell::Cell;
+
 use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::raa229618::*;
@@ -12,7 +14,7 @@ use userlib::units::*;
 pub struct Raa229618 {
     device: I2cDevice,
     rail: u8,
-    mode: Option<pmbus::VOutModeCommandData>,
+    mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
 
 impl core::fmt::Display for Raa229618 {
@@ -43,7 +45,7 @@ impl From<Error> for ResponseCode {
 
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err: err }
+        Error::InvalidData { err }
     }
 }
 
@@ -52,15 +54,15 @@ impl Raa229618 {
         Raa229618 {
             device: *device,
             rail: rail,
-            mode: None,
+            mode: Cell::new(None),
         }
     }
 
-    fn read_mode(&mut self) -> Result<pmbus::VOutModeCommandData, Error> {
-        Ok(match self.mode {
+    fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
+        Ok(match self.mode.get() {
             None => {
                 let mode = pmbus_read!(self.device, commands::VOUT_MODE)?;
-                self.mode = Some(mode);
+                self.mode.set(Some(mode));
                 mode
             }
             Some(mode) => mode,
@@ -95,7 +97,7 @@ impl Validate<Error> for Raa229618 {
 }
 
 impl VoltageSensor<Error> for Raa229618 {
-    fn read_vout(&mut self) -> Result<Volts, Error> {
+    fn read_vout(&self) -> Result<Volts, Error> {
         self.set_rail()?;
         let vout = pmbus_read!(self.device, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
@@ -111,7 +113,7 @@ impl TempSensor<Error> for Raa229618 {
 }
 
 impl CurrentSensor<Error> for Raa229618 {
-    fn read_iout(&mut self) -> Result<Amperes, Error> {
+    fn read_iout(&self) -> Result<Amperes, Error> {
         self.set_rail()?;
         let iout = pmbus_read!(self.device, READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
