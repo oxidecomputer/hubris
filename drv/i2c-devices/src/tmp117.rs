@@ -75,7 +75,7 @@ impl Validate<Error> for Tmp117 {
 }
 
 impl TempSensor<Error> for Tmp117 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         Ok(convert(self.read_reg(Register::TempResult)?))
     }
 }

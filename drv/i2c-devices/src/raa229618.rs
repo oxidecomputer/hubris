@@ -116,7 +116,7 @@ impl VoltageSensor<Error> for Raa229618 {
 }
 
 impl TempSensor<Error> for Raa229618 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         self.set_rail()?;
         let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))

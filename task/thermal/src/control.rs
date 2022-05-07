@@ -90,7 +90,7 @@ impl<'a> OutputFans<'a> {
 /// `struct Bsp` which is conditionally included based on board name.
 pub(crate) struct ThermalControl<'a> {
     /// Sensors which are monitored as part of the control loop
-    pub inputs: &'a mut [InputChannel],
+    pub inputs: &'a [InputChannel],
 
     /// Fan output group.  Each `ThermalControl` is limited to a single
     /// fan control IC, but can choose which fans to control.
@@ -98,7 +98,7 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Miscellaneous sensors, which are logged into the `sensor` task but
     /// do not affect the control loop
-    pub misc_sensors: &'a mut [TemperatureSensor],
+    pub misc_sensors: &'a [TemperatureSensor],
 
     /// Task to which we should post sensor data updates
     pub sensor_api: SensorApi,
@@ -144,7 +144,7 @@ impl<'a> ThermalControl<'a> {
 
         let mut read_failed = 0;
         let mut post_failed = 0;
-        for s in self.misc_sensors.iter_mut() {
+        for s in self.misc_sensors {
             let post_is_err = match s.read_temp() {
                 Ok(v) => self.sensor_api.post(s.id, v.0).is_err(),
                 Err(e) => {
@@ -159,7 +159,7 @@ impl<'a> ThermalControl<'a> {
         // their max temperature; negative means someone is overheating.
         let mut worst_margin = None;
         let mut last_err = None;
-        for s in self.inputs.iter_mut() {
+        for s in self.inputs {
             let post_is_err = match s.sensor.read_temp() {
                 Ok(v) => {
                     let margin = s.max_temp.0 - v.0;

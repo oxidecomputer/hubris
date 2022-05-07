@@ -54,8 +54,8 @@ struct TemperatureSensor {
 }
 
 impl TemperatureSensor {
-    fn read_temp(&mut self) -> Result<Celsius, ResponseCode> {
-        let t = match &mut self.device {
+    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
+        let t = match &self.device {
             Device::Tmp117(dev) => dev.read_temperature()?,
             Device::CPU(dev) => dev.read_temperature()?,
             Device::T6Nic(dev) => dev.read_temperature()?,
