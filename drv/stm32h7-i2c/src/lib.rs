@@ -367,6 +367,11 @@ impl<'a> I2cController<'a> {
                 return Err(drv_i2c_api::ResponseCode::BusReset);
             }
 
+            if isr.berr().is_error() {
+                i2c.icr.write(|w| w.berrcf().set_bit());
+                return Err(drv_i2c_api::ResponseCode::BusError);
+            }
+
             if isr.timeout().is_timeout() {
                 i2c.icr.write(|w| w.timoutcf().set_bit());
                 return Err(drv_i2c_api::ResponseCode::BusLocked);
@@ -454,6 +459,11 @@ impl<'a> I2cController<'a> {
                         return Err(drv_i2c_api::ResponseCode::BusReset);
                     }
 
+                    if isr.berr().is_error() {
+                        i2c.icr.write(|w| w.berrcf().set_bit());
+                        return Err(drv_i2c_api::ResponseCode::BusError);
+                    }
+
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
@@ -490,6 +500,11 @@ impl<'a> I2cController<'a> {
                 if isr.arlo().is_lost() {
                     i2c.icr.write(|w| w.arlocf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
+                if isr.berr().is_error() {
+                    i2c.icr.write(|w| w.berrcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusError);
                 }
 
                 if isr.nackf().is_nack() {
@@ -562,6 +577,11 @@ impl<'a> I2cController<'a> {
                         return Err(drv_i2c_api::ResponseCode::BusReset);
                     }
 
+                    if isr.berr().is_error() {
+                        i2c.icr.write(|w| w.berrcf().set_bit());
+                        return Err(drv_i2c_api::ResponseCode::BusError);
+                    }
+
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
                         return Err(drv_i2c_api::ResponseCode::NoDevice);
@@ -607,6 +627,11 @@ impl<'a> I2cController<'a> {
                 if isr.arlo().is_lost() {
                     i2c.icr.write(|w| w.arlocf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
+                if isr.berr().is_error() {
+                    i2c.icr.write(|w| w.berrcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusError);
                 }
 
                 (ctrl.wfi)(notification);
@@ -685,6 +710,11 @@ impl<'a> I2cController<'a> {
                 if isr.arlo().is_lost() {
                     i2c.icr.write(|w| w.arlocf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::BusReset);
+                }
+
+                if isr.berr().is_error() {
+                    i2c.icr.write(|w| w.berrcf().set_bit());
+                    return Err(drv_i2c_api::ResponseCode::BusError);
                 }
 
                 if isr.tc().is_complete() {
