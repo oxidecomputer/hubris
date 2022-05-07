@@ -400,7 +400,7 @@ refdes = "U522"
 
 [[config.i2c.devices]]
 bus = "mid"
-address = 0x25
+address = 0x26
 device = "tps546b24a"
 description = "A0 3.3V rail"
 pmbus = { rails = [ "V3P3_SYS_A0" ] }
