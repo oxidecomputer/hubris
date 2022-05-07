@@ -2,10 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Fan, FanControl, TemperatureSensor, ThermalError};
+use crate::{bsp::BspT, Fan, FanControl, TemperatureSensor, ThermalError};
 use drv_i2c_api::ResponseCode;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
 use userlib::units::{Celsius, PWMDuty};
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct InputChannel {
     /// Temperature sensor
@@ -113,6 +115,21 @@ pub(crate) struct ThermalControl<'a> {
 }
 
 impl<'a> ThermalControl<'a> {
+    /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
+    /// requires that every BSP has the same internal structure,
+    pub fn new<B: BspT>(bsp: &'a mut B, sensor_api: SensorApi) -> Self {
+        let data = bsp.data();
+        Self {
+            inputs: data.inputs,
+            outputs: OutputFans::new(data.fctrl, data.fans),
+            misc_sensors: data.misc_sensors,
+            sensor_api,
+            hysteresis: Celsius(2.0f32),
+            target_margin: Celsius(2.0f32),
+            target_pwm: 100,
+        }
+    }
+
     /// Reads all temperature and fan RPM sensors, posting their results
     /// to the sensors task API. Returns the worst margin; positive means
     /// all parts are happily below their max temperatures, while negative
@@ -128,19 +145,14 @@ impl<'a> ThermalControl<'a> {
         let mut read_failed = 0;
         let mut post_failed = 0;
         for s in self.misc_sensors.iter_mut() {
-            match s.read_temp() {
-                Ok(v) => {
-                    if self.sensor_api.post(s.id, v.0).is_err() {
-                        post_failed += 1;
-                    }
-                }
+            let post_is_err = match s.read_temp() {
+                Ok(v) => self.sensor_api.post(s.id, v.0).is_err(),
                 Err(e) => {
-                    if self.sensor_api.nodata(s.id, e.into()).is_err() {
-                        post_failed += 1;
-                    }
                     read_failed += 1;
+                    self.sensor_api.nodata(s.id, e.into()).is_err()
                 }
-            }
+            };
+            post_failed += post_is_err as u32;
         }
 
         // Remember, positive margin means that all parts are happily below
@@ -148,24 +160,21 @@ impl<'a> ThermalControl<'a> {
         let mut worst_margin = None;
         let mut last_err = None;
         for s in self.inputs.iter_mut() {
-            match s.sensor.read_temp() {
+            let post_is_err = match s.sensor.read_temp() {
                 Ok(v) => {
-                    if self.sensor_api.post(s.sensor.id, v.0).is_err() {
-                        post_failed += 1;
-                    }
                     let margin = s.max_temp.0 - v.0;
                     worst_margin = Some(match worst_margin {
                         Some(m) => margin.min(m),
                         None => margin,
                     });
+                    self.sensor_api.post(s.sensor.id, v.0).is_err()
                 }
                 Err(e) => {
-                    if self.sensor_api.nodata(s.sensor.id, e.into()).is_err() {
-                        post_failed += 1;
-                    }
                     last_err = Some(e);
+                    self.sensor_api.nodata(s.sensor.id, e.into()).is_err()
                 }
-            }
+            };
+            post_failed += post_is_err as u32;
         }
 
         // TODO: something with post_failed and read_failed
@@ -196,11 +205,10 @@ impl<'a> ThermalControl<'a> {
         if worst_margin >= self.target_margin.0 + self.hysteresis.0 {
             self.target_pwm = self.target_pwm.saturating_sub(1);
         } else if worst_margin < self.target_margin.0 {
-            self.target_pwm += 10;
+            self.target_pwm = (self.target_pwm + 10).min(100);
         } else {
             // Don't modify PWM
         }
-        self.target_pwm = self.target_pwm.clamp(0, 100);
 
         // Send the new RPM to all of our fans
         self.outputs.set_pwm(PWMDuty(self.target_pwm))
