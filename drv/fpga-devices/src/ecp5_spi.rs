@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::ecp5::{Command, Ecp5Impl};
+use super::ecp5::{Command, Ecp5Driver};
 use drv_fpga_api::FpgaError;
 use drv_spi_api::{self as spi_api, SpiDevice, SpiError};
 use drv_stm32xx_sys_api::{self as sys_api, GpioError, Sys};
@@ -13,11 +13,13 @@ use drv_stm32xx_sys_api::{self as sys_api, GpioError, Sys};
 
 pub struct Ecp5UsingSpi {
     pub sys: Sys,
-    pub spi: SpiDevice,
+    pub configuration_port: SpiDevice,
+    pub user_design: SpiDevice,
     pub done: sys_api::PinSet,
     pub init_n: sys_api::PinSet,
     pub program_n: sys_api::PinSet,
-    pub design_reset_n: sys_api::PinSet,
+    pub user_design_reset_n: sys_api::PinSet,
+    pub user_design_reset_duration: u64,
 }
 
 /// Impl Error type, with conversion from GpioError and SpiError.
@@ -62,63 +64,86 @@ impl From<Ecp5UsingSpiError> for FpgaError {
     }
 }
 
-impl Ecp5Impl for Ecp5UsingSpi {
+impl Ecp5Driver for Ecp5UsingSpi {
     type Error = Ecp5UsingSpiError;
 
-    fn program_n(&self) -> Result<bool, Ecp5UsingSpiError> {
+    fn program_n(&self) -> Result<bool, Self::Error> {
         Ok(self.sys.gpio_read(self.program_n)? != 0)
     }
 
-    fn set_program_n(&self, asserted: bool) -> Result<(), Ecp5UsingSpiError> {
+    fn set_program_n(&self, asserted: bool) -> Result<(), Self::Error> {
         Ok(self.sys.gpio_set_to(self.program_n, asserted)?)
     }
 
-    fn init_n(&self) -> Result<bool, Ecp5UsingSpiError> {
+    fn init_n(&self) -> Result<bool, Self::Error> {
         Ok(self.sys.gpio_read(self.init_n)? != 0)
     }
 
-    fn set_init_n(&self, asserted: bool) -> Result<(), Ecp5UsingSpiError> {
+    fn set_init_n(&self, asserted: bool) -> Result<(), Self::Error> {
         Ok(self.sys.gpio_set_to(self.init_n, !asserted)?)
     }
 
-    fn done(&self) -> Result<bool, Ecp5UsingSpiError> {
+    fn done(&self) -> Result<bool, Self::Error> {
         Ok(self.sys.gpio_read(self.done)? != 0)
     }
 
-    fn set_done(&self, asserted: bool) -> Result<(), Ecp5UsingSpiError> {
+    fn set_done(&self, asserted: bool) -> Result<(), Self::Error> {
         Ok(self.sys.gpio_set_to(self.done, asserted)?)
     }
 
-    fn application_reset_n(&self) -> Result<bool, Self::Error> {
-        Ok(self.sys.gpio_read(self.design_reset_n)? != 0)
+    fn user_design_reset_n(&self) -> Result<bool, Self::Error> {
+        Ok(self.sys.gpio_read(self.user_design_reset_n)? != 0)
     }
 
-    fn set_application_reset_n(
+    fn set_user_design_reset_n(
         &self,
         asserted: bool,
     ) -> Result<(), Self::Error> {
-        Ok(self.sys.gpio_set_to(self.design_reset_n, asserted)?)
+        Ok(self.sys.gpio_set_to(self.user_design_reset_n, asserted)?)
     }
 
-    fn write_command(&self, c: Command) -> Result<(), Ecp5UsingSpiError> {
+    fn user_design_reset_duration(&self) -> u64 {
+        self.user_design_reset_duration
+    }
+
+    fn configuration_read(&self, data: &mut [u8]) -> Result<(), Self::Error> {
+        Ok(self.configuration_port.read(data)?)
+    }
+
+    fn configuration_write(&self, data: &[u8]) -> Result<(), Self::Error> {
+        Ok(self.configuration_port.write(data)?)
+    }
+
+    fn configuration_write_command(
+        &self,
+        c: Command,
+    ) -> Result<(), Self::Error> {
         let buffer: [u8; 4] = [c as u8, 0, 0, 0];
-        Ok(self.spi.write(&buffer)?)
+        Ok(self.configuration_port.write(&buffer)?)
     }
 
-    fn read(&self, b: &mut [u8]) -> Result<(), Ecp5UsingSpiError> {
-        Ok(self.spi.read(b)?)
+    fn configuration_lock(&self) -> Result<(), Self::Error> {
+        Ok(self.configuration_port.lock(spi_api::CsState::Asserted)?)
     }
 
-    fn write(&self, b: &[u8]) -> Result<(), Ecp5UsingSpiError> {
-        Ok(self.spi.write(b)?)
+    fn configuration_release(&self) -> Result<(), Self::Error> {
+        Ok(self.configuration_port.release()?)
     }
 
-    fn lock(&self) -> Result<(), Ecp5UsingSpiError> {
-        Ok(self.spi.lock(spi_api::CsState::Asserted)?)
+    fn user_design_read(&self, data: &mut [u8]) -> Result<(), Self::Error> {
+        Ok(self.user_design.read(data)?)
     }
 
-    fn release(&self) -> Result<(), Ecp5UsingSpiError> {
-        Ok(self.spi.release()?)
+    fn user_design_write(&self, data: &[u8]) -> Result<(), Self::Error> {
+        Ok(self.user_design.write(data)?)
+    }
+
+    fn user_design_lock(&self) -> Result<(), Self::Error> {
+        Ok(self.user_design.lock(spi_api::CsState::Asserted)?)
+    }
+
+    fn user_design_release(&self) -> Result<(), Self::Error> {
+        Ok(self.user_design.release()?)
     }
 }
 
@@ -156,10 +181,10 @@ impl Ecp5UsingSpi {
             )
             .unwrap();
 
-        self.sys.gpio_set(self.design_reset_n).unwrap();
+        self.sys.gpio_set(self.user_design_reset_n).unwrap();
         self.sys
             .gpio_configure_output(
-                self.design_reset_n,
+                self.user_design_reset_n,
                 OutputType::OpenDrain,
                 Speed::Low,
                 Pull::None,

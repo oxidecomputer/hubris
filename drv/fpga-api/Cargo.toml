@@ -3,6 +3,9 @@ name = "drv-fpga-api"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+hiffy = []
+
 [dependencies]
 userlib = {path = "../../sys/userlib"}
 drv-spi-api = {path = "../../drv/spi-api"}

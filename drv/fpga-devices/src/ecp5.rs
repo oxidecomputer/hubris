@@ -2,68 +2,38 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::Fpga;
+use crate::{Fpga, FpgaBitstream, FpgaUserDesign};
 use bitfield::bitfield;
+use core::fmt::Debug;
 use drv_fpga_api::{DeviceState, FpgaError};
 use ringbuf::*;
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
 
-/// ECP5 IDCODE values.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
-#[repr(u8)]
+/// ECP5 IDCODE values, found in Table B.5, p. 58, Lattice Semi FPGA-TN-02039-2.0.
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq, AsBytes,
+)]
+#[repr(u32)]
 pub enum Id {
-    Invalid,
-    Lfe5u12,
-    Lfe5u25,
-    Lfe5u45,
-    Lfe5u85,
-    Lfe5um25,
-    Lfe5um45,
-    Lfe5um85,
-    Lfe5um5g25,
-    Lfe5um5g45,
-    Lfe5um5g85,
+    Invalid = 0,
+    Lfe5u12 = 0x21111043,
+    Lfe5u25 = 0x41111043,
+    Lfe5u45 = 0x41112043,
+    Lfe5u85 = 0x41113043,
+    Lfe5um25 = 0x01111043,
+    Lfe5um45 = 0x01112043,
+    Lfe5um85 = 0x01113043,
+    Lfe5um5g25 = 0x81111043,
+    Lfe5um5g45 = 0x81112043,
+    Lfe5um5g85 = 0x81113043,
 }
 
-impl From<u32> for Id {
-    fn from(x: u32) -> Self {
-        match x {
-            0x21111043 => Id::Lfe5u12,
-            0x41111043 => Id::Lfe5u25,
-            0x41112043 => Id::Lfe5u45,
-            0x41113043 => Id::Lfe5u85,
-            0x01111043 => Id::Lfe5um25,
-            0x01112043 => Id::Lfe5um45,
-            0x01113043 => Id::Lfe5um85,
-            0x81111043 => Id::Lfe5um5g25,
-            0x81112043 => Id::Lfe5um5g45,
-            0x81113043 => Id::Lfe5um5g85,
-            _ => Id::Invalid,
-        }
-    }
-}
-
-impl From<Id> for u32 {
-    fn from(id: Id) -> Self {
-        match id {
-            Id::Lfe5u12 => 0x21111043,
-            Id::Lfe5u25 => 0x41111043,
-            Id::Lfe5u45 => 0x41112043,
-            Id::Lfe5u85 => 0x41113043,
-            Id::Lfe5um25 => 0x01111043,
-            Id::Lfe5um45 => 0x01112043,
-            Id::Lfe5um85 => 0x01113043,
-            Id::Lfe5um5g25 => 0x81111043,
-            Id::Lfe5um5g45 => 0x81112043,
-            Id::Lfe5um5g85 => 0x81113043,
-            Id::Invalid => 0,
-        }
-    }
-}
-
-/// Possible bitstream error codes returned by the device.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+/// Possible bitstream error codes returned by the device. These values are
+/// taken from Table 4.2, p. 10, Lattice Semi FPGA-TN-02039-2.0.
+#[derive(
+    Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq, AsBytes,
+)]
 #[repr(u8)]
 pub enum BitstreamError {
     None = 0b000,
@@ -77,6 +47,8 @@ pub enum BitstreamError {
 }
 
 bitfield! {
+    /// The device status register, as found in section 4.2, Table 4.2, p. 10,
+    /// Lattice Semi FPGA-TN-02039-2.0.
     pub struct Status(u32);
     pub transparent_mode, _: 0;
     pub config_target_selection, _: 3, 1;
@@ -109,20 +81,15 @@ bitfield! {
 impl Status {
     /// Decode the bitstream error field.
     pub fn bitstream_error(&self) -> BitstreamError {
-        match self.bse_error_code() {
-            0b001 => BitstreamError::InvalidId,
-            0b010 => BitstreamError::IllegalCommand,
-            0b011 => BitstreamError::CrcMismatch,
-            0b100 => BitstreamError::InvalidPreamble,
-            0b101 => BitstreamError::UserAbort,
-            0b110 => BitstreamError::DataOverflow,
-            0b111 => BitstreamError::SramDataOverflow,
-            _ => BitstreamError::None,
-        }
+        BitstreamError::from_u32(self.bse_error_code())
+            .unwrap_or(BitstreamError::None)
     }
 }
 
 /// Command opcodes which can be sent to the device while in ConfigurationMode.
+/// This is a subset of Table 6.4, p. 32, Lattice Semi FPGA-TN-02039-2.0. The
+/// table header suggests these are opcodes for SPI commands, but they seem to
+/// apply to JTAG as well.
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum Command {
@@ -145,21 +112,26 @@ enum Trace {
     Disabled,
     Enabled,
     Command(Command),
-    ReadId(u32, Id),
-    ReadUserCode(u32),
-    ReadStatus(u32),
+    ReadId(Id),
     Read32(Command, u32),
     StandardBitstreamDetected,
     EncryptedBitstreamDetected,
     WriteBitstreamChunk,
     BitstreamError(BitstreamError),
-    ApplicationResetAsserted,
-    ApplicationResetDeasserted,
+    UserDesignResetAsserted,
+    UserDesignResetDeasserted,
+    Lock,
+    Unlock,
 }
 ringbuf!(Trace, 16, Trace::None);
 
-pub trait Ecp5Impl {
-    type Error;
+pub const DEVICE_RESET_DURATION: u64 = 25;
+pub const USER_DESIGN_RESET_DURATION: u64 = 25;
+pub const BUSY_DURATION: u64 = 10;
+pub const DONE_DURATION: u64 = 10;
+
+pub trait Ecp5Driver {
+    type Error: Debug;
 
     /// PROGAM_N interface. This pin acts as a device reset and when asserted
     /// low force to (re)start the bitstream loading process.
@@ -183,41 +155,73 @@ pub trait Ecp5Impl {
     fn done(&self) -> Result<bool, Self::Error>;
     fn set_done(&self, asserted: bool) -> Result<(), Self::Error>;
 
-    /// Application Reset.
-    fn application_reset_n(&self) -> Result<bool, Self::Error>;
-    fn set_application_reset_n(
+    /// A generic interface to send commands and read/write data from a
+    /// configuration port. This interface is intended to be somewhat transport
+    /// agnostic so either SPI or JTAG could be implemented if desired.
+    fn configuration_read(&self, data: &mut [u8]) -> Result<(), Self::Error>;
+    fn configuration_write(&self, data: &[u8]) -> Result<(), Self::Error>;
+    fn configuration_write_command(
+        &self,
+        c: Command,
+    ) -> Result<(), Self::Error>;
+
+    /// The configuration interface may exist on a shared medium such as SPI.
+    /// The following primitives allow the upper half of the driver to issue
+    /// atomic commands.
+    ///
+    /// If no lock control of the medium is needed these can be implemented as
+    /// no-op.
+    fn configuration_lock(&self) -> Result<(), Self::Error>;
+    fn configuration_release(&self) -> Result<(), Self::Error>;
+
+    /// User design reset.
+    fn user_design_reset_n(&self) -> Result<bool, Self::Error>;
+    fn set_user_design_reset_n(
         &self,
         asserted: bool,
     ) -> Result<(), Self::Error>;
 
-    /// A generic interface to send commands and read/write data from a
-    /// configuration port. This interface is intended to be somewhat transport
-    /// agnostic so either SPI or JTAG could be implemented if desired.
-    fn write_command(&self, c: Command) -> Result<(), Self::Error>;
-    fn read(&self, buf: &mut [u8]) -> Result<(), Self::Error>;
-    fn write(&self, buf: &[u8]) -> Result<(), Self::Error>;
+    /// Returns the reset duration in ms for the user design.
+    fn user_design_reset_duration(&self) -> u64;
 
-    /// The command interface may exist on a shared medium such as SPI. The
-    /// following primitives allow the upper half of the driver to issue atomic
-    /// commands.
+    /// Read/write the user design.
+    fn user_design_read(&self, data: &mut [u8]) -> Result<(), Self::Error>;
+    fn user_design_write(&self, data: &[u8]) -> Result<(), Self::Error>;
+
+    /// Lock the user design for multiple uninterrupted operations.
     ///
-    /// If no lock control of the medium is needed these can be implemented as
-    /// no-op.
-    fn lock(&self) -> Result<(), Self::Error>;
-    fn release(&self) -> Result<(), Self::Error>;
+    /// Note: the semantics of this are not well defined and need work.
+    fn user_design_lock(&self) -> Result<(), Self::Error>;
+
+    /// Release the lock on the user design held previously.
+    fn user_design_release(&self) -> Result<(), Self::Error>;
 }
 
-/// Newtype wrapping an Impl, allowing the remaining traits to be implemented.
-pub struct Ecp5<ImplT: Ecp5Impl>(ImplT);
+/// Newtype wrapping an Impl reference, allowing the remaining traits to be
+/// implemented.
+pub struct Ecp5<Driver: Ecp5Driver> {
+    driver: Driver,
+}
 
 /// Additional ECP5 methods to help implement high level behavior.
-impl<ImplT: Ecp5Impl> Ecp5<ImplT> {
+impl<Driver: Ecp5Driver> Ecp5<Driver> {
+    /// Allocate a new `Ecp5` device from the given implmenetation.
+    pub fn new(driver: Driver) -> Self {
+        Self { driver }
+    }
+
+    /// Lock (resources in) the driver, returning a lock object which
+    /// automatically releases the driver when dropped.
+    fn lock(&self) -> Result<Ecp5Lock<Driver>, Driver::Error> {
+        self.driver.configuration_lock()?;
+        ringbuf_entry!(Trace::Lock);
+        Ok(Ecp5Lock(&self.driver))
+    }
+
     /// Send a command to the device which does not return or require additional
     /// data. FPGA-TN-02039-2.0, 6.2.5 refers to this as a Class C command.
-    pub fn send_command(&self, c: Command) -> Result<(), ImplT::Error> {
-        self.0.lock()?;
-        self.0.write_command(c)?;
-        self.0.release()?;
+    pub fn send_command(&self, c: Command) -> Result<(), Driver::Error> {
+        self.driver.configuration_write_command(c)?;
         ringbuf_entry!(Trace::Command(c));
         Ok(())
     }
@@ -227,97 +231,97 @@ impl<ImplT: Ecp5Impl> Ecp5<ImplT> {
     pub fn read<T: Default + AsBytes + FromBytes>(
         &self,
         c: Command,
-    ) -> Result<T, ImplT::Error> {
+    ) -> Result<T, Driver::Error> {
         let mut buf = T::default();
 
-        self.0.lock()?;
-        self.0.write_command(c)?;
-        self.0.read(buf.as_bytes_mut())?;
-        self.0.release()?;
+        // Release of the lock happens implicit as we leave this function.
+        let _lock = self.lock()?;
+
+        self.driver.configuration_write_command(c)?;
+        self.driver.configuration_read(buf.as_bytes_mut())?;
 
         Ok(buf)
     }
 
     /// Send a `Command` and read back two bytes of data.
-    pub fn read16(&self, c: Command) -> Result<u16, ImplT::Error> {
+    pub fn read16(&self, c: Command) -> Result<u16, Driver::Error> {
         Ok(u16::from_be(self.read(c)?))
     }
 
     /// Send a `Command` and read back four bytes of data.
-    pub fn read32(&self, c: Command) -> Result<u32, ImplT::Error> {
+    pub fn read32(&self, c: Command) -> Result<u32, Driver::Error> {
         let v = u32::from_be(self.read(c)?);
-
-        match c {
-            Command::ReadId => {
-                ringbuf_entry!(Trace::ReadId(v, Id::from(v)))
-            }
-            Command::ReadStatus => ringbuf_entry!(Trace::ReadStatus(v)),
-            Command::ReadUserCode => ringbuf_entry!(Trace::ReadUserCode(v)),
-            _ => ringbuf_entry!(Trace::Read32(c, v)),
-        }
-
+        ringbuf_entry!(Trace::Read32(c, v));
         Ok(v)
     }
 
     /// Read the Status register
-    pub fn status(&self) -> Result<Status, ImplT::Error> {
-        Ok(Status(self.read32(Command::ReadStatus)?))
+    pub fn status(&self) -> Result<Status, Driver::Error> {
+        self.read32(Command::ReadStatus).map(Status)
     }
 
     /// Enable ConfigurationMode, allowing access to certain configuration
     /// command and the bitstream loading process.
-    pub fn enable_configuration_mode(&self) -> Result<(), ImplT::Error> {
+    pub fn enable_configuration_mode(&self) -> Result<(), Driver::Error> {
         self.send_command(Command::EnableConfigurationMode)
     }
 
     /// Leave ConfigurationMode, disabling access to certaion commands. In
     /// addition, if a bitstream was loaded, this will transition the device to
     /// UserMode.
-    pub fn disable_configuration_mode(&self) -> Result<(), ImplT::Error> {
+    pub fn disable_configuration_mode(&self) -> Result<(), Driver::Error> {
         self.send_command(Command::DisableConfigurationMode)
     }
 
     /// Wait for the device to finish an operation in progress, sleeping for the
     /// given duration between polling events.
-    pub fn await_not_busy(&self, sleep_ticks: u64) -> Result<(), ImplT::Error> {
-        while self.status()?.busy() {
+    pub fn await_not_busy(
+        &self,
+        sleep_ticks: u64,
+    ) -> Result<Status, Driver::Error> {
+        let mut status = self.status()?;
+
+        while status.busy() {
             hl::sleep_for(sleep_ticks);
+            status = self.status()?;
         }
-        Ok(())
+
+        Ok(status)
     }
 
     /// Wait for the DONE flag to go high.
-    pub fn await_done(&self, sleep_ticks: u64) -> Result<(), ImplT::Error> {
-        while !self.status()?.done() {
+    pub fn await_done(&self, sleep_ticks: u64) -> Result<(), Driver::Error> {
+        while !self.driver.done()? {
             hl::sleep_for(sleep_ticks);
         }
         Ok(())
     }
 }
 
-impl<ImplT: Ecp5Impl> From<ImplT> for Ecp5<ImplT> {
-    fn from(i: ImplT) -> Self {
-        Ecp5(i)
+/// A lock type which implements Drop, allowing for automatic resource
+/// management in the lower driver.
+pub struct Ecp5Lock<'a, Driver: Ecp5Driver>(&'a Driver);
+
+impl<Driver: Ecp5Driver> Drop for Ecp5Lock<'_, Driver> {
+    fn drop(&mut self) {
+        ringbuf_entry!(Trace::Unlock);
+        self.0.configuration_release().unwrap();
     }
 }
 
-pub const DEVICE_RESET_DURATION: u64 = 25;
-pub const APPLICATION_RESET_DURATION: u64 = 25;
-pub const BUSY_DURATION: u64 = 10;
-pub const DONE_DURATION: u64 = 10;
-
-/// Implement the FPGA trait for ECP5, allowing the device to be exposed through
-/// the FPGA server.
-impl<ImplT: Ecp5Impl> Fpga for Ecp5<ImplT>
+/// Implement the FPGA trait for ECP5.
+impl<'a, Driver: 'a + Ecp5Driver> Fpga<'a> for Ecp5<Driver>
 where
-    FpgaError: From<<ImplT as Ecp5Impl>::Error>,
+    FpgaError: From<<Driver as Ecp5Driver>::Error>,
 {
+    type Bitstream = Ecp5Bitstream<'a, Driver>;
+
     fn device_enabled(&self) -> Result<bool, FpgaError> {
-        Ok(self.0.program_n()?)
+        Ok(self.driver.program_n()?)
     }
 
-    fn set_device_enable(&mut self, enabled: bool) -> Result<(), FpgaError> {
-        self.0.set_program_n(enabled)?;
+    fn set_device_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
+        self.driver.set_program_n(enabled)?;
         ringbuf_entry!(if enabled {
             Trace::Enabled
         } else {
@@ -326,71 +330,91 @@ where
         Ok(())
     }
 
-    fn reset_device(&mut self, ticks: u64) -> Result<(), FpgaError> {
-        self.set_device_enable(false)?;
-        hl::sleep_for(ticks);
-        self.set_device_enable(true)?;
+    fn reset_device(&self) -> Result<(), FpgaError> {
+        self.set_device_enabled(false)?;
+        hl::sleep_for(DEVICE_RESET_DURATION);
+        self.set_device_enabled(true)?;
         Ok(())
     }
 
     fn device_state(&self) -> Result<DeviceState, FpgaError> {
-        if !self.0.program_n()? {
+        if !self.driver.program_n()? {
             Ok(DeviceState::Disabled)
+        } else if self.driver.done()? {
+            Ok(DeviceState::RunningUserDesign)
+        } else if self.driver.init_n()? {
+            Ok(DeviceState::AwaitingBitstream)
         } else {
-            if self.0.done()? {
-                Ok(DeviceState::RunningApplication)
-            } else {
-                if self.0.init_n()? {
-                    Ok(DeviceState::AwaitingBitstream)
-                } else {
-                    Ok(DeviceState::Error)
-                }
-            }
+            Ok(DeviceState::Error)
         }
     }
 
     fn device_id(&self) -> Result<u32, FpgaError> {
-        Ok(self.read32(Command::ReadId)?)
+        let v = self.read32(Command::ReadId)?;
+        let id = Id::from_u32(v).ok_or(FpgaError::InvalidValue)?;
+        ringbuf_entry!(Trace::ReadId(id));
+        Ok(v)
     }
 
-    fn start_bitstream_load(&mut self) -> Result<(), FpgaError> {
+    fn start_bitstream_load(&'a self) -> Result<Self::Bitstream, FpgaError> {
         // Put device in configuration mode if required.
         if !self.status()?.write_enabled() {
             self.enable_configuration_mode()?;
-        }
 
-        if !self.status()?.write_enabled() {
-            return Err(FpgaError::InvalidState);
+            if !self.status()?.write_enabled() {
+                return Err(FpgaError::InvalidState);
+            }
         }
 
         // Assert the design reset.
-        self.set_application_enable(false)?;
+        self.driver.set_user_design_reset_n(false)?; // Negative asserted.
 
-        self.0.lock()?;
+        // Lock the lower part of the driver in anticipation of writing the
+        // bitstream.
+        let lock = self.lock()?;
+
         // Use the Impl to write the command and leave the device locked for the
         // byte stream to follow.
-        self.0.write_command(Command::BitstreamBurst)?;
+        self.driver
+            .configuration_write_command(Command::BitstreamBurst)?;
         ringbuf_entry!(Trace::Command(Command::BitstreamBurst));
 
-        Ok(())
+        Ok(Ecp5Bitstream {
+            device: self,
+            lock: Some(lock),
+        })
     }
+}
 
-    fn continue_bitstream_load(&mut self, buf: &[u8]) -> Result<(), FpgaError> {
-        self.0.write(buf)?;
+/// An Ecp5Bitstream type.
+pub struct Ecp5Bitstream<'a, Driver: Ecp5Driver> {
+    device: &'a Ecp5<Driver>,
+    lock: Option<Ecp5Lock<'a, Driver>>,
+}
+
+impl<Driver: Ecp5Driver> Drop for Ecp5Bitstream<'_, Driver> {
+    fn drop(&mut self) {
+        self.lock = None
+    }
+}
+
+impl<Driver: Ecp5Driver> FpgaBitstream for Ecp5Bitstream<'_, Driver>
+where
+    FpgaError: From<<Driver as Ecp5Driver>::Error>,
+{
+    fn continue_load(&mut self, buf: &[u8]) -> Result<(), FpgaError> {
+        self.lock.as_ref().unwrap().0.configuration_write(buf)?;
         ringbuf_entry!(Trace::WriteBitstreamChunk);
         Ok(())
     }
 
-    fn finish_bitstream_load(
-        &mut self,
-        application_reset_ticks: u64,
-    ) -> Result<(), FpgaError> {
-        self.0.release()?;
-        self.await_not_busy(BUSY_DURATION)?;
+    fn finish_load(&mut self) -> Result<(), FpgaError> {
+        // Release the locked resources in the driver.
+        self.lock = None;
 
         // Perform climb-out checklist; determine if the bitstream was accepted
         // and the device is ready for wake up.
-        let status = self.status()?;
+        let status = self.device.await_not_busy(BUSY_DURATION)?;
 
         if status.encrypt_preamble_detected() {
             ringbuf_entry!(Trace::EncryptedBitstreamDetected);
@@ -417,37 +441,56 @@ where
         // Unless the port is set to remain enabled through the FAE bits it will
         // be disabled at this point, i.e. performing a read of the ID or Status
         // registers will result in a PortDisabled error.
-        self.disable_configuration_mode()?;
+        self.device.disable_configuration_mode()?;
 
-        self.await_done(DONE_DURATION)?;
+        self.device.await_done(DONE_DURATION)?;
 
-        hl::sleep_for(application_reset_ticks);
-        self.set_application_enable(true)?;
+        hl::sleep_for(self.device.driver.user_design_reset_duration());
+        self.device.driver.set_user_design_reset_n(true)?; // Negative asserted.
 
         Ok(())
     }
+}
 
-    fn application_enabled(&self) -> Result<bool, FpgaError> {
-        Ok(!self.0.application_reset_n()?)
+/// Implement the Fpgauser_design trait for ECP5.
+impl<Driver: Ecp5Driver> FpgaUserDesign for Ecp5<Driver>
+where
+    FpgaError: From<<Driver as Ecp5Driver>::Error>,
+{
+    fn user_design_enabled(&self) -> Result<bool, FpgaError> {
+        Ok(!self.driver.user_design_reset_n()?)
     }
 
-    fn set_application_enable(
-        &mut self,
-        enabled: bool,
-    ) -> Result<(), FpgaError> {
-        self.0.set_application_reset_n(enabled)?;
+    fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
+        self.driver.set_user_design_reset_n(enabled)?;
         ringbuf_entry!(if enabled {
-            Trace::ApplicationResetDeasserted
+            Trace::UserDesignResetDeasserted
         } else {
-            Trace::ApplicationResetAsserted
+            Trace::UserDesignResetAsserted
         });
         Ok(())
     }
 
-    fn reset_application(&mut self, ticks: u64) -> Result<(), FpgaError> {
-        self.set_application_enable(false)?;
-        hl::sleep_for(ticks);
-        self.set_application_enable(true)?;
+    fn reset_user_design(&self) -> Result<(), FpgaError> {
+        self.set_user_design_enabled(false)?;
+        hl::sleep_for(self.driver.user_design_reset_duration());
+        self.set_user_design_enabled(true)?;
         Ok(())
+    }
+
+    fn user_design_read(&self, data: &mut [u8]) -> Result<(), FpgaError> {
+        Ok(self.driver.user_design_read(data)?)
+    }
+
+    fn user_design_write(&self, data: &[u8]) -> Result<(), FpgaError> {
+        Ok(self.driver.user_design_write(data)?)
+    }
+
+    fn user_design_lock(&self) -> Result<(), FpgaError> {
+        Ok(self.driver.user_design_lock()?)
+    }
+
+    fn user_design_release(&self) -> Result<(), FpgaError> {
+        Ok(self.driver.user_design_release()?)
     }
 }

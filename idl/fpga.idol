@@ -10,7 +10,7 @@ Interface(
                 err: CLike("FpgaError"),
             ),
         ),
-        "set_device_enable": (
+        "set_device_enabled": (
             doc: "Enable or disable the FPGA",
             args: {
                 "enabled": "bool",
@@ -75,15 +75,15 @@ Interface(
             ),
         ),
 
-        "application_enabled": (
-            doc: "Return true if the application reset is released, false otherwise",
+        "user_design_enabled": (
+            doc: "Return true if the user design reset is released, false otherwise",
             reply: Result(
                 ok: "bool",
                 err: CLike("FpgaError"),
             ),
         ),
-        "set_application_enable": (
-            doc: "Set the reset state for the application",
+        "set_user_design_enabled": (
+            doc: "Set the reset state for the user_design",
             args: {
                 "enabled": "bool",
             },
@@ -92,15 +92,15 @@ Interface(
                 err: CLike("FpgaError"),
             ),
         ),
-        "reset_application": (
-            doc: "Reset the application",
+        "reset_user_design": (
+            doc: "Reset the user_design",
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),
             ),
         ),
-        "application_read_raw": (
-            doc: "Read N bytes from the application, starting at the given address",
+        "user_design_read": (
+            doc: "Read N bytes from the user design, starting at the given address",
             args: {
                 "addr": "u16",
             },
@@ -112,8 +112,8 @@ Interface(
                 err: CLike("FpgaError"),
             )
         ),
-        "application_write_raw": (
-            doc: "Write N bytes to the application, starting at the given address",
+        "user_design_write": (
+            doc: "Write N bytes to the user design, starting at the given address",
             args: {
                 "op": (
                     type: "WriteOp",
@@ -128,6 +128,22 @@ Interface(
                 ok: "()",
                 err: CLike("FpgaError"),
             )
+        ),
+        "lock": (
+            doc: "Take exclusive control of this FPGA or the user design.",
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
+        ),
+        "release": (
+            doc: "Release a previously acquired lock.",
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            ),
         ),
     },
 )
