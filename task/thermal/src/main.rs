@@ -15,7 +15,10 @@
 mod bsp;
 mod control;
 
-use crate::{bsp::Bsp, control::ThermalControl};
+use crate::{
+    bsp::{Bsp, BspT},
+    control::ThermalControl,
+};
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 pub use drv_i2c_devices::max31790::Fan;
@@ -203,7 +206,7 @@ fn main() -> ! {
     let sensor_api = SensorApi::from(SENSOR.get_task_id());
 
     let mut bsp = Bsp::new(i2c_task);
-    let control = bsp.controller(sensor_api);
+    let control = ThermalControl::new(&mut bsp, sensor_api);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
@@ -214,10 +217,9 @@ fn main() -> ! {
         control,
         deadline,
     };
-    let mut buffer = [0; idl::INCOMING_SIZE];
-
     server.set_mode_manual(PWMDuty(80)).unwrap();
 
+    let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }

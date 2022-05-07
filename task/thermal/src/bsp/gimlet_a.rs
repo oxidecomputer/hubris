@@ -2,7 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{control::InputChannel, Device, FanControl, TemperatureSensor};
+use crate::{
+    bsp::{BspData, BspT},
+    control::InputChannel,
+    Device, FanControl, TemperatureSensor,
+};
 use core::convert::TryFrom;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
@@ -35,15 +39,21 @@ pub(crate) struct Bsp {
     i2c_task: TaskId,
 }
 
-impl Bsp {
-    /// Initializes and returns a handle to the fan controller IC
-    pub fn fctrl(&self) -> FanControl {
+impl BspT for Bsp {
+    fn data(&mut self) -> BspData {
+        // Initializes and build a handle to the fan controller IC
         let fctrl = Max31790::new(&devices::max31790(self.i2c_task)[0]);
         fctrl.initialize().unwrap();
-        FanControl::Max31790(fctrl)
+
+        BspData {
+            inputs: &mut self.inputs,
+            misc_sensors: &mut self.misc_sensors,
+            fans: &self.fans,
+            fctrl: FanControl::Max31790(fctrl),
+        }
     }
 
-    pub fn new(i2c_task: TaskId) -> Self {
+    fn new(i2c_task: TaskId) -> Self {
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
             *f = Some((
