@@ -80,14 +80,22 @@ pub enum ClockSource {
 }
 
 pub fn system_init(config: ClockConfig) -> device::Peripherals {
+    // Use the crate peripheral take mechanism to get peripherals.
+    let cp = cortex_m::Peripherals::take().unwrap();
+    let p = device::Peripherals::take().unwrap();
+
+    system_init_custom(cp, p, config)
+}
+
+pub fn system_init_custom(
+    mut cp: cortex_m::Peripherals,
+    p: device::Peripherals,
+    config: ClockConfig,
+) -> device::Peripherals {
     // Basic RAMs are working, power is stable, and the runtime has initialized
     // static variables.
     //
     // We are running at 64MHz on the HSI oscillator at voltage scale VOS3.
-
-    // Use the crate peripheral take mechanism to get peripherals.
-    let mut cp = cortex_m::Peripherals::take().unwrap();
-    let p = device::Peripherals::take().unwrap();
 
     #[cfg(any(feature = "h743", feature = "h753"))]
     {
