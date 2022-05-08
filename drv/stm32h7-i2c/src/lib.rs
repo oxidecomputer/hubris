@@ -391,6 +391,17 @@ impl<'a> I2cController<'a> {
             let isr = i2c.isr.read();
             ringbuf_entry!(Trace::WaitISR(isr.bits()));
 
+            //
+            // For reasons unclear and unknown, the timeout flag can become
+            // set on an otherwise idle I2C controller (almost as if TIDLE has
+            // been set -- which we explicitly do not do!).  If, when we walk
+            // up to the controller, the timeout flag is set, we clear it and
+            // ignore it -- we know that it's spurious.
+            //
+            if laps == 0 && isr.timeout().is_timeout() {
+                i2c.icr.write(|w| w.timoutcf().set_bit());
+            }
+
             if !isr.busy().is_busy() {
                 break;
             }
