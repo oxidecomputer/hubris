@@ -30,13 +30,45 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> PerfectHashMap<'a, K, V> {
             None
         }
     }
+}
 
-    /// Looks up a value in the table by key, using a linear search.
-    ///
-    /// This is slower than [Self::get] in most cases, but is faster for small
-    /// tables on a system without hardware division.
+////////////////////////////////////////////////////////////////////////////////
+
+pub struct NestedPerfectHashMap<'a, K, V> {
+    pub m: u32,
+    pub g: &'a [u32],
+    pub values: &'a [&'a [(K, V)]],
+}
+
+impl<'a, K: Copy + PerfectHash + PartialEq, V> NestedPerfectHashMap<'a, K, V> {
+    /// Looks up a value in the table by key, returning `None` if the key was
+    /// not stored in the table.
     #[inline(always)]
-    pub fn get_linear(&self, key: K) -> Option<&V> {
-        self.values.iter().find(|v| v.0 == key).map(|v| &v.1)
+    pub fn get(&self, key: K) -> Option<&V> {
+        let i = key.phash(self.m) % self.g.len();
+        let j = key.phash(self.g[i]) % self.values[i].len();
+        if key == self.values[i][j].0 {
+            Some(&self.values[i][j].1)
+        } else {
+            None
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub struct SortedList<'a, K, V> {
+    pub values: &'a [(K, V)],
+}
+
+impl<'a, K: Copy + PerfectHash + PartialEq + Ord, V> SortedList<'a, K, V> {
+    /// Looks up a value in the table by key, returning `None` if the key was
+    /// not stored in the table.
+    #[inline(always)]
+    pub fn get(&self, key: K) -> Option<&V> {
+        self.values
+            .binary_search_by_key(&key, |v| v.0)
+            .ok()
+            .map(|i| &self.values[i].1)
     }
 }
