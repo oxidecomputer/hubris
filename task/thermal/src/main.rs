@@ -43,7 +43,7 @@ enum Device {
     North(Zone, Tmp117),
     South(Zone, Tmp117),
     T6Nic(Tmp451),
-    CPU(SbTsi),
+    CPU(Sbtsi),
 }
 
 struct Sensor {
