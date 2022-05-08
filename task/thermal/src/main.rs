@@ -16,6 +16,7 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp116::*;
+use drv_i2c_devices::tmp451::*;
 use drv_i2c_devices::TempSensor;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_sensor_api as sensor_api;
@@ -41,6 +42,7 @@ enum Zone {
 enum Device {
     North(Zone, Tmp116),
     South(Zone, Tmp116),
+    T6Nic(Tmp451),
     CPU(SbTsi),
 }
 
@@ -68,12 +70,14 @@ impl Sensor {
     fn read_temp(&mut self) -> Result<Celsius, ResponseCode> {
         match &mut self.device {
             Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
+            Device::T6Nic(dev) => temp_read(dev),
             Device::CPU(dev) => temp_read(dev),
         }
     }
 }
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS
+    + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + sensors::NUM_SBTSI_TEMPERATURE_SENSORS;
 
 fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
@@ -127,6 +131,13 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
         Sensor {
             device: Device::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
             id: sensors::SBTSI_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::T6Nic(Tmp451::new(
+                &devices::tmp451(task)[0],
+                Target::Remote,
+            )),
+            id: sensors::TMP451_TEMPERATURE_SENSOR,
         },
     ]
 }

@@ -18,6 +18,7 @@
 //! - [`raa229618`]: RAA229618 power controller
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
+//! - [`tmp451`]: TMP451 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
 
 #![no_std]
@@ -119,4 +120,5 @@ pub mod pct2075;
 pub mod raa229618;
 pub mod sbtsi;
 pub mod tmp116;
+pub mod tmp451;
 pub mod tps546b24a;
