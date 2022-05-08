@@ -168,7 +168,7 @@ impl<'a> ThermalControl<'a> {
         // Remember, positive margin means that all parts are happily below
         // their max temperature; negative means someone is overheating.
         let mut worst_margin = None;
-        let mut last_err = None;
+        let mut last_err = Ok(());
         for s in self.inputs {
             let post_result = match s.sensor.read_temp() {
                 Ok(v) => {
@@ -180,7 +180,7 @@ impl<'a> ThermalControl<'a> {
                     self.sensor_api.post(s.sensor.id, v.0)
                 }
                 Err(e) => {
-                    last_err = Some(e);
+                    last_err = Err(e);
                     self.sensor_api.nodata(s.sensor.id, e.into())
                 }
             };
@@ -191,15 +191,13 @@ impl<'a> ThermalControl<'a> {
 
         // Prioritize returning errors, because they indicate that something is
         // wrong with the sensors that are critical to the control loop.
-        if let Some(err) = last_err {
-            Err(err)
-        } else {
-            // `worst_margin` is assigned whenever `last_err` is unassigned,
-            // so this should not crash.  The exception is if there are
-            // no sensors in `self.inputs`, but that's a pathological case,
-            // so it's fine to crash.
-            Ok(worst_margin.unwrap())
-        }
+        last_err?;
+
+        // `worst_margin` is assigned whenever `last_err` is unassigned,
+        // so this should not crash.  The exception is if there are
+        // no sensors in `self.inputs`, but that's a pathological case,
+        // so it's fine to crash.
+        Ok(worst_margin.unwrap())
     }
 
     /// An extremely simple thermal control loop.
