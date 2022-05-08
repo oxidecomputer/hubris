@@ -380,17 +380,7 @@ fn main() -> ! {
                     let offs = (ndx * spd::MAX_SIZE) + voffs[ndx] as usize;
                     let rbyte = spd_data[offs + page.get().offset()];
 
-                    //
-                    // It is actually our intent to overflow the add (that is,
-                    // when performing a read at offset 0xff, the next read
-                    // should be at offset 0x00), but Rust (rightfully) isn't
-                    // so into that -- so unwrap what we're doing.
-                    //
-                    voffs[ndx] = if voffs[ndx] == u8::MAX {
-                        0
-                    } else {
-                        voffs[ndx] + 1
-                    };
+                    voffs[ndx] = voffs[ndx].wrapping_add(1);
 
                     Some(rbyte)
                 }
