@@ -112,6 +112,9 @@ pub(crate) struct ThermalControl<'a> {
 
     /// Commanded PWM value (0-100) for every output channel
     pub target_pwm: u8,
+
+    pub read_failed_count: u32,
+    pub post_failed_count: u32,
 }
 
 impl<'a> ThermalControl<'a> {
@@ -127,6 +130,8 @@ impl<'a> ThermalControl<'a> {
             hysteresis: Celsius(2.0f32),
             target_margin: Celsius(2.0f32),
             target_pwm: 100,
+            read_failed_count: 0,
+            post_failed_count: 0,
         }
     }
 
@@ -135,6 +140,10 @@ impl<'a> ThermalControl<'a> {
     /// all parts are happily below their max temperatures, while negative
     /// means someone is overheating.
     ///
+    /// Records failed reads to non-controlled sensors and failed posts to the
+    /// sensors task in `self.read_failed_count` and `self.post_failed_count`
+    /// respectively.
+    ///
     /// Returns an error if any of the *controlled* sensors fails to read.
     /// Note that monitored sensors may fail to read and the sensor post
     /// may fail without this returning an error; an error means that the
@@ -142,17 +151,18 @@ impl<'a> ThermalControl<'a> {
     pub fn read_sensors(&mut self) -> Result<f32, ResponseCode> {
         self.outputs.read_fans(&self.sensor_api);
 
-        let mut read_failed = 0;
-        let mut post_failed = 0;
         for s in self.misc_sensors {
-            let post_is_err = match s.read_temp() {
-                Ok(v) => self.sensor_api.post(s.id, v.0).is_err(),
+            let post_result = match s.read_temp() {
+                Ok(v) => self.sensor_api.post(s.id, v.0),
                 Err(e) => {
-                    read_failed += 1;
-                    self.sensor_api.nodata(s.id, e.into()).is_err()
+                    self.read_failed_count =
+                        self.read_failed_count.wrapping_add(1);
+                    self.sensor_api.nodata(s.id, e.into())
                 }
             };
-            post_failed += post_is_err as u32;
+            if post_result.is_err() {
+                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            }
         }
 
         // Remember, positive margin means that all parts are happily below
@@ -160,24 +170,24 @@ impl<'a> ThermalControl<'a> {
         let mut worst_margin = None;
         let mut last_err = None;
         for s in self.inputs {
-            let post_is_err = match s.sensor.read_temp() {
+            let post_result = match s.sensor.read_temp() {
                 Ok(v) => {
                     let margin = s.max_temp.0 - v.0;
                     worst_margin = Some(match worst_margin {
                         Some(m) => margin.min(m),
                         None => margin,
                     });
-                    self.sensor_api.post(s.sensor.id, v.0).is_err()
+                    self.sensor_api.post(s.sensor.id, v.0)
                 }
                 Err(e) => {
                     last_err = Some(e);
-                    self.sensor_api.nodata(s.sensor.id, e.into()).is_err()
+                    self.sensor_api.nodata(s.sensor.id, e.into())
                 }
             };
-            post_failed += post_is_err as u32;
+            if post_result.is_err() {
+                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            }
         }
-
-        // TODO: something with post_failed and read_failed
 
         // Prioritize returning errors, because they indicate that something is
         // wrong with the sensors that are critical to the control loop.
