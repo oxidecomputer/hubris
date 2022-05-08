@@ -15,7 +15,7 @@
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
-use drv_i2c_devices::tmp116::*;
+use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::TempSensor;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_sensor_api as sensor_api;
@@ -39,8 +39,8 @@ enum Zone {
 }
 
 enum Device {
-    North(Zone, Tmp116),
-    South(Zone, Tmp116),
+    North(Zone, Tmp117),
+    South(Zone, Tmp117),
     CPU(Sbtsi),
 }
 
@@ -85,42 +85,42 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
         Sensor {
             device: Device::North(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_northeast(task)),
+                Tmp117::new(&devices::tmp117_northeast(task)),
             ),
             id: sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_north(task)),
+                Tmp117::new(&devices::tmp117_north(task)),
             ),
             id: sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_northwest(task)),
+                Tmp117::new(&devices::tmp117_northwest(task)),
             ),
             id: sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_southeast(task)),
+                Tmp117::new(&devices::tmp117_southeast(task)),
             ),
             id: sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_south(task)),
+                Tmp117::new(&devices::tmp117_south(task)),
             ),
             id: sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_southwest(task)),
+                Tmp117::new(&devices::tmp117_southwest(task)),
             ),
             id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
         },

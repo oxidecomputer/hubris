@@ -94,34 +94,30 @@ macro_rules! pmbus_validate {
     ($device:expr, $dev:ident::$cmd:ident, $expected:ident) => {{
         let mut id = [0u8; 16];
 
-        match $device.read_block::<u8>(
-            $dev::CommandCode::$cmd as u8,
-            &mut id
-        ) {
+        match $device.read_block::<u8>($dev::CommandCode::$cmd as u8, &mut id) {
             Ok(size) => {
-                Ok(size == $expected.len() && id[0..$expected.len()] == $expected)
+                Ok(size == $expected.len()
+                    && id[0..$expected.len()] == $expected)
             }
             Err(code) => Err(Error::BadValidation {
                 cmd: CommandCode::$cmd as u8,
                 code: code,
-            })
+            }),
         }
     }};
 
     ($device:expr, $cmd:ident, $expected:ident) => {{
         let mut id = [0u8; 16];
 
-        match $device.read_block::<u8>(
-            CommandCode::$cmd as u8,
-            &mut id
-        ) {
+        match $device.read_block::<u8>(CommandCode::$cmd as u8, &mut id) {
             Ok(size) => {
-                Ok(size == $expected.len() && id[0..$expected.len()] == $expected)
+                Ok(size == $expected.len()
+                    && id[0..$expected.len()] == $expected)
             }
             Err(code) => Err(Error::BadValidation {
                 cmd: CommandCode::$cmd as u8,
                 code: code,
-            })
+            }),
         }
     }};
 }
@@ -160,5 +156,5 @@ pub mod mcp9808;
 pub mod pct2075;
 pub mod raa229618;
 pub mod sbtsi;
-pub mod tmp116;
+pub mod tmp117;
 pub mod tps546b24a;

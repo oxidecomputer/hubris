@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Driver for the TMP116 temperature sensor
+//! Driver for the TMP117 temperature sensor
 
 use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
@@ -36,7 +36,7 @@ impl From<Error> for ResponseCode {
     }
 }
 
-pub struct Tmp116 {
+pub struct Tmp117 {
     device: I2cDevice,
 }
 
@@ -44,13 +44,13 @@ fn convert(raw: (u8, u8)) -> Celsius {
     Celsius(f32::from(i16::from(raw.0) << 8 | i16::from(raw.1)) / 128.0)
 }
 
-impl core::fmt::Display for Tmp116 {
+impl core::fmt::Display for Tmp117 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tmp116: {}", &self.device)
+        write!(f, "tmp117: {}", &self.device)
     }
 }
 
-impl Tmp116 {
+impl Tmp117 {
     pub fn new(device: &I2cDevice) -> Self {
         Self { device: *device }
     }
@@ -66,9 +66,15 @@ impl Tmp116 {
     }
 }
 
-impl Validate<Error> for Tmp116 {}
+impl Validate<Error> for Tmp117 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let id = Tmp117::new(device).read_reg(Register::DeviceID)?;
 
-impl TempSensor<Error> for Tmp116 {
+        Ok(id.0 == 0x1 && id.1 == 0x17)
+    }
+}
+
+impl TempSensor<Error> for Tmp117 {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {
         Ok(convert(self.read_reg(Register::TempResult)?))
     }
