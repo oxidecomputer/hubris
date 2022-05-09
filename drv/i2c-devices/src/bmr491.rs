@@ -34,6 +34,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
+            Error::BadValidation { code, .. } => code,
             _ => panic!(),
         }
     }
