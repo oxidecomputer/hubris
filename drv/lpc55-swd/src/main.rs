@@ -74,6 +74,7 @@ enum Trace {
     WriteCmd,
     None,
     AckErr(Ack),
+    ParityFail(u32, u16),
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -471,10 +472,12 @@ impl ServerImpl {
         self.spi.send_raw_data(JTAG_MAGIC, true, true, 16);
     }
 
-    fn read_word(&mut self) -> u32 {
+    fn read_word(&mut self) -> Option<u32> {
         let mut result: u32 = 0;
 
         self.io_in();
+
+        let mut parity = 0;
 
         // We need to read exactly 33 bits. We have MOSI disabled so trying to
         // read more results in protocol errors because we can't appropriately
@@ -486,14 +489,21 @@ impl ServerImpl {
                 // we detect a parity error. "Might have to re-issue original read
                 // request or use the RESEND register if a parity or protocol fault"
                 // doesn't give much of a hint...
-                ((self.read_nine_bits() >> 1).reverse_bits() >> 8) as u32
+                let val = self.read_nine_bits();
+                parity = val & 1;
+                ((val >> 1).reverse_bits() >> 8) as u32
             } else {
                 (self.read_byte().reverse_bits()) as u32
             };
             result |= b << (i * 8);
         }
 
-        return result;
+        if result.count_ones() % 2 != (parity as u32) {
+            ringbuf_entry!(Trace::ParityFail(result, parity));
+            None
+        } else {
+            Some(result)
+        }
     }
 
     fn write_word(&mut self, val: u32) {
@@ -543,7 +553,11 @@ impl ServerImpl {
             // for the required turnaround bit!
             self.swd_finish();
 
-            return Ok(ret);
+            if let Some(v) = ret {
+                return Ok(v);
+            } else {
+                return Err(Ack::Fault);
+            }
         }
     }
 
