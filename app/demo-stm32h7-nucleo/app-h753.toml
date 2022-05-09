@@ -1,7 +1,7 @@
 name = "demo-stm32h753-nucleo"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h753zi"
-chip = "../../chips/stm32h7.toml"
+chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]

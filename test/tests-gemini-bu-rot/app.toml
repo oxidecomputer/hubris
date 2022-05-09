@@ -1,7 +1,7 @@
 name = "tests-gemini-bu-rot"
 target = "thumbv8m.main-none-eabihf"
 board = "gemini-bu-rot-1"
-chip = "../../chips/lpc55.toml"
+chip = "../../chips/lpc55"
 stacksize = 1400
 
 [kernel]

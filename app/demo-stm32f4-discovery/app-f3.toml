@@ -1,7 +1,7 @@
 name = "demo-stm32f3-discovery"
 target = "thumbv7em-none-eabihf"
 board = "stm32f3-discovery"
-chip = "../../chips/stm32f3.toml"
+chip = "../../chips/stm32f3"
 stacksize = 896
 
 [kernel]

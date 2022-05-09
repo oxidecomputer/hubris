@@ -598,7 +598,7 @@ Did you mean to run `cargo xtask dist`?"
     )?;
     archive.copy(cfg, "app.toml")?;
     if let Some(chip) = &toml.chip {
-        let chip_file = cfg.parent().unwrap().join(chip);
+        let chip_file = cfg.parent().unwrap().join(chip).join("chip.toml");
         let chip_filename =
             chip_file.file_name().unwrap().to_str().unwrap().to_owned();
         archive.copy(chip_file, chip_filename)?;

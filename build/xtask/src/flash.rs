@@ -162,6 +162,7 @@ pub fn config(board: &str) -> anyhow::Result<Option<FlashConfig>> {
 
             Ok(Some(flash))
         }
+        // TODO: make this use the file in `chips/{target}/openocd.cfg`
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1"

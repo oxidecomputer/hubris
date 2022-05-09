@@ -1,4 +1,4 @@
-target extended-remote :3366
+target extended-remote :3333
 
 # print demangled symbols
 set print asm-demangle on
@@ -6,7 +6,9 @@ set print asm-demangle on
 # set backtrace limit to not have infinite backtrace loops
 set backtrace limit 32
 
-# Make GDB aware of semihosting, which costs nothing if you don't use it.
+# detect unhandled exceptions, hard faults and panics
+break HardFault
+
 monitor arm semihosting enable
 
 # Note: Humility is responsible for setting up ITM. The following example
@@ -26,3 +28,6 @@ monitor arm semihosting enable
 # monitor itm port 0 on
 
 load
+
+# start the process but immediately halt the processor
+stepi

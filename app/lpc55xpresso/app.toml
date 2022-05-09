@@ -1,7 +1,7 @@
 name = "lpc55xpresso"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
-chip = "../../chips/lpc55.toml"
+chip = "../../chips/lpc55"
 stacksize = 1024
 secure-separation = true
 

@@ -74,7 +74,7 @@ impl Config {
             if !toml.peripherals.is_empty() {
                 bail!("Cannot specify both chip and peripherals");
             }
-            let chip_file = cfg.parent().unwrap().join(chip);
+            let chip_file = cfg.parent().unwrap().join(chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice(&chip_contents)?
