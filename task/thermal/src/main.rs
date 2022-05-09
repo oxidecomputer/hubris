@@ -45,7 +45,7 @@ enum Device {
     South(Zone, Tmp117),
     T6Nic(Tmp451),
     CPU(Sbtsi),
-    Dimm(Tse2004av),
+    Dimm(Tse2004Av),
 }
 
 struct Sensor {
@@ -144,67 +144,67 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
             id: sensors::TMP451_TEMPERATURE_SENSOR,
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[0])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[0])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[1])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[1])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[2])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[2])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[3])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[3])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[4])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[4])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[5])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[5])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[6])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[6])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[7])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[7])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[8])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[8])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[9])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[9])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[10])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[10])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[11])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[11])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[12])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[12])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[13])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[13])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[14])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[14])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
         },
         Sensor {
-            device: Device::Dimm(Tse2004av::new(&devices::tse2004av(task)[15])),
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[15])),
             id: sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
         },
     ]

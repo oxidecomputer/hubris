@@ -19,7 +19,7 @@ pub enum Register {
     TcritLimit = 0x04,
     AmbientTemp = 0x05,
     ManufacturerId = 0x06,
-    DeviceRevision = 0x07,
+    DeviceIdRevision = 0x07,
 }
 
 #[derive(Debug)]
@@ -35,17 +35,17 @@ impl From<Error> for ResponseCode {
     }
 }
 
-pub struct Tse2004av {
+pub struct Tse2004Av {
     device: I2cDevice,
 }
 
-impl core::fmt::Display for Tse2004av {
+impl core::fmt::Display for Tse2004Av {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "tmp451: {}", &self.device)
     }
 }
 
-impl Tse2004av {
+impl Tse2004Av {
     pub fn new(device: &I2cDevice) -> Self {
         Self { device: *device }
     }
@@ -54,10 +54,11 @@ impl Tse2004av {
         self.device
             .read_reg::<u8, u16>(reg as u8)
             .map_err(|code| Error::BadRegisterRead { reg, code })
+            .map(|b| u16::from_be(b))
     }
 }
 
-impl TempSensor<Error> for Tse2004av {
+impl TempSensor<Error> for Tse2004Av {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {
         let t: u16 = self.read_reg(Register::AmbientTemp)?;
 
@@ -65,7 +66,17 @@ impl TempSensor<Error> for Tse2004av {
         //
         // We shift it so that the sign bit is in the right place, cast it
         // to an i16 to make it signed, then scale it into a float.
-        let t = (u16::from_be(t) << 3) as i16;
+        let t = (t << 3) as i16;
         Ok(Celsius(f32::from(t) * 0.0078125f32))
+    }
+}
+
+impl crate::Validate<Error> for Tse2004Av {
+    fn validate(device: &drv_i2c_api::I2cDevice) -> Result<bool, Error> {
+        let dev = Tse2004Av::new(device);
+        let r = dev.read_reg(Register::DeviceIdRevision)?;
+        // "The upper byte of the Device ID / Revision Register must be 0x22
+        //  for the TSE2004av"  --EE1004 and TSE2004 Device Specifications
+        Ok((r >> 8) == 0x22)
     }
 }
