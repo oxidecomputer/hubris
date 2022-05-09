@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use convert_case::{Case, Casing};
 use indexmap::IndexMap;
 use multimap::MultiMap;
@@ -174,6 +174,9 @@ pub enum Disposition {
 
     /// devices are used, with some used as sensors
     Sensors,
+
+    /// devices are used, but only as validation
+    Validation,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -326,11 +329,11 @@ impl ConfigGenerator {
         let mut s = &mut self.output;
 
         match self.disposition {
-            Disposition::Devices | Disposition::Sensors => {
+            Disposition::Initiator | Disposition::Target => {}
+
+            _ => {
                 panic!("illegal disposition for controller generation");
             }
-
-            Disposition::Initiator | Disposition::Target => {}
         }
 
         writeln!(
@@ -395,11 +398,11 @@ impl ConfigGenerator {
         let mut len = 0;
 
         match self.disposition {
-            Disposition::Devices | Disposition::Sensors => {
+            Disposition::Initiator | Disposition::Target => {}
+
+            _ => {
                 panic!("illegal disposition for pin generation");
             }
-
-            Disposition::Initiator | Disposition::Target => {}
         }
 
         for c in &self.controllers {
@@ -586,11 +589,13 @@ impl ConfigGenerator {
         Ok(())
     }
 
-    fn generate_device(&self, d: &I2cDevice) -> String {
+    fn generate_device(&self, d: &I2cDevice, indent: usize) -> String {
         let controller = match &d.bus {
             Some(bus) => self.buses.get(bus).unwrap().0,
             None => d.controller.unwrap(),
         };
+
+        let indent = format!("{:indent$}", "", indent = indent);
 
         let port = match (&d.bus, &d.port) {
             (Some(_), Some(_)) => {
@@ -643,18 +648,19 @@ impl ConfigGenerator {
 
         format!(
             r##"
-            // {description}
-            I2cDevice::new(task,
-                Controller::I2C{controller},
-                PortIndex({port}),
-                {segment},
-                {address:#x}
-            )"##,
+{indent}// {description}
+{indent}I2cDevice::new(task,
+{indent}    Controller::I2C{controller},
+{indent}    PortIndex({port}),
+{indent}    {segment},
+{indent}    {address:#x}
+{indent})"##,
             description = d.description,
             controller = controller,
             port = port,
             segment = segment,
             address = d.address,
+            indent = indent,
         )
     }
 
@@ -701,7 +707,7 @@ impl ConfigGenerator {
             )?;
 
             for d in devices {
-                let out = self.generate_device(d);
+                let out = self.generate_device(d, 16);
                 write!(&mut self.output, "{},", out)?;
             }
 
@@ -726,7 +732,7 @@ impl ConfigGenerator {
             )?;
 
             for d in devices {
-                let out = self.generate_device(d);
+                let out = self.generate_device(d, 16);
                 write!(&mut self.output, "{},", out)?;
             }
             writeln!(
@@ -747,7 +753,7 @@ impl ConfigGenerator {
                 name.to_lowercase()
             )?;
 
-            let out = self.generate_device(d);
+            let out = self.generate_device(d, 16);
             write!(&mut self.output, "{}", out)?;
 
             writeln!(
@@ -758,6 +764,116 @@ impl ConfigGenerator {
         }
 
         writeln!(&mut self.output, "    }}")?;
+        Ok(())
+    }
+
+    pub fn generate_validation(&mut self) -> Result<()> {
+        write!(
+            &mut self.output,
+            r##"
+    pub mod validation {{
+        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
+        use drv_i2c_devices::Validate;
+        use userlib::TaskId;
+
+        pub enum I2cValidation {{
+            RawReadOk,
+            Good,
+            Bad,
+        }}
+
+"##
+        )?;
+
+        //
+        // Lord, have mercy: we are going to find the crate containing i2c
+        // devices, and go fishing for where we believe the device drivers
+        // themselves to be.  It does not need to be said that this is
+        // operating by convention; there are (many) ways to envision this
+        // breaking -- with apologies, dear reader, if that's what brings you
+        // here!
+        //
+        use cargo_metadata::MetadataCommand;
+
+        let metadata = MetadataCommand::new()
+            .manifest_path("./Cargo.toml")
+            .exec()
+            .unwrap();
+
+        let pkg = metadata
+            .packages
+            .iter()
+            .find(|p| p.name == "drv-i2c-devices")
+            .context("failed to find drv-i2c-devices")?;
+
+        let dir = pkg
+            .manifest_path
+            .parent()
+            .context("failed to get i2c device path")?;
+
+        let mut drivers = std::collections::HashSet::new();
+
+        println!("cargo:rerun-if-changed={}", dir.join("src").display());
+
+        for entry in std::fs::read_dir(dir.join("src"))? {
+            if let Some(f) = entry?.path().file_name() {
+                if let Some(name) = f.to_str().unwrap().strip_suffix(".rs") {
+                    drivers.insert(name.to_string());
+                }
+            }
+        }
+
+        drivers.remove("lib");
+
+        write!(
+            &mut self.output,
+            r##"
+        pub fn validate(
+            task: TaskId,
+            index: usize,
+        ) -> Result<I2cValidation, drv_i2c_api::ResponseCode> {{
+            match index {{"##
+        )?;
+
+        for (index, device) in self.devices.iter().enumerate() {
+            if drivers.get(&device.device).is_some() {
+                let driver = device.device.to_case(Case::UpperCamel);
+                let out = self.generate_device(device, 24);
+
+                write!(
+                    &mut self.output,
+                    r##"
+                {} => {{
+                    if drv_i2c_devices::{}::{}::validate(&{})? {{
+                        Ok(I2cValidation::Good)
+                    }} else {{
+                        Ok(I2cValidation::Bad)
+                    }}
+                }}"##,
+                    index, device.device, driver, out
+                )?;
+            } else {
+                let out = self.generate_device(device, 20);
+                write!(
+                    &mut self.output,
+                    r##"
+                {} => {{{}.read::<u8>()?;
+                    Ok(I2cValidation::RawReadOk)
+                }}"##,
+                    index, out
+                )?;
+            }
+        }
+
+        writeln!(
+            &mut self.output,
+            r##"
+                _ => Err(drv_i2c_api::ResponseCode::BadArg)
+            }}
+        }}
+    }}"##
+        )?;
+
         Ok(())
     }
 
@@ -799,7 +915,7 @@ impl ConfigGenerator {
                     rail.to_lowercase(),
                 )?;
 
-                let out = self.generate_device(device);
+                let out = self.generate_device(device, 16);
                 writeln!(&mut self.output, "({}, {})\n        }}", out, index)?;
             }
 
@@ -1036,6 +1152,10 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
             g.generate_devices()?;
             g.generate_pmbus()?;
             g.generate_sensors()?;
+        }
+
+        Disposition::Validation => {
+            g.generate_validation()?;
         }
     }
 

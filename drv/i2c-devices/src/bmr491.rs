@@ -4,7 +4,7 @@
 
 //! Driver for the BMR491 IBC
 
-use crate::{CurrentSensor, TempSensor, VoltageSensor};
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::*;
 use userlib::units::*;
@@ -19,6 +19,7 @@ pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
 }
 
@@ -33,6 +34,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
+            Error::BadValidation { code, .. } => code,
             _ => panic!(),
         }
     }
@@ -60,6 +62,13 @@ impl Bmr491 {
     pub fn read_vout(&mut self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
+    }
+}
+
+impl Validate<Error> for Bmr491 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let expected = [0x46, 0x6c, 0x65, 0x78];
+        pmbus_validate!(device, MFR_ID, expected)
     }
 }
 

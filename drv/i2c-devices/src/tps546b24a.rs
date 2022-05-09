@@ -4,12 +4,12 @@
 
 //! Driver for the TPS546B24A buck converter
 
-use crate::{CurrentSensor, TempSensor, VoltageSensor};
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::*;
 use userlib::units::*;
 
-pub struct Tps546b24a {
+pub struct Tps546B24A {
     device: I2cDevice,
     mode: Option<pmbus::VOutModeCommandData>,
 }
@@ -19,6 +19,7 @@ pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
 }
 
@@ -33,14 +34,15 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
+            Error::BadValidation { code, .. } => code,
             _ => panic!(),
         }
     }
 }
 
-impl Tps546b24a {
+impl Tps546B24A {
     pub fn new(device: &I2cDevice, _rail: u8) -> Self {
-        Tps546b24a {
+        Tps546B24A {
             device: *device,
             mode: None,
         }
@@ -58,21 +60,28 @@ impl Tps546b24a {
     }
 }
 
-impl TempSensor<Error> for Tps546b24a {
+impl Validate<Error> for Tps546B24A {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let expected = [0x54, 0x49, 0x54, 0x6B, 0x24, 0x41];
+        pmbus_validate!(device, IC_DEVICE_ID, expected)
+    }
+}
+
+impl TempSensor<Error> for Tps546B24A {
     fn read_temperature(&mut self) -> Result<Celsius, Error> {
         let temp = pmbus_read!(self.device, tps546b24a::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
-impl CurrentSensor<Error> for Tps546b24a {
+impl CurrentSensor<Error> for Tps546B24A {
     fn read_iout(&mut self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, tps546b24a::READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
     }
 }
 
-impl VoltageSensor<Error> for Tps546b24a {
+impl VoltageSensor<Error> for Tps546B24A {
     fn read_vout(&mut self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, tps546b24a::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))

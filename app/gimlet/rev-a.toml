@@ -225,6 +225,15 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
+[tasks.validate]
+path = "../../task/validate"
+name = "task-validate"
+priority = 3
+requires = {flash = 8192, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"

@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{CurrentSensor, VoltageSensor};
+use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::isl68224::*;
+use pmbus::commands::CommandCode;
 use pmbus::*;
 use userlib::units::*;
 
@@ -25,6 +26,7 @@ pub enum Error {
     BadRead { cmd: u8, code: ResponseCode },
     BadWrite { cmd: u8, code: ResponseCode },
     BadData { cmd: u8 },
+    BadValidation { cmd: u8, code: ResponseCode },
     InvalidData { err: pmbus::Error },
 }
 
@@ -33,6 +35,7 @@ impl From<Error> for ResponseCode {
         match err {
             Error::BadRead { code, .. } => code,
             Error::BadWrite { code, .. } => code,
+            Error::BadValidation { code, .. } => code,
             _ => panic!(),
         }
     }
@@ -81,6 +84,13 @@ impl Isl68224 {
         let mut operation = pmbus_read!(self.device, OPERATION)?;
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
+    }
+}
+
+impl Validate<Error> for Isl68224 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let expected = [0x00, 0x52, 0xd2, 0x49];
+        pmbus_validate!(device, IC_DEVICE_ID, expected)
     }
 }
 

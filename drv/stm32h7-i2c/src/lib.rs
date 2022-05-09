@@ -18,8 +18,14 @@ use stm32h7::stm32h753 as device;
 #[cfg(feature = "h7b3")]
 pub type RegisterBlock = device::i2c3::RegisterBlock;
 
+#[cfg(feature = "h7b3")]
+pub type Isr = device::i2c3::isr::R;
+
 #[cfg(any(feature = "h743", feature = "h753"))]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
+
+#[cfg(any(feature = "h743", feature = "h753"))]
+pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
 pub mod max7358;
@@ -348,6 +354,33 @@ impl<'a> I2cController<'a> {
         i2c.cr1.modify(|_, w| w.pe().set_bit());
     }
 
+    ///
+    /// A common routine to check for errors from the controller.  Note that
+    /// we deliberately return a disjoint error code for each condition.
+    /// Some of these are more recoverable than others -- but all of these
+    /// conditions should generally result in the controller being reset.
+    ///
+    fn check_errors(&self, isr: &Isr) -> Result<(), drv_i2c_api::ResponseCode> {
+        let i2c = self.registers;
+
+        if isr.arlo().is_lost() {
+            i2c.icr.write(|w| w.arlocf().set_bit());
+            return Err(drv_i2c_api::ResponseCode::BusReset);
+        }
+
+        if isr.berr().is_error() {
+            i2c.icr.write(|w| w.berrcf().set_bit());
+            return Err(drv_i2c_api::ResponseCode::BusError);
+        }
+
+        if isr.timeout().is_timeout() {
+            i2c.icr.write(|w| w.timoutcf().set_bit());
+            return Err(drv_i2c_api::ResponseCode::BusLocked);
+        }
+
+        Ok(())
+    }
+
     fn wait_until_notbusy(&self) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
 
@@ -358,19 +391,22 @@ impl<'a> I2cController<'a> {
             let isr = i2c.isr.read();
             ringbuf_entry!(Trace::WaitISR(isr.bits()));
 
+            //
+            // For reasons unclear and unknown, the timeout flag can become
+            // set on an otherwise idle I2C controller (almost as if TIDLE has
+            // been set -- which we explicitly do not do!).  If, when we walk
+            // up to the controller, the timeout flag is set, we clear it and
+            // ignore it -- we know that it's spurious.
+            //
+            if laps == 0 && isr.timeout().is_timeout() {
+                i2c.icr.write(|w| w.timoutcf().set_bit());
+            }
+
             if !isr.busy().is_busy() {
                 break;
             }
 
-            if isr.arlo().is_lost() {
-                i2c.icr.write(|w| w.arlocf().set_bit());
-                return Err(drv_i2c_api::ResponseCode::BusReset);
-            }
-
-            if isr.timeout().is_timeout() {
-                i2c.icr.write(|w| w.timoutcf().set_bit());
-                return Err(drv_i2c_api::ResponseCode::BusLocked);
-            }
+            self.check_errors(&isr)?;
 
             laps += 1;
 
@@ -444,15 +480,7 @@ impl<'a> I2cController<'a> {
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::WriteISR(isr.bits()));
 
-                    if isr.timeout().is_timeout() {
-                        i2c.icr.write(|w| w.timoutcf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::BusLocked);
-                    }
-
-                    if isr.arlo().is_lost() {
-                        i2c.icr.write(|w| w.arlocf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::BusReset);
-                    }
+                    self.check_errors(&isr)?;
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
@@ -482,15 +510,7 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(Trace::WriteWaitISR(isr.bits()));
 
-                if isr.timeout().is_timeout() {
-                    i2c.icr.write(|w| w.timoutcf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusLocked);
-                }
-
-                if isr.arlo().is_lost() {
-                    i2c.icr.write(|w| w.arlocf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusReset);
-                }
+                self.check_errors(&isr)?;
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
@@ -552,15 +572,7 @@ impl<'a> I2cController<'a> {
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::ReadISR(isr.bits()));
 
-                    if isr.timeout().is_timeout() {
-                        i2c.icr.write(|w| w.timoutcf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::BusLocked);
-                    }
-
-                    if isr.arlo().is_lost() {
-                        i2c.icr.write(|w| w.arlocf().set_bit());
-                        return Err(drv_i2c_api::ResponseCode::BusReset);
-                    }
+                    self.check_errors(&isr)?;
 
                     if isr.nackf().is_nack() {
                         i2c.icr.write(|w| w.nackcf().set_bit());
@@ -599,15 +611,7 @@ impl<'a> I2cController<'a> {
                     break;
                 }
 
-                if isr.timeout().is_timeout() {
-                    i2c.icr.write(|w| w.timoutcf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusLocked);
-                }
-
-                if isr.arlo().is_lost() {
-                    i2c.icr.write(|w| w.arlocf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusReset);
-                }
+                self.check_errors(&isr)?;
 
                 (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
@@ -672,19 +676,11 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(Trace::KonamiISR(isr.bits()));
 
-                if isr.timeout().is_timeout() {
-                    i2c.icr.write(|w| w.timoutcf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusLocked);
-                }
+                self.check_errors(&isr)?;
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
                     return Err(drv_i2c_api::ResponseCode::NoRegister);
-                }
-
-                if isr.arlo().is_lost() {
-                    i2c.icr.write(|w| w.arlocf().set_bit());
-                    return Err(drv_i2c_api::ResponseCode::BusReset);
                 }
 
                 if isr.tc().is_complete() {

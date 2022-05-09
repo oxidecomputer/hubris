@@ -4,7 +4,7 @@
 
 //! Driver for the TMP451 temperature sensor
 
-use crate::TempSensor;
+use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -80,6 +80,15 @@ impl Tmp451 {
         self.device
             .read_reg::<u8, u8>(reg as u8)
             .map_err(|code| Error::BadRegisterRead { reg, code })
+    }
+}
+
+impl Validate<Error> for Tmp451 {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let id = Tmp451::new(device, Target::Local)
+            .read_reg(Register::ManufacturerId)?;
+
+        Ok(id == 0x55)
     }
 }
 

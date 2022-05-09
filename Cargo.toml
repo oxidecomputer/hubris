@@ -55,6 +55,8 @@ members = [
     "task/uartecho",
     "task/udpbroadcast",
     "task/udpecho",
+    "task/validate",
+    "task/validate-api",
     "task/vsc7448",
 
     "drv/stm32fx-rcc",
