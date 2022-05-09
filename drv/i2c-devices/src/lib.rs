@@ -20,6 +20,7 @@
 //! - [`tmp116`]: TMP116 temperature sensor
 //! - [`tmp451`]: TMP451 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
+//! - [`tse2004av`]: TSE2004av SPD EEPROM with temperature sensor
 
 #![no_std]
 
@@ -166,3 +167,4 @@ pub mod sbtsi;
 pub mod tmp117;
 pub mod tmp451;
 pub mod tps546b24a;
+pub mod tse2004av;
