@@ -41,7 +41,7 @@ pub struct Tse2004Av {
 
 impl core::fmt::Display for Tse2004Av {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "tmp451: {}", &self.device)
+        write!(f, "TSE2004av: {}", &self.device)
     }
 }
 

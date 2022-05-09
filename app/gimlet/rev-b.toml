@@ -555,145 +555,161 @@ refdes = "U431"
 bus = "mid"
 address = 0x18
 device = "tse2004av"
-name = "A0"
+name = "DIMM_A0"
 description = "DIMM A0"
 sensors = { temperature = 1 }
 refdes = "M0"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x19
 device = "tse2004av"
-name = "A1"
+name = "DIMM_A1"
 description = "DIMM A1"
 sensors = { temperature = 1 }
 refdes = "M8"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1a
 device = "tse2004av"
-name = "B0"
+name = "DIMM_B0"
 description = "DIMM B0"
 sensors = { temperature = 1 }
 refdes = "M1"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1b
 device = "tse2004av"
-name = "B1"
+name = "DIMM_B1"
 description = "DIMM B1"
 sensors = { temperature = 1 }
 refdes = "M9"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1c
 device = "tse2004av"
-name = "C0"
+name = "DIMM_C0"
 description = "DIMM C0"
 sensors = { temperature = 1 }
 refdes = "M2"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1d
 device = "tse2004av"
-name = "C1"
+name = "DIMM_C1"
 description = "DIMM C1"
 sensors = { temperature = 1 }
 refdes = "M10"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1e
 device = "tse2004av"
-name = "D0"
+name = "DIMM_D0"
 description = "DIMM D0"
 sensors = { temperature = 1 }
 refdes = "M3"
+removable = true
 
 [[config.i2c.devices]]
 bus = "mid"
 address = 0x1f
 device = "tse2004av"
-name = "D1"
+name = "DIMM_D1"
 description = "DIMM D1"
 sensors = { temperature = 1 }
 refdes = "M11"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x18
 device = "tse2004av"
-name = "E0"
+name = "DIMM_E0"
 description = "DIMM E0"
 sensors = { temperature = 1 }
 refdes = "M4"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x19
 device = "tse2004av"
-name = "E1"
+name = "DIMM_E1"
 description = "DIMM E1"
 sensors = { temperature = 1 }
 refdes = "M12"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1a
 device = "tse2004av"
-name = "F0"
+name = "DIMM_F0"
 description = "DIMM F0"
 sensors = { temperature = 1 }
 refdes = "M5"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1b
 device = "tse2004av"
-name = "F1"
+name = "DIMM_F1"
 description = "DIMM F1"
 sensors = { temperature = 1 }
 refdes = "M13"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1c
 device = "tse2004av"
-name = "G0"
+name = "DIMM_G0"
 description = "DIMM G0"
 sensors = { temperature = 1 }
 refdes = "M6"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1d
 device = "tse2004av"
-name = "G1"
+name = "DIMM_G1"
 description = "DIMM G1"
 sensors = { temperature = 1 }
 refdes = "M14"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1e
 device = "tse2004av"
-name = "H0"
+name = "DIMM_H0"
 description = "DIMM H0"
 sensors = { temperature = 1 }
 refdes = "M7"
+removable = true
 
 [[config.i2c.devices]]
 bus = "rear"
 address = 0x1f
 device = "tse2004av"
-name = "H1"
+name = "DIMM_H1"
 description = "DIMM H1"
 sensors = { temperature = 1 }
 refdes = "M15"
+removable = true
 
 ################################################################################
 
