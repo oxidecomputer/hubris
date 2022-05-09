@@ -139,11 +139,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         &mut self,
         _: &RecvMessage,
         index: u8,
-        pwm: PWMDuty,
+        pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
         if self.mode != ThermalMode::Manual {
             return Err(ThermalError::NotInManualMode.into());
         }
+        let pwm =
+            PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
         if let Ok(fan) = Fan::try_from(index) {
             self.control
                 .outputs
@@ -157,8 +159,11 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     fn set_mode_manual(
         &mut self,
         _: &RecvMessage,
-        initial_pwm: PWMDuty,
+        initial_pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
+        // Delegate to inner function after doing type conversions
+        let initial_pwm = PWMDuty::try_from(initial_pwm)
+            .map_err(|_| ThermalError::InvalidPWM)?;
         (self as &mut ServerImpl)
             .set_mode_manual(initial_pwm)
             .map_err(Into::into)
@@ -167,9 +172,11 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
     fn set_mode_auto(
         &mut self,
         _: &RecvMessage,
-        initial_pwm: PWMDuty,
+        initial_pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
-        self.mode = ThermalMode::Auto;
+        // Delegate to inner function after doing type conversions
+        let initial_pwm = PWMDuty::try_from(initial_pwm)
+            .map_err(|_| ThermalError::InvalidPWM)?;
         (self as &mut ServerImpl)
             .set_mode_auto(initial_pwm)
             .map_err(Into::into)
@@ -217,7 +224,7 @@ fn main() -> ! {
         control,
         deadline,
     };
-    server.set_mode_manual(PWMDuty(80)).unwrap();
+    server.set_mode_manual(PWMDuty(0)).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
@@ -226,7 +233,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::{PWMDuty, ThermalError};
+    use super::ThermalError;
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
