@@ -1,0 +1,7 @@
+[resets]
+address = 0x4000c000
+size = 32
+
+[sio]
+address = 0xd0000000
+size = 512

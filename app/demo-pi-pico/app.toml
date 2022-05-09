@@ -1,0 +1,89 @@
+name = "demo-pi-pico"
+target = "thumbv6m-none-eabi"
+chip = "../../chips/rp2040.toml"
+board = "pi-pico"
+stacksize = 944
+
+[kernel]
+path = "."
+name = "demo-pi-pico"
+requires = {flash = 12000, ram = 1600}
+features = ["panic-halt"]
+stacksize = 640
+
+[supervisor]
+notification = 1
+
+[outputs.flash]
+address = 0x10000100  # just past the bootloader
+size = 0x1fff00  # 2MiB - 256 bytes
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20000000
+size = 270336
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
+
+[tasks.jefe]
+path = "../../task/jefe"
+name = "task-jefe"
+priority = 0
+requires = {flash = 4096, ram = 512}
+start = true
+features = ["log-null"]
+stacksize = 352
+
+[tasks.sys]
+path = "../../drv/rp2040-sys"
+name = "drv-rp2040-sys"
+priority = 1
+requires = {flash = 1024, ram = 256}
+uses = ["resets", "sio"]
+start = true
+stacksize = 256
+
+[tasks.user_leds]
+path = "../../drv/user-leds"
+name = "drv-user-leds"
+features = ["rp2040"]
+priority = 2
+requires = {flash = 1024, ram = 256}
+start = true
+task-slots = ["sys"]
+stacksize = 256
+
+[tasks.pong]
+path = "../../task/pong"
+name = "task-pong"
+priority = 3
+requires = {flash = 1024, ram = 256}
+start = true
+task-slots = ["user_leds"]
+stacksize = 256
+
+[tasks.ping]
+path = "../../task/ping"
+name = "task-ping"
+priority = 4
+requires = {flash = 4096, ram = 512}
+stacksize = 256
+start = true
+task-slots = [{peer = "pong"}]
+
+#[tasks.hiffy]
+#path = "../../task/hiffy"
+#name = "task-hiffy"
+#priority = 3
+#requires = {flash = 8192, ram = 8192 }
+#start = true
+
+[tasks.idle]
+path = "../../task/idle"
+name = "task-idle"
+priority = 5
+requires = {flash = 128, ram = 64}
+stacksize = 64
+start = true

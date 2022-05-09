@@ -59,7 +59,12 @@ cfg_if::cfg_if! {
         }
     }
     // Target boards with 1 led
-    else if #[cfg(any(target_board = "stm32g031", target_board = "stm32g070", target_board = "stm32g0b1"))] {
+    else if #[cfg(any(
+            target_board = "stm32g031",
+            target_board = "stm32g070",
+            target_board = "stm32g0b1",
+            target_board = "pi-pico",
+    ))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -574,6 +579,59 @@ fn led_toggle(led: Led) {
 
     let pin = led_gpio_num(led);
     gpio_driver.toggle(pin).unwrap();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// The RP2040 specific bits.
+//
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "rp2040")] {
+        task_slot!(SYS, sys);
+
+        // This is really only valid for the Pi Pico.
+        const LED_PIN: u32 = 25;
+    }
+}
+
+#[cfg(feature = "rp2040")]
+fn enable_led_pins() {
+    use drv_rp2040_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    sys.gpio_set_oe_raw(1 << LED_PIN, true);
+}
+
+#[cfg(feature = "rp2040")]
+fn led_on(led: Led) {
+    use drv_rp2040_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    sys.gpio_set_reset(1 << LED_PIN, 0);
+}
+
+#[cfg(feature = "rp2040")]
+fn led_off(led: Led) {
+    use drv_rp2040_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    sys.gpio_set_reset(0, 1 << LED_PIN);
+}
+
+#[cfg(feature = "rp2040")]
+fn led_toggle(led: Led) {
+    use drv_rp2040_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    sys.gpio_toggle(1 << LED_PIN).ok();
 }
 
 mod idl {

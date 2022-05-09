@@ -15,6 +15,7 @@ drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", optional = true}
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api", optional = true}
 cfg-if = "0.1.10"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-rp2040-sys-api = {path = "../rp2040-sys-api", optional = true}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
@@ -25,6 +26,7 @@ stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
 stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
+rp2040 = ["drv-rp2040-sys-api"]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

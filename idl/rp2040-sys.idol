@@ -1,0 +1,59 @@
+// RP2040 "system" IPC API
+
+Interface(
+    name: "Sys",
+    ops: {
+        "enter_reset_raw": (
+            args: {
+                "peripherals": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "leave_reset_raw": (
+            args: {
+                "peripherals": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "gpio_set_oe_raw": (
+            args: {
+                "pins": "u32",
+                "enable": "bool",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "gpio_set_reset": (
+            args: {
+                "set_pins": "u32",
+                "reset_pins": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        //"gpio_configure_raw": (
+        //    args: {
+        //        "pins": "u32",
+        //        "packed_attributes": "u32",
+        //    },
+        //    reply: Simple("()"),
+        //    idempotent: true,
+        //),
+        //"gpio_read_input": (
+        //    args: {},
+        //    reply: Simple("u32"),
+        //    idempotent: true,
+        //),
+        "gpio_toggle": (
+            args: {
+                "pins": "u32",
+            },
+            reply: Result (
+                ok: "()",
+                err: CLike("CantFail"),
+            ),
+        ),
+    },
+)

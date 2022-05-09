@@ -519,6 +519,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76fbd10dce159c002b9c688ae8ab7cd531151e185e0ad360f4bfea3b0eede3a8"
 
 [[package]]
+name = "demo-pi-pico"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-semihosting",
+ "rp2040-boot2",
+ "rp2040-pac",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
@@ -938,6 +953,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-rp2040-sys"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
+ "drv-rp2040-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "rp2040-pac",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-rp2040-sys-api"
+version = "0.1.0"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "cfg-if 1.0.0",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
@@ -1235,6 +1277,7 @@ dependencies = [
  "build-util",
  "cfg-if 0.1.10",
  "drv-lpc55-gpio-api",
+ "drv-rp2040-sys-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
  "idol",
@@ -2377,6 +2420,26 @@ dependencies = [
  "base64",
  "bitflags",
  "serde",
+]
+
+[[package]]
+name = "rp2040-boot2"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b480fe63133f0d639f82ce5a027fee7cac7ac92f67ef1896ee036a6f9737128"
+dependencies = [
+ "crc-any",
+]
+
+[[package]]
+name = "rp2040-pac"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13a6106d5db01c7171a39c1f7696780912db9b42fe7ac722db60069c8904ea7c"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
 ]
 
 [[package]]
