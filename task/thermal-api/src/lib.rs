@@ -7,7 +7,7 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-use userlib::{units::PWMDuty, *};
+use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum ThermalError {

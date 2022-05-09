@@ -5,10 +5,7 @@ Interface(
     ops: {
         "set_mode_manual": (
             args: {
-                "initial_pwm": (
-                    type: "PWMDuty",
-                    recv: FromPrimitive("u8"),
-                ),
+                "initial_pwm": "u8",
             },
             reply: Result(
                 ok: "()",
@@ -17,10 +14,7 @@ Interface(
         ),
         "set_mode_auto": (
             args: {
-                "initial_pwm": (
-                    type: "PWMDuty",
-                    recv: FromPrimitive("u8"),
-                ),
+                "initial_pwm": "u8",
             },
             reply: Result(
                 ok: "()",
@@ -30,10 +24,7 @@ Interface(
         "set_fan_pwm": (
             args: {
                 "index": "u8",
-                "pwm": (
-                    type: "PWMDuty",
-                    recv: FromPrimitive("u8"),
-                ),
+                "pwm": "u8",
             },
             reply: Result(
                 ok: "()",
