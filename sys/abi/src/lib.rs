@@ -238,7 +238,17 @@ bitflags::bitflags! {
 
 /// Newtype wrapper for an interrupt index
 #[derive(
-    Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
+    Copy,
+    Clone,
+    Debug,
+    FromBytes,
+    Serialize,
+    Deserialize,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
 )]
 #[repr(transparent)]
 pub struct InterruptNum(pub u32);
@@ -251,7 +261,17 @@ impl phash::PerfectHash for InterruptNum {
 /// Struct containing the task which waits for an interrupt, and the expected
 /// notification mask associated with the IRQ.
 #[derive(
-    Copy, Clone, Debug, FromBytes, Serialize, Deserialize, Hash, Eq, PartialEq,
+    Copy,
+    Clone,
+    Debug,
+    FromBytes,
+    Serialize,
+    Deserialize,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
 )]
 pub struct InterruptOwner {
     /// Which task to notify, by index.
