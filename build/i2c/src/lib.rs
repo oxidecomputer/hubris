@@ -817,10 +817,8 @@ impl ConfigGenerator {
 
         for entry in std::fs::read_dir(dir.join("src"))? {
             if let Some(f) = entry?.path().file_name() {
-                if let Some(s) = f.to_str() {
-                    if let Some(name) = s.strip_suffix(&".rs") {
-                        drivers.insert(name.to_string());
-                    }
+                if let Some(name) = f.to_str().unwrap().strip_suffix(".rs") {
+                    drivers.insert(name.to_string());
                 }
             }
         }

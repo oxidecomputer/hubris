@@ -337,10 +337,6 @@ impl Validate<ResponseCode> for Max31790 {
         let pwm_13 = Frequency::from_u8(freq.pwm_13());
         let pwm_46 = Frequency::from_u8(freq.pwm_46());
 
-        if let (Some(_), Some(_)) = (pwm_13, pwm_46) {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(pwm_13.is_some() && pwm_46.is_some())
     }
 }

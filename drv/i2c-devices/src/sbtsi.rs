@@ -84,4 +84,13 @@ impl TempSensor<Error> for Sbtsi {
     }
 }
 
-impl Validate<Error> for Sbtsi {}
+impl Validate<Error> for Sbtsi {
+    fn validate(device: &I2cDevice) -> Result<bool, Error> {
+        let sbtsi = Sbtsi::new(device);
+
+        let manufacturer = sbtsi.read_reg(Register::ManId)?;
+        let rev = sbtsi.read_reg(Register::Revision)?;
+
+        Ok(manufacturer == 0x0 && rev == 0x4)
+    }
+}

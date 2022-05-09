@@ -32,7 +32,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -50,7 +50,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -70,7 +70,7 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
         }
@@ -84,7 +84,7 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
         }
@@ -102,7 +102,7 @@ macro_rules! pmbus_validate {
             }
             Err(code) => Err(Error::BadValidation {
                 cmd: CommandCode::$cmd as u8,
-                code: code,
+                code,
             }),
         }
     }};
@@ -117,7 +117,7 @@ macro_rules! pmbus_validate {
             }
             Err(code) => Err(Error::BadValidation {
                 cmd: CommandCode::$cmd as u8,
-                code: code,
+                code,
             }),
         }
     }};
@@ -140,6 +140,12 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
 }
 
 pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    //
+    // We have a default implementation that returns false to allow for
+    // drivers to be a little more easily developed -- but it is expected
+    // that each driver will provide a proper implementation that validates
+    // the device.
+    //
     fn validate(_device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
         Ok(false)
     }
