@@ -38,6 +38,28 @@ Interface(
                 err: CLike("SpCtrlError"),
             ),
         ),
-
+        "read_transaction_start": (
+            doc: "Start a read of sequential bytes",
+            args: {
+                "start": "u32",
+                "end": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
+        "read_transaction": (
+            doc: "Read the next bytes from the programmed transaction",
+            args: {
+            },
+            leases: {
+                "sink": (type: "[u8]", write: true, max_len: Some(4096)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SpCtrlError"),
+            ),
+        ),
     }
 )
