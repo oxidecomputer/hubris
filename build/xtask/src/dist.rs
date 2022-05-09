@@ -639,10 +639,10 @@ Did you mean to run `cargo xtask dist`?"
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    let mut config = crate::flash::config(&toml.board.as_str())?;
-    config.flatten()?;
-
-    archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+    if let Some(mut config) = crate::flash::config(&toml.board.as_str())? {
+        config.flatten()?;
+        archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+    }
 
     archive.finish()?;
 
