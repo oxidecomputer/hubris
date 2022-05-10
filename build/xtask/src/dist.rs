@@ -221,12 +221,6 @@ pub fn package(
             .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
         bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
 
-        let kernel_start = allocs.kernel.get("flash").unwrap().start;
-
-        if kernel_start != bootloader_memory.get("FLASH").unwrap().end {
-            panic!("mismatch between bootloader end and hubris start! check app.toml!");
-        }
-
         generate_bootloader_linker_script(
             "memory.x",
             &bootloader_memory,
