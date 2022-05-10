@@ -19,6 +19,9 @@ pub(crate) struct InputChannel {
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
     power_mode_mask: u32,
+
+    /// If we get `NoDevice` for a removable device, ignore it
+    removable: bool,
 }
 
 impl InputChannel {
@@ -26,11 +29,13 @@ impl InputChannel {
         sensor: TemperatureSensor,
         max_temp: Celsius,
         power_mode_mask: u32,
+        removable: bool,
     ) -> Self {
         Self {
             sensor,
             max_temp,
             power_mode_mask,
+            removable,
         }
     }
 }
@@ -39,7 +44,7 @@ impl InputChannel {
 
 /// The thermal control loop.
 ///
-/// This object stores slices of sensors and fans, which must be owned
+/// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
 pub(crate) struct ThermalControl<'a, B> {
@@ -94,12 +99,15 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     pub fn read_sensors(&mut self) -> Result<Option<f32>, ResponseCode> {
         // Read fan data and log it to the sensors task
         let fctrl = self.bsp.fan_control();
-        for (fan, sensor_id) in self.bsp.fans() {
+        for (i, (fan, sensor_id)) in self.bsp.fans().iter().enumerate() {
             let post_result = match fctrl.fan_rpm(*fan) {
                 Ok(reading) => {
                     self.sensor_api.post(*sensor_id, reading.0.into())
                 }
-                Err(e) => self.sensor_api.nodata(*sensor_id, e.into()),
+                Err(e) => {
+                    ringbuf_entry!(Trace::FanReadFailed(i, e));
+                    self.sensor_api.nodata(*sensor_id, e.into())
+                }
             };
             if post_result.is_err() {
                 self.post_failed_count = self.post_failed_count.wrapping_add(1);
@@ -107,11 +115,11 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
-        for s in self.bsp.misc_sensors() {
+        for (i, s) in self.bsp.misc_sensors().iter().enumerate() {
             let post_result = match s.read_temp() {
                 Ok(v) => self.sensor_api.post(s.id, v.0),
                 Err(e) => {
-                    ringbuf_entry!(Trace::MiscReadFailed(s.device_name(), e));
+                    ringbuf_entry!(Trace::MiscReadFailed(i, e));
                     self.read_failed_count =
                         self.read_failed_count.wrapping_add(1);
                     self.sensor_api.nodata(s.id, e.into())
@@ -127,7 +135,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         let mut worst_margin = None;
         let mut last_err = Ok(());
         let power_mode = self.bsp.power_mode();
-        for s in self.bsp.inputs() {
+        for (i, s) in self.bsp.inputs().iter().enumerate() {
             let post_result = match s.sensor.read_temp() {
                 Ok(v) => {
                     if (s.power_mode_mask & power_mode) != 0 {
@@ -140,12 +148,14 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
                     self.sensor_api.post(s.sensor.id, v.0)
                 }
                 Err(e) => {
-                    if (s.power_mode_mask & power_mode) != 0 {
+                    // Ignore errors if
+                    // a) this sensor shouldn't be on in this power mode, or
+                    // b) the sensor is removable and not present
+                    if (s.power_mode_mask & power_mode) != 0
+                        && !(s.removable && e == ResponseCode::NoDevice)
+                    {
                         last_err = Err(e);
-                        ringbuf_entry!(Trace::SensorReadFailed(
-                            s.sensor.device_name(),
-                            e
-                        ));
+                        ringbuf_entry!(Trace::SensorReadFailed(i, e));
                     }
                     self.sensor_api.nodata(s.sensor.id, e.into())
                 }
@@ -168,8 +178,10 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
     pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        let worst_margin =
-            self.read_sensors().map_err(|_| ThermalError::DeviceError)?;
+        let r = self.read_sensors();
+
+        // If we had a bad sensor reading, increase RPM
+        let worst_margin = r.unwrap_or(None);
 
         // Calculate the desired RPM change based on worst-case sensor.  If
         // all sensors are in a power mode where they aren't monitored, then
@@ -188,7 +200,11 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         }
 
         // Send the new RPM to all of our fans
-        self.set_pwm(PWMDuty(self.target_pwm))
+        ringbuf_entry!(Trace::ControlPwm(self.target_pwm));
+        self.set_pwm(PWMDuty(self.target_pwm))?;
+
+        r.map_err(|_| ThermalError::DeviceError)?;
+        Ok(())
     }
 
     /// Resets internal controller state, using the new PWM as the current

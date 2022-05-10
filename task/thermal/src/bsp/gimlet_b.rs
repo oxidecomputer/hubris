@@ -114,6 +114,7 @@ impl BspT for Bsp {
                     },
                     Celsius(80f32),
                     POWER_STATE_A0,
+                    false,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -125,6 +126,7 @@ impl BspT for Bsp {
                     },
                     Celsius(80f32),
                     POWER_STATE_A0,
+                    false,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -135,6 +137,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -145,6 +148,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -155,6 +159,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -165,6 +170,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -175,6 +181,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -185,6 +192,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -195,6 +203,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -205,6 +214,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -215,6 +225,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -225,6 +236,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -235,6 +247,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -245,6 +258,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -255,6 +269,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -265,6 +280,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -275,6 +291,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -285,6 +302,7 @@ impl BspT for Bsp {
                     },
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
+                    true,
                 ),
             ],
 

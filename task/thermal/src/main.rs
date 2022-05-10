@@ -42,8 +42,10 @@ task_slot!(SENSOR, sensor);
 enum Trace {
     None,
     ThermalMode(ThermalMode),
-    MiscReadFailed(&'static str, ResponseCode),
-    SensorReadFailed(&'static str, ResponseCode),
+    FanReadFailed(usize, ResponseCode),
+    MiscReadFailed(usize, ResponseCode),
+    SensorReadFailed(usize, ResponseCode),
+    ControlPwm(u8),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -72,14 +74,6 @@ impl TemperatureSensor {
             Device::Dimm(dev) => dev.read_temperature()?,
         };
         Ok(t)
-    }
-    fn device_name(&self) -> &'static str {
-        match &self.device {
-            Device::Tmp117(_) => "tmp117",
-            Device::CPU(_) => "cpu",
-            Device::T6Nic(_) => "t6nic",
-            Device::Dimm(_) => "dimm",
-        }
     }
 }
 
