@@ -2,23 +2,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//! BSP for the Gimlet rev A and B hardware
+
 use crate::{
-    bsp::{BspData, BspT},
-    control::InputChannel,
-    Device, FanControl, TemperatureSensor,
+    bsp::BspT, control::InputChannel, Device, FanControl, TemperatureSensor,
 };
 use core::convert::TryFrom;
+use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
 use drv_i2c_devices::tse2004av::*;
 use task_sensor_api::SensorId;
-use userlib::{units::Celsius, TaskId};
+use userlib::{task_slot, units::Celsius, TaskId};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
+
+task_slot!(SEQ, seq);
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
@@ -28,32 +31,54 @@ const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    pub inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
+    inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    pub misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+    misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fans and their respective RPM sensors
-    pub fans: [(Fan, SensorId); NUM_FANS],
+    fans: [(Fan, SensorId); NUM_FANS],
 
-    i2c_task: TaskId,
+    fctrl: FanControl,
+
+    seq: Sequencer,
 }
 
-impl BspT for Bsp {
-    fn data(&self) -> BspData {
-        // Initializes and build a handle to the fan controller IC
-        let fctrl = Max31790::new(&devices::max31790(self.i2c_task)[0]);
-        fctrl.initialize().unwrap();
+// Use bitmasks to determine when sensors should be polled
+const POWER_STATE_A2: u32 = 0b001;
+const POWER_STATE_A0: u32 = 0b010;
 
-        BspData {
-            inputs: &self.inputs,
-            misc_sensors: &self.misc_sensors,
-            fans: &self.fans,
-            fctrl: FanControl::Max31790(fctrl),
+impl BspT for Bsp {
+    fn inputs(&self) -> &[InputChannel] {
+        &self.inputs
+    }
+    fn misc_sensors(&self) -> &[TemperatureSensor] {
+        &self.misc_sensors
+    }
+    fn fans(&self) -> &[(Fan, SensorId)] {
+        &self.fans
+    }
+    fn fan_control(&self) -> &FanControl {
+        &self.fctrl
+    }
+
+    fn power_mode(&self) -> u32 {
+        match self.seq.get_state() {
+            Ok(p) => match p {
+                PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
+                PowerState::A2
+                | PowerState::A2PlusMono
+                | PowerState::A2PlusFans => POWER_STATE_A2,
+            },
+            // If `get_state` failed, then enable all sensors.  One of them
+            // will presumably fail and will drop us into failsafe
+            Err(_) => u32::MAX,
         }
     }
 
     fn new(i2c_task: TaskId) -> Self {
+        // Awkwardly build the fan array, because there's not a great way
+        // to build a fixed-size array from a function
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
             *f = Some((
@@ -63,11 +88,19 @@ impl BspT for Bsp {
         }
         let fans = fans.map(Option::unwrap);
 
-        const MAX_DIMM_TEMP: Celsius = Celsius(80f32);
+        // Initializes and build a handle to the fan controller IC
+        let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
+        fctrl.initialize().unwrap();
 
+        // Handle for the sequencer task, which we check for power state
+        let seq = Sequencer::from(SEQ.get_task_id());
+
+        const MAX_DIMM_TEMP: Celsius = Celsius(80f32);
         Self {
-            // The only inputs used for temperature are the CPU and NIC
-            // temperatures (right now)
+            seq,
+            fans,
+            fctrl: FanControl::Max31790(fctrl),
+
             inputs: [
                 InputChannel::new(
                     TemperatureSensor {
@@ -77,6 +110,7 @@ impl BspT for Bsp {
                         id: sensors::SBTSI_TEMPERATURE_SENSOR,
                     },
                     Celsius(80f32),
+                    POWER_STATE_A0,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -86,7 +120,8 @@ impl BspT for Bsp {
                         )),
                         id: sensors::TMP451_TEMPERATURE_SENSOR,
                     },
-                    MAX_DIMM_TEMP,
+                    Celsius(80f32),
+                    POWER_STATE_A0,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -96,6 +131,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -105,6 +141,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -114,6 +151,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -123,6 +161,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -132,6 +171,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -141,6 +181,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -150,6 +191,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -159,6 +201,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -168,6 +211,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -177,6 +221,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -186,6 +231,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -195,6 +241,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -204,6 +251,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -213,6 +261,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -222,6 +271,7 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {
@@ -231,13 +281,15 @@ impl BspT for Bsp {
                         id: sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
                     },
                     MAX_DIMM_TEMP,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
             ],
 
             // We monitor and log all of the air temperatures
+            //
+            // North and south zones are inverted with respect to one
+            // another on rev A; see Gimlet issue #1302 for details.
             misc_sensors: [
-                // North and south zones are inverted with respect to one
-                // another; see Gimlet issue #1302 for details.
                 TemperatureSensor {
                     device: Device::Tmp117(Tmp117::new(
                         &devices::tmp117_northeast(i2c_task),
@@ -275,9 +327,6 @@ impl BspT for Bsp {
                     id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
                 },
             ],
-
-            fans,
-            i2c_task,
         }
     }
 }

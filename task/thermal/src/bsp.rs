@@ -4,37 +4,44 @@
 
 // We deliberately build every possible BSP here; the linker will strip them,
 // and this prevents us from accidentally introducing breaking changes.
-mod gimlet_a;
-mod gimlet_b;
+mod gimlet_a_b;
 
 // Check that every BSP implements the BspT trait. This also prevents
 // dead code warnings!
 const _: () = {
     fn has_bsp<T: BspT>() {}
     fn assert_bsps() {
-        has_bsp::<gimlet_a::Bsp>();
-        has_bsp::<gimlet_b::Bsp>();
+        has_bsp::<gimlet_a_b::Bsp>();
     }
 };
 
-pub(crate) struct BspData<'a> {
-    pub inputs: &'a [crate::control::InputChannel],
-    pub misc_sensors: &'a [crate::TemperatureSensor],
-    pub fans:
-        &'a [(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)],
-    pub fctrl: crate::FanControl,
-}
-
 pub(crate) trait BspT {
-    fn data(&self) -> BspData;
     fn new(i2c_task: userlib::TaskId) -> Self;
+
+    /// Sensors which are monitored as part of the control loop
+    fn inputs(&self) -> &[crate::control::InputChannel];
+
+    /// Miscellaneous sensors, which are logged into the `sensor` task but
+    /// do not affect the control loop
+    fn misc_sensors(&self) -> &[crate::TemperatureSensor];
+
+    /// Fan output group.  Each `ThermalControl` is limited to a single
+    /// fan control IC, but can choose which fans to control.
+    fn fans(
+        &self,
+    ) -> &[(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)];
+
+    /// Fan control IC
+    fn fan_control(&self) -> &crate::FanControl;
+
+    /// Returns a `u32` with a single bit set that corresponds to a power mode,
+    /// which in turn determines which sensors are active.
+    fn power_mode(&self) -> u32;
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimlet-a")] {
-        pub(crate) use gimlet_a::*;
-    } else if #[cfg(target_board = "gimlet-b")] {
-        pub(crate) use gimlet_b::*;
+    if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
+        pub(crate) use gimlet_a_b::*;
     } else {
         compiler_error!("No BSP for the given board");
     }

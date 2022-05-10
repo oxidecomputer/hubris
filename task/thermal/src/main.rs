@@ -28,6 +28,7 @@ use drv_i2c_devices::{
     sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
 };
 use idol_runtime::{NotificationHandler, RequestError};
+use ringbuf::*;
 use task_thermal_api::{ThermalError, ThermalMode};
 use userlib::units::*;
 use userlib::*;
@@ -36,6 +37,15 @@ use task_sensor_api::{Sensor as SensorApi, SensorId};
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Trace {
+    None,
+    ThermalMode(ThermalMode),
+    MiscReadFailed(&'static str, ResponseCode),
+    SensorReadFailed(&'static str, ResponseCode),
+}
+ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -63,6 +73,14 @@ impl TemperatureSensor {
         };
         Ok(t)
     }
+    fn device_name(&self) -> &'static str {
+        match &self.device {
+            Device::Tmp117(_) => "tmp117",
+            Device::CPU(_) => "cpu",
+            Device::T6Nic(_) => "t6nic",
+            Device::Dimm(_) => "dimm",
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,16 +106,16 @@ impl FanControl {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl<'a> {
+struct ServerImpl<'a, B> {
     mode: ThermalMode,
-    control: ThermalControl<'a>,
+    control: ThermalControl<'a, B>,
     deadline: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
-impl<'a> ServerImpl<'a> {
+impl<'a, B: BspT> ServerImpl<'a, B> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -107,8 +125,8 @@ impl<'a> ServerImpl<'a> {
         &mut self,
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
-        self.mode = ThermalMode::Manual;
-        self.control.outputs.set_pwm(initial_pwm)
+        self.set_mode(ThermalMode::Manual);
+        self.control.set_pwm(initial_pwm)
     }
 
     /// Configures the control loop to run in automatic mode.
@@ -120,21 +138,17 @@ impl<'a> ServerImpl<'a> {
         &mut self,
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
-        self.mode = ThermalMode::Auto;
+        self.set_mode(ThermalMode::Auto);
         self.control.reset(initial_pwm)
     }
 
-    /// Attempt to drop into failsafe mode, with all fans at 100%.
-    ///
-    /// Crashes the task on failure, because there's not much we can do
-    /// for recovery if this fails.
-    fn set_mode_failsafe(&mut self) {
-        self.mode = ThermalMode::Failsafe;
-        self.control.outputs.set_pwm(PWMDuty(100)).unwrap();
+    fn set_mode(&mut self, m: ThermalMode) {
+        self.mode = m;
+        ringbuf_entry!(Trace::ThermalMode(m));
     }
 }
 
-impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
+impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
     fn set_fan_pwm(
         &mut self,
         _: &RecvMessage,
@@ -148,7 +162,6 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
             PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
         if let Ok(fan) = Fan::try_from(index) {
             self.control
-                .outputs
                 .set_fan_pwm(fan, pwm)
                 .map_err(|_| ThermalError::DeviceError.into())
         } else {
@@ -164,7 +177,7 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl)
+        (self as &mut ServerImpl<B>)
             .set_mode_manual(initial_pwm)
             .map_err(Into::into)
     }
@@ -177,13 +190,13 @@ impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        (self as &mut ServerImpl)
+        (self as &mut ServerImpl<B>)
             .set_mode_auto(initial_pwm)
             .map_err(Into::into)
     }
 }
 
-impl<'a> NotificationHandler for ServerImpl<'a> {
+impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
     fn current_notification_mask(&self) -> u32 {
         TIMER_MASK
     }
@@ -194,14 +207,16 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
 
         match self.mode {
             ThermalMode::Auto => {
-                if self.control.run_control().is_err() {
-                    self.set_mode_failsafe();
-                }
+                // TODO: what to do with errors here?
+                self.control.run_control();
             }
-            ThermalMode::Off | ThermalMode::Manual | ThermalMode::Failsafe => {
+            ThermalMode::Manual => {
                 // Ignore read errors, since the control loop isn't actually
                 // running in this mode.
                 let _ = self.control.read_sensors();
+            }
+            ThermalMode::Off => {
+                panic!("Mode must not be 'Off' when server is running")
             }
         }
     }
