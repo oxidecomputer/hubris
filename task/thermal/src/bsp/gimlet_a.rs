@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! BSP for the Gimlet rev A and B hardware
+//! BSP for the Gimlet rev A hardware
+//!
+//! This is identical to the rev B BSP except for the TMP451, which is in
+//! a different power domain.
 
 use crate::{
     bsp::BspT, control::InputChannel, Device, FanControl, TemperatureSensor,
@@ -21,7 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
 
-task_slot!(SEQ, seq);
+task_slot!(SEQ, gimlet_seq);
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
@@ -121,7 +124,7 @@ impl BspT for Bsp {
                         id: sensors::TMP451_TEMPERATURE_SENSOR,
                     },
                     Celsius(80f32),
-                    POWER_STATE_A0,
+                    POWER_STATE_A0 | POWER_STATE_A2,
                 ),
                 InputChannel::new(
                     TemperatureSensor {

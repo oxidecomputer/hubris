@@ -4,14 +4,16 @@
 
 // We deliberately build every possible BSP here; the linker will strip them,
 // and this prevents us from accidentally introducing breaking changes.
-mod gimlet_a_b;
+mod gimlet_a;
+mod gimlet_b;
 
 // Check that every BSP implements the BspT trait. This also prevents
 // dead code warnings!
 const _: () = {
     fn has_bsp<T: BspT>() {}
     fn assert_bsps() {
-        has_bsp::<gimlet_a_b::Bsp>();
+        has_bsp::<gimlet_a::Bsp>();
+        has_bsp::<gimlet_b::Bsp>();
     }
 };
 
@@ -40,8 +42,10 @@ pub(crate) trait BspT {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {
-        pub(crate) use gimlet_a_b::*;
+    if #[cfg(target_board = "gimlet-a")] {
+        pub(crate) use gimlet_a::*;
+    } else if #[cfg(target_board = "gimlet-b")] {
+        pub(crate) use gimlet_b::*;
     } else {
         compiler_error!("No BSP for the given board");
     }
