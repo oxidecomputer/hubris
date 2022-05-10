@@ -40,7 +40,7 @@ size = 0x8000
 
 [outputs.bootloader_flash]
 address = 0x00000000
-size = 0x8000
+size = 0x7000
 
 [outputs.bootloader_ram]
 address = 0x20000000
