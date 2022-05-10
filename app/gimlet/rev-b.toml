@@ -60,7 +60,7 @@ stacksize = 1536
 path = "../../task/net"
 name = "task-net"
 stacksize = 5400
-priority = 2
+priority = 5
 features = ["mgmt", "h753", "gimlet", "h7-vlan"]
 requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -81,7 +81,7 @@ start = true
 [tasks.spi4_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
-priority = 2
+priority = 3
 requires = {flash = 16384, ram = 2048}
 features = ["spi4", "h753"]
 uses = ["spi4"]
@@ -96,7 +96,7 @@ global_config = "spi4"
 [tasks.spi2_driver]
 path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
-priority = 2
+priority = 3
 requires = {flash = 16384, ram = 2048}
 features = ["spi2", "h753"]
 uses = ["spi2"]
@@ -112,7 +112,7 @@ global_config = "spi2"
 path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
-priority = 2
+priority = 3
 requires = {flash = 16384, ram = 2048}
 uses = ["i2c2", "i2c3", "i2c4"]
 start = true
@@ -143,10 +143,10 @@ task-slots = ["sys", "i2c_driver"]
 [tasks.thermal]
 path = "../../task/thermal"
 name = "task-thermal"
-features = ["itm", "h753"]
-priority = 3
-requires = {flash = 16384, ram = 4096 }
-stacksize = 3504
+features = ["itm", "h753", "gimlet"]
+priority = 5
+requires = {flash = 32768, ram = 8192 }
+stacksize = 4504
 start = true
 task-slots = ["i2c_driver", "sensor"]
 
@@ -154,7 +154,7 @@ task-slots = ["i2c_driver", "sensor"]
 path = "../../task/power"
 name = "task-power"
 features = ["itm", "h753"]
-priority = 3
+priority = 6
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
@@ -164,7 +164,7 @@ task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
-priority = 3
+priority = 5
 requires = {flash = 32768, ram = 32768 }
 stacksize = 1024
 start = true
@@ -174,7 +174,7 @@ task-slots = ["sys", "hf", "i2c_driver"]
 path = "../../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
-priority = 3
+priority = 4
 requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
@@ -200,7 +200,7 @@ task-slots = ["sys"]
 path = "../../task/sensor"
 name = "task-sensor"
 features = ["itm"]
-priority = 3
+priority = 4
 requires = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
@@ -208,7 +208,7 @@ start = true
 [tasks.udpecho]
 path = "../../task/udpecho"
 name = "task-udpecho"
-priority = 3
+priority = 6
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -218,7 +218,7 @@ features = ["vlan"]
 [tasks.udpbroadcast]
 path = "../../task/udpbroadcast"
 name = "task-udpbroadcast"
-priority = 3
+priority = 6
 requires = {flash = 16384, ram = 8192}
 stacksize = 2048
 start = true
@@ -228,7 +228,7 @@ features = ["vlan"]
 [tasks.validate]
 path = "../../task/validate"
 name = "task-validate"
-priority = 3
+priority = 5
 requires = {flash = 8192, ram = 4096 }
 stacksize = 1000 
 start = true
@@ -237,7 +237,7 @@ task-slots = ["i2c_driver"]
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-priority = 5
+priority = 7
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
