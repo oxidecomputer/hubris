@@ -52,7 +52,6 @@ root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 [bootloader]
 path = "../../stage0"
 name = "stage0"
-sections = {"flash_hypo" = "flash"}
 # Currently we have the first 0x8000 of flash and first 0x4000 of RAM
 # dedicated for the stage0 bootloader and the rest for Hubris. Once we have
 # multiple images this will need to be adjusted
