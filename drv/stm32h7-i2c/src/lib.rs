@@ -134,6 +134,7 @@ enum Trace {
     AddrNack(u8),
     Rx(u8, u8),
     RxNack(u8, u8),
+    TxNack,
     Tx(u8, u8),
     TxBogus(u8),
     TxOverrun(u8),
@@ -893,6 +894,7 @@ impl<'a> I2cController<'a> {
 
                 if isr.nackf().is_nack() {
                     i2c.icr.write(|w| w.nackcf().set_bit());
+                    ringbuf_entry!(Trace::TxNack);
                     continue 'addrloop;
                 }
 
