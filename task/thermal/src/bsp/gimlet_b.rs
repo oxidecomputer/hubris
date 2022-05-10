@@ -98,7 +98,10 @@ impl BspT for Bsp {
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
 
-        const MAX_DIMM_TEMP: Celsius = Celsius(80f32);
+        const MAX_DIMM_TEMP: Celsius = Celsius(60f32);
+        const MAX_CPU_TEMP: Celsius = Celsius(45f32);
+        const MAX_T6_TEMP: Celsius = Celsius(55f32);
+
         Self {
             seq,
             fans,
@@ -112,7 +115,7 @@ impl BspT for Bsp {
                         )),
                         id: sensors::SBTSI_TEMPERATURE_SENSOR,
                     },
-                    Celsius(80f32),
+                    MAX_CPU_TEMP,
                     POWER_STATE_A0,
                     false,
                 ),
@@ -124,7 +127,7 @@ impl BspT for Bsp {
                         )),
                         id: sensors::TMP451_TEMPERATURE_SENSOR,
                     },
-                    Celsius(80f32),
+                    MAX_T6_TEMP,
                     POWER_STATE_A0,
                     false,
                 ),

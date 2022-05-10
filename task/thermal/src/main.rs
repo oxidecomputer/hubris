@@ -104,10 +104,14 @@ struct ServerImpl<'a, B> {
     mode: ThermalMode,
     control: ThermalControl<'a, B>,
     deadline: u64,
+    counter: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
+
+/// How often to run the control loop, in multiples of TIMER_INTERVAL
+const CONTROL_RATE: u64 = 10;
 
 impl<'a, B: BspT> ServerImpl<'a, B> {
     /// Configures the control loop to run in manual mode, loading the given
@@ -197,12 +201,17 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
 
     fn handle_notification(&mut self, _bits: u32) {
         self.deadline += TIMER_INTERVAL;
+        self.counter += 1;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
 
         match self.mode {
             ThermalMode::Auto => {
-                // TODO: what to do with errors here?
-                self.control.run_control();
+                if self.counter % CONTROL_RATE == 0 {
+                    // TODO: what to do with errors here?
+                    self.control.run_control();
+                } else {
+                    let _ = self.control.read_sensors();
+                }
             }
             ThermalMode::Manual => {
                 // Ignore read errors, since the control loop isn't actually
@@ -232,6 +241,7 @@ fn main() -> ! {
         mode: ThermalMode::Off,
         control,
         deadline,
+        counter: 0,
     };
     server.set_mode_manual(PWMDuty(0)).unwrap();
 
