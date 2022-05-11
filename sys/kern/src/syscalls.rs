@@ -539,6 +539,32 @@ fn borrow_lease(
         return Err(UserError::Recoverable(abi::DEFECT, NextTask::Same));
     }
 
+    borrow_lease_generic(tasks, lender, lease_number, offset)
+}
+
+/// Common utility routine for preparing to access memory described by a task's
+/// lease. It's exposed for use mostly in `kipc`.
+///
+/// `tasks` is the task table. This needs access to the entire task table so
+/// that it can notify the supervisor if someone dies.
+///
+/// `lender` is the index of the task who _produced_ the lease, i.e. the client.
+///
+/// `offset` is provided for convenience: this routine will check that the lease
+/// is large enough to be accessed at `offset`, and will shift the returned
+/// `ULease` to discard `offset` bytes at the start.
+///
+/// This function will deliver faults to `lender` if anything seems awry.
+///
+/// # Panics
+///
+/// If `lender` is out of range for `tasks`.
+pub fn borrow_lease_generic(
+    tasks: &mut [Task],
+    lender: usize,
+    lease_number: usize,
+    offset: usize,
+) -> Result<ULease, UserError> {
     let largs = tasks[lender].save().as_send_args();
     let leases = match largs.lease_table() {
         Ok(t) => t,

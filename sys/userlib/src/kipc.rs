@@ -19,6 +19,27 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
+pub fn read_task_panic_message(task: usize, dest: &mut [u8]) -> &mut [u8] {
+    // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
+    let task = task as u32;
+    let mut response = [0; core::mem::size_of::<u32>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        5,
+        task.as_bytes(),
+        &mut response,
+        &[Lease::write_only(dest)],
+    );
+    if rc == 0 {
+        assert_eq!(len, 4);
+        let n: u32 = ssmarshal::deserialize(&response[..len]).unwrap_lite().0;
+        &mut dest[0..n as usize]
+    } else {
+        // On error, just return an empty buffer.
+        &mut []
+    }
+}
+
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);

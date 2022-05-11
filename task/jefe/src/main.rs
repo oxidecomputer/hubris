@@ -28,6 +28,9 @@
 
 mod external;
 
+#[cfg(feature = "crash-report")]
+mod crash;
+
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -148,6 +151,9 @@ fn main() -> ! {
                     match kipc::read_task_status(i) {
                         abi::TaskState::Faulted { fault, .. } => {
                             if !logged[i] {
+                                #[cfg(feature = "crash-report")]
+                                crate::crash::report_fault(i, &fault);
+
                                 log_fault(i, &fault);
                                 logged[i] = true;
                             }

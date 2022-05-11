@@ -4,7 +4,10 @@
 
 //! Implementation of IPC operations on the virtual kernel task.
 
-use abi::{FaultInfo, SchedState, TaskState, UsageError};
+use abi::{
+    FaultInfo, LeaseAttributes, ReplyFaultReason, SchedState, TaskId,
+    TaskState, UsageError,
+};
 
 use crate::err::UserError;
 use crate::task::{current_id, ArchState, NextTask, Task};
@@ -28,6 +31,12 @@ pub fn handle_kernel_message(
         2 => restart_task(tasks, caller, maybe_message?),
         3 => fault_task(tasks, caller, maybe_message?),
         4 => read_image_id(tasks, caller, maybe_response?),
+        5 => read_task_panic_message(
+            tasks,
+            caller,
+            maybe_message?,
+            maybe_response?,
+        ),
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
@@ -90,6 +99,117 @@ fn read_task_status(
         .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
+}
+
+fn read_task_panic_message(
+    tasks: &mut [Task],
+    caller: usize,
+    message: USlice<u8>,
+    response: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    // Extract the index of the patient and check bounds.
+    let patient: u32 = deserialize_message(&tasks[caller], message)?;
+    let patient = patient as usize;
+    if patient >= tasks.len() {
+        return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::TaskOutOfRange,
+        )));
+    }
+
+    // Is the patient actually waiting at a panic? We'll treat this as
+    // recoverable for the supervisor.
+    match tasks[patient].state() {
+        TaskState::Faulted {
+            fault: FaultInfo::Panic,
+            ..
+        } => {
+            // Looks good!
+        }
+        _ => return Err(UserError::Recoverable(1, NextTask::Same)),
+    }
+
+    // Extract the patient's alleged panic buffer. This can fail with a
+    // UsageError if the slice is totally bogus (e.g. overlaps the end of the
+    // address space). We'll convert this into a return code.
+    let panic_msg = tasks[patient]
+        .save()
+        .as_panic_args()
+        .message()
+        .map_err(|_| UserError::Recoverable(2, NextTask::Same))?;
+
+    // We don't yet know if `panic_msg` is actually legal in the patient's
+    // memory map, but safe_copy below will do that for us.
+
+    // Turning focus to the lease provided by the caller:
+    let lease = match crate::syscalls::borrow_lease_generic(tasks, caller, 0, 0)
+    {
+        Err(UserError::Recoverable(_, wake_hint)) => {
+            // "Recoverable" returned from this function means recoverable to
+            // the _server,_ but it has already faulted the _client._ So,
+            // observe its context switch and move on.
+            return Ok(wake_hint);
+        }
+        Err(UserError::Unrecoverable(fault)) => {
+            // "Unrecoverable" assigns fault to the server, generally because it
+            // is trying to access leases that aren't defined. However, we're
+            // the _kernel,_ and we get to access the lease defined in our ABI
+            // if we want to -- if you call this kipc without the right leases,
+            // that's on you, not the kernel.
+            //
+            // And so, we assign fault to the caller.
+            return Err(UserError::Unrecoverable(fault));
+        }
+        Ok(lease) => lease,
+    };
+
+    // Does this lease grant write permission? It needs to, since the caller
+    // allegedly intends it to receive a panic message.
+    if !lease.attributes.contains(LeaseAttributes::WRITE) {
+        return Err(UserError::Unrecoverable(FaultInfo::FromServer(
+            TaskId::KERNEL,
+            ReplyFaultReason::BadLeases,
+        )));
+    }
+
+    let leased_area = USlice::from(&lease);
+
+    let copy_result =
+        crate::umem::safe_copy(tasks, patient, panic_msg, caller, leased_area);
+    match copy_result {
+        Ok(n) => {
+            // Serialize the panic message length as our response message.
+            // Do it as a u32 so its size is predictable.
+            let msglen = n as u32;
+            let response_len =
+                serialize_response(&mut tasks[caller], response, &msglen)?;
+            tasks[caller]
+                .save_mut()
+                .set_send_response_and_length(0, response_len);
+            Ok(NextTask::Same)
+        }
+        Err(interact_fault) => {
+            // In this case, the "dst" is our caller who wanted to extract the
+            // panic message, and the "src" is the patient. If safe_copy
+            // detected a problem in "dst," we will fault it. However, if it
+            // detected a problem in "src," we're going to _leave src alone_
+            // since it's already dead, and convert that into an error code.
+            //
+            // This is not exactly the logic that's available in the canned
+            // InteractFault::apply_to_dst method, because this is a slightly
+            // weird situation, so we're going to do this by hand.
+            //
+            // First, kill the caller if their destination lease wasn't proper.
+            if let Some(f) = interact_fault.dst {
+                return Err(UserError::Unrecoverable(f));
+            }
+
+            // Now, if they're still alive, report an error at the patient if
+            // relevant. The safe_copy contract says that either src or dst (or
+            // both) is Some, so, we assert that src is some and fail here.
+            uassert!(interact_fault.src.is_some());
+            return Err(UserError::Recoverable(1, NextTask::Same));
+        }
+    }
 }
 
 fn restart_task(
