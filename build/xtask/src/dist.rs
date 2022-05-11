@@ -597,12 +597,11 @@ Did you mean to run `cargo xtask dist`?"
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
     archive.copy(cfg, "app.toml")?;
-    if let Some(chip) = &toml.chip {
-        let chip_file = cfg.parent().unwrap().join(chip).join("chip.toml");
-        let chip_filename =
-            chip_file.file_name().unwrap().to_str().unwrap().to_owned();
-        archive.copy(chip_file, chip_filename)?;
-    }
+    let chip_dir = cfg.parent().unwrap().join(toml.chip);
+    let chip_file = chip_dir.join("chip.toml");
+    let chip_filename =
+        chip_file.file_name().unwrap().to_str().unwrap().to_owned();
+    archive.copy(chip_file, chip_filename)?;
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
@@ -644,15 +643,19 @@ Did you mean to run `cargo xtask dist`?"
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    if let Some(mut config) = crate::flash::config(&toml.board.as_str())? {
+    if let Some(mut config) =
+        crate::flash::config(&toml.board.as_str(), &chip_dir)?
+    {
         config.flatten()?;
         archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
     }
 
     let debug_dir = PathBuf::from("debug");
     archive.copy(out.join("script.gdb"), debug_dir.join("script.gdb"))?;
-    archive.copy(src_dir.join("openocd.cfg"), debug_dir.join("openocd.cfg"))?;
-    archive.copy(src_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
+    archive
+        .copy(chip_dir.join("openocd.cfg"), debug_dir.join("openocd.cfg"))?;
+    archive
+        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
     archive.finish()?;
 
