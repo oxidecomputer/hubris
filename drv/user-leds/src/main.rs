@@ -589,10 +589,17 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "rp2040")] {
         task_slot!(SYS, sys);
 
-        // This is really only valid for the Pi Pico.
-        const LED_PIN: u32 = 25;
+        cfg_if::cfg_if! {
+            if #[cfg(target_board = "pi-pico")] {
+                // This is really only valid for the Pi Pico.
+                const LED_PIN: u32 = 25;
+            } else {
+                compile_error!("unrecognized rp2040 board");
+            }
+        }
     }
 }
+
 
 #[cfg(feature = "rp2040")]
 fn enable_led_pins() {
@@ -605,7 +612,7 @@ fn enable_led_pins() {
 }
 
 #[cfg(feature = "rp2040")]
-fn led_on(led: Led) {
+fn led_on(Led::Zero: Led) {
     use drv_rp2040_sys_api::*;
 
     let sys = SYS.get_task_id();
@@ -615,7 +622,7 @@ fn led_on(led: Led) {
 }
 
 #[cfg(feature = "rp2040")]
-fn led_off(led: Led) {
+fn led_off(Led::Zero: Led) {
     use drv_rp2040_sys_api::*;
 
     let sys = SYS.get_task_id();
@@ -625,7 +632,7 @@ fn led_off(led: Led) {
 }
 
 #[cfg(feature = "rp2040")]
-fn led_toggle(led: Led) {
+fn led_toggle(Led::Zero: Led) {
     use drv_rp2040_sys_api::*;
 
     let sys = SYS.get_task_id();
