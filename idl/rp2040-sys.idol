@@ -33,19 +33,19 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
-        //"gpio_configure_raw": (
-        //    args: {
-        //        "pins": "u32",
-        //        "packed_attributes": "u32",
-        //    },
-        //    reply: Simple("()"),
-        //    idempotent: true,
-        //),
-        //"gpio_read_input": (
-        //    args: {},
-        //    reply: Simple("u32"),
-        //    idempotent: true,
-        //),
+        "gpio_configure_raw": (
+            args: {
+                "pins": "u32",
+                "packed_attributes": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+        "gpio_read_input": (
+            args: {},
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
         "gpio_toggle": (
             args: {
                 "pins": "u32",

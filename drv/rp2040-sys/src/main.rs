@@ -30,9 +30,11 @@ fn main() -> ! {
     sio.gpio_oe_set.write(|w| unsafe { w.bits(1 << 25) });
     sio.gpio_out_set.write(|w| unsafe { w.bits(1 << 25) });
 
+    let io_bank0 = unsafe { &*device::IO_BANK0::ptr() };
+
     // Field messages.
     let mut buffer = [0u8; idl::INCOMING_SIZE];
-    let mut server = ServerImpl { resets, sio };
+    let mut server = ServerImpl { resets, sio, io_bank0 };
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
     }
@@ -41,6 +43,7 @@ fn main() -> ! {
 struct ServerImpl<'a> {
     resets: &'a device::resets::RegisterBlock,
     sio: &'a device::sio::RegisterBlock,
+    io_bank0: &'a device::io_bank0::RegisterBlock,
 }
 
 impl idl::InOrderSysImpl for ServerImpl<'_> {
@@ -139,6 +142,61 @@ impl idl::InOrderSysImpl for ServerImpl<'_> {
 
         Ok(())
     }
+
+    fn gpio_read_input(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<Infallible>> {
+        Ok(self.sio.gpio_in.read().bits())
+    }
+    
+
+    fn gpio_configure_raw(
+        &mut self,
+        _: &RecvMessage,
+        pins: u32,
+        packed: u32,
+    ) -> Result<(), RequestError<Infallible>> {
+        // Each of the fields being written has an enable bit in the IPC
+        // interface, so the caller can write a subset of fields. We're going to
+        // turn that into a register bitmask.
+
+        // Mask out the enables for the 2-bit fields.
+        let enables2_mask = 0b100 << 28
+            | 0b100 << 16
+            | 0b100 << 12
+            | 0b100 << 8;
+        let enables2 = packed & enables2_mask;
+        // Turn it into a collection of two-bit masks, with the enable bits
+        // themselves missing (they are reserved in the register).
+        let mask2 = (enables2 >> 2) * 0b11;
+        // And the _one_ five bit field. Do the same.
+        let enables5 = packed & 0b10_0000;
+        let mask5 = (enables5 >> 5) * 0b1_1111;
+
+        // Cool.
+        let mask = mask5 | mask2;
+        let writebits = packed & mask;
+
+        // We're not being clever with trailing-bits or anything because the M0
+        // doesn't have those instructions.
+        let mut pins = pins;
+        for pin_no in 0..32 {
+            let pin_mask = 1 << pin_no;
+            if pins & pin_mask != 0 {
+                pins &= !pin_mask;
+
+                self.io_bank0.gpio[pin_no].gpio_ctrl.modify(|r, w| unsafe {
+                    w.bits(r.bits() & !mask | writebits)
+                });
+
+                if pins == 0 { break; }
+            }
+        }
+
+        Ok(())
+    }
+
 }
 
 mod idl {
