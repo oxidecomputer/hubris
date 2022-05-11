@@ -51,9 +51,9 @@ dma = true
 path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
-requires = {flash = 8192, ram = 2048}
+requires = {flash = 16384, ram = 4096}
 start = true
-features = ["itm"]
+features = ["itm", "crash-report"]
 stacksize = 1536
 
 [tasks.sys]
