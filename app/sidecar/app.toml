@@ -90,7 +90,7 @@ uses = ["spi3"]
 start = true
 interrupts = {"spi3.irq" = 1}
 stacksize = 1000
-task-slots = ["sys", "gpio_driver"]
+task-slots = ["sys"]
 
 [tasks.spi3_driver.config.spi]
 global_config = "spi3"
