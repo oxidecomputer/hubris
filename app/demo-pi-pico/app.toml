@@ -7,7 +7,7 @@ stacksize = 944
 [kernel]
 path = "."
 name = "demo-pi-pico"
-requires = {flash = 12000, ram = 1600}
+requires = {flash = 12000, ram = 1696}
 features = ["panic-halt"]
 stacksize = 640
 
@@ -73,12 +73,12 @@ stacksize = 256
 start = true
 task-slots = [{peer = "pong"}]
 
-#[tasks.hiffy]
-#path = "../../task/hiffy"
-#name = "task-hiffy"
-#priority = 3
-#requires = {flash = 8192, ram = 8192 }
-#start = true
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+priority = 3
+requires = {flash = 8192, ram = 8192 }
+start = true
 
 [tasks.idle]
 path = "../../task/idle"
