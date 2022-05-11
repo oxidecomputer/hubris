@@ -194,7 +194,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
-task-slots = ["sys", "rcc_driver",
+task-slots = ["sys",
               { spi_driver = "spi2_driver" },
               { seq = "gimlet_seq" }]
 

@@ -90,7 +90,7 @@ uses = ["spi3"]
 start = true
 interrupts = {"spi3.irq" = 1}
 stacksize = 1000
-task-slots = ["sys", "gpio_driver", "rcc_driver"]
+task-slots = ["sys"]
 
 [tasks.spi3_driver.config.spi]
 global_config = "spi3"
@@ -121,7 +121,7 @@ sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
-task-slots = ["sys", "rcc_driver",
+task-slots = ["sys",
               { spi_driver = "spi3_driver" },
               { seq = "sidecar_seq" }]
 
