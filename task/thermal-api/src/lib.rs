@@ -15,6 +15,7 @@ pub enum ThermalError {
     InvalidPWM = 2,
     DeviceError = 3,
     NotInManualMode = 4,
+    NoReading = 5,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]

@@ -99,8 +99,8 @@ impl BspT for Bsp {
         let seq = Sequencer::from(SEQ.get_task_id());
 
         const MAX_DIMM_TEMP: Celsius = Celsius(60f32);
-        const MAX_CPU_TEMP: Celsius = Celsius(45f32);
-        const MAX_T6_TEMP: Celsius = Celsius(55f32);
+        const MAX_CPU_TEMP: Celsius = Celsius(60f32);
+        const MAX_T6_TEMP: Celsius = Celsius(60f32);
 
         Self {
             seq,

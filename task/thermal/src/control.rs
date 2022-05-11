@@ -47,6 +47,25 @@ impl InputChannel {
 /// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
+///
+/// ```
+///         |
+///   HOT   |   Fan speed increases quickly
+///         |
+///         0------ Component margin + target_margin --
+///         |
+///         |   Fan speed increases slowly
+///         |
+///         ------- slow_band -------------------------
+///         |
+///         |   Fan speed remains constant
+///         |
+///         ------- dead_band -------------------------
+///         |
+///   COLD  |   Fan speed decreases slowly
+///         |
+/// ```
+///
 pub(crate) struct ThermalControl<'a, B> {
     /// Reference to board-specific parameters
     bsp: &'a B,
@@ -55,7 +74,10 @@ pub(crate) struct ThermalControl<'a, B> {
     sensor_api: SensorApi,
 
     /// Dead band between increasing and decreasing fan speed
-    hysteresis: Celsius,
+    dead_band: Celsius,
+
+    /// Band where fan speed increases slowly
+    slow_band: Celsius,
 
     /// Target temperature margin. This must be >= 0; as it increases, parts
     /// are kept cooler than their max temperature ratings.
@@ -72,10 +94,14 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
     pub fn new(bsp: &'a B, sensor_api: SensorApi) -> Self {
+        let dead_band = Celsius(2.0f32);
+        let slow_band = Celsius(1.0f32);
+        assert!(dead_band.0 > slow_band.0);
         Self {
             bsp,
             sensor_api,
-            hysteresis: Celsius(2.0f32),
+            dead_band,
+            slow_band,
             target_margin: Celsius(2.0f32),
             target_pwm: 100,
             read_failed_count: 0,
@@ -178,32 +204,28 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
     pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        let r = self.read_sensors();
+        // Ignore errors and missing readings
+        // TODO: handle this better
+        let mut r = self
+            .read_sensors()
+            .map_err(|_| ThermalError::DeviceError)?
+            .ok_or(ThermalError::NoReading)?;
 
-        // If we had a bad sensor reading, increase RPM
-        let worst_margin = r.unwrap_or(None);
-
-        // Calculate the desired RPM change based on worst-case sensor.  If
-        // all sensors are in a power mode where they aren't monitored, then
-        // assume we want the fans to speed up (this shouldn't happen in
-        // production)
-        if worst_margin.is_none()
-            || worst_margin.unwrap() < self.target_margin.0
-        {
+        r -= self.target_margin.0;
+        if r < 0.0f32 {
             self.target_pwm = (self.target_pwm + 10).min(100);
-        } else if worst_margin.unwrap()
-            >= self.target_margin.0 + self.hysteresis.0
-        {
-            self.target_pwm = self.target_pwm.saturating_sub(1);
+        } else if r < self.slow_band.0 {
+            self.target_pwm = (self.target_pwm + 1).min(100);
+        } else if r < self.dead_band.0 {
+            // No change
         } else {
-            // Don't modify PWM
+            self.target_pwm = self.target_pwm.saturating_sub(1);
         }
 
         // Send the new RPM to all of our fans
         ringbuf_entry!(Trace::ControlPwm(self.target_pwm));
         self.set_pwm(PWMDuty(self.target_pwm))?;
 
-        r.map_err(|_| ThermalError::DeviceError)?;
         Ok(())
     }
 
