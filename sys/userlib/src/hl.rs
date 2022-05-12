@@ -633,5 +633,16 @@ pub fn sleep_until(time: u64) {
 /// TODO: once we figure out how to convert between ticks and seconds here, this
 /// needs to take `Duration`.
 pub fn sleep_for(ticks: u64) {
-    sleep_until(sys_get_timer().now + ticks)
+    // By definition, when we observe the kernel time as being some value T, we
+    // are some amount of time into the tick that began at T (the time required
+    // for us to make the observation). This means that some of that tick has
+    // already elapsed. In the extreme case, if we call `sys_get_timer`
+    // immediately before the end of a tick, and add 1 to it, we will not sleep
+    // for 1 tick -- we'll sleep for zero.
+    //
+    // Thus we adjust the duration up by 1. This gets us "at-least" semantics:
+    // `sleep_for(x)` will sleep for at least `x` full ticks. Note that the task
+    // calling `sleep_for` may get woken arbitrarily later if preempted by
+    // higher priority tasks, so at-least is generally the best we can do.
+    sleep_until(sys_get_timer().now + ticks + 1)
 }
