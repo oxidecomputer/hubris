@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
-
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
+use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     config::{
@@ -48,6 +48,10 @@ pub fn package(
     let partial_build = tasks_to_build.is_some();
 
     let toml = Config::from_file(&cfg)?;
+
+    if !partial_build {
+        check_task_priorities(&toml)?;
+    }
 
     let mut out = PathBuf::from("target");
     let buildstamp_file = out.join("buildstamp");
@@ -647,6 +651,43 @@ Did you mean to run `cargo xtask dist`?"
     archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
 
     archive.finish()?;
+
+    Ok(())
+}
+
+/// Prints warning messages about priority inversions
+fn check_task_priorities(toml: &Config) -> Result<()> {
+    let color_choice = if atty::is(atty::Stream::Stderr) {
+        termcolor::ColorChoice::Auto
+    } else {
+        termcolor::ColorChoice::Never
+    };
+    let mut out_stream = termcolor::StandardStream::stderr(color_choice);
+    let out = &mut out_stream;
+
+    for (name, task) in &toml.tasks {
+        for callee in task.task_slots.values() {
+            let p = toml
+                .tasks
+                .get(callee)
+                .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
+                .priority;
+            if p >= task.priority {
+                // TODO: once all priority inversions are fixed, return an
+                // error so no more can be introduced
+                let mut color = ColorSpec::new();
+                color.set_fg(Some(Color::Red));
+                out.set_color(&color)?;
+                write!(out, "Priority inversion: ")?;
+                out.reset()?;
+                writeln!(
+                    out,
+                    "task {} (priority {}) calls into {} (priority {})",
+                    name, task.priority, callee, p
+                )?;
+            }
+        }
+    }
 
     Ok(())
 }
