@@ -213,7 +213,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
 
         r -= self.target_margin.0;
         if r < 0.0f32 {
-            self.target_pwm = (self.target_pwm + 10).min(100);
+            self.target_pwm = (self.target_pwm + 5).min(100);
         } else if r < self.slow_band.0 {
             self.target_pwm = (self.target_pwm + 1).min(100);
         } else if r < self.dead_band.0 {
