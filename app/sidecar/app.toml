@@ -630,7 +630,7 @@ input = {port = "C", pin = 11, af = 6}
 
 [config.spi.spi3.devices.ksz8463]
 mux = "port_c"
-cs = [{port = "A", pin = 4}]
+cs = [{port = "A", pin = 4}, {port = "B", pin = 13}]
 
 
 [config.spi.spi5]

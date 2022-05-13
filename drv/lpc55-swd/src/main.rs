@@ -74,6 +74,7 @@ enum Trace {
     WriteCmd,
     None,
     AckErr(Ack),
+    ParityFail { data: u32, received_parity: u16 },
 }
 
 ringbuf!(Trace, 64, Trace::None);
@@ -132,7 +133,7 @@ enum DpRead {
     IDCode = 0x0,
     Ctrl = 0x4,
     //Resend = 0x8,
-    //Rdbuf = 0xc,
+    Rdbuf = 0xc,
 }
 
 impl DpRead {
@@ -143,6 +144,7 @@ impl DpRead {
         match *self {
             DpRead::IDCode => 0b00,
             DpRead::Ctrl => 0b10,
+            DpRead::Rdbuf => 0b11,
         }
     }
 }
@@ -225,13 +227,67 @@ fn calc_parity(val: u8) -> u8 {
     ((b.count_ones() % 2) as u8) << PARITY_BIT
 }
 
+#[derive(Copy, Clone, PartialEq)]
+struct MemTransaction {
+    total_word_cnt: usize,
+    read_cnt: usize,
+}
+
 struct ServerImpl {
     spi: spi_core::Spi,
     gpio: TaskId,
     init: bool,
+    transaction: Option<MemTransaction>,
 }
 
 impl idl::InOrderSpCtrlImpl for ServerImpl {
+    fn read_transaction_start(
+        &mut self,
+        _: &RecvMessage,
+        start: u32,
+        end: u32,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        if !self.init {
+            return Err(SpCtrlError::NeedInit.into());
+        }
+        self.start_read_transaction(start, ((end - start) as usize) / 4)
+            .map_err(|_| SpCtrlError::Fault.into())
+    }
+
+    fn read_transaction(
+        &mut self,
+        _: &RecvMessage,
+        dest: LenLimit<Leased<W, [u8]>, 4096>,
+    ) -> Result<(), RequestError<SpCtrlError>> {
+        if !self.init {
+            return Err(SpCtrlError::NeedInit.into());
+        }
+
+        let cnt = dest.len();
+        if cnt % 4 != 0 {
+            return Err(SpCtrlError::BadLen.into());
+        }
+        let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
+
+        for _ in 0..cnt / 4 {
+            match self.read_transaction_word() {
+                Ok(r) => {
+                    if let Some(w) = r {
+                        ringbuf_entry!(Trace::MemVal(w));
+                        for b in w.to_le_bytes() {
+                            if buf.write(b).is_err() {
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+                Err(_) => return Err(SpCtrlError::Fault.into()),
+            }
+        }
+
+        Ok(())
+    }
+
     fn read(
         &mut self,
         _: &RecvMessage,
@@ -249,7 +305,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         let mut buf = LeaseBufWriter::<_, 32>::from(dest.into_inner());
 
         for i in 0..cnt / 4 {
-            match self.read_target_addr(addr + ((i * 4) as u32)) {
+            match self.read_single_target_addr(addr + ((i * 4) as u32)) {
                 Ok(r) => {
                     ringbuf_entry!(Trace::MemVal(r));
                     for b in r.to_le_bytes() {
@@ -289,7 +345,7 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
                     None => return Ok(()),
                 };
             }
-            match self.write_target_addr(
+            match self.write_single_target_addr(
                 addr + ((i * 4) as u32),
                 u32::from_le_bytes(word),
             ) {
@@ -471,10 +527,12 @@ impl ServerImpl {
         self.spi.send_raw_data(JTAG_MAGIC, true, true, 16);
     }
 
-    fn read_word(&mut self) -> u32 {
+    fn read_word(&mut self) -> Option<u32> {
         let mut result: u32 = 0;
 
         self.io_in();
+
+        let mut parity = 0;
 
         // We need to read exactly 33 bits. We have MOSI disabled so trying to
         // read more results in protocol errors because we can't appropriately
@@ -486,14 +544,24 @@ impl ServerImpl {
                 // we detect a parity error. "Might have to re-issue original read
                 // request or use the RESEND register if a parity or protocol fault"
                 // doesn't give much of a hint...
-                ((self.read_nine_bits() >> 1).reverse_bits() >> 8) as u32
+                let val = self.read_nine_bits();
+                parity = val & 1;
+                ((val >> 1).reverse_bits() >> 8) as u32
             } else {
                 (self.read_byte().reverse_bits()) as u32
             };
             result |= b << (i * 8);
         }
 
-        return result;
+        if result.count_ones() % 2 != (parity as u32) {
+            ringbuf_entry!(Trace::ParityFail {
+                data: result,
+                received_parity: parity
+            });
+            None
+        } else {
+            Some(result)
+        }
     }
 
     fn write_word(&mut self, val: u32) {
@@ -543,7 +611,7 @@ impl ServerImpl {
             // for the required turnaround bit!
             self.swd_finish();
 
-            return Ok(ret);
+            return ret.ok_or(Ack::Fault);
         }
     }
 
@@ -565,7 +633,7 @@ impl ServerImpl {
         self.power_up()?;
 
         // Read the IDR as a basic test for reading from the AP
-        let result = self.swd_read_ap_reg(ApAddr(0, ApReg::IDR))?;
+        let result = self.swd_read_ap_reg(ApAddr(0, ApReg::IDR), false)?;
         ringbuf_entry!(Trace::Idr(result));
 
         Ok(())
@@ -606,27 +674,40 @@ impl ServerImpl {
         }
     }
 
-    fn swd_write_ap_reg(&mut self, addr: ApAddr, val: u32) -> Result<(), Ack> {
+    fn swd_write_ap_reg(
+        &mut self,
+        addr: ApAddr,
+        val: u32,
+        skip_sel: bool,
+    ) -> Result<(), Ack> {
         let ap_sel = addr.0 << 24;
         let bank_sel = (addr.1 as u32) & 0xF0;
 
-        self.swd_write(
-            Port::DP,
-            RawSwdReg::DpWrite(DpWrite::Select),
-            ap_sel | bank_sel,
-        )?;
+        if !skip_sel {
+            self.swd_write(
+                Port::DP,
+                RawSwdReg::DpWrite(DpWrite::Select),
+                ap_sel | bank_sel,
+            )?;
+        }
 
         self.swd_write(Port::AP, RawSwdReg::ApWrite(addr.1), val)
     }
-    fn swd_read_ap_reg(&mut self, addr: ApAddr) -> Result<u32, Ack> {
+    fn swd_read_ap_reg(
+        &mut self,
+        addr: ApAddr,
+        skip_sel: bool,
+    ) -> Result<u32, Ack> {
         let ap_sel = addr.0 << 24;
         let bank_sel = (addr.1 as u32) & 0xF0;
 
-        self.swd_write(
-            Port::DP,
-            RawSwdReg::DpWrite(DpWrite::Select),
-            ap_sel | bank_sel,
-        )?;
+        if !skip_sel {
+            self.swd_write(
+                Port::DP,
+                RawSwdReg::DpWrite(DpWrite::Select),
+                ap_sel | bank_sel,
+            )?;
+        }
 
         // See section 6.2.5 ADIV5
         // If you require the value from an AP register read, that read must be
@@ -634,38 +715,98 @@ impl ServerImpl {
         // - A second AP register read, with the appropriate AP selected as the
         //   current AP.
         // - A read of the DP Read Buffer
+        //
+        // We intentionally take the DP read buffer option to avoid screwing up
+        // the auto incrementing TAR register
         let _ = self.swd_read(Port::AP, RawSwdReg::ApRead(addr.1))?;
 
-        let val = self.swd_read(Port::AP, RawSwdReg::ApRead(addr.1))?;
+        let val = self.swd_read(Port::DP, RawSwdReg::DpRead(DpRead::Rdbuf))?;
 
         Ok(val)
     }
 
-    fn read_target_addr(&mut self, addr: u32) -> Result<u32, Ack> {
-        self.clear_errors()?;
-        self.swd_write_ap_reg(
-            ApAddr(0, ApReg::CSW),
-            CSW_HPROT | CSW_DBGSTAT | CSW_SADDRINC | CSW_SIZE32,
-        )?;
-
-        self.swd_write_ap_reg(ApAddr(0, ApReg::TAR), addr)?;
-
-        let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW))?;
-
-        Ok(val)
-    }
-
-    fn write_target_addr(&mut self, addr: u32, val: u32) -> Result<(), Ack> {
+    fn start_read_transaction(
+        &mut self,
+        addr: u32,
+        word_cnt: usize,
+    ) -> Result<(), Ack> {
+        // The transaction size limit is 1k, see C2.2.2 of ADIv5
+        const TRANSACTION_LIMIT: usize = 1024;
+        // Check against the number of 32-bit words we expect to read
+        if word_cnt > TRANSACTION_LIMIT / 4 {
+            return Err(Ack::Fault);
+        }
         self.clear_errors()?;
 
         self.swd_write_ap_reg(
             ApAddr(0, ApReg::CSW),
             CSW_HPROT | CSW_DBGSTAT | CSW_SADDRINC | CSW_SIZE32,
+            false,
         )?;
 
-        self.swd_write_ap_reg(ApAddr(0, ApReg::TAR), addr)?;
+        self.swd_write_ap_reg(ApAddr(0, ApReg::TAR), addr, false)?;
 
-        self.swd_write_ap_reg(ApAddr(0, ApReg::DRW), val)?;
+        self.transaction = Some(MemTransaction {
+            total_word_cnt: word_cnt,
+            read_cnt: 0,
+        });
+
+        Ok(())
+    }
+
+    fn read_transaction_word(&mut self) -> Result<Option<u32>, Ack> {
+        if let Some(mut transaction) = &self.transaction {
+            let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), true)?;
+
+            transaction.read_cnt += 1;
+            if transaction.read_cnt == transaction.total_word_cnt {
+                self.transaction = None;
+            }
+            Ok(Some(val))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn read_single_target_addr(&mut self, addr: u32) -> Result<u32, Ack> {
+        if self.transaction.is_some() {
+            return Err(Ack::Fault);
+        }
+
+        self.clear_errors()?;
+        self.swd_write_ap_reg(
+            ApAddr(0, ApReg::CSW),
+            CSW_HPROT | CSW_DBGSTAT | CSW_SADDRINC | CSW_SIZE32,
+            false,
+        )?;
+
+        self.swd_write_ap_reg(ApAddr(0, ApReg::TAR), addr, false)?;
+
+        let val = self.swd_read_ap_reg(ApAddr(0, ApReg::DRW), false)?;
+
+        Ok(val)
+    }
+
+    fn write_single_target_addr(
+        &mut self,
+        addr: u32,
+        val: u32,
+    ) -> Result<(), Ack> {
+        if self.transaction.is_some() {
+            return Err(Ack::Fault);
+        }
+
+        self.clear_errors()?;
+
+        self.swd_write_ap_reg(
+            ApAddr(0, ApReg::CSW),
+            CSW_HPROT | CSW_DBGSTAT | CSW_SADDRINC | CSW_SIZE32,
+            false,
+        )?;
+
+        self.swd_write_ap_reg(ApAddr(0, ApReg::TAR), addr, false)?;
+
+        self.swd_write_ap_reg(ApAddr(0, ApReg::DRW), val, false)?;
 
         Ok(())
     }
@@ -720,6 +861,7 @@ fn main() -> ! {
         spi,
         gpio: gpio_driver,
         init: false,
+        transaction: None,
     };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
