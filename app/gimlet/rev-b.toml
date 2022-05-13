@@ -59,10 +59,10 @@ stacksize = 1536
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 3800
+stacksize = 5400
 priority = 2
-features = ["mgmt", "h753", "gimlet"]
-requires = {flash = 131072, ram = 8192, sram1 = 16384}
+features = ["mgmt", "h753", "gimlet", "h7-vlan"]
+requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -213,6 +213,17 @@ requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpbroadcast]
+path = "../../task/udpbroadcast"
+name = "task-udpbroadcast"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.validate]
 path = "../../task/validate"
@@ -757,9 +768,18 @@ cs = [{port = "E", pin = 4}]
 clock_divider = "DIV16"
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

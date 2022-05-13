@@ -46,6 +46,8 @@ enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
     Vsc85x2Err { port: u8, err: VscError },
+    Ksz8463MacTable(ksz8463::MacTableEntry),
+    Ksz8463EmptyMacTable,
     Status(Status),
 }
 
@@ -250,6 +252,14 @@ impl Bsp {
                 Err(err) => ringbuf_entry!(Trace::Vsc85x2Err { port, err }),
             }
         }
+
+        // Read the MAC table for fun
+        ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
+            Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
+            Ok(None) => Trace::Ksz8463EmptyMacTable,
+            Err(err) => Trace::Ksz8463Err { port: 0, err },
+        });
+
         ringbuf_entry!(Trace::Status(s));
     }
 }
