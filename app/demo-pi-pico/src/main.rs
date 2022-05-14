@@ -42,9 +42,16 @@ fn main() -> ! {
 
     p.IO_BANK0.gpio[25].gpio_ctrl.write(|w| w.funcsel().sio());
 
+    let cycles_per_ms = if p.CLOCKS.clk_sys_ctrl.read().src().is_clk_ref() {
+        // This is the reset state, so we'll assume we launched directly from
+        // flash running on the ROSC.
+        6_000 // ish
+    } else {
+        // This is _not_ the reset state, so we'll assume that the pico-debug
+        // resident debugger has reconfigured things to run off the 48 MHz USB
+        // clock.
+        48_000
+    };
 
-
-    const CYCLES_PER_MS: u32 = 6_000; // ish
-
-    unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
+    unsafe { kern::startup::start_kernel(cycles_per_ms) }
 }
