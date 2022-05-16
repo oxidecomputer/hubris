@@ -361,6 +361,9 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SpCtrlError>> {
+        if !self.init {
+            self.pin_setup();
+        }
         match self.swd_setup() {
             Ok(_) => {
                 self.init = true;
@@ -833,15 +836,17 @@ impl ServerImpl {
 
         Ok(())
     }
+
+    fn pin_setup(&mut self) {
+        setup_pins(self.gpio).unwrap_lite();
+    }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
     let syscon = SYSCON.get_task_id();
 
-    let gpio_driver = GPIO.get_task_id();
-
-    setup_pins(gpio_driver).unwrap_lite();
+    let gpio = GPIO.get_task_id();
 
     let mut spi = setup_spi(syscon);
 
@@ -859,7 +864,7 @@ fn main() -> ! {
 
     let mut server = ServerImpl {
         spi,
-        gpio: gpio_driver,
+        gpio,
         init: false,
         transaction: None,
     };
