@@ -978,10 +978,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sidecar-mainboard-controller-api"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-fpga-api",
+ "gnarle",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-sidecar-mainboard-i2c-emulator"
+version = "0.1.0"
+dependencies = [
+ "drv-i2c-api",
+ "ringbuf",
+ "userlib",
+]
+
+[[package]]
 name = "drv-sidecar-seq-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "drv-fpga-api",
+ "drv-sidecar-mainboard-controller-api",
  "idol",
  "num-traits",
  "userlib",
@@ -997,11 +1022,11 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
+ "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-sidecar-mainboard-controller-api",
  "drv-sidecar-seq-api",
- "drv-spi-api",
- "drv-stm32xx-sys-api",
  "idol",
  "idol-runtime",
  "num-traits",

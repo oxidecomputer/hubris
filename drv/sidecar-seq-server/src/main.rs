@@ -7,15 +7,20 @@
 #![no_std]
 #![no_main]
 
+use drv_fpga_api::{DeviceState, FpgaError};
+use drv_i2c_api::{I2cDevice, ResponseCode};
+use drv_i2c_devices::raa229618::Raa229618;
+use drv_sidecar_mainboard_controller_api::tofino2::{
+    Sequencer as TofinoSequencer, Tofino2Vid, TofinoSeqError, TofinoSeqState,
+};
+use drv_sidecar_mainboard_controller_api::MainboardController;
+use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
+use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use userlib::*;
 
-use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_sidecar_seq_api::{PowerState, SeqError};
-use idol_runtime::{NotificationHandler, RequestError};
-
-task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
+task_slot!(FPGA, fpga);
 
 mod payload;
 
@@ -24,177 +29,361 @@ use i2c_config::devices;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    A2,
-    GetState,
-    SetState(PowerState, PowerState),
-    LoadClockConfig,
-    ClockConfigWrite(usize),
-    ClockConfigSuccess(usize),
-    ClockConfigFailed(usize, ResponseCode),
-    Done,
     None,
+    FpgaInit,
+    FpgaBitstreamError(u32),
+    LoadingFpgaBitstream,
+    SkipLoadingBitstream,
+    FpgaInitComplete,
+    ValidMainboardControllerIdent(u32),
+    InvalidMainboardControllerIdent(u32),
+    LoadingClockConfiguration,
+    SkipLoadingClockConfiguration,
+    ClockConfigurationError(usize, ResponseCode),
+    ClockConfigurationComplete,
+    TofinoSequencerPolicyUpdate(TofinoSequencerPolicy),
+    TofinoSequencerTick(TofinoSequencerPolicy, TofinoSeqState, TofinoSeqError),
+    TofinoSequencerError(SeqError),
+    TofinoSequencerFault(TofinoSeqError),
+    TofinoVidAck,
+    InitiateTofinoPowerUp,
+    InitiateTofinoPowerDown,
+    SetVddCoreVout(userlib::units::Volts),
+    ClearingTofinoSequencerFault(TofinoSeqError),
 }
 
-ringbuf!(Trace, 64, Trace::None);
+ringbuf!(Trace, 32, Trace::None);
 
-const TIMER_MASK: u32 = 1 << 0;
+const TIMER_NOTIFICATION_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
-struct ServerImpl {
-    state: PowerState,
-    clockgen: I2cDevice,
-    led: drv_stm32xx_sys_api::PinSet,
-    led_on: bool,
-    deadline: u64,
-    clock_config_loaded: bool,
+struct ClockGenerator {
+    device: I2cDevice,
+    config_loaded: bool,
 }
 
-impl ServerImpl {
-    fn led_init(&mut self) {
-        use drv_stm32xx_sys_api::*;
+impl ClockGenerator {
+    fn load_config(&mut self) -> Result<(), SeqError> {
+        ringbuf_entry!(Trace::LoadingClockConfiguration);
 
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
+        let mut packet = 0;
 
-        // Make the LED an output.
-        sys.gpio_configure_output(
-            self.led,
-            OutputType::PushPull,
-            Speed::High,
-            Pull::None,
-        )
-        .unwrap();
+        payload::idt8a3xxxx_payload(|buf| match self.device.write(buf) {
+            Err(err) => {
+                ringbuf_entry!(Trace::ClockConfigurationError(packet, err));
+                Err(SeqError::ClockConfigurationFailed)
+            }
+
+            Ok(_) => {
+                packet += 1;
+                Ok(())
+            }
+        })?;
+
+        self.config_loaded = true;
+        Ok(())
     }
+}
 
-    fn led_on(&mut self) {
-        use drv_stm32xx_sys_api::*;
+struct Tofino {
+    policy: TofinoSequencerPolicy,
+    sequencer: TofinoSequencer,
+    vddcore: Raa229618,
+}
 
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-        sys.gpio_set_to(self.led, true).unwrap();
-        self.led_on = true;
-    }
+impl Tofino {
+    fn apply_vid(&mut self, vid: Tofino2Vid) -> Result<(), SeqError> {
+        use userlib::units::Volts;
 
-    fn led_off(&mut self) {
-        use drv_stm32xx_sys_api::*;
+        let mut set_vout = |value: Volts| {
+            self.vddcore
+                .set_vout(value)
+                .map_err(|_| SeqError::SetVddCoreVoutFailed)?;
 
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-        sys.gpio_set_to(self.led, false).unwrap();
-        self.led_on = false;
-    }
+            ringbuf_entry!(Trace::SetVddCoreVout(value));
+            Ok(())
+        };
 
-    fn led_toggle(&mut self) {
-        if self.led_on {
-            self.led_off();
-        } else {
-            self.led_on();
+        match vid {
+            Tofino2Vid::V0P922 => set_vout(Volts(0.922)),
+            Tofino2Vid::V0P893 => set_vout(Volts(0.893)),
+            Tofino2Vid::V0P867 => set_vout(Volts(0.867)),
+            Tofino2Vid::V0P847 => set_vout(Volts(0.847)),
+            Tofino2Vid::V0P831 => set_vout(Volts(0.831)),
+            Tofino2Vid::V0P815 => set_vout(Volts(0.815)),
+            Tofino2Vid::V0P790 => set_vout(Volts(0.790)),
+            Tofino2Vid::V0P759 => set_vout(Volts(0.759)),
         }
     }
+
+    fn power_up(&mut self) -> Result<(), SeqError> {
+        ringbuf_entry!(Trace::InitiateTofinoPowerUp);
+
+        // Initiate the power up sequence.
+        self.sequencer.set_enable(true)?;
+
+        // Wait for the VID to become valid, retrying if needed.
+        for i in 1..4 {
+            // Sleep first since there is a delay between the sequencer
+            // receiving the EN bit and the VID being valid.
+            hl::sleep_for(i * 25);
+
+            let maybe_vid = self.sequencer.vid().map_err(|e| {
+                if let FpgaError::InvalidValue = e {
+                    SeqError::InvalidTofinoVid
+                } else {
+                    SeqError::FpgaError
+                }
+            })?;
+
+            // Set Vout accordingy to the VID and acknowledge the change to the
+            // sequencer.
+            if let Some(vid) = maybe_vid {
+                self.apply_vid(vid)?;
+                self.sequencer.ack_vid()?;
+                ringbuf_entry!(Trace::TofinoVidAck);
+                return Ok(());
+            }
+        }
+
+        Err(SeqError::SequencerTimeout)
+    }
+
+    fn power_down(&mut self) -> Result<(), SeqError> {
+        ringbuf_entry!(Trace::InitiateTofinoPowerDown);
+        Ok(self
+            .sequencer
+            .set_enable(false)
+            .map_err(|_| SeqError::SequencerError)?)
+    }
+
+    fn handle_tick(&mut self) -> Result<(), SeqError> {
+        let state = self.sequencer.state()?;
+        let error = self.sequencer.error()?;
+
+        ringbuf_entry!(Trace::TofinoSequencerTick(self.policy, state, error));
+
+        match (self.policy, state, error) {
+            // Power down if the Tofino should be disabled.
+            (TofinoSequencerPolicy::Disabled, TofinoSeqState::InPowerUp, _) => {
+                self.power_down()
+            }
+            (TofinoSequencerPolicy::Disabled, TofinoSeqState::A0, _) => {
+                self.power_down()
+            }
+            // Power up
+            (
+                TofinoSequencerPolicy::LatchOffOnFault,
+                TofinoSeqState::A2,
+                TofinoSeqError::None,
+            ) => self.power_up(),
+            _ => Ok(()), // Do nothing by default.
+        }
+    }
+}
+
+struct ServerImpl {
+    mainboard_controller: MainboardController,
+    clock_generator: ClockGenerator,
+    tofino: Tofino,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
-    fn get_state(
+    fn tofino_seq_policy(
         &mut self,
-        _: &RecvMessage,
-    ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState);
-        Ok(self.state)
+        _msg: &userlib::RecvMessage,
+    ) -> Result<TofinoSequencerPolicy, RequestError<SeqError>> {
+        Ok(self.tofino.policy)
     }
 
-    fn set_state(
+    fn set_tofino_seq_policy(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        policy: TofinoSequencerPolicy,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::TofinoSequencerPolicyUpdate(policy));
+        self.tofino.policy = policy;
+        Ok(())
+    }
+
+    fn tofino_seq_state(
         &mut self,
         _: &RecvMessage,
-        state: PowerState,
-    ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::SetState(self.state, state));
+    ) -> Result<TofinoSeqState, RequestError<SeqError>> {
+        Ok(self.tofino.sequencer.state().map_err(SeqError::from)?)
+    }
 
-        match (self.state, state) {
-            _ => Err(RequestError::Runtime(SeqError::IllegalTransition)),
-        }
+    fn tofino_seq_error(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<TofinoSeqError, RequestError<SeqError>> {
+        Ok(self.tofino.sequencer.error().map_err(SeqError::from)?)
+    }
+
+    fn clear_tofino_seq_error(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<SeqError>> {
+        ringbuf_entry!(Trace::ClearingTofinoSequencerFault(
+            self.tofino.sequencer.error().map_err(SeqError::from)?
+        ));
+        Ok(self
+            .tofino
+            .sequencer
+            .clear_error()
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_power_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .power_status()
+            .map_err(SeqError::from)?)
     }
 
     fn load_clock_config(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::LoadClockConfig);
-
-        let mut packet = 0;
-
-        payload::idt8a3xxxx_payload(|buf| {
-            ringbuf_entry!(Trace::ClockConfigWrite(packet));
-            match self.clockgen.write(buf) {
-                Err(err) => {
-                    ringbuf_entry!(Trace::ClockConfigFailed(packet, err));
-                    Err(SeqError::ClockConfigFailed)
-                }
-
-                Ok(_) => {
-                    ringbuf_entry!(Trace::ClockConfigSuccess(packet));
-                    packet += 1;
-                    Ok(())
-                }
-            }
-        })?;
-        self.clock_config_loaded = true;
-
-        Ok(())
+        Ok(self.clock_generator.load_config()?)
     }
+
     fn is_clock_config_loaded(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<u8, RequestError<SeqError>> {
-        Ok(self.clock_config_loaded as u8)
+    ) -> Result<bool, RequestError<SeqError>> {
+        Ok(self.clock_generator.config_loaded)
     }
 }
 
 impl NotificationHandler for ServerImpl {
     fn current_notification_mask(&self) -> u32 {
-        TIMER_MASK
+        TIMER_NOTIFICATION_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        self.deadline += TIMER_INTERVAL;
-        self.led_toggle();
-        sys_set_timer(Some(self.deadline), TIMER_MASK);
+        let start = sys_get_timer().now;
+
+        if let Err(e) = self.tofino.handle_tick() {
+            ringbuf_entry!(Trace::TofinoSequencerError(e));
+        }
+
+        let finish = sys_get_timer().now;
+
+        // We now know when we were notified and when any work was completed.
+        // The assumption here is that `start` < `finish`, with the this won't
+        // hold if the system time rolls over. Anyway, armed with this
+        // information, find the next deadline some multiple of `TIMER_INTERVAL`
+        // in the future.
+
+        let delta = finish - start;
+        let next_deadline = finish + TIMER_INTERVAL - (delta % TIMER_INTERVAL);
+
+        sys_set_timer(Some(next_deadline), TIMER_NOTIFICATION_MASK);
     }
 }
 
 #[export_name = "main"]
 fn main() -> ! {
-    let task = I2C.get_task_id();
-
-    ringbuf_entry!(Trace::A2);
-
     let mut buffer = [0; idl::INCOMING_SIZE];
-
     let deadline = sys_get_timer().now;
 
     //
     // This will put our timer in the past, and should immediately kick us.
     //
-    sys_set_timer(Some(deadline), TIMER_MASK);
+    sys_set_timer(Some(deadline), TIMER_NOTIFICATION_MASK);
 
-    let mut server = ServerImpl {
-        state: PowerState::A2,
-        clockgen: devices::idt8a34001(task)[0],
-        led: drv_stm32xx_sys_api::Port::C.pin(3),
-        led_on: false,
-        deadline,
-        clock_config_loaded: false,
+    let mainboard_controller = MainboardController::new(FPGA.get_task_id());
+
+    let clock_generator = ClockGenerator {
+        device: devices::idt8a34001(I2C.get_task_id())[0],
+        config_loaded: false,
     };
 
-    server.led_init();
+    let (i2c_device, rail) =
+        i2c_config::pmbus::v0p8_tf2_vdd_core(I2C.get_task_id());
+    let vddcore = Raa229618::new(&i2c_device, rail);
+    let tofino = Tofino {
+        //policy: TofinoSequencerPolicy::LatchOffOnFault,
+        policy: TofinoSequencerPolicy::Disabled,
+        sequencer: TofinoSequencer::new(FPGA.get_task_id()),
+        vddcore: vddcore,
+    };
+
+    let mut server = ServerImpl {
+        mainboard_controller,
+        clock_generator,
+        tofino,
+    };
+
+    ringbuf_entry!(Trace::FpgaInit);
+
+    match server
+        .mainboard_controller
+        .await_fpga_ready(25)
+        .unwrap_or(DeviceState::Unknown)
+    {
+        DeviceState::AwaitingBitstream => {
+            ringbuf_entry!(Trace::LoadingFpgaBitstream);
+
+            if let Err(e) = server.mainboard_controller.load_bitstream() {
+                ringbuf_entry!(Trace::FpgaBitstreamError(
+                    u32::try_from(e).unwrap()
+                ));
+                panic!();
+            }
+        }
+        DeviceState::RunningUserDesign => {
+            ringbuf_entry!(Trace::SkipLoadingBitstream);
+        }
+        _ => panic!(),
+    }
+
+    ringbuf_entry!(Trace::FpgaInitComplete);
+
+    let ident = server.mainboard_controller.ident().unwrap();
+    if !server.mainboard_controller.ident_valid(ident) {
+        ringbuf_entry!(Trace::InvalidMainboardControllerIdent(ident));
+        panic!();
+    }
+    ringbuf_entry!(Trace::ValidMainboardControllerIdent(ident));
+
+    // The sequencer for the clock generator currently does not have a feedback
+    // mechanism/register we can read. Sleeping a short while seems to be
+    // sufficient for now.
+    //
+    // TODO (arjen): Implement reset control through the mainboard controller.
+    userlib::hl::sleep_for(100);
+
+    if let TofinoSeqState::A0 = server
+        .tofino
+        .sequencer
+        .state()
+        .unwrap_or(TofinoSeqState::Initial)
+    {
+        ringbuf_entry!(Trace::SkipLoadingClockConfiguration);
+        server.clock_generator.config_loaded = true;
+        server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
+    } else {
+        if let Err(_) = server.clock_generator.load_config() {
+            panic!();
+        }
+    }
+    ringbuf_entry!(Trace::ClockConfigurationComplete);
 
     loop {
-        ringbuf_entry!(Trace::Done);
         idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
 }
 
 mod idl {
-    use super::{PowerState, SeqError};
+    use super::{
+        SeqError, TofinoSeqError, TofinoSeqState, TofinoSequencerPolicy,
+    };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

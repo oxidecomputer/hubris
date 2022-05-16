@@ -1,7 +1,7 @@
 [package]
 name = "drv-sidecar-seq-server"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,19 +11,30 @@ ringbuf = {path = "../../lib/ringbuf"}
 byteorder = {version = "1.4", default-features = false}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
-drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-drv-spi-api = {path = "../spi-api"}
 drv-i2c-api = {path = "../i2c-api"}
 drv-i2c-devices = {path = "../i2c-devices"}
+drv-fpga-api = {path = "../fpga-api"}
 drv-sidecar-seq-api = {path = "../sidecar-seq-api"}
+drv-sidecar-mainboard-controller-api = {path = "../sidecar-mainboard-controller-api"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[features]
+h753 = ["build-i2c/h753"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 build-i2c = {path = "../../build/i2c"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
-[features]
-h753 = ["drv-stm32xx-sys-api/h753"]
+# a target for `cargo xtask check`
+[package.metadata.build]
+target = "thumbv7em-none-eabihf"
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-sidecar-seq-server"
+test = false
+bench = false

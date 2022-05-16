@@ -7,20 +7,36 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
+use drv_fpga_api::FpgaError;
+use drv_sidecar_mainboard_controller_api::tofino2::{
+    TofinoSeqError, TofinoSeqState,
+};
 use userlib::*;
 use zerocopy::AsBytes;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum SeqError {
-    IllegalTransition = 1,
-    ClockConfigFailed = 2,
+    FpgaError = 1,
+    IllegalTransition = 2,
+    ClockConfigurationFailed = 3,
+    SequencerError = 4,
+    SequencerTimeout = 5,
+    InvalidTofinoVid = 6,
+    SetVddCoreVoutFailed = 7,
+}
+
+impl From<FpgaError> for SeqError {
+    fn from(_: FpgaError) -> Self {
+        Self::FpgaError
+    }
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
 #[repr(u8)]
-pub enum PowerState {
-    A2 = 1,
-    A0 = 2,
+pub enum TofinoSequencerPolicy {
+    Disabled = 0,
+    LatchOffOnFault = 1,
+    RestartOnFault = 2,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
