@@ -113,6 +113,9 @@ members = [
     "drv/rng-api",
     "drv/sp-ctrl-api",
 
+    "drv/sidecar-mainboard-controller-api",
+    "drv/sidecar-mainboard-i2c-emulator",
+    "drv/sidecar-seq-api",
     "drv/sidecar-seq-server",
     "drv/update-api",
 

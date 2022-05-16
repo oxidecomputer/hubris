@@ -3,21 +3,22 @@
 Interface(
     name: "Sequencer",
     ops: {
-        "get_state": (
-            doc: "Return the power state",
+        "tofino_seq_policy": (
+            doc: "Return the active sequencer policy for Tofino",
+            args: {},
             reply: Result(
                 ok: (
-                    type: "PowerState",
+                    type: "TofinoSequencerPolicy",
                     recv: FromPrimitive("u8"),
                 ),
                 err: CLike("SeqError"),
             ),
         ),
-        "set_state": (
+        "set_tofino_seq_policy": (
             doc: "Set the power state",
             args: {
-                "state": (
-                    type: "PowerState",
+                "policy": (
+                    type: "TofinoSequencerPolicy",
                     recv: FromPrimitive("u8"),
                 )
             },
@@ -26,17 +27,54 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
-        "load_clock_config": (
+        "tofino_seq_state": (
+            doc: "Return the Tofino sequencer state",
+            reply: Result(
+                ok: (
+                    type: "TofinoSeqState",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("SeqError"),
+            ),
+        ),
+        "tofino_seq_error": (
+            doc: "Return the Tofino sequencer error, if any",
+            reply: Result(
+                ok: (
+                    type: "TofinoSeqError",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("SeqError"),
+            ),
+        ),
+        "clear_tofino_seq_error": (
+            doc: "Clear the Tofino sequencer error state",
             args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("SeqError"),
             ),
         ),
+        "tofino_power_status": (
+            doc: "Return the Tofino sequencer power registers",
+            reply: Result(
+                ok: "u32",
+                err: CLike("SeqError"),
+            )
+        ),
+
         "is_clock_config_loaded": (
             args: {},
             reply: Result(
-                ok: "u8",
+                ok: "bool",
+                err: CLike("SeqError"),
+            ),
+        ),
+
+        "load_clock_config": (
+            args: {},
+            reply: Result(
+                ok: "()",
                 err: CLike("SeqError"),
             ),
         ),
