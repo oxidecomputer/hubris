@@ -207,8 +207,9 @@ fn main() -> ! {
     syscon.fcclksel0().modify(|_, w| w.sel().enum_0x2());
     // Flexcom4 (the DAC i2c) is also set to 12Mhz
     syscon.fcclksel4().modify(|_, w| w.sel().enum_0x2());
-    // Flexcom 3 is the the SPI for use with SWD, set to 1Mhz
+    // Flexcom 3/5 is the the SPI for use with SWD, set to 1Mhz
     syscon.fcclksel3().modify(|_, w| w.sel().enum_0x4());
+    syscon.fcclksel5().modify(|_, w| w.sel().enum_0x4());
     // The high speed SPI AKA Flexcomm8 is also set to 12Mhz
     // Note this can definitely go higher but that involves
     // turning on PLLs and such

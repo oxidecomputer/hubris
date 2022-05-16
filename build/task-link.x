@@ -55,6 +55,13 @@ SECTIONS
     __edata = .;
   } > RAM
 
+  /*
+   * Fill the remaining flash space with a known value
+   */
+  .fill (LOADADDR(.data) + SIZEOF(.data)) : AT(LOADADDR(.data) +  SIZEOF(.data)) {
+    . = ORIGIN(FLASH) + LENGTH(FLASH);
+  } > FLASH =0xffffffff
+
   /* LMA of .data */
   __sidata = LOADADDR(.data);
 

@@ -19,7 +19,7 @@ pub enum Cmd {
     BitClear = 3,
 }
 
-include!(concat!(env!("OUT_DIR"), "/gimlet_regs.rs"));
+include!(env!("GIMLET_FPGA_REGS"));
 
 pub const EXPECTED_IDENT: u16 = 0x1DE;
 

@@ -404,25 +404,25 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "NICPWROK",
+                    "inst_name": "A0PWROK",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "NIC power OK"
+                    "desc": "A0 power OK"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A0PWROK",
+                    "inst_name": "NICPWROK",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A0 power OK"
+                    "desc": "NIC power OK"
                 },
                 {
                     "type": "field",
@@ -596,8 +596,48 @@
         },
         {
             "type": "reg",
-            "inst_name": "EARLY_RBKS",
+            "inst_name": "NICSMSTATUS",
             "addr_offset": 18,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "NicSM",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "TBD"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "BOARD_REV",
+            "addr_offset": 19,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID",
+                    "lsb": 0,
+                    "msb": 2,
+                    "reset": null,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0x7 or 0x0 = RevA. 0x1 = RevB"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "EARLY_RBKS",
+            "addr_offset": 20,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -661,7 +701,7 @@
         {
             "type": "reg",
             "inst_name": "A1_READBACKS",
-            "addr_offset": 19,
+            "addr_offset": 21,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -714,7 +754,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_A0",
-            "addr_offset": 20,
+            "addr_offset": 22,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -767,7 +807,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPB_PG",
-            "addr_offset": 21,
+            "addr_offset": 23,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -864,7 +904,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPB_UNUSED",
-            "addr_offset": 22,
+            "addr_offset": 24,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -906,7 +946,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPBC_FLTS",
-            "addr_offset": 23,
+            "addr_offset": 25,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1003,7 +1043,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPC_PG",
-            "addr_offset": 24,
+            "addr_offset": 26,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1034,7 +1074,7 @@
         {
             "type": "reg",
             "inst_name": "NIC_STATUS",
-            "addr_offset": 25,
+            "addr_offset": 27,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1106,32 +1146,21 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "NIC_NVRHOT",
+                    "inst_name": "NIC_3V3_PG",
                     "lsb": 6,
                     "msb": 6,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Set high (inverted from board)\u00a0when\u00a0rail\u00a0reaches\u00a0OT_WARN\u00a0threshold,\u00a0only\u00a0valid\u00a0after\u00a0\nconfiguration (PWR_CONT_NIC_NVRHOT net)"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "NIC_CFP",
-                    "lsb": 7,
-                    "msb": 7,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Catastrophic\u00a0fault\u00a0protection\u00a0output from ISL68224 U357 driving V1P8_NIC_A0HP \nVOP96_NIC_VDD_A0HP (PWR_CONT_NIC_CFP)"
+                    "desc": "Power good for LDO_V3P3"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "CLKGEN_STATUS",
-            "addr_offset": 26,
+            "addr_offset": 28,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1217,7 +1246,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_STATUS",
-            "addr_offset": 27,
+            "addr_offset": 29,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1259,7 +1288,7 @@
         {
             "type": "reg",
             "inst_name": "FANOUTSTATUS",
-            "addr_offset": 28,
+            "addr_offset": 30,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1290,7 +1319,7 @@
         {
             "type": "reg",
             "inst_name": "EARLY_PWR_STATUS",
-            "addr_offset": 29,
+            "addr_offset": 31,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1343,7 +1372,7 @@
         {
             "type": "reg",
             "inst_name": "A1_OUT_STATUS",
-            "addr_offset": 30,
+            "addr_offset": 32,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1407,7 +1436,7 @@
         {
             "type": "reg",
             "inst_name": "A0_OUT_STATUS_1",
-            "addr_offset": 31,
+            "addr_offset": 33,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1420,7 +1449,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_EN0 net)"
+                    "desc": "GroupB1: Drives VPP_ABCD_A0 rail (pwr_cont_dimm_en0 net RevB)"
                 },
                 {
                     "type": "field",
@@ -1431,80 +1460,80 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_EN0 net)"
+                    "desc": "GroupB1: Drives VPP_EFGH_A0 rail (pwr_cont_dimm_en1 net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VTT_ABCD_EN",
+                    "inst_name": "V3P3_SYS_EN",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enables VTT_ABCD_A0 rail (SEQ_TO_VTT_ABCD_A0_EN net)"
+                    "desc": "GroupB1: Enables V3P3_SYS_A0 rail (seq_to_v3p3_sys_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VTT_EFGH_EN",
+                    "inst_name": "V1P8_SP3_VDD_EN",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enables VTT_EFGH_A0 rail, should enable in parallel with \nPWR_CONT1_SP3_EN (SEQ_TO_VTT_EFGH_EN net)"
+                    "desc": "GroupB1: Enables V1P8_SP3_VDD_18_A0 rail (seq_to_sp3_v1p8_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "V3P3_SYS_EN",
+                    "inst_name": "VDD_MEM_ABCD_EN",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives EN of ISL68224 and ISL99390 UP32,33,34 for enabling the \nV3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_EN1 net)"
+                    "desc": "GroupB2: Enables VDD_MEM_ABCD_A0 rail (pwr_cont1_sp3_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "EFGH_EN1",
+                    "inst_name": "VDD_MEM_EFGH_EN",
                     "lsb": 5,
                     "msb": 5,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enable 1 for ISL68224, no defined use (PWR_CONT_DIMM_EFGH_EN1 net)"
+                    "desc": "GroupB2: Enables VDD_MEM_EFGH_A0 rail (pwr_cont2_sp3_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "ABCD_EN2",
+                    "inst_name": "VTT_ABCD_EN",
                     "lsb": 6,
                     "msb": 6,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "EN2 of ISL68224 U352, no defined function (PWR_CONT_DIMM_ABCD_EN2 net)"
+                    "desc": "GroupB2: Enables VTT_ABCD_A0 rail (seq_to_vtt_abcd_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "EFGH_EN2",
+                    "inst_name": "VTT_EFGH_EN",
                     "lsb": 7,
                     "msb": 7,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "To ISL68224 U418. No defined function (PWR_CONT_DIMM_EFGH_EN2 net)"
+                    "desc": "GroupB2: Enables VTT_EFGH_A0 rail (seq_to_vtt_efgh_en net RevB)"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "A0_OUT_STATUS_2",
-            "addr_offset": 32,
+            "addr_offset": 34,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1590,7 +1619,7 @@
         {
             "type": "reg",
             "inst_name": "OUT_STATUS_NIC1",
-            "addr_offset": 33,
+            "addr_offset": 35,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1687,15 +1716,26 @@
         {
             "type": "reg",
             "inst_name": "OUT_STATUS_NIC2",
-            "addr_offset": 34,
+            "addr_offset": 36,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "NIC_COMB_PG",
+                    "inst_name": "SP3_PERST",
                     "lsb": 0,
                     "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Input to FPGA from SP3 I/O expander (inverted)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_COMB_PG",
+                    "lsb": 1,
+                    "msb": 1,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
@@ -1705,8 +1745,8 @@
                 {
                     "type": "field",
                     "inst_name": "NIC_CLD_RST",
-                    "lsb": 1,
-                    "msb": 1,
+                    "lsb": 2,
+                    "msb": 2,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
@@ -1716,20 +1756,42 @@
                 {
                     "type": "field",
                     "inst_name": "PWRFLT",
-                    "lsb": 2,
-                    "msb": 2,
+                    "lsb": 3,
+                    "msb": 3,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Alert SP3 of a NIC power fault (NIC_TO_SP3_PWRFLT_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "RevB-only PERST outptut (PERST_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_EXT_RST",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "RevB-only nic ext rst output  ( inverted net)"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "CLKGEN_OUT_STATUS",
-            "addr_offset": 35,
+            "addr_offset": 37,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1749,7 +1811,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_OUT_STATUS",
-            "addr_offset": 36,
+            "addr_offset": 38,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1769,7 +1831,7 @@
         {
             "type": "reg",
             "inst_name": "DBG_CTRL",
-            "addr_offset": 37,
+            "addr_offset": 39,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1797,21 +1859,32 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "NIC_CTRL_EN",
+                    "inst_name": "NIC_CLD_RST_OVERRIDE",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Nic debug control only"
+                    "desc": "Nic debug control only. Seeting will force CLD_RST assert until cleared"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST_OVERRIDE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic debug control only. Setting will force Perst_L assert until cleared"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "A1_DBG_OUT",
-            "addr_offset": 38,
+            "addr_offset": 40,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1875,7 +1948,7 @@
         {
             "type": "reg",
             "inst_name": "A0_DBG_OUT_1",
-            "addr_offset": 39,
+            "addr_offset": 41,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1888,7 +1961,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives VPP_ABCD_A0 rail (PWR_CONT_DIMM_ABCD_EN0 net)"
+                    "desc": "GroupB1: Drives VPP_ABCD_A0 rail (pwr_cont_dimm_en0 net RevB)"
                 },
                 {
                     "type": "field",
@@ -1899,80 +1972,80 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives VPP_EFGH_A0 rail (PWR_CONT_DIMM_EFGH_EN0 net)"
+                    "desc": "GroupB1: Drives VPP_EFGH_A0 rail (pwr_cont_dimm_en1 net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VTT_ABCD_EN",
+                    "inst_name": "V3P3_SYS_EN",
                     "lsb": 2,
                     "msb": 2,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enables VTT_ABCD_A0 rail (SEQ_TO_VTT_ABCD_A0_EN net)"
+                    "desc": "GroupB1: Enables V3P3_SYS_A0 rail (seq_to_v3p3_sys_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "VTT_EFGH_EN",
+                    "inst_name": "V1P8_SP3_VDD_EN",
                     "lsb": 3,
                     "msb": 3,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enables VTT_EFGH_A0 rail, should enable in parallel with \nPWR_CONT1_SP3_EN (SEQ_TO_VTT_EFGH_EN net)"
+                    "desc": "GroupB1: Enables V1P8_SP3_VDD_18_A0 rail (seq_to_sp3_v1p8_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "V3P3_SYS_EN",
+                    "inst_name": "VDD_MEM_ABCD_EN",
                     "lsb": 4,
                     "msb": 4,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Drives EN of ISL68224 and ISL99390 UP32,33,34 for enabling the \nV3P3_SYS_A0 rail (PWR_CONT_DIMM_ABCD_EN1 net)"
+                    "desc": "GroupB2: Enables VDD_MEM_ABCD_A0 rail (pwr_cont1_sp3_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "EFGH_EN1",
+                    "inst_name": "VDD_MEM_EFGH_EN",
                     "lsb": 5,
                     "msb": 5,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Enable 1 for ISL68224, no defined use (PWR_CONT_DIMM_EFGH_EN1 net)"
+                    "desc": "GroupB2: Enables VDD_MEM_EFGH_A0 rail (pwr_cont2_sp3_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "ABCD_EN2",
+                    "inst_name": "VTT_ABCD_EN",
                     "lsb": 6,
                     "msb": 6,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "EN2 of ISL68224 U352, no defined function (PWR_CONT_DIMM_ABCD_EN2 net)"
+                    "desc": "GroupB2: Enables VTT_ABCD_A0 rail (seq_to_vtt_abcd_en net RevB)"
                 },
                 {
                     "type": "field",
-                    "inst_name": "EFGH_EN2",
+                    "inst_name": "VTT_EFGH_EN",
                     "lsb": 7,
                     "msb": 7,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "To ISL68224 U418. No defined function (PWR_CONT_DIMM_EFGH_EN2 net)"
+                    "desc": "GroupB2: Enables VTT_EFGH_A0 rail (seq_to_vtt_efgh_en net RevB)"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "A0_DBG_OUT_2",
-            "addr_offset": 40,
+            "addr_offset": 42,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2058,7 +2131,7 @@
         {
             "type": "reg",
             "inst_name": "DBG_OUT_NIC1",
-            "addr_offset": 41,
+            "addr_offset": 43,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2155,15 +2228,26 @@
         {
             "type": "reg",
             "inst_name": "DBG_OUT_NIC2",
-            "addr_offset": 42,
+            "addr_offset": 44,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "NIC_COMB_PG",
+                    "inst_name": "SP3_PERST",
                     "lsb": 0,
                     "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Input to FPGA from SP3 I/O expander (inverted)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_COMB_PG",
+                    "lsb": 1,
+                    "msb": 1,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
@@ -2173,8 +2257,8 @@
                 {
                     "type": "field",
                     "inst_name": "NIC_CLD_RST",
-                    "lsb": 1,
-                    "msb": 1,
+                    "lsb": 2,
+                    "msb": 2,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
@@ -2184,20 +2268,42 @@
                 {
                     "type": "field",
                     "inst_name": "PWRFLT",
-                    "lsb": 2,
-                    "msb": 2,
+                    "lsb": 3,
+                    "msb": 3,
                     "reset": 0,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Alert SP3 of a NIC power fault (NIC_TO_SP3_PWRFLT_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "RevB-only PERST outptut (PERST_L inverted net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_EXT_RST",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "RevB-only nic ext rst output  ( inverted net)"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "CLKGEN_DBG_OUT",
-            "addr_offset": 43,
+            "addr_offset": 45,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2217,7 +2323,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_DBG_OUT",
-            "addr_offset": 44,
+            "addr_offset": 46,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [

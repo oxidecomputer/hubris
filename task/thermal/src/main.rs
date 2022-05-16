@@ -15,7 +15,9 @@
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
-use drv_i2c_devices::tmp116::*;
+use drv_i2c_devices::tmp117::*;
+use drv_i2c_devices::tmp451::*;
+use drv_i2c_devices::tse2004av::*;
 use drv_i2c_devices::TempSensor;
 use idol_runtime::{NotificationHandler, RequestError};
 use task_sensor_api as sensor_api;
@@ -39,9 +41,11 @@ enum Zone {
 }
 
 enum Device {
-    North(Zone, Tmp116),
-    South(Zone, Tmp116),
-    CPU(SbTsi),
+    North(Zone, Tmp117),
+    South(Zone, Tmp117),
+    T6Nic(Tmp451),
+    CPU(Sbtsi),
+    Dimm(Tse2004Av),
 }
 
 struct Sensor {
@@ -68,13 +72,17 @@ impl Sensor {
     fn read_temp(&mut self) -> Result<Celsius, ResponseCode> {
         match &mut self.device {
             Device::North(_, dev) | Device::South(_, dev) => temp_read(dev),
+            Device::T6Nic(dev) => temp_read(dev),
             Device::CPU(dev) => temp_read(dev),
+            Device::Dimm(dev) => temp_read(dev),
         }
     }
 }
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS
-    + sensors::NUM_SBTSI_TEMPERATURE_SENSORS;
+    + sensors::NUM_TMP451_TEMPERATURE_SENSORS
+    + sensors::NUM_SBTSI_TEMPERATURE_SENSORS
+    + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS;
 
 fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
     let task = I2C.get_task_id();
@@ -85,48 +93,119 @@ fn temperature_sensors() -> [Sensor; NUM_TEMPERATURE_SENSORS] {
         Sensor {
             device: Device::North(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_northeast(task)),
+                Tmp117::new(&devices::tmp117_northeast(task)),
             ),
             id: sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_north(task)),
+                Tmp117::new(&devices::tmp117_north(task)),
             ),
             id: sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::North(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_northwest(task)),
+                Tmp117::new(&devices::tmp117_northwest(task)),
             ),
             id: sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::East,
-                Tmp116::new(&devices::tmp117_southeast(task)),
+                Tmp117::new(&devices::tmp117_southeast(task)),
             ),
             id: sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::Central,
-                Tmp116::new(&devices::tmp117_south(task)),
+                Tmp117::new(&devices::tmp117_south(task)),
             ),
             id: sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
         },
         Sensor {
             device: Device::South(
                 Zone::West,
-                Tmp116::new(&devices::tmp117_southwest(task)),
+                Tmp117::new(&devices::tmp117_southwest(task)),
             ),
             id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
         },
         Sensor {
-            device: Device::CPU(SbTsi::new(&devices::sbtsi(task)[0])),
+            device: Device::CPU(Sbtsi::new(&devices::sbtsi(task)[0])),
             id: sensors::SBTSI_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::T6Nic(Tmp451::new(
+                &devices::tmp451(task)[0],
+                Target::Remote,
+            )),
+            id: sensors::TMP451_TEMPERATURE_SENSOR,
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[0])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[1])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[2])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[3])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[4])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[5])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[6])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[7])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[8])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[9])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[10])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[11])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[12])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[13])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[14])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
+        },
+        Sensor {
+            device: Device::Dimm(Tse2004Av::new(&devices::tse2004av(task)[15])),
+            id: sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
         },
     ]
 }

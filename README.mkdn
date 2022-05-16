@@ -438,6 +438,9 @@ depends on the board:
 - ST STM32H7B3I-DK board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h7b3.toml`
 - Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
 
+Note: If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
+environment variable may be used to provide the path to the binary.
+
 ## Debug
 
 The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
@@ -461,6 +464,9 @@ ID ADDR     TASK               GEN STATE
  6 200003a8 idle                 0 Healthy(Runnable)         
 ```
 
+Note: If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
+environment variable may be used to provide the path to the binary.
+
 ## Testing
 
 The Hubris kernel is tested with a dedicated _test image_ that includes a test
@@ -481,6 +487,9 @@ and `cargo xtask humility test`.  The exact invocation depends on the board:
 Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
 You must exit any other instances of OpenOCD that you have connected to the device
 before running tests.
+
+If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
+environment variable may be used to provide the path to the binary.
 
 See the [documentation for `humility
 test`](https://github.com/oxidecomputer/humility#humility-test) for details

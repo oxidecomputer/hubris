@@ -82,6 +82,8 @@ pub enum ResponseCode {
     BusLockedMux = 20,
     /// I2C controller appeared to be locked and was reset
     ControllerLocked = 21,
+    /// I2C bus error
+    BusError = 22,
 }
 
 ///

@@ -44,11 +44,11 @@ stacksize = 1536
 path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 3
-features = ["lpc55", "gpio"]
+features = ["lpc55", "gpio", "spctrl"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver"]
+task-slots = ["gpio_driver", "swd"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -121,7 +121,7 @@ name = "drv-lpc55-swd"
 priority = 2
 requires = {flash = 16384, ram = 4096}
 uses = ["flexcomm5"]
-start = true
+start = false
 stacksize = 1000
 task-slots = ["gpio_driver", "syscon_driver"]
 interrupts = {"flexcomm5.irq" = 1}
@@ -145,4 +145,4 @@ pins = [
 # SCK
 { pin =  { port = 0, pin = 7 }, alt = 3 },
 ]
-spi_num = 3
+spi_num = 5

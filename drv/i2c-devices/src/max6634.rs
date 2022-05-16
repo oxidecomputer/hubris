@@ -4,7 +4,7 @@
 
 //! Driver for the MAX6634 temperature sensor
 
-use crate::TempSensor;
+use crate::{TempSensor, Validate};
 use drv_i2c_api::*;
 use userlib::units::*;
 
@@ -79,3 +79,5 @@ impl TempSensor<Error> for Max6634 {
         }
     }
 }
+
+impl Validate<Error> for Max6634 {}

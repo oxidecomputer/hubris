@@ -18,7 +18,9 @@
 //! - [`raa229618`]: RAA229618 power controller
 //! - [`sbtsi`]: AMD SB-TSI temperature sensor
 //! - [`tmp116`]: TMP116 temperature sensor
+//! - [`tmp451`]: TMP451 temperature sensor
 //! - [`tps546b24a`]: TPS546B24A buck converter
+//! - [`tse2004av`]: TSE2004av SPD EEPROM with temperature sensor
 
 #![no_std]
 
@@ -31,7 +33,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -49,7 +51,7 @@ macro_rules! pmbus_read {
             Ok(rval) => Ok(rval),
             Err(code) => Err(Error::BadRead {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
         }?) {
             Some(data) => Ok(data),
@@ -69,7 +71,7 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $dev::$cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
         }
@@ -83,9 +85,41 @@ macro_rules! pmbus_write {
         match $device.write(&payload) {
             Err(code) => Err(Error::BadWrite {
                 cmd: $cmd::CommandData::code(),
-                code: code,
+                code,
             }),
             Ok(_) => Ok(()),
+        }
+    }};
+}
+
+macro_rules! pmbus_validate {
+    ($device:expr, $dev:ident::$cmd:ident, $expected:ident) => {{
+        let mut id = [0u8; 16];
+
+        match $device.read_block::<u8>($dev::CommandCode::$cmd as u8, &mut id) {
+            Ok(size) => {
+                Ok(size == $expected.len()
+                    && id[0..$expected.len()] == $expected)
+            }
+            Err(code) => Err(Error::BadValidation {
+                cmd: CommandCode::$cmd as u8,
+                code,
+            }),
+        }
+    }};
+
+    ($device:expr, $cmd:ident, $expected:ident) => {{
+        let mut id = [0u8; 16];
+
+        match $device.read_block::<u8>(CommandCode::$cmd as u8, &mut id) {
+            Ok(size) => {
+                Ok(size == $expected.len()
+                    && id[0..$expected.len()] == $expected)
+            }
+            Err(code) => Err(Error::BadValidation {
+                cmd: CommandCode::$cmd as u8,
+                code,
+            }),
         }
     }};
 }
@@ -106,6 +140,18 @@ pub trait VoltageSensor<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
     fn read_vout(&mut self) -> Result<userlib::units::Volts, T>;
 }
 
+pub trait Validate<T: core::convert::Into<drv_i2c_api::ResponseCode>> {
+    //
+    // We have a default implementation that returns false to allow for
+    // drivers to be a little more easily developed -- but it is expected
+    // that each driver will provide a proper implementation that validates
+    // the device.
+    //
+    fn validate(_device: &drv_i2c_api::I2cDevice) -> Result<bool, T> {
+        Ok(false)
+    }
+}
+
 pub mod adm1272;
 pub mod adt7420;
 pub mod at24csw080;
@@ -118,5 +164,7 @@ pub mod mcp9808;
 pub mod pct2075;
 pub mod raa229618;
 pub mod sbtsi;
-pub mod tmp116;
+pub mod tmp117;
+pub mod tmp451;
 pub mod tps546b24a;
+pub mod tse2004av;

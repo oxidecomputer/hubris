@@ -206,7 +206,12 @@ fn main() -> ! {
     // serve up a recognizable ident code.
     let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
 
-    let reprogram = !seq.valid_ident();
+    // TODO: the ident is not sufficient for distinguishing the various Gimlet
+    // FPGA images that are floating around, so, we need to always reprogram it.
+    //
+    //let reprogram = !seq.valid_ident();
+    let reprogram = true;
+
     ringbuf_entry!(Trace::Reprogram(reprogram));
 
     // We only want to reset and reprogram the FPGA when absolutely required.
@@ -455,7 +460,7 @@ fn reprogram_fpga(
 }
 
 static COMPRESSED_BITSTREAM: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/fpga.bin.rle"));
+    include_bytes!(env!("GIMLET_FPGA_IMAGE_PATH"));
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))] {

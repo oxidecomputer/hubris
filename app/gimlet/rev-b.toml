@@ -1,4 +1,4 @@
-name = "gimlet"
+name = "gimlet-b"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-b"
 chip = "../../chips/stm32h7.toml"
@@ -59,17 +59,15 @@ stacksize = 1536
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-stacksize = 3800
+stacksize = 5400
 priority = 2
-features = ["mgmt", "h753", "gimlet"]
-requires = {flash = 131072, ram = 8192, sram1 = 16384}
+features = ["mgmt", "h753", "gimlet", "h7-vlan"]
+requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
-task-slots = ["sys", "rcc_driver",
-              { spi_driver = "spi2_driver" },
-              { seq = "gimlet_seq" }]
+task-slots = ["sys", { spi_driver = "spi2_driver" }, { seq = "gimlet_seq" }]
 
 [tasks.sys]
 path = "../../drv/stm32xx-sys"
@@ -147,8 +145,8 @@ path = "../../task/thermal"
 name = "task-thermal"
 features = ["itm", "h753"]
 priority = 3
-requires = {flash = 8192, ram = 2048 }
-stacksize = 1920
+requires = {flash = 16384, ram = 4096 }
+stacksize = 3504
 start = true
 task-slots = ["i2c_driver", "sensor"]
 
@@ -182,6 +180,10 @@ stacksize = 1600
 start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
 
+[tasks.gimlet_seq.config]
+fpga_image = "fpga-b.bin"
+register_defs = "gimlet_regs.json"
+
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
@@ -211,6 +213,26 @@ requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpbroadcast]
+path = "../../task/udpbroadcast"
+name = "task-udpbroadcast"
+priority = 3
+requires = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.validate]
+path = "../../task/validate"
+name = "task-validate"
+priority = 3
+requires = {flash = 8192, ram = 4096 }
+stacksize = 1000 
+start = true
+task-slots = ["i2c_driver"]
 
 [tasks.idle]
 path = "../../task/idle"
@@ -387,7 +409,7 @@ refdes = "U522"
 
 [[config.i2c.devices]]
 bus = "mid"
-address = 0x25
+address = 0x26
 device = "tps546b24a"
 description = "A0 3.3V rail"
 pmbus = { rails = [ "V3P3_SYS_A0" ] }
@@ -536,6 +558,170 @@ pmbus = { rails = [ "V12_SYS_A2" ] }
 sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
 refdes = "U431"
 
+################################################################################
+# DIMM slots
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x18
+device = "tse2004av"
+name = "DIMM_A0"
+description = "DIMM A0"
+sensors = { temperature = 1 }
+refdes = "M0"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x19
+device = "tse2004av"
+name = "DIMM_A1"
+description = "DIMM A1"
+sensors = { temperature = 1 }
+refdes = "M8"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1a
+device = "tse2004av"
+name = "DIMM_B0"
+description = "DIMM B0"
+sensors = { temperature = 1 }
+refdes = "M1"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1b
+device = "tse2004av"
+name = "DIMM_B1"
+description = "DIMM B1"
+sensors = { temperature = 1 }
+refdes = "M9"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1c
+device = "tse2004av"
+name = "DIMM_C0"
+description = "DIMM C0"
+sensors = { temperature = 1 }
+refdes = "M2"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1d
+device = "tse2004av"
+name = "DIMM_C1"
+description = "DIMM C1"
+sensors = { temperature = 1 }
+refdes = "M10"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1e
+device = "tse2004av"
+name = "DIMM_D0"
+description = "DIMM D0"
+sensors = { temperature = 1 }
+refdes = "M3"
+removable = true
+
+[[config.i2c.devices]]
+bus = "mid"
+address = 0x1f
+device = "tse2004av"
+name = "DIMM_D1"
+description = "DIMM D1"
+sensors = { temperature = 1 }
+refdes = "M11"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x18
+device = "tse2004av"
+name = "DIMM_E0"
+description = "DIMM E0"
+sensors = { temperature = 1 }
+refdes = "M4"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x19
+device = "tse2004av"
+name = "DIMM_E1"
+description = "DIMM E1"
+sensors = { temperature = 1 }
+refdes = "M12"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1a
+device = "tse2004av"
+name = "DIMM_F0"
+description = "DIMM F0"
+sensors = { temperature = 1 }
+refdes = "M5"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1b
+device = "tse2004av"
+name = "DIMM_F1"
+description = "DIMM F1"
+sensors = { temperature = 1 }
+refdes = "M13"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1c
+device = "tse2004av"
+name = "DIMM_G0"
+description = "DIMM G0"
+sensors = { temperature = 1 }
+refdes = "M6"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1d
+device = "tse2004av"
+name = "DIMM_G1"
+description = "DIMM G1"
+sensors = { temperature = 1 }
+refdes = "M14"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1e
+device = "tse2004av"
+name = "DIMM_H0"
+description = "DIMM H0"
+sensors = { temperature = 1 }
+refdes = "M7"
+removable = true
+
+[[config.i2c.devices]]
+bus = "rear"
+address = 0x1f
+device = "tse2004av"
+name = "DIMM_H1"
+description = "DIMM H1"
+sensors = { temperature = 1 }
+refdes = "M15"
+removable = true
+
+################################################################################
+
 [config.spi.spi2]
 controller = 2
 
@@ -582,9 +768,18 @@ cs = [{port = "E", pin = 4}]
 clock_divider = "DIV16"
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
-
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
+use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     config::{
@@ -48,6 +48,10 @@ pub fn package(
     let partial_build = tasks_to_build.is_some();
 
     let toml = Config::from_file(&cfg)?;
+
+    if !partial_build {
+        check_task_priorities(&toml)?;
+    }
 
     let mut out = PathBuf::from("target");
     let buildstamp_file = out.join("buildstamp");
@@ -217,17 +221,10 @@ pub fn package(
             .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
         bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
 
-        let kernel_start = allocs.kernel.get("flash").unwrap().start;
-
-        if kernel_start != bootloader_memory.get("FLASH").unwrap().end {
-            panic!("mismatch between bootloader end and hubris start! check app.toml!");
-        }
-
         generate_bootloader_linker_script(
             "memory.x",
             &bootloader_memory,
             Some(&bootloader.sections),
-            &bootloader.sharedsyms,
         );
 
         fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -652,6 +649,43 @@ Did you mean to run `cargo xtask dist`?"
     Ok(())
 }
 
+/// Prints warning messages about priority inversions
+fn check_task_priorities(toml: &Config) -> Result<()> {
+    let color_choice = if atty::is(atty::Stream::Stderr) {
+        termcolor::ColorChoice::Auto
+    } else {
+        termcolor::ColorChoice::Never
+    };
+    let mut out_stream = termcolor::StandardStream::stderr(color_choice);
+    let out = &mut out_stream;
+
+    for (name, task) in &toml.tasks {
+        for callee in task.task_slots.values() {
+            let p = toml
+                .tasks
+                .get(callee)
+                .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
+                .priority;
+            if p >= task.priority {
+                // TODO: once all priority inversions are fixed, return an
+                // error so no more can be introduced
+                let mut color = ColorSpec::new();
+                color.set_fg(Some(Color::Red));
+                out.set_color(&color)?;
+                write!(out, "Priority inversion: ")?;
+                out.reset()?;
+                writeln!(
+                    out,
+                    "task {} (priority {}) calls into {} (priority {})",
+                    name, task.priority, callee, p
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn generate_header(
     in_binary: &PathBuf,
     out_binary: &PathBuf,
@@ -788,7 +822,6 @@ fn generate_bootloader_linker_script(
     name: &str,
     map: &IndexMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-    sharedsyms: &[String],
 ) {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -834,38 +867,6 @@ fn generate_bootloader_linker_script(
         }
         writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
     }
-
-    // Symbol addresses to be exported to tasks. This gets stripped
-    // later
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, "  .fake_output : ALIGN(32) {{").unwrap();
-
-    for s in sharedsyms {
-        writeln!(linkscr, "    LONG({});", s).unwrap();
-    }
-    writeln!(linkscr, "  }} > FLASH").unwrap();
-
-    writeln!(linkscr, "  .symbol_defs : {{").unwrap();
-
-    writeln!(linkscr, "  PROVIDE(address_of_imagea_flash = .);").unwrap();
-    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_FLASH));").unwrap();
-    writeln!(linkscr, "  PROVIDE(address_of_imagea_ram = .);").unwrap();
-    writeln!(linkscr, "  LONG(ORIGIN(IMAGEA_RAM));").unwrap();
-    writeln!(linkscr, "  PROVIDE(address_of_test_region = .);").unwrap();
-    writeln!(
-        linkscr,
-        "  LONG(ORIGIN(IMAGEA_FLASH) + LENGTH(IMAGEA_FLASH));"
-    )
-    .unwrap();
-    writeln!(linkscr, "  }} > FLASH").unwrap();
-
-    writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
-
-    writeln!(linkscr, "SECTIONS {{").unwrap();
-    writeln!(linkscr, "  .attest (NOLOAD) : {{").unwrap();
-    writeln!(linkscr, "  KEEP(*(.attestation .attestation.*))").unwrap();
-    writeln!(linkscr, "  }} > SRAM").unwrap();
-    writeln!(linkscr, "}} INSERT AFTER .uninit").unwrap();
 
     writeln!(linkscr, "IMAGEA = ORIGIN(IMAGEA_FLASH);").unwrap();
 }

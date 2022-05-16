@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
-0A-hardware = ["lpc55_romapi/0A-hardware"]
 tz_support = []
 
 [dependencies]

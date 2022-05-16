@@ -1,0 +1,16 @@
+// Validation API
+
+Interface(
+    name: "Validate",
+    ops: {
+        "validate_i2c": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: (type : "ValidateOk", recv: FromPrimitive("u8")),
+                err: CLike("ValidateError"),
+            ),
+        ),
+    },
+)

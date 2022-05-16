@@ -119,6 +119,7 @@ fn reset_if_needed(
         | ResponseCode::BusLockedMux
         | ResponseCode::BusReset
         | ResponseCode::BusResetMux
+        | ResponseCode::BusError
         | ResponseCode::ControllerLocked => {}
         _ => {
             return;

@@ -4,6 +4,7 @@
 
 //! Driver for the MAX31790 fan controller
 
+use crate::Validate;
 use bitfield::bitfield;
 use drv_i2c_api::*;
 use userlib::units::*;
@@ -17,7 +18,8 @@ enum I2cWatchdog {
     ThirtySeconds = 0b11,
 }
 
-#[allow(dead_code)]
+#[derive(FromPrimitive)]
+#[repr(u8)]
 enum Frequency {
     F25Hz = 0b0000,
     F30Hz = 0b0001,
@@ -49,6 +51,12 @@ bitfield! {
     external_oscillator, _: 3;
     i2c_watchdog, set_i2c_watchdog: 2, 1;
     i2c_watchdog_faulted, _: 0;
+}
+
+bitfield! {
+    pub struct PWMFrequency(u8);
+    pwm_46, _: 7, 4;
+    pwm_13, _: 3, 0;
 }
 
 bitfield! {
@@ -313,5 +321,22 @@ impl Max31790 {
 
         let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
         write_reg16(&self.device, fan.pwm_target(), val << 7)
+    }
+}
+
+impl Validate<ResponseCode> for Max31790 {
+    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
+        //
+        // The device doesn't have an identity register per se; to validate it,
+        // we make sure that the PWM Frequency register contains valid
+        // frequencies -- which doesn't eliminate many possibilities, but is
+        // better than nothing.
+        //
+        let freq = PWMFrequency(read_reg8(device, Register::PWMFrequency)?);
+
+        let pwm_13 = Frequency::from_u8(freq.pwm_13());
+        let pwm_46 = Frequency::from_u8(freq.pwm_46());
+
+        Ok(pwm_13.is_some() && pwm_46.is_some())
     }
 }
