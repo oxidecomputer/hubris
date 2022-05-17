@@ -5,7 +5,6 @@
 //! Implementation of tasks.
 
 use core::convert::TryFrom;
-use core::sync::atomic::{AtomicU32, Ordering};
 
 use abi::{
     FaultInfo, FaultSource, Generation, Priority, ReplyFaultReason, SchedState,
@@ -17,21 +16,9 @@ use crate::app::{
     RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags,
 };
 use crate::err::UserError;
+use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::{ULease, USlice};
-
-/// This global holds the fault notification that will be sent to the supervisor
-/// of another task faults. It gets configured at application startup by a call
-/// to `set_fault_notification` and then remains untouched.
-#[no_mangle]
-static FAULT_NOTIFICATION: AtomicU32 = AtomicU32::new(0);
-
-/// Sets the notification bits that will be posted to the supervisor if another
-/// task faults. This is normally invoked only once during startup (though it is
-/// not technically unsafe to do other things with it).
-pub fn set_fault_notification(mask: u32) {
-    FAULT_NOTIFICATION.store(mask, Ordering::Relaxed);
-}
 
 /// Internal representation of a task.
 ///
@@ -902,8 +889,8 @@ pub fn force_fault(
             }
         }
     };
-    let supervisor_awoken = tasks[0]
-        .post(NotificationSet(FAULT_NOTIFICATION.load(Ordering::Relaxed)));
+    let supervisor_awoken =
+        tasks[0].post(NotificationSet(HUBRIS_FAULT_NOTIFICATION));
     if supervisor_awoken {
         NextTask::Specific(0)
     } else {

@@ -5,7 +5,7 @@
 //! Kernel startup.
 
 use crate::app;
-use crate::task::{self, Task};
+use crate::task::Task;
 use core::mem::MaybeUninit;
 
 /// The main kernel entry point.
@@ -28,72 +28,10 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // Set our clock frequency so debuggers can find it as needed
     crate::arch::set_clock_freq(tick_divisor);
 
-    let regions = &HUBRIS_REGION_DESCS;
-    let tasks = &HUBRIS_TASK_DESCS;
-
-    // Validate regions first, since tasks will use them.
-    for region in regions {
-        // Check for use of reserved attributes.
-        uassert!(!region
-            .attributes
-            .intersects(app::RegionAttributes::RESERVED));
-        // Check for base+size overflow
-        uassert!(region.base.checked_add(region.size).is_some());
-        // Check for suspicious use of reserved word
-        uassert_eq!(region.reserved_zero, 0);
-
-        #[cfg(any(armv6m, armv7m))]
-        uassert!(region.size.is_power_of_two());
-    }
-
-    // Validate tasks next.
-    for task in tasks {
-        uassert!(!task.flags.intersects(app::TaskFlags::RESERVED));
-
-        let mut entry_pt_found = false;
-        let mut stack_ptr_found = false;
-        for &region_idx in &task.regions {
-            let region = &regions[region_idx as usize];
-            if task.entry_point.wrapping_sub(region.base) < region.size {
-                if region.attributes.contains(app::RegionAttributes::EXECUTE) {
-                    entry_pt_found = true;
-                }
-            }
-            // Note that stack pointer is compared using <=, because it's okay
-            // to have it point just off the end as the stack is initially
-            // empty.
-            if task.initial_stack.wrapping_sub(region.base) <= region.size {
-                if region.attributes.contains(
-                    app::RegionAttributes::READ | app::RegionAttributes::WRITE,
-                ) {
-                    stack_ptr_found = true;
-                }
-            }
-        }
-
-        uassert!(entry_pt_found);
-        uassert!(stack_ptr_found);
-    }
-
-    // Finally, check interrupts.
-    for (irq, owner) in HUBRIS_IRQ_TASK_LOOKUP.iter() {
-        if irq.is_valid() {
-            uassert!(owner.is_valid());
-            uassert!(owner.task < tasks.len() as u32);
-        }
-    }
-    for (owner, irqs) in HUBRIS_TASK_IRQ_LOOKUP.iter() {
-        if !irqs.is_empty() {
-            uassert!(owner.is_valid());
-            uassert!(owner.task < tasks.len() as u32);
-        }
-    }
-
-    // Okay, we're pretty sure this is all legitimate. Grab the TCB RAM and
-    // start the safe code.
+    // Grab references to all our statics and start the safe code.
     safe_start_kernel(
-        tasks,
-        regions,
+        &HUBRIS_TASK_DESCS,
+        &HUBRIS_REGION_DESCS,
         &mut HUBRIS_TASK_TABLE_SPACE,
         &mut HUBRIS_REGION_TABLE_SPACE,
         tick_divisor,
@@ -173,8 +111,6 @@ fn safe_start_kernel(
         // TODO: these could be done by the linker...
         crate::arch::set_task_table(task_table);
     }
-    // TODO: this could be constant-folded now.
-    task::set_fault_notification(HUBRIS_FAULT_NOTIFICATION);
 
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.

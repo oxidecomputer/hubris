@@ -73,7 +73,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(file, "pub static HUBRIS_IMAGE_ID: u64 = {};", image_id)?;
     writeln!(
         file,
-        "const HUBRIS_FAULT_NOTIFICATION: u32 = {};",
+        "pub const HUBRIS_FAULT_NOTIFICATION: u32 = {};",
         kconfig.supervisor_notification
     )?;
     writeln!(
