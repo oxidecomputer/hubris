@@ -17,17 +17,12 @@ pub fn handle_kernel_message(
 ) -> Result<NextTask, UserError> {
     // Copy out arguments.
     let args = tasks[caller].save().as_send_args();
-    let operation = args.operation();
-    // We're not checking these yet as we might not need them.
-    let maybe_message = args.message();
-    let maybe_response = args.response_buffer();
-    drop(args);
 
-    match operation {
-        1 => read_task_status(tasks, caller, maybe_message?, maybe_response?),
-        2 => restart_task(tasks, caller, maybe_message?),
-        3 => fault_task(tasks, caller, maybe_message?),
-        4 => read_image_id(tasks, caller, maybe_response?),
+    match args.operation {
+        1 => read_task_status(tasks, caller, args.message?, args.response?),
+        2 => restart_task(tasks, caller, args.message?),
+        3 => fault_task(tasks, caller, args.message?),
+        4 => read_image_id(tasks, caller, args.response?),
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
             return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(

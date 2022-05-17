@@ -224,10 +224,10 @@ impl Task {
     /// but this is not checked.
     pub fn take_notifications(&mut self) -> Option<u32> {
         let args = self.save.as_recv_args();
-        let ss = args.specific_sender();
+        let ss = args.specific_sender;
         if ss.is_none() || ss == Some(TaskId::KERNEL) {
             // Notifications are not filtered out.
-            let firing = self.notifications & args.notification_mask();
+            let firing = self.notifications & args.notification_mask;
             if firing != 0 {
                 self.notifications &= !firing;
                 return Some(firing);
@@ -381,64 +381,139 @@ pub trait ArchState: Default {
     /// Writes syscall return argument 5.
     fn ret5(&mut self, _: u32);
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for SEND.
-    fn as_send_args(&self) -> AsSendArgs<&Self> {
-        AsSendArgs(self)
+    /// Interprets arguments as for the SEND syscall and returns the results.
+    ///
+    /// This is inlined because it's called from several places, and most of
+    /// those places only use _part_ of its result -- so inlining it lets most
+    /// of its code be eliminated and makes text smaller.
+    #[inline(always)]
+    fn as_send_args(&self) -> SendArgs {
+        SendArgs {
+            callee: TaskId((self.arg0() >> 16) as u16),
+            operation: self.arg0() as u16,
+            message: USlice::from_raw(
+                self.arg1() as usize,
+                self.arg2() as usize,
+            ),
+            response: USlice::from_raw(
+                self.arg3() as usize,
+                self.arg4() as usize,
+            ),
+            lease_table: USlice::from_raw(
+                self.arg5() as usize,
+                self.arg6() as usize,
+            ),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for RECV.
-    fn as_recv_args(&self) -> AsRecvArgs<&Self> {
-        AsRecvArgs(self)
+    /// Interprets arguments as for the RECV syscall and returns the results.
+    ///
+    /// This is inlined because it's called from several places, and most of
+    /// those places only use _part_ of its result -- so inlining it lets most
+    /// of its code be eliminated and makes text smaller.
+    #[inline(always)]
+    fn as_recv_args(&self) -> RecvArgs {
+        RecvArgs {
+            buffer: USlice::from_raw(
+                self.arg0() as usize,
+                self.arg1() as usize,
+            ),
+            notification_mask: self.arg2(),
+            specific_sender: {
+                let v = self.arg3();
+                if v & (1 << 31) != 0 {
+                    Some(TaskId(v as u16))
+                } else {
+                    None
+                }
+            },
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for REPLY.
-    fn as_reply_args(&self) -> AsReplyArgs<&Self> {
-        AsReplyArgs(self)
+    /// Interprets arguments as for the REPLY syscall and returns the results.
+    fn as_reply_args(&self) -> ReplyArgs {
+        ReplyArgs {
+            callee: TaskId(self.arg0() as u16),
+            response_code: self.arg1(),
+            message: USlice::from_raw(
+                self.arg2() as usize,
+                self.arg3() as usize,
+            ),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for `REPLY_FAULT`.
-    fn as_reply_fault_args(&self) -> AsReplyFaultArgs<&Self> {
-        AsReplyFaultArgs(self)
+    /// Interprets arguments as for the `REPLY_FAULT` syscall and returns the
+    /// results.
+    fn as_reply_fault_args(&self) -> ReplyFaultArgs {
+        ReplyFaultArgs {
+            callee: TaskId(self.arg0() as u16),
+            reason: ReplyFaultReason::try_from(self.arg1())
+                .map_err(|_| UsageError::BadReplyFaultReason),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for SET_TIMER.
-    fn as_set_timer_args(&self) -> AsSetTimerArgs<&Self> {
-        AsSetTimerArgs(self)
+    /// Interprets arguments as for the `SET_TIMER` syscall and returns the
+    /// results.
+    fn as_set_timer_args(&self) -> SetTimerArgs {
+        SetTimerArgs {
+            deadline: if self.arg0() != 0 {
+                Some(Timestamp::from(
+                    u64::from(self.arg2()) << 32 | u64::from(self.arg1()),
+                ))
+            } else {
+                None
+            },
+            notification: NotificationSet(self.arg3()),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for BORROW_*.
-    fn as_borrow_args(&self) -> AsBorrowArgs<&Self> {
-        AsBorrowArgs(self)
+    /// Interprets arguments as for the `BORROW_*` family of syscalls and
+    /// returns the result.
+    fn as_borrow_args(&self) -> BorrowArgs {
+        BorrowArgs {
+            lender: TaskId(self.arg0() as u16),
+            lease_number: self.arg1() as usize,
+            offset: self.arg2() as usize,
+            buffer: USlice::from_raw(
+                self.arg3() as usize,
+                self.arg4() as usize,
+            ),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for IRQ_CONTROL.
-    fn as_irq_args(&self) -> AsIrqArgs<&Self> {
-        AsIrqArgs(self)
+    /// Interprets arguments as for the `IRQ_CONTROL` syscall and returns the
+    /// results.
+    fn as_irq_args(&self) -> IrqArgs {
+        IrqArgs {
+            notification_bitmask: self.arg0(),
+            control: self.arg1(),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for PANIC.
-    fn as_panic_args(&self) -> AsPanicArgs<&Self> {
-        AsPanicArgs(self)
+    /// Interprets arguments as for the `PANIC` syscall and returns the results.
+    fn as_panic_args(&self) -> PanicArgs {
+        PanicArgs {
+            message: USlice::from_raw(
+                self.arg0() as usize,
+                self.arg1() as usize,
+            ),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for REFRESH_TASK_ID
-    fn as_refresh_task_id_args(&self) -> AsRefreshTaskIdArgs<&Self> {
-        AsRefreshTaskIdArgs(self)
+    /// Interprets arguments as for the `REFRESH_TASK_ID` syscall and returns
+    /// the results.
+    fn as_refresh_task_id_args(&self) -> RefreshTaskIdArgs {
+        RefreshTaskIdArgs {
+            task_id: TaskId(self.arg0() as u16),
+        }
     }
 
-    /// Returns a proxied reference that assigns names and types to the syscall
-    /// arguments for POST
-    fn as_post_args(&self) -> AsPostArgs<&Self> {
-        AsPostArgs(self)
+    /// Interprets arguments as for the `POST` syscall and returns the results.
+    fn as_post_args(&self) -> PostArgs {
+        PostArgs {
+            task_id: TaskId(self.arg0() as u16),
+            notification_bits: NotificationSet(self.arg1()),
+        }
     }
 
     /// Sets a recoverable error code using the generic ABI.
@@ -507,203 +582,79 @@ pub trait ArchState: Default {
     }
 }
 
-/// Reference proxy for send argument registers.
-pub struct AsSendArgs<T>(T);
-
-impl<'a, T: ArchState> AsSendArgs<&'a T> {
-    /// Extracts the task ID the caller wishes to send to.
-    pub fn callee(&self) -> TaskId {
-        TaskId((self.0.arg0() >> 16) as u16)
-    }
-
-    /// Extracts the operation code the caller is using.
-    pub fn operation(&self) -> u16 {
-        self.0.arg0() as u16
-    }
-
-    /// Extracts the bounds of the caller's message as a `USlice`.
-    ///
-    /// If the caller passed a slice that overlaps the end of the address space,
-    /// returns `Err`.
-    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg1() as usize, self.0.arg2() as usize)
-    }
-
-    /// Extracts the bounds of the caller's response buffer as a `USlice`.
-    ///
-    /// If the caller passed a slice that overlaps the end of the address space,
-    /// returns `Err`.
-    pub fn response_buffer(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg3() as usize, self.0.arg4() as usize)
-    }
-
-    /// Extracts the bounds of the caller's lease table as a `USlice`.
-    ///
-    /// If the caller passed a slice that overlaps the end of the address space,
-    /// or that is not aligned properly for a lease table, returns `Err`.
-    pub fn lease_table(&self) -> Result<USlice<ULease>, UsageError> {
-        USlice::from_raw(self.0.arg5() as usize, self.0.arg6() as usize)
-    }
+/// Decoded arguments for the `SEND` syscall.
+#[derive(Clone, Debug)]
+pub struct SendArgs {
+    pub callee: TaskId,
+    pub operation: u16,
+    pub message: Result<USlice<u8>, UsageError>,
+    pub response: Result<USlice<u8>, UsageError>,
+    pub lease_table: Result<USlice<ULease>, UsageError>,
 }
 
-/// Reference proxy for receive argument registers.
-pub struct AsRecvArgs<T>(T);
-
-impl<'a, T: ArchState> AsRecvArgs<&'a T> {
-    /// Gets the caller's receive destination buffer.
-    ///
-    /// If the callee provided a bogus destination slice, this will return
-    /// `Err`.
-    pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
-    }
-
-    /// Gets the caller's notification mask.
-    pub fn notification_mask(&self) -> u32 {
-        self.0.arg2()
-    }
-
-    /// Gets the task ID we're listening for, or `None` if any sender is
-    /// acceptable.
-    pub fn specific_sender(&self) -> Option<TaskId> {
-        let v = self.0.arg3();
-        if v & (1 << 31) != 0 {
-            Some(TaskId(v as u16))
-        } else {
-            None
-        }
-    }
+/// Decoded arguments for the `RECV` syscall.
+#[derive(Clone, Debug)]
+pub struct RecvArgs {
+    pub buffer: Result<USlice<u8>, UsageError>,
+    pub notification_mask: u32,
+    pub specific_sender: Option<TaskId>,
 }
 
-/// Reference proxy for reply argument registers.
-pub struct AsReplyArgs<T>(T);
-
-impl<'a, T: ArchState> AsReplyArgs<&'a T> {
-    /// Extracts the task ID the caller wishes to reply to.
-    pub fn callee(&self) -> TaskId {
-        TaskId(self.0.arg0() as u16)
-    }
-
-    /// Extracts the response code the caller is using.
-    pub fn response_code(&self) -> u32 {
-        self.0.arg1()
-    }
-
-    /// Extracts the bounds of the caller's reply buffer as a `USlice`.
-    ///
-    /// If the caller passed a slice that overlaps the end of the address space,
-    /// returns `Err`.
-    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg2() as usize, self.0.arg3() as usize)
-    }
+/// Decoded arguments for the `REPLY` syscall.
+#[derive(Clone, Debug)]
+pub struct ReplyArgs {
+    pub callee: TaskId,
+    pub response_code: u32,
+    pub message: Result<USlice<u8>, UsageError>,
 }
 
-/// Reference proxy for `REPLY_FAULT` argument registers.
-pub struct AsReplyFaultArgs<T>(T);
-
-impl<'a, T: ArchState> AsReplyFaultArgs<&'a T> {
-    /// Extracts the task ID the caller wishes to reply to.
-    pub fn callee(&self) -> TaskId {
-        TaskId(self.0.arg0() as u16)
-    }
-
-    /// Extracts the reason cited.
-    pub fn reason(&self) -> Result<ReplyFaultReason, UsageError> {
-        ReplyFaultReason::try_from(self.0.arg1())
-            .map_err(|_| UsageError::BadReplyFaultReason)
-    }
+/// Decoded arguments for the `REPLY_FAULT` syscall.
+#[derive(Clone, Debug)]
+pub struct ReplyFaultArgs {
+    pub callee: TaskId,
+    pub reason: Result<ReplyFaultReason, UsageError>,
 }
 
-/// Reference proxy for SET_TIMER argument registers.
-pub struct AsSetTimerArgs<T>(T);
-
-impl<'a, T: ArchState> AsSetTimerArgs<&'a T> {
-    /// Extracts the deadline.
-    pub fn deadline(&self) -> Option<Timestamp> {
-        if self.0.arg0() != 0 {
-            Some(Timestamp::from(
-                u64::from(self.0.arg2()) << 32 | u64::from(self.0.arg1()),
-            ))
-        } else {
-            None
-        }
-    }
-
-    /// Extracts the notification set.
-    pub fn notification(&self) -> NotificationSet {
-        NotificationSet(self.0.arg3())
-    }
+/// Decoded arguments for the `SET_TIMER` syscall.
+#[derive(Clone, Debug)]
+pub struct SetTimerArgs {
+    pub deadline: Option<Timestamp>,
+    pub notification: NotificationSet,
 }
 
-/// Reference proxy for BORROW_* argument registers.
-pub struct AsBorrowArgs<T>(T);
-
-impl<'a, T: ArchState> AsBorrowArgs<&'a T> {
-    /// Extracts the task being borrowed from.
-    pub fn lender(&self) -> TaskId {
-        TaskId(self.0.arg0() as u16)
-    }
-
-    /// Extracts the lease index.
-    pub fn lease_number(&self) -> usize {
-        self.0.arg1() as usize
-    }
-
-    /// Extracts the intended offset into the borrowed area.
-    pub fn offset(&self) -> usize {
-        self.0.arg2() as usize
-    }
-    /// Extracts the caller-side buffer area.
-    pub fn buffer(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg3() as usize, self.0.arg4() as usize)
-    }
+/// Decoded arguments for the `BORROW_*` syscalls.
+#[derive(Clone, Debug)]
+pub struct BorrowArgs {
+    pub lender: TaskId,
+    pub lease_number: usize,
+    pub offset: usize,
+    pub buffer: Result<USlice<u8>, UsageError>,
 }
 
-/// Reference proxy for IRQ_CONTROL argument registers.
-pub struct AsIrqArgs<T>(T);
-
-impl<'a, T: ArchState> AsIrqArgs<&'a T> {
-    /// Bitmask indicating notification bits.
-    pub fn notification_bitmask(&self) -> u32 {
-        self.0.arg0()
-    }
-
-    /// Control word (0=disable, 1=enable)
-    pub fn control(&self) -> u32 {
-        self.0.arg1()
-    }
+/// Decoded arguments for the `IRQ_CONTROL` syscall.
+#[derive(Clone, Debug)]
+pub struct IrqArgs {
+    pub notification_bitmask: u32,
+    pub control: u32,
 }
 
-/// Reference proxy for Panic argument registers.
-pub struct AsPanicArgs<T>(T);
-
-impl<'a, T: ArchState> AsPanicArgs<&'a T> {
-    /// Extracts the task's reported message slice.
-    pub fn message(&self) -> Result<USlice<u8>, UsageError> {
-        USlice::from_raw(self.0.arg0() as usize, self.0.arg1() as usize)
-    }
+/// Decoded arguments for the `PANIC` syscall.
+#[derive(Clone, Debug)]
+pub struct PanicArgs {
+    pub message: Result<USlice<u8>, UsageError>,
 }
 
-/// Reference proxy for Get Task Generation argument registers.
-pub struct AsRefreshTaskIdArgs<T>(T);
-
-impl<'a, T: ArchState> AsRefreshTaskIdArgs<&'a T> {
-    pub fn task_id(&self) -> TaskId {
-        TaskId(self.0.arg0() as u16)
-    }
+/// Decoded arguments for the `REFRESH_TASK_ID` syscall.
+#[derive(Clone, Debug)]
+pub struct RefreshTaskIdArgs {
+    pub task_id: TaskId,
 }
 
-/// Reference proxy for Post argument registers.
-pub struct AsPostArgs<T>(T);
-
-impl<'a, T: ArchState> AsPostArgs<&'a T> {
-    pub fn task_id(&self) -> TaskId {
-        TaskId(self.0.arg0() as u16)
-    }
-
-    pub fn notification_bits(&self) -> NotificationSet {
-        NotificationSet(self.0.arg1())
-    }
+/// Decoded arguments for the `POST` syscall.
+#[derive(Clone, Debug)]
+pub struct PostArgs {
+    pub task_id: TaskId,
+    pub notification_bits: NotificationSet,
 }
 
 /// State for a task timer.
