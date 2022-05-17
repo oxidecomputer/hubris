@@ -1,30 +1,25 @@
 [package]
-name = "drv-lpc55-spi-server"
+name = "drv-stm32h7-spi-rot-server"
 version = "0.1.0"
 edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-zerocopy = "0.6.1"
-lpc55-pac = "0.3.0"
-drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
-drv-lpc55-spi = {path = "../lpc55-spi"}
-drv-spi-msg = {path = "../spi-msg"}
-num-traits = { version = "0.2.12", default-features = false }
-drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 ringbuf = {path = "../../lib/ringbuf"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+drv-spi-api = {path = "../../drv/spi-api"}
+drv-spi-msg = {path = "../../drv/spi-msg"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-build-lpc55pins = {path = "../../build/lpc55pins"}
-serde = "1"
-
-[features]
-spi0 = []
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-lpc55-spi-server"
+name = "drv-stm32h7-spi-rot-server"
 test = false
 bench = false

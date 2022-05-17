@@ -4,10 +4,9 @@
 
 use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
-#[cfg(any(feature = "qspi", feature = "hash", feature = "rng"))]
+#[cfg(any(feature = "qspi", feature = "hash", feature = "rng", feature = "spi-rot"))]
 use userlib::task_slot;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
-
 /// We allow dead code on this because the functions below are optional.
 ///
 /// This could become a From impl on Failure if moved into hif, which would let
@@ -254,6 +253,45 @@ pub(crate) fn spi_write(
 
     func_err(spi.write(device, &data[0..len]))?;
     Ok(0)
+}
+
+#[cfg(feature = "spi-rot")]
+task_slot!(SPI_ROT, spi_rot);
+
+#[cfg(feature = "spi-rot")]
+pub(crate) fn spi_rot_send_recv(
+    stack: &[Option<u32>],
+    data: &[u8],
+    rval: &mut [u8],
+) -> Result<usize, Failure> {
+    // send_recv( msgtype, len ) leases{message[u8; 256], response[u8; 256]
+    // returns [u32; 2] a type and a length or an error. data in response lease
+    use drv_spi_msg as msg;
+
+    if rval.len() < core::mem::size_of::<[u32; 2]>() {
+        return Err(Failure::Fault(Fault::ReturnValueOverflow));
+    }
+
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let frame = &stack[stack.len() - 2..];
+    let msgtype: msg::MsgType = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?.into();
+    let len: usize = frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+
+    let server = msg::SpiMsg::from(SPI_ROT.get_task_id());
+    // Echo, &data[..].len() == 0x800, rval[..].len() == 0x100
+    let result = func_err(server.send_recv(msgtype, &data[0..len], &mut rval[..]))?;
+    match msg::MsgType::from(result[0]) {
+        msg::MsgType::EchoReturn => {
+            Ok(result[1] as usize)
+        },
+        _ => {
+            // TODO: Deliver a more useful error derived from the RoT response.
+            Err(hif::Failure::FunctionError(1))
+        },
+    }
 }
 
 #[cfg(feature = "qspi")]

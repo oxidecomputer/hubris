@@ -145,9 +145,13 @@ pub enum Digimode {
     Digital = 1,
 }
 
-impl Into<bool> for Digimode {
-    fn into(self) -> bool {
-        self == Self::Digital
+impl From<bool> for Digimode {
+    fn from(state: bool) -> Self {
+        if state {
+            Digimode::Digital
+        } else {
+            Digimode::Analog
+        }
     }
 }
 
@@ -157,9 +161,13 @@ pub enum Slew {
     Fast = 1,
 }
 
-impl Into<bool> for Slew {
-    fn into(self) -> bool {
-        self == Self::Fast
+impl From<bool> for Slew {
+    fn from(state: bool) -> Self {
+        if state {
+            Slew::Fast
+        } else {
+            Slew::Standard
+        }
     }
 }
 
@@ -169,9 +177,13 @@ pub enum Invert {
     Enabled = 1,
 }
 
-impl Into<bool> for Invert {
-    fn into(self) -> bool {
-        self == Self::Enabled
+impl From<bool> for Invert {
+    fn from(state: bool) -> Self {
+        if state {
+            Invert::Enabled
+        } else {
+            Invert::Disable
+        }
     }
 }
 
@@ -181,9 +193,13 @@ pub enum Opendrain {
     Opendrain = 1,
 }
 
-impl Into<bool> for Opendrain {
-    fn into(self) -> bool {
-        self == Self::Opendrain
+impl From<bool> for Opendrain {
+    fn from(state: bool) -> Self {
+        if state {
+            Opendrain::Opendrain
+        } else {
+            Opendrain::Normal
+        }
     }
 }
 

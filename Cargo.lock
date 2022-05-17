@@ -345,7 +345,8 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 [[package]]
 name = "corncobs"
 version = "0.1.1"
-source = "git+https://github.com/cbiffle/corncobs?tag=v0.1.1#06a276928075fd5638802d46ed2d3d0c31d2d0c3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
 
 [[package]]
 name = "cortex-m"
@@ -890,6 +891,7 @@ dependencies = [
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
+ "drv-spi-msg",
  "lpc55-pac",
  "num-traits",
  "ringbuf",
@@ -1076,6 +1078,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-spi-msg"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
@@ -1216,6 +1230,22 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi-rot-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-spi-api",
+ "drv-spi-msg",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
  "zerocopy",
 ]
 
@@ -2664,15 +2694,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-big-array"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3323f09a748af288c3dc2474ea6803ee81f118321775bffa3ac8f7e65c5e90e7"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "serde_derive"
 version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2821,12 +2842,11 @@ dependencies = [
 name = "sprockets-rot"
 version = "0.1.0"
 dependencies = [
- "corncobs 0.1.1 (git+https://github.com/cbiffle/corncobs?tag=v0.1.1)",
+ "corncobs",
  "derive_more",
  "hubpack",
  "salty",
  "serde",
- "serde-big-array",
  "sprockets-common",
  "tinyvec",
 ]
@@ -3033,7 +3053,9 @@ dependencies = [
  "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
+ "drv-spi-msg",
  "drv-stm32h7-i2c",
+ "drv-stm32h7-spi-rot-server",
  "drv-stm32xx-sys-api",
  "drv-update-api",
  "hif",
@@ -3232,7 +3254,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cfg-if",
- "corncobs 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "corncobs",
  "cortex-m",
  "drv-stm32h7-usart",
  "hubpack",
@@ -3529,6 +3551,7 @@ name = "tests-stm32g0"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3543,6 +3566,7 @@ name = "tests-stm32h7"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
