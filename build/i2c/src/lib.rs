@@ -768,23 +768,6 @@ impl ConfigGenerator {
     }
 
     pub fn generate_validation(&mut self) -> Result<()> {
-        write!(
-            &mut self.output,
-            r##"
-    pub mod validation {{
-        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
-        use drv_i2c_devices::Validate;
-        use userlib::TaskId;
-
-        pub enum I2cValidation {{
-            RawReadOk,
-            Good,
-            Bad,
-        }}
-
-"##
-        )?;
-
         //
         // Lord, have mercy: we are going to find the crate containing i2c
         // devices, and go fishing for where we believe the device drivers
@@ -828,6 +811,21 @@ impl ConfigGenerator {
         write!(
             &mut self.output,
             r##"
+    pub mod validation {{
+        #[allow(unused_imports)]
+        use drv_i2c_api::{{I2cDevice, Controller, PortIndex}};
+        #[allow(unused_imports)]
+        use drv_i2c_devices::Validate;
+        use userlib::TaskId;
+
+        #[allow(dead_code)]
+        pub enum I2cValidation {{
+            RawReadOk,
+            Good,
+            Bad,
+        }}
+
+        #[allow(unused_variables)]
         pub fn validate(
             task: TaskId,
             index: usize,
