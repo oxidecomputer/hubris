@@ -363,7 +363,6 @@ Did you mean to run `cargo xtask dist`?"
 
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
-    let image_id = image_id.finish();
 
     // Format the descriptors for the kernel build.
     let kconfig = make_descriptors(
@@ -379,6 +378,9 @@ Did you mean to run `cargo xtask dist`?"
     )?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
+    kconfig.hash(&mut image_id);
+    allocs.hash(&mut image_id);
+
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
@@ -386,6 +388,8 @@ Did you mean to run `cargo xtask dist`?"
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
+
+    let image_id = image_id.finish();
 
     // Build the kernel.
     let build_config = toml.kernel_build_config(
@@ -639,10 +643,10 @@ Did you mean to run `cargo xtask dist`?"
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    let mut config = crate::flash::config(&toml.board.as_str())?;
-    config.flatten()?;
-
-    archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+    if let Some(mut config) = crate::flash::config(&toml.board.as_str())? {
+        config.flatten()?;
+        archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+    }
 
     archive.finish()?;
 
@@ -1056,7 +1060,7 @@ fn build(
     Ok(())
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Hash)]
 struct Allocations {
     /// Map from memory-name to address-range
     kernel: BTreeMap<String, Range<u32>>,

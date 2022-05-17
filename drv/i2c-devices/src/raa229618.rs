@@ -85,6 +85,19 @@ impl Raa229618 {
         operation.set_on_off_state(OPERATION::OnOffState::On);
         pmbus_write!(self.device, OPERATION, operation)
     }
+
+    pub fn set_vout(&mut self, value: Volts) -> Result<(), Error> {
+        if value > Volts(3.050) {
+            Err(Error::InvalidData {
+                err: pmbus::Error::ValueOutOfRange,
+            })
+        } else {
+            self.set_rail()?;
+            let mut vout = VOUT_COMMAND::CommandData(0);
+            vout.set(self.read_mode()?, pmbus::units::Volts(value.0))?;
+            pmbus_write!(self.device, VOUT_COMMAND, vout)
+        }
+    }
 }
 
 impl Validate<Error> for Raa229618 {
