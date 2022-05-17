@@ -599,9 +599,8 @@ Did you mean to run `cargo xtask dist`?"
     archive.copy(cfg, "app.toml")?;
     let chip_dir = cfg.parent().unwrap().join(toml.chip);
     let chip_file = chip_dir.join("chip.toml");
-    let chip_filename =
-        chip_file.file_name().unwrap().to_str().unwrap().to_owned();
-    archive.copy(chip_file, chip_filename)?;
+    let chip_filename = chip_file.file_name().unwrap();
+    archive.copy(&chip_file, &chip_filename)?;
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
