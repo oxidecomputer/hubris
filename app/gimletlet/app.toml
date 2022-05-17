@@ -7,7 +7,7 @@ stacksize = 896
 [kernel]
 path = "."
 name = "gimletlet"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -130,12 +130,12 @@ task-slots = ["sys"]
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng"]
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update"]
 priority = 3
 requires = {flash = 32768, ram = 32768}
 stacksize = 2048
 start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver"]
+task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_server"]
 
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
@@ -199,6 +199,15 @@ uses = ["rng"]
 start = true
 stacksize = 256
 task-slots = ["sys", "user_leds"]
+
+[tasks.update_server]
+path = "../../drv/stm32h7-update-server"
+name = "stm32h7-update-server"
+priority = 3
+requires = {flash = 8192, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
 
 [config]
 [[config.i2c.controllers]]

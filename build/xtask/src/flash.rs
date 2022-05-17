@@ -135,7 +135,7 @@ impl FlashConfig {
     }
 }
 
-pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
+pub fn config(board: &str) -> anyhow::Result<Option<FlashConfig>> {
     match board {
         "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
             let chip = if board == "lpcxpresso55s69" {
@@ -160,7 +160,7 @@ pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
                 .arg("hex")
                 .payload();
 
-            Ok(flash)
+            Ok(Some(flash))
         }
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
@@ -196,10 +196,11 @@ pub fn config(board: &str) -> anyhow::Result<FlashConfig> {
                 .arg("-c")
                 .arg("exit");
 
-            Ok(flash)
+            Ok(Some(flash))
         }
         _ => {
-            anyhow::bail!("unrecognized board {}", board);
+            eprintln!("Warning: unrecognized board, won't know how to flash.");
+            Ok(None)
         }
     }
 }
