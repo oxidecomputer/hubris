@@ -16,7 +16,7 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
     out.push(toml.name);
     out.push("dist");
 
-    let gdb_cfg = PathBuf::from(toml.chip).join("openocd.gdb");
+    let gdb_cfg = cfg.parent().unwrap().join(toml.chip).join("openocd.gdb");
 
     let gdb_path = out.join("script.gdb");
     let combined_path = out.join("final.elf");
