@@ -23,8 +23,3 @@ monitor tpiu config internal itm.txt uart off 8000000
 
 monitor itm port 0 on
 monitor itm port 1 on
-
-load
-
-# start the process but immediately halt the processor
-stepi

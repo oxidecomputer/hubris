@@ -39,6 +39,10 @@ pub fn run(cfg: &Path) -> anyhow::Result<()> {
         .arg(gdb_path)
         .arg("-x")
         .arg(&gdb_cfg)
+        .arg("-ex")
+        .arg("load")
+        .arg("-ex")
+        .arg("stepi") // start the process but immediately halt the processor
         .arg(combined_path);
 
     let status = cmd.status()?;
