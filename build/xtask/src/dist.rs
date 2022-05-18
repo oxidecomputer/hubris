@@ -588,7 +588,7 @@ Did you mean to run `cargo xtask dist`?"
         - elf/tasks/ contains each task by name.\n\
         - elf/kernel is the kernel.\n\
         - img/ contains the final firmware images.\n
-        - debug/ contains OpenOCD and GDB scripts.\n",
+        - debug/ contains OpenOCD and GDB scripts, if available.\n",
     )?;
 
     let (git_rev, git_dirty) = get_git_status()?;

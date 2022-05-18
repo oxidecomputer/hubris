@@ -64,9 +64,9 @@ impl Config {
         let mut hasher = DefaultHasher::new();
         hasher.write(&cfg_contents);
 
-        // If the app.toml specifies a `chip` key, then load the peripheral
-        // register map from a separate file and accumulate that file in the
-        // buildhash.
+        // The app.toml must include a `chip` key, which defines the peripheral
+        // register map in a separate file.  We load it then accumulate that
+        // file in the buildhash.
         let peripherals = {
             let chip_file =
                 cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
