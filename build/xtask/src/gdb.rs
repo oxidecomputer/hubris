@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::Config;
 
-pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
+pub fn run(cfg: &Path) -> anyhow::Result<()> {
     ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
 
     let toml = Config::from_file(&cfg)?;
@@ -15,6 +15,8 @@ pub fn run(cfg: &Path, gdb_cfg: &Path) -> anyhow::Result<()> {
     let mut out = PathBuf::from("target");
     out.push(toml.name);
     out.push("dist");
+
+    let gdb_cfg = PathBuf::from(toml.chip).join("openocd.gdb");
 
     let gdb_path = out.join("script.gdb");
     let combined_path = out.join("final.elf");

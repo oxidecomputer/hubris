@@ -651,8 +651,13 @@ Did you mean to run `cargo xtask dist`?"
 
     let debug_dir = PathBuf::from("debug");
     archive.copy(out.join("script.gdb"), debug_dir.join("script.gdb"))?;
-    archive
-        .copy(chip_dir.join("openocd.cfg"), debug_dir.join("openocd.cfg"))?;
+
+    // Copy `openocd.cfg` into the archive if it exists; it's not used for
+    // the LPC55 boards.
+    let openocd_cfg = chip_dir.join("openocd.cfg");
+    if openocd_cfg.exists() {
+        archive.copy(openocd_cfg, debug_dir.join("openocd.cfg"))?;
+    }
     archive
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 

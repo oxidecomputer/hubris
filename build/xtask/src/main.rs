@@ -78,9 +78,6 @@ enum Xtask {
     Gdb {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
-
-        /// Path to the gdb configuation script.
-        gdb_cfg: PathBuf,
     },
 
     /// Runs `humility`, passing any arguments
@@ -161,9 +158,9 @@ fn main() -> Result<()> {
             dist::package(verbose, false, &cfg, None)?;
             sizes::run(&cfg, false)?;
         }
-        Xtask::Gdb { cfg, gdb_cfg } => {
+        Xtask::Gdb { cfg } => {
             dist::package(false, false, &cfg, None)?;
-            gdb::run(&cfg, &gdb_cfg)?;
+            gdb::run(&cfg)?;
         }
         Xtask::Humility { cfg, options } => {
             humility::run(&cfg, &options)?;
