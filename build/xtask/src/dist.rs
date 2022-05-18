@@ -587,7 +587,7 @@ Did you mean to run `cargo xtask dist`?"
         - elf/ contains ELF images for all firmware components.\n\
         - elf/tasks/ contains each task by name.\n\
         - elf/kernel is the kernel.\n\
-        - img/ contains the final firmware images.\n
+        - img/ contains the final firmware images.\n\
         - debug/ contains OpenOCD and GDB scripts, if available.\n",
     )?;
 
