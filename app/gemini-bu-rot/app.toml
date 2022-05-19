@@ -70,7 +70,7 @@ stacksize = 1536
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-priority = 5
+priority = 7
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -86,7 +86,7 @@ start = true
 [tasks.gpio_driver]
 path = "../../drv/lpc55-gpio"
 name = "drv-lpc55-gpio"
-priority = 2
+priority = 3
 requires = {flash = 8192, ram = 2048}
 uses = ["gpio", "iocon"]
 start = true
@@ -96,7 +96,7 @@ task-slots = ["syscon_driver"]
 path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["lpc55"]
-priority = 2
+priority = 4
 requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
@@ -104,7 +104,7 @@ task-slots = ["gpio_driver"]
 [tasks.usart_driver]
 path = "../../drv/lpc55-usart"
 name = "drv-lpc55-usart"
-priority = 2
+priority = 4
 requires = {flash = 8192, ram = 2048}
 uses = ["flexcomm0"]
 start = true
@@ -120,7 +120,7 @@ pins = [
 [tasks.rng_driver]
 path = "../../drv/lpc55-rng"
 name = "drv-lpc55-rng"
-priority = 2
+priority = 3
 requires = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
@@ -130,7 +130,7 @@ task-slots = ["syscon_driver"]
 [tasks.spi0_driver]
 path = "../../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
-priority = 2
+priority = 4
 requires = {flash = 16384, ram = 2048}
 features = ["spi0"]
 uses = ["flexcomm3", "flexcomm8"]
@@ -154,7 +154,7 @@ pins = [
 [tasks.swd]
 path = "../../drv/lpc55-swd"
 name = "drv-lpc55-swd"
-priority = 2
+priority = 4
 requires = {flash = 16384, ram = 4096}
 uses = ["flexcomm3"]
 start = true
@@ -188,7 +188,7 @@ spi_num = 3
 path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
-priority = 4
+priority = 6
 requires = {flash = 8192, ram = 2048}
 start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
@@ -196,7 +196,7 @@ task-slots = [{peer = "pong"}, "usart_driver"]
 [tasks.pong]
 path = "../../task/pong"
 name = "task-pong"
-priority = 3
+priority = 5
 requires = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["user_leds"]
@@ -204,7 +204,7 @@ task-slots = ["user_leds"]
 [tasks.hiffy]
 path = "../../task/hiffy"
 name = "task-hiffy"
-priority = 3
+priority = 5
 features = ["lpc55", "gpio", "spi", "spctrl"]
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048

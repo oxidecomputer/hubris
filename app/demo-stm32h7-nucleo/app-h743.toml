@@ -161,7 +161,7 @@ task-slots = ["net"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h743", "stm32h7", "itm", "i2c", "gpio", "spi", "rng"]
-priority = 3
+priority = 4
 requires = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
@@ -178,7 +178,7 @@ start = true
 [tasks.rng_driver]
 features = ["h743"]
 path = "../../drv/stm32h7-rng"
-priority = 2
+priority = 3
 name = "drv-stm32h7-rng"
 requires = {flash = 8192, ram = 512}
 stacksize = 256

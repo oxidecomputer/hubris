@@ -78,7 +78,7 @@ task-slots = ["sys"]
 path = "../../task/spd"
 name = "task-spd"
 features = ["h753", "itm"]
-priority = 2
+priority = 3
 requires = {flash = 16384, ram = 16384 }
 uses = ["i2c2"]
 start = true
@@ -139,7 +139,7 @@ task-slots = ["user_leds"]
 path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
-priority = 3
+priority = 4
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
@@ -163,7 +163,7 @@ task-slots = ["sys"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash"]
-priority = 3
+priority = 5
 requires = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
@@ -181,7 +181,7 @@ task-slots = ["i2c_driver"]
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-priority = 5
+priority = 6
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
