@@ -50,13 +50,14 @@ The repo is laid out as follows.
 
 # Developing
 
-We currently support Linux and Windows as first-tier platforms. The build
-probably also works on Illumos and Mac; if anyone would like to step up to
-maintain support and a continuous build for those architectures, we'd love the
-help.
+We currently support Linux and Windows as first-tier platforms. macOS is also
+used on a daily basis by Oxide employees, but is not tested in CI.  The build
+probably also works on Illumos; if anyone would like to step up to maintain
+support and a continuous build for Illumos or macOS, we'd love the help.
 
-To submit changes for review push them to a branch in a fork and submit a pull
-request to merge that branch into master.
+To submit changes for review, push them to a branch in a fork and submit a pull
+request to merge that branch into `master`. For details, see
+[`CONTRIBUING.md`](CONTRIBUTING.md).
 
 ## Prereqs
 
@@ -76,12 +77,6 @@ You will need:
   find [OpenOCD v0.11.0 here](https://sourceforge.net/projects/openocd/files/openocd/0.11.0/).
   When running `./configure`, make sure that you see that the
   `ST-Link Programmer` is set enabled (which should be the default).
-
-- The appropriate Rust toolchain target installed (note: this should happen
-  automatically):
-  - `rustup target add thumbv6m-none-eabi` (for STM32G0xx with Cortex-M0+)
-  - `rustup target add thumbv7em-none-eabihf` (for the STM32)
-  - `rustup target add thumbv8m.main-none-eabihf` (for the LPC55)
 
 - [libusb](https://libusb.info/), typically found from your system's package
   manager as `libusb-1.0.0` or similar.
@@ -153,47 +148,186 @@ custom build commands.
   - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
 - `cargo xtask build TOMLFILE TASKNAME` compiles one task of an application in
   isolation, the same way it would be built with `dist`. This is useful for
-  iterating on a single task.
+  iterating on a single task (see [Iterating](#Iterating) below for details.
 
-## Run
+## Adding a task
 
-Details depend on your target board. Here are some common evaluation boards we
-support.
+To create your own task, the easiest method is:
 
-### Gemini bringup board
+- Copy `task/template` to a new name.
+- Edit its `Cargo.toml` with your name and a new package name.
+- Add it to the list of workspace members in the root `Cargo.toml`.
+- Add it to a system image by editing an `app.toml` file.
+- Run `cargo xtask build` to compile it.
 
-See the Gemini Bringup [Getting
-Started](https://github.com/oxidecomputer/gemini-bringup#getting-started) docs.
+A typical `app.toml` entry for a small task that uses no memory-mapped
+peripherals would read
 
-### STM32F3 & STM32F4 Discovery boards
-
-Connect board via USB.
-
-From one terminal, launch `openocd` with the corresponding config file:
-
-```console
-$ openocd -f chips/stm32f4/openocd.cfg  # STM32F4 Discovery boards OR
-$ openocd -f chips/stm32f3/openocd.cfg  # STM32F3 Discovery boards
+```toml
+[tasks.name_for_task_in_this_image]
+path = "../my-task-directory"
+name = "my-task-target-name"
+priority = 1
+requires = {flash = 1024, ram = 1024}
+start = true
 ```
 
-From another terminal:
+## Iterating
+
+Because a full image build can take 10 seconds or more, depending on what you've
+changed, when you're iterating on a task or kernel you'll probably want to build
+it separately. This is what `cargo xtask build` is for.
+
+For instance, to build `task-ping` as it would be built in one of the images, but
+without building the rest of the demo, run:
 
 ```console
-$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml       # STM32F4 Discovery boards OR
-$ cargo xtask gdb app/demo-stm32f4-discovery/app-f3.toml    # STM32F3 Discovery boards
+$ cargo xtask build app/gimletlet/app.toml ping
 ```
 
-If this works, you'll see `gdb` mumble some things about flashing, `openocd`
-will scroll by some updates, and you will eventually be unceremoniously
-deposited at a `(gdb)` prompt halted on the first instruction. Type `c` /
-`continue` to run.
+## Running `clippy`
+The `cargo xtask clippy` subcommand can be used to run `clippy` against one or
+more tasks in the context of a particular image:
 
-**Note that for the STM32F3 Discovery, SB10 must be soldered closed for ITM
+```console
+$ cargo xtask clippy app/gimletlet/app.toml ping pong
+```
+
+# Using Hubris
+Hubris is tightly coupled to its debugger,
+[Humility](https://github.com/oxidecomputer/humility),
+which is used for the commands below either implicitly
+(in `cargo xtask flash`) or explicitly (in `cargo xtask humility`).
+
+If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
+environment variable may be used to provide the path to the binary.
+
+## Flash
+
+An image within a Hubris archive can be flashed directly onto a target board
+by running `cargo xtask flash` and specifying the appropriate
+TOML file.  This will run `cargo xtask dist` and then pass the resulting
+build archive to `humility flash`. `humility` will invoke either OpenOCD or
+pyOCD to flash the image; the exact invocation depends on the board
+and is encoded in the build archive.
+
+- LPCXpresso55S69: `cargo xtask flash app/lpc55xpresso/app.toml`
+- STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h743.toml`
+- ST Nucleo-H753ZI board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h753.toml`
+- Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
+
+## Running Humility
+
+The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
+is run _in situ_ by specifying an archive on a directly connected board,
+or postmortem by specifying a dump.  As a convenience for development,
+Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
+on a machine with an STM32F4 Discovery board directly attached:
+
+```console
+$ cargo xtask humility app/demo-stm32f4-discovery/app.toml tasks
+    Finished dev [optimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/xtask humility demo/app.toml tasks`
+humility: attached via ST-Link
+ID ADDR     TASK               GEN STATE    
+ 0 20000108 jefe                 0 Healthy(InRecv(None))     
+ 1 20000178 rcc_driver           0 Healthy(InRecv(None))     
+ 2 200001e8 usart_driver         0 Healthy(InRecv(None))     
+ 3 20000258 user_leds            0 Healthy(Runnable)          <-
+ 4 200002c8 ping                48 Healthy(Runnable)         
+ 5 20000338 pong                 0 Healthy(InRecv(None))     
+ 6 200003a8 idle                 0 Healthy(Runnable)         
+```
+
+### Debugging with GDB
+`humility` includes a `gdb` subcommand which attaches to a running system
+using `arm-none-eabi-gdb`, optionally running its own `openocd` instance based
+on configuration data in the build archive.
+
+It can be invoked through `cargo xtask humility`:
+
+```console
+$ cargo xtask humility app/demo-stm32f4-discovery/app.tom gdb -- --run-openocd
+# ... lots of output elided ...
+task_idle::main () at task/idle/src/main.rs:14
+14          loop {
+Breakpoint 1 at 0x800434c: file /crates.io/cortex-m-rt-0.6.15/src/lib.rs, line 560.
+Note: automatically using hardware breakpoints for read-only addresses.
+semihosting is enabled
+
+semihosting is enabled
+
+(gdb)
+```
+
+# Testing Hubris
+
+The Hubris kernel is tested with a dedicated _test image_ that includes a test
+runner, assistant and test suite.  The test image emits its results via ITM.
+While these results can be interpreted manually, `humility test` automates
+this.  `humility test` itself is most easily run via `cargo xtask test`, which
+runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
+and `cargo xtask humility test`.  The exact invocation depends on the board:
+
+- LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
+- STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`  
+  **Note: for this board, SB10 must be soldered closed for ITM to work**
+- STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
+- ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
+- ST Nucleo-H753ZI board: `cargo xtask test test/tests-stm32h7/app-h753.toml`
+
+Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
+You must exit any other instances of OpenOCD that you have connected to the device
+before running tests.
+
+If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
+environment variable may be used to provide the path to the binary.
+
+See the [documentation for `humility
+test`](https://github.com/oxidecomputer/humility#humility-test) for details
+on test results.
+
+## Debugging tests
+
+Output from tests is captured by `humility test`; `sys_log!()` calls to
+tests can be added and then captured in a `humility test` dump.  To capture
+a dump from tests that are otherwise passing, use `cargo xtask humility`
+directly and pass the `-d` flag, e.g.:
+
+```console
+$ cargo xtask humility test/tests-stm32fx/app.toml -- test -d
+...
+humility: attached via ST-Link
+humility: TPIU sync packet found at offset 1
+humility: ITM synchronization packet found at offset 12
+humility: expecting 22 cases
+humility: running test_send ... ok
+...
+humility: running test_timer_notify ... ok
+humility: running test_timer_notify_past ... ok
+humility: tests completed: pass
+humility: test output dumped to hubris.testout.2
+```
+
+if one needs to both run GDB and the test suite, use `cargo xtask gdb`
+with the test image's TOML and the appropriate GDB file, and then place
+breakpoints at the test of interest.
+
+# Special cases
+## Gemini bringup board
+
+See the Gemini Bringup
+[Getting Started](https://github.com/oxidecomputer/gemini-bringup/tree/master/gemini-bringup)
+docs (internal Oxide repo)
+
+## STM32F3 Discovery boards
+**For the STM32F3 Discovery board, SB10 must be soldered closed for ITM
 to work!** This solder bridge defaults to being open, which leaves SWO
 disconnected.  See the STM32F3 Discovery User Manual (UM1570) for schematic
 and details.
 
-### LPCXpresso55S69 board
+## LPCXpresso55S69 board
 
 To use the LPCXpresso55S69, you will need [pyOCD](https://github.com/mbedmicro/pyOCD), version 0.27.0 or later.
 
@@ -349,7 +483,7 @@ $ pyocd list
   0   LPCXpresso55S69 [lpc55s69]   02360b000d96e4fc00000000000000000000000097969905  
 ```
 
-### LPC55S28 on Gemini carrier board
+## LPC55S28 on Gemini carrier board
 
 Note that the RickLink running on the LPCXpresso55S69 can *also* be used 
 as the debugger for the LPC55S28 on the Gemini carrier board.  To do this,
@@ -369,17 +503,7 @@ LPCXpresso55S69.  Then:
 (To allow your RickLink to once again debug its local LPC55S69,
 remove the jumper on J5 and move J3 to "Loc".)
 
-### ST Nucleo-H743ZI2 board
-
-- Terminal 1: `openocd -f chips/stm32h7/openocd.cfg`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h743.toml`
-
-### ST Nucleo-H753ZI board
-
-- Terminal 1: `openocd -f chips/stm32h7/openocd.cfg`
-- Terminal 2: `cargo xtask gdb app/demo-stm32h7-nucleo/app-h753.toml`
-
-### Multiple boards simultaneously
+## Multiple boards simultaneously
 
 If multiple probes are attached, tools may struggle to find the right one at
 the right time.  In particular, OpenOCD will pick the first one that it finds;
@@ -395,7 +519,7 @@ hla_serial 271828182845904523536028
 
 (Where `271828182845904523536028` is the serial number of the probe.)
 
-## Update ST-Link Firmware if necessary
+## Updating ST-Link Firmware if necessary
 
 It is common that debugging dongles, and development boards with embedded
 debug hardware like the Nucleo series, are delivered with older firmware.
@@ -416,134 +540,3 @@ Error: test failed
 
 Follow this "[ST-LINK firmware upgrade](https://www.st.com/en/development-tools/stsw-link007.html)" link to find
 software and instructions necessary to install current firmware.
-
-## Flash
-
-An image within a Hubris archive can be flashed directly onto a target board
-by running `cargo xtask flash` and specifying the appropriate
-TOML file.  This will run `cargo xtask dist` and then execute the appropriate
-command (either OpenOCD or pyOCD) to flash the image; the exact invocation
-depends on the board:
-
-- LPCXpresso55S69: `cargo xtask flash app/lpc55xpresso/app.toml`
-- STM32F4 Discovery board: `cargo xtask flash app/demo-stm32f4-discovery/app.toml`
-- ST Nucleo-H743ZI2 board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h743.toml`
-- ST Nucleo-H753ZI board: `cargo xtask flash app/demo-stm32h7-nucleo/app-h753.toml`
-- Gemini bringup board: `cargo xtask flash app/gemini-bu/app.toml`
-
-Note: If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
-environment variable may be used to provide the path to the binary.
-
-## Debug
-
-The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
-is run _in situ_ by specifying an archive on a directly connected board,
-or postmortem by specifying a dump.  As a convenience for development,
-Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
-on a machine with an STM32F4 Discovery board directly attached:
-
-```console
-$ cargo xtask humility app/demo-stm32f4-discovery/app.toml tasks
-    Finished dev [optimized + debuginfo] target(s) in 0.17s
-     Running `target/debug/xtask humility demo/app.toml tasks`
-humility: attached via ST-Link
-ID ADDR     TASK               GEN STATE    
- 0 20000108 jefe                 0 Healthy(InRecv(None))     
- 1 20000178 rcc_driver           0 Healthy(InRecv(None))     
- 2 200001e8 usart_driver         0 Healthy(InRecv(None))     
- 3 20000258 user_leds            0 Healthy(Runnable)          <-
- 4 200002c8 ping                48 Healthy(Runnable)         
- 5 20000338 pong                 0 Healthy(InRecv(None))     
- 6 200003a8 idle                 0 Healthy(Runnable)         
-```
-
-Note: If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
-environment variable may be used to provide the path to the binary.
-
-## Testing
-
-The Hubris kernel is tested with a dedicated _test image_ that includes a test
-runner, assistant and test suite.  The test image emits its results via ITM.
-While these results can be interpreted manually, `humility test` automates
-this.  `humility test` itself is most easily run via `cargo xtask test`, which
-runs the equivalent of `cargo xtask dist`, `cargo xtask flash`
-and `cargo xtask humility test`.  The exact invocation depends on the board:
-
-- LPCXpresso55S69: `cargo xtask test test test/tests-lpc55/app.toml`
-- STM32F3 Discovery board: `cargo xtask test test/tests-stm32fx/app-f3.toml`  
-  **Note: for this board, SB10 must be soldered closed for ITM to work**
-- STM32F4 Discovery board: `cargo xtask test test/tests-stm32fx/app.toml`
-- ST Nucleo-H743ZI2 board: `cargo xtask test test/tests-stm32h7/app-h743.toml`
-- ST Nucleo-H753ZI board: `cargo xtask test test/tests-stm32h7/app-h753.toml`
-
-Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
-You must exit any other instances of OpenOCD that you have connected to the device
-before running tests.
-
-If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
-environment variable may be used to provide the path to the binary.
-
-See the [documentation for `humility
-test`](https://github.com/oxidecomputer/humility#humility-test) for details
-on test results.
-
-## Debugging tests
-
-Output from tests is captured by `humility test`; `sys_log!()` calls to
-tests can be added and then captured in a `humility test` dump.  To capture
-a dump from tests that are otherwise passing, use `cargo xtask humility`
-directly and pass the `-d` flag, e.g.:
-
-```console
-$ cargo xtask humility test/tests-stm32fx/app.toml -- test -d
-...
-humility: attached via ST-Link
-humility: TPIU sync packet found at offset 1
-humility: ITM synchronization packet found at offset 12
-humility: expecting 22 cases
-humility: running test_send ... ok
-...
-humility: running test_timer_notify ... ok
-humility: running test_timer_notify_past ... ok
-humility: tests completed: pass
-humility: test output dumped to hubris.testout.2
-```
-
-if one needs to both run GDB and the test suite, use `cargo xtask gdb`
-with the test image's TOML and the appropriate GDB file, and then place
-breakpoints at the test of interest.
-
-## Adding a task
-
-To create your own task, the easiest method is:
-
-- Copy `task/template` to a new name.
-- Edit its `Cargo.toml` with your name and a new package name.
-- Add it to the list of workspace members in the root `Cargo.toml`.
-- Add it to a system image by editing an `app.toml` file.
-- Run `cargo xtask build` to compile it.
-
-A typical `app.toml` entry for a small task that uses no memory-mapped
-peripherals would read
-
-```toml
-[tasks.name_for_task_in_this_image]
-path = "../my-task-directory"
-name = "my-task-target-name"
-priority = 1
-requires = {flash = 1024, ram = 1024}
-start = true
-```
-
-## Iterating
-
-Because a full image build can take 10 seconds or more, depending on what you've
-changed, when you're iterating on a task or kernel you'll probably want to build
-it separately. This is what `cargo xtask build` is for.
-
-For instance, to build `task-ping` as it would be built in one of the images, but
-without building the rest of the demo, run:
-
-```console
-$ cargo xtask build app/gimletlet/app.toml ping
-```
