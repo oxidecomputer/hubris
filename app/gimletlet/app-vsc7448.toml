@@ -1,7 +1,7 @@
 name = "gimletlet-vsc7448"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-2"
-chip = "../../chips/stm32h7.toml"
+chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]

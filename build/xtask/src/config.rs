@@ -6,7 +6,7 @@ use std::collections::{hash_map::DefaultHasher, BTreeMap};
 use std::hash::Hasher;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -19,8 +19,7 @@ struct RawConfig {
     name: String,
     target: String,
     board: String,
-    #[serde(default)]
-    chip: Option<String>,
+    chip: String,
     #[serde(default)]
     signing: IndexMap<String, Signing>,
     secure_separation: Option<bool>,
@@ -29,8 +28,6 @@ struct RawConfig {
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
-    #[serde(default)]
-    peripherals: IndexMap<String, Peripheral>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
     supervisor: Option<Supervisor>,
@@ -43,7 +40,7 @@ pub struct Config {
     pub name: String,
     pub target: String,
     pub board: String,
-    pub chip: Option<String>,
+    pub chip: String,
     pub signing: IndexMap<String, Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
@@ -67,19 +64,15 @@ impl Config {
         let mut hasher = DefaultHasher::new();
         hasher.write(&cfg_contents);
 
-        // If the app.toml specifies a `chip` key, then load the peripheral
-        // register map from a separate file and accumulate that file in the
-        // buildhash.
-        let peripherals = if let Some(chip) = &toml.chip {
-            if !toml.peripherals.is_empty() {
-                bail!("Cannot specify both chip and peripherals");
-            }
-            let chip_file = cfg.parent().unwrap().join(chip);
+        // The app.toml must include a `chip` key, which defines the peripheral
+        // register map in a separate file.  We load it then accumulate that
+        // file in the buildhash.
+        let peripherals = {
+            let chip_file =
+                cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice(&chip_contents)?
-        } else {
-            toml.peripherals
         };
 
         let buildhash = hasher.finish();

@@ -31,7 +31,7 @@ pub enum FlashProgram {
 //
 #[derive(Debug, Serialize)]
 pub enum FlashProgramConfig {
-    Path(Vec<String>),
+    Path(PathBuf),
     Payload(String),
 }
 
@@ -63,8 +63,8 @@ pub struct FlashConfig {
 }
 
 impl FlashProgramConfig {
-    fn new(path: Vec<&str>) -> Self {
-        FlashProgramConfig::Path(path.iter().map(|f| f.to_string()).collect())
+    fn new(path: PathBuf) -> Self {
+        FlashProgramConfig::Path(path)
     }
 }
 
@@ -135,7 +135,10 @@ impl FlashConfig {
     }
 }
 
-pub fn config(board: &str) -> anyhow::Result<Option<FlashConfig>> {
+pub fn config(
+    board: &str,
+    chip_dir: &PathBuf,
+) -> anyhow::Result<Option<FlashConfig>> {
     match board {
         "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
             let chip = if board == "lpcxpresso55s69" {
@@ -162,29 +165,12 @@ pub fn config(board: &str) -> anyhow::Result<Option<FlashConfig>> {
 
             Ok(Some(flash))
         }
+
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1"
         | "stm32g031" | "stm32g070" | "stm32g0b1" => {
-            let (dir, file) = if board == "stm32f3-discovery" {
-                ("demo-stm32f4-discovery", "openocd-f3.cfg")
-            } else if board == "stm32f4-discovery" {
-                ("demo-stm32f4-discovery", "openocd.cfg")
-            } else if board == "stm32g031" {
-                ("demo-stm32g0-nucleo", "openocd.cfg")
-            } else if board == "stm32g070" {
-                ("demo-stm32g0-nucleo", "openocd.cfg")
-            } else if board == "stm32g0b1" {
-                ("demo-stm32g0-nucleo", "openocd.cfg")
-            } else if board == "gemini-bu-1" {
-                ("gemini-bu", "openocd.cfg")
-            } else if board == "gimletlet-2" {
-                ("gimletlet", "openocd.cfg")
-            } else {
-                ("demo-stm32h7-nucleo", "openocd.cfg")
-            };
-
-            let cfg = FlashProgramConfig::new(["app", dir, file].to_vec());
+            let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
 

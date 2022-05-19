@@ -1,6 +1,6 @@
 name = "demo-stm32g031-nucleo"
 target = "thumbv6m-none-eabi"
-chip = "../../chips/stm32g0.toml"
+chip = "../../chips/stm32g0"
 board = "stm32g031"
 
 [kernel]

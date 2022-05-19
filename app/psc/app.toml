@@ -1,7 +1,7 @@
 name = "psc"
 target = "thumbv7em-none-eabihf"
 board = "psc-1"
-chip = "../../chips/stm32h7.toml"
+chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]

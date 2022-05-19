@@ -1,7 +1,7 @@
 name = "demo-stm32f4-discovery"
 target = "thumbv7em-none-eabihf"
 board = "stm32f4-discovery"
-chip = "../../chips/stm32f4.toml"
+chip = "../../chips/stm32f4"
 stacksize = 896
 
 [kernel]

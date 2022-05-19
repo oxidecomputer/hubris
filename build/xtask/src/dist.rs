@@ -587,7 +587,8 @@ Did you mean to run `cargo xtask dist`?"
         - elf/ contains ELF images for all firmware components.\n\
         - elf/tasks/ contains each task by name.\n\
         - elf/kernel is the kernel.\n\
-        - img/ contains the final firmware images.\n",
+        - img/ contains the final firmware images.\n\
+        - debug/ contains OpenOCD and GDB scripts, if available.\n",
     )?;
 
     let (git_rev, git_dirty) = get_git_status()?;
@@ -596,12 +597,10 @@ Did you mean to run `cargo xtask dist`?"
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
     archive.copy(cfg, "app.toml")?;
-    if let Some(chip) = &toml.chip {
-        let chip_file = cfg.parent().unwrap().join(chip);
-        let chip_filename =
-            chip_file.file_name().unwrap().to_str().unwrap().to_owned();
-        archive.copy(chip_file, chip_filename)?;
-    }
+    let chip_dir = cfg.parent().unwrap().join(toml.chip);
+    let chip_file = chip_dir.join("chip.toml");
+    let chip_filename = chip_file.file_name().unwrap();
+    archive.copy(&chip_file, &chip_filename)?;
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
@@ -643,10 +642,24 @@ Did you mean to run `cargo xtask dist`?"
     // any external configuration files, serialize it, and add it to the
     // archive.
     //
-    if let Some(mut config) = crate::flash::config(&toml.board.as_str())? {
+    if let Some(mut config) =
+        crate::flash::config(&toml.board.as_str(), &chip_dir)?
+    {
         config.flatten()?;
         archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
     }
+
+    let debug_dir = PathBuf::from("debug");
+    archive.copy(out.join("script.gdb"), debug_dir.join("script.gdb"))?;
+
+    // Copy `openocd.cfg` into the archive if it exists; it's not used for
+    // the LPC55 boards.
+    let openocd_cfg = chip_dir.join("openocd.cfg");
+    if openocd_cfg.exists() {
+        archive.copy(openocd_cfg, debug_dir.join("openocd.cfg"))?;
+    }
+    archive
+        .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
     archive.finish()?;
 

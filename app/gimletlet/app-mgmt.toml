@@ -1,7 +1,7 @@
 name = "gimletlet-mgmt"
 target = "thumbv7em-none-eabihf"
 board = "gimletlet-1"
-chip = "../../chips/stm32h7.toml"
+chip = "../../chips/stm32h7"
 stacksize = 1024
 
 [kernel]
