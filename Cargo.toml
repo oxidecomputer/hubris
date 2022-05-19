@@ -28,6 +28,7 @@ members = [
     "app/demo-stm32f4-discovery",
     "app/demo-stm32g0-nucleo",
     "app/demo-stm32h7-nucleo",
+    "app/demo-pi-pico",
     "app/gemini-bu",
     "app/gemini-bu-rot",
     "app/gimlet",
@@ -93,6 +94,9 @@ members = [
     "drv/lpc55-spi-server",
     "drv/lpc55-rng",
     "drv/lpc55-swd",
+
+    "drv/rp2040-sys-api",
+    "drv/rp2040-sys",
 
     "drv/user-leds",
     "drv/user-leds-api",

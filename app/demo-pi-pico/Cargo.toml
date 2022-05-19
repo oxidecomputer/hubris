@@ -1,0 +1,31 @@
+[package]
+edition = "2018"
+readme = "README.md"
+name = "demo-pi-pico"
+version = "0.1.0"
+
+[features]
+semihosting = ["panic-semihosting", "klog-semihosting"]
+klog-semihosting = ["kern/klog-semihosting"]
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-rt = "0.6.12"
+panic-halt = { version = "0.2.0", optional = true }
+panic-semihosting = { version = "0.5.3", optional = true }
+cfg-if = "0.1.10"
+rp2040-pac = {version = "0.3", features = ["rt"]}
+rp2040-boot2 = "0.2"
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo-pi-pico"
+test = false
+bench = false

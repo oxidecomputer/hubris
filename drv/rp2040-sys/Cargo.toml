@@ -1,0 +1,23 @@
+[package]
+name = "drv-rp2040-sys"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+rp2040-pac = "0.3"
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+drv-rp2040-sys-api = {path = "../rp2040-sys-api"}
+cfg-if = "1"
+
+[build-dependencies]
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-rp2040-sys"
+test = false
+bench = false
