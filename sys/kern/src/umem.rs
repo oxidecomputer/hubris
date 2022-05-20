@@ -11,23 +11,28 @@ use crate::err::InteractFault;
 use crate::task::Task;
 use abi::{FaultInfo, FaultSource, UsageError};
 
-pub use abi::ULease;
-
 /// A (user, untrusted, unprivileged) slice.
 ///
-/// A `USlice` references memory from a task, outside the kernel. The slice is
-/// alleged to contain values of type `T`, but is not guaranteed to be correctly
-/// aligned, etc.
+/// A `USlice` is passed into the kernel by a task, and is intended to refer to
+/// memory that task controls -- for instance, as a place where the kernel can
+/// deposit a message to that task. However, the `USlice` type itself simply
+/// represents an _allegation_ from the task that a section of address space is
+/// suitable; it does _not_ demonstrate that the task has access to that memory.
+/// It could point into the kernel, to peripherals, etc.
 ///
-/// The existence of a `USlice` only tells you one thing: that a task has
-/// asserted that it has access to a range of memory addresses, and that the
-/// addresses are correctly aligned for `T`. It does not *prove* that the task
-/// has this access, that is is correctly initialized, etc. The result must be
-/// used carefully.
+/// Having a `USlice<T>` tells you the following:
 ///
-/// Currently, the same `USlice` type is used for both readable and read-write
-/// task memory. They are distinguished only by context. This might prove to be
-/// annoying.
+/// - Some task has claimed it has access to a section of address space
+///   (delimited by the `USlice`).
+/// - The base of the section is correctly aligned for type `T`.
+/// - The section does not wrap around the end of the address space.
+///
+/// To actually access the memory referred to by a `USlice`, you need to hand it
+/// to `Task::try_read` or `Task::try_write` to validate it.
+///
+/// Note that this same `USlice` type is used for both readable and read-write
+/// contexts -- there is no `USliceMut`. So far, this has not seemed like a
+/// decision that will generate bugs.
 pub struct USlice<T> {
     /// Base address of the slice.
     base_address: usize,
@@ -170,6 +175,9 @@ where
     /// Converts this into an _actual_ slice that can be directly read by the
     /// kernel.
     ///
+    /// If you are implementing a syscall, please have a look at
+    /// `Task::try_read` instead.
+    ///
     /// # Safety
     ///
     /// This operation is totally unchecked, so to use it safely, you must first
@@ -178,10 +186,9 @@ where
     /// 1. That the memory region this `USlice` describes is actual memory.
     /// 2. That this memory is legally readable by whatever task you're doing
     ///    work on behalf of.
-    /// 3. That it is correctly aligned for type `T`.
-    /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
     ///    constraint ensures this statically.)
-    /// 5. That it does not alias any slice you intend to `&mut`-reference with
+    /// 4. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
     pub unsafe fn assume_readable(&self) -> &[T] {
         core::slice::from_raw_parts(self.base_address as *const T, self.length)
@@ -189,6 +196,9 @@ where
 
     /// Converts this into an _actual_ slice that can be directly read and
     /// written by the kernel.
+    ///
+    /// If you are implementing a syscall, please have a look at
+    /// `Task::try_write` instead.
     ///
     /// # Safety
     ///
@@ -198,10 +208,9 @@ where
     /// 1. That the memory region this `USlice` describes is actual memory.
     /// 2. That this memory is legally writable by whatever task you're doing
     ///    work on behalf of.
-    /// 3. That it is correctly aligned for type `T`.
-    /// 4. That it contains bytes that are valid `T`s. (The `FromBytes`
+    /// 3. That it contains bytes that are valid `T`s. (The `FromBytes`
     ///    constraint ensures this statically.)
-    /// 5. That it does not alias any other slice you intend to access, or any
+    /// 4. That it does not alias any other slice you intend to access, or any
     ///    kernel memory.
     pub unsafe fn assume_writable(&mut self) -> &mut [T] {
         core::slice::from_raw_parts_mut(
@@ -233,8 +242,8 @@ impl<T> core::fmt::Debug for USlice<T> {
 }
 
 /// Extracts the base/bound part of a `ULease` as a `USlice` of bytes.
-impl<'a> From<&'a ULease> for USlice<u8> {
-    fn from(lease: &'a ULease) -> Self {
+impl<'a> From<&'a abi::ULease> for USlice<u8> {
+    fn from(lease: &'a abi::ULease) -> Self {
         Self {
             base_address: lease.base_address as usize,
             length: lease.length as usize,
@@ -252,9 +261,12 @@ impl<'a> From<&'a ULease> for USlice<u8> {
 ///
 /// If `from_slice` or `to_slice` refers to memory that the respective task
 /// can't read or write (respectively), no bytes are copied, and this returns an
-/// `InteractFault` indicating which task(s) messed this up.
+/// `InteractFault` indicating which task(s) messed this up. Note that it's
+/// entirely possible for _both_ tasks to have messed this up.
 ///
-/// This operation will not accept device memory as readable or writable.
+/// This operation will not operate on (read or write) memory marked as
+/// any combination of `DEVICE` and `DMA`, as a side effect of its use of `Task`
+/// API to validate the memory regions.
 pub fn safe_copy(
     tasks: &mut [Task],
     from_index: usize,
