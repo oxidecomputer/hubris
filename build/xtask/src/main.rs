@@ -14,7 +14,6 @@ mod config;
 mod dist;
 mod elf;
 mod flash;
-mod gdb;
 mod humility;
 mod sizes;
 mod task_slot;
@@ -70,12 +69,6 @@ enum Xtask {
         /// Request verbosity from tools we shell out to.
         #[clap(short)]
         verbose: bool,
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-    },
-
-    /// Runs `xtask dist` and then runs a properly configured gdb for you.
-    Gdb {
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
     },
@@ -157,10 +150,6 @@ fn main() -> Result<()> {
         Xtask::Sizes { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             sizes::run(&cfg, false)?;
-        }
-        Xtask::Gdb { cfg } => {
-            dist::package(false, false, &cfg, None)?;
-            gdb::run(&cfg)?;
         }
         Xtask::Humility { cfg, options } => {
             humility::run(&cfg, &options)?;
