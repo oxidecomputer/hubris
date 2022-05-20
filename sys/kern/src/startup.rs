@@ -76,12 +76,12 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     }
 
     // Finally, check interrupts.
-    for (irq, owner) in HUBRIS_IRQ_TASK_LOOKUP.values {
+    for (irq, owner) in HUBRIS_IRQ_TASK_LOOKUP.iter() {
         if irq.0 != u32::MAX {
             uassert!(owner.task < tasks.len() as u32);
         }
     }
-    for (owner, irqs) in HUBRIS_TASK_IRQ_LOOKUP.values {
+    for (owner, irqs) in HUBRIS_TASK_IRQ_LOOKUP.iter() {
         if !irqs.is_empty() {
             uassert!(owner.task < tasks.len() as u32);
         }

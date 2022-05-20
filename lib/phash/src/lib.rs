@@ -30,6 +30,10 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> PerfectHashMap<'a, K, V> {
             None
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.values.iter()
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,6 +57,10 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> NestedPerfectHashMap<'a, K, V> {
             None
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.values.iter().flat_map(|s| s.iter())
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,5 +78,9 @@ impl<'a, K: Copy + PerfectHash + PartialEq + Ord, V> SortedList<'a, K, V> {
             .binary_search_by_key(&key, |v| v.0)
             .ok()
             .map(|i| &self.values[i].1)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.values.iter()
     }
 }

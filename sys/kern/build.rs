@@ -231,41 +231,109 @@ pub const HUBRIS_TASK_IRQ_LOOKUP: SortedList::<abi::InterruptOwner, &'static [ab
         || target.starts_with("thumbv7em")
         || target.starts_with("thumbv8m")
     {
-        let task_irq_map =
-            phash_gen::OwnedPerfectHashMap::build(task_irq_map).unwrap();
-        let irq_task_map =
-            phash_gen::OwnedPerfectHashMap::build(irq_task_map).unwrap();
-
-        // Generate text for the Interrupt and InterruptSet tables stored in the
-        // PerfectHashes
-        let irq_task_value = irq_task_map
-            .values
-            .iter()
-            .map(|o| fmt_irq_task(o.as_ref()))
-            .collect::<Vec<String>>()
-            .join("\n        ");
-        let task_irq_value = task_irq_map
-            .values
-            .iter()
-            .map(|o| fmt_task_irq(o.as_ref()))
-            .collect::<Vec<String>>()
-            .join("\n        ");
-
-        write!(file, "
+        let nested_import = if let Ok(task_irq_map) =
+            phash_gen::OwnedPerfectHashMap::build(task_irq_map.clone())
+        {
+            let task_irq_value = task_irq_map
+                .values
+                .iter()
+                .map(|o| fmt_task_irq(o.as_ref()))
+                .collect::<Vec<String>>()
+                .join("\n        ");
+            writeln!(file, "
 use phash::PerfectHashMap;
-pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
-    m: {:#x},
-    values: &[
-        {}
-    ],
-}};
 pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = PerfectHashMap {{
     m: {:#x},
     values: &[
         {}
     ],
 }};",
-        irq_task_map.m, irq_task_value, task_irq_map.m, task_irq_value)?;
+                task_irq_map.m, task_irq_value)?;
+            false
+        } else {
+            let task_irq_map =
+                phash_gen::OwnedNestedPerfectHashMap::build(task_irq_map)
+                    .unwrap();
+            let task_irq_value = task_irq_map
+                .values
+                .iter()
+                .map(|v| {
+                    format!(
+                        "&[\n            {}\n        ],",
+                        v.iter()
+                            .map(|o| fmt_task_irq(Some(&o)))
+                            .collect::<Vec<String>>()
+                            .join("\n            ")
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n        ");
+            writeln!(file, "
+use phash::NestedPerfectHashMap;
+pub const HUBRIS_TASK_IRQ_LOOKUP: NestedPerfectHashMap::<abi::InterruptOwner, &'static [abi::InterruptNum]> = NestedPerfectHashMap {{
+    m: {:#x},
+    g: &{:#x?},
+    values: &[
+        {}
+    ],
+}};",
+                task_irq_map.m, task_irq_map.g, task_irq_value)?;
+            true
+        };
+
+        if let Ok(irq_task_map) =
+            phash_gen::OwnedPerfectHashMap::build(irq_task_map.clone())
+        {
+            if nested_import {
+                writeln!(file, "use phash::PerfectHashMap;")?;
+            }
+            // Generate text for the Interrupt and InterruptSet tables stored in the
+            // PerfectHashes
+            let irq_task_value = irq_task_map
+                .values
+                .iter()
+                .map(|o| fmt_irq_task(o.as_ref()))
+                .collect::<Vec<String>>()
+                .join("\n        ");
+            writeln!(file, "
+pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = PerfectHashMap {{
+    m: {:#x},
+    values: &[
+        {}
+    ],
+}};",
+                irq_task_map.m, irq_task_value)?;
+        } else {
+            let irq_task_map =
+                phash_gen::OwnedNestedPerfectHashMap::build(irq_task_map)
+                    .unwrap();
+            if !nested_import {
+                writeln!(file, "use phash::NestedPerfectHashMap;")?;
+            }
+            let irq_task_value = irq_task_map
+                .values
+                .iter()
+                .map(|v| {
+                    format!(
+                        "&[\n            {}\n        ],",
+                        v.iter()
+                            .map(|o| fmt_irq_task(Some(&o)))
+                            .collect::<Vec<String>>()
+                            .join("\n            ")
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n        ");
+            writeln!(file, "
+pub const HUBRIS_IRQ_TASK_LOOKUP: NestedPerfectHashMap::<abi::InterruptNum, abi::InterruptOwner> = NestedPerfectHashMap {{
+    m: {:#x},
+    g: &{:#x?},
+    values: &[
+        {}
+    ],
+}};",
+                irq_task_map.m, irq_task_map.g, irq_task_value)?;
+        }
     } else {
         panic!("Don't know the target {}", target);
     }
