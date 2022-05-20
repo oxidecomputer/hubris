@@ -4,16 +4,14 @@
 
 //! Architecture support for ARMv{6,7,8}-M.
 //!
-//! Mostly ARMv7-M at the moment.
-//!
 //! # ARM-M timer
 //!
 //! We use the system tick timer as the kernel timer, but it's only suitable for
 //! producing periodic interrupts -- its counter is small and only counts down.
-//! So, at each interrupt, we increment the `TICKS` global that contains the
-//! real kernel timestamp. This has the downside that we take regular interrupts
-//! to maintain `TICKS`, but has the upside that we don't need special SoC
-//! support for timing.
+//! So, at each SysTick interrupt, we increment the `TICKS` global that contains
+//! the real kernel timestamp. This has the downside that we take regular
+//! interrupts to maintain `TICKS`, but has the upside that we don't need
+//! special SoC support for timing.
 //!
 //! # Notes on ARM-M interrupts
 //!
@@ -83,52 +81,6 @@ use abi::FaultInfo;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
 use unwrap_lite::UnwrapLite;
-
-/// Log things from kernel context. This macro is made visible to the rest of
-/// the kernel by a chain of `#[macro_use]` attributes, but its implementation
-/// is very architecture-specific at the moment.
-///
-/// At the moment, there are two (architecture-specific) ways to log:  via
-/// semihosting (configured via the "klog-semihosting" feature) or via the
-/// ARM's Instrumentation Trace Macrocell (configured via the "klog-itm"
-/// feature).  If neither of these features is enabled, klog! will be stubbed
-/// out.
-///
-/// In the future, we will likely want to add at least one more mechanism for
-/// logging (one that can be presumably be made neutral with respect to
-/// architecure), whereby kernel logs can be produced somewhere (e.g., a ring
-/// buffer) from which they can be consumed by some entity for shipping
-/// elsewhere.
-///
-#[cfg(not(any(feature = "klog-semihosting", feature = "klog-itm")))]
-macro_rules! klog {
-    ($s:expr) => {};
-    ($s:expr, $($tt:tt)*) => {};
-}
-
-#[cfg(feature = "klog-itm")]
-macro_rules! klog {
-    ($s:expr) => {
-        #[allow(unused_unsafe)]
-        unsafe {
-            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[0];
-            cortex_m::iprintln!(stim, $s);
-        }
-    };
-    ($s:expr, $($tt:tt)*) => {
-        #[allow(unused_unsafe)]
-        unsafe {
-            let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[0];
-            cortex_m::iprintln!(stim, $s, $($tt)*);
-        }
-    };
-}
-
-#[cfg(feature = "klog-semihosting")]
-macro_rules! klog {
-    ($s:expr) => { let _ = cortex_m_semihosting::hprintln!($s); };
-    ($s:expr, $($tt:tt)*) => { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); };
-}
 
 macro_rules! uassert {
     ($cond : expr) => {

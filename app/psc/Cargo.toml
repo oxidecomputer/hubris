@@ -5,8 +5,8 @@ name = "psc"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm", "kern/klog-itm"]
-semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+itm = ["panic-itm"]
+semihosting = ["panic-semihosting"]
 
 [dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }

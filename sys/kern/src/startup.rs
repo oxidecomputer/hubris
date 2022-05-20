@@ -22,8 +22,6 @@ use core::mem::MaybeUninit;
 ///
 /// This can be called exactly once per boot.
 pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
-    klog!("starting: laziness");
-
     // Set our clock frequency so debuggers can find it as needed
     crate::arch::set_clock_freq(tick_divisor);
 
@@ -46,8 +44,6 @@ fn safe_start_kernel(
     >,
     tick_divisor: u32,
 ) -> ! {
-    klog!("starting: impatience");
-
     // Allocate our RAM data structures.
 
     // We currently just refer to the RegionDescs in Flash. No additional
@@ -117,7 +113,6 @@ fn safe_start_kernel(
         crate::task::select(task_table.len() - 1, task_table);
 
     crate::arch::apply_memory_protection(&task_table[first_task_index]);
-    klog!("starting: hubris");
     crate::arch::start_first_task(tick_divisor, &task_table[first_task_index])
 }
 

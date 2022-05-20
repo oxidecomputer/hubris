@@ -5,8 +5,8 @@ name = "tests-stm32g0"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm", "kern/klog-itm"]
-semihosting = ["panic-semihosting", "kern/klog-semihosting"]
+itm = ["panic-itm"]
+semihosting = ["panic-semihosting"]
 g070 = ["stm32g0/stm32g070"]
 
 [dependencies]
