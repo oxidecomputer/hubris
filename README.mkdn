@@ -96,35 +96,34 @@ You will need:
 
 ### Windows
 
-If you're on Windows, you can get set up by doing this:
+There are three alternative ways to install OpenOCD:
 
 See [here](https://openocd.org/pages/getting-openocd.html) for getting the source of `openocd`
-or get unofficial binaries. Alternatively, you can install via
-with [chocolatey](https://chocolatey.org/install):
+or get unofficial binaries.
+
+Alternatively, you can install with [chocolatey](https://chocolatey.org/install):
 
 ```console
 > choco install openocd
 ```
 
-You can easily install `openocd` with [scoop](https://scoop.sh/):
+Lastly, you could install `openocd` with [scoop](https://scoop.sh/):
 
 ```console
 > scoop bucket add extras
 > scoop install openocd
 ```
-NOTE: `openocd` installed via `scoop` has proven problematic for some users. If
-you experience problems, try installing via `choco` or from source (see above).
+**Note:** `openocd` installed via `scoop` has proven problematic for some
+users. If you experience problems, try installing via `choco` or from source
+(see above).
 
-You'll probably need to install [this
-driver](https://www.st.com/en/development-tools/stsw-link009.html).
+To use the ST-Link programmer, you'll probably need to install
+[this driver](https://www.st.com/en/development-tools/stsw-link009.html).
 
-If your terminal doesn't support serial connections, you'll want to also use
-PuTTY; [this guide](https://pbxbook.com/voip/sputty.html) does a good job of
-explaining how.
-
-Finally, the instructions below invoke shell scripts. They're very small, and
-so for now you can run the commands manually, yourself. We may improve this
-in the future.
+It's not necessary to build and run Hubris, but if you want to communicate
+over a serial link (and that's not supported by your terminal), you'll want to
+use PuTTY; [this guide](https://pbxbook.com/voip/sputty.html)
+does a good job of explaining how.
 
 ## Build
 
@@ -135,20 +134,39 @@ is a bit beyond them.
 Instead, the repo includes a Cargo extension called `xtask` that namespaces our
 custom build commands.
 
-- `cargo xtask dist TOMLFILE` builds a distribution image for the
-  application described by the TOML file.
-  - `cargo xtask dist app/demo-stm32f4-discovery/app.toml` - stm32f4-discovery
-  - `cargo xtask dist app/demo-stm32f4-discovery/app-f3.toml` - stm32f3-discovery
-  - `cargo xtask dist app/lpc55xpresso/app.toml` - lpcxpresso55s69
-  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g031.toml` - stm32g031
-  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g070.toml` - stm32g070
-  - `cargo xtask dist app/demo-stm32g0-nucleo/app-g0b1.toml` - stm32g0b1
-  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
-  - `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
-  - `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
-- `cargo xtask build TOMLFILE TASKNAME` compiles one task of an application in
-  isolation, the same way it would be built with `dist`. This is useful for
-  iterating on a single task (see [Iterating](#Iterating) below for details.
+`cargo xtask dist TOMLFILE` builds a distribution image for the
+application described by the TOML file.
+
+- `cargo xtask dist app/demo-stm32f4-discovery/app.toml` - stm32f4-discovery
+- `cargo xtask dist app/demo-stm32f4-discovery/app-f3.toml` - stm32f3-discovery
+- `cargo xtask dist app/lpc55xpresso/app.toml` - lpcxpresso55s69
+- `cargo xtask dist app/demo-stm32g0-nucleo/app-g031.toml` - stm32g031
+- `cargo xtask dist app/demo-stm32g0-nucleo/app-g070.toml` - stm32g070
+- `cargo xtask dist app/demo-stm32g0-nucleo/app-g0b1.toml` - stm32g0b1
+- `cargo xtask dist app/demo-stm32h7-nucleo/app-h743.toml` - nucleo-ih743zi2
+- `cargo xtask dist app/demo-stm32h7-nucleo/app-h753.toml` - nucleo-ih753zi
+- `cargo xtask dist app/gemini-bu/app.toml` - Gemini bringup board
+
+## Iterating
+
+Because a full image build can take 10 seconds or more, depending on what you've
+changed, when you're iterating on a task or kernel you'll probably want to build
+it separately. This is what `cargo xtask build` is for.
+
+For instance, to build `task-ping` as it would be built in one of the images, but
+without building the rest of the demo, run:
+
+```console
+$ cargo xtask build app/gimletlet/app.toml ping
+```
+
+## Running `clippy`
+The `cargo xtask clippy` subcommand can be used to run `clippy` against one or
+more tasks in the context of a particular image:
+
+```console
+$ cargo xtask clippy app/gimletlet/app.toml ping pong
+```
 
 ## Adding a task
 
@@ -170,27 +188,6 @@ name = "my-task-target-name"
 priority = 1
 requires = {flash = 1024, ram = 1024}
 start = true
-```
-
-## Iterating
-
-Because a full image build can take 10 seconds or more, depending on what you've
-changed, when you're iterating on a task or kernel you'll probably want to build
-it separately. This is what `cargo xtask build` is for.
-
-For instance, to build `task-ping` as it would be built in one of the images, but
-without building the rest of the demo, run:
-
-```console
-$ cargo xtask build app/gimletlet/app.toml ping
-```
-
-## Running `clippy`
-The `cargo xtask clippy` subcommand can be used to run `clippy` against one or
-more tasks in the context of a particular image:
-
-```console
-$ cargo xtask clippy app/gimletlet/app.toml ping pong
 ```
 
 # Using Hubris
@@ -219,9 +216,8 @@ and is encoded in the build archive.
 
 ## Running Humility
 
-The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility),
-is run _in situ_ by specifying an archive on a directly connected board,
-or postmortem by specifying a dump.  As a convenience for development,
+Humility is run _in situ_ by specifying an archive on a directly connected
+board, or postmortem by specifying a dump.  As a convenience for development,
 Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
 on a machine with an STM32F4 Discovery board directly attached:
 
@@ -280,9 +276,6 @@ and `cargo xtask humility test`.  The exact invocation depends on the board:
 Note: `cargo xtask humility test` runs OpenOCD to connect to the device.
 You must exit any other instances of OpenOCD that you have connected to the device
 before running tests.
-
-If the `humility` binary is not available on your `$PATH`, the `HUBRIS_HUMILITY_PATH`
-environment variable may be used to provide the path to the binary.
 
 See the [documentation for `humility
 test`](https://github.com/oxidecomputer/humility#humility-test) for details
