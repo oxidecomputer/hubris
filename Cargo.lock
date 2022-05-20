@@ -1652,7 +1652,6 @@ dependencies = [
  "byteorder",
  "cfg-if 0.1.10",
  "cortex-m",
- "cortex-m-semihosting",
  "phash",
  "phash-gen",
  "ron 0.7.0",
