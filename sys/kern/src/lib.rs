@@ -33,7 +33,6 @@
 #[macro_use]
 pub mod arch;
 
-pub mod app;
 pub mod err;
 pub mod kipc;
 pub mod profiling;

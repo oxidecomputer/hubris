@@ -4,7 +4,6 @@
 
 //! Kernel startup.
 
-use crate::app;
 use crate::task::Task;
 use core::mem::MaybeUninit;
 
@@ -39,11 +38,11 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 }
 
 fn safe_start_kernel(
-    task_descs: &'static [app::TaskDesc],
-    region_descs: &'static [app::RegionDesc],
+    task_descs: &'static [abi::TaskDesc],
+    region_descs: &'static [abi::RegionDesc],
     task_table: &'static mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>,
     region_tables: &'static mut MaybeUninit<
-        [[&'static app::RegionDesc; app::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
+        [[&'static abi::RegionDesc; abi::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
     >,
     tick_divisor: u32,
 ) -> ! {
@@ -63,7 +62,7 @@ fn safe_start_kernel(
     // these.
 
     // Safety: MaybeUninit<[T]> -> [MaybeUninit<T>] is defined as safe.
-    let region_tables: &mut [[MaybeUninit<&'static app::RegionDesc>; app::REGIONS_PER_TASK];
+    let region_tables: &mut [[MaybeUninit<&'static abi::RegionDesc>; abi::REGIONS_PER_TASK];
              HUBRIS_TASK_COUNT] =
         unsafe { &mut *(region_tables as *mut _ as *mut _) };
 
@@ -75,7 +74,7 @@ fn safe_start_kernel(
 
     // Safety: we have fully initialized this and can shed the uninit part.
     // We're also dropping &mut.
-    let region_tables: &[[&'static app::RegionDesc; app::REGIONS_PER_TASK];
+    let region_tables: &[[&'static abi::RegionDesc; abi::REGIONS_PER_TASK];
          HUBRIS_TASK_COUNT] = unsafe { &*(region_tables as *mut _ as *mut _) };
 
     // Now, generate the task table.

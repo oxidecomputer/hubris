@@ -7,14 +7,12 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, FaultSource, Generation, Priority, ReplyFaultReason, SchedState,
-    TaskId, TaskState, ULease, UsageError,
+    FaultInfo, FaultSource, Generation, Priority, RegionAttributes, RegionDesc,
+    ReplyFaultReason, SchedState, TaskDesc, TaskFlags, TaskId, TaskState,
+    ULease, UsageError,
 };
 use zerocopy::FromBytes;
 
-use crate::app::{
-    RegionAttributes, RegionDesc, RegionDescExt, TaskDesc, TaskFlags,
-};
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
@@ -183,7 +181,7 @@ impl Task {
             return true;
         }
         self.region_table.iter().any(|region| {
-            region.covers(slice)
+            region_covers(region, slice)
                 && region.attributes.contains(atts)
                 && !region.attributes.contains(RegionAttributes::DEVICE)
                 && !region.attributes.contains(RegionAttributes::DMA)
@@ -859,4 +857,14 @@ pub fn force_fault(
 /// `tasks[index]`.
 pub fn current_id(tasks: &[Task], index: usize) -> TaskId {
     TaskId::for_index_and_gen(index, tasks[index].generation())
+}
+
+/// Tests whether `slice` is fully enclosed by `region`.
+fn region_covers<T>(region: &abi::RegionDesc, slice: &USlice<T>) -> bool {
+    // We don't allow regions to butt up against the end of the address space,
+    // so we can compute our off-by-one end address as follows:
+    let region_end = region.base.wrapping_add(region.size) as usize;
+
+    (region.base as usize) <= slice.base_addr()
+        && slice.end_addr() <= region_end
 }
