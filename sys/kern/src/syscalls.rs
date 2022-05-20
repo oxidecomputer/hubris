@@ -30,7 +30,7 @@
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState,
+    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState, ULease,
     UsageError,
 };
 use unwrap_lite::UnwrapLite;
@@ -39,7 +39,7 @@ use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
-use crate::umem::{safe_copy, ULease, USlice};
+use crate::umem::{safe_copy, USlice};
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///

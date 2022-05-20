@@ -8,7 +8,7 @@ use core::convert::TryFrom;
 
 use abi::{
     FaultInfo, FaultSource, Generation, Priority, ReplyFaultReason, SchedState,
-    TaskId, TaskState, UsageError,
+    TaskId, TaskState, ULease, UsageError,
 };
 use zerocopy::FromBytes;
 
@@ -18,7 +18,7 @@ use crate::app::{
 use crate::err::UserError;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
-use crate::umem::{ULease, USlice};
+use crate::umem::USlice;
 
 /// Internal representation of a task.
 ///
@@ -93,6 +93,9 @@ impl Task {
     /// Obtains access to the memory backing `slice` as a Rust slice, assuming
     /// that the task `self` can access it for read. This is used to access task
     /// memory from the kernel in validated form.
+    ///
+    /// This will treat memory marked `DEVICE` or `DMA` as inaccessible; see
+    /// `can_access` for more details.
     pub fn try_read<'a, T>(
         &'a self,
         slice: &'a USlice<T>,
@@ -128,6 +131,9 @@ impl Task {
     /// Obtains access to the memory backing `slice` as a Rust slice, assuming
     /// that the task `self` can access it for write. This is used to access task
     /// memory from the kernel in validated form.
+    ///
+    /// This will treat memory marked `DEVICE` or `DMA` as inaccessible; see
+    /// `can_access` for more details.
     pub fn try_write<'a, T>(
         &'a mut self,
         slice: &'a mut USlice<T>,
