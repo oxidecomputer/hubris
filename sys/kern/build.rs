@@ -117,7 +117,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         file,
         "static mut HUBRIS_REGION_TABLE_SPACE: \
         core::mem::MaybeUninit<[\
-            [&'static abi::RegionDesc; crate::app::REGIONS_PER_TASK]; \
+            [&'static abi::RegionDesc; abi::REGIONS_PER_TASK]; \
             HUBRIS_TASK_COUNT]> = core::mem::MaybeUninit::uninit();"
     )?;
 
