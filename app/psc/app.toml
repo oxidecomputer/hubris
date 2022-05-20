@@ -121,7 +121,7 @@ priority = 3
 requires = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
-task-slots = ["sys", "hf", "i2c_driver"]
+task-slots = ["sys", "i2c_driver"]
 
 [tasks.net]
 path = "../../task/net"
