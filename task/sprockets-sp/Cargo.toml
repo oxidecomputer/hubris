@@ -13,13 +13,14 @@ tinyvec = "1.5.1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 salty = "0.2.0"
 
-
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
 sprockets-common = {path = "../../../sprockets/common"}
-sprockets-rot = {path = "../../../sprockets/rot", default-features = false}
 corncobs = "0.1.1"
 hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
 
+drv-spi-api = {path = "../../drv/spi-api"}
+drv-spi-msg = {path = "../../drv/spi-msg"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
 [build-dependencies]
 build-util = {path = "../../build/util"}
 
@@ -27,6 +28,7 @@ build-util = {path = "../../build/util"}
 stm32h743 = ["drv-stm32h7-usart/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753"]
 usart1 = []
+usart1-pa9pa10 = []
 usart2 = []
 usart3 = []
 uart4 = []

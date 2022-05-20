@@ -4,7 +4,12 @@
 
 use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
-#[cfg(any(feature = "qspi", feature = "hash", feature = "rng", feature = "spi-rot"))]
+#[cfg(any(
+    feature = "qspi",
+    feature = "hash",
+    feature = "rng",
+    feature = "spi-rot"
+))]
 use userlib::task_slot;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
 /// We allow dead code on this because the functions below are optional.
@@ -277,20 +282,24 @@ pub(crate) fn spi_rot_send_recv(
     }
 
     let frame = &stack[stack.len() - 2..];
-    let msgtype: msg::MsgType = frame[0].ok_or(Failure::Fault(Fault::MissingParameters))?.into();
-    let len: usize = frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+    let msgtype: msg::MsgType = frame[0]
+        .ok_or(Failure::Fault(Fault::MissingParameters))?
+        .into();
+    let len: usize =
+        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
 
     let server = msg::SpiMsg::from(SPI_ROT.get_task_id());
     // Echo, &data[..].len() == 0x800, rval[..].len() == 0x100
-    let result = func_err(server.send_recv(msgtype, &data[0..len], &mut rval[..]))?;
+    let result =
+        func_err(server.send_recv(msgtype, &data[0..len], &mut rval[..]))?;
     match msg::MsgType::from(result[0]) {
-        msg::MsgType::EchoReturn => {
+        msg::MsgType::EchoReturn | msg::MsgType::Sprockets => {
             Ok(result[1] as usize)
-        },
+        }
         _ => {
             // TODO: Deliver a more useful error derived from the RoT response.
             Err(hif::Failure::FunctionError(1))
-        },
+        }
     }
 }
 

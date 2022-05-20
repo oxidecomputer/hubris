@@ -22,6 +22,7 @@ enum UartLog {
     TxFull,
     Rx(u8),
     RxOverrun,
+    PinsConfigured,
 }
 
 ringbuf!(UartLog, 64, UartLog::Rx(0));
@@ -192,6 +193,15 @@ fn configure_uart_device() -> Usart {
             usart = unsafe { &*device::USART1::ptr() };
             peripheral = Peripheral::Usart1;
             pins = PINS;
+        } else if #[cfg(feature = "usart1-pa9pa10")] {
+            // For the gemini dev board we use Port A pins 9 and 10 for tx/rx
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::A.pin(9).and_pin(10), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::USART1::ptr() };
+            peripheral = Peripheral::Usart1;
+            pins = PINS;
+            ringbuf_entry!(UartLog::PinsConfigured);
         } else if #[cfg(feature = "usart2")] {
             const PINS: &[(PinSet, Alternate)] = &[
                 (Port::D.pin(5).and_pin(6), Alternate::AF7),

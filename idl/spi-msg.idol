@@ -12,8 +12,8 @@ Interface(
                 ),
             },
             leases: {
-                "message": (type: "[u8]", read: true, max_len: Some(256)),
-                "response": (type: "[u8]", write: true, max_len: Some(256)),
+                "message": (type: "[u8]", read: true),
+                "response": (type: "[u8]", write: true),
             },
             reply: Result(
                 ok: "[u32; 2]",

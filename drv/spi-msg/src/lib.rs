@@ -9,6 +9,8 @@
 use derive_idol_err::IdolError;
 use zerocopy::{AsBytes, ByteSliceMut, FromBytes, LayoutVerified, Unaligned};
 //use userlib::*;
+use hubpack::SerializedSize;
+use sprockets_common::msgs::{RotRequestV1, RotResponseV1};
 use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
@@ -25,7 +27,7 @@ pub enum MsgError {
     /// Unsupported protocol version
     UnsupportedProtocol = 4,
 
-    /// Transfer size is outside of maximum and minimum lenghts for message type.
+    /// Unknown message
     BadMessageType = 5,
 
     /// Transfer size is outside of maximum and minimum lenghts for message type.
@@ -36,11 +38,13 @@ pub enum MsgError {
 }
 
 /// Protocol version
-pub const SPI_MSG_IGNORE: u8 = 0;   // To be ignored
-pub const SPI_MSG_VERSION: u8 = 1;  // Supported message format
+pub const SPI_MSG_IGNORE: u8 = 0; // To be ignored
+pub const SPI_MSG_VERSION: u8 = 1; // Supported message format
 
 /// SPI Message types will allow for multiplexing and forward compatibility.
-#[derive(Copy,Clone,PartialEq,Eq,Debug,userlib::FromPrimitive,AsBytes)]
+#[derive(
+    Copy, Clone, PartialEq, Eq, Debug, userlib::FromPrimitive, AsBytes,
+)]
 #[repr(u8)]
 pub enum MsgType {
     Invalid = 0,
@@ -60,6 +64,7 @@ impl From<u8> for MsgType {
             2 => MsgType::Echo,
             3 => MsgType::EchoReturn,
             4 => MsgType::Status,
+            5 => MsgType::Sprockets,
             _ => MsgType::Unknown,
         }
     }
@@ -73,6 +78,7 @@ impl From<u32> for MsgType {
             2 => MsgType::Echo,
             3 => MsgType::EchoReturn,
             4 => MsgType::Status,
+            5 => MsgType::Sprockets,
             _ => MsgType::Unknown,
         }
     }
@@ -105,8 +111,9 @@ pub struct MsgHeader {
     msgtype: u8,
 }
 pub const SPI_HEADER_SIZE: usize = core::mem::size_of::<MsgHeader>();
-pub const MAX_SPI_MSG_PAYLOAD_SIZE: usize = 256;
-pub const SPI_BUFFER_SIZE: usize = SPI_HEADER_SIZE + MAX_SPI_MSG_PAYLOAD_SIZE;
+pub const MAX_SPI_MSG_PAYLOAD_SIZE: usize = 512;
+pub const SPI_REQ_BUF_SIZE: usize = SPI_HEADER_SIZE + RotRequestV1::MAX_SIZE;
+pub const SPI_RSP_BUF_SIZE: usize = SPI_HEADER_SIZE + RotResponseV1::MAX_SIZE;
 
 pub struct Msg<B> {
     header: LayoutVerified<B, MsgHeader>,
@@ -120,6 +127,10 @@ impl<'a, B: ByteSliceMut> Msg<B> {
     }
     pub fn is_supported_version(&self) -> bool {
         self.header.version == SPI_MSG_VERSION
+    }
+
+    pub fn len(&self) -> usize {
+        SPI_HEADER_SIZE + self.payload_len()
     }
 
     pub fn payload_len(&self) -> usize {

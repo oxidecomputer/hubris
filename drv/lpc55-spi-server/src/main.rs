@@ -14,7 +14,10 @@ use drv_lpc55_syscon_api::{Peripheral, Syscon};
 use drv_spi_msg::*;
 use lpc55_pac as device;
 use ringbuf::*;
+
 use userlib::*;
+
+mod sprockets;
 
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
@@ -40,7 +43,7 @@ task_slot!(GPIO, gpio_driver);
 // Ill formed messages will elicit an error response message on the next read
 // unless a pending message is already queued.
 //
-// The SP may loose synchronization or choose to ignore any previous
+// The SP may lose synchronization or choose to ignore any previous
 // session state that may exist. To support that semantic, the RoT will always
 // process incoming bytes even if it is transmitting a previously queued
 // message. The transmit queue is only one-deep at the time of writing.
@@ -100,11 +103,11 @@ impl From<u8> for RxState {
 #[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 enum TxState {
-    Idle = 0,     // Idle, waiting for message to be queued.
-    Queued = 1,   // Message queued, waiting for start of Tx frame.
-    Writing = 2,  // Message is transferring from local buffer to FIFO.
-    Finish = 3,   // Final bytes are being transmitted from FIFO to SPI bus.
-                  // Last byte has been clocked out to SPI bus, return to Idle.
+    Idle = 0,    // Idle, waiting for message to be queued.
+    Queued = 1,  // Message queued, waiting for start of Tx frame.
+    Writing = 2, // Message is transferring from local buffer to FIFO.
+    Finish = 3,  // Final bytes are being transmitted from FIFO to SPI bus.
+    // Last byte has been clocked out to SPI bus, return to Idle.
     Error = 0xff, // Error during transmit.
 }
 
@@ -162,6 +165,8 @@ enum Trace {
     // TxIntEnable,
     Tx(TxState, u8, usize),
     StartTx(bool, bool),
+    ValidSprocketsReq,
+    InvalidSprocketsReq,
     None,
 }
 
@@ -170,17 +175,17 @@ ringbuf!(Trace, 128, Trace::None);
 struct TxContext<'a> {
     state: TxState,
     tx: &'a mut [u8],
-    count: usize, // index for transmit
-    end: usize, // end of packet index
+    count: usize,  // index for transmit
+    end: usize,    // end of packet index
     rot_irq: bool, // Track ROT_IRQ state
-    inframe: bool,  // true when SP has CSn asserted.
+    inframe: bool, // true when SP has CSn asserted.
 }
 
 struct RxContext<'a> {
     state: RxState,
     rx: &'a mut [u8],
     count: usize, // cursor for receive
-    end: usize, // cursor for receive
+    end: usize,   // cursor for receive
 }
 
 impl<'a> TxContext<'a> {
@@ -201,8 +206,8 @@ impl<'a> TxContext<'a> {
             return false;
         }
         let len = match buf {
-            Some(buf) => { buf.len() },
-            None => { 0 },
+            Some(buf) => buf.len(),
+            None => 0,
         };
         if len > self.tx.len() {
             ringbuf_entry!(Trace::EnqueueTooBig);
@@ -220,6 +225,29 @@ impl<'a> TxContext<'a> {
         self.state = TxState::Queued;
         self.count = 0;
         self.end = SPI_HEADER_SIZE + len;
+        ringbuf_entry!(Trace::EnqueuedMsg(self.end));
+        true
+    }
+
+    /// Enqueue self.tx that was mutated externally to the TxContext
+    ///
+    /// Return true on success, false on error
+    pub fn enqueue_existing(
+        &mut self,
+        msgtype: MsgType,
+        payload_len: usize,
+    ) -> bool {
+        if self.state != TxState::Idle {
+            ringbuf_entry!(Trace::AlreadyEnqueuedMsg);
+            return false;
+        }
+        let mut msg = Msg::parse(&mut *self.tx).unwrap_lite();
+        msg.set_version();
+        msg.set_len(payload_len);
+        msg.set_msgtype(msgtype);
+        self.state = TxState::Queued;
+        self.count = 0;
+        self.end = SPI_HEADER_SIZE + payload_len;
         ringbuf_entry!(Trace::EnqueuedMsg(self.end));
         true
     }
@@ -280,7 +308,7 @@ impl<'a> RxContext<'a> {
                         if tx.enqueue(MsgType::Error, Some(&self.rx[0..1])) {
                             ringbuf_entry!(Trace::Enqueued);
                             self.state = RxState::Dispatch; // or RxState::Error?
-                            // TODO: a documented error type should be the first byte.
+                                                            // TODO: a documented error type should be the first byte.
                         } else {
                             // We received garbage at sot but Tx was not idle.
                             ringbuf_entry!(Trace::EnqueueFail);
@@ -303,8 +331,10 @@ impl<'a> RxContext<'a> {
                         //let mut buf = [0u8; SPI_HEADER_SIZE];
                         //buf[..SPI_HEADER_SIZE].clone_from_slice(&self.rx[..SPI_HEADER_SIZE]);
 
-                        if tx.enqueue(MsgType::Error,
-                            Some(&self.rx[0..SPI_HEADER_SIZE])) {
+                        if tx.enqueue(
+                            MsgType::Error,
+                            Some(&self.rx[0..SPI_HEADER_SIZE]),
+                        ) {
                             self.state = RxState::Dispatch;
                         }
                     } else if self.end == SPI_HEADER_SIZE {
@@ -374,7 +404,7 @@ fn main() -> ! {
 
     // Configure SP_IRQ
     let sp_irq = Pin::PIO0_18; // XXX Should be in app.toml
-    // Direction must be set after other pin configuration.
+                               // Direction must be set after other pin configuration.
     if gpio.set_dir(sp_irq, Direction::Output).is_err() {
         panic!();
     }
@@ -397,15 +427,15 @@ fn main() -> ! {
     // Because detect/invalidate function is associated with the SPDM/Sprockets state, the
     // implementation could be here.
 
-    let mut tx = [0u8; SPI_BUFFER_SIZE];
+    let mut tx = [0u8; SPI_RSP_BUF_SIZE];
     let mut tctx = &mut TxContext::new(&mut tx[..]);
-    let mut rx = [0u8; SPI_BUFFER_SIZE];
+    let mut rx = [0u8; SPI_REQ_BUF_SIZE];
     let mut rctx = &mut RxContext::new(&mut rx[..]);
 
     spi.enable_rx();
-    spi.disable_tx();   // Ignore Tx interrupts for now.
-    spi.send_u8(0x00);  // Throw away data, but this sets bit-level framing.
-    spi.drain();        // Nothing in the FIFOs is interesting yet.
+    spi.disable_tx(); // Ignore Tx interrupts for now.
+    spi.send_u8(0x00); // Throw away data, but this sets bit-level framing.
+    spi.drain(); // Nothing in the FIFOs is interesting yet.
     spi.rxerr_clear();
     // spi.txerr_clear();
 
@@ -415,9 +445,12 @@ fn main() -> ! {
     // requirements becomes an issue.
     // On de-assert, we'll process any received message and then queue up a
     // response for the next CSn assert.
-    spi.ssa_enable();    // Interrupt on CSn changing to asserted.
-    spi.ssd_enable();    // Interrupt on CSn changing to deasserted.
+    spi.ssa_enable(); // Interrupt on CSn changing to asserted.
+    spi.ssd_enable(); // Interrupt on CSn changing to deasserted.
     ringbuf_entry!(Trace::Initialized); // XXX
+
+    // Initialize sprockets-rot
+    let mut sprocket = sprockets::init();
 
     let mut olc = 0u16;
     loop {
@@ -440,7 +473,7 @@ fn main() -> ! {
             let (ssa, ssd, mstidle) = spi.intstat();
             if ssa {
                 ringbuf_entry!(Trace::SsaClear);
-                spi.ssa_clear();  
+                spi.ssa_clear();
                 // We could call rctx.ready() here,
                 // but the sot flag serves that purpose.
                 // Fielding the SSA interrupt may get us ready sooner.
@@ -455,14 +488,36 @@ fn main() -> ! {
             }
 
             // ringbuf_entry!(Trace::Stat(spi.get_fifostat()));
-            let (txerr, rxerr, perint, txempty, txnotfull, rxnotempty, rxfull,
-                txlvl, rxlvl) = spi.stat();
+            let (
+                txerr,
+                rxerr,
+                perint,
+                txempty,
+                txnotfull,
+                rxnotempty,
+                rxfull,
+                txlvl,
+                rxlvl,
+            ) = spi.stat();
 
-            if ssa || ssd || txerr || rxerr || perint || txempty || txnotfull || rxnotempty || rxfull || txlvl != 8 || rxlvl != 0 {
+            if ssa
+                || ssd
+                || txerr
+                || rxerr
+                || perint
+                || txempty
+                || txnotfull
+                || rxnotempty
+                || rxfull
+                || txlvl != 8
+                || rxlvl != 0
+            {
                 ringbuf_entry!(Trace::Loop(olc, ilc, tctx.state, rctx.state));
                 ringbuf_entry!(Trace::Irq(ssa, ssd, mstidle));
-                ringbuf_entry!(Trace::LStat(txerr, rxerr, perint, txempty,
-                    txnotfull, rxnotempty, rxfull, txlvl, rxlvl));
+                ringbuf_entry!(Trace::LStat(
+                    txerr, rxerr, perint, txempty, txnotfull, rxnotempty,
+                    rxfull, txlvl, rxlvl
+                ));
             }
 
             // TODO: catch aborted transmissions.
@@ -477,8 +532,8 @@ fn main() -> ! {
                 spi.enable_tx();
                 ringbuf_entry!(Trace::StartTx(ssa, ssd));
                 //if ssa {
-                    // There is work to do now.
-                    // XXX YY again = true;
+                // There is work to do now.
+                // XXX YY again = true;
                 //}
                 // assert IRQ
                 gpio.set_val(sp_irq, Value::Zero).unwrap_lite();
@@ -528,11 +583,11 @@ fn main() -> ! {
                     ringbuf_entry!(Trace::DeassertRotIrq);
                     // If we have nothing to send in the next frame, then
                     // the LPC55 will send a byte of unknown origin.
-                    spi.send_u8(0);     // write our no-op byte.
-                    spi.drain_tx();     // Throw away byte just written.
+                    spi.send_u8(0); // write our no-op byte.
+                    spi.drain_tx(); // Throw away byte just written.
 
-                    // spi.disable_tx();   // Ignore Tx interrupts.
-                    // spi.txerr_clear();
+                // spi.disable_tx();   // Ignore Tx interrupts.
+                // spi.txerr_clear();
                 } else {
                     // TODO: ssd interrupt would bring us back so we don't need
                     // to loop.
@@ -580,15 +635,16 @@ fn main() -> ! {
                 // If we were transmitting, then transmit cannot continue.
 
                 // partial header or payload received
-                if rctx.state == RxState::Header ||
-                    rctx.state == RxState::Payload {
-                        // XXX include a more useful error response?
-                        ringbuf_entry!(Trace::RxFragment);
-                        if tctx.enqueue(MsgType::Error, None) {
-                            ringbuf_entry!(Trace::CannotSendRxFragError);
-                            rctx.state = RxState::Dispatch;
-                            // XXX YY again = true;
-                        }
+                if rctx.state == RxState::Header
+                    || rctx.state == RxState::Payload
+                {
+                    // XXX include a more useful error response?
+                    ringbuf_entry!(Trace::RxFragment);
+                    if tctx.enqueue(MsgType::Error, None) {
+                        ringbuf_entry!(Trace::CannotSendRxFragError);
+                        rctx.state = RxState::Dispatch;
+                        // XXX YY again = true;
+                    }
                 }
                 // Process transitory states
                 if rctx.state == RxState::Dispatch {
@@ -614,16 +670,36 @@ fn main() -> ! {
                         match rmsg.msgtype() {
                             MsgType::Echo => {
                                 ringbuf_entry!(Trace::RespondToEcho);
-                                tctx.enqueue(MsgType::EchoReturn,
-                                    rmsg.payload_get().ok());
+                                tctx.enqueue(
+                                    MsgType::EchoReturn,
+                                    rmsg.payload_get().ok(),
+                                );
                                 again = true;
                             }
                             MsgType::Sprockets => {
-                                // TODO: Replace with actual sprockets handling.
                                 ringbuf_entry!(Trace::RespondToSprockets);
-                                tctx.enqueue(MsgType::Sprockets,
-                                    rmsg.payload_get().ok());
-                            },
+                                let rsp_buf = &mut tctx.tx[SPI_HEADER_SIZE..];
+                                let size = match sprocket.handle(
+                                    rmsg.payload_get().unwrap_lite(),
+                                    rsp_buf,
+                                ) {
+                                    Ok(size) => {
+                                        ringbuf_entry!(
+                                            Trace::ValidSprocketsReq
+                                        );
+                                        size
+                                    }
+                                    Err(_) => {
+                                        ringbuf_entry!(
+                                            Trace::InvalidSprocketsReq
+                                        );
+                                        sprockets::bad_encoding_rsp(rsp_buf)
+                                    }
+                                };
+
+                                tctx.enqueue_existing(MsgType::Sprockets, size);
+                                again = true;
+                            }
                             _ => {
                                 // The message received was an unknown type.
                                 ringbuf_entry!(Trace::RespondToUnknown);

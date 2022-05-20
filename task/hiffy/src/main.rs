@@ -17,7 +17,7 @@
 
 use core::sync::atomic::{AtomicU32, Ordering};
 use hif::*;
-use userlib::*;
+use userlib::{util::StaticCell, *};
 
 #[cfg(armv6m)]
 use armv6m_atomic_hack::AtomicU32Ext;
@@ -54,20 +54,23 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "micro")] {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
-        const HIFFY_RSTACK_SIZE: usize = 64;
+        const HIFFY_RSTACK_SIZE: usize = 512;
     } else {
         const HIFFY_DATA_SIZE: usize = 2_048;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
     }
 }
+const HIFFY_SCRATCH_SIZE: usize = 512;
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;
 /// they should not be altered without modifying Humility as well.
 ///
 /// - [`HIFFY_TEXT`]       => Program text for HIF operations
+/// - [`HIFFY_DATA`]       => Binary data from the caller
 /// - [`HIFFY_RSTACK`]     => HIF return stack
+/// - [`HIFFY_SCRATCH`]    => Scratch space for hiffy functions
 /// - [`HIFFY_REQUESTS`]   => Count of succesful requests
 /// - [`HIFFY_ERRORS`]     => Count of HIF execution failures
 /// - [`HIFFY_FAILURE`]    => Most recent HIF failure, if any
@@ -79,6 +82,10 @@ cfg_if::cfg_if! {
 static mut HIFFY_TEXT: [u8; HIFFY_TEXT_SIZE] = [0; HIFFY_TEXT_SIZE];
 static mut HIFFY_DATA: [u8; HIFFY_DATA_SIZE] = [0; HIFFY_DATA_SIZE];
 static mut HIFFY_RSTACK: [u8; HIFFY_RSTACK_SIZE] = [0; HIFFY_RSTACK_SIZE];
+
+static HIFFY_SCRATCH: StaticCell<[u8; HIFFY_SCRATCH_SIZE]> =
+    StaticCell::new([0; HIFFY_SCRATCH_SIZE]);
+
 static HIFFY_REQUESTS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_ERRORS: AtomicU32 = AtomicU32::new(0);
 static HIFFY_KICK: AtomicU32 = AtomicU32::new(0);
@@ -100,7 +107,6 @@ fn main() -> ! {
     let mut sleep_ms = 250;
     let mut sleeps = 0;
     let mut stack = [None; 32];
-    let mut scratch = [0u8; 256];
     const NLABELS: usize = 4;
 
     //
@@ -151,7 +157,7 @@ fn main() -> ! {
             data,
             &mut stack,
             &mut rstack,
-            &mut scratch,
+            &mut *HIFFY_SCRATCH.borrow_mut(),
             check,
         );
 

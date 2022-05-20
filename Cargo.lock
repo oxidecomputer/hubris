@@ -892,10 +892,14 @@ dependencies = [
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-spi-msg",
+ "hubpack",
  "lpc55-pac",
  "num-traits",
  "ringbuf",
+ "salty",
  "serde",
+ "sprockets-common",
+ "sprockets-rot",
  "userlib",
  "zerocopy",
 ]
@@ -1082,9 +1086,11 @@ name = "drv-spi-msg"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "hubpack",
  "idol",
  "num-traits",
  "ringbuf",
+ "sprockets-common",
  "userlib",
  "zerocopy",
 ]
@@ -3256,12 +3262,14 @@ dependencies = [
  "cfg-if",
  "corncobs",
  "cortex-m",
+ "drv-spi-api",
+ "drv-spi-msg",
  "drv-stm32h7-usart",
+ "drv-stm32xx-sys-api",
  "hubpack",
  "ringbuf",
  "salty",
  "sprockets-common",
- "sprockets-rot",
  "tinyvec",
  "userlib",
 ]

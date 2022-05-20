@@ -21,6 +21,7 @@ build-util = {path = "../../build/util"}
 stm32h743 = ["drv-stm32h7-usart/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753"]
 usart1 = []
+usart1-pa9pa10 = []
 usart2 = []
 usart3 = []
 uart4 = []

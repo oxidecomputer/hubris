@@ -13,6 +13,11 @@ drv-spi-msg = {path = "../spi-msg"}
 num-traits = { version = "0.2.12", default-features = false }
 drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
 ringbuf = {path = "../../lib/ringbuf"}
+sprockets-rot = {path = "../../../sprockets/rot", default-features = false}
+sprockets-common = {path = "../../../sprockets/common"}
+hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
+salty = "0.2.0"
+
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

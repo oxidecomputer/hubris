@@ -9,24 +9,26 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
+use drv_spi_api::{CsState, Spi, SpiError};
+use drv_spi_msg::*;
 use drv_usart::Usart;
 use ringbuf::*;
-use tinyvec::{/* ArrayVec, */ SliceVec};
+use tinyvec::SliceVec;
 use userlib::*;
-// use salty::*;
 
 use corncobs;
-use hubpack::{/* deserialize, */ serialize, SerializedSize};
-use sprockets_common::{random_buf /* , Ed25519PublicKey */};
+use hubpack::{serialize, SerializedSize};
 use sprockets_common::msgs::{
-    RotError, /* RotOp, */ RotRequest, RotResponse, RotResult,
+    RotError, RotRequestV1, RotResponseV1, RotResultV1,
 };
-use sprockets_rot::{RotConfig, RotSprocket, RotSprocketError};
 
+const SPI_TO_ROT_DEVICE: u8 = 0;
+
+task_slot!(SPI, spi_driver);
 task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum UartLog {
+enum Trace {
     Tx(u8),
     TxFull,
     Rx(u8),
@@ -37,10 +39,16 @@ enum UartLog {
     TooLarge,
     FailedToHandle,
     RotRequestSize(usize),
-    RotSprocketErr(RotSprocketError),
+    RspLen(usize),
+    BadProtocol(u8),
+    BadMessageLength(usize),
+    SpiError(SpiError),
+    Data(u8, u8, u8, u8),
+    SpiMsgError(MsgError),
+    Line,
 }
 
-ringbuf!(UartLog, 64, UartLog::Rx(0));
+ringbuf!(Trace, 64, Trace::Rx(0));
 
 /// Notification mask for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1;
@@ -49,15 +57,15 @@ const USART_IRQ: u32 = 1;
 fn main() -> ! {
     let uart = configure_uart_device();
     let mut req_buf_backing =
-        [0u8; corncobs::max_encoded_len(RotRequest::MAX_SIZE)];
+        [0u8; corncobs::max_encoded_len(RotRequestV1::MAX_SIZE)];
 
     // This is not a COBS encoded buffer. We are using corncobs::encode_iter to
     // write bytes over tx. Therefore there is no need for the extra space
     // required for COBS.
-    let mut rsp_buf_backing = [0u8; RotResponse::MAX_SIZE];
+    let mut rsp_buf_backing = [0u8; RotResponseV1::MAX_SIZE];
 
     let mut rsp_buf_encoded_backing =
-        [0u8; corncobs::max_encoded_len(RotResponse::MAX_SIZE)];
+        [0u8; corncobs::max_encoded_len(RotResponseV1::MAX_SIZE)];
 
     // We use a SliceVec instead of an ArrayVec since the capacities returned
     // from corncobs::max_encoded_len are not necessarily fewer than 32 or
@@ -67,18 +75,15 @@ fn main() -> ! {
     req_buf.set_len(0);
     let mut rsp_buf = SliceVec::from(&mut rsp_buf_backing);
 
+    // This holds framed messages from SPI
+    let mut spi_buf = [0u8; RotResponseV1::MAX_SIZE + SPI_HEADER_SIZE];
+
     // TODO: Prevent the need for this by using corncobs::encode_iter
     let mut rsp_buf_encoded = SliceVec::from(&mut rsp_buf_encoded_backing);
 
-
-    // All certs should trace back to the same manufacturing key
-    let manufacturing_keypair = salty::Keypair::from(&random_buf());
-    // let manufacturing_public_key = Ed25519PublicKey(manufacturing_keypair.public.to_bytes());
-
-    let config = RotConfig::bootstrap_for_testing(&manufacturing_keypair);
-    let mut sprocket = RotSprocket::new(config);
-
     let mut need_to_tx: Option<(&SliceVec<u8>, usize)> = None;
+
+    let mut spi = Spi::from(SPI.get_task_id()).device(SPI_TO_ROT_DEVICE);
 
     sys_irq_control(USART_IRQ, true);
 
@@ -112,18 +117,17 @@ fn main() -> ! {
 
         // all tx is done; now pull from the rx fifo
         if uart.check_and_clear_rx_overrun() {
-            ringbuf_entry!(UartLog::RxOverrun);
+            ringbuf_entry!(Trace::RxOverrun);
         }
 
         while let Some(byte) = uart.try_rx_pop() {
-            ringbuf_entry!(UartLog::Rx(byte));
+            ringbuf_entry!(Trace::Rx(byte));
 
             req_buf.push(byte);
 
             // Keep looking for 0, as we are using COBS for framing.
             if byte == 0 {
-                ringbuf_entry!(UartLog::AboutToDecode);
-                handle_req(&mut sprocket, &mut req_buf, &mut rsp_buf);
+                handle_req(&mut spi, &mut spi_buf, &mut req_buf, &mut rsp_buf);
                 uart.enable_tx_fifo_empty_interrupt();
                 rsp_buf_encoded.set_len(rsp_buf_encoded.capacity());
                 let size = corncobs::encode_buf(
@@ -138,8 +142,8 @@ fn main() -> ! {
 
             // Max request size exceeded
             if req_buf.len() == req_buf.capacity() {
-                ringbuf_entry!(UartLog::TooLarge);
-                bad_encoding_rsp(&mut rsp_buf);
+                ringbuf_entry!(Trace::TooLarge);
+                err_rsp(RotError::BadEncoding, &mut rsp_buf);
                 uart.enable_tx_fifo_empty_interrupt();
 
                 rsp_buf_encoded.set_len(rsp_buf_encoded.capacity());
@@ -164,41 +168,116 @@ fn main() -> ! {
 }
 
 fn handle_req(
-    sprocket: &mut RotSprocket,
+    spi: &mut drv_spi_api::SpiDevice,
+    spi_buf: &mut [u8],
     req_buf: &mut SliceVec<u8>,
     rsp_buf: &mut SliceVec<u8>,
 ) {
+    ringbuf_entry!(Trace::AboutToDecode);
     if let Err(_) = decode_frame(req_buf) {
-        bad_encoding_rsp(rsp_buf);
+        err_rsp(RotError::BadEncoding, rsp_buf);
     }
     // Make the slice large enough to write into
     rsp_buf.set_len(rsp_buf.capacity());
-    match sprocket.handle(req_buf.as_slice(), rsp_buf.as_mut_slice()) {
-        Ok(size) => {
-            rsp_buf.set_len(size);
-            ringbuf_entry!(UartLog::ValidReq);
+
+    match spi_send_recv(spi, spi_buf, req_buf.as_slice()) {
+        Ok(len) => {
+            rsp_buf.set_len(len);
+            rsp_buf.as_mut_slice().copy_from_slice(
+                &spi_buf[SPI_HEADER_SIZE..SPI_HEADER_SIZE + len],
+            );
         }
-        Err(e) => {
-            ringbuf_entry!(UartLog::RotSprocketErr(e));
-            ringbuf_entry!(UartLog::FailedToHandle);
-            bad_encoding_rsp(rsp_buf)
+        Err(()) => err_rsp(RotError::SpiError, rsp_buf),
+    }
+}
+
+fn spi_send_recv(
+    spi: &mut drv_spi_api::SpiDevice,
+    spi_buf: &mut [u8],
+    req_buf: &[u8],
+) -> Result<usize, ()> {
+    // TODO: This is a lot of boilerplate for every message.
+    let mut msg = drv_spi_msg::Msg::parse(&mut spi_buf[..]).unwrap_lite();
+    msg.set_version();
+    msg.set_len(req_buf.len());
+    msg.set_msgtype(MsgType::Sprockets);
+    msg.payload_buf()[..req_buf.len()].copy_from_slice(req_buf);
+    let len = msg.len();
+
+    ringbuf_entry!(Trace::Data(spi_buf[0], spi_buf[1], spi_buf[2], spi_buf[3]));
+
+    if let Err(spi_error) = spi.write(&spi_buf[..len]) {
+        // XXX this does not return
+        ringbuf_entry!(Trace::SpiError(spi_error));
+        return Err(());
+    }
+    ringbuf_entry!(Trace::Line);
+
+    // Right now, we sleep for what should be long enough for the RoT
+    // to queue a response. In the future, we need to watch ROT_IRQ.
+    hl::sleep_for(1); // XXX 1 ms is arbitrary, IRQ will remove need.
+    ringbuf_entry!(Trace::Line);
+
+    spi.lock(CsState::Asserted).map_err(|_| ())?;
+    ringbuf_entry!(Trace::Line);
+
+    // Read header
+    if let Err(spi_error) = spi.read(&mut spi_buf[0..SPI_HEADER_SIZE]) {
+        ringbuf_entry!(Trace::SpiError(spi_error));
+        spi.release().unwrap_lite();
+        return Err(());
+    }
+
+    ringbuf_entry!(Trace::Data(spi_buf[0], spi_buf[1], spi_buf[2], spi_buf[3]));
+
+    let msg = Msg::parse(&mut spi_buf[..]).unwrap_lite();
+    if !msg.is_supported_version() {
+        ringbuf_entry!(Trace::BadProtocol(spi_buf[0]));
+        spi.release().unwrap_lite();
+        return Err(());
+    }
+    let rlen = msg.payload_len();
+    ringbuf_entry!(Trace::RspLen(rlen));
+    if rlen > spi_buf.len() - SPI_HEADER_SIZE {
+        ringbuf_entry!(Trace::BadMessageLength(rlen));
+        spi.release().unwrap_lite();
+        return Err(());
+    }
+    if let Err(spi_error) =
+        spi.read(&mut spi_buf[SPI_HEADER_SIZE..SPI_HEADER_SIZE + rlen])
+    {
+        ringbuf_entry!(Trace::SpiError(spi_error));
+        spi.release().unwrap_lite();
+        return Err(());
+    }
+    spi.release().unwrap_lite();
+
+    let msg = Msg::parse(&mut spi_buf[0..rlen + SPI_HEADER_SIZE]).unwrap_lite();
+    match msg.payload_get() {
+        Err(err) => {
+            ringbuf_entry!(Trace::SpiMsgError(err));
+            Err(())
+        }
+        Ok(buf) => {
+            assert_eq!(buf.len(), rlen);
+            Ok(buf.len())
         }
     }
 }
 
-// Serialize an Error response for a poorly encoded request
-fn bad_encoding_rsp(rsp_buf: &mut SliceVec<u8>) {
+// Serialize an Error response for a spi related error
+fn err_rsp(err: RotError, rsp_buf: &mut SliceVec<u8>) {
     // Make the slice large enough to write into
     rsp_buf.set_len(rsp_buf.capacity());
-    let rsp = RotResponse::V1 {
+    let rsp = RotResponseV1 {
+        version: 1,
         id: 0,
-        result: RotResult::Err(RotError::BadEncoding),
+        result: RotResultV1::Err(err),
     };
     let size = serialize(&mut rsp_buf.as_mut_slice(), &rsp).unwrap();
 
     // Properly size the slice for reading
     rsp_buf.set_len(size);
-    ringbuf_entry!(UartLog::JunkReq);
 }
 
 // Decode a corncobs frame
@@ -206,19 +285,8 @@ fn decode_frame(req_buf: &mut SliceVec<u8>) -> Result<(), RotError> {
     let size = corncobs::decode_in_place(req_buf.as_mut_slice())
         .map_err(|_| RotError::BadEncoding)?;
     req_buf.set_len(size);
-    ringbuf_entry!(UartLog::RotRequestSize(size));
+    ringbuf_entry!(Trace::RotRequestSize(size));
     Ok(())
-}
-
-// push as much of `data` as we can into `uart`'s TX FIFO, returning the number
-// of bytes enqueued
-fn tx_until_fifo_full(uart: &Usart, data: &[u8]) -> usize {
-    for (i, &byte) in data.iter().enumerate() {
-        if !try_tx_push(uart, byte) {
-            return i;
-        }
-    }
-    data.len()
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
@@ -226,9 +294,9 @@ fn tx_until_fifo_full(uart: &Usart, data: &[u8]) -> usize {
 fn try_tx_push(usart: &Usart, val: u8) -> bool {
     let ret = usart.try_tx_push(val);
     if ret {
-        ringbuf_entry!(UartLog::Tx(val));
+        ringbuf_entry!(Trace::Tx(val));
     } else {
-        ringbuf_entry!(UartLog::TxFull);
+        ringbuf_entry!(Trace::TxFull);
     }
     ret
 }
@@ -259,6 +327,14 @@ fn configure_uart_device() -> Usart {
             // essentially a static, and we access it through a & reference so
             // aliasing is not a concern. Were it literally a static, we could
             // just reference it.
+            usart = unsafe { &*device::USART1::ptr() };
+            peripheral = Peripheral::Usart1;
+            pins = PINS;
+        } else if #[cfg(feature = "usart1-pa9pa10")] {
+            // For the gemini dev board we use Port A pins 9 and 10 for tx/rx
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::A.pin(9).and_pin(10), Alternate::AF7),
+            ];
             usart = unsafe { &*device::USART1::ptr() };
             peripheral = Peripheral::Usart1;
             pins = PINS;
