@@ -131,7 +131,7 @@ task-slots = ["sys", "i2c_driver"]
 path = "../../task/thermal"
 name = "task-thermal"
 features = ["itm", "h753"]
-priority = 3
+priority = 5
 requires = {flash = 16384, ram = 4096 }
 stacksize = 3504
 start = true
@@ -141,7 +141,7 @@ task-slots = ["i2c_driver", "sensor"]
 path = "../../task/power"
 name = "task-power"
 features = ["itm", "h753"]
-priority = 3
+priority = 5
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
@@ -151,7 +151,7 @@ task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi"]
-priority = 3
+priority = 5
 requires = {flash = 32768, ram = 32768 }
 stacksize = 1024
 start = true
@@ -161,7 +161,7 @@ task-slots = ["sys", "hf", "i2c_driver"]
 path = "../../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
-priority = 3
+priority = 4
 requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
@@ -187,7 +187,7 @@ task-slots = ["sys"]
 path = "../../task/net"
 name = "task-net"
 stacksize = 3800
-priority = 2
+priority = 5
 features = ["mgmt", "h753", "gimlet"]
 requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -210,7 +210,7 @@ start = true
 [tasks.udpecho]
 path = "../../task/udpecho"
 name = "task-udpecho"
-priority = 3
+priority = 6
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -219,7 +219,7 @@ task-slots = ["net"]
 [tasks.udpbroadcast]
 path = "../../task/udpbroadcast"
 name = "task-udpbroadcast"
-priority = 3
+priority = 6
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -237,7 +237,7 @@ task-slots = ["i2c_driver"]
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-priority = 5
+priority = 7
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true

@@ -676,6 +676,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
     let mut out_stream = termcolor::StandardStream::stderr(color_choice);
     let out = &mut out_stream;
 
+    let idle_priority = toml.tasks["idle"].priority;
     for (name, task) in &toml.tasks {
         for callee in task.task_slots.values() {
             let p = toml
@@ -683,7 +684,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
                 .get(callee)
                 .ok_or_else(|| anyhow!("Invalid task-slot: {}", callee))?
                 .priority;
-            if p >= task.priority {
+            if p >= task.priority && name != callee {
                 // TODO: once all priority inversions are fixed, return an
                 // error so no more can be introduced
                 let mut color = ColorSpec::new();
@@ -696,6 +697,8 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
                     "task {} (priority {}) calls into {} (priority {})",
                     name, task.priority, callee, p
                 )?;
+            } else if task.priority >= idle_priority && name != "idle" {
+                bail!("task {} has priority that's >= idle priority", name);
             }
         }
     }

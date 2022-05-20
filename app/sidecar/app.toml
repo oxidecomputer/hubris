@@ -114,7 +114,7 @@ global_config = "spi5"
 path = "../../task/net"
 name = "task-net"
 stacksize = 3800
-priority = 2
+priority = 4
 features = ["mgmt", "h753", "sidecar"]
 requires = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -128,7 +128,7 @@ task-slots = ["sys",
 [tasks.udpecho]
 path = "../../task/udpecho"
 name = "task-udpecho"
-priority = 3
+priority = 5
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -137,7 +137,7 @@ task-slots = ["net"]
 [tasks.udpbroadcast]
 path = "../../task/udpbroadcast"
 name = "task-udpbroadcast"
-priority = 3
+priority = 5
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -146,7 +146,7 @@ task-slots = ["net"]
 [tasks.vsc7448]
 path = "../../task/vsc7448"
 name = "task-vsc7448"
-priority = 3
+priority = 5
 requires = {flash = 131072, ram = 8192}
 features = ["mgmt", "sidecar"]
 stacksize = 4096
@@ -207,7 +207,7 @@ task-slots = ["sys", "i2c_driver"]
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-priority = 5
+priority = 6
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true

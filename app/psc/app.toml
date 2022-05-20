@@ -127,7 +127,7 @@ task-slots = ["sys", "i2c_driver"]
 path = "../../task/net"
 name = "task-net"
 stacksize = 3800
-priority = 2
+priority = 3
 features = ["mgmt", "h753"]
 requires = {flash = 131072, ram = 8192, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -139,7 +139,7 @@ task-slots = ["sys", { spi_driver = "spi2_driver" }]
 [tasks.udpecho]
 path = "../../task/udpecho"
 name = "task-udpecho"
-priority = 3
+priority = 4
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
