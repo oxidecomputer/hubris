@@ -31,5 +31,21 @@ Interface(
                 err: CLike("ThermalError"),
             ),
         ),
+        "disable_watchdog": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "enable_watchdog": (
+            args: {
+                "timeout_s": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
     },
 )

@@ -16,6 +16,7 @@ pub enum ThermalError {
     DeviceError = 3,
     NotInManualMode = 4,
     NoReading = 5,
+    InvalidWatchdogTime = 6,
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]

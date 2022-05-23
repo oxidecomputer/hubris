@@ -22,7 +22,7 @@ use crate::{
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 pub use drv_i2c_devices::max31790::Fan;
-use drv_i2c_devices::max31790::Max31790;
+use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
 use drv_i2c_devices::TempSensor;
 use drv_i2c_devices::{
     sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
@@ -96,6 +96,11 @@ impl FanControl {
             Self::Max31790(m) => m.fan_rpm(fan),
         }
     }
+    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.set_watchdog(wd),
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +149,12 @@ impl<'a, B: BspT> ServerImpl<'a, B> {
         self.mode = m;
         ringbuf_entry!(Trace::ThermalMode(m));
     }
+
+    fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ThermalError> {
+        self.control
+            .set_watchdog(wd)
+            .map_err(|_| ThermalError::DeviceError)
+    }
 }
 
 impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
@@ -190,6 +201,31 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
             .map_err(|_| ThermalError::InvalidPWM)?;
         (self as &mut ServerImpl<B>)
             .set_mode_auto(initial_pwm)
+            .map_err(Into::into)
+    }
+
+    fn disable_watchdog(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<ThermalError>> {
+        (self as &mut ServerImpl<B>)
+            .set_watchdog(I2cWatchdog::Disabled)
+            .map_err(Into::into)
+    }
+
+    fn enable_watchdog(
+        &mut self,
+        _: &RecvMessage,
+        timeout_s: u8,
+    ) -> Result<(), RequestError<ThermalError>> {
+        let wd = match timeout_s {
+            5 => I2cWatchdog::FiveSeconds,
+            10 => I2cWatchdog::TenSeconds,
+            30 => I2cWatchdog::ThirtySeconds,
+            _ => return Err(ThermalError::InvalidWatchdogTime.into()),
+        };
+        (self as &mut ServerImpl<B>)
+            .set_watchdog(wd)
             .map_err(Into::into)
     }
 }

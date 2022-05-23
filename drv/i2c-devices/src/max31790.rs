@@ -12,7 +12,7 @@ use userlib::units::*;
 use userlib::*;
 
 #[allow(dead_code)]
-enum I2cWatchdog {
+pub enum I2cWatchdog {
     Disabled = 0b00,
     FiveSeconds = 0b01,
     TenSeconds = 0b10,
@@ -320,6 +320,15 @@ impl Max31790 {
 
         let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
         write_reg16(&self.device, fan.pwm_target(), val << 7)
+    }
+
+    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+        let mut config = GlobalConfiguration(read_reg8(
+            &self.device,
+            Register::GlobalConfiguration,
+        )?);
+        config.set_i2c_watchdog(wd as u8);
+        write_reg8(&self.device, Register::GlobalConfiguration, config.0)
     }
 }
 

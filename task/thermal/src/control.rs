@@ -4,6 +4,7 @@
 
 use crate::{bsp::BspT, Fan, TemperatureSensor, ThermalError, Trace};
 use drv_i2c_api::ResponseCode;
+use drv_i2c_devices::max31790::I2cWatchdog;
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::Sensor as SensorApi;
 use userlib::units::{Celsius, PWMDuty};
@@ -265,5 +266,9 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         pwm: PWMDuty,
     ) -> Result<(), ResponseCode> {
         self.bsp.fan_control().set_pwm(fan, pwm)
+    }
+
+    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+        self.bsp.fan_control().set_watchdog(wd)
     }
 }
