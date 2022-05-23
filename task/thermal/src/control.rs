@@ -269,8 +269,6 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
     pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        // Ignore errors and missing readings
-        // TODO: handle this better
         let mut r = self
             .read_sensors()
             .map_err(|_| ThermalError::DeviceError)?
