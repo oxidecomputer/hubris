@@ -127,7 +127,7 @@ impl BspT for Bsp {
                         sensors::TMP451_TEMPERATURE_SENSOR,
                     ),
                     MAX_T6_TEMP,
-                    POWER_STATE_A0,
+                    POWER_STATE_A0, // <-- this is different from rev A
                     false,
                 ),
                 InputChannel::new(
