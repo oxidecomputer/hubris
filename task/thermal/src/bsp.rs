@@ -47,6 +47,6 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "gimlet-b")] {
         pub(crate) use gimlet_b::*;
     } else {
-        compiler_error!("No BSP for the given board");
+        compile_error!("No BSP for the given board");
     }
 }
