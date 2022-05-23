@@ -59,17 +59,10 @@ stacksize = 1536
 [tasks.net]
 path = "../../task/net"
 name = "task-net"
-<<<<<<< HEAD
 stacksize = 5400
 priority = 5
 features = ["mgmt", "h753", "gimlet", "h7-vlan"]
 requires = {flash = 131072, ram = 16384, sram1 = 16384}
-=======
-stacksize = 3800
-priority = 4
-features = ["mgmt", "h753", "gimlet"]
-requires = {flash = 131072, ram = 8192, sram1 = 16384}
->>>>>>> 48d3ff78 (Change task priorities)
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -181,11 +174,7 @@ task-slots = ["sys", "hf", "i2c_driver"]
 path = "../../drv/gimlet-seq-server"
 name = "drv-gimlet-seq-server"
 features = ["h753"]
-<<<<<<< HEAD
 priority = 4
-=======
-priority = 5
->>>>>>> 48d3ff78 (Change task priorities)
 requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
@@ -219,11 +208,7 @@ start = true
 [tasks.udpecho]
 path = "../../task/udpecho"
 name = "task-udpecho"
-<<<<<<< HEAD
 priority = 6
-=======
-priority = 5
->>>>>>> 48d3ff78 (Change task priorities)
 requires = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -252,11 +237,7 @@ task-slots = ["i2c_driver"]
 [tasks.idle]
 path = "../../task/idle"
 name = "task-idle"
-<<<<<<< HEAD
 priority = 7
-=======
-priority = 6
->>>>>>> 48d3ff78 (Change task priorities)
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
