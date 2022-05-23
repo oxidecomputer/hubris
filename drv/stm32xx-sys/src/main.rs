@@ -27,7 +27,7 @@ cfg_if::cfg_if! {
         #[cfg(feature = "h753")]
         use stm32h7::stm32h753 as device;
     } else {
-        compiler_error!("unsupported SoC family");
+        compile_error!("unsupported SoC family");
     }
 }
 
@@ -359,7 +359,7 @@ cfg_if::cfg_if! {
         }
 
     } else {
-        compiler_error!("unsupported SoC family");
+        compile_error!("unsupported SoC family");
     }
 }
 

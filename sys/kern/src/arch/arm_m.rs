@@ -304,7 +304,7 @@ cfg_if::cfg_if! {
             base: BaseExceptionFrame,
         }
     } else {
-        compiler_error!("unknown M-profile");
+        compile_error!("unknown M-profile");
     }
 }
 
