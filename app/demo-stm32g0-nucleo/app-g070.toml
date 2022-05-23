@@ -7,7 +7,7 @@ stacksize = 944
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 11900, ram = 2000}
+requires = {flash = 12000, ram = 2000}
 features = ["g070", "panic-halt"]
 stacksize = 640
 

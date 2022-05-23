@@ -23,28 +23,22 @@ use core::mem::MaybeUninit;
 /// This can be called exactly once per boot.
 pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // Set our clock frequency so debuggers can find it as needed
-    crate::arch::set_clock_freq(tick_divisor);
+    //
+    // Safety: TODO it is not clear that this operation needs to be unsafe.
+    unsafe {
+        crate::arch::set_clock_freq(tick_divisor);
+    }
 
-    // Grab references to all our statics and start the safe code.
-    safe_start_kernel(
-        &HUBRIS_TASK_DESCS,
-        &HUBRIS_REGION_DESCS,
-        &mut HUBRIS_TASK_TABLE_SPACE,
-        &mut HUBRIS_REGION_TABLE_SPACE,
-        tick_divisor,
-    )
-}
+    // Grab references to all our statics.
+    let task_descs = &HUBRIS_TASK_DESCS;
+    let region_descs = &HUBRIS_REGION_DESCS;
+    // Safety: these references will remain unique so long as the "only called
+    // once per boot" contract on this function is upheld.
+    let (task_table, region_tables) = unsafe {
+        (&mut HUBRIS_TASK_TABLE_SPACE, &mut HUBRIS_REGION_TABLE_SPACE)
+    };
 
-fn safe_start_kernel(
-    task_descs: &'static [abi::TaskDesc],
-    region_descs: &'static [abi::RegionDesc],
-    task_table: &'static mut MaybeUninit<[Task; HUBRIS_TASK_COUNT]>,
-    region_tables: &'static mut MaybeUninit<
-        [[&'static abi::RegionDesc; abi::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
-    >,
-    tick_divisor: u32,
-) -> ! {
-    // Allocate our RAM data structures.
+    // Initialize our RAM data structures.
 
     // We currently just refer to the RegionDescs in Flash. No additional
     // preparation of those structures is required here. This will almost
