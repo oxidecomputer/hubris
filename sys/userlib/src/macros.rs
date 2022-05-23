@@ -45,8 +45,8 @@ cfg_if::cfg_if! {
             };
         }
     } else {
-        // Note: we provide macros that contain compiler_error, instead of just
-        // using compiler_error here, to allow programs to omit these features
+        // Note: we provide macros that contain compile_error, instead of just
+        // using compile_error here, to allow programs to omit these features
         // if they don't use logging.
 
         #[macro_export]

@@ -572,7 +572,7 @@ cfg_if::cfg_if! {
             vddcr_soc.turn_on().unwrap();
         }
     } else {
-        compiler_error!("unsupported target board");
+        compile_error!("unsupported target board");
     }
 }
 

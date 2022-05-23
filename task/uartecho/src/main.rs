@@ -236,7 +236,7 @@ fn configure_uart_device() -> Usart {
             peripheral = Peripheral::Uart7;
             pins = PINS;
         } else {
-            compiler_error!("no usartX/uartX feature specified");
+            compile_error!("no usartX/uartX feature specified");
         }
     }
 
