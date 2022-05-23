@@ -700,13 +700,15 @@ fn irq_control(
     };
 
     let caller = caller as u32;
-    let irqs = crate::arch::get_irqs_by_owner(abi::InterruptOwner {
-        task: caller,
-        notification: bitmask,
-    })
-    .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-        UsageError::NoIrq,
-    )))?;
+
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: caller,
+            notification: bitmask,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))?;
     for i in irqs.iter() {
         operation(i.0);
     }
