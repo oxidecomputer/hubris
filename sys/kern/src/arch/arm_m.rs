@@ -71,6 +71,7 @@
 //! We'll see.
 
 use core::ptr::NonNull;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use zerocopy::FromBytes;
 
@@ -103,6 +104,10 @@ macro_rules! uassert_eq {
 static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
 #[no_mangle]
 static mut TASK_TABLE_SIZE: usize = 0;
+
+/// We use this flag to create a sort of informal mutex around the
+/// `TASK_TABLE_*` variables.
+static TASK_TABLE_IN_USE: AtomicBool = AtomicBool::new(false);
 
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
@@ -273,17 +278,34 @@ const INITIAL_FPSCR: u32 = 0;
 /// # Safety
 ///
 /// This stashes a copy of `tasks` without revoking your right to access it,
-/// which is a potential aliasing violation if you call `with_task_table`. So
-/// don't do that. The normal kernel entry sequences avoid this issue.
-pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
-    let prev_task_table = core::mem::replace(
-        &mut TASK_TABLE_BASE,
-        Some(NonNull::from(&mut tasks[0])),
-    );
+/// which is a potential aliasing violation if you call `with_task_table` before
+/// losing access to your copy of `tasks`. So don't do that.
+pub(crate) unsafe fn set_task_table(tasks: &mut [task::Task]) {
+    if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
+        panic!(); // call to set_task_table within with_task_table
+    }
+
+    // Safety: this messes with `TASK_TABLE_BASE`, a mutable static, which we
+    // can do because we're single-threaded and the caller met our contract
+    // above. It also puts a reference to `tasks` somewhere that could
+    // potentially produce aliases, but that's also dealt with in the contract
+    // above.
+    let prev_task_table = unsafe {
+        core::mem::replace(
+            &mut TASK_TABLE_BASE,
+            Some(NonNull::from(&mut tasks[0])),
+        )
+    };
     // Catch double-uses of this function.
     uassert_eq!(prev_task_table, None);
     // Record length as well.
-    TASK_TABLE_SIZE = tasks.len();
+    // Safety: this is also accessing a mutable static and has the same
+    // justification as the task table base above.
+    unsafe {
+        TASK_TABLE_SIZE = tasks.len();
+    }
+
+    TASK_TABLE_IN_USE.store(false, Ordering::Release);
 }
 
 // Because debuggers need to know the clock frequency to set the SWO clock
@@ -291,7 +313,10 @@ pub unsafe fn set_task_table(tasks: &mut [task::Task]) {
 // debugging boot failures, this should be set as early in boot as it can
 // be.
 pub unsafe fn set_clock_freq(tick_divisor: u32) {
-    CLOCK_FREQ_KHZ = tick_divisor;
+    // TODO switch me to an atomic. Note that this may break Humility.
+    unsafe {
+        CLOCK_FREQ_KHZ = tick_divisor;
+    }
 }
 
 pub fn reinitialize(task: &mut task::Task) {
@@ -304,7 +329,6 @@ pub fn reinitialize(task: &mut task::Task) {
     uassert!(initial_stack & 0x7 == 0);
 
     // The remaining state is stored on the stack.
-    // TODO: this assumes availability of an FPU.
     // Use checked operations to get a reference to the exception frame.
     let frame_size = core::mem::size_of::<ExtendedExceptionFrame>();
     // The subtract below can overflow if the task table is corrupt -- let's
@@ -356,7 +380,6 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().psp = frame as *const _ as u32;
 
     // Finally, record the EXC_RETURN we'll use to enter the task.
-    // TODO: this assumes floating point is in use.
     task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
@@ -792,9 +815,10 @@ pub unsafe extern "C" fn SVCall() {
     //
     // After that, we repeat the same steps in the opposite order to restore
     // task context (possibly for a different task!).
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
-            asm!("
+    unsafe {
+        cfg_if::cfg_if! {
+            if #[cfg(armv6m)] {
+                asm!("
                 @ Inspect LR to figure out the caller's mode.
                 mov r0, lr
                 ldr r1, =0xFFFFFFF3
@@ -865,9 +889,9 @@ pub unsafe extern "C" fn SVCall() {
                 ",
                 exc_return = const EXC_RETURN_CONST as u32,
                 options(noreturn),
-            )
-        } else if #[cfg(any(armv7m, armv8m))] {
-            asm!("
+                )
+            } else if #[cfg(any(armv7m, armv8m))] {
+                asm!("
                 @ Inspect LR to figure out the caller's mode.
                 mov r0, lr
                 mov r1, #0xFFFFFFF3
@@ -922,9 +946,10 @@ pub unsafe extern "C" fn SVCall() {
                 ",
                 exc_return = const EXC_RETURN_CONST as u32,
                 options(noreturn),
-            )
-        } else {
-            compile_error!("missing SVCall impl for ARM profile.");
+                )
+            } else {
+                compile_error!("missing SVCall impl for ARM profile.");
+            }
         }
     }
 }
@@ -936,18 +961,34 @@ pub unsafe extern "C" fn SVCall() {
 /// Because the lifetime of the reference passed into `body` is anonymous, the
 /// reference can't easily be stored, which is deliberate.
 ///
-/// # Safety
+/// If you were to call this recursively (i.e. from within the closure passed to
+/// `with_task_table`), you'd have duplicate aliasing mut slices referencing the
+/// task table. For that reason, this function checks for recursive calls and
+/// panics if it detects one. Don't call it recursively.
 ///
-/// You can use this safely at kernel entry points, exactly once, to create a
-/// reference to the task table.
-pub unsafe fn with_task_table<R>(
+/// # Panics
+///
+/// If called before `set_task_table`.
+///
+/// If called recursively.
+pub(crate) fn with_task_table<R>(
     body: impl FnOnce(&mut [task::Task]) -> R,
 ) -> R {
-    let tasks = core::slice::from_raw_parts_mut(
-        TASK_TABLE_BASE.expect("kernel not started").as_mut(),
-        TASK_TABLE_SIZE,
-    );
-    body(tasks)
+    if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
+        panic!(); // reentrant call to with_task_table
+    }
+    // Safety: the mutable slice we generate here is guaranteed unique by our
+    // TASK_TABLE_IN_USE check, and guaranteed _valid_ by the check for
+    // TASK_TABLE_BASE being non-None (see set_task_table).
+    let tasks = unsafe {
+        core::slice::from_raw_parts_mut(
+            TASK_TABLE_BASE.expect("kernel not started").as_mut(),
+            TASK_TABLE_SIZE,
+        )
+    };
+    let r = body(tasks);
+    TASK_TABLE_IN_USE.store(false, Ordering::Release);
+    r
 }
 
 /// Records the address of `task` as the current user task.
@@ -955,9 +996,14 @@ pub unsafe fn with_task_table<R>(
 /// # Safety
 ///
 /// This records a pointer that aliases `task`. As long as you don't read that
-/// pointer except at syscall entry, you'll be okay.
+/// pointer while you have access to `task`, and as long as the `task` being
+/// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
-    CURRENT_TASK_PTR = Some(NonNull::from(task));
+    // Safety: should be ok if the contract above is met (TODO: make me an
+    // atomic)
+    unsafe {
+        CURRENT_TASK_PTR = Some(NonNull::from(task));
+    }
 }
 
 /// Reads the tick counter.
@@ -978,38 +1024,35 @@ static mut TICKS: u64 = 0;
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
-    // We configure this interrupt to have the same priority as SVC, which means
-    // there's no way this can preempt the kernel -- it will only preempt user
-    // code. As a result, we can manufacture exclusive references to various
-    // bits of kernel state.
-    let ticks = &mut TICKS;
-    with_task_table(|tasks| safe_sys_tick_handler(ticks, tasks));
+    // Safety: We configure this interrupt to have the same priority as SVC,
+    // which means there's no way this can preempt the kernel -- it will only
+    // preempt user code. As a result, we can manufacture exclusive references
+    // to various bits of kernel state.
+    let ticks = unsafe { &mut TICKS };
+    with_task_table(|tasks| {
+        // Advance the kernel's notion of time.
+        // This increment is not expected to overflow in a working system, since it
+        // would indicate that 2^64 ticks have passed, and ticks are expected to be
+        // in the range of nanoseconds to milliseconds -- meaning over 500 years.
+        // However, we do not use wrapping add here because, if we _do_ overflow due
+        // to e.g. memory corruption, we'd rather panic and reboot than attempt to
+        // limp forward.
+        *ticks += 1;
+        // Now, give up mutable access to *ticks so there's no chance of a
+        // double-increment due to bugs below.
+        let now = Timestamp::from(*ticks);
+        drop(ticks);
+
+        // Process any timers.
+        let switch = task::process_timers(tasks, now);
+
+        // If any timers fired, we need to defer a context switch, because the entry
+        // sequence to this ISR doesn't save state correctly for efficiency.
+        if switch != task::NextTask::Same {
+            pend_context_switch_from_isr();
+        }
+    });
     crate::profiling::event_timer_isr_exit();
-}
-
-/// The meat of the systick handler, after we do the unsafe things.
-fn safe_sys_tick_handler(ticks: &mut u64, tasks: &mut [task::Task]) {
-    // Advance the kernel's notion of time.
-    // This increment is not expected to overflow in a working system, since it
-    // would indicate that 2^64 ticks have passed, and ticks are expected to be
-    // in the range of nanoseconds to milliseconds -- meaning over 500 years.
-    // However, we do not use wrapping add here because, if we _do_ overflow due
-    // to e.g. memory corruption, we'd rather panic and reboot than attempt to
-    // limp forward.
-    *ticks += 1;
-    // Now, give up mutable access to *ticks so there's no chance of a
-    // double-increment due to bugs below.
-    let now = Timestamp::from(*ticks);
-    drop(ticks);
-
-    // Process any timers.
-    let switch = task::process_timers(tasks, now);
-
-    // If any timers fired, we need to defer a context switch, because the entry
-    // sequence to this ISR doesn't save state correctly for efficiency.
-    if switch != task::NextTask::Same {
-        pend_context_switch_from_isr();
-    }
 }
 
 fn pend_context_switch_from_isr() {
@@ -1023,10 +1066,11 @@ fn pend_context_switch_from_isr() {
 #[naked]
 #[no_mangle]
 pub unsafe extern "C" fn PendSV() {
-    cfg_if::cfg_if! {
-        if #[cfg(armv6m)] {
-            asm!(
-                "
+    unsafe {
+        cfg_if::cfg_if! {
+            if #[cfg(armv6m)] {
+                asm!(
+                    "
                 @ store volatile state.
                 @ first, get a pointer to the current task.
                 ldr r0, =CURRENT_TASK_PTR
@@ -1069,10 +1113,10 @@ pub unsafe extern "C" fn PendSV() {
                 bx lr
                 ",
                 options(noreturn),
-            );
-        } else if #[cfg(any(armv7m, armv8m))] {
-            asm!(
-                "
+                );
+            } else if #[cfg(any(armv7m, armv8m))] {
+                asm!(
+                    "
                 @ store volatile state.
                 @ first, get a pointer to the current task.
                 movw r0, #:lower16:CURRENT_TASK_PTR
@@ -1100,9 +1144,10 @@ pub unsafe extern "C" fn PendSV() {
                 bx lr
                 ",
                 options(noreturn),
-            );
-        } else {
-            compile_error!("missing PendSV impl for ARM profile.");
+                );
+            } else {
+                compile_error!("missing PendSV impl for ARM profile.");
+            }
         }
     }
 }
@@ -1112,17 +1157,23 @@ pub unsafe extern "C" fn PendSV() {
 #[no_mangle]
 unsafe extern "C" fn pendsv_entry() {
     crate::profiling::event_secondary_syscall_enter();
+    // Safety: we can access this by virtue of being an interrupt handler, and
+    // thus serialized with respect to anyone who might be trying to write it.
+    let current = unsafe { CURRENT_TASK_PTR }
+        .expect("irq before kernel started?")
+        .as_ptr();
     with_task_table(|tasks| {
-        let current = CURRENT_TASK_PTR
-            .expect("irq before kernel started?")
-            .as_ptr();
         let idx = (current as usize - tasks.as_ptr() as usize)
             / core::mem::size_of::<task::Task>();
 
         let next = task::select(idx, tasks);
         let next = &mut tasks[next];
         apply_memory_protection(next);
-        set_current_task(next);
+        // Safety: next comes from the task table and we don't use it again
+        // until next kernel entry, so we meet set_current_task's requirements.
+        unsafe {
+            set_current_task(next);
+        }
     });
     crate::profiling::event_secondary_syscall_exit();
 }
@@ -1133,13 +1184,17 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_enter();
     // We can cheaply get the identity of the interrupt that called us from the
     // bottom 9 bits of IPSR.
-    let mut ipsr: u32;
-    asm!(
-        "mrs {}, IPSR",
-        out(reg) ipsr,
-        options(pure, nomem, preserves_flags, nostack),
-    );
-    let exception_num = ipsr & 0x1FF;
+    //
+    // Safety: we're just reading the PSR.
+    let exception_num = unsafe {
+        let mut ipsr: u32;
+        asm!(
+            "mrs {}, IPSR",
+            out(reg) ipsr,
+            options(pure, nomem, preserves_flags, nostack),
+        );
+        ipsr & 0x1FF
+    };
 
     // The first 16 exceptions are architecturally defined; vendor hardware
     // interrupts start at 16.
@@ -1213,8 +1268,9 @@ enum FaultType {
 #[naked]
 #[cfg(any(armv7m, armv8m))]
 unsafe extern "C" fn configurable_fault() {
-    asm!(
-        "
+    unsafe {
+        asm!(
+            "
         @ Read the current task pointer.
         movw r0, #:lower16:CURRENT_TASK_PTR
         movt r0, #:upper16:CURRENT_TASK_PTR
@@ -1263,8 +1319,9 @@ unsafe extern "C" fn configurable_fault() {
         @ resume
         bx lr
         ",
-        options(noreturn),
-    );
+            options(noreturn),
+        );
+    }
 }
 
 /// Initial entry point for handling a memory management fault.
@@ -1273,7 +1330,10 @@ unsafe extern "C" fn configurable_fault() {
 #[naked]
 #[cfg(any(armv7m, armv8m))]
 pub unsafe extern "C" fn MemoryManagement() {
-    asm!("b {0}", sym configurable_fault, options(noreturn))
+    // Safety: this is merely a call (a tailcall, really) to a different handler
+    // -- we're doing it this way simply because the other handler does context
+    // save, so we can't go up into Rust here.
+    unsafe { asm!("b {0}", sym configurable_fault, options(noreturn)) }
 }
 
 /// Initial entry point for handling a bus fault.
@@ -1282,7 +1342,10 @@ pub unsafe extern "C" fn MemoryManagement() {
 #[naked]
 #[cfg(any(armv7m, armv8m))]
 pub unsafe extern "C" fn BusFault() {
-    asm!("b {0}", sym configurable_fault, options(noreturn))
+    // Safety: this is merely a call (a tailcall, really) to a different handler
+    // -- we're doing it this way simply because the other handler does context
+    // save, so we can't go up into Rust here.
+    unsafe { asm!("b {0}", sym configurable_fault, options(noreturn)) }
 }
 
 /// Initial entry point for handling a usage fault.
@@ -1291,7 +1354,10 @@ pub unsafe extern "C" fn BusFault() {
 #[naked]
 #[cfg(any(armv7m, armv8m))]
 pub unsafe extern "C" fn UsageFault() {
-    asm!("b {0}", sym configurable_fault, options(noreturn))
+    // Safety: this is merely a call (a tailcall, really) to a different handler
+    // -- we're doing it this way simply because the other handler does context
+    // save, so we can't go up into Rust here.
+    unsafe { asm!("b {0}", sym configurable_fault, options(noreturn)) }
 }
 
 /// Initial entry point for handling a hard fault (ARMv6).
@@ -1300,8 +1366,9 @@ pub unsafe extern "C" fn UsageFault() {
 #[naked]
 #[cfg(armv6m)]
 pub unsafe extern "C" fn HardFault() {
-    asm!(
-        "
+    unsafe {
+        asm!(
+            "
         @ Read the current task pointer.
         ldr r0, =CURRENT_TASK_PTR
         ldr r0, [r0]
@@ -1352,8 +1419,9 @@ pub unsafe extern "C" fn HardFault() {
         @ resume
         bx lr
         ",
-        options(noreturn),
-    );
+            options(noreturn),
+        );
+    }
 }
 
 bitflags::bitflags! {
@@ -1398,11 +1466,19 @@ bitflags::bitflags! {
 }
 
 /// Rust entry point for fault.
+///
+/// # Safety
+///
+/// In brief: don't call this. This is an implementation factor of the fault
+/// handler assembly code and should not be used for other purposes.
 #[no_mangle]
 #[cfg(armv6m)]
 unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // Who faulted?
-    let from_thread_mode = (*task).save().exc_return & 0b1000 != 0;
+    // Safety: we're dereferencing the task pointer, because we trust the
+    // assembly fault handler to pass us a legitimate one. We use it immediately
+    // and discard it because otherwise it would alias the task table below.
+    let from_thread_mode = unsafe { (*task).save().exc_return & 0b1000 != 0 };
 
     if !from_thread_mode {
         // Uh. This fault originates from the kernel. We don't get fault
@@ -1431,10 +1507,25 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
 
         let next = &mut tasks[next];
         apply_memory_protection(next);
-        set_current_task(next);
+        // Safety: next comes from the task table and we don't use it again
+        // until next kernel entry, so we meet set_current_task's requirements.
+        unsafe {
+            set_current_task(next);
+        }
     });
 }
 
+/// Common implementation of fault handling.
+///
+/// # Safety
+///
+/// Requirements for using this safely include:
+///
+/// - Call this on the way into the kernel from a (naked) ISR, not from within
+///   the kernel Rust code.
+/// - Ensure that `task` is a pointer to an initialized, aligned Task in the
+///   task table.
+/// - Ensure that `fpsave` points to that task's floating point save area.
 #[no_mangle]
 #[cfg(any(armv7m, armv8m))]
 unsafe extern "C" fn handle_fault(
@@ -1444,11 +1535,27 @@ unsafe extern "C" fn handle_fault(
 ) {
     // To diagnose the fault, we're going to need access to the System Control
     // Block. Pull such access from thin air.
-    let scb = &*cortex_m::peripheral::SCB::ptr();
+    //
+    // Safety: this is dereferencing the raw pointer produced by SCB::ptr. We
+    // trust that the returned pointer is valid (non-null, aligned). The
+    // resulting reference is to a static-scoped Sync thing, and it's a shared
+    // reference, so we shouldn't be breaking any rules by doing this. Arguably
+    // this should be available as a safe operation in the cortex_m crate, but
+    // that crate comes with _ideas_ about peripheral ownership management.
+    let scb = unsafe { &*cortex_m::peripheral::SCB::ptr() };
     let cfsr = Cfsr::from_bits_truncate(scb.cfsr.read());
 
-    // Who faulted?
-    let from_thread_mode = (*task).save().exc_return & 0b1000 != 0;
+    // Who faulted? Collect some parameters from the task.
+    //
+    // Safety: we're dereferencing the raw `task` pointer passed in. Our
+    // contract requires that it be valid. We immediately throw away the result
+    // of dereferencing it, as it would otherwise alias the task table obtained
+    // later.
+    let (exc_return, psp) = unsafe {
+        let s = (*task).save();
+        (s.exc_return, s.psp)
+    };
+    let from_thread_mode = exc_return & 0b1000 != 0;
 
     if !from_thread_mode {
         // Uh. This fault originates from the kernel. Let's try to make the
@@ -1475,12 +1582,7 @@ unsafe extern "C" fn handle_fault(
                 // fact that the user's stack pointer is so trashed that we
                 // can't store through it.  (In particular, we seem to have no
                 // way at getting at our faulted PC.)
-                (
-                    FaultInfo::StackOverflow {
-                        address: (*task).save().psp,
-                    },
-                    true,
-                )
+                (FaultInfo::StackOverflow { address: psp }, true)
             } else if cfsr.contains(Cfsr::IACCVIOL) {
                 (FaultInfo::IllegalText, false)
             } else {
@@ -1524,7 +1626,13 @@ unsafe extern "C" fn handle_fault(
 
     // Because we are responsible for clearing all conditions, we write back
     // the value of CFSR that we read
-    scb.cfsr.write(cfsr.bits());
+    //
+    // Safety: this is a traditional write-one-to-clear register that, when
+    // written, clears recorded fault states. It is not at _all_ clear why its
+    // write function is unsafe.
+    unsafe {
+        scb.cfsr.write(cfsr.bits());
+    }
 
     if stackinvalid {
         // We know that we have an invalid stack; to prevent our subsequent
@@ -1533,13 +1641,21 @@ unsafe extern "C" fn handle_fault(
         // the Lazy Stack Preservation Active bit in our Floating Point
         // Context Control register.
         const LSPACT: u32 = 1 << 0;
-        let fpu = &*cortex_m::peripheral::FPU::ptr();
-        fpu.fpccr.modify(|x| x & !LSPACT);
+        unsafe {
+            let fpu = &*cortex_m::peripheral::FPU::ptr();
+            fpu.fpccr.modify(|x| x & !LSPACT);
+        }
     }
 
     // It's safe to store our floating point registers; store them now to
     // preserve as much state as possible for debugging.
-    asm!("vstm {0}, {{s16-s31}}", in(reg) fpsave);
+    //
+    // Safety: asm! is always unsafe, obvs, but in this case as long as fpsave
+    // points to a correctly aligned area large enough to store 16 floats -- a
+    // property our caller is required to ensure -- this is ok.
+    unsafe {
+        asm!("vstm {0}, {{s16-s31}}", in(reg) fpsave);
+    }
 
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.  (It may be tempting to use PendSV here,
@@ -1563,8 +1679,102 @@ unsafe extern "C" fn handle_fault(
 
         let next = &mut tasks[next];
         apply_memory_protection(next);
-        set_current_task(next);
+        // Safety: this leaks a pointer aliasing next into static scope, but
+        // we're not going to read it back until the next kernel entry, so we
+        // won't be aliasing/racing.
+        unsafe {
+            set_current_task(next);
+        }
     });
+}
+
+/// An atomic type with the operations we need in the kernel.
+///
+/// Rust removes certain atomic operations from the `core::sync::atomic` API on
+/// platforms, like Cortex-M0, that don't support them. The decision to remove
+/// these features in the libcore sources is controlled by some `cfg`s that
+/// we're not allowed to look at -- they've been unstable forever. Not clear how
+/// upstream expects us to handle those cases, but, hey.
+///
+/// This trait describes an atomic type with the complement of atomic ops that
+/// we need to make the kernel work. We can then implement it to call through to
+/// the native versions (on M3 and later) or use hacks (on M0).
+trait AtomicExt {
+    type Primitive;
+    fn swap_polyfill(
+        &self,
+        value: Self::Primitive,
+        ordering: Ordering,
+    ) -> Self::Primitive;
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(armv6m)] {
+        // The ARMv6M atomic operations are implemented by disabling interrupts
+        // globally. In a normal configuration the kernel arranges priorities so
+        // that it's never preempted, making this moot. However, it's entirely
+        // possible for an application to adjust interrupt priorities to support
+        // custom low-latency interrupt service routines that don't go through
+        // the kernel; disabling interrupts here ensures that we remain correct
+        // in the presence of such code.
+        //
+        // Note that the routines that take an `ordering` are always used with
+        // constant values -- despite being `inline(never)`, the compiler winds
+        // up specializing these routines to the constant ordering, which is
+        // what we want. The `inline(never)` helps to avoid code explosion,
+        // which on constrained M0s is usually more important than syscall
+        // entry/exit speed.
+
+        impl AtomicExt for AtomicBool {
+            type Primitive = bool;
+
+            #[inline(never)]
+            fn swap_polyfill(&self, value: Self::Primitive, ordering: Ordering)
+                -> Self::Primitive
+            {
+                let (lo, so) = rmw_ordering(ordering);
+                cortex_m::interrupt::free(|_| {
+                    let prev = self.load(lo);
+                    self.store(value, so);
+                    prev
+                })
+            }
+        }
+
+        /// Translates an ordering suppled to a read-modify-write operation into
+        /// the distinct orderings implied for its load and store phases,
+        /// respectively.
+        ///
+        /// This mapping is described using informal language in the docs for
+        /// the `core::sync::atomic::Ordering` type.
+        ///
+        /// This is `inline(always)` because its `o` argument is _basically
+        /// always_ a literal, causing its code to evaporate at compile time.
+        #[inline(always)]
+        fn rmw_ordering(o: Ordering) -> (Ordering, Ordering) {
+            match o {
+                Ordering::AcqRel => (Ordering::Acquire, Ordering::Release),
+                Ordering::Relaxed => (o, o),
+                Ordering::SeqCst => (o, o),
+                Ordering::Acquire => (Ordering::Acquire, Ordering::Relaxed),
+                Ordering::Release => (Ordering::Relaxed, Ordering::Release),
+                // Other orderings are not suitable for RMW operations.
+                _ => panic!(),
+            }
+        }
+    } else {
+        impl AtomicExt for AtomicBool {
+            type Primitive = bool;
+
+            #[inline(always)]
+            fn swap_polyfill(&self, value: Self::Primitive, ordering: Ordering)
+                -> Self::Primitive
+            {
+                self.swap(value, ordering)
+            }
+        }
+
+    }
 }
 
 // Constants that may change depending on configuration

@@ -191,7 +191,14 @@ where
     /// 4. That it does not alias any slice you intend to `&mut`-reference with
     ///    `assume_writable`, or any kernel memory.
     pub unsafe fn assume_readable(&self) -> &[T] {
-        core::slice::from_raw_parts(self.base_address as *const T, self.length)
+        // Safety: this function's contract ensures that the slice we produce
+        // here is valid.
+        unsafe {
+            core::slice::from_raw_parts(
+                self.base_address as *const T,
+                self.length,
+            )
+        }
     }
 
     /// Converts this into an _actual_ slice that can be directly read and
@@ -213,10 +220,14 @@ where
     /// 4. That it does not alias any other slice you intend to access, or any
     ///    kernel memory.
     pub unsafe fn assume_writable(&mut self) -> &mut [T] {
-        core::slice::from_raw_parts_mut(
-            self.base_address as *mut T,
-            self.length,
-        )
+        // Safety: this function's contract ensures that the slice we produce
+        // here is valid.
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                self.base_address as *mut T,
+                self.length,
+            )
+        }
     }
 }
 
