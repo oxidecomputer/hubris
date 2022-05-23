@@ -171,7 +171,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
                 "(abi::InterruptNum({}), abi::InterruptOwner {{ task: {}, notification: 0b{:b} }}),",
                 irq.0, owner.task, owner.notification
             ),
-            None => "(abi::InterruptNum(u32::MAX), abi::InterruptOwner { task: u32::MAX, notification: 0 }),"
+            None => "(abi::InterruptNum::invalid(), abi::InterruptOwner::invalid()),"
                 .to_string(),
         }
     };
@@ -186,7 +186,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
                     .join(", ")
             ),
             None => {
-                "(abi::InterruptOwner { task: u32::MAX, notification: 0}, &[]),"
+                "(abi::InterruptOwner::invalid(), &[]),"
                     .to_string()
             }
         }
@@ -261,7 +261,7 @@ pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<abi::InterruptOwner, &'static
                     format!(
                         "&[\n            {}\n        ],",
                         v.iter()
-                            .map(|o| fmt_task_irq(Some(&o)))
+                            .map(|o| fmt_task_irq(o.as_ref()))
                             .collect::<Vec<String>>()
                             .join("\n            ")
                     )
@@ -317,7 +317,7 @@ pub const HUBRIS_IRQ_TASK_LOOKUP: PerfectHashMap::<abi::InterruptNum, abi::Inter
                     format!(
                         "&[\n            {}\n        ],",
                         v.iter()
-                            .map(|o| fmt_irq_task(Some(&o)))
+                            .map(|o| fmt_irq_task(o.as_ref()))
                             .collect::<Vec<String>>()
                             .join("\n            ")
                     )

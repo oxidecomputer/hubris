@@ -23,6 +23,9 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> PerfectHashMap<'a, K, V> {
     /// not stored in the table.
     #[inline(always)]
     pub fn get(&self, key: K) -> Option<&V> {
+        if self.values.is_empty() {
+            return None;
+        }
         let i = key.phash(self.m) % self.values.len();
         if key == self.values[i].0 {
             Some(&self.values[i].1)
@@ -49,7 +52,13 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> NestedPerfectHashMap<'a, K, V> {
     /// not stored in the table.
     #[inline(always)]
     pub fn get(&self, key: K) -> Option<&V> {
+        if self.g.is_empty() {
+            return None;
+        }
         let i = key.phash(self.m) % self.g.len();
+        if self.values[i].is_empty() {
+            return None;
+        }
         let j = key.phash(self.g[i]) % self.values[i].len();
         if key == self.values[i][j].0 {
             Some(&self.values[i][j].1)

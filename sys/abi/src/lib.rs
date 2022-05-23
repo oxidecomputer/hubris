@@ -257,6 +257,14 @@ impl phash::PerfectHash for InterruptNum {
         self.0.wrapping_mul(v) as usize
     }
 }
+impl InterruptNum {
+    pub const fn invalid() -> Self {
+        Self(u32::MAX)
+    }
+    pub fn is_valid(&self) -> bool {
+        self.0 != u32::MAX
+    }
+}
 
 /// Struct containing the task which waits for an interrupt, and the expected
 /// notification mask associated with the IRQ.
@@ -284,6 +292,17 @@ impl phash::PerfectHash for InterruptOwner {
         self.task
             .wrapping_mul(v)
             .wrapping_add(self.notification.wrapping_mul(!v)) as usize
+    }
+}
+impl InterruptOwner {
+    pub const fn invalid() -> Self {
+        Self {
+            task: u32::MAX,
+            notification: 0,
+        }
+    }
+    pub fn is_valid(&self) -> bool {
+        !(self.task == u32::MAX && self.notification == 0)
     }
 }
 
