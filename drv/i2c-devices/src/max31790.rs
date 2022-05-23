@@ -255,10 +255,12 @@ impl Max31790 {
     pub fn initialize(&self) -> Result<(), ResponseCode> {
         let device = &self.device;
 
-        let _config = GlobalConfiguration(read_reg8(
+        let mut config = GlobalConfiguration(read_reg8(
             device,
             Register::GlobalConfiguration,
         )?);
+        config.set_i2c_watchdog(I2cWatchdog::Disabled as u8);
+        write_reg8(device, Register::GlobalConfiguration, config.0)?;
 
         for fan in 0..MAX_FANS {
             let fan = Fan::try_from(fan).unwrap();
