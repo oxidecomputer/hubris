@@ -4,11 +4,12 @@
 
 //! BSP for the Gimlet rev A hardware
 //!
-//! This is identical to the rev B BSP except for the TMP451, which is in
+//! This is *identical* to the rev B BSP except for the TMP451, which is in
 //! a different power domain.
 
 use crate::{
-    bsp::BspT, control::InputChannel, Device, FanControl, TemperatureSensor,
+    bsp::BspT,
+    control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
 use core::convert::TryFrom;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
@@ -109,200 +110,198 @@ impl BspT for Bsp {
 
             inputs: [
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::CPU(Sbtsi::new(
-                            &devices::sbtsi(i2c_task)[0],
-                        )),
-                        id: sensors::SBTSI_TEMPERATURE_SENSOR,
-                    },
+                    TemperatureSensor::new(
+                        Device::CPU(Sbtsi::new(&devices::sbtsi(i2c_task)[0])),
+                        sensors::SBTSI_TEMPERATURE_SENSOR,
+                    ),
                     MAX_CPU_TEMP,
                     POWER_STATE_A0,
                     false,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::T6Nic(Tmp451::new(
+                    TemperatureSensor::new(
+                        Device::T6Nic(Tmp451::new(
                             &devices::tmp451(i2c_task)[0],
                             Target::Remote,
                         )),
-                        id: sensors::TMP451_TEMPERATURE_SENSOR,
-                    },
+                        sensors::TMP451_TEMPERATURE_SENSOR,
+                    ),
                     MAX_T6_TEMP,
-                    POWER_STATE_A0 | POWER_STATE_A2,
+                    POWER_STATE_A0 | POWER_STATE_A2, // <- different from rev B
                     false,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[0],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[1],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[2],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[3],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[4],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[5],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[6],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[7],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[8],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[9],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[10],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[11],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[12],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[13],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[14],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
                 InputChannel::new(
-                    TemperatureSensor {
-                        device: Device::Dimm(Tse2004Av::new(
+                    TemperatureSensor::new(
+                        Device::Dimm(Tse2004Av::new(
                             &devices::tse2004av(i2c_task)[15],
                         )),
-                        id: sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
-                    },
+                        sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
+                    ),
                     MAX_DIMM_TEMP,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
@@ -314,42 +313,42 @@ impl BspT for Bsp {
             // North and south zones are inverted with respect to one
             // another on rev A; see Gimlet issue #1302 for details.
             misc_sensors: [
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_northeast(i2c_task),
-                    )),
-                    id: sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
-                },
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_north(i2c_task),
-                    )),
-                    id: sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
-                },
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_northwest(i2c_task),
-                    )),
-                    id: sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
-                },
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_southeast(i2c_task),
-                    )),
-                    id: sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
-                },
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_south(i2c_task),
-                    )),
-                    id: sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
-                },
-                TemperatureSensor {
-                    device: Device::Tmp117(Tmp117::new(
-                        &devices::tmp117_southwest(i2c_task),
-                    )),
-                    id: sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
-                },
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_northeast(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
+                ),
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_north(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_NORTH_TEMPERATURE_SENSOR,
+                ),
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_northwest(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_NORTHWEST_TEMPERATURE_SENSOR,
+                ),
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_southeast(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_SOUTHEAST_TEMPERATURE_SENSOR,
+                ),
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_south(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_SOUTH_TEMPERATURE_SENSOR,
+                ),
+                TemperatureSensor::new(
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_southwest(
+                        i2c_task,
+                    ))),
+                    sensors::TMP117_SOUTHWEST_TEMPERATURE_SENSOR,
+                ),
             ],
         }
     }

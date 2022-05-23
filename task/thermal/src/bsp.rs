@@ -25,7 +25,7 @@ pub(crate) trait BspT {
 
     /// Miscellaneous sensors, which are logged into the `sensor` task but
     /// do not affect the control loop
-    fn misc_sensors(&self) -> &[crate::TemperatureSensor];
+    fn misc_sensors(&self) -> &[crate::control::TemperatureSensor];
 
     /// Fan output group.  Each `ThermalControl` is limited to a single
     /// fan control IC, but can choose which fans to control.
@@ -34,7 +34,7 @@ pub(crate) trait BspT {
     ) -> &[(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)];
 
     /// Fan control IC
-    fn fan_control(&self) -> &crate::FanControl;
+    fn fan_control(&self) -> &crate::control::FanControl;
 
     /// Returns a `u32` with a single bit set that corresponds to a power mode,
     /// which in turn determines which sensors are active.

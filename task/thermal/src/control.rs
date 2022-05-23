@@ -2,12 +2,76 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{bsp::BspT, Fan, TemperatureSensor, ThermalError, Trace};
+use crate::{bsp::BspT, Fan, ThermalError, Trace};
 use drv_i2c_api::ResponseCode;
-use drv_i2c_devices::max31790::I2cWatchdog;
+use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
+use drv_i2c_devices::TempSensor;
+use drv_i2c_devices::{
+    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
+};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
-use task_sensor_api::Sensor as SensorApi;
-use userlib::units::{Celsius, PWMDuty};
+use task_sensor_api::{Sensor as SensorApi, SensorId};
+use userlib::units::{Celsius, PWMDuty, Rpm};
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Type containing all of our temperature sensor types, so we can store them
+/// generically in an array.  These are all `I2cDevice`s, so functions on
+/// this `enum` return an `drv_i2c_api::ResponseCode`.
+pub enum Device {
+    Tmp117(Tmp117),
+    T6Nic(Tmp451),
+    CPU(Sbtsi),
+    Dimm(Tse2004Av),
+}
+
+/// Represents a sensor and its associated `SensorId`, used when posting data
+/// to the `sensors` task.
+pub struct TemperatureSensor {
+    device: Device,
+    id: SensorId,
+}
+
+impl TemperatureSensor {
+    pub fn new(device: Device, id: SensorId) -> Self {
+        Self { device, id }
+    }
+    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
+        let t = match &self.device {
+            Device::Tmp117(dev) => dev.read_temperature()?,
+            Device::CPU(dev) => dev.read_temperature()?,
+            Device::T6Nic(dev) => dev.read_temperature()?,
+            Device::Dimm(dev) => dev.read_temperature()?,
+        };
+        Ok(t)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Enum containing all of our fan controller types, so we can store them
+/// generically in an array.
+pub enum FanControl {
+    Max31790(Max31790),
+}
+
+impl FanControl {
+    fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.set_pwm(fan, pwm),
+        }
+    }
+    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.fan_rpm(fan),
+        }
+    }
+    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+        match self {
+            Self::Max31790(m) => m.set_watchdog(wd),
+        }
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -22,18 +22,14 @@ use crate::{
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 pub use drv_i2c_devices::max31790::Fan;
-use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
-use drv_i2c_devices::TempSensor;
-use drv_i2c_devices::{
-    sbtsi::Sbtsi, tmp117::Tmp117, tmp451::Tmp451, tse2004av::Tse2004Av,
-};
+use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_thermal_api::{ThermalError, ThermalMode};
-use userlib::units::*;
+use userlib::units::PWMDuty;
 use userlib::*;
 
-use task_sensor_api::{Sensor as SensorApi, SensorId};
+use task_sensor_api::Sensor as SensorApi;
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
@@ -48,60 +44,6 @@ enum Trace {
     ControlPwm(u8),
 }
 ringbuf!(Trace, 32, Trace::None);
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// Enum containing all of our temperature sensor types, so we can store them
-/// generically in an array.
-enum Device {
-    Tmp117(Tmp117),
-    T6Nic(Tmp451),
-    CPU(Sbtsi),
-    Dimm(Tse2004Av),
-}
-
-struct TemperatureSensor {
-    device: Device,
-    id: SensorId,
-}
-
-impl TemperatureSensor {
-    fn read_temp(&self) -> Result<Celsius, ResponseCode> {
-        let t = match &self.device {
-            Device::Tmp117(dev) => dev.read_temperature()?,
-            Device::CPU(dev) => dev.read_temperature()?,
-            Device::T6Nic(dev) => dev.read_temperature()?,
-            Device::Dimm(dev) => dev.read_temperature()?,
-        };
-        Ok(t)
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/// Enum containing all of our fan controller types, so we can store them
-/// generically in an array.
-enum FanControl {
-    Max31790(Max31790),
-}
-
-impl FanControl {
-    fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m) => m.set_pwm(fan, pwm),
-        }
-    }
-    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
-        match self {
-            Self::Max31790(m) => m.fan_rpm(fan),
-        }
-    }
-    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
-        match self {
-            Self::Max31790(m) => m.set_watchdog(wd),
-        }
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
