@@ -14,6 +14,22 @@ pub enum ThermalError {
     InvalidFan = 1,
     InvalidPWM = 2,
     DeviceError = 3,
+    NotInManualMode = 4,
+    NoReading = 5,
+    InvalidWatchdogTime = 6,
+}
+
+#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+pub enum ThermalMode {
+    /// The thermal loop has not started.  This is the initial state, but
+    /// should be transient, as the thermal task turns on.
+    Off = 0,
+    /// The thermal loop is polling sensors and sending data to the `sensors`
+    /// task, but not setting fan PWM speeds.
+    Manual = 1,
+    /// The thermal loop is polling sensors and sending data to the `sensors`
+    /// task; fan speeds are controlled based on certain temperature sensors.
+    Auto = 2,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

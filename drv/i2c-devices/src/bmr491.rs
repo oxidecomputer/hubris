@@ -4,6 +4,8 @@
 
 //! Driver for the BMR491 IBC
 
+use core::cell::Cell;
+
 use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::*;
@@ -11,7 +13,7 @@ use userlib::units::*;
 
 pub struct Bmr491 {
     device: I2cDevice,
-    mode: Option<pmbus::VOutModeCommandData>,
+    mode: Cell<Option<pmbus::VOutModeCommandData>>,
 }
 
 #[derive(Debug)]
@@ -25,7 +27,7 @@ pub enum Error {
 
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err: err }
+        Error::InvalidData { err }
     }
 }
 
@@ -44,22 +46,22 @@ impl Bmr491 {
     pub fn new(device: &I2cDevice, _rail: u8) -> Self {
         Bmr491 {
             device: *device,
-            mode: None,
+            mode: Cell::new(None),
         }
     }
 
-    fn read_mode(&mut self) -> Result<pmbus::VOutModeCommandData, Error> {
-        Ok(match self.mode {
+    fn read_mode(&self) -> Result<pmbus::VOutModeCommandData, Error> {
+        Ok(match self.mode.get() {
             None => {
                 let mode = pmbus_read!(self.device, VOUT_MODE)?;
-                self.mode = Some(mode);
+                self.mode.set(Some(mode));
                 mode
             }
             Some(mode) => mode,
         })
     }
 
-    pub fn read_vout(&mut self) -> Result<Volts, Error> {
+    pub fn read_vout(&self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }
@@ -73,21 +75,21 @@ impl Validate<Error> for Bmr491 {
 }
 
 impl TempSensor<Error> for Bmr491 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         let temp = pmbus_read!(self.device, bmr491::READ_TEMPERATURE_1)?;
         Ok(Celsius(temp.get()?.0))
     }
 }
 
 impl CurrentSensor<Error> for Bmr491 {
-    fn read_iout(&mut self) -> Result<Amperes, Error> {
+    fn read_iout(&self) -> Result<Amperes, Error> {
         let iout = pmbus_read!(self.device, bmr491::READ_IOUT)?;
         Ok(Amperes(iout.get()?.0))
     }
 }
 
 impl VoltageSensor<Error> for Bmr491 {
-    fn read_vout(&mut self) -> Result<Volts, Error> {
+    fn read_vout(&self) -> Result<Volts, Error> {
         let vout = pmbus_read!(self.device, bmr491::READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
     }

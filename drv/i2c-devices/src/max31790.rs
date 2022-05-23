@@ -6,12 +6,13 @@
 
 use crate::Validate;
 use bitfield::bitfield;
+use core::convert::TryFrom;
 use drv_i2c_api::*;
 use userlib::units::*;
 use userlib::*;
 
 #[allow(dead_code)]
-enum I2cWatchdog {
+pub enum I2cWatchdog {
     Disabled = 0b00,
     FiveSeconds = 0b01,
     TenSeconds = 0b10,
@@ -184,17 +185,15 @@ pub const MAX_FANS: u8 = 6;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Fan(u8);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PWMDuty(pub u8);
-
-impl From<u8> for Fan {
+impl TryFrom<u8> for Fan {
+    type Error = ();
     /// Fans are based on a 0-based index. This should *not* be the number
     /// of the fan (the fan numbers have a 1-based index)
-    fn from(index: u8) -> Self {
+    fn try_from(index: u8) -> Result<Self, Self::Error> {
         if index >= MAX_FANS {
-            panic!();
+            Err(())
         } else {
-            Self(index)
+            Ok(Self(index))
         }
     }
 }
@@ -256,13 +255,15 @@ impl Max31790 {
     pub fn initialize(&self) -> Result<(), ResponseCode> {
         let device = &self.device;
 
-        let _config = GlobalConfiguration(read_reg8(
+        let mut config = GlobalConfiguration(read_reg8(
             device,
             Register::GlobalConfiguration,
         )?);
+        config.set_i2c_watchdog(I2cWatchdog::Disabled as u8);
+        write_reg8(device, Register::GlobalConfiguration, config.0)?;
 
         for fan in 0..MAX_FANS {
-            let fan = Fan::from(fan);
+            let fan = Fan::try_from(fan).unwrap();
             let reg = fan.configuration();
 
             let mut config = FanConfiguration(read_reg8(device, reg)?);
@@ -321,6 +322,15 @@ impl Max31790 {
 
         let val = ((perc / 100.0) * 0b1_1111_1111 as f32) as u16;
         write_reg16(&self.device, fan.pwm_target(), val << 7)
+    }
+
+    pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
+        let mut config = GlobalConfiguration(read_reg8(
+            &self.device,
+            Register::GlobalConfiguration,
+        )?);
+        config.set_i2c_watchdog(wd as u8);
+        write_reg8(&self.device, Register::GlobalConfiguration, config.0)
     }
 }
 

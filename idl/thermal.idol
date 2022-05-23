@@ -3,10 +3,44 @@
 Interface(
     name: "Thermal",
     ops: {
+        "set_mode_manual": (
+            args: {
+                "initial_pwm": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "set_mode_auto": (
+            args: {
+                "initial_pwm": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
         "set_fan_pwm": (
             args: {
                 "index": "u8",
                 "pwm": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "disable_watchdog": (
+            args: {},
+            reply: Result(
+                ok: "()",
+                err: CLike("ThermalError"),
+            ),
+        ),
+        "enable_watchdog": (
+            args: {
+                "timeout_s": "u8",
             },
             reply: Result(
                 ok: "()",

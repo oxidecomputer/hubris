@@ -59,7 +59,7 @@ impl Tse2004Av {
 }
 
 impl TempSensor<Error> for Tse2004Av {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         let t: u16 = self.read_reg(Register::AmbientTemp)?;
 
         // The actual temperature is a 13-bit two's complement value.

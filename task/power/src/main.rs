@@ -53,7 +53,7 @@ struct PowerController {
 }
 
 fn read_temperature<E, T: TempSensor<E>>(
-    device: &mut T,
+    device: &T,
 ) -> Result<Celsius, ResponseCode>
 where
     ResponseCode: From<E>,
@@ -68,7 +68,7 @@ where
 }
 
 fn read_current<E, T: CurrentSensor<E>>(
-    device: &mut T,
+    device: &T,
 ) -> Result<Amperes, ResponseCode>
 where
     ResponseCode: From<E>,
@@ -83,7 +83,7 @@ where
 }
 
 fn read_voltage<E, T: VoltageSensor<E>>(
-    device: &mut T,
+    device: &T,
 ) -> Result<Volts, ResponseCode>
 where
     ResponseCode: From<E>,
@@ -98,8 +98,8 @@ where
 }
 
 impl PowerController {
-    fn read_temperature(&mut self) -> Result<Celsius, ResponseCode> {
-        match &mut self.device {
+    fn read_temperature(&self) -> Result<Celsius, ResponseCode> {
+        match &self.device {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
             Device::MemVpp(_) => panic!(),
@@ -108,8 +108,8 @@ impl PowerController {
         }
     }
 
-    fn read_iout(&mut self) -> Result<Amperes, ResponseCode> {
-        match &mut self.device {
+    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
+        match &self.device {
             Device::IBC(dev) => read_current(dev),
             Device::Core(dev) | Device::Mem(dev) => read_current(dev),
             Device::MemVpp(dev) => read_current(dev),
@@ -118,8 +118,8 @@ impl PowerController {
         }
     }
 
-    fn read_vout(&mut self) -> Result<Volts, ResponseCode> {
-        match &mut self.device {
+    fn read_vout(&self) -> Result<Volts, ResponseCode> {
+        match &self.device {
             Device::IBC(dev) => read_voltage(dev),
             Device::Core(dev) | Device::Mem(dev) => read_voltage(dev),
             Device::MemVpp(dev) => read_voltage(dev),
