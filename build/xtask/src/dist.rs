@@ -634,7 +634,7 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_descriptors(
+    let kconfig = make_kconfig(
         &toml.target,
         &toml.tasks,
         &toml.peripherals,
@@ -1101,11 +1101,11 @@ fn build(
 }
 
 #[derive(Debug, Clone, Default, Hash)]
-struct Allocations {
+pub struct Allocations {
     /// Map from memory-name to address-range
     kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
-    tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -1142,7 +1142,7 @@ struct Allocations {
 ///
 /// This means that the algorithm needs to keep track of a queue of pending
 /// requests per alignment size.
-fn allocate_all(
+pub fn allocate_all(
     kernel: &Kernel,
     tasks: &IndexMap<String, Task>,
     free: &mut IndexMap<String, Range<u32>>,
@@ -1312,7 +1312,7 @@ fn allocate_one(
 }
 
 #[derive(Serialize)]
-struct KernelConfig {
+pub struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
@@ -1327,7 +1327,7 @@ struct KernelConfig {
 /// - Some number of `RegionDesc` records describing memory regions.
 /// - Some number of `TaskDesc` records describing tasks.
 /// - Some number of `Interrupt` records routing interrupts to tasks.
-fn make_descriptors(
+pub fn make_kconfig(
     target: &str,
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
