@@ -332,7 +332,7 @@ pub struct Task {
     pub path: PathBuf,
     pub name: String,
     pub requires: IndexMap<String, u32>,
-    pub priority: u32,
+    pub priority: u8,
     pub stacksize: Option<u32>,
     #[serde(default)]
     pub uses: Vec<String>,
