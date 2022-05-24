@@ -59,7 +59,7 @@ impl Task {
         region_table: &'static [&'static RegionDesc],
     ) -> Self {
         Task {
-            priority: abi::Priority(descriptor.priority as u8),
+            priority: abi::Priority(descriptor.priority),
             state: if descriptor.flags.contains(TaskFlags::START_AT_BOOT) {
                 TaskState::Healthy(SchedState::Runnable)
             } else {

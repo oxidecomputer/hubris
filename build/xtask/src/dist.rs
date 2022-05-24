@@ -1327,7 +1327,6 @@ pub fn make_kconfig(
         base: 0,
         size: 32, // smallest legal size on ARMv7-M
         attributes: abi::RegionAttributes::empty(), // no rights
-        reserved_zero: 0,
     });
 
     // Regions 1.. are the fixed peripheral regions, shared by tasks that
@@ -1373,7 +1372,6 @@ pub fn make_kconfig(
             base: p.address,
             size: p.size,
             attributes,
-            reserved_zero: 0,
         });
     }
 
@@ -1392,7 +1390,6 @@ pub fn make_kconfig(
             base: p.address,
             size: p.size,
             attributes,
-            reserved_zero: 0,
         });
     }
 
@@ -1447,7 +1444,6 @@ pub fn make_kconfig(
                 base: range.start,
                 size: range.end - range.start,
                 attributes,
-                reserved_zero: 0,
             });
         }
 
