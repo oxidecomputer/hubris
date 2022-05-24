@@ -17,6 +17,12 @@ impl From<u64> for Timestamp {
     }
 }
 
+impl From<[u32; 2]> for Timestamp {
+    fn from(v: [u32; 2]) -> Self {
+        Self::from(u64::from(v[0]) | u64::from(v[1]) << 32)
+    }
+}
+
 impl From<Timestamp> for u64 {
     fn from(v: Timestamp) -> Self {
         v.0

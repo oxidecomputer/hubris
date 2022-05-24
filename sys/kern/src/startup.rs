@@ -111,7 +111,10 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     crate::arch::apply_memory_protection(&task_table[first_task_index]);
     TASK_TABLE_IN_USE.store(false, Ordering::Release);
-    crate::arch::start_first_task(tick_divisor, &task_table[first_task_index])
+    crate::arch::start_first_task(
+        tick_divisor,
+        &mut task_table[first_task_index],
+    )
 }
 
 /// Runs `body` with a reference to the task table.
