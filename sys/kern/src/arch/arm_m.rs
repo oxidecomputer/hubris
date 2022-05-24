@@ -75,6 +75,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use zerocopy::FromBytes;
 
+use crate::atomic::AtomicExt;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -1692,26 +1693,6 @@ unsafe extern "C" fn handle_fault(
             set_current_task(next);
         }
     });
-}
-
-/// An atomic type with the operations we need in the kernel.
-///
-/// Rust removes certain atomic operations from the `core::sync::atomic` API on
-/// platforms, like Cortex-M0, that don't support them. The decision to remove
-/// these features in the libcore sources is controlled by some `cfg`s that
-/// we're not allowed to look at -- they've been unstable forever. Not clear how
-/// upstream expects us to handle those cases, but, hey.
-///
-/// This trait describes an atomic type with the complement of atomic ops that
-/// we need to make the kernel work. We can then implement it to call through to
-/// the native versions (on M3 and later) or use hacks (on M0).
-trait AtomicExt {
-    type Primitive;
-    fn swap_polyfill(
-        &self,
-        value: Self::Primitive,
-        ordering: Ordering,
-    ) -> Self::Primitive;
 }
 
 cfg_if::cfg_if! {

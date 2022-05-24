@@ -36,6 +36,7 @@
 #[macro_use]
 pub mod arch;
 
+pub mod atomic;
 pub mod err;
 pub mod kipc;
 pub mod profiling;
