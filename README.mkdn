@@ -91,7 +91,10 @@ You will need:
   `brew install --cask gcc-arm-embedded` to install the
   [official ARM binaries](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm).
 
-- The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility):
+- The Hubris debugger, [Humility](https://github.com/oxidecomputer/humility).
+  Note that `cargo install` interacts strangely with the `rust-toolchain.toml`
+  file present in the root of this repository; if you run the following command
+  verbatim to install Humility, do so from a different directory:
   - `cargo install --git https://github.com/oxidecomputer/humility.git --locked humility`
 
 ### Windows
