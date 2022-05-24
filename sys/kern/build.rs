@@ -131,7 +131,6 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
             abi::RegionAttributes::from_bits_unchecked({}) }},",
             region.attributes.bits()
         )?;
-        writeln!(file, "        reserved_zero: 0,")?;
         writeln!(file, "    }},")?;
     }
     writeln!(file, "];")?;
