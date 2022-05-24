@@ -819,133 +819,133 @@ pub unsafe extern "C" fn SVCall() {
         cfg_if::cfg_if! {
             if #[cfg(armv6m)] {
                 asm!("
-                @ Inspect LR to figure out the caller's mode.
-                mov r0, lr
-                ldr r1, =0xFFFFFFF3
-                bics r0, r0, r1
-                @ Is the call coming from thread mode + main stack, i.e.
-                @ from the kernel startup routine?
-                cmp r0, #0x8
-                @ If so, this is startup; jump ahead. The common case falls
-                @ through because branch-not-taken tends to be faster on small
-                @ cores.
-                beq 1f
+                    @ Inspect LR to figure out the caller's mode.
+                    mov r0, lr
+                    ldr r1, =0xFFFFFFF3
+                    bics r0, r0, r1
+                    @ Is the call coming from thread mode + main stack, i.e.
+                    @ from the kernel startup routine?
+                    cmp r0, #0x8
+                    @ If so, this is startup; jump ahead. The common case falls
+                    @ through because branch-not-taken tends to be faster on small
+                    @ cores.
+                    beq 1f
 
-                @ store volatile state.
-                @ first, get a pointer to the current task.
-                ldr r0, =CURRENT_TASK_PTR
-                ldr r1, [r0]
-                @ now, store volatile registers, plus the PSP, plus LR.
-                stm r1!, {{r4-r7}}
-                mov r4, r8
-                mov r5, r9
-                mov r6, r10
-                mov r7, r11
-                stm r1!, {{r4-r7}}
-                mrs r4, PSP
-                mov r5, lr
-                stm r1!, {{r4, r5}}
+                    @ store volatile state.
+                    @ first, get a pointer to the current task.
+                    ldr r0, =CURRENT_TASK_PTR
+                    ldr r1, [r0]
+                    @ now, store volatile registers, plus the PSP, plus LR.
+                    stm r1!, {{r4-r7}}
+                    mov r4, r8
+                    mov r5, r9
+                    mov r6, r10
+                    mov r7, r11
+                    stm r1!, {{r4-r7}}
+                    mrs r4, PSP
+                    mov r5, lr
+                    stm r1!, {{r4, r5}}
 
-                @ syscall number is passed in r11. Move it into r0 to pass
-                @ it as an argument to the handler, then call the handler.
-                mov r0, r11
-                bl syscall_entry
+                    @ syscall number is passed in r11. Move it into r0 to pass
+                    @ it as an argument to the handler, then call the handler.
+                    mov r0, r11
+                    bl syscall_entry
 
-                @ we're returning back to *some* task, maybe not the same one.
-                ldr r0, =CURRENT_TASK_PTR
-                ldr r0, [r0]
-                @ restore volatile registers, plus PSP. We will do this in
-                @ slightly reversed order for efficiency. First, do the high
-                @ ones.
-                movs r1, r0
-                adds r1, r1, #(4 * 4)
-                ldm r1!, {{r4-r7}}
-                mov r11, r7
-                mov r10, r6
-                mov r9, r5
-                mov r8, r4
-                ldm r1!, {{r4, r5}}
-                msr PSP, r4
-                mov lr, r5
+                    @ we're returning back to *some* task, maybe not the same one.
+                    ldr r0, =CURRENT_TASK_PTR
+                    ldr r0, [r0]
+                    @ restore volatile registers, plus PSP. We will do this in
+                    @ slightly reversed order for efficiency. First, do the high
+                    @ ones.
+                    movs r1, r0
+                    adds r1, r1, #(4 * 4)
+                    ldm r1!, {{r4-r7}}
+                    mov r11, r7
+                    mov r10, r6
+                    mov r9, r5
+                    mov r8, r4
+                    ldm r1!, {{r4, r5}}
+                    msr PSP, r4
+                    mov lr, r5
 
-                @ Now that we no longer need r4-r7 as temporary registers,
-                @ restore them too.
-                ldm r0!, {{r4-r7}}
+                    @ Now that we no longer need r4-r7 as temporary registers,
+                    @ restore them too.
+                    ldm r0!, {{r4-r7}}
 
-                @ resume
-                bx lr
+                    @ resume
+                    bx lr
 
-            1:  @ starting up the first task.
-                @ Drop privilege in Thread mode.
-                movs r0, #1
-                msr CONTROL, r0
-                @ note: no barrier here because exc return serves as barrier
+                1:  @ starting up the first task.
+                    @ Drop privilege in Thread mode.
+                    movs r0, #1
+                    msr CONTROL, r0
+                    @ note: no barrier here because exc return serves as barrier
 
-                @ Manufacture a new EXC_RETURN to change the processor mode
-                @ when we return.
-                ldr r0, ={exc_return}
-                mov lr, r0
-                bx lr                   @ branch into user mode
-                ",
-                exc_return = const EXC_RETURN_CONST as u32,
-                options(noreturn),
+                    @ Manufacture a new EXC_RETURN to change the processor mode
+                    @ when we return.
+                    ldr r0, ={exc_return}
+                    mov lr, r0
+                    bx lr                   @ branch into user mode
+                    ",
+                    exc_return = const EXC_RETURN_CONST as u32,
+                    options(noreturn),
                 )
             } else if #[cfg(any(armv7m, armv8m))] {
                 asm!("
-                @ Inspect LR to figure out the caller's mode.
-                mov r0, lr
-                mov r1, #0xFFFFFFF3
-                bic r0, r1
-                @ Is the call coming from thread mode + main stack, i.e.
-                @ from the kernel startup routine?
-                cmp r0, #0x8
-                @ If so, this is startup; jump ahead. The common case falls
-                @ through because branch-not-taken tends to be faster on small
-                @ cores.
-                beq 1f
+                    @ Inspect LR to figure out the caller's mode.
+                    mov r0, lr
+                    mov r1, #0xFFFFFFF3
+                    bic r0, r1
+                    @ Is the call coming from thread mode + main stack, i.e.
+                    @ from the kernel startup routine?
+                    cmp r0, #0x8
+                    @ If so, this is startup; jump ahead. The common case falls
+                    @ through because branch-not-taken tends to be faster on small
+                    @ cores.
+                    beq 1f
 
-                @ store volatile state.
-                @ first, get a pointer to the current task.
-                movw r0, #:lower16:CURRENT_TASK_PTR
-                movt r0, #:upper16:CURRENT_TASK_PTR
-                ldr r1, [r0]
-                @ fetch the process-mode stack pointer.
-                @ fetching into r12 means the order in the stm below is right.
-                mrs r12, PSP
-                @ now, store volatile registers, plus the PSP in r12, plus LR.
-                stm r1!, {{r4-r12, lr}}
-                vstm r1, {{s16-s31}}
+                    @ store volatile state.
+                    @ first, get a pointer to the current task.
+                    movw r0, #:lower16:CURRENT_TASK_PTR
+                    movt r0, #:upper16:CURRENT_TASK_PTR
+                    ldr r1, [r0]
+                    @ fetch the process-mode stack pointer.
+                    @ fetching into r12 means the order in the stm below is right.
+                    mrs r12, PSP
+                    @ now, store volatile registers, plus the PSP in r12, plus LR.
+                    stm r1!, {{r4-r12, lr}}
+                    vstm r1, {{s16-s31}}
 
-                @ syscall number is passed in r11. Move it into r0 to pass it as
-                @ an argument to the handler, then call the handler.
-                movs r0, r11
-                bl syscall_entry
+                    @ syscall number is passed in r11. Move it into r0 to pass it as
+                    @ an argument to the handler, then call the handler.
+                    movs r0, r11
+                    bl syscall_entry
 
-                @ we're returning back to *some* task, maybe not the same one.
-                movw r0, #:lower16:CURRENT_TASK_PTR
-                movt r0, #:upper16:CURRENT_TASK_PTR
-                ldr r0, [r0]
-                @ restore volatile registers, plus load PSP into r12
-                ldm r0!, {{r4-r12, lr}}
-                vldm r0, {{s16-s31}}
-                msr PSP, r12
+                    @ we're returning back to *some* task, maybe not the same one.
+                    movw r0, #:lower16:CURRENT_TASK_PTR
+                    movt r0, #:upper16:CURRENT_TASK_PTR
+                    ldr r0, [r0]
+                    @ restore volatile registers, plus load PSP into r12
+                    ldm r0!, {{r4-r12, lr}}
+                    vldm r0, {{s16-s31}}
+                    msr PSP, r12
 
-                @ resume
-                bx lr
+                    @ resume
+                    bx lr
 
-            1:  @ starting up the first task.
-                movs r0, #1         @ get bitmask to...
-                msr CONTROL, r0     @ ...shed privs from thread mode.
-                                    @ note: now barrier here because exc return
-                                    @ serves as barrier
+                1:  @ starting up the first task.
+                    movs r0, #1         @ get bitmask to...
+                    msr CONTROL, r0     @ ...shed privs from thread mode.
+                                        @ note: now barrier here because exc return
+                                        @ serves as barrier
 
-                mov lr, {exc_return}    @ materialize EXC_RETURN value to
-                                        @ return into thread mode, PSP, FP on
+                    mov lr, {exc_return}    @ materialize EXC_RETURN value to
+                                            @ return into thread mode, PSP, FP on
 
-                bx lr                   @ branch into user mode
-                ",
-                exc_return = const EXC_RETURN_CONST as u32,
-                options(noreturn),
+                    bx lr                   @ branch into user mode
+                    ",
+                    exc_return = const EXC_RETURN_CONST as u32,
+                    options(noreturn),
                 )
             } else {
                 compile_error!("missing SVCall impl for ARM profile.");
@@ -1071,79 +1071,79 @@ pub unsafe extern "C" fn PendSV() {
             if #[cfg(armv6m)] {
                 asm!(
                     "
-                @ store volatile state.
-                @ first, get a pointer to the current task.
-                ldr r0, =CURRENT_TASK_PTR
-                ldr r1, [r0]
-                @ now, store volatile registers, plus the PSP, plus LR.
-                stm r1!, {{r4-r7}}
-                mov r4, r8
-                mov r5, r9
-                mov r6, r10
-                mov r7, r11
-                stm r1!, {{r4-r7}}
-                mrs r4, PSP
-                mov r5, lr
-                stm r1!, {{r4, r5}}
+                    @ store volatile state.
+                    @ first, get a pointer to the current task.
+                    ldr r0, =CURRENT_TASK_PTR
+                    ldr r1, [r0]
+                    @ now, store volatile registers, plus the PSP, plus LR.
+                    stm r1!, {{r4-r7}}
+                    mov r4, r8
+                    mov r5, r9
+                    mov r6, r10
+                    mov r7, r11
+                    stm r1!, {{r4-r7}}
+                    mrs r4, PSP
+                    mov r5, lr
+                    stm r1!, {{r4, r5}}
 
-                bl pendsv_entry
+                    bl pendsv_entry
 
-                @ we're returning back to *some* task, maybe not the same one.
-                ldr r0, =CURRENT_TASK_PTR
-                ldr r0, [r0]
-                @ restore volatile registers, plus PSP. We will do this in
-                @ slightly reversed order for efficiency. First, do the high
-                @ ones.
-                movs r1, r0
-                adds r1, r1, #(4 * 4)
-                ldm r1!, {{r4-r7}}
-                mov r11, r7
-                mov r10, r6
-                mov r9, r5
-                mov r8, r4
-                ldm r1!, {{r4, r5}}
-                msr PSP, r4
-                mov lr, r5
+                    @ we're returning back to *some* task, maybe not the same one.
+                    ldr r0, =CURRENT_TASK_PTR
+                    ldr r0, [r0]
+                    @ restore volatile registers, plus PSP. We will do this in
+                    @ slightly reversed order for efficiency. First, do the high
+                    @ ones.
+                    movs r1, r0
+                    adds r1, r1, #(4 * 4)
+                    ldm r1!, {{r4-r7}}
+                    mov r11, r7
+                    mov r10, r6
+                    mov r9, r5
+                    mov r8, r4
+                    ldm r1!, {{r4, r5}}
+                    msr PSP, r4
+                    mov lr, r5
 
-                @ Now that we no longer need r4-r7 as temporary registers,
-                @ restore them too.
-                ldm r0!, {{r4-r7}}
+                    @ Now that we no longer need r4-r7 as temporary registers,
+                    @ restore them too.
+                    ldm r0!, {{r4-r7}}
 
-                @ resume
-                bx lr
-                ",
-                options(noreturn),
+                    @ resume
+                    bx lr
+                    ",
+                    options(noreturn),
                 );
             } else if #[cfg(any(armv7m, armv8m))] {
                 asm!(
                     "
-                @ store volatile state.
-                @ first, get a pointer to the current task.
-                movw r0, #:lower16:CURRENT_TASK_PTR
-                movt r0, #:upper16:CURRENT_TASK_PTR
-                ldr r1, [r0]
-                @ fetch the process-mode stack pointer.
-                @ fetching into r12 means the order in the stm below is right.
-                mrs r12, PSP
-                @ now, store volatile registers, plus the PSP in r12, plus LR.
-                stm r1!, {{r4-r12, lr}}
-                vstm r1, {{s16-s31}}
+                    @ store volatile state.
+                    @ first, get a pointer to the current task.
+                    movw r0, #:lower16:CURRENT_TASK_PTR
+                    movt r0, #:upper16:CURRENT_TASK_PTR
+                    ldr r1, [r0]
+                    @ fetch the process-mode stack pointer.
+                    @ fetching into r12 means the order in the stm below is right.
+                    mrs r12, PSP
+                    @ now, store volatile registers, plus the PSP in r12, plus LR.
+                    stm r1!, {{r4-r12, lr}}
+                    vstm r1, {{s16-s31}}
 
-                bl pendsv_entry
+                    bl pendsv_entry
 
-                @ we're returning back to *some* task, maybe not the same one.
-                movw r0, #:lower16:CURRENT_TASK_PTR
-                movt r0, #:upper16:CURRENT_TASK_PTR
-                ldr r0, [r0]
-                @ restore volatile registers, plus load PSP into r12
-                ldm r0!, {{r4-r12, lr}}
-                vldm r0, {{s16-s31}}
-                msr PSP, r12
+                    @ we're returning back to *some* task, maybe not the same one.
+                    movw r0, #:lower16:CURRENT_TASK_PTR
+                    movt r0, #:upper16:CURRENT_TASK_PTR
+                    ldr r0, [r0]
+                    @ restore volatile registers, plus load PSP into r12
+                    ldm r0!, {{r4-r12, lr}}
+                    vldm r0, {{s16-s31}}
+                    msr PSP, r12
 
-                @ resume
-                bx lr
-                ",
-                options(noreturn),
+                    @ resume
+                    bx lr
+                    ",
+                    options(noreturn),
                 );
             } else {
                 compile_error!("missing PendSV impl for ARM profile.");
@@ -1271,54 +1271,54 @@ unsafe extern "C" fn configurable_fault() {
     unsafe {
         asm!(
             "
-        @ Read the current task pointer.
-        movw r0, #:lower16:CURRENT_TASK_PTR
-        movt r0, #:upper16:CURRENT_TASK_PTR
-        ldr r0, [r0]
-        mrs r12, PSP
+            @ Read the current task pointer.
+            movw r0, #:lower16:CURRENT_TASK_PTR
+            movt r0, #:upper16:CURRENT_TASK_PTR
+            ldr r0, [r0]
+            mrs r12, PSP
 
-        @ Now, to aid those who will debug what induced this fault, save our
-        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
-        @ address and the xPSR) is already on our stack as part of the fault;
-        @ we'll store our remaining registers, plus the PSP (now in r12), plus
-        @ exc_return (now in LR) into the save region in the current task.
-        @ Note that we explicitly refrain from saving the floating point
-        @ registers here:  touching the floating point registers will induce
-        @ a lazy save on the stack, which is clearly bad news if we have
-        @ overflowed our stack!  We do want to ultimately save them to aid
-        @ debuggability, however, so we pass the address to which they should
-        @ be saved to our fault handler, which will take the necessary
-        @ measures to save them safely.  Finally, note that deferring the
-        @ save to later in handle_fault assumes that the floating point
-        @ registers are not in fact touched before determmining the fault type
-        @ and disabling lazy saving accordingly; should that assumption not
-        @ hold, we will need to be (ironically?) less lazy about disabling
-        @ lazy saving...
-        mov r2, r0
-        stm r2!, {{r4-r12, lr}}
+            @ Now, to aid those who will debug what induced this fault, save our
+            @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+            @ address and the xPSR) is already on our stack as part of the fault;
+            @ we'll store our remaining registers, plus the PSP (now in r12), plus
+            @ exc_return (now in LR) into the save region in the current task.
+            @ Note that we explicitly refrain from saving the floating point
+            @ registers here:  touching the floating point registers will induce
+            @ a lazy save on the stack, which is clearly bad news if we have
+            @ overflowed our stack!  We do want to ultimately save them to aid
+            @ debuggability, however, so we pass the address to which they should
+            @ be saved to our fault handler, which will take the necessary
+            @ measures to save them safely.  Finally, note that deferring the
+            @ save to later in handle_fault assumes that the floating point
+            @ registers are not in fact touched before determmining the fault type
+            @ and disabling lazy saving accordingly; should that assumption not
+            @ hold, we will need to be (ironically?) less lazy about disabling
+            @ lazy saving...
+            mov r2, r0
+            stm r2!, {{r4-r12, lr}}
 
-        @ Pull our fault number out of IPSR, allowing for program text to be
-        @ shared across all configurable faults.  (Note that the exception
-        @ number is the bottom 9 bits, but we need only look at the bottom 4
-        @ bits as this handler is only used for exceptions with numbers less
-        @ than 16.)
-        mrs r1, IPSR
-        and r1, r1, #0xf
-        bl handle_fault
+            @ Pull our fault number out of IPSR, allowing for program text to be
+            @ shared across all configurable faults.  (Note that the exception
+            @ number is the bottom 9 bits, but we need only look at the bottom 4
+            @ bits as this handler is only used for exceptions with numbers less
+            @ than 16.)
+            mrs r1, IPSR
+            and r1, r1, #0xf
+            bl handle_fault
 
-        @ Our task has changed; reload it.
-        movw r0, #:lower16:CURRENT_TASK_PTR
-        movt r0, #:upper16:CURRENT_TASK_PTR
-        ldr r0, [r0]
+            @ Our task has changed; reload it.
+            movw r0, #:lower16:CURRENT_TASK_PTR
+            movt r0, #:upper16:CURRENT_TASK_PTR
+            ldr r0, [r0]
 
-        @ Restore volatile registers, plus load PSP into r12
-        ldm r0!, {{r4-r12, lr}}
-        vldm r0, {{s16-s31}}
-        msr PSP, r12
+            @ Restore volatile registers, plus load PSP into r12
+            ldm r0!, {{r4-r12, lr}}
+            vldm r0, {{s16-s31}}
+            msr PSP, r12
 
-        @ resume
-        bx lr
-        ",
+            @ resume
+            bx lr
+            ",
             options(noreturn),
         );
     }
@@ -1369,56 +1369,56 @@ pub unsafe extern "C" fn HardFault() {
     unsafe {
         asm!(
             "
-        @ Read the current task pointer.
-        ldr r0, =CURRENT_TASK_PTR
-        ldr r0, [r0]
-        mrs r12, PSP
+            @ Read the current task pointer.
+            ldr r0, =CURRENT_TASK_PTR
+            ldr r0, [r0]
+            mrs r12, PSP
 
-        @ Now, to aid those who will debug what induced this fault, save our
-        @ context.  Some of our context (namely, r0-r3, r12, LR, the return
-        @ address and the xPSR) is already on our stack as part of the fault;
-        @ we'll store our remaining registers, plus the PSP, plus exc_return
-        @ (now in LR) into the save region in the current task.
-        mov r2, r0
-        stm r2!, {{r4-r7}}
-        mov r4, r8
-        mov r5, r9
-        mov r6, r10
-        mov r7, r11
-        stm r2!, {{r4-r7}}
-        mrs r4, PSP
-        mov r5, lr
-        stm r2!, {{r4, r5}}
+            @ Now, to aid those who will debug what induced this fault, save our
+            @ context.  Some of our context (namely, r0-r3, r12, LR, the return
+            @ address and the xPSR) is already on our stack as part of the fault;
+            @ we'll store our remaining registers, plus the PSP, plus exc_return
+            @ (now in LR) into the save region in the current task.
+            mov r2, r0
+            stm r2!, {{r4-r7}}
+            mov r4, r8
+            mov r5, r9
+            mov r6, r10
+            mov r7, r11
+            stm r2!, {{r4-r7}}
+            mrs r4, PSP
+            mov r5, lr
+            stm r2!, {{r4, r5}}
 
-        @ armv6m only has one fault, and it's number three.
-        movs r1, #3
+            @ armv6m only has one fault, and it's number three.
+            movs r1, #3
 
-        bl handle_fault
+            bl handle_fault
 
-        @ Our task has changed; reload it.
-        ldr r0, =CURRENT_TASK_PTR
-        ldr r0, [r0]
-        @ restore volatile registers, plus PSP. We will do this in
-        @ slightly reversed order for efficiency. First, do the high
-        @ ones.
-        movs r1, r0
-        adds r1, r1, #(4 * 4)
-        ldm r1!, {{r4-r7}}
-        mov r11, r7
-        mov r10, r6
-        mov r9, r5
-        mov r8, r4
-        ldm r1!, {{r4, r5}}
-        msr PSP, r4
-        mov lr, r5
+            @ Our task has changed; reload it.
+            ldr r0, =CURRENT_TASK_PTR
+            ldr r0, [r0]
+            @ restore volatile registers, plus PSP. We will do this in
+            @ slightly reversed order for efficiency. First, do the high
+            @ ones.
+            movs r1, r0
+            adds r1, r1, #(4 * 4)
+            ldm r1!, {{r4-r7}}
+            mov r11, r7
+            mov r10, r6
+            mov r9, r5
+            mov r8, r4
+            ldm r1!, {{r4, r5}}
+            msr PSP, r4
+            mov lr, r5
 
-        @ Now that we no longer need r4-r7 as temporary registers,
-        @ restore them too.
-        ldm r0!, {{r4-r7}}
+            @ Now that we no longer need r4-r7 as temporary registers,
+            @ restore them too.
+            ldm r0!, {{r4-r7}}
 
-        @ resume
-        bx lr
-        ",
+            @ resume
+            bx lr
+            ",
             options(noreturn),
         );
     }
