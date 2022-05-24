@@ -76,6 +76,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use zerocopy::FromBytes;
 
 use crate::atomic::AtomicExt;
+use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -91,24 +92,6 @@ macro_rules! uassert {
         }
     };
 }
-
-macro_rules! uassert_eq {
-    ($cond1 : expr, $cond2 : expr) => {
-        if !($cond1 == $cond2) {
-            panic!("Assertion failed!");
-        }
-    };
-}
-
-/// On ARMvx-M we use a global to record the task table position and extent.
-#[no_mangle]
-static mut TASK_TABLE_BASE: Option<NonNull<task::Task>> = None;
-#[no_mangle]
-static mut TASK_TABLE_SIZE: usize = 0;
-
-/// We use this flag to create a sort of informal mutex around the
-/// `TASK_TABLE_*` variables.
-static TASK_TABLE_IN_USE: AtomicBool = AtomicBool::new(false);
 
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
@@ -271,43 +254,6 @@ const INITIAL_PSR: u32 = 1 << 24;
 /// We don't really care about the initial FPU mode; 0 is reasonable.
 #[cfg(any(armv7m, armv8m))]
 const INITIAL_FPSCR: u32 = 0;
-
-/// Records `tasks` as the system-wide task table.
-///
-/// If a task table has already been set, panics.
-///
-/// # Safety
-///
-/// This stashes a copy of `tasks` without revoking your right to access it,
-/// which is a potential aliasing violation if you call `with_task_table` before
-/// losing access to your copy of `tasks`. So don't do that.
-pub(crate) unsafe fn set_task_table(tasks: &mut [task::Task]) {
-    if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
-        panic!(); // call to set_task_table within with_task_table
-    }
-
-    // Safety: this messes with `TASK_TABLE_BASE`, a mutable static, which we
-    // can do because we're single-threaded and the caller met our contract
-    // above. It also puts a reference to `tasks` somewhere that could
-    // potentially produce aliases, but that's also dealt with in the contract
-    // above.
-    let prev_task_table = unsafe {
-        core::mem::replace(
-            &mut TASK_TABLE_BASE,
-            Some(NonNull::from(&mut tasks[0])),
-        )
-    };
-    // Catch double-uses of this function.
-    uassert_eq!(prev_task_table, None);
-    // Record length as well.
-    // Safety: this is also accessing a mutable static and has the same
-    // justification as the task table base above.
-    unsafe {
-        TASK_TABLE_SIZE = tasks.len();
-    }
-
-    TASK_TABLE_IN_USE.store(false, Ordering::Release);
-}
 
 // Because debuggers need to know the clock frequency to set the SWO clock
 // scaler that enables ITM, and because ITM is particularly useful when
@@ -955,43 +901,6 @@ pub unsafe extern "C" fn SVCall() {
             }
         }
     }
-}
-
-/// Manufacture a mutable/exclusive reference to the task table from thin air
-/// and hand it to `body`. This bypasses borrow checking and should only be used
-/// at kernel entry points, then passed around.
-///
-/// Because the lifetime of the reference passed into `body` is anonymous, the
-/// reference can't easily be stored, which is deliberate.
-///
-/// If you were to call this recursively (i.e. from within the closure passed to
-/// `with_task_table`), you'd have duplicate aliasing mut slices referencing the
-/// task table. For that reason, this function checks for recursive calls and
-/// panics if it detects one. Don't call it recursively.
-///
-/// # Panics
-///
-/// If called before `set_task_table`.
-///
-/// If called recursively.
-pub(crate) fn with_task_table<R>(
-    body: impl FnOnce(&mut [task::Task]) -> R,
-) -> R {
-    if TASK_TABLE_IN_USE.swap_polyfill(true, Ordering::Acquire) {
-        panic!(); // reentrant call to with_task_table
-    }
-    // Safety: the mutable slice we generate here is guaranteed unique by our
-    // TASK_TABLE_IN_USE check, and guaranteed _valid_ by the check for
-    // TASK_TABLE_BASE being non-None (see set_task_table).
-    let tasks = unsafe {
-        core::slice::from_raw_parts_mut(
-            TASK_TABLE_BASE.expect("kernel not started").as_mut(),
-            TASK_TABLE_SIZE,
-        )
-    };
-    let r = body(tasks);
-    TASK_TABLE_IN_USE.store(false, Ordering::Release);
-    r
 }
 
 /// Records the address of `task` as the current user task.
