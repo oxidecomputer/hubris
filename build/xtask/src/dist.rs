@@ -355,18 +355,6 @@ fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
     archive.copy(dist_dir.join("kernel"), elf_dir.join("kernel"))?;
 
     let img_dir = PathBuf::from("img");
-    archive.copy(
-        dist_dir.join("combined.srec"),
-        img_dir.join("combined.srec"),
-    )?;
-    archive
-        .copy(dist_dir.join("combined.elf"), img_dir.join("combined.elf"))?;
-    archive.copy(
-        dist_dir.join("combined.ihex"),
-        img_dir.join("combined.ihex"),
-    )?;
-    archive
-        .copy(dist_dir.join("combined.bin"), img_dir.join("combined.bin"))?;
 
     if let Some(bootloader) = toml.bootloader.as_ref() {
         archive.copy(
@@ -379,10 +367,12 @@ fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
         archive.copy(dist_dir.join(&name), img_dir.join(&name))?;
     }
 
-    archive.copy(dist_dir.join("final.srec"), img_dir.join("final.srec"))?;
-    archive.copy(dist_dir.join("final.elf"), img_dir.join("final.elf"))?;
-    archive.copy(dist_dir.join("final.ihex"), img_dir.join("final.ihex"))?;
-    archive.copy(dist_dir.join("final.bin"), img_dir.join("final.bin"))?;
+    for f in ["combined", "final"] {
+        for ext in ["srec", "elf", "ihex", "bin"] {
+            let name = format!("{}.{}", f, ext);
+            archive.copy(dist_dir.join(&name), img_dir.join(&name))?;
+        }
+    }
 
     //
     // To allow for the image to be flashed based only on the archive (e.g.,
@@ -413,64 +403,6 @@ fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn build_kernel(
-    toml: &Config,
-    verbose: bool,
-    edges: bool,
-    allocs: &Allocations,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-    entry_points: &HashMap<String, u32>,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
-) -> Result<(u32, BTreeMap<String, u32>)> {
-    let mut image_id = fnv::FnvHasher::default();
-    all_output_sections.hash(&mut image_id);
-
-    // Format the descriptors for the kernel build.
-    let kconfig = make_descriptors(
-        &toml.target,
-        &toml.tasks,
-        &toml.peripherals,
-        &allocs.tasks,
-        toml.stacksize,
-        &toml.outputs,
-        &entry_points,
-        &toml.extratext,
-    )?;
-    let kconfig = ron::ser::to_string(&kconfig)?;
-
-    kconfig.hash(&mut image_id);
-    allocs.hash(&mut image_id);
-
-    generate_kernel_linker_script(
-        "memory.x",
-        &allocs.kernel,
-        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-    )?;
-
-    fs::copy("build/kernel-link.x", "target/link.x")?;
-
-    let image_id = image_id.finish();
-
-    // Build the kernel.
-    let build_config = toml.kernel_build_config(
-        verbose,
-        &[
-            ("HUBRIS_KCONFIG", &kconfig),
-            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
-        ],
-    );
-    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
-
-    let mut ksymbol_table = BTreeMap::default();
-    let (kentry, _) = load_elf(
-        &dist_dir.join("kernel"),
-        all_output_sections,
-        &mut ksymbol_table,
-    )?;
-    Ok((kentry, ksymbol_table))
-}
-
 fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
     // Quick sanity-check if we're trying to build individual tasks which
     // aren't present in the app.toml, or ran `cargo xtask build ...` without
@@ -492,50 +424,56 @@ Did you mean to run `cargo xtask dist`?"
     Ok(())
 }
 
-/// Builds a specific task, returning the entry point
-fn build_task(
-    toml: &Config,
-    name: &str,
-    verbose: bool,
-    edges: bool,
-    allocs: &Allocations,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
-    let task_toml = &toml.tasks[name];
+/// Checks the buildstamp file and runs `cargo clean` if invalid
+fn check_rebuild(toml: &Config) -> Result<()> {
+    let buildstamp_file = Path::new("target").join("buildstamp");
+    let rebuild = match std::fs::read(&buildstamp_file) {
+        Ok(contents) => {
+            if let Ok(contents) = std::str::from_utf8(&contents) {
+                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
+                    toml.buildhash != cmp
+                } else {
+                    println!("buildstamp file contents unknown; re-building.");
+                    true
+                }
+            } else {
+                println!("buildstamp file contents corrupt; re-building.");
+                true
+            }
+        }
+        Err(_) => {
+            println!("no buildstamp file found; re-building.");
+            true
+        }
+    };
+    // if we need to rebuild, we should clean everything before we start building
+    if rebuild {
+        println!("app.toml has changed; rebuilding all tasks");
+        cargo_clean(&toml.kernel.name, &toml.target)?;
+        if let Some(bootloader) = toml.bootloader.as_ref() {
+            cargo_clean(&bootloader.name, &toml.target)?;
+        }
+        for name in toml.tasks.keys() {
+            // this feels redundant, don't we already have the name? consider
+            // our supervisor:
+            //
+            // [tasks.jefe]
+            // path = "../task-jefe"
+            // name = "task-jefe"
+            //
+            // the "name" in the key is jefe, but the package name is in
+            // tasks.jefe.name, and that's what we need to give to cargo
+            let task_toml = &toml.tasks[name];
 
-    generate_task_linker_script(
-        "memory.x",
-        &allocs.tasks[name],
-        Some(&task_toml.sections),
-        task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
-        })?,
-    )
-    .context(format!("failed to generate linker script for {}", name))?;
-
-    fs::copy("build/task-link.x", "target/link.x")?;
-
-    let build_config = toml.task_build_config(name, verbose).unwrap();
-    build(build_config, dist_dir.join(name), edges, &remap_paths)
-        .context(format!("failed to build {}", name))?;
-
-    resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
-
-    let mut symbol_table = BTreeMap::default();
-    let (ep, flash) =
-        load_elf(&dist_dir.join(name), all_output_sections, &mut symbol_table)?;
-
-    if flash > task_toml.requires["flash"] as usize {
-        bail!(
-            "{} has insufficient flash: specified {} bytes, needs {}",
-            task_toml.name,
-            task_toml.requires["flash"],
-            flash
-        );
+            cargo_clean(&task_toml.name, &toml.target)?;
+        }
     }
-    Ok(ep)
+
+    // now that we're clean, update our buildstamp file; any failure to build
+    // from here on need not trigger a clean
+    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
+
+    Ok(())
 }
 
 fn build_bootloader(
@@ -636,56 +574,108 @@ fn build_bootloader(
     Ok(())
 }
 
-/// Checks the buildstamp file and runs `cargo clean` if invalid
-fn check_rebuild(toml: &Config) -> Result<()> {
-    let buildstamp_file = Path::new("target").join("buildstamp");
-    let rebuild = match std::fs::read(&buildstamp_file) {
-        Ok(contents) => {
-            if let Ok(contents) = std::str::from_utf8(&contents) {
-                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
-                    toml.buildhash != cmp
-                } else {
-                    println!("buildstamp file contents unknown; re-building.");
-                    true
-                }
-            } else {
-                println!("buildstamp file contents corrupt; re-building.");
-                true
-            }
-        }
-        Err(_) => {
-            println!("no buildstamp file found; re-building.");
-            true
-        }
-    };
-    // if we need to rebuild, we should clean everything before we start building
-    if rebuild {
-        println!("app.toml has changed; rebuilding all tasks");
-        cargo_clean(&toml.kernel.name, &toml.target)?;
-        if let Some(bootloader) = toml.bootloader.as_ref() {
-            cargo_clean(&bootloader.name, &toml.target)?;
-        }
-        for name in toml.tasks.keys() {
-            // this feels redundant, don't we already have the name? consider
-            // our supervisor:
-            //
-            // [tasks.jefe]
-            // path = "../task-jefe"
-            // name = "task-jefe"
-            //
-            // the "name" in the key is jefe, but the package name is in
-            // tasks.jefe.name, and that's what we need to give to cargo
-            let task_toml = &toml.tasks[name];
+/// Builds a specific task, returning the entry point
+fn build_task(
+    toml: &Config,
+    name: &str,
+    verbose: bool,
+    edges: bool,
+    allocs: &Allocations,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<u32> {
+    let task_toml = &toml.tasks[name];
 
-            cargo_clean(&task_toml.name, &toml.target)?;
-        }
+    generate_task_linker_script(
+        "memory.x",
+        &allocs.tasks[name],
+        Some(&task_toml.sections),
+        task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+            anyhow!("{}: no stack size specified and there is no default", name)
+        })?,
+    )
+    .context(format!("failed to generate linker script for {}", name))?;
+
+    fs::copy("build/task-link.x", "target/link.x")?;
+
+    let build_config = toml.task_build_config(name, verbose).unwrap();
+    build(build_config, dist_dir.join(name), edges, &remap_paths)
+        .context(format!("failed to build {}", name))?;
+
+    resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
+
+    let mut symbol_table = BTreeMap::default();
+    let (ep, flash) =
+        load_elf(&dist_dir.join(name), all_output_sections, &mut symbol_table)?;
+
+    if flash > task_toml.requires["flash"] as usize {
+        bail!(
+            "{} has insufficient flash: specified {} bytes, needs {}",
+            task_toml.name,
+            task_toml.requires["flash"],
+            flash
+        );
     }
+    Ok(ep)
+}
 
-    // now that we're clean, update our buildstamp file; any failure to build
-    // from here on need not trigger a clean
-    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
+fn build_kernel(
+    toml: &Config,
+    verbose: bool,
+    edges: bool,
+    allocs: &Allocations,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+    entry_points: &HashMap<String, u32>,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+) -> Result<(u32, BTreeMap<String, u32>)> {
+    let mut image_id = fnv::FnvHasher::default();
+    all_output_sections.hash(&mut image_id);
 
-    Ok(())
+    // Format the descriptors for the kernel build.
+    let kconfig = make_descriptors(
+        &toml.target,
+        &toml.tasks,
+        &toml.peripherals,
+        &allocs.tasks,
+        toml.stacksize,
+        &toml.outputs,
+        &entry_points,
+        &toml.extratext,
+    )?;
+    let kconfig = ron::ser::to_string(&kconfig)?;
+
+    kconfig.hash(&mut image_id);
+    allocs.hash(&mut image_id);
+
+    generate_kernel_linker_script(
+        "memory.x",
+        &allocs.kernel,
+        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+    )?;
+
+    fs::copy("build/kernel-link.x", "target/link.x")?;
+
+    let image_id = image_id.finish();
+
+    // Build the kernel.
+    let build_config = toml.kernel_build_config(
+        verbose,
+        &[
+            ("HUBRIS_KCONFIG", &kconfig),
+            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+        ],
+    );
+    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
+
+    let mut ksymbol_table = BTreeMap::default();
+    let (kentry, _) = load_elf(
+        &dist_dir.join("kernel"),
+        all_output_sections,
+        &mut ksymbol_table,
+    )?;
+    Ok((kentry, ksymbol_table))
 }
 
 /// Prints warning messages about priority inversions
