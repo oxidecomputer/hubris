@@ -43,13 +43,21 @@ pub fn package(
     let toml = Config::from_file(cfg)?;
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
-    let partial_build = if let Some(task_names) = tasks_to_build.as_ref() {
-        check_task_names(&toml, task_names)?;
-        true
-    } else {
-        check_task_priorities(&toml)?;
-        false
-    };
+    let (partial_build, tasks_to_build): (bool, BTreeSet<String>) =
+        if let Some(task_names) = tasks_to_build.as_ref() {
+            check_task_names(&toml, task_names)?;
+            (true, task_names.iter().cloned().collect())
+        } else {
+            check_task_priorities(&toml)?;
+            (
+                false,
+                toml.tasks
+                    .keys()
+                    .cloned()
+                    .chain(std::iter::once("kernel".to_string()))
+                    .collect(),
+            )
+        };
 
     let mut dist_dir = PathBuf::from("target");
     dist_dir.push(&toml.name);
@@ -130,80 +138,66 @@ pub fn package(
         &remap_paths,
     )?;
 
-    // Build all relevant tasks, collecting entry points into a HashMap
-    let entry_points: HashMap<String, u32> = toml
+    // Build all relevant tasks, collecting entry points into a HashMap.  If
+    // we're doing a partial build, then assign a dummy entry point into
+    // the HashMap, because the kernel kconfig will still need it.
+    let entry_points: HashMap<_, _> = toml
         .tasks
         .keys()
-        .filter(|name| {
-            tasks_to_build
-                .as_ref()
-                .map(|m| m.contains(name))
-                .unwrap_or(true)
-        })
         .map(|name| {
-            build_task(
-                &toml,
-                name,
-                verbose,
-                edges,
-                &allocs,
-                &dist_dir,
-                &remap_paths,
-                &mut all_output_sections,
-            )
-            .map(|ep| (name.clone(), ep))
+            let ep = if tasks_to_build.contains(name) {
+                build_task(
+                    &toml,
+                    name,
+                    verbose,
+                    edges,
+                    &allocs,
+                    &dist_dir,
+                    &remap_paths,
+                    &mut all_output_sections,
+                )
+            } else {
+                Ok(allocs.tasks[name]["flash"].start)
+            };
+            ep.map(|ep| (name.clone(), ep))
         })
         .collect::<Result<_, _>>()?;
 
-    // If we've done a partial build, we can't do the rest because we're missing
-    // required information, so, escape.
+    // Build the kernel!
+    let kern_build = if tasks_to_build.contains("kernel") {
+        Some(build_kernel(
+            &toml,
+            verbose,
+            edges,
+            &allocs,
+            &mut all_output_sections,
+            &entry_points,
+            &dist_dir,
+            &remap_paths,
+        )?)
+    } else {
+        None
+    };
+
+    // If we've done a partial build (which may have included the kernel), bail
+    // out here before linking stuff.
     if partial_build {
         return Ok(());
     }
 
-    // Build the kernel!
-    let (kentry, ksymbol_table) = build_kernel(
-        &toml,
-        verbose,
-        edges,
-        &allocs,
-        &mut all_output_sections,
-        &entry_points,
-        &dist_dir,
-        &remap_paths,
-    )?;
-
     // Generate combined SREC, which is our source of truth for combined images.
+    let (kentry, ksymbol_table) = kern_build.unwrap();
     write_srec(
         &all_output_sections,
         kentry,
         &dist_dir.join("combined.srec"),
     )?;
 
-    // Convert SREC to other formats for convenience.
-    objcopy_translate_format(
-        "srec",
-        &dist_dir.join("combined.srec"),
-        "elf32-littlearm",
-        &dist_dir.join("combined.elf"),
-    )?;
-    objcopy_translate_format(
-        "srec",
-        &dist_dir.join("combined.srec"),
-        "ihex",
-        &dist_dir.join("combined.ihex"),
-    )?;
-    objcopy_translate_format(
-        "srec",
-        &dist_dir.join("combined.srec"),
-        "binary",
-        &dist_dir.join("combined.bin"),
-    )?;
+    translate_srec_to_other_formats(&dist_dir, "combined")?;
 
     if let Some(signing) = toml.signing.get("combined") {
-        match ksymbol_table.get("HEADER") {
-            None =>  bail!("Didn't find header symbol -- does the image need a placeholder?"),
-            Some(_) => ()
+        if ksymbol_table.get("HEADER").is_none() {
+            bail!("Didn't find header symbol -- does the image need a placeholder?");
         }
 
         do_sign_file(
@@ -247,52 +241,38 @@ pub fn package(
             bootloader_entry,
             &dist_dir.join("final.srec"),
         )?;
-
-        objcopy_translate_format(
-            "srec",
-            &dist_dir.join("final.srec"),
-            "elf32-littlearm",
-            &dist_dir.join("final.elf"),
-        )?;
-
-        objcopy_translate_format(
-            "srec",
-            &dist_dir.join("final.srec"),
-            "ihex",
-            &dist_dir.join("final.ihex"),
-        )?;
-
-        objcopy_translate_format(
-            "srec",
-            &dist_dir.join("final.srec"),
-            "binary",
-            &dist_dir.join("final.bin"),
-        )?;
+        translate_srec_to_other_formats(&dist_dir, "final")?;
     } else {
-        std::fs::copy(
-            &mut dist_dir.join("combined.srec").to_str().unwrap(),
-            &mut dist_dir.join("final.srec").to_str().unwrap(),
-        )?;
-
-        std::fs::copy(
-            &mut dist_dir.join("combined.elf").to_str().unwrap(),
-            &mut dist_dir.join("final.elf").to_str().unwrap(),
-        )?;
-
-        std::fs::copy(
-            &mut dist_dir.join("combined.ihex").to_str().unwrap(),
-            &mut dist_dir.join("final.ihex").to_str().unwrap(),
-        )?;
-
-        std::fs::copy(
-            &mut dist_dir.join("combined.bin").to_str().unwrap(),
-            &mut dist_dir.join("final.bin").to_str().unwrap(),
-        )?;
+        // If there's no bootloader, the "combined" and "final" images are
+        // identical, so we copy from one to the other
+        for ext in ["srec", "elf", "ihex", "bin"] {
+            let src = format!("combined.{}", ext);
+            let dst = format!("final.{}", ext);
+            std::fs::copy(dist_dir.join(src), dist_dir.join(dst))?;
+        }
     }
 
     write_gdb_script(&toml, &dist_dir, &remap_paths)?;
 
     build_archive(cfg, &toml, &dist_dir)?;
+    Ok(())
+}
+
+/// Convert SREC to other formats for convenience.
+fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
+    let src = dist_dir.join(format!("{}.srec", name));
+    for (out_type, ext) in [
+        ("elf32-littlearm", "elf"),
+        ("ihex", "ihex"),
+        ("binary", "bin"),
+    ] {
+        objcopy_translate_format(
+            "srec",
+            &src,
+            out_type,
+            &dist_dir.join(format!("{}.{}", name, ext)),
+        )?;
+    }
     Ok(())
 }
 
@@ -373,13 +353,6 @@ fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
         archive.copy(dist_dir.join(name), tasks_dir.join(name))?;
     }
     archive.copy(dist_dir.join("kernel"), elf_dir.join("kernel"))?;
-
-    let info_dir = PathBuf::from("info");
-    archive.copy(
-        dist_dir.join("allocations.txt"),
-        info_dir.join("allocations.txt"),
-    )?;
-    archive.copy(dist_dir.join("map.txt"), info_dir.join("map.txt"))?;
 
     let img_dir = PathBuf::from("img");
     archive.copy(
@@ -509,7 +482,10 @@ Did you mean to run `cargo xtask dist`?"
             );
     }
     let all_tasks = toml.tasks.keys().collect::<BTreeSet<_>>();
-    if let Some(name) = task_names.iter().find(|name| !all_tasks.contains(name))
+    if let Some(name) = task_names
+        .iter()
+        .filter(|name| name.as_str() != "kernel")
+        .find(|name| !all_tasks.contains(name))
     {
         bail!(toml.task_name_suggestion(name))
     }
