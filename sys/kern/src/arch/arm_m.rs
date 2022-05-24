@@ -70,8 +70,7 @@
 //! context switches, and just always do full save/restore, eliminating PendSV.
 //! We'll see.
 
-use core::ptr::NonNull;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 
 use zerocopy::FromBytes;
 
@@ -96,12 +95,13 @@ macro_rules! uassert {
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
 #[no_mangle]
-static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
+static CURRENT_TASK_PTR: AtomicPtr<task::Task> =
+    AtomicPtr::new(core::ptr::null_mut());
 
 /// To allow our clock frequency to be easily determined from a debugger, we
 /// store it in memory.
 #[no_mangle]
-static mut CLOCK_FREQ_KHZ: u32 = 0;
+static CLOCK_FREQ_KHZ: AtomicU32 = AtomicU32::new(0);
 
 /// ARMvx-M volatile registers that must be saved across context switches.
 #[repr(C)]
@@ -260,10 +260,7 @@ const INITIAL_FPSCR: u32 = 0;
 // debugging boot failures, this should be set as early in boot as it can
 // be.
 pub unsafe fn set_clock_freq(tick_divisor: u32) {
-    // TODO switch me to an atomic. Note that this may break Humility.
-    unsafe {
-        CLOCK_FREQ_KHZ = tick_divisor;
-    }
+    CLOCK_FREQ_KHZ.store(tick_divisor, Ordering::Relaxed);
 }
 
 pub fn reinitialize(task: &mut task::Task) {
@@ -525,7 +522,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     }
 }
 
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Enable faults and set fault/exception priorities to reasonable settings.
     // Our goal here is to keep the kernel non-preemptive, which means the
     // kernel entry points (SVCall, PendSV, SysTick, interrupt handlers) must be
@@ -660,9 +657,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
-    }
+    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
 
     extern "C" {
         // Exposed by the linker script.
@@ -911,24 +906,31 @@ pub unsafe extern "C" fn SVCall() {
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
-    // Safety: should be ok if the contract above is met (TODO: make me an
-    // atomic)
-    unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
-    }
+    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
 }
 
 /// Reads the tick counter.
 pub fn now() -> Timestamp {
-    Timestamp::from(unsafe { TICKS })
+    // Recall that we expect the systick interrupt cannot preempt kernel code,
+    // so we're safe to read this in two nonatomic parts here.
+    Timestamp::from([
+        TICKS[0].load(Ordering::Relaxed),
+        TICKS[1].load(Ordering::Relaxed),
+    ])
 }
 
 /// Kernel global for tracking the current timestamp, measured in ticks.
 ///
-/// This is a mutable `u64` instead of an `AtomicU64` because ARMv7-M doesn't
-/// have any 64-bit atomic operations. So, we access it carefully from
-/// non-preemptible contexts.
-static mut TICKS: u64 = 0;
+/// This is a pair of `AtomicU32` because (1) we want the interior mutability of
+/// the atomic types but (2) ARMv7-M doesn't have any 64-bit atomic operations.
+/// We access this only from contexts where we can't be preempted, so, the fact
+/// that it's split across two words is ok.
+///
+/// `TICKS[0]` is the least significant part, `TICKS[1]` the most significant.
+static TICKS: [AtomicU32; 2] = {
+    const ZERO: AtomicU32 = AtomicU32::new(0);
+    [ZERO; 2]
+};
 
 /// Handler that gets linked into the vector table for the System Tick Timer
 /// overflow interrupt. (Name is dictated by the `cortex_m` crate.)
@@ -936,26 +938,29 @@ static mut TICKS: u64 = 0;
 #[no_mangle]
 pub unsafe extern "C" fn SysTick() {
     crate::profiling::event_timer_isr_enter();
-    // Safety: We configure this interrupt to have the same priority as SVC,
-    // which means there's no way this can preempt the kernel -- it will only
-    // preempt user code. As a result, we can manufacture exclusive references
-    // to various bits of kernel state.
-    let ticks = unsafe { &mut TICKS };
     with_task_table(|tasks| {
-        // Advance the kernel's notion of time.
-        // This increment is not expected to overflow in a working system, since it
-        // would indicate that 2^64 ticks have passed, and ticks are expected to be
-        // in the range of nanoseconds to milliseconds -- meaning over 500 years.
-        // However, we do not use wrapping add here because, if we _do_ overflow due
-        // to e.g. memory corruption, we'd rather panic and reboot than attempt to
-        // limp forward.
-        *ticks += 1;
-        // Now, give up mutable access to *ticks so there's no chance of a
-        // double-increment due to bugs below.
-        let now = Timestamp::from(*ticks);
-        drop(ticks);
+        // Load the time before this tick event.
+        let t0 = TICKS[0].load(Ordering::Relaxed);
+        let t1 = TICKS[1].load(Ordering::Relaxed);
+
+        // Advance the kernel's notion of time by adding 1. Laboriously.
+        let (t0, t1) = if let Some(t0p) = t0.checked_add(1) {
+            // Incrementing t0 did not roll over, no need to update t1.
+            TICKS[0].store(t0p, Ordering::Relaxed);
+            (t0p, t1)
+        } else {
+            // Incrementing t0 overflowed. We need to also increment t1. We use
+            // normal checked addition for this, not wrapping, because this
+            // should not be able to overflow under normal operation, and would
+            // almost certainly indicate state corruption that we'd like to
+            // discover.
+            TICKS[0].store(0, Ordering::Relaxed);
+            TICKS[1].store(t1 + 1, Ordering::Relaxed);
+            (0, t1 + 1)
+        };
 
         // Process any timers.
+        let now = Timestamp::from([t0, t1]);
         let switch = task::process_timers(tasks, now);
 
         // If any timers fired, we need to defer a context switch, because the entry
@@ -1069,11 +1074,9 @@ pub unsafe extern "C" fn PendSV() {
 #[no_mangle]
 unsafe extern "C" fn pendsv_entry() {
     crate::profiling::event_secondary_syscall_enter();
-    // Safety: we can access this by virtue of being an interrupt handler, and
-    // thus serialized with respect to anyone who might be trying to write it.
-    let current = unsafe { CURRENT_TASK_PTR }
-        .expect("irq before kernel started?")
-        .as_ptr();
+
+    let current = CURRENT_TASK_PTR.load(Ordering::Relaxed);
+    uassert!(!current.is_null()); // irq before kernel started?
 
     // Safety: we're dereferencing the current task pointer, which we're
     // trusting the rest of this module to maintain correctly.
