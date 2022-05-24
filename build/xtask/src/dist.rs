@@ -43,18 +43,19 @@ pub fn package(
     let toml = Config::from_file(cfg)?;
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
-    let (partial_build, tasks_to_build): (bool, BTreeSet<String>) =
+    let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
         if let Some(task_names) = tasks_to_build.as_ref() {
             check_task_names(&toml, task_names)?;
-            (true, task_names.iter().cloned().collect())
+            (true, task_names.iter().map(|p| p.as_str()).collect())
         } else {
+            assert!(!toml.tasks.contains_key("kernel"));
             check_task_priorities(&toml)?;
             (
                 false,
                 toml.tasks
                     .keys()
-                    .cloned()
-                    .chain(std::iter::once("kernel".to_string()))
+                    .map(|p| p.as_str())
+                    .chain(std::iter::once("kernel"))
                     .collect(),
             )
         };
@@ -145,7 +146,7 @@ pub fn package(
         .tasks
         .keys()
         .map(|name| {
-            let ep = if tasks_to_build.contains(name) {
+            let ep = if tasks_to_build.contains(name.as_str()) {
                 build_task(
                     &toml,
                     name,
