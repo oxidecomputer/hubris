@@ -37,6 +37,7 @@ use unwrap_lite::UnwrapLite;
 
 use crate::arch;
 use crate::err::{InteractFault, UserError};
+use crate::startup::with_task_table;
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, USlice};
@@ -69,7 +70,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
         usize::from(t.descriptor().index)
     };
 
-    arch::with_task_table(|tasks| {
+    with_task_table(|tasks| {
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
             NextTask::Same => (),
