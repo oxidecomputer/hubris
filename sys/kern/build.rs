@@ -91,6 +91,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(file, "        entry_point: {:#010x},", task.entry_point)?;
         writeln!(file, "        initial_stack: {:#010x},", task.initial_stack)?;
         writeln!(file, "        priority: {},", task.priority)?;
+        writeln!(file, "        index: {},", task.index)?;
         writeln!(
             file,
             "        flags: unsafe {{ \

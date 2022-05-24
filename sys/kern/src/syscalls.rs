@@ -60,16 +60,16 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     crate::profiling::event_syscall_enter(nr);
 
     // The task pointer is about to alias our task table, at which point it
-    // could not be dereferenced -- so we'll shed our ability to dereference it.
-    let task = task as usize;
+    // could not be dereferenced -- so we'll shed our ability to dereference it
+    // immediately.
+    let idx = {
+        // Safety: we're trusting the interrupt entry routine to pass us a valid
+        // task pointer.
+        let t = unsafe { &*task };
+        usize::from(t.descriptor().index)
+    };
 
     arch::with_task_table(|tasks| {
-        // Work out the task index based on the pointer into the task table
-        // slice. We could store the index *and* the pointer in globals,
-        // avoiding this divide, but divides are pretty cheap....
-        let idx =
-            (task - tasks.as_ptr() as usize) / core::mem::size_of::<Task>();
-
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
             NextTask::Same => (),

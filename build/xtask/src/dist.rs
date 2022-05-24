@@ -1474,6 +1474,7 @@ pub fn make_kconfig(
                 + task.stacksize.or(toml.stacksize).unwrap(),
             priority: task.priority,
             flags,
+            index: u16::try_from(i).expect("more than 2**16 tasks?"),
         });
 
         // Interrupts.
