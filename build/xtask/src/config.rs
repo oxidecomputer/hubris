@@ -31,7 +31,6 @@ struct RawConfig {
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
-    supervisor: Option<Supervisor>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
 }
@@ -51,7 +50,6 @@ pub struct Config {
     pub tasks: IndexMap<String, Task>,
     pub peripherals: IndexMap<String, Peripheral>,
     pub extratext: IndexMap<String, Peripheral>,
-    pub supervisor: Option<Supervisor>,
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
@@ -92,7 +90,6 @@ impl Config {
             tasks: toml.tasks,
             peripherals,
             extratext: toml.extratext,
-            supervisor: toml.supervisor,
             config: toml.config,
             buildhash,
             app_toml_path: cfg.to_owned(),
@@ -325,12 +322,6 @@ pub struct Kernel {
     pub stacksize: Option<u32>,
     #[serde(default)]
     pub features: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Supervisor {
-    pub notification: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -17,10 +17,7 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{
-        BuildConfig, Config, Kernel, Output, Peripheral, Signing, Supervisor,
-        Task,
-    },
+    config::{BuildConfig, Config, Kernel, Output, Peripheral, Signing, Task},
     elf, task_slot,
 };
 
@@ -45,7 +42,7 @@ pub fn package(
 ) -> Result<()> {
     let toml = Config::from_file(cfg)?;
     // If we're using filters, we change behavior at the end. Record this in a
-    // convenient flag.
+    // convenient flag, running other checks as well.
     let partial_build = if let Some(task_names) = tasks_to_build.as_ref() {
         check_task_names(&toml, task_names)?;
         true
@@ -83,7 +80,6 @@ pub fn package(
 
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
-    let mut entry_points = HashMap::<_, _>::default();
 
     // Panic messages in crates have a long prefix; we'll shorten it using
     // the --remap-path-prefix argument to reduce message size.  We'll remap
@@ -134,55 +130,30 @@ pub fn package(
         &remap_paths,
     )?;
 
-    for name in toml.tasks.keys() {
-        // Implement task name filter. If we're only building a subset of tasks,
-        // skip the other ones here.
-        if let Some(included_names) = &tasks_to_build {
-            if !included_names.contains(name) {
-                continue;
-            }
-        }
-        let task_toml = &toml.tasks[name];
-
-        generate_task_linker_script(
-            "memory.x",
-            &allocs.tasks[name],
-            Some(&task_toml.sections),
-            task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
-                anyhow!(
-                    "{}: no stack size specified and there is no default",
-                    name
-                )
-            })?,
-        )
-        .context(format!("failed to generate linker script for {}", name))?;
-
-        fs::copy("build/task-link.x", "target/link.x")?;
-
-        let build_config = toml.task_build_config(name, verbose).unwrap();
-        build(build_config, dist_dir.join(name), edges, &remap_paths)
-            .context(format!("failed to build {}", name))?;
-
-        resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
-
-        let mut symbol_table = BTreeMap::default();
-        let (ep, flash) = load_elf(
-            &dist_dir.join(name),
-            &mut all_output_sections,
-            &mut symbol_table,
-        )?;
-
-        if flash > task_toml.requires["flash"] as usize {
-            bail!(
-                "{} has insufficient flash: specified {} bytes, needs {}",
-                task_toml.name,
-                task_toml.requires["flash"],
-                flash
-            );
-        }
-
-        entry_points.insert(name.clone(), ep);
-    }
+    // Build all relevant tasks, collecting entry points into a HashMap
+    let entry_points: HashMap<String, u32> = toml
+        .tasks
+        .keys()
+        .filter(|name| {
+            tasks_to_build
+                .as_ref()
+                .map(|m| m.contains(name))
+                .unwrap_or(true)
+        })
+        .map(|name| {
+            build_task(
+                &toml,
+                name,
+                verbose,
+                edges,
+                &allocs,
+                &dist_dir,
+                &remap_paths,
+                &mut all_output_sections,
+            )
+            .map(|ep| (name.clone(), ep))
+        })
+        .collect::<Result<_, _>>()?;
 
     // If we've done a partial build, we can't do the rest because we're missing
     // required information, so, escape.
@@ -190,51 +161,16 @@ pub fn package(
         return Ok(());
     }
 
-    let mut image_id = fnv::FnvHasher::default();
-    all_output_sections.hash(&mut image_id);
-
-    // Format the descriptors for the kernel build.
-    let kconfig = make_descriptors(
-        &toml.target,
-        &toml.tasks,
-        &toml.peripherals,
-        toml.supervisor.as_ref(),
-        &allocs.tasks,
-        toml.stacksize,
-        &toml.outputs,
-        &entry_points,
-        &toml.extratext,
-    )?;
-    let kconfig = ron::ser::to_string(&kconfig)?;
-
-    kconfig.hash(&mut image_id);
-    allocs.hash(&mut image_id);
-
-    generate_kernel_linker_script(
-        "memory.x",
-        &allocs.kernel,
-        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-    )?;
-
-    fs::copy("build/kernel-link.x", "target/link.x")?;
-
-    let image_id = image_id.finish();
-
-    // Build the kernel.
-    let build_config = toml.kernel_build_config(
+    // Build the kernel!
+    let (kentry, ksymbol_table) = build_kernel(
+        &toml,
         verbose,
-        &[
-            ("HUBRIS_KCONFIG", &kconfig),
-            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
-        ],
-    );
-    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
-
-    let mut ksymbol_table = BTreeMap::default();
-    let (kentry, _) = load_elf(
-        &dist_dir.join("kernel"),
+        edges,
+        &allocs,
         &mut all_output_sections,
-        &mut ksymbol_table,
+        &entry_points,
+        &dist_dir,
+        &remap_paths,
     )?;
 
     // Generate combined SREC, which is our source of truth for combined images.
@@ -354,6 +290,17 @@ pub fn package(
         )?;
     }
 
+    write_gdb_script(&toml, &dist_dir, &remap_paths)?;
+
+    build_archive(cfg, &toml, &dist_dir)?;
+    Ok(())
+}
+
+fn write_gdb_script(
+    toml: &Config,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+) -> Result<()> {
     let mut gdb_script = File::create(dist_dir.join("script.gdb"))?;
     writeln!(
         gdb_script,
@@ -374,7 +321,7 @@ pub fn package(
             dist_dir.join(&bootloader.name).to_slash().unwrap()
         )?;
     }
-    for (path, remap) in &remap_paths {
+    for (path, remap) in remap_paths {
         let mut path_str = path
             .to_str()
             .ok_or_else(|| anyhow!("Could not convert path{:?} to str", path))?
@@ -387,8 +334,10 @@ pub fn package(
         }
         writeln!(gdb_script, "set substitute-path {} {}", remap, path_str)?;
     }
-    drop(gdb_script);
+    Ok(())
+}
 
+fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
     // Bundle everything up into an archive.
     let mut archive =
         Archive::new(dist_dir.join(format!("build-{}.zip", toml.name)))?;
@@ -413,7 +362,7 @@ pub fn package(
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
     archive.copy(cfg, "app.toml")?;
-    let chip_dir = cfg.parent().unwrap().join(toml.chip);
+    let chip_dir = cfg.parent().unwrap().join(toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
     archive.copy(&chip_file, &chip_filename)?;
@@ -488,8 +437,65 @@ pub fn package(
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
     archive.finish()?;
-
     Ok(())
+}
+
+fn build_kernel(
+    toml: &Config,
+    verbose: bool,
+    edges: bool,
+    allocs: &Allocations,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+    entry_points: &HashMap<String, u32>,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+) -> Result<(u32, BTreeMap<String, u32>)> {
+    let mut image_id = fnv::FnvHasher::default();
+    all_output_sections.hash(&mut image_id);
+
+    // Format the descriptors for the kernel build.
+    let kconfig = make_descriptors(
+        &toml.target,
+        &toml.tasks,
+        &toml.peripherals,
+        &allocs.tasks,
+        toml.stacksize,
+        &toml.outputs,
+        &entry_points,
+        &toml.extratext,
+    )?;
+    let kconfig = ron::ser::to_string(&kconfig)?;
+
+    kconfig.hash(&mut image_id);
+    allocs.hash(&mut image_id);
+
+    generate_kernel_linker_script(
+        "memory.x",
+        &allocs.kernel,
+        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+    )?;
+
+    fs::copy("build/kernel-link.x", "target/link.x")?;
+
+    let image_id = image_id.finish();
+
+    // Build the kernel.
+    let build_config = toml.kernel_build_config(
+        verbose,
+        &[
+            ("HUBRIS_KCONFIG", &kconfig),
+            ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
+        ],
+    );
+    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
+
+    let mut ksymbol_table = BTreeMap::default();
+    let (kentry, _) = load_elf(
+        &dist_dir.join("kernel"),
+        all_output_sections,
+        &mut ksymbol_table,
+    )?;
+    Ok((kentry, ksymbol_table))
 }
 
 fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
@@ -508,6 +514,52 @@ Did you mean to run `cargo xtask dist`?"
         bail!(toml.task_name_suggestion(name))
     }
     Ok(())
+}
+
+/// Builds a specific task, returning the entry point
+fn build_task(
+    toml: &Config,
+    name: &str,
+    verbose: bool,
+    edges: bool,
+    allocs: &Allocations,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<u32> {
+    let task_toml = &toml.tasks[name];
+
+    generate_task_linker_script(
+        "memory.x",
+        &allocs.tasks[name],
+        Some(&task_toml.sections),
+        task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+            anyhow!("{}: no stack size specified and there is no default", name)
+        })?,
+    )
+    .context(format!("failed to generate linker script for {}", name))?;
+
+    fs::copy("build/task-link.x", "target/link.x")?;
+
+    let build_config = toml.task_build_config(name, verbose).unwrap();
+    build(build_config, dist_dir.join(name), edges, &remap_paths)
+        .context(format!("failed to build {}", name))?;
+
+    resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
+
+    let mut symbol_table = BTreeMap::default();
+    let (ep, flash) =
+        load_elf(&dist_dir.join(name), all_output_sections, &mut symbol_table)?;
+
+    if flash > task_toml.requires["flash"] as usize {
+        bail!(
+            "{} has insufficient flash: specified {} bytes, needs {}",
+            task_toml.name,
+            task_toml.requires["flash"],
+            flash
+        );
+    }
+    Ok(ep)
 }
 
 fn build_bootloader(
@@ -671,6 +723,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
     let out = &mut out_stream;
 
     let idle_priority = toml.tasks["idle"].priority;
+    let mut supervisor = None;
     for (name, task) in &toml.tasks {
         for callee in task.task_slots.values() {
             let p = toml
@@ -691,8 +744,20 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
                     "task {} (priority {}) calls into {} (priority {})",
                     name, task.priority, callee, p
                 )?;
-            } else if task.priority >= idle_priority && name != "idle" {
-                bail!("task {} has priority that's >= idle priority", name);
+            }
+        }
+        if task.priority >= idle_priority && name != "idle" {
+            bail!("task {} has priority that's >= idle priority", name);
+        }
+        if task.priority == 0 {
+            if let Some(supervisor) = supervisor {
+                bail!(
+                    "Two tasks with priority 0 (supervisor): {} and {}",
+                    name,
+                    supervisor
+                );
+            } else {
+                supervisor = Some(name);
             }
         }
     }
@@ -1285,7 +1350,6 @@ struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
-    supervisor_notification: u32,
 }
 
 /// Generate the application descriptor table that the kernel uses to find and
@@ -1301,7 +1365,6 @@ fn make_descriptors(
     target: &str,
     tasks: &IndexMap<String, Task>,
     peripherals: &IndexMap<String, Peripheral>,
-    supervisor: Option<&Supervisor>,
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
     stacksize: Option<u32>,
     outputs: &IndexMap<String, Output>,
@@ -1562,13 +1625,6 @@ fn make_descriptors(
         irqs,
         tasks: task_descs,
         regions,
-        supervisor_notification: if let Some(supervisor) = supervisor {
-            supervisor.notification
-        } else {
-            // TODO: this exists for back-compat with incredibly early Hubris,
-            // we can likely remove it.
-            0
-        },
     })
 }
 

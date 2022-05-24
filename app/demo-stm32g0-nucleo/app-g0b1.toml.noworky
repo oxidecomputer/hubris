@@ -10,9 +10,6 @@ requires = {flash = 17872, ram = 1984}
 features = ["g0b1", "panic-halt"]
 stacksize = 640
 
-[supervisor]
-notification = 1
-
 [outputs.flash]
 address = 0x08000000
 size = 524288
