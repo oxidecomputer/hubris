@@ -146,12 +146,24 @@ pub struct TaskDesc {
     pub priority: u8,
     /// Collection of boolean flags controlling task behavior.
     pub flags: TaskFlags,
+    /// Index of this task within the task table.
+    ///
+    /// This field is here as an optimization for the kernel entry sequences. It
+    /// can contain an invalid index if you create an arbitrary invalid
+    /// `TaskDesc`; this will cause the kernel to behave strangely (if the index
+    /// is in range for the task table) or panic predictably (if not), but won't
+    /// violate safety. The build system is careful to generate correct indices
+    /// here.
+    ///
+    /// The index is a u16 to save space in the `TaskDesc` struct; in practice
+    /// other factors limit us to fewer than `2**16` tasks.
+    pub index: u16,
 }
 
 bitflags::bitflags! {
     #[derive(FromBytes, Serialize, Deserialize)]
     #[repr(transparent)]
-    pub struct TaskFlags: u16 {
+    pub struct TaskFlags: u8 {
         const START_AT_BOOT = 1 << 0;
         const RESERVED = !1;
     }
