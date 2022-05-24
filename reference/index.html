@@ -3682,16 +3682,8 @@ implementation.</p>
 <div class="sect4">
 <h5 id="_notes_8">Notes</h5>
 <div class="paragraph">
-<p>The kernel does not interpret the panic message in any way, but it may <em>log</em>
-the message to <code>klog</code>.</p>
-</div>
-<div class="paragraph">
-<p>Messages are restricted to 7-bit ASCII to keep Unicode validation logic out of
-the kernel log path.</p>
-</div>
-<div class="paragraph">
-<p>If the panic address is invalid, or the referenced range is not readable by the
-task that&#8217;s panicking, it is ignored.</p>
+<p>The kernel does not interpret the panic message in any way, but may be made
+available to the supervisor if it asks.</p>
 </div>
 </div>
 </div>
@@ -5382,7 +5374,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-05-12 01:32:24 UTC
+Last updated 2022-05-24 18:53:04 UTC
 </div>
 </div>
 </body>
