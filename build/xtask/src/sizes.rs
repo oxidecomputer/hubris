@@ -43,7 +43,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
     }(color_choice);
     let out = &mut out_stream;
 
-    let toml = Config::from_file(&cfg)?;
+    let toml = Config::from_file(cfg)?;
 
     let mut dist_dir = PathBuf::from("target");
     dist_dir.push(&toml.name);
@@ -151,7 +151,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
             println!();
         }
         check_task(
-            &name,
+            name,
             task.stacksize.or(toml.stacksize).unwrap(),
             &task.requires,
         )?;

@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -43,59 +43,28 @@ pub fn package(
     cfg: &Path,
     tasks_to_build: Option<Vec<String>>,
 ) -> Result<()> {
+    let toml = Config::from_file(cfg)?;
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag.
-    let partial_build = tasks_to_build.is_some();
-
-    let toml = Config::from_file(&cfg)?;
-
-    if !partial_build {
+    let partial_build = if let Some(task_names) = tasks_to_build.as_ref() {
+        check_task_names(&toml, task_names)?;
+        true
+    } else {
         check_task_priorities(&toml)?;
-    }
-
-    let mut out = PathBuf::from("target");
-    let buildstamp_file = out.join("buildstamp");
-
-    out.push(&toml.name);
-    out.push("dist");
-
-    std::fs::create_dir_all(&out)?;
-
-    let rebuild = match std::fs::read(&buildstamp_file) {
-        Ok(contents) => {
-            if let Ok(contents) = std::str::from_utf8(&contents) {
-                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
-                    toml.buildhash != cmp
-                } else {
-                    println!("buildstamp file contents unknown; re-building.");
-                    true
-                }
-            } else {
-                println!("buildstamp file contents corrupt; re-building.");
-                true
-            }
-        }
-        Err(_) => {
-            println!("no buildstamp file found; re-building.");
-            true
-        }
+        false
     };
+
+    let mut dist_dir = PathBuf::from("target");
+    dist_dir.push(&toml.name);
+    dist_dir.push("dist");
+    std::fs::create_dir_all(&dist_dir)?;
+
+    check_rebuild(&toml)?;
 
     let mut src_dir = cfg.to_path_buf();
     src_dir.pop();
 
-    let mut memories = IndexMap::new();
-    for (name, out) in &toml.outputs {
-        if let Some(end) = out.address.checked_add(out.size) {
-            memories.insert(name.clone(), out.address..end);
-        } else {
-            eprintln!(
-                "output {}: address {:08x} size {:x} would overflow",
-                name, out.address, out.size
-            );
-            std::process::exit(1);
-        }
-    }
+    let mut memories = toml.memories()?;
     for (name, range) in &memories {
         println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
     }
@@ -112,40 +81,9 @@ pub fn package(
         println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
     }
 
-    let mut infofile = File::create(out.join("allocations.txt"))?;
-    writeln!(infofile, "kernel: {:#x?}", allocs.kernel)?;
-    writeln!(infofile, "tasks: {:#x?}", allocs.tasks)?;
-    drop(infofile);
-
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
     let mut entry_points = HashMap::<_, _>::default();
-
-    // if we need to rebuild, we should clean everything before we start building
-    if rebuild {
-        println!("app.toml has changed; rebuilding all tasks");
-
-        cargo_clean(&toml.kernel.name, &toml.target)?;
-
-        for name in toml.tasks.keys() {
-            // this feels redundant, don't we already have the name? consider
-            // our supervisor:
-            //
-            // [tasks.jefe]
-            // path = "../task-jefe"
-            // name = "task-jefe"
-            //
-            // the "name" in the key is jefe, but the package name is in
-            // tasks.jefe.name, and that's what we need to give to cargo
-            let task_toml = &toml.tasks[name];
-
-            cargo_clean(&task_toml.name, &toml.target)?;
-        }
-    }
-
-    // now that we're clean, update our buildstamp file; any failure to build
-    // from here on need not trigger a clean
-    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     // Panic messages in crates have a long prefix; we'll shorten it using
     // the --remap-path-prefix argument to reduce message size.  We'll remap
@@ -186,124 +124,15 @@ pub fn package(
 
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
-    if let Some(bootloader) = toml.bootloader.as_ref() {
-        if rebuild {
-            cargo_clean(&bootloader.name, &toml.target)?;
-        }
-
-        let mut bootloader_memory = IndexMap::new();
-        let flash = memories.get("bootloader_flash").unwrap();
-        let ram = memories.get("bootloader_ram").unwrap();
-        let sram = memories.get("bootloader_sram").unwrap();
-        let image_flash = if let Some(end) = bootloader
-            .imagea_flash_start
-            .checked_add(bootloader.imagea_flash_size)
-        {
-            bootloader.imagea_flash_start..end
-        } else {
-            eprintln!("image flash size is incorrect");
-            std::process::exit(1);
-        };
-        let image_ram = if let Some(end) = bootloader
-            .imagea_ram_start
-            .checked_add(bootloader.imagea_ram_size)
-        {
-            bootloader.imagea_ram_start..end
-        } else {
-            eprintln!("image ram size is incorrect");
-            std::process::exit(1);
-        };
-
-        bootloader_memory.insert(String::from("FLASH"), flash.clone());
-        bootloader_memory.insert(String::from("RAM"), ram.clone());
-        bootloader_memory.insert(String::from("SRAM"), sram.clone());
-        bootloader_memory
-            .insert(String::from("IMAGEA_FLASH"), image_flash.clone());
-        bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram.clone());
-
-        generate_bootloader_linker_script(
-            "memory.x",
-            &bootloader_memory,
-            Some(&bootloader.sections),
-        );
-
-        fs::copy("build/kernel-link.x", "target/link.x")?;
-
-        let build_config = toml.bootloader_build_config(verbose).unwrap();
-        build(
-            build_config,
-            out.join(&bootloader.name),
-            edges,
-            &remap_paths,
-        )?;
-
-        // Need a bootloader binary for signing
-        objcopy_translate_format(
-            "elf32-littlearm",
-            &out.join(&bootloader.name),
-            "binary",
-            &out.join("bootloader.bin"),
-        )?;
-
-        if let Some(signing) = toml.signing.get("bootloader") {
-            do_sign_file(
-                signing,
-                &out,
-                &src_dir,
-                "bootloader",
-                0,
-                &starting_memories,
-            )?;
-        }
-
-        // We need to get the absolute symbols for the non-secure application
-        // to call into the secure application. The easiest approach right now
-        // is to generate the table in a separate section, objcopy just that
-        // section and then re-insert those bits into the application section
-        // via linker.
-
-        objcopy_grab_binary(
-            "elf32-littlearm",
-            &out.join(&bootloader.name),
-            &out.join("addr_blob.bin"),
-        )?;
-
-        let mut f = std::fs::File::open(&out.join("addr_blob.bin"))?;
-
-        let mut bytes = Vec::new();
-
-        f.read_to_end(&mut bytes)?;
-
-        let mut linkscr =
-            File::create(Path::new(&format!("target/table.ld"))).unwrap();
-
-        for b in bytes {
-            writeln!(linkscr, "BYTE({:#x})", b).unwrap();
-        }
-
-        drop(linkscr);
-    } else {
-        // Just create a new empty file
-        File::create(Path::new(&format!("target/table.ld"))).unwrap();
-    }
-
-    // Quick sanity-check if we're trying to build individual tasks which
-    // aren't present in the app.toml, or ran `cargo xtask build ...` without
-    // any specified tasks.
-    if let Some(included_names) = &tasks_to_build {
-        if included_names.is_empty() {
-            bail!(
-                "Running `cargo xtask build` without specifying tasks has no effect.
-Did you mean to run `cargo xtask dist`?"
-            );
-        }
-        let all_tasks = toml.tasks.keys().collect::<Vec<_>>();
-        for name in included_names {
-            if !all_tasks.contains(&name) {
-                bail!(toml.task_name_suggestion(name));
-            }
-        }
-    }
+    build_bootloader(
+        &toml,
+        verbose,
+        edges,
+        &memories,
+        &src_dir,
+        &dist_dir,
+        &remap_paths,
+    )?;
 
     for name in toml.tasks.keys() {
         // Implement task name filter. If we're only building a subset of tasks,
@@ -331,14 +160,14 @@ Did you mean to run `cargo xtask dist`?"
         fs::copy("build/task-link.x", "target/link.x")?;
 
         let build_config = toml.task_build_config(name, verbose).unwrap();
-        build(build_config, out.join(name), edges, &remap_paths)
+        build(build_config, dist_dir.join(name), edges, &remap_paths)
             .context(format!("failed to build {}", name))?;
 
-        resolve_task_slots(name, &toml.tasks, &out.join(name), verbose)?;
+        resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
 
         let mut symbol_table = BTreeMap::default();
         let (ep, flash) = load_elf(
-            &out.join(name),
+            &dist_dir.join(name),
             &mut all_output_sections,
             &mut symbol_table,
         )?;
@@ -399,53 +228,40 @@ Did you mean to run `cargo xtask dist`?"
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
         ],
     );
-    build(build_config, out.join("kernel"), edges, &remap_paths)?;
+    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
-        &out.join("kernel"),
+        &dist_dir.join("kernel"),
         &mut all_output_sections,
         &mut ksymbol_table,
     )?;
 
-    // Write a map file, because that seems nice.
-    let mut mapfile = File::create(&out.join("map.txt"))?;
-    writeln!(mapfile, "ADDRESS  END          SIZE FILE")?;
-    for (base, sec) in &all_output_sections {
-        let size = sec.data.len() as u32;
-        let end = base + size;
-        writeln!(
-            mapfile,
-            "{:08x} {:08x} {:>8x} {}",
-            base,
-            end,
-            size,
-            sec.source_file.display()
-        )?;
-    }
-    drop(mapfile);
-
     // Generate combined SREC, which is our source of truth for combined images.
-    write_srec(&all_output_sections, kentry, &out.join("combined.srec"))?;
+    write_srec(
+        &all_output_sections,
+        kentry,
+        &dist_dir.join("combined.srec"),
+    )?;
 
     // Convert SREC to other formats for convenience.
     objcopy_translate_format(
         "srec",
-        &out.join("combined.srec"),
+        &dist_dir.join("combined.srec"),
         "elf32-littlearm",
-        &out.join("combined.elf"),
+        &dist_dir.join("combined.elf"),
     )?;
     objcopy_translate_format(
         "srec",
-        &out.join("combined.srec"),
+        &dist_dir.join("combined.srec"),
         "ihex",
-        &out.join("combined.ihex"),
+        &dist_dir.join("combined.ihex"),
     )?;
     objcopy_translate_format(
         "srec",
-        &out.join("combined.srec"),
+        &dist_dir.join("combined.srec"),
         "binary",
-        &out.join("combined.bin"),
+        &dist_dir.join("combined.bin"),
     )?;
 
     if let Some(signing) = toml.signing.get("combined") {
@@ -456,7 +272,7 @@ Did you mean to run `cargo xtask dist`?"
 
         do_sign_file(
             signing,
-            &out,
+            &dist_dir,
             &src_dir,
             "combined",
             *ksymbol_table.get("__header_start").unwrap(),
@@ -467,7 +283,7 @@ Did you mean to run `cargo xtask dist`?"
     // Okay we now have signed hubris image and signed bootloader
     // Time to combine the two!
     if let Some(bootloader) = toml.bootloader.as_ref() {
-        let file_image = std::fs::read(&out.join(&bootloader.name))?;
+        let file_image = std::fs::read(&dist_dir.join(&bootloader.name))?;
         let elf = goblin::elf::Elf::parse(&file_image)?;
 
         let bootloader_entry = elf.header.e_entry as u32;
@@ -488,80 +304,80 @@ Did you mean to run `cargo xtask dist`?"
         let bootloader = toml.outputs.get("bootloader_flash").unwrap().address;
         let flash = toml.outputs.get("flash").unwrap().address;
         smash_bootloader(
-            &out.join(bootloader_fname),
+            &dist_dir.join(bootloader_fname),
             bootloader,
-            &out.join(hubris_fname),
+            &dist_dir.join(hubris_fname),
             flash,
             bootloader_entry,
-            &out.join("final.srec"),
+            &dist_dir.join("final.srec"),
         )?;
 
         objcopy_translate_format(
             "srec",
-            &out.join("final.srec"),
+            &dist_dir.join("final.srec"),
             "elf32-littlearm",
-            &out.join("final.elf"),
+            &dist_dir.join("final.elf"),
         )?;
 
         objcopy_translate_format(
             "srec",
-            &out.join("final.srec"),
+            &dist_dir.join("final.srec"),
             "ihex",
-            &out.join("final.ihex"),
+            &dist_dir.join("final.ihex"),
         )?;
 
         objcopy_translate_format(
             "srec",
-            &out.join("final.srec"),
+            &dist_dir.join("final.srec"),
             "binary",
-            &out.join("final.bin"),
+            &dist_dir.join("final.bin"),
         )?;
     } else {
         std::fs::copy(
-            &mut out.join("combined.srec").to_str().unwrap(),
-            &mut out.join("final.srec").to_str().unwrap(),
+            &mut dist_dir.join("combined.srec").to_str().unwrap(),
+            &mut dist_dir.join("final.srec").to_str().unwrap(),
         )?;
 
         std::fs::copy(
-            &mut out.join("combined.elf").to_str().unwrap(),
-            &mut out.join("final.elf").to_str().unwrap(),
+            &mut dist_dir.join("combined.elf").to_str().unwrap(),
+            &mut dist_dir.join("final.elf").to_str().unwrap(),
         )?;
 
         std::fs::copy(
-            &mut out.join("combined.ihex").to_str().unwrap(),
-            &mut out.join("final.ihex").to_str().unwrap(),
+            &mut dist_dir.join("combined.ihex").to_str().unwrap(),
+            &mut dist_dir.join("final.ihex").to_str().unwrap(),
         )?;
 
         std::fs::copy(
-            &mut out.join("combined.bin").to_str().unwrap(),
-            &mut out.join("final.bin").to_str().unwrap(),
+            &mut dist_dir.join("combined.bin").to_str().unwrap(),
+            &mut dist_dir.join("final.bin").to_str().unwrap(),
         )?;
     }
 
-    let mut gdb_script = File::create(out.join("script.gdb"))?;
+    let mut gdb_script = File::create(dist_dir.join("script.gdb"))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
-        out.join("kernel").to_slash().unwrap()
+        dist_dir.join("kernel").to_slash().unwrap()
     )?;
     for name in toml.tasks.keys() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            out.join(name).to_slash().unwrap()
+            dist_dir.join(name).to_slash().unwrap()
         )?;
     }
     if let Some(bootloader) = toml.bootloader.as_ref() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            out.join(&bootloader.name).to_slash().unwrap()
+            dist_dir.join(&bootloader.name).to_slash().unwrap()
         )?;
     }
     for (path, remap) in &remap_paths {
         let mut path_str = path
             .to_str()
-            .ok_or(anyhow!("Could not convert path{:?} to str", path))?
+            .ok_or_else(|| anyhow!("Could not convert path{:?} to str", path))?
             .to_string();
 
         // Even on Windows, GDB expects path components to be separated by '/',
@@ -575,7 +391,7 @@ Did you mean to run `cargo xtask dist`?"
 
     // Bundle everything up into an archive.
     let mut archive =
-        Archive::new(out.join(format!("build-{}.zip", toml.name)))?;
+        Archive::new(dist_dir.join(format!("build-{}.zip", toml.name)))?;
 
     archive.text(
         "README.TXT",
@@ -605,36 +421,46 @@ Did you mean to run `cargo xtask dist`?"
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
     for name in toml.tasks.keys() {
-        archive.copy(out.join(name), tasks_dir.join(name))?;
+        archive.copy(dist_dir.join(name), tasks_dir.join(name))?;
     }
-    archive.copy(out.join("kernel"), elf_dir.join("kernel"))?;
+    archive.copy(dist_dir.join("kernel"), elf_dir.join("kernel"))?;
 
     let info_dir = PathBuf::from("info");
     archive.copy(
-        out.join("allocations.txt"),
+        dist_dir.join("allocations.txt"),
         info_dir.join("allocations.txt"),
     )?;
-    archive.copy(out.join("map.txt"), info_dir.join("map.txt"))?;
+    archive.copy(dist_dir.join("map.txt"), info_dir.join("map.txt"))?;
 
     let img_dir = PathBuf::from("img");
-    archive.copy(out.join("combined.srec"), img_dir.join("combined.srec"))?;
-    archive.copy(out.join("combined.elf"), img_dir.join("combined.elf"))?;
-    archive.copy(out.join("combined.ihex"), img_dir.join("combined.ihex"))?;
-    archive.copy(out.join("combined.bin"), img_dir.join("combined.bin"))?;
+    archive.copy(
+        dist_dir.join("combined.srec"),
+        img_dir.join("combined.srec"),
+    )?;
+    archive
+        .copy(dist_dir.join("combined.elf"), img_dir.join("combined.elf"))?;
+    archive.copy(
+        dist_dir.join("combined.ihex"),
+        img_dir.join("combined.ihex"),
+    )?;
+    archive
+        .copy(dist_dir.join("combined.bin"), img_dir.join("combined.bin"))?;
 
     if let Some(bootloader) = toml.bootloader.as_ref() {
-        archive
-            .copy(out.join(&bootloader.name), img_dir.join(&bootloader.name))?;
+        archive.copy(
+            dist_dir.join(&bootloader.name),
+            img_dir.join(&bootloader.name),
+        )?;
     }
     for s in toml.signing.keys() {
         let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
-        archive.copy(out.join(&name), img_dir.join(&name))?;
+        archive.copy(dist_dir.join(&name), img_dir.join(&name))?;
     }
 
-    archive.copy(out.join("final.srec"), img_dir.join("final.srec"))?;
-    archive.copy(out.join("final.elf"), img_dir.join("final.elf"))?;
-    archive.copy(out.join("final.ihex"), img_dir.join("final.ihex"))?;
-    archive.copy(out.join("final.bin"), img_dir.join("final.bin"))?;
+    archive.copy(dist_dir.join("final.srec"), img_dir.join("final.srec"))?;
+    archive.copy(dist_dir.join("final.elf"), img_dir.join("final.elf"))?;
+    archive.copy(dist_dir.join("final.ihex"), img_dir.join("final.ihex"))?;
+    archive.copy(dist_dir.join("final.bin"), img_dir.join("final.bin"))?;
 
     //
     // To allow for the image to be flashed based only on the archive (e.g.,
@@ -643,14 +469,14 @@ Did you mean to run `cargo xtask dist`?"
     // archive.
     //
     if let Some(mut config) =
-        crate::flash::config(&toml.board.as_str(), &chip_dir)?
+        crate::flash::config(toml.board.as_str(), &chip_dir)?
     {
         config.flatten()?;
         archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
     }
 
     let debug_dir = PathBuf::from("debug");
-    archive.copy(out.join("script.gdb"), debug_dir.join("script.gdb"))?;
+    archive.copy(dist_dir.join("script.gdb"), debug_dir.join("script.gdb"))?;
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
     // the LPC55 boards.
@@ -662,6 +488,174 @@ Did you mean to run `cargo xtask dist`?"
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
     archive.finish()?;
+
+    Ok(())
+}
+
+fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
+    // Quick sanity-check if we're trying to build individual tasks which
+    // aren't present in the app.toml, or ran `cargo xtask build ...` without
+    // any specified tasks.
+    if task_names.is_empty() {
+        bail!(
+            "Running `cargo xtask build` without specifying tasks has no effect.
+Did you mean to run `cargo xtask dist`?"
+            );
+    }
+    let all_tasks = toml.tasks.keys().collect::<BTreeSet<_>>();
+    if let Some(name) = task_names.iter().find(|name| !all_tasks.contains(name))
+    {
+        bail!(toml.task_name_suggestion(name))
+    }
+    Ok(())
+}
+
+fn build_bootloader(
+    toml: &Config,
+    verbose: bool,
+    edges: bool,
+    memories: &IndexMap<String, Range<u32>>,
+    src_dir: &Path,
+    dist_dir: &Path,
+    remap_paths: &BTreeMap<PathBuf, &str>,
+) -> Result<()> {
+    // Create a file for the linker script table, which is left empty
+    // if there is no bootloader.
+    let mut linkscr =
+        File::create("target/table.ld").context("Could not create table.ld")?;
+    if let Some(bootloader) = toml.bootloader.as_ref() {
+        let mut bootloader_memory = IndexMap::new();
+        let flash = memories.get("bootloader_flash").unwrap();
+        let ram = memories.get("bootloader_ram").unwrap();
+        let sram = memories.get("bootloader_sram").unwrap();
+        let image_flash = if let Some(end) = bootloader
+            .imagea_flash_start
+            .checked_add(bootloader.imagea_flash_size)
+        {
+            bootloader.imagea_flash_start..end
+        } else {
+            eprintln!("image flash size is incorrect");
+            std::process::exit(1);
+        };
+        let image_ram = if let Some(end) = bootloader
+            .imagea_ram_start
+            .checked_add(bootloader.imagea_ram_size)
+        {
+            bootloader.imagea_ram_start..end
+        } else {
+            eprintln!("image ram size is incorrect");
+            std::process::exit(1);
+        };
+
+        bootloader_memory.insert(String::from("FLASH"), flash.clone());
+        bootloader_memory.insert(String::from("RAM"), ram.clone());
+        bootloader_memory.insert(String::from("SRAM"), sram.clone());
+        bootloader_memory.insert(String::from("IMAGEA_FLASH"), image_flash);
+        bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram);
+
+        generate_bootloader_linker_script(
+            "memory.x",
+            &bootloader_memory,
+            Some(&bootloader.sections),
+        );
+
+        fs::copy("build/kernel-link.x", "target/link.x")?;
+
+        let build_config = toml.bootloader_build_config(verbose).unwrap();
+        build(
+            build_config,
+            dist_dir.join(&bootloader.name),
+            edges,
+            remap_paths,
+        )?;
+
+        // Need a bootloader binary for signing
+        objcopy_translate_format(
+            "elf32-littlearm",
+            &dist_dir.join(&bootloader.name),
+            "binary",
+            &dist_dir.join("bootloader.bin"),
+        )?;
+
+        if let Some(signing) = toml.signing.get("bootloader") {
+            do_sign_file(
+                signing,
+                dist_dir,
+                src_dir,
+                "bootloader",
+                0,
+                &toml.memories()?,
+            )?;
+        }
+
+        // We need to get the absolute symbols for the non-secure application
+        // to call into the secure application. The easiest approach right now
+        // is to generate the table in a separate section, objcopy just that
+        // section and then re-insert those bits into the application section
+        // via linker.
+
+        objcopy_grab_binary(
+            "elf32-littlearm",
+            &dist_dir.join(&bootloader.name),
+            &dist_dir.join("addr_blob.bin"),
+        )?;
+
+        let bytes = std::fs::read(&dist_dir.join("addr_blob.bin"))?;
+        for b in bytes {
+            writeln!(linkscr, "BYTE({:#x})", b)?;
+        }
+    }
+    Ok(())
+}
+
+/// Checks the buildstamp file and runs `cargo clean` if invalid
+fn check_rebuild(toml: &Config) -> Result<()> {
+    let buildstamp_file = Path::new("target").join("buildstamp");
+    let rebuild = match std::fs::read(&buildstamp_file) {
+        Ok(contents) => {
+            if let Ok(contents) = std::str::from_utf8(&contents) {
+                if let Ok(cmp) = u64::from_str_radix(contents, 16) {
+                    toml.buildhash != cmp
+                } else {
+                    println!("buildstamp file contents unknown; re-building.");
+                    true
+                }
+            } else {
+                println!("buildstamp file contents corrupt; re-building.");
+                true
+            }
+        }
+        Err(_) => {
+            println!("no buildstamp file found; re-building.");
+            true
+        }
+    };
+    // if we need to rebuild, we should clean everything before we start building
+    if rebuild {
+        println!("app.toml has changed; rebuilding all tasks");
+        cargo_clean(&toml.kernel.name, &toml.target)?;
+        if let Some(bootloader) = toml.bootloader.as_ref() {
+            cargo_clean(&bootloader.name, &toml.target)?;
+        }
+        for name in toml.tasks.keys() {
+            // this feels redundant, don't we already have the name? consider
+            // our supervisor:
+            //
+            // [tasks.jefe]
+            // path = "../task-jefe"
+            // name = "task-jefe"
+            //
+            // the "name" in the key is jefe, but the package name is in
+            // tasks.jefe.name, and that's what we need to give to cargo
+            let task_toml = &toml.tasks[name];
+
+            cargo_clean(&task_toml.name, &toml.target)?;
+        }
+    }
+
+    // now that we're clean, update our buildstamp file; any failure to build
+    // from here on need not trigger a clean
+    std::fs::write(&buildstamp_file, format!("{:x}", toml.buildhash))?;
 
     Ok(())
 }
@@ -707,8 +701,8 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
 }
 
 fn generate_header(
-    in_binary: &PathBuf,
-    out_binary: &PathBuf,
+    in_binary: &Path,
+    out_binary: &Path,
     header_start: u32,
     memories: &IndexMap<String, Range<u32>>,
 ) -> Result<()> {
@@ -722,10 +716,11 @@ fn generate_header(
 
     let header_byte_offset = (header_start - flash.start) as usize;
 
-    let mut header: abi::ImageHeader = Default::default();
-
-    header.magic = abi::HEADER_MAGIC;
-    header.total_image_len = image_len as u32;
+    let mut header = abi::ImageHeader {
+        magic: abi::HEADER_MAGIC,
+        total_image_len: image_len as u32,
+        ..Default::default()
+    };
 
     header.sau_entries[0].rbar = flash.start;
     header.sau_entries[0].rlar = (flash.end - 1) & !0x1f | 1;
@@ -741,22 +736,20 @@ fn generate_header(
         .write_to_prefix(&mut bytes[header_byte_offset..])
         .unwrap();
 
-    let mut out = File::create(out_binary)?;
-    out.write_all(&bytes)?;
+    std::fs::write(out_binary, &bytes)?;
 
     Ok(())
 }
 
 fn smash_bootloader(
-    bootloader: &PathBuf,
+    bootloader: &Path,
     bootloader_addr: u32,
-    hubris: &PathBuf,
+    hubris: &Path,
     hubris_addr: u32,
     entry: u32,
-    out: &PathBuf,
+    out: &Path,
 ) -> Result<()> {
-    let mut srec_out = vec![];
-    srec_out.push(srec::Record::S0("hubris+bootloader".to_string()));
+    let mut srec_out = vec![srec::Record::S0("hubris+bootloader".to_string())];
 
     let bootloader = std::fs::read(bootloader)?;
 
@@ -802,8 +795,8 @@ fn smash_bootloader(
 
 fn do_sign_file(
     sign: &Signing,
-    out: &PathBuf,
-    src_dir: &PathBuf,
+    out: &Path,
+    src_dir: &Path,
     fname: &str,
     header_start: u32,
     memories: &IndexMap<String, Range<u32>>,
@@ -1804,8 +1797,7 @@ fn write_srec(
     kentry: u32,
     out: &Path,
 ) -> Result<()> {
-    let mut srec_out = vec![];
-    srec_out.push(srec::Record::S0("hubris".to_string()));
+    let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
     for (&base, sec) in sections {
         // SREC record size limit is 255 (0xFF). 32-bit addressed records
         // additionally contain a four-byte address and one-byte checksum, for a
@@ -1899,9 +1891,9 @@ fn cargo_clean(name: &str, target: &str) -> Result<()> {
 }
 
 fn resolve_task_slots(
-    task_name: &String,
+    task_name: &str,
     all_tasks_toml: &IndexMap<String, Task>,
-    task_bin: &PathBuf,
+    task_bin: &Path,
     verbose: bool,
 ) -> Result<()> {
     use scroll::{Pread, Pwrite};

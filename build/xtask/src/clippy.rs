@@ -16,7 +16,7 @@ pub fn run(
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
 
-    let mut src_dir = cfg.to_path_buf();
+    let mut src_dir = cfg;
     src_dir.pop();
     let src_dir = src_dir;
 

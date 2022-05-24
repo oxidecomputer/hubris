@@ -11,7 +11,7 @@ use anyhow::Context;
 use crate::Config;
 
 pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
-    let toml = Config::from_file(&cfg)?;
+    let toml = Config::from_file(cfg)?;
 
     let mut archive = PathBuf::from("target");
     archive.push(&toml.name);
