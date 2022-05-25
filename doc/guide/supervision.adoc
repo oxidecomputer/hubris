@@ -16,8 +16,8 @@ runs in the processor's unprivileged mode, and is subject to memory protection.
 
 Two things make the supervisor different from other tasks:
 
-1. It runs at the highest task priority, 0. Normally, it is the only task at
-this priority.
+1. It runs at the highest task priority, 0, and is the only task at this
+priority.
 
 2. The kernel recognizes it and interacts with it in unique ways.
 

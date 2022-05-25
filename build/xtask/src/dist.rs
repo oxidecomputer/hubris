@@ -684,8 +684,7 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
     let out = &mut out_stream;
 
     let idle_priority = toml.tasks["idle"].priority;
-    let mut supervisor = None;
-    for (name, task) in &toml.tasks {
+    for (i, (name, task)) in toml.tasks.iter().enumerate() {
         for callee in task.task_slots.values() {
             let p = toml
                 .tasks
@@ -709,21 +708,11 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
         }
         if task.priority >= idle_priority && name != "idle" {
             bail!("task {} has priority that's >= idle priority", name);
+        } else if i == 0 && task.priority != 0 {
+            bail!("Supervisor task ({}) is not at priority 0", name);
+        } else if i != 0 && task.priority == 0 {
+            bail!("Task {} is not the supervisor, but has priority 0", name,);
         }
-        if task.priority == 0 {
-            if let Some(supervisor) = supervisor {
-                bail!(
-                    "Two tasks with priority 0 (supervisor): {} and {}",
-                    name,
-                    supervisor
-                );
-            } else {
-                supervisor = Some(name);
-            }
-        }
-    }
-    if supervisor.is_none() {
-        bail!("No task at priority 0 (supervisor)");
     }
 
     Ok(())
