@@ -17,7 +17,7 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{Bootloader, BuildConfig, Config, Signing},
+    config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
     elf, task_slot,
 };
 
@@ -233,12 +233,10 @@ pub fn package(
         }
 
         do_sign_file(
+            &cfg,
             signing,
-            &cfg.dist_dir,
-            &cfg.app_src_dir,
             "combined",
             *ksymbol_table.get("__header_start").unwrap(),
-            &starting_memories,
         )?;
     }
 
@@ -560,14 +558,7 @@ fn build_bootloader(
     )?;
 
     if let Some(signing) = cfg.toml.signing.get("bootloader") {
-        do_sign_file(
-            signing,
-            &cfg.dist_dir,
-            &cfg.app_src_dir,
-            "bootloader",
-            0,
-            &cfg.toml.memories()?,
-        )?;
+        do_sign_file(&cfg, signing, "bootloader", 0)?;
     }
 
     // We need to get the absolute symbols for the non-secure application
@@ -829,40 +820,37 @@ fn smash_bootloader(
 }
 
 fn do_sign_file(
+    cfg: &PackageConfig,
     sign: &Signing,
-    out: &Path,
-    src_dir: &Path,
     fname: &str,
     header_start: u32,
-    memories: &IndexMap<String, Range<u32>>,
 ) -> Result<()> {
-    if sign.method == "crc" {
-        crc_image::update_crc(
-            &out.join(format!("{}.bin", fname)),
-            &out.join(format!("{}_crc.bin", fname)),
-        )
-    } else if sign.method == "rsa" {
-        let priv_key = sign.priv_key.as_ref().unwrap();
-        let root_cert = sign.root_cert.as_ref().unwrap();
-        signed_image::sign_image(
-            false, // TODO add an option to enable DICE
-            &out.join(format!("{}.bin", fname)),
-            &src_dir.join(&priv_key),
-            &src_dir.join(&root_cert),
-            &out.join(format!("{}_rsa.bin", fname)),
-            &out.join("CMPA.bin"),
-        )
-    } else if sign.method == "ecc" {
-        // Right now we just generate the header
-        generate_header(
-            &out.join("combined.bin"),
-            &out.join("combined_ecc.bin"),
-            header_start,
-            memories,
-        )
-    } else {
-        eprintln!("Invalid sign method {}", sign.method);
-        std::process::exit(1);
+    match sign.method {
+        SigningMethod::Crc => crc_image::update_crc(
+            &cfg.dist_file(format!("{}.bin", fname)),
+            &cfg.dist_file(format!("{}_crc.bin", fname)),
+        ),
+        SigningMethod::Rsa => {
+            let priv_key = sign.priv_key.as_ref().unwrap();
+            let root_cert = sign.root_cert.as_ref().unwrap();
+            signed_image::sign_image(
+                false, // TODO add an option to enable DICE
+                &cfg.dist_file(format!("{}.bin", fname)),
+                &cfg.app_src_dir.join(&priv_key),
+                &cfg.app_src_dir.join(&root_cert),
+                &cfg.dist_file(format!("{}_rsa.bin", fname)),
+                &cfg.dist_file("CMPA.bin"),
+            )
+        }
+        SigningMethod::Ecc => {
+            // Right now we just generate the header
+            generate_header(
+                &cfg.dist_file("combined.bin"),
+                &cfg.dist_file("combined_ecc.bin"),
+                header_start,
+                &cfg.toml.memories()?,
+            )
+        }
     }
 }
 

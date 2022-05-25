@@ -290,9 +290,28 @@ impl Config {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SigningMethod {
+    Crc,
+    Rsa,
+    Ecc,
+}
+
+impl std::fmt::Display for SigningMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Crc => "crc",
+            Self::Rsa => "rsa",
+            Self::Ecc => "ecc",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Signing {
-    pub method: String,
+    pub method: SigningMethod,
     pub priv_key: Option<PathBuf>,
     pub root_cert: Option<PathBuf>,
 }
