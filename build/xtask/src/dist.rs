@@ -641,7 +641,7 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_kconfig(&cfg.toml, &allocs.tasks, &entry_points)?;
+    let kconfig = make_kconfig(&cfg.toml, &allocs.tasks, entry_points)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
