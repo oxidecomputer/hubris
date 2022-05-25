@@ -1477,10 +1477,17 @@ bitflags::bitflags! {
 #[cfg(armv6m)]
 unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // Who faulted?
-    // Safety: we're dereferencing the task pointer, because we trust the
-    // assembly fault handler to pass us a legitimate one. We use it immediately
-    // and discard it because otherwise it would alias the task table below.
-    let from_thread_mode = unsafe { (*task).save().exc_return & 0b1000 != 0 };
+    let (from_thread_mode, idx) = {
+        // Safety: we're dereferencing the task pointer, because we trust the
+        // assembly fault handler to pass us a legitimate one. We use it
+        // immediately and discard it because otherwise it would alias the task
+        // table below.
+        let t = unsafe { &(*task) };
+        (
+            t.save().exc_return & 0b1000 != 0,
+            usize::from(t.descriptor().index),
+        )
+    };
 
     if !from_thread_mode {
         // Uh. This fault originates from the kernel. We don't get fault
@@ -1494,9 +1501,6 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     // We are now going to force a fault on our current task and directly
     // switch to a task to run.
     with_task_table(|tasks| {
-        let idx = (task as usize - tasks.as_ptr() as usize)
-            / core::mem::size_of::<task::Task>();
-
         let next = match task::force_fault(tasks, idx, fault) {
             task::NextTask::Specific(i) => i,
             task::NextTask::Other => task::select(idx, tasks),
@@ -1553,9 +1557,13 @@ unsafe extern "C" fn handle_fault(
     // contract requires that it be valid. We immediately throw away the result
     // of dereferencing it, as it would otherwise alias the task table obtained
     // later.
-    let (exc_return, psp) = unsafe {
-        let s = (*task).save();
-        (s.exc_return, s.psp)
+    let (exc_return, psp, idx) = unsafe {
+        let t = &(*task);
+        (
+            t.save().exc_return,
+            t.save().psp,
+            usize::from(t.descriptor().index),
+        )
     };
     let from_thread_mode = exc_return & 0b1000 != 0;
 
@@ -1666,9 +1674,6 @@ unsafe extern "C" fn handle_fault(
     // when returning from an exception with a PSP that generates an MPU
     // fault!)
     with_task_table(|tasks| {
-        let idx = (task as usize - tasks.as_ptr() as usize)
-            / core::mem::size_of::<task::Task>();
-
         let next = match task::force_fault(tasks, idx, fault) {
             task::NextTask::Specific(i) => i,
             task::NextTask::Other => task::select(idx, tasks),
