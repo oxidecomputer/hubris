@@ -1472,6 +1472,7 @@ fn make_descriptors(
                 + task.stacksize.or(stacksize).unwrap(),
             priority: task.priority,
             flags,
+            index: u16::try_from(i).expect("more than 2**16 tasks?"),
         });
 
         // Interrupts.
