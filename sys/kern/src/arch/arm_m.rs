@@ -836,15 +836,16 @@ pub unsafe extern "C" fn SVCall() {
                     ldr r0, =CURRENT_TASK_PTR
                     ldr r1, [r0]
                     @ now, store volatile registers, plus the PSP, plus LR.
-                    stm r1!, {{r4-r7}}
+                    movs r2, r1
+                    stm r2!, {{r4-r7}}
                     mov r4, r8
                     mov r5, r9
                     mov r6, r10
                     mov r7, r11
-                    stm r1!, {{r4-r7}}
+                    stm r2!, {{r4-r7}}
                     mrs r4, PSP
                     mov r5, lr
-                    stm r1!, {{r4, r5}}
+                    stm r2!, {{r4, r5}}
 
                     @ syscall number is passed in r11. Move it into r0 to pass
                     @ it as an argument to the handler, then call the handler.
@@ -909,12 +910,13 @@ pub unsafe extern "C" fn SVCall() {
                     movw r0, #:lower16:CURRENT_TASK_PTR
                     movt r0, #:upper16:CURRENT_TASK_PTR
                     ldr r1, [r0]
+                    movs r2, r1
                     @ fetch the process-mode stack pointer.
                     @ fetching into r12 means the order in the stm below is right.
                     mrs r12, PSP
                     @ now, store volatile registers, plus the PSP in r12, plus LR.
-                    stm r1!, {{r4-r12, lr}}
-                    vstm r1, {{s16-s31}}
+                    stm r2!, {{r4-r12, lr}}
+                    vstm r2, {{s16-s31}}
 
                     @ syscall number is passed in r11. Move it into r0 to pass it as
                     @ an argument to the handler, then call the handler.
@@ -1389,9 +1391,6 @@ pub unsafe extern "C" fn HardFault() {
             mrs r4, PSP
             mov r5, lr
             stm r2!, {{r4, r5}}
-
-            @ armv6m only has one fault, and it's number three.
-            movs r1, #3
 
             bl handle_fault
 
