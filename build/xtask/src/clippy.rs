@@ -56,20 +56,10 @@ pub fn run(
                 .map(|(k, v)| (k.clone(), v["flash"].start))
                 .collect();
 
-            let kconfig = crate::dist::make_kconfig(
-                &toml.target,
-                &toml.tasks,
-                &toml.peripherals,
-                &allocs.tasks,
-                toml.stacksize,
-                &toml.outputs,
-                &entry_points,
-                &toml.extratext,
-            )?;
-            println!("Got kconfig");
+            let kconfig =
+                crate::dist::make_kconfig(&toml, &allocs.tasks, &entry_points)?;
             let kconfig = ron::ser::to_string(&kconfig)?;
 
-            println!("serialized");
             toml.kernel_build_config(
                 verbose,
                 &[
@@ -80,7 +70,6 @@ pub fn run(
         } else {
             toml.task_build_config(name, verbose).unwrap()
         };
-        println!("bla");
         let mut cmd = build_config.cmd("clippy");
 
         cmd.arg("--");

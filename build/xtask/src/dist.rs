@@ -17,9 +17,7 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{
-        Bootloader, BuildConfig, Config, Output, Peripheral, Signing, Task,
-    },
+    config::{Bootloader, BuildConfig, Config, Signing},
     elf, task_slot,
 };
 
@@ -508,9 +506,9 @@ fn build_bootloader(
     mut linkscr: File,
 ) -> Result<()> {
     let memories = cfg.toml.memories()?;
-    let flash = *memories.get("bootloader_flash").unwrap();
-    let ram = *memories.get("bootloader_ram").unwrap();
-    let sram = *memories.get("bootloader_sram").unwrap();
+    let flash = memories.get("bootloader_flash").unwrap();
+    let ram = memories.get("bootloader_ram").unwrap();
+    let sram = memories.get("bootloader_sram").unwrap();
 
     let image_flash = if let Some(end) = bootloader
         .imagea_flash_start
@@ -530,9 +528,9 @@ fn build_bootloader(
     };
 
     let mut bootloader_memory = IndexMap::new();
-    bootloader_memory.insert(String::from("FLASH"), flash);
-    bootloader_memory.insert(String::from("RAM"), ram);
-    bootloader_memory.insert(String::from("SRAM"), sram);
+    bootloader_memory.insert(String::from("FLASH"), flash.clone());
+    bootloader_memory.insert(String::from("RAM"), ram.clone());
+    bootloader_memory.insert(String::from("SRAM"), sram.clone());
     bootloader_memory.insert(String::from("IMAGEA_FLASH"), image_flash);
     bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram);
 
@@ -643,16 +641,7 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_kconfig(
-        &cfg.toml.target,
-        &cfg.toml.tasks,
-        &cfg.toml.peripherals,
-        &allocs.tasks,
-        cfg.toml.stacksize,
-        &cfg.toml.outputs,
-        &entry_points,
-        &cfg.toml.extratext,
-    )?;
+    let kconfig = make_kconfig(&cfg.toml, &allocs.tasks, &entry_points)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -1339,14 +1328,9 @@ pub struct KernelConfig {
 /// - Some number of `TaskDesc` records describing tasks.
 /// - Some number of `Interrupt` records routing interrupts to tasks.
 pub fn make_kconfig(
-    target: &str,
-    tasks: &IndexMap<String, Task>,
-    peripherals: &IndexMap<String, Peripheral>,
+    toml: &Config,
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
-    stacksize: Option<u32>,
-    outputs: &IndexMap<String, Output>,
     entry_points: &HashMap<String, u32>,
-    extra_text: &IndexMap<String, Peripheral>,
 ) -> Result<KernelConfig> {
     // Generate the three record sections concurrently.
     let mut regions = vec![];
@@ -1369,21 +1353,22 @@ pub fn make_kconfig(
 
     // Build a set of all peripheral names used by tasks, which we'll use
     // to filter out unused peripherals.
-    let used_peripherals = tasks
+    let used_peripherals = toml
+        .tasks
         .iter()
         .flat_map(|(_name, task)| task.uses.iter())
         .collect::<HashSet<_>>();
 
     // ARMv6-M and ARMv7-M require that memory regions be a power of two.
     // ARMv8-M does not.
-    let power_of_two_required = match target {
+    let power_of_two_required = match toml.target.as_str() {
         "thumbv8m.main-none-eabihf" => false,
         "thumbv7em-none-eabihf" => true,
         "thumbv6m-none-eabi" => true,
         t => panic!("Unknown mpu requirements for target '{}'", t),
     };
 
-    for (name, p) in peripherals.iter() {
+    for (name, p) in toml.peripherals.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
         }
@@ -1408,7 +1393,7 @@ pub fn make_kconfig(
         });
     }
 
-    for (name, p) in extra_text.iter() {
+    for (name, p) in toml.extratext.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
         }
@@ -1429,7 +1414,7 @@ pub fn make_kconfig(
 
     // The remaining regions are allocated to tasks on a first-come first-serve
     // basis.
-    for (i, (name, task)) in tasks.iter().enumerate() {
+    for (i, (name, task)) in toml.tasks.iter().enumerate() {
         if power_of_two_required && !task.requires["flash"].is_power_of_two() {
             panic!("Flash for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
         }
@@ -1456,7 +1441,7 @@ pub fn make_kconfig(
         // task's region table.
         let allocs = &task_allocations[name];
         for (ri, (output_name, range)) in allocs.iter().enumerate() {
-            let out = &outputs[output_name];
+            let out = &toml.outputs[output_name];
             let mut attributes = abi::RegionAttributes::empty();
             if out.read {
                 attributes |= abi::RegionAttributes::READ;
@@ -1506,7 +1491,7 @@ pub fn make_kconfig(
             regions: task_regions,
             entry_point: entry_points[name],
             initial_stack: task_allocations[name]["ram"].start
-                + task.stacksize.or(stacksize).unwrap(),
+                + task.stacksize.or(toml.stacksize).unwrap(),
             priority: task.priority,
             flags,
         });
@@ -1556,7 +1541,7 @@ pub fn make_kconfig(
                         let (pname, iname) = irq_str.split_at(dot_pos);
                         let iname = &iname[1..];
                         let periph =
-                            peripherals.get(pname).ok_or_else(|| {
+                            toml.peripherals.get(pname).ok_or_else(|| {
                                 anyhow!(
                                     "task {} IRQ {} references peripheral {}, \
                                  which does not exist.",
