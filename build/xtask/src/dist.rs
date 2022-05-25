@@ -17,7 +17,9 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{BuildConfig, Config, Output, Peripheral, Signing, Task},
+    config::{
+        Bootloader, BuildConfig, Config, Output, Peripheral, Signing, Task,
+    },
     elf, task_slot,
 };
 
@@ -53,64 +55,34 @@ struct PackageConfig {
     remap_paths: BTreeMap<PathBuf, &'static str>,
 }
 
-pub fn package(
-    verbose: bool,
-    edges: bool,
-    app_toml: &Path,
-    tasks_to_build: Option<Vec<String>>,
-) -> Result<()> {
-    let toml = Config::from_file(app_toml)?;
-    // If we're using filters, we change behavior at the end. Record this in a
-    // convenient flag, running other checks as well.
-    let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
-        if let Some(task_names) = tasks_to_build.as_ref() {
-            check_task_names(&toml, task_names)?;
-            (true, task_names.iter().map(|p| p.as_str()).collect())
-        } else {
-            assert!(!toml.tasks.contains_key("kernel"));
-            check_task_priorities(&toml)?;
-            (
-                false,
-                toml.tasks
-                    .keys()
-                    .map(|p| p.as_str())
-                    .chain(std::iter::once("kernel"))
-                    .collect(),
-            )
-        };
+impl PackageConfig {
+    fn new(app_toml_file: &Path, verbose: bool, edges: bool) -> Result<Self> {
+        let toml = Config::from_file(app_toml_file)?;
+        let dist_dir = Path::new("target").join(&toml.name).join("dist");
+        let app_src_dir = app_toml_file
+            .parent()
+            .ok_or_else(|| anyhow!("Could not get app toml directory"))?;
 
-    let dist_dir = Path::new("target").join(&toml.name).join("dist");
-    std::fs::create_dir_all(&dist_dir)?;
-
-    check_rebuild(&toml)?;
-
-    let mut src_dir = app_toml.to_path_buf();
-    src_dir.pop();
-
-    // Allocate memories.
-    let (allocs, memories) = allocate_all(&toml)?;
-
-    // Print stats on memory usage
-    let starting_memories = toml.memories()?;
-    for (name, range) in &starting_memories {
-        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
-    }
-    println!("Used:");
-    for (name, new_range) in &memories {
-        let orig_range = &starting_memories[name];
-        let size = new_range.start - orig_range.start;
-        let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
+        Ok(Self {
+            app_toml_file: app_toml_file.to_path_buf(),
+            app_src_dir: app_src_dir.to_path_buf(),
+            toml,
+            verbose,
+            edges,
+            dist_dir,
+            remap_paths: Self::remap_paths()?,
+        })
     }
 
-    // Build each task.
-    let mut all_output_sections = BTreeMap::default();
+    fn dist_file(&self, name: impl AsRef<Path>) -> PathBuf {
+        self.dist_dir.join(name)
+    }
 
-    // Panic messages in crates have a long prefix; we'll shorten it using
-    // the --remap-path-prefix argument to reduce message size.  We'll remap
-    // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
-    // dependencies to /git
-    let remap_paths = {
+    fn remap_paths() -> Result<BTreeMap<PathBuf, &'static str>> {
+        // Panic messages in crates have a long prefix; we'll shorten it using
+        // the --remap-path-prefix argument to reduce message size.  We'll remap
+        // local (Hubris) crates to /hubris, crates.io to /crates.io, and git
+        // dependencies to /git
         let mut remap_paths = BTreeMap::new();
 
         // On Windows, std::fs::canonicalize returns a UNC path, i.e. one
@@ -137,34 +109,85 @@ pub fn package(
 
         let mut hubris_dir =
             dunce::canonicalize(std::env::var("CARGO_MANIFEST_DIR")?)?;
-        hubris_dir.pop(); // Remove "build/xtask"
         hubris_dir.pop();
-        remap_paths.insert(hubris_dir, "/hubris");
-        remap_paths
-    };
+        hubris_dir.pop();
+        remap_paths.insert(hubris_dir.to_path_buf(), "/hubris");
+        Ok(remap_paths)
+    }
+}
+
+pub fn package(
+    verbose: bool,
+    edges: bool,
+    app_toml: &Path,
+    tasks_to_build: Option<Vec<String>>,
+) -> Result<()> {
+    let cfg = PackageConfig::new(app_toml, verbose, edges)?;
+
+    // If we're using filters, we change behavior at the end. Record this in a
+    // convenient flag, running other checks as well.
+    let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
+        if let Some(task_names) = tasks_to_build.as_ref() {
+            check_task_names(&cfg.toml, task_names)?;
+            (true, task_names.iter().map(|p| p.as_str()).collect())
+        } else {
+            assert!(!cfg.toml.tasks.contains_key("kernel"));
+            check_task_priorities(&cfg.toml)?;
+            (
+                false,
+                cfg.toml
+                    .tasks
+                    .keys()
+                    .map(|p| p.as_str())
+                    .chain(std::iter::once("kernel"))
+                    .collect(),
+            )
+        };
+
+    std::fs::create_dir_all(&cfg.dist_dir)?;
+    check_rebuild(&cfg.toml)?;
+
+    // Allocate memories.
+    let (allocs, memories) = allocate_all(&cfg.toml)?;
+
+    // Print stats on memory usage
+    let starting_memories = cfg.toml.memories()?;
+    for (name, range) in &starting_memories {
+        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
+    }
+    println!("Used:");
+    for (name, new_range) in &memories {
+        let orig_range = &starting_memories[name];
+        let size = new_range.start - orig_range.start;
+        let percent = size * 100 / (orig_range.end - orig_range.start);
+        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
+    }
+
+    // Build each task.
+    let mut all_output_sections = BTreeMap::default();
 
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
-    build_bootloader(&toml, verbose, edges, &src_dir, &dist_dir, &remap_paths)?;
+    {
+        // Create a file for the linker script table, which is left empty
+        // if there is no bootloader.
+        let linkscr = File::create("target/table.ld")
+            .context("Could not create table.ld")?;
+        if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
+            build_bootloader(&cfg, bootloader, linkscr)?;
+        }
+    }
 
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
     // the HashMap, because the kernel kconfig will still need it.
-    let entry_points: HashMap<_, _> = toml
+    let entry_points: HashMap<_, _> = cfg
+        .toml
         .tasks
         .keys()
         .map(|name| {
             let ep = if tasks_to_build.contains(name.as_str()) {
-                build_task(
-                    &toml,
-                    name,
-                    verbose,
-                    edges,
-                    &allocs,
-                    &dist_dir,
-                    &remap_paths,
-                    &mut all_output_sections,
-                )
+                build_task(&cfg, name, &allocs, &mut all_output_sections)
             } else {
                 Ok(allocs.tasks[name]["flash"].start)
             };
@@ -175,14 +198,10 @@ pub fn package(
     // Build the kernel!
     let kern_build = if tasks_to_build.contains("kernel") {
         Some(build_kernel(
-            &toml,
-            verbose,
-            edges,
+            &cfg,
             &allocs,
             &mut all_output_sections,
             &entry_points,
-            &dist_dir,
-            &remap_paths,
         )?)
     } else {
         None
@@ -199,20 +218,20 @@ pub fn package(
     write_srec(
         &all_output_sections,
         kentry,
-        &dist_dir.join("combined.srec"),
+        &cfg.dist_file("combined.srec"),
     )?;
 
-    translate_srec_to_other_formats(&dist_dir, "combined")?;
+    translate_srec_to_other_formats(&cfg.dist_dir, "combined")?;
 
-    if let Some(signing) = toml.signing.get("combined") {
+    if let Some(signing) = cfg.toml.signing.get("combined") {
         if ksymbol_table.get("HEADER").is_none() {
             bail!("Didn't find header symbol -- does the image need a placeholder?");
         }
 
         do_sign_file(
             signing,
-            &dist_dir,
-            &src_dir,
+            &cfg.dist_dir,
+            &cfg.app_src_dir,
             "combined",
             *ksymbol_table.get("__header_start").unwrap(),
             &starting_memories,
@@ -221,49 +240,50 @@ pub fn package(
 
     // Okay we now have signed hubris image and signed bootloader
     // Time to combine the two!
-    if let Some(bootloader) = toml.bootloader.as_ref() {
-        let file_image = std::fs::read(&dist_dir.join(&bootloader.name))?;
+    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
+        let file_image = std::fs::read(&cfg.dist_file(&bootloader.name))?;
         let elf = goblin::elf::Elf::parse(&file_image)?;
 
         let bootloader_entry = elf.header.e_entry as u32;
 
         let bootloader_fname =
-            if let Some(signing) = toml.signing.get("bootloader") {
+            if let Some(signing) = cfg.toml.signing.get("bootloader") {
                 format!("bootloader_{}.bin", signing.method)
             } else {
                 "bootloader.bin".into()
             };
 
-        let hubris_fname = if let Some(signing) = toml.signing.get("combined") {
-            format!("combined_{}.bin", signing.method)
-        } else {
-            "combined.bin".into()
-        };
+        let hubris_fname =
+            if let Some(signing) = cfg.toml.signing.get("combined") {
+                format!("combined_{}.bin", signing.method)
+            } else {
+                "combined.bin".into()
+            };
 
-        let bootloader = toml.outputs.get("bootloader_flash").unwrap().address;
-        let flash = toml.outputs.get("flash").unwrap().address;
+        let bootloader =
+            cfg.toml.outputs.get("bootloader_flash").unwrap().address;
+        let flash = cfg.toml.outputs.get("flash").unwrap().address;
         smash_bootloader(
-            &dist_dir.join(bootloader_fname),
+            &cfg.dist_file(bootloader_fname),
             bootloader,
-            &dist_dir.join(hubris_fname),
+            &cfg.dist_file(hubris_fname),
             flash,
             bootloader_entry,
-            &dist_dir.join("final.srec"),
+            &cfg.dist_file("final.srec"),
         )?;
-        translate_srec_to_other_formats(&dist_dir, "final")?;
+        translate_srec_to_other_formats(&cfg.dist_dir, "final")?;
     } else {
         // If there's no bootloader, the "combined" and "final" images are
         // identical, so we copy from one to the other
         for ext in ["srec", "elf", "ihex", "bin"] {
             let src = format!("combined.{}", ext);
             let dst = format!("final.{}", ext);
-            std::fs::copy(dist_dir.join(src), dist_dir.join(dst))?;
+            std::fs::copy(cfg.dist_file(src), cfg.dist_file(dst))?;
         }
     }
 
-    write_gdb_script(&toml, &dist_dir, &remap_paths)?;
-
-    build_archive(app_toml, &toml, &dist_dir)?;
+    write_gdb_script(&cfg)?;
+    build_archive(&cfg)?;
     Ok(())
 }
 
@@ -285,32 +305,28 @@ fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_gdb_script(
-    toml: &Config,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
-) -> Result<()> {
-    let mut gdb_script = File::create(dist_dir.join("script.gdb"))?;
+fn write_gdb_script(cfg: &PackageConfig) -> Result<()> {
+    let mut gdb_script = File::create(cfg.dist_file("script.gdb"))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
-        dist_dir.join("kernel").to_slash().unwrap()
+        cfg.dist_file("kernel").to_slash().unwrap()
     )?;
-    for name in toml.tasks.keys() {
+    for name in cfg.toml.tasks.keys() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            dist_dir.join(name).to_slash().unwrap()
+            cfg.dist_file(name).to_slash().unwrap()
         )?;
     }
-    if let Some(bootloader) = toml.bootloader.as_ref() {
+    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            dist_dir.join(&bootloader.name).to_slash().unwrap()
+            cfg.dist_file(&bootloader.name).to_slash().unwrap()
         )?;
     }
-    for (path, remap) in remap_paths {
+    for (path, remap) in &cfg.remap_paths {
         let mut path_str = path
             .to_str()
             .ok_or_else(|| anyhow!("Could not convert path{:?} to str", path))?
@@ -326,14 +342,10 @@ fn write_gdb_script(
     Ok(())
 }
 
-fn build_archive(
-    app_toml: &Path,
-    toml: &Config,
-    dist_dir: &Path,
-) -> Result<()> {
+fn build_archive(cfg: &PackageConfig) -> Result<()> {
     // Bundle everything up into an archive.
     let mut archive =
-        Archive::new(dist_dir.join(format!("build-{}.zip", toml.name)))?;
+        Archive::new(cfg.dist_file(format!("build-{}.zip", cfg.toml.name)))?;
 
     archive.text(
         "README.TXT",
@@ -354,36 +366,37 @@ fn build_archive(
         "git-rev",
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
-    archive.copy(app_toml, "app.toml")?;
-    let chip_dir = app_toml.parent().unwrap().join(toml.chip.clone());
+    archive.copy(&cfg.app_toml_file, "app.toml")?;
+    let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
     archive.copy(&chip_file, &chip_filename)?;
 
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
-    for name in toml.tasks.keys() {
-        archive.copy(dist_dir.join(name), tasks_dir.join(name))?;
+    for name in cfg.toml.tasks.keys() {
+        archive.copy(cfg.dist_file(name), tasks_dir.join(name))?;
     }
-    archive.copy(dist_dir.join("kernel"), elf_dir.join("kernel"))?;
+    archive.copy(cfg.dist_file("kernel"), elf_dir.join("kernel"))?;
 
     let img_dir = PathBuf::from("img");
 
-    if let Some(bootloader) = toml.bootloader.as_ref() {
+    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
         archive.copy(
-            dist_dir.join(&bootloader.name),
+            cfg.dist_file(&bootloader.name),
             img_dir.join(&bootloader.name),
         )?;
     }
-    for s in toml.signing.keys() {
-        let name = format!("{}_{}.bin", s, toml.signing.get(s).unwrap().method);
-        archive.copy(dist_dir.join(&name), img_dir.join(&name))?;
+    for s in cfg.toml.signing.keys() {
+        let name =
+            format!("{}_{}.bin", s, cfg.toml.signing.get(s).unwrap().method);
+        archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
     }
 
     for f in ["combined", "final"] {
         for ext in ["srec", "elf", "ihex", "bin"] {
             let name = format!("{}.{}", f, ext);
-            archive.copy(dist_dir.join(&name), img_dir.join(&name))?;
+            archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
         }
     }
 
@@ -394,14 +407,14 @@ fn build_archive(
     // archive.
     //
     if let Some(mut config) =
-        crate::flash::config(toml.board.as_str(), &chip_dir)?
+        crate::flash::config(cfg.toml.board.as_str(), &chip_dir)?
     {
         config.flatten()?;
         archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
     }
 
     let debug_dir = PathBuf::from("debug");
-    archive.copy(dist_dir.join("script.gdb"), debug_dir.join("script.gdb"))?;
+    archive.copy(cfg.dist_file("script.gdb"), debug_dir.join("script.gdb"))?;
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
     // the LPC55 boards.
@@ -490,100 +503,84 @@ fn check_rebuild(toml: &Config) -> Result<()> {
 }
 
 fn build_bootloader(
-    toml: &Config,
-    verbose: bool,
-    edges: bool,
-    src_dir: &Path,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
+    cfg: &PackageConfig,
+    bootloader: &Bootloader,
+    mut linkscr: File,
 ) -> Result<()> {
-    // Create a file for the linker script table, which is left empty
-    // if there is no bootloader.
-    let mut linkscr =
-        File::create("target/table.ld").context("Could not create table.ld")?;
-    if let Some(bootloader) = toml.bootloader.as_ref() {
-        let memories = toml.memories()?;
-        let flash = memories.get("bootloader_flash").unwrap();
-        let ram = memories.get("bootloader_ram").unwrap();
-        let sram = memories.get("bootloader_sram").unwrap();
+    let memories = cfg.toml.memories()?;
+    let flash = *memories.get("bootloader_flash").unwrap();
+    let ram = *memories.get("bootloader_ram").unwrap();
+    let sram = *memories.get("bootloader_sram").unwrap();
 
-        let image_flash = if let Some(end) = bootloader
-            .imagea_flash_start
-            .checked_add(bootloader.imagea_flash_size)
-        {
-            bootloader.imagea_flash_start..end
-        } else {
-            eprintln!("image flash size is incorrect");
-            std::process::exit(1);
-        };
-        let image_ram = if let Some(end) = bootloader
-            .imagea_ram_start
-            .checked_add(bootloader.imagea_ram_size)
-        {
-            bootloader.imagea_ram_start..end
-        } else {
-            eprintln!("image ram size is incorrect");
-            std::process::exit(1);
-        };
+    let image_flash = if let Some(end) = bootloader
+        .imagea_flash_start
+        .checked_add(bootloader.imagea_flash_size)
+    {
+        bootloader.imagea_flash_start..end
+    } else {
+        bail!("image flash size is incorrect");
+    };
+    let image_ram = if let Some(end) = bootloader
+        .imagea_ram_start
+        .checked_add(bootloader.imagea_ram_size)
+    {
+        bootloader.imagea_ram_start..end
+    } else {
+        bail!("image ram size is incorrect");
+    };
 
-        let mut bootloader_memory = IndexMap::new();
-        bootloader_memory.insert(String::from("FLASH"), flash.clone());
-        bootloader_memory.insert(String::from("RAM"), ram.clone());
-        bootloader_memory.insert(String::from("SRAM"), sram.clone());
-        bootloader_memory.insert(String::from("IMAGEA_FLASH"), image_flash);
-        bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram);
+    let mut bootloader_memory = IndexMap::new();
+    bootloader_memory.insert(String::from("FLASH"), flash);
+    bootloader_memory.insert(String::from("RAM"), ram);
+    bootloader_memory.insert(String::from("SRAM"), sram);
+    bootloader_memory.insert(String::from("IMAGEA_FLASH"), image_flash);
+    bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram);
 
-        generate_bootloader_linker_script(
-            "memory.x",
-            &bootloader_memory,
-            Some(&bootloader.sections),
-        );
+    generate_bootloader_linker_script(
+        "memory.x",
+        &bootloader_memory,
+        Some(&bootloader.sections),
+    );
 
-        fs::copy("build/kernel-link.x", "target/link.x")?;
+    fs::copy("build/kernel-link.x", "target/link.x")?;
 
-        let build_config = toml.bootloader_build_config(verbose).unwrap();
-        build(
-            build_config,
-            dist_dir.join(&bootloader.name),
-            edges,
-            remap_paths,
+    let build_config = cfg.toml.bootloader_build_config(cfg.verbose).unwrap();
+    build(cfg, &bootloader.name, build_config)?;
+
+    // Need a bootloader binary for signing
+    objcopy_translate_format(
+        "elf32-littlearm",
+        &cfg.dist_file(&bootloader.name),
+        "binary",
+        &cfg.dist_file("bootloader.bin"),
+    )?;
+
+    if let Some(signing) = cfg.toml.signing.get("bootloader") {
+        do_sign_file(
+            signing,
+            &cfg.dist_dir,
+            &cfg.app_src_dir,
+            "bootloader",
+            0,
+            &cfg.toml.memories()?,
         )?;
+    }
 
-        // Need a bootloader binary for signing
-        objcopy_translate_format(
-            "elf32-littlearm",
-            &dist_dir.join(&bootloader.name),
-            "binary",
-            &dist_dir.join("bootloader.bin"),
-        )?;
+    // We need to get the absolute symbols for the non-secure application
+    // to call into the secure application. The easiest approach right now
+    // is to generate the table in a separate section, objcopy just that
+    // section and then re-insert those bits into the application section
+    // via linker.
 
-        if let Some(signing) = toml.signing.get("bootloader") {
-            do_sign_file(
-                signing,
-                dist_dir,
-                src_dir,
-                "bootloader",
-                0,
-                &toml.memories()?,
-            )?;
-        }
+    objcopy_grab_binary(
+        "elf32-littlearm",
+        &cfg.dist_file(&bootloader.name),
+        &cfg.dist_file("addr_blob.bin"),
+    )?;
 
-        // We need to get the absolute symbols for the non-secure application
-        // to call into the secure application. The easiest approach right now
-        // is to generate the table in a separate section, objcopy just that
-        // section and then re-insert those bits into the application section
-        // via linker.
-
-        objcopy_grab_binary(
-            "elf32-littlearm",
-            &dist_dir.join(&bootloader.name),
-            &dist_dir.join("addr_blob.bin"),
-        )?;
-
-        let bytes = std::fs::read(&dist_dir.join("addr_blob.bin"))?;
-        for b in bytes {
-            writeln!(linkscr, "BYTE({:#x})", b)?;
-        }
+    let bytes = std::fs::read(&cfg.dist_file("addr_blob.bin"))?;
+    for b in bytes {
+        writeln!(linkscr, "BYTE({:#x})", b)?;
     }
     Ok(())
 }
@@ -596,22 +593,18 @@ struct LoadSegment {
 
 /// Builds a specific task, returning the entry point
 fn build_task(
-    toml: &Config,
+    cfg: &PackageConfig,
     name: &str,
-    verbose: bool,
-    edges: bool,
     allocs: &Allocations,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<u32> {
-    let task_toml = &toml.tasks[name];
+    let task_toml = &cfg.toml.tasks[name];
 
     generate_task_linker_script(
         "memory.x",
         &allocs.tasks[name],
         Some(&task_toml.sections),
-        task_toml.stacksize.or(toml.stacksize).ok_or_else(|| {
+        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
     )
@@ -619,15 +612,15 @@ fn build_task(
 
     fs::copy("build/task-link.x", "target/link.x")?;
 
-    let build_config = toml.task_build_config(name, verbose).unwrap();
-    build(build_config, dist_dir.join(name), edges, &remap_paths)
+    let build_config = cfg.toml.task_build_config(name, cfg.verbose).unwrap();
+    build(cfg, name, build_config)
         .context(format!("failed to build {}", name))?;
 
-    resolve_task_slots(name, &toml.tasks, &dist_dir.join(name), verbose)?;
+    resolve_task_slots(cfg, name)?;
 
     let mut symbol_table = BTreeMap::default();
     let (ep, flash) =
-        load_elf(&dist_dir.join(name), all_output_sections, &mut symbol_table)?;
+        load_elf(&cfg.dist_file(name), all_output_sections, &mut symbol_table)?;
 
     if flash > task_toml.requires["flash"] as usize {
         bail!(
@@ -641,28 +634,24 @@ fn build_task(
 }
 
 fn build_kernel(
-    toml: &Config,
-    verbose: bool,
-    edges: bool,
+    cfg: &PackageConfig,
     allocs: &Allocations,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
     entry_points: &HashMap<String, u32>,
-    dist_dir: &Path,
-    remap_paths: &BTreeMap<PathBuf, &str>,
 ) -> Result<(u32, BTreeMap<String, u32>)> {
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
     let kconfig = make_kconfig(
-        &toml.target,
-        &toml.tasks,
-        &toml.peripherals,
+        &cfg.toml.target,
+        &cfg.toml.tasks,
+        &cfg.toml.peripherals,
         &allocs.tasks,
-        toml.stacksize,
-        &toml.outputs,
+        cfg.toml.stacksize,
+        &cfg.toml.outputs,
         &entry_points,
-        &toml.extratext,
+        &cfg.toml.extratext,
     )?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
@@ -672,7 +661,7 @@ fn build_kernel(
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
-        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -680,18 +669,18 @@ fn build_kernel(
     let image_id = image_id.finish();
 
     // Build the kernel.
-    let build_config = toml.kernel_build_config(
-        verbose,
+    let build_config = cfg.toml.kernel_build_config(
+        cfg.verbose,
         &[
             ("HUBRIS_KCONFIG", &kconfig),
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
         ],
     );
-    build(build_config, dist_dir.join("kernel"), edges, &remap_paths)?;
+    build(cfg, "kernel", build_config)?;
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
-        &dist_dir.join("kernel"),
+        &cfg.dist_file("kernel"),
         all_output_sections,
         &mut ksymbol_table,
     )?;
@@ -1054,10 +1043,9 @@ fn generate_kernel_linker_script(
 }
 
 fn build(
+    cfg: &PackageConfig,
+    name: impl AsRef<Path>,
     build_config: BuildConfig,
-    dest: PathBuf,
-    edges: bool,
-    remap_paths: &BTreeMap<PathBuf, &str>,
 ) -> Result<()> {
     println!("building path {}", build_config.crate_path.display());
 
@@ -1068,7 +1056,8 @@ fn build(
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let mut cargo_out = Path::new("target").to_path_buf();
 
-    let remap_path_prefix: String = remap_paths
+    let remap_path_prefix: String = cfg
+        .remap_paths
         .iter()
         .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
         .collect();
@@ -1088,7 +1077,7 @@ fn build(
         ),
     );
 
-    if edges {
+    if cfg.edges {
         let mut tree = build_config.cmd("tree");
         tree.arg("--edges").arg("features").arg("--verbose");
         println!(
@@ -1114,6 +1103,7 @@ fn build(
 
     cargo_out.push(build_config.out_path);
 
+    let dest = cfg.dist_file(name);
     println!("{} -> {}", cargo_out.display(), dest.display());
     std::fs::copy(&cargo_out, dest)?;
 
@@ -1933,17 +1923,13 @@ fn cargo_clean(name: &str, target: &str) -> Result<()> {
     Ok(())
 }
 
-fn resolve_task_slots(
-    task_name: &str,
-    all_tasks_toml: &IndexMap<String, Task>,
-    task_bin: &Path,
-    verbose: bool,
-) -> Result<()> {
+fn resolve_task_slots(cfg: &PackageConfig, task_name: &str) -> Result<()> {
     use scroll::{Pread, Pwrite};
 
-    let task_toml = &all_tasks_toml[task_name];
+    let task_toml = &cfg.toml.tasks[task_name];
 
-    let in_task_bin = std::fs::read(task_bin)?;
+    let task_bin = cfg.dist_file(&task_name);
+    let in_task_bin = std::fs::read(&task_bin)?;
     let elf = goblin::elf::Elf::parse(&in_task_bin)?;
 
     let mut out_task_bin = in_task_bin.clone();
@@ -1964,7 +1950,7 @@ fn resolve_task_slots(
         };
 
         let target_task_idx =
-            match all_tasks_toml.get_index_of(target_task_name) {
+            match cfg.toml.tasks.get_index_of(target_task_name) {
                 Some(x) => x,
                 _ => bail!(
                     "app.toml sets task '{}' task_slot '{}' to task '{}', but no such task exists in the app.toml",
@@ -1980,7 +1966,7 @@ fn resolve_task_slots(
             elf::get_endianness(&elf),
         )?;
 
-        if verbose {
+        if cfg.verbose {
             println!(
                 "Task '{}' task_slot '{}' changed from task index {:#x} to task index {:#x}",
                 task_name, entry.slot_name, in_task_idx, target_task_idx
