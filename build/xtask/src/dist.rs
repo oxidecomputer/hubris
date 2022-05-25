@@ -94,9 +94,7 @@ impl PackageConfig {
         // path for its --remap-path-prefix argument, so we use
         // `dunce::canonicalize` instead
         let cargo_home = dunce::canonicalize(std::env::var("CARGO_HOME")?)?;
-        let mut cargo_git = cargo_home.clone();
-        cargo_git.push("git");
-        cargo_git.push("checkouts");
+        let cargo_git = cargo_home.join("git").join("checkouts");
         remap_paths.insert(cargo_git, "/git");
 
         // This hash is canonical-ish: Cargo tries hard not to change it
@@ -105,10 +103,10 @@ impl PackageConfig {
         // It depends on system architecture, so this won't work on (for example)
         // a Raspberry Pi, but the only downside is that panic messages will
         // be longer.
-        let mut cargo_registry = cargo_home;
-        cargo_registry.push("registry");
-        cargo_registry.push("src");
-        cargo_registry.push("github.com-1ecc6299db9ec823");
+        let cargo_registry = cargo_home
+            .join("registry")
+            .join("src")
+            .join("github.com-1ecc6299db9ec823");
         remap_paths.insert(cargo_registry, "/crates.io");
 
         let mut hubris_dir =
@@ -1076,11 +1074,11 @@ fn build(
         bail!("command failed, see output for details");
     }
 
-    cargo_out.push(build_config.out_path);
+    let out_file = cargo_out.join(build_config.out_path);
 
     let dest = cfg.dist_file(name);
-    println!("{} -> {}", cargo_out.display(), dest.display());
-    std::fs::copy(&cargo_out, dest)?;
+    println!("{} -> {}", out_file.display(), dest.display());
+    std::fs::copy(&out_file, dest)?;
 
     Ok(())
 }
