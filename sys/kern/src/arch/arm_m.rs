@@ -1162,11 +1162,13 @@ unsafe extern "C" fn pendsv_entry() {
     let current = unsafe { CURRENT_TASK_PTR }
         .expect("irq before kernel started?")
         .as_ptr();
-    with_task_table(|tasks| {
-        let idx = (current as usize - tasks.as_ptr() as usize)
-            / core::mem::size_of::<task::Task>();
 
-        let next = task::select(idx, tasks);
+    // Safety: we're dereferencing the current task pointer, which we're
+    // trusting the rest of this module to maintain correctly.
+    let current = usize::from(unsafe { (*current).descriptor().index });
+
+    with_task_table(|tasks| {
+        let next = task::select(current, tasks);
         let next = &mut tasks[next];
         apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
