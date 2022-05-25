@@ -28,6 +28,12 @@ use lpc55_sign::{crc_image, signed_image};
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
+/// `PackageConfig` contains a bundle of data that's commonly used when
+/// building a full app image, grouped together to avoid passing a bunch
+/// of individual arguments to functions.
+///
+/// It should be trivial to calculate and kept constant during the build;
+/// mutable build information should be accumulated elsewhere.
 struct PackageConfig {
     /// Path to the `app.toml` file being built
     app_toml_file: PathBuf,
