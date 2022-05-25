@@ -909,12 +909,13 @@ pub unsafe extern "C" fn SVCall() {
                     movw r0, #:lower16:CURRENT_TASK_PTR
                     movt r0, #:upper16:CURRENT_TASK_PTR
                     ldr r1, [r0]
+                    movs r2, r1
                     @ fetch the process-mode stack pointer.
                     @ fetching into r12 means the order in the stm below is right.
                     mrs r12, PSP
                     @ now, store volatile registers, plus the PSP in r12, plus LR.
-                    stm r1!, {{r4-r12, lr}}
-                    vstm r1, {{s16-s31}}
+                    stm r2!, {{r4-r12, lr}}
+                    vstm r2, {{s16-s31}}
 
                     @ syscall number is passed in r11. Move it into r0 to pass it as
                     @ an argument to the handler, then call the handler.
