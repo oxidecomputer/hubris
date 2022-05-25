@@ -722,6 +722,9 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
             }
         }
     }
+    if supervisor.is_none() {
+        bail!("No task at priority 0 (supervisor)");
+    }
 
     Ok(())
 }
