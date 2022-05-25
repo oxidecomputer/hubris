@@ -70,6 +70,41 @@ impl Bsp {
         }
         .build(sys, eth);
 
+        use crate::miim_bridge::MiimBridge;
+        let rw = &mut MiimBridge::new(eth);
+        for i in 0..2 {
+            use vsc7448_pac::phy;
+            let phy = &mut bsp.vsc85x2.phy(i, rw);
+
+            // Errata: this bit must be disabled for loopback mode to work.
+            phy.phy
+                .modify(
+                    phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                    |r| {
+                        let mut v = u16::from(*r);
+                        v &= !(1 << 13);
+                        *r = v.into();
+                    },
+                )
+                .unwrap();
+
+            // Enable far-end loopback
+            phy.phy
+                .modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                    let mut v = u16::from(*r);
+                    v |= 1 << 3;
+                    *r = v.into();
+                })
+                .unwrap();
+
+            // Disable Rx to avoid DDOSing yourself
+            bsp.ksz8463
+                .modify(ksz8463::Register::PxCR2(i + 1), |reg| {
+                    *reg &= !(1 << 9)
+                })
+                .unwrap();
+        }
+
         Self(bsp)
     }
 
