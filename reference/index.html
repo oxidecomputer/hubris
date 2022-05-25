@@ -4872,8 +4872,8 @@ runs in the processor&#8217;s unprivileged mode, and is subject to memory protec
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>It runs at the highest task priority, 0. Normally, it is the only task at
-this priority.</p>
+<p>It runs at the highest task priority, 0, and is the only task at this
+priority.</p>
 </li>
 <li>
 <p>The kernel recognizes it and interacts with it in unique ways.</p>
@@ -4889,8 +4889,8 @@ differently:</p>
 <ul>
 <li>
 <p>When any <em>other</em> task crashes, the kernel posts a notification to the
-supervisor task. (The specific set of notification bits can be chosen in the
-<code>app.toml</code> key <code>supervisor.notification</code>.)</p>
+supervisor task. This notification is always sent to bit 0 (i.e. the
+value <code>1</code>).</p>
 </li>
 <li>
 <p>The supervisor task is allowed to send any kernel IPC message.</p>
@@ -5374,7 +5374,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-05-24 18:53:04 UTC
+Last updated 2022-05-25 20:51:37 UTC
 </div>
 </div>
 </body>
