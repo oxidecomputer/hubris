@@ -437,9 +437,9 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
     // any specified tasks.
     if task_names.is_empty() {
         bail!(
-            "Running `cargo xtask build` without specifying tasks has no effect.
-Did you mean to run `cargo xtask dist`?"
-            );
+            "Running `cargo xtask build` without specifying tasks has no effect.\n\
+             Did you mean to run `cargo xtask dist`?"
+        );
     }
     let all_tasks = toml.tasks.keys().collect::<BTreeSet<_>>();
     if let Some(name) = task_names
