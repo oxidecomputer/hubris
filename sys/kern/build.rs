@@ -73,11 +73,6 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(file, "pub static HUBRIS_IMAGE_ID: u64 = {};", image_id)?;
     writeln!(
         file,
-        "pub const HUBRIS_FAULT_NOTIFICATION: u32 = {};",
-        kconfig.supervisor_notification
-    )?;
-    writeln!(
-        file,
         "const HUBRIS_TASK_COUNT: usize = {};",
         kconfig.tasks.len()
     )?;
@@ -346,5 +341,4 @@ struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
-    supervisor_notification: u32,
 }

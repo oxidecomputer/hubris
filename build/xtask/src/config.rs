@@ -4,9 +4,10 @@
 
 use std::collections::{hash_map::DefaultHasher, BTreeMap};
 use std::hash::Hasher;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -30,7 +31,6 @@ struct RawConfig {
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
-    supervisor: Option<Supervisor>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
 }
@@ -50,7 +50,6 @@ pub struct Config {
     pub tasks: IndexMap<String, Task>,
     pub peripherals: IndexMap<String, Peripheral>,
     pub extratext: IndexMap<String, Peripheral>,
-    pub supervisor: Option<Supervisor>,
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
@@ -91,7 +90,6 @@ impl Config {
             tasks: toml.tasks,
             peripherals,
             extratext: toml.extratext,
-            supervisor: toml.supervisor,
             config: toml.config,
             buildhash,
             app_toml_path: cfg.to_owned(),
@@ -130,10 +128,11 @@ impl Config {
         relative_path: &Path,
         features: &[String],
     ) -> BuildConfig {
-        let mut args = Vec::new();
-        args.push("--no-default-features".to_string());
-        args.push("--target".to_string());
-        args.push(self.target.to_string());
+        let mut args = vec![
+            "--no-default-features".to_string(),
+            "--target".to_string(),
+            self.target.to_string(),
+        ];
         if verbose {
             args.push("-v".to_string());
         }
@@ -157,7 +156,7 @@ impl Config {
 
         let task_names =
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
-        env.insert("HUBRIS_TASKS".to_string(), task_names.to_string());
+        env.insert("HUBRIS_TASKS".to_string(), task_names);
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
         env.insert(
             "HUBRIS_APP_TOML".to_string(),
@@ -181,7 +180,7 @@ impl Config {
 
         if let Some(app_config) = &self.config {
             let app_config = toml::to_string(&app_config).unwrap();
-            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config.to_string());
+            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
         let mut crate_path = self.app_toml_path.clone();
@@ -255,10 +254,8 @@ impl Config {
         //
         if let Some(config) = &task_toml.config {
             let task_config = toml::to_string(&config).unwrap();
-            out.env.insert(
-                "HUBRIS_TASK_CONFIG".to_string(),
-                task_config.to_string(),
-            );
+            out.env
+                .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
         }
 
         // Expose the current task's name to allow for better error messages if
@@ -268,12 +265,53 @@ impl Config {
 
         Ok(out)
     }
+
+    /// Returns a map of memory name -> range
+    ///
+    /// This is useful when allocating memory for tasks
+    pub fn memories(&self) -> Result<IndexMap<String, Range<u32>>> {
+        self.outputs
+            .iter()
+            .map(|(name, out)| {
+                out.address
+                    .checked_add(out.size)
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "output {}: address {:08x} size {:x} would overflow",
+                            name,
+                            out.address,
+                            out.size
+                        )
+                    })
+                    .map(|end| (name.clone(), out.address..end))
+            })
+            .collect()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SigningMethod {
+    Crc,
+    Rsa,
+    Ecc,
+}
+
+impl std::fmt::Display for SigningMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Crc => "crc",
+            Self::Rsa => "rsa",
+            Self::Ecc => "ecc",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Signing {
-    pub method: String,
+    pub method: SigningMethod,
     pub priv_key: Option<PathBuf>,
     pub root_cert: Option<PathBuf>,
 }
@@ -303,12 +341,6 @@ pub struct Kernel {
     pub stacksize: Option<u32>,
     #[serde(default)]
     pub features: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Supervisor {
-    pub notification: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

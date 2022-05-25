@@ -16,8 +16,8 @@ runs in the processor's unprivileged mode, and is subject to memory protection.
 
 Two things make the supervisor different from other tasks:
 
-1. It runs at the highest task priority, 0. Normally, it is the only task at
-this priority.
+1. It runs at the highest task priority, 0, and is the only task at this
+priority.
 
 2. The kernel recognizes it and interacts with it in unique ways.
 
@@ -26,8 +26,8 @@ index 0,** and is listed first in the `app.toml`. The kernel treats task index 0
 differently:
 
 - When any _other_ task crashes, the kernel posts a notification to the
-  supervisor task. (The specific set of notification bits can be chosen in the
-  `app.toml` key `supervisor.notification`.)
+  supervisor task. This notification is always sent to bit 0 (i.e. the
+  value `1`).
 
 - The supervisor task is allowed to send any kernel IPC message.
 

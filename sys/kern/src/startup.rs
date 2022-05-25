@@ -7,6 +7,8 @@
 use crate::task::Task;
 use core::mem::MaybeUninit;
 
+pub const HUBRIS_FAULT_NOTIFICATION: u32 = 1;
+
 /// The main kernel entry point.
 ///
 /// We currently expect an application to provide its own `main`-equivalent
