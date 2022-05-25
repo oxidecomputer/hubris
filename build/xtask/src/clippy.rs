@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 
 use crate::config::Config;
 
@@ -16,9 +16,9 @@ pub fn run(
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
 
-    let mut src_dir = cfg;
-    src_dir.pop();
-    let src_dir = src_dir;
+    let src_dir = cfg
+        .parent()
+        .ok_or_else(|| anyhow!("Could not get src dir"))?;
 
     if tasks.is_empty() {
         bail!("Must provide one or more task names");
