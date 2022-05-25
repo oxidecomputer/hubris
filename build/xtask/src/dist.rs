@@ -17,7 +17,7 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{BuildConfig, Config, Kernel, Output, Peripheral, Signing, Task},
+    config::{BuildConfig, Config, Output, Peripheral, Signing, Task},
     elf, task_slot,
 };
 
@@ -28,19 +28,38 @@ use lpc55_sign::{crc_image, signed_image};
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
-#[derive(Debug, Hash)]
-struct LoadSegment {
-    source_file: PathBuf,
-    data: Vec<u8>,
+struct PackageConfig {
+    /// Path to the `app.toml` file being built
+    app_toml_file: PathBuf,
+
+    /// Directory containing the `app.toml` file being built
+    app_src_dir: PathBuf,
+
+    /// Loaded configuration
+    toml: Config,
+
+    /// Add `-v` to various build commands
+    verbose: bool,
+
+    /// Run `cargo tree --edges` before compiling, to show dependencies
+    edges: bool,
+
+    /// Directory where the build artifacts are placed, in the form
+    /// `target/$NAME/dist`.
+    dist_dir: PathBuf,
+
+    /// List of paths to be remapped by the compiler, to minimize strings in
+    /// the resulting binaries.
+    remap_paths: BTreeMap<PathBuf, &'static str>,
 }
 
 pub fn package(
     verbose: bool,
     edges: bool,
-    cfg: &Path,
+    app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
 ) -> Result<()> {
-    let toml = Config::from_file(cfg)?;
+    let toml = Config::from_file(app_toml)?;
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
     let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
@@ -60,25 +79,22 @@ pub fn package(
             )
         };
 
-    let mut dist_dir = PathBuf::from("target");
-    dist_dir.push(&toml.name);
-    dist_dir.push("dist");
+    let dist_dir = Path::new("target").join(&toml.name).join("dist");
     std::fs::create_dir_all(&dist_dir)?;
 
     check_rebuild(&toml)?;
 
-    let mut src_dir = cfg.to_path_buf();
+    let mut src_dir = app_toml.to_path_buf();
     src_dir.pop();
 
-    let mut memories = toml.memories()?;
-    for (name, range) in &memories {
+    // Allocate memories.
+    let (allocs, memories) = allocate_all(&toml)?;
+
+    // Print stats on memory usage
+    let starting_memories = toml.memories()?;
+    for (name, range) in &starting_memories {
         println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
     }
-    let starting_memories = memories.clone();
-
-    // Allocate memories.
-    let allocs = allocate_all(&toml.kernel, &toml.tasks, &mut memories)?;
-
     println!("Used:");
     for (name, new_range) in &memories {
         let orig_range = &starting_memories[name];
@@ -129,15 +145,7 @@ pub fn package(
 
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
-    build_bootloader(
-        &toml,
-        verbose,
-        edges,
-        &memories,
-        &src_dir,
-        &dist_dir,
-        &remap_paths,
-    )?;
+    build_bootloader(&toml, verbose, edges, &src_dir, &dist_dir, &remap_paths)?;
 
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
@@ -255,7 +263,7 @@ pub fn package(
 
     write_gdb_script(&toml, &dist_dir, &remap_paths)?;
 
-    build_archive(cfg, &toml, &dist_dir)?;
+    build_archive(app_toml, &toml, &dist_dir)?;
     Ok(())
 }
 
@@ -318,7 +326,11 @@ fn write_gdb_script(
     Ok(())
 }
 
-fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
+fn build_archive(
+    app_toml: &Path,
+    toml: &Config,
+    dist_dir: &Path,
+) -> Result<()> {
     // Bundle everything up into an archive.
     let mut archive =
         Archive::new(dist_dir.join(format!("build-{}.zip", toml.name)))?;
@@ -342,8 +354,8 @@ fn build_archive(cfg: &Path, toml: &Config, dist_dir: &Path) -> Result<()> {
         "git-rev",
         format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
     )?;
-    archive.copy(cfg, "app.toml")?;
-    let chip_dir = cfg.parent().unwrap().join(toml.chip.clone());
+    archive.copy(app_toml, "app.toml")?;
+    let chip_dir = app_toml.parent().unwrap().join(toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
     let chip_filename = chip_file.file_name().unwrap();
     archive.copy(&chip_file, &chip_filename)?;
@@ -481,7 +493,6 @@ fn build_bootloader(
     toml: &Config,
     verbose: bool,
     edges: bool,
-    memories: &IndexMap<String, Range<u32>>,
     src_dir: &Path,
     dist_dir: &Path,
     remap_paths: &BTreeMap<PathBuf, &str>,
@@ -491,10 +502,11 @@ fn build_bootloader(
     let mut linkscr =
         File::create("target/table.ld").context("Could not create table.ld")?;
     if let Some(bootloader) = toml.bootloader.as_ref() {
-        let mut bootloader_memory = IndexMap::new();
+        let memories = toml.memories()?;
         let flash = memories.get("bootloader_flash").unwrap();
         let ram = memories.get("bootloader_ram").unwrap();
         let sram = memories.get("bootloader_sram").unwrap();
+
         let image_flash = if let Some(end) = bootloader
             .imagea_flash_start
             .checked_add(bootloader.imagea_flash_size)
@@ -514,6 +526,7 @@ fn build_bootloader(
             std::process::exit(1);
         };
 
+        let mut bootloader_memory = IndexMap::new();
         bootloader_memory.insert(String::from("FLASH"), flash.clone());
         bootloader_memory.insert(String::from("RAM"), ram.clone());
         bootloader_memory.insert(String::from("SRAM"), sram.clone());
@@ -573,6 +586,12 @@ fn build_bootloader(
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Hash)]
+struct LoadSegment {
+    source_file: PathBuf,
+    data: Vec<u8>,
 }
 
 /// Builds a specific task, returning the entry point
@@ -1144,10 +1163,8 @@ pub struct Allocations {
 /// This means that the algorithm needs to keep track of a queue of pending
 /// requests per alignment size.
 pub fn allocate_all(
-    kernel: &Kernel,
-    tasks: &IndexMap<String, Task>,
-    free: &mut IndexMap<String, Range<u32>>,
-) -> Result<Allocations> {
+    toml: &Config,
+) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1157,6 +1174,9 @@ pub fn allocate_all(
     //
     // The task map is: memory name -> allocation size -> queue of task name.
     // The kernel map is: memory name -> allocation size
+    let kernel = &toml.kernel;
+    let tasks = &toml.tasks;
+    let mut free = toml.memories()?;
     let kernel_requests = &kernel.requires;
 
     let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
@@ -1179,7 +1199,7 @@ pub fn allocate_all(
 
     // Okay! Do memory types one by one, fitting kernel first.
     let mut allocs = Allocations::default();
-    for (region, avail) in free {
+    for (region, avail) in &mut free {
         let mut k_req = kernel_requests.get(region.as_str());
         let mut t_reqs = task_requests.get_mut(region.as_str());
 
@@ -1254,7 +1274,7 @@ pub fn allocate_all(
         }
     }
 
-    Ok(allocs)
+    Ok((allocs, free))
 }
 
 fn allocate_k(

@@ -48,14 +48,7 @@ pub fn run(
         }
 
         let build_config = if name == "kernel" {
-            // Allocate memories, using the real code since it's easier tha
-            // building a realistic mock
-            let mut memories = toml.memories()?;
-            let allocs = crate::dist::allocate_all(
-                &toml.kernel,
-                &toml.tasks,
-                &mut memories,
-            )?;
+            let (allocs, _) = crate::dist::allocate_all(&toml)?;
             // Pick dummy entry points for each task
             let entry_points = allocs
                 .tasks
