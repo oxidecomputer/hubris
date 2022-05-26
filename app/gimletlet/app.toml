@@ -127,27 +127,39 @@ stacksize = 2048
 start = true
 task-slots = ["sys"]
 
-[tasks.hiffy]
-path = "../../task/hiffy"
-name = "task-hiffy"
-features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update"]
-priority = 4
-requires = {flash = 32768, ram = 32768}
-stacksize = 2048
-start = true
-task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_server"]
-
 [tasks.hf]
 path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
-features = ["h753"]
+features = ["h753", "hash"]
 priority = 3
 requires = {flash = 16384, ram = 2048}
 stacksize = 1920
 start = true
 uses = ["quadspi"]
 interrupts = {"quadspi.irq" = 1}
+task-slots = ["sys", "hash_driver"]
+
+[tasks.hash_driver]
+path = "../../drv/stm32h7-hash-server"
+name = "drv-stm32h7-hash-server"
+features = ["h753"]
+priority = 3
+requires = {flash = 8192, ram=4096 }
+stacksize = 2048
+start = true
+uses = ["hash"]
+interrupts = {"hash.irq" = 1}
 task-slots = ["sys"]
+
+[tasks.hiffy]
+path = "../../task/hiffy"
+name = "task-hiffy"
+features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "rng", "update", "hash"]
+priority = 4
+requires = {flash = 32768, ram = 32768}
+stacksize = 2048
+start = true
+task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_server", "hash_driver"]
 
 [tasks.net]
 path = "../../task/net"
