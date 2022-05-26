@@ -481,25 +481,23 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     // if we need to rebuild, we should clean everything before we start building
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
-        let names = std::iter::once(toml.kernel.name.as_str())
-            .chain(
-                toml.bootloader
-                    .as_ref()
-                    .map(|b| b.name.as_str())
-                    .into_iter(),
-            )
-            .chain(toml.tasks.keys().map(|name| {
-                // this feels redundant, don't we already have the name?
-                // consider our supervisor:
-                //
-                // [tasks.jefe]
-                // name = "task-jefe"
-                //
-                // the "name" in the key is jefe, but the package name is in
-                // tasks.jefe.name, and that's what we need to give to cargo
-                toml.tasks[name].name.as_str()
-            }));
-        cargo_clean(names, &toml.target)?;
+        let mut names = vec![toml.kernel.name.as_str()];
+        if let Some(bootloader) = toml.bootloader.as_ref() {
+            names.push(bootloader.name.as_str());
+        }
+        for name in toml.tasks.keys() {
+            // This may feel redundant: don't we already have the name?
+            // Well, consider our supervisor:
+            //
+            // [tasks.jefe]
+            // name = "task-jefe"
+            //
+            // The "name" in the key is `jefei`, but the package (crate)
+            // name is in `tasks.jefe.name`, and that's what we need to
+            // give to `cargo`.
+            names.push(toml.tasks[name].name.as_str());
+        }
+        cargo_clean(&names, &toml.target)?;
     }
 
     // now that we're clean, update our buildstamp file; any failure to build
@@ -1873,14 +1871,11 @@ fn objcopy_translate_format(
     Ok(())
 }
 
-fn cargo_clean<'a>(
-    names: impl Iterator<Item = &'a str>,
-    target: &str,
-) -> Result<()> {
+fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
     let mut cmd = Command::new("cargo");
     cmd.arg("clean");
+    println!("cleaning {:?}", names);
     for name in names {
-        println!("cleaning {}", name);
         cmd.arg("-p").arg(name);
     }
     cmd.arg("--release").arg("--target").arg(target);
