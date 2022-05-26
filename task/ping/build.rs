@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut const_file = File::create(out.join("consts.rs")).unwrap();
 
     // If hubris is non-secure (i.e. TZ is enabled) we need to use a

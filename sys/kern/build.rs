@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut const_file = File::create(out.join("consts.rs")).unwrap();
 
     println!("cargo:rerun-if-env-changed=HUBRIS_SECURE");
@@ -64,7 +64,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         ron::de::from_str(&env::var("HUBRIS_KCONFIG")?)?;
     println!("cargo:rerun-if-env-changed=HUBRIS_KCONFIG");
 
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut file = File::create(out.join("kconfig.rs")).unwrap();
 
     writeln!(file, "// See build.rs for details")?;

@@ -8,7 +8,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
     println!("cargo:rerun-if-env-changed=HUBRIS_TASKS");
     let mut task_enum = vec![];

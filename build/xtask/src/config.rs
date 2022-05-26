@@ -121,13 +121,13 @@ impl Config {
         out
     }
 
-    fn common_build_config(
+    fn common_build_config<'a>(
         &self,
         verbose: bool,
         crate_name: &str,
-        relative_path: &Path,
         features: &[String],
-    ) -> BuildConfig {
+        sysroot: Option<&'a Path>,
+    ) -> BuildConfig<'a> {
         let mut args = vec![
             "--no-default-features".to_string(),
             "--target".to_string(),
@@ -183,33 +183,31 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let mut crate_path = self.app_toml_path.clone();
-        crate_path.pop();
-        crate_path.push(relative_path);
-
-        let mut out_path = Path::new("").to_path_buf();
-        out_path.push(&self.target);
-        out_path.push("release");
-        out_path.push(crate_name);
+        let out_path = Path::new("")
+            .join(&self.target)
+            .join("release")
+            .join(crate_name);
 
         BuildConfig {
             args,
             env,
-            crate_path,
+            crate_name: crate_name.to_string(),
+            sysroot,
             out_path,
         }
     }
 
-    pub fn kernel_build_config(
+    pub fn kernel_build_config<'a>(
         &self,
         verbose: bool,
         extra_env: &[(&str, &str)],
-    ) -> BuildConfig {
+        sysroot: Option<&'a Path>,
+    ) -> BuildConfig<'a> {
         let mut out = self.common_build_config(
             verbose,
             &self.kernel.name,
-            &self.kernel.path,
             &self.kernel.features,
+            sysroot,
         );
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
@@ -217,25 +215,27 @@ impl Config {
         out
     }
 
-    pub fn bootloader_build_config(
+    pub fn bootloader_build_config<'a>(
         &self,
         verbose: bool,
-    ) -> Option<BuildConfig> {
+        sysroot: Option<&'a Path>,
+    ) -> Option<BuildConfig<'a>> {
         self.bootloader.as_ref().map(|bootloader| {
             self.common_build_config(
                 verbose,
                 &bootloader.name,
-                &bootloader.path,
                 &bootloader.features,
+                sysroot,
             )
         })
     }
 
-    pub fn task_build_config(
+    pub fn task_build_config<'a>(
         &self,
         task_name: &str,
         verbose: bool,
-    ) -> Result<BuildConfig, String> {
+        sysroot: Option<&'a Path>,
+    ) -> Result<BuildConfig<'a>, String> {
         let task_toml = self
             .tasks
             .get(task_name)
@@ -243,8 +243,8 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &task_toml.name,
-            &task_toml.path,
             &task_toml.features,
+            sysroot,
         );
 
         //
@@ -319,7 +319,6 @@ pub struct Signing {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Bootloader {
-    pub path: PathBuf,
     pub name: String,
     #[serde(default)]
     pub features: Vec<String>,
@@ -335,7 +334,6 @@ pub struct Bootloader {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Kernel {
-    pub path: PathBuf,
     pub name: String,
     pub requires: IndexMap<String, u32>,
     pub stacksize: Option<u32>,
@@ -361,7 +359,6 @@ pub struct Output {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Task {
-    pub path: PathBuf,
     pub name: String,
     pub requires: IndexMap<String, u32>,
     pub priority: u8,
@@ -441,14 +438,21 @@ where
 }
 
 /// Stores arguments and environment variables to run on a particular task.
-pub struct BuildConfig {
+pub struct BuildConfig<'a> {
     args: Vec<String>,
     env: BTreeMap<String, String>,
-    pub crate_path: PathBuf,
+
+    /// Optional sysroot to a specific Rust installation.  If this is
+    /// specified, then `cargo` is called from the sysroot instead of using
+    /// the system façade (which may go through `rustup`).  This saves a few
+    /// hundred milliseconds per `cargo` invocation.
+    sysroot: Option<&'a Path>,
+
+    pub crate_name: String,
     pub out_path: PathBuf,
 }
 
-impl BuildConfig {
+impl BuildConfig<'_> {
     /// Applies the arguments and environment to a given Command
     pub fn cmd(&self, subcommand: &str) -> std::process::Command {
         // NOTE: current_dir's docs suggest that you should use canonicalize
@@ -460,15 +464,18 @@ impl BuildConfig {
         // We are not including a path in the binary name, so everything is
         // peachy. If you change this line below, make sure to canonicalize
         // path.
-        let mut cmd = std::process::Command::new("cargo");
+        let mut cmd = std::process::Command::new(match self.sysroot.as_ref() {
+            Some(sysroot) => sysroot.join("bin").join("cargo"),
+            None => PathBuf::from("cargo"),
+        });
         cmd.arg(subcommand);
+        cmd.arg("-p").arg(&self.crate_name);
         for a in &self.args {
             cmd.arg(a);
         }
         for (k, v) in &self.env {
             cmd.env(k, v);
         }
-        cmd.current_dir(&self.crate_path);
         cmd
     }
 }

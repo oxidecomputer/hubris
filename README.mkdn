@@ -186,7 +186,6 @@ peripherals would read
 
 ```toml
 [tasks.name_for_task_in_this_image]
-path = "../my-task-directory"
 name = "my-task-target-name"
 priority = 1
 requires = {flash = 1024, ram = 1024}

@@ -54,6 +54,9 @@ struct PackageConfig {
     /// `target/$NAME/dist`.
     dist_dir: PathBuf,
 
+    /// Sysroot of the relevant toolchain
+    sysroot: PathBuf,
+
     /// List of paths to be remapped by the compiler, to minimize strings in
     /// the resulting binaries.
     remap_paths: BTreeMap<PathBuf, &'static str>,
@@ -67,6 +70,16 @@ impl PackageConfig {
             .parent()
             .ok_or_else(|| anyhow!("Could not get app toml directory"))?;
 
+        let sysroot = Command::new("rustc")
+            .arg("--print")
+            .arg("sysroot")
+            .output()?;
+        if !sysroot.status.success() {
+            bail!("Could not find execute rustc to get sysroot");
+        }
+        let sysroot =
+            PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
@@ -74,6 +87,7 @@ impl PackageConfig {
             verbose,
             edges,
             dist_dir,
+            sysroot,
             remap_paths: Self::remap_paths()?,
         })
     }
@@ -481,24 +495,23 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     // if we need to rebuild, we should clean everything before we start building
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
-        cargo_clean(&toml.kernel.name, &toml.target)?;
+        let mut names = vec![toml.kernel.name.as_str()];
         if let Some(bootloader) = toml.bootloader.as_ref() {
-            cargo_clean(&bootloader.name, &toml.target)?;
+            names.push(bootloader.name.as_str());
         }
         for name in toml.tasks.keys() {
-            // this feels redundant, don't we already have the name? consider
-            // our supervisor:
+            // This may feel redundant: don't we already have the name?
+            // Well, consider our supervisor:
             //
             // [tasks.jefe]
-            // path = "../task-jefe"
             // name = "task-jefe"
             //
-            // the "name" in the key is jefe, but the package name is in
-            // tasks.jefe.name, and that's what we need to give to cargo
-            let task_toml = &toml.tasks[name];
-
-            cargo_clean(&task_toml.name, &toml.target)?;
+            // The "name" in the key is `jefe`, but the package (crate)
+            // name is in `tasks.jefe.name`, and that's what we need to
+            // give to `cargo`.
+            names.push(toml.tasks[name].name.as_str());
         }
+        cargo_clean(&names, &toml.target)?;
     }
 
     // now that we're clean, update our buildstamp file; any failure to build
@@ -550,7 +563,10 @@ fn build_bootloader(
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
 
-    let build_config = cfg.toml.bootloader_build_config(cfg.verbose).unwrap();
+    let build_config = cfg
+        .toml
+        .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
     build(cfg, &bootloader.name, build_config)?;
 
     // Need a bootloader binary for signing
@@ -562,7 +578,7 @@ fn build_bootloader(
     )?;
 
     if let Some(signing) = cfg.toml.signing.get("bootloader") {
-        do_sign_file(&cfg, signing, "bootloader", 0)?;
+        do_sign_file(cfg, signing, "bootloader", 0)?;
     }
 
     // We need to get the absolute symbols for the non-secure application
@@ -611,7 +627,10 @@ fn build_task(
 
     fs::copy("build/task-link.x", "target/link.x")?;
 
-    let build_config = cfg.toml.task_build_config(name, cfg.verbose).unwrap();
+    let build_config = cfg
+        .toml
+        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
     build(cfg, name, build_config)
         .context(format!("failed to build {}", name))?;
 
@@ -665,6 +684,7 @@ fn build_kernel(
             ("HUBRIS_KCONFIG", &kconfig),
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
         ],
+        Some(&cfg.sysroot),
     );
     build(cfg, "kernel", build_config)?;
 
@@ -1026,7 +1046,7 @@ fn build(
     name: impl AsRef<Path>,
     build_config: BuildConfig,
 ) -> Result<()> {
-    println!("building path {}", build_config.crate_path.display());
+    println!("building crate {}", build_config.crate_name);
 
     let mut cmd = build_config.cmd("rustc");
     cmd.arg("--release");
@@ -1060,9 +1080,8 @@ fn build(
         let mut tree = build_config.cmd("tree");
         tree.arg("--edges").arg("features").arg("--verbose");
         println!(
-            "Path: {}\nRunning cargo {:?}",
-            build_config.crate_path.display(),
-            tree
+            "Crate: {}\nRunning cargo {:?}",
+            build_config.crate_name, tree
         );
         let tree_status = tree
             .status()
@@ -1873,16 +1892,14 @@ fn objcopy_translate_format(
     Ok(())
 }
 
-fn cargo_clean(name: &str, target: &str) -> Result<()> {
-    println!("cleaning {}", name);
-
+fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
     let mut cmd = Command::new("cargo");
     cmd.arg("clean");
-    cmd.arg("-p");
-    cmd.arg(name);
-    cmd.arg("--release");
-    cmd.arg("--target");
-    cmd.arg(target);
+    println!("cleaning {:?}", names);
+    for name in names {
+        cmd.arg("-p").arg(name);
+    }
+    cmd.arg("--release").arg("--target").arg(target);
 
     let status = cmd
         .status()

@@ -5,7 +5,6 @@ chip = "../../chips/lpc55"
 stacksize = 1400
 
 [kernel]
-path = "../../app/gemini-bu-rot"
 name = "gemini-bu-rot"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
@@ -47,7 +46,6 @@ root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 
 
 [bootloader]
-path = "../../stage0"
 name = "stage0"
 # Currently we have the first 0x8000 of flash and first 0x4000 of RAM
 # dedicated for the stage0 bootloader and the rest for Hubris. Once we have
@@ -58,7 +56,6 @@ imagea-ram-start = 0x20004000
 imagea-ram-size = 0x3C000
 
 [tasks.runner]
-path = "../test-runner"
 name = "test-runner"
 priority = 0
 requires = {flash = 16384, ram = 4096}
@@ -66,7 +63,6 @@ start = true
 features = ["itm"]
 
 [tasks.suite]
-path = "../test-suite"
 name = "test-suite"
 priority = 2
 requires = {flash = 65536, ram = 4096}
@@ -82,7 +78,6 @@ baz = [1, 2, 3, 4]
 tup = [[1, true], [2, true], [3, false]]
 
 [tasks.assist]
-path = "../test-assist"
 name = "test-assist"
 priority = 1
 requires = {flash = 16384, ram = 4096}
@@ -90,7 +85,6 @@ start = true
 features = ["itm"]
 
 [tasks.idol]
-path = "../test-idol-server"
 name = "test-idol-server"
 priority = 1
 requires = {flash = 4096, ram = 1024}
@@ -98,7 +92,6 @@ stacksize = 1024
 start = true
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 3
 requires = {flash = 256, ram = 256}

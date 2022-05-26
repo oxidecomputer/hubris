@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 
 use crate::config::Config;
 
@@ -15,10 +15,6 @@ pub fn run(
     options: &[String],
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
-
-    let src_dir = cfg
-        .parent()
-        .ok_or_else(|| anyhow!("Could not get src dir"))?;
 
     if tasks.is_empty() {
         bail!("Must provide one or more task names");
@@ -31,11 +27,11 @@ pub fn run(
     }
 
     for (i, name) in tasks.iter().enumerate() {
-        let (task_name, path) = if name == "kernel" {
-            ("kernel", &toml.kernel.path)
+        let crate_name = if name == "kernel" {
+            "kernel"
         } else {
             let task_toml = &toml.tasks[name];
-            (task_toml.name.as_str(), &task_toml.path)
+            task_toml.name.as_str()
         };
         if tasks.len() > 1 {
             if i > 0 {
@@ -43,7 +39,7 @@ pub fn run(
             }
             println!(
                 "================== {} [{}] ==================",
-                name, task_name
+                name, crate_name
             );
         }
 
@@ -66,9 +62,10 @@ pub fn run(
                     ("HUBRIS_KCONFIG", &kconfig),
                     ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
                 ],
+                None,
             )
         } else {
-            toml.task_build_config(name, verbose).unwrap()
+            toml.task_build_config(name, verbose, None).unwrap()
         };
         let mut cmd = build_config.cmd("clippy");
 
@@ -86,7 +83,6 @@ pub fn run(
             cmd.arg(opt);
         }
 
-        cmd.current_dir(&src_dir.join(&path));
         let status = cmd.status()?;
         if !status.success() {
             bail!("`cargo clippy` failed, see output for details");

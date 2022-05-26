@@ -20,8 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         panic!()
     }
 
-    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    let target_dir = &PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let target_dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
     let mut task_file = File::create(out.join("hypo.rs")).unwrap();
     // This contains the addresses of the secure entry points so make sure
     // this crate gets rebuilt if it changes
