@@ -62,9 +62,10 @@ pub fn run(
                     ("HUBRIS_KCONFIG", &kconfig),
                     ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
                 ],
+                None,
             )
         } else {
-            toml.task_build_config(name, verbose).unwrap()
+            toml.task_build_config(name, verbose, None).unwrap()
         };
         let mut cmd = build_config.cmd("clippy");
 

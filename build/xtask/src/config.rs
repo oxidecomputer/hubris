@@ -121,12 +121,13 @@ impl Config {
         out
     }
 
-    fn common_build_config(
+    fn common_build_config<'a>(
         &self,
         verbose: bool,
         crate_name: &str,
         features: &[String],
-    ) -> BuildConfig {
+        sysroot: Option<&'a Path>,
+    ) -> BuildConfig<'a> {
         let mut args = vec![
             "--no-default-features".to_string(),
             "--target".to_string(),
@@ -191,19 +192,22 @@ impl Config {
             args,
             env,
             crate_name: crate_name.to_string(),
+            sysroot,
             out_path,
         }
     }
 
-    pub fn kernel_build_config(
+    pub fn kernel_build_config<'a>(
         &self,
         verbose: bool,
         extra_env: &[(&str, &str)],
-    ) -> BuildConfig {
+        sysroot: Option<&'a Path>,
+    ) -> BuildConfig<'a> {
         let mut out = self.common_build_config(
             verbose,
             &self.kernel.name,
             &self.kernel.features,
+            sysroot,
         );
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
@@ -211,24 +215,27 @@ impl Config {
         out
     }
 
-    pub fn bootloader_build_config(
+    pub fn bootloader_build_config<'a>(
         &self,
         verbose: bool,
-    ) -> Option<BuildConfig> {
+        sysroot: Option<&'a Path>,
+    ) -> Option<BuildConfig<'a>> {
         self.bootloader.as_ref().map(|bootloader| {
             self.common_build_config(
                 verbose,
                 &bootloader.name,
                 &bootloader.features,
+                sysroot,
             )
         })
     }
 
-    pub fn task_build_config(
+    pub fn task_build_config<'a>(
         &self,
         task_name: &str,
         verbose: bool,
-    ) -> Result<BuildConfig, String> {
+        sysroot: Option<&'a Path>,
+    ) -> Result<BuildConfig<'a>, String> {
         let task_toml = self
             .tasks
             .get(task_name)
@@ -237,6 +244,7 @@ impl Config {
             verbose,
             &task_toml.name,
             &task_toml.features,
+            sysroot,
         );
 
         //
@@ -430,14 +438,21 @@ where
 }
 
 /// Stores arguments and environment variables to run on a particular task.
-pub struct BuildConfig {
+pub struct BuildConfig<'a> {
     args: Vec<String>,
     env: BTreeMap<String, String>,
+
+    /// Optional sysroot to a specific Rust installation.  If this is
+    /// specified, then `cargo` is called from the sysroot instead of using
+    /// the system façade (which may go through `rustup`).  This saves a few
+    /// hundred milliseconds per `cargo` invocation.
+    sysroot: Option<&'a Path>,
+
     pub crate_name: String,
     pub out_path: PathBuf,
 }
 
-impl BuildConfig {
+impl BuildConfig<'_> {
     /// Applies the arguments and environment to a given Command
     pub fn cmd(&self, subcommand: &str) -> std::process::Command {
         // NOTE: current_dir's docs suggest that you should use canonicalize
@@ -449,7 +464,10 @@ impl BuildConfig {
         // We are not including a path in the binary name, so everything is
         // peachy. If you change this line below, make sure to canonicalize
         // path.
-        let mut cmd = std::process::Command::new("cargo");
+        let mut cmd = std::process::Command::new(match self.sysroot.as_ref() {
+            Some(sysroot) => sysroot.join("bin").join("cargo"),
+            None => PathBuf::from("cargo"),
+        });
         cmd.arg(subcommand);
         cmd.arg("-p").arg(&self.crate_name);
         for a in &self.args {

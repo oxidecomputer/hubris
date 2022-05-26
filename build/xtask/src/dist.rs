@@ -54,6 +54,9 @@ struct PackageConfig {
     /// `target/$NAME/dist`.
     dist_dir: PathBuf,
 
+    /// Sysroot of the relevant toolchain
+    sysroot: PathBuf,
+
     /// List of paths to be remapped by the compiler, to minimize strings in
     /// the resulting binaries.
     remap_paths: BTreeMap<PathBuf, &'static str>,
@@ -67,6 +70,16 @@ impl PackageConfig {
             .parent()
             .ok_or_else(|| anyhow!("Could not get app toml directory"))?;
 
+        let sysroot = Command::new("rustc")
+            .arg("--print")
+            .arg("sysroot")
+            .output()?;
+        if !sysroot.status.success() {
+            bail!("Could not find execute rustc to get sysroot");
+        }
+        let sysroot =
+            PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
@@ -74,6 +87,7 @@ impl PackageConfig {
             verbose,
             edges,
             dist_dir,
+            sysroot,
             remap_paths: Self::remap_paths()?,
         })
     }
@@ -549,7 +563,10 @@ fn build_bootloader(
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
 
-    let build_config = cfg.toml.bootloader_build_config(cfg.verbose).unwrap();
+    let build_config = cfg
+        .toml
+        .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
     build(cfg, &bootloader.name, build_config)?;
 
     // Need a bootloader binary for signing
@@ -610,7 +627,10 @@ fn build_task(
 
     fs::copy("build/task-link.x", "target/link.x")?;
 
-    let build_config = cfg.toml.task_build_config(name, cfg.verbose).unwrap();
+    let build_config = cfg
+        .toml
+        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
     build(cfg, name, build_config)
         .context(format!("failed to build {}", name))?;
 
@@ -664,6 +684,7 @@ fn build_kernel(
             ("HUBRIS_KCONFIG", &kconfig),
             ("HUBRIS_IMAGE_ID", &format!("{}", image_id)),
         ],
+        Some(&cfg.sysroot),
     );
     build(cfg, "kernel", build_config)?;
 
