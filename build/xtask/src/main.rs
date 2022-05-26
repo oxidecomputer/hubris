@@ -60,6 +60,16 @@ enum Xtask {
         args: HumilityArgs,
     },
 
+    /// Runs `xtask dist`, `xtask flash` and then `humility gdb`
+    Gdb {
+        /// Do not flash a new image; just run `humility gdb`
+        #[clap(long, short)]
+        noflash: bool,
+
+        #[clap(flatten)]
+        args: HumilityArgs,
+    },
+
     /// Runs `xtask dist` and reports the sizes of resulting tasks
     Sizes {
         /// Request verbosity from tools we shell out to.
@@ -78,7 +88,7 @@ enum Xtask {
     /// Runs `xtask dist`, `xtask flash` and then `humility test`
     Test {
         /// Do not flash a new image; just run `humility test`
-        #[clap(short)]
+        #[clap(long, short)]
         noflash: bool,
 
         #[clap(flatten)]
@@ -110,7 +120,7 @@ enum Xtask {
     },
 }
 
-#[derive(Debug, Parser)]
+#[derive(Clone, Debug, Parser)]
 pub struct HumilityArgs {
     /// Path to the image configuration file, in TOML.
     cfg: PathBuf,
@@ -119,7 +129,7 @@ pub struct HumilityArgs {
     #[clap(short, long)]
     verbose: bool,
 
-    /// Extra options to pass to clippy
+    /// Extra options to pass to Humility
     #[clap(last = true)]
     extra_options: Vec<String>,
 }
@@ -128,7 +138,10 @@ pub struct HumilityArgs {
 // identifies the set of packages that should be operated upon.
 fn main() -> Result<()> {
     let xtask = Xtask::parse();
+    run(xtask)
+}
 
+fn run(xtask: Xtask) -> Result<()> {
     match xtask {
         Xtask::Dist {
             verbose,
@@ -159,12 +172,15 @@ fn main() -> Result<()> {
         Xtask::Humility { args } => {
             humility::run(&args, &[], None)?;
         }
+        Xtask::Gdb { noflash, mut args } => {
+            if !noflash {
+                args.extra_options.push("--load".to_string());
+            }
+            humility::run(&args, &[], Some("gdb"))?;
+        }
         Xtask::Test { args, noflash } => {
             if !noflash {
-                dist::package(args.verbose, false, &args.cfg, None)?;
-                let toml = Config::from_file(&args.cfg)?;
-                let chip = ["-c", crate::flash::chip_name(&toml.board)?];
-                humility::run(&args, &chip, Some("flash"))?;
+                run(Xtask::Flash { args: args.clone() })?;
             }
             humility::run(&args, &[], Some("test"))?;
         }
