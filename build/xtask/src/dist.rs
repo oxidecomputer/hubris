@@ -506,7 +506,7 @@ fn check_rebuild(toml: &Config) -> Result<()> {
             // [tasks.jefe]
             // name = "task-jefe"
             //
-            // The "name" in the key is `jefei`, but the package (crate)
+            // The "name" in the key is `jefe`, but the package (crate)
             // name is in `tasks.jefe.name`, and that's what we need to
             // give to `cargo`.
             names.push(toml.tasks[name].name.as_str());
