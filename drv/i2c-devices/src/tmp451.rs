@@ -93,7 +93,7 @@ impl Validate<Error> for Tmp451 {
 }
 
 impl TempSensor<Error> for Tmp451 {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         let (hi, lo) = match self.target {
             Target::Local => {
                 (Register::LocalTempHiByte, Register::LocalTempLoByte)

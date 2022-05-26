@@ -20,9 +20,6 @@ requires = {flash = 20000, ram = 3072}
 #
 features = ["itm", "stm32f3"]
 
-[supervisor]
-notification = 1
-
 [outputs.flash]
 address = 0x08000000
 size = 262144

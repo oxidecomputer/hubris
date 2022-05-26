@@ -24,13 +24,13 @@
 //!
 //! Arguments to syscalls need to be read from the `task.save()` structure where
 //! the task's registers are stored. Each class of syscall has an *argument
-//! proxy* type to make this easy and safe, e.g. `task.save().as_send_args()`.
+//! struct* type to make this easy and safe, e.g. `task.save().as_send_args()`.
 //! See the `task::ArchState` trait for details.
 
 use core::convert::TryFrom;
 
 use abi::{
-    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState,
+    FaultInfo, LeaseAttributes, SchedState, Sysnum, TaskId, TaskState, ULease,
     UsageError,
 };
 use unwrap_lite::UnwrapLite;
@@ -39,7 +39,7 @@ use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::task::{self, current_id, ArchState, NextTask, Task};
 use crate::time::Timestamp;
-use crate::umem::{safe_copy, ULease, USlice};
+use crate::umem::{safe_copy, USlice};
 
 /// Entry point accessed by arch-specific syscall entry sequence.
 ///
@@ -49,30 +49,42 @@ use crate::umem::{safe_copy, ULease, USlice};
 /// `nr` is the syscall number passed from user code.
 ///
 /// `task` is a pointer to the current Task.
+///
+/// # Safety
+///
+/// To use this, you must (1) ensure that the state described above is saved on
+/// the way in and restored on the way out, (2) call this from the syscall
+/// interrupt handler, only, and (3) not call it reentrantly.
 #[no_mangle]
 pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
     crate::profiling::event_syscall_enter(nr);
 
     // The task pointer is about to alias our task table, at which point it
-    // could not be dereferenced -- so we'll shed our ability to dereference it.
-    let task = task as usize;
+    // could not be dereferenced -- so we'll shed our ability to dereference it
+    // immediately.
+    let idx = {
+        // Safety: we're trusting the interrupt entry routine to pass us a valid
+        // task pointer.
+        let t = unsafe { &*task };
+        usize::from(t.descriptor().index)
+    };
 
     arch::with_task_table(|tasks| {
-        // Work out the task index based on the pointer into the task table
-        // slice. We could store the index *and* the pointer in globals,
-        // avoiding this divde, but divides are pretty cheap....
-        let idx =
-            (task - tasks.as_ptr() as usize) / core::mem::size_of::<Task>();
-
         match safe_syscall_entry(nr, idx, tasks) {
             // If we're returning to the same task, we're done!
             NextTask::Same => (),
 
-            NextTask::Specific(i) => switch_to(&mut tasks[i]),
+            NextTask::Specific(i) => {
+                // Safety: this is a valid task from the tasks table, meeting
+                // switch_to's requirements.
+                unsafe { switch_to(&mut tasks[i]) }
+            }
 
             NextTask::Other => {
                 let next = task::select(idx, tasks);
-                switch_to(&mut tasks[next])
+                // Safety: this is a valid task from the tasks table, meeting
+                // switch_to's requirements.
+                unsafe { switch_to(&mut tasks[next]) }
             }
         }
     });
@@ -125,7 +137,7 @@ fn safe_syscall_entry(nr: u32, current: usize, tasks: &mut [Task]) -> NextTask {
 /// If `caller` is out of range for `tasks`.
 fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Extract callee.
-    let callee_id = tasks[caller].save().as_send_args().callee();
+    let callee_id = tasks[caller].save().as_send_args().callee;
 
     // Check IPC filter - TODO
     // Open question: should out-of-range task IDs be handled by faulting below,
@@ -197,7 +209,7 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 
     let caller_id = current_id(tasks, caller);
 
-    let specific_sender = tasks[caller].save().as_recv_args().specific_sender();
+    let specific_sender = tasks[caller].save().as_recv_args().specific_sender;
 
     let mut next_task = NextTask::Same; // update if we wake tasks
 
@@ -291,7 +303,8 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
 /// If `caller` is out of range for `tasks`.
 fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // Extract the target of the reply.
-    let callee = tasks[caller].save().as_reply_args().callee();
+    let reply_args = tasks[caller].save().as_reply_args();
+    let callee = reply_args.callee;
     let caller_id = current_id(tasks, caller);
 
     // Validate it. We tolerate stale IDs here (it's not the callee's fault if
@@ -319,24 +332,18 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // Collect information on the send from the caller. This information is
     // all stored in infallibly-readable areas, but our accesses can fail if
     // the caller handed us bogus slices.
-    let reply_args = tasks[caller].save().as_reply_args();
+    //
     // Read the reply arg that could fault first.
-    let src_slice = reply_args.message();
-    let src_slice = if let Ok(ss) = src_slice {
-        ss
-    } else {
+    let src_slice = reply_args.message.map_err(|_| {
         // The task invoking reply handed us an illegal slice instead of a
         // valid reply message! Naughty naughty.
-        return Err(FaultInfo::SyscallUsage(UsageError::InvalidSlice));
-    };
-    // Cool, now collect the rest and unborrow.
-    let code = reply_args.response_code();
-    drop(reply_args);
+        FaultInfo::SyscallUsage(UsageError::InvalidSlice)
+    })?;
 
     // Collect information about the callee's reply buffer. This, too, is
     // somewhere we can read infallibly.
     let send_args = tasks[callee].save().as_send_args();
-    let dest_slice = match send_args.response_buffer() {
+    let dest_slice = match send_args.response {
         Ok(buffer) => buffer,
         Err(e) => {
             // The sender set up a bogus response buffer. How rude. This
@@ -349,7 +356,6 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
             ));
         }
     };
-    drop(send_args);
 
     // Okay, ready to attempt the copy.
     // TODO: we want to treat any attempt to copy more than will fit as a fault
@@ -371,7 +377,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 
     tasks[callee]
         .save_mut()
-        .set_send_response_and_length(code, amount_copied);
+        .set_send_response_and_length(reply_args.response_code, amount_copied);
     tasks[callee].set_healthy_state(SchedState::Runnable);
 
     // KEY ASSUMPTION: sends go from less important tasks to more important
@@ -383,18 +389,17 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 /// Implementation of the `SET_TIMER` syscall.
 fn set_timer(task: &mut Task, now: Timestamp) -> NextTask {
     let args = task.save().as_set_timer_args();
-    let (dl, n) = (args.deadline(), args.notification());
-    if let Some(deadline) = dl {
+    if let Some(deadline) = args.deadline {
         // timer is being enabled
         if deadline <= now {
             // timer is already expired
-            task.set_timer(None, n);
+            task.set_timer(None, args.notification);
             // We don't care if we woke the task, because it's already running!
-            let _ = task.post(n);
+            let _ = task.post(args.notification);
             return NextTask::Same;
         }
     }
-    task.set_timer(dl, n);
+    task.set_timer(args.deadline, args.notification);
     NextTask::Same
 }
 
@@ -414,14 +419,12 @@ fn borrow_read(
 ) -> Result<NextTask, UserError> {
     // Collect parameters from caller.
     let args = tasks[caller].save().as_borrow_args();
-    let lender = args.lender();
-    let offset = args.offset();
-    let buffer = args.buffer()?;
-    drop(args);
+    let buffer = args.buffer?;
 
-    let lender = task::check_task_id_against_table(tasks, lender)?;
+    let lender = task::check_task_id_against_table(tasks, args.lender)?;
 
-    let lease = borrow_lease(tasks, caller, lender, offset)?;
+    let lease =
+        borrow_lease(tasks, caller, lender, args.lease_number, args.offset)?;
 
     // Does the lease grant us the ability to read from the memory?
     if !lease.attributes.contains(LeaseAttributes::READ) {
@@ -459,14 +462,12 @@ fn borrow_write(
 ) -> Result<NextTask, UserError> {
     // Collect parameters from caller.
     let args = tasks[caller].save().as_borrow_args();
-    let lender = args.lender();
-    let offset = args.offset();
-    let buffer = args.buffer()?;
-    drop(args);
+    let buffer = args.buffer?;
 
-    let lender = task::check_task_id_against_table(tasks, lender)?;
+    let lender = task::check_task_id_against_table(tasks, args.lender)?;
 
-    let lease = borrow_lease(tasks, caller, lender, offset)?;
+    let lease =
+        borrow_lease(tasks, caller, lender, args.lease_number, args.offset)?;
 
     // Does the lease grant us the ability to write to the memory?
     if !lease.attributes.contains(LeaseAttributes::WRITE) {
@@ -504,12 +505,10 @@ fn borrow_info(
 ) -> Result<NextTask, UserError> {
     // Collect parameters from caller.
     let args = tasks[caller].save().as_borrow_args();
-    let lender = args.lender();
-    drop(args);
 
-    let lender = task::check_task_id_against_table(tasks, lender)?;
+    let lender = task::check_task_id_against_table(tasks, args.lender)?;
 
-    let lease = borrow_lease(tasks, caller, lender, 0)?;
+    let lease = borrow_lease(tasks, caller, lender, args.lease_number, 0)?;
 
     tasks[caller]
         .save_mut()
@@ -521,13 +520,9 @@ fn borrow_lease(
     tasks: &mut [Task],
     caller: usize,
     lender: usize,
+    lease_number: usize,
     offset: usize,
 ) -> Result<ULease, UserError> {
-    // Collect parameters from caller.
-    let args = tasks[caller].save().as_borrow_args();
-    let lease_number = args.lease_number();
-    drop(args);
-
     let caller_id = current_id(tasks, caller);
 
     // Check state of lender and range of lease table.
@@ -540,7 +535,7 @@ fn borrow_lease(
     }
 
     let largs = tasks[lender].save().as_send_args();
-    let leases = match largs.lease_table() {
+    let leases = match largs.lease_table {
         Ok(t) => t,
         Err(e) => {
             // Huh. Lender has a corrupt lease table. This would normally be
@@ -597,9 +592,25 @@ fn borrow_lease(
 /// the end of the syscall routine.
 ///
 /// Note that this does *not* magically run user code. This is not Unix `swtch`.
+///
+/// # Safety
+///
+/// This is unsafe for two reasons.
+///
+/// 1. It will reconfigure the MPU according to instructions in `task`, which
+///    could break kernel invariants if done maliciously.
+/// 2. It will leak a pointer to `task` into static space, where it will be used
+///    on next kernel entry.
+///
+/// To avoid causing problems, ensure that `task` is a member of the task table,
+/// with memory protection generated by the build system, and that your access
+/// to `task` goes out of scope before next kernel entry.
 unsafe fn switch_to(task: &mut Task) {
     arch::apply_memory_protection(task);
-    arch::set_current_task(task);
+    // Safety: our contract above is sufficient to ensure that this is safe.
+    unsafe {
+        arch::set_current_task(task);
+    }
 }
 
 /// Transfers a message from caller's context into callee's. This may be called
@@ -638,35 +649,29 @@ fn deliver(
     caller: usize,
     callee: usize,
 ) -> Result<(), InteractFault> {
+    let caller_id = task::current_id(tasks, caller);
+
     // Collect information on the send from the caller. This information is all
     // stored in infallibly-readable areas, but our accesses can fail if the
     // caller handed us bogus slices.
     let send_args = tasks[caller].save().as_send_args();
-    let op = send_args.operation();
-    let caller_id = task::current_id(tasks, caller);
-    let src_slice = send_args.message().map_err(InteractFault::in_src)?;
-    let response_capacity = send_args
-        .response_buffer()
-        .map_err(InteractFault::in_src)?
-        .len();
-    let lease_count = send_args
-        .lease_table()
-        .map_err(InteractFault::in_src)?
-        .len();
-    drop(send_args);
+    let src_slice = send_args.message.map_err(InteractFault::in_src)?;
+    let response_capacity =
+        send_args.response.map_err(InteractFault::in_src)?.len();
+    let lease_count =
+        send_args.lease_table.map_err(InteractFault::in_src)?.len();
 
     // Collect information about the callee's receive buffer. This, too, is
     // somewhere we can read infallibly.
     let recv_args = tasks[callee].save().as_recv_args();
-    let dest_slice = recv_args.buffer().map_err(InteractFault::in_dst)?;
-    drop(recv_args);
+    let dest_slice = recv_args.buffer.map_err(InteractFault::in_dst)?;
 
     // Okay, ready to attempt the copy.
     let amount_copied =
         safe_copy(tasks, caller, src_slice, callee, dest_slice)?;
     tasks[callee].save_mut().set_recv_result(
         caller_id,
-        u32::from(op),
+        u32::from(send_args.operation),
         amount_copied,
         response_capacity,
         lease_count,
@@ -685,11 +690,8 @@ fn irq_control(
     caller: usize,
 ) -> Result<NextTask, UserError> {
     let args = tasks[caller].save().as_irq_args();
-    let bitmask = args.notification_bitmask();
-    let control = args.control();
-    drop(args);
 
-    let operation = match control {
+    let operation = match args.control {
         0 => crate::arch::disable_irq,
         1 => crate::arch::enable_irq,
         _ => {
@@ -700,13 +702,15 @@ fn irq_control(
     };
 
     let caller = caller as u32;
-    let irqs = crate::arch::get_irqs_by_owner(abi::InterruptOwner {
-        task: caller,
-        notification: bitmask,
-    })
-    .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
-        UsageError::NoIrq,
-    )))?;
+
+    let irqs = crate::startup::HUBRIS_TASK_IRQ_LOOKUP
+        .get(abi::InterruptOwner {
+            task: caller,
+            notification: args.notification_bitmask,
+        })
+        .ok_or(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            UsageError::NoIrq,
+        )))?;
     for i in irqs.iter() {
         operation(i.0);
     }
@@ -717,24 +721,7 @@ fn explicit_panic(
     tasks: &mut [Task],
     caller: usize,
 ) -> Result<NextTask, UserError> {
-    // Make an attempt at printing the message.
-    let args = tasks[caller].save().as_panic_args();
-    let message = args.message();
-    drop(args);
-
-    if let Ok(uslice) = message {
-        if let Ok(slice) = tasks[caller].try_read(&uslice) {
-            // Plausible.
-            if slice.iter().all(|&c| c < 0x80) {
-                klog!("task @{} panicked: {}", caller, unsafe {
-                    core::str::from_utf8_unchecked(slice)
-                });
-            } else {
-                klog!("task @{} panicked: (message unprintable)", caller);
-            }
-        }
-    }
-
+    // It's the easiest syscall!
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
 }
 
@@ -742,9 +729,8 @@ fn refresh_task_id(
     tasks: &mut [Task],
     caller: usize,
 ) -> Result<NextTask, UserError> {
-    let args = tasks[caller].save().as_refresh_task_id_args();
-    let peer = args.task_id().index(); // discard original generation
-    drop(args);
+    let peer = tasks[caller].save().as_refresh_task_id_args().task_id;
+    let peer = peer.index(); // discard original generation
 
     if peer < tasks.len() {
         let tid = task::current_id(tasks, peer);
@@ -759,13 +745,11 @@ fn refresh_task_id(
 
 fn post(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     let args = tasks[caller].save().as_post_args();
-    let peer_id = args.task_id();
-    let bits = args.notification_bits();
-    drop(args);
+    let peer_id = args.task_id;
 
     let peer_idx = task::check_task_id_against_table(tasks, peer_id)?;
 
-    let woke = tasks[peer_idx].post(bits);
+    let woke = tasks[peer_idx].post(args.notification_bits);
 
     tasks[caller].save_mut().set_error_response(0);
 
@@ -801,13 +785,12 @@ fn reply_fault(
     // Extract the target of the reply and the cited reason. This also validates
     // the syscall parameters before doing other validation.
     let args = tasks[caller].save().as_reply_fault_args();
-    let callee = args.callee();
-    let reason = args.reason()?;
+    let reason = args.reason?;
 
     // Validate task ID. We tolerate stale IDs here (it's not the callee's fault
     // if the caller crashed before receiving its reply) but we treat invalid
     // indices that could never have been received as a malfunction.
-    let callee = match task::check_task_id_against_table(tasks, callee) {
+    let callee = match task::check_task_id_against_table(tasks, args.callee) {
         Err(UserError::Recoverable(_, hint)) => return Ok(hint),
         Err(UserError::Unrecoverable(f)) => return Err(f),
         Ok(x) => x,

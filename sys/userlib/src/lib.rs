@@ -214,7 +214,7 @@ unsafe extern "C" fn sys_send_stub(_args: &mut SendArgs<'_>) -> RcLen {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_send_stub for ARM profile");
+            compile_error!("missing sys_send_stub for ARM profile");
         }
     }
 }
@@ -416,7 +416,7 @@ unsafe extern "C" fn sys_recv_stub(
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_recv_stub for ARM profile");
+            compile_error!("missing sys_recv_stub for ARM profile");
         }
     }
 }
@@ -511,7 +511,7 @@ unsafe extern "C" fn sys_reply_stub(
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_reply_stub for ARM profile");
+            compile_error!("missing sys_reply_stub for ARM profile");
         }
     }
 }
@@ -606,7 +606,7 @@ unsafe extern "C" fn sys_set_timer_stub(
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_set_timer_stub for ARM profile")
+            compile_error!("missing sys_set_timer_stub for ARM profile")
         }
     }
 }
@@ -692,7 +692,7 @@ unsafe extern "C" fn sys_borrow_read_stub(_args: *mut BorrowReadArgs) -> RcLen {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_borrow_read_stub for ARM profile")
+            compile_error!("missing sys_borrow_read_stub for ARM profile")
         }
     }
 }
@@ -790,7 +790,7 @@ unsafe extern "C" fn sys_borrow_write_stub(
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_borrow_write_stub for ARM profile")
+            compile_error!("missing sys_borrow_write_stub for ARM profile")
         }
     }
 }
@@ -904,7 +904,7 @@ unsafe extern "C" fn sys_borrow_info_stub(
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_borrow_write_stub for ARM profile")
+            compile_error!("missing sys_borrow_write_stub for ARM profile")
         }
     }
 }
@@ -973,7 +973,7 @@ unsafe extern "C" fn sys_irq_control_stub(_mask: u32, _enable: u32) {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_irq_control stub for ARM profile")
+            compile_error!("missing sys_irq_control stub for ARM profile")
         }
     }
 }
@@ -1034,7 +1034,7 @@ unsafe extern "C" fn sys_panic_stub(_msg: *const u8, _len: usize) -> ! {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_panic_stub for ARM profile")
+            compile_error!("missing sys_panic_stub for ARM profile")
         }
     }
 }
@@ -1153,7 +1153,7 @@ unsafe extern "C" fn sys_get_timer_stub(_out: *mut RawTimerState) {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_get_timer_stub for ARM profile")
+            compile_error!("missing sys_get_timer_stub for ARM profile")
         }
     }
 }
@@ -1280,7 +1280,7 @@ pub unsafe extern "C" fn _start() -> ! {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing .start routine for ARM profile")
+            compile_error!("missing .start routine for ARM profile")
         }
     }
 }
@@ -1511,7 +1511,7 @@ unsafe extern "C" fn sys_refresh_task_id_stub(_tid: u32) -> u32 {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_refresh_task_id stub for ARM profile")
+            compile_error!("missing sys_refresh_task_id stub for ARM profile")
         }
     }
 }
@@ -1581,7 +1581,7 @@ unsafe extern "C" fn sys_post_stub(_tid: u32, _mask: u32) -> u32 {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_post_stub for ARM profile")
+            compile_error!("missing sys_post_stub for ARM profile")
         }
     }
 }
@@ -1648,7 +1648,7 @@ unsafe extern "C" fn sys_reply_fault_stub(_tid: u32, _reason: u32) {
                 options(noreturn),
             )
         } else {
-            compiler_error!("missing sys_reply_fault_stub for ARM profile")
+            compile_error!("missing sys_reply_fault_stub for ARM profile")
         }
     }
 }

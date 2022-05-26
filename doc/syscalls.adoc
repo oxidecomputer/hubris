@@ -518,14 +518,8 @@ This produces a `Panic` fault every time -- that's its purpose.
 
 ==== Notes
 
-The kernel does not interpret the panic message in any way, but it may _log_
-the message to `klog`.
-
-Messages are restricted to 7-bit ASCII to keep Unicode validation logic out of
-the kernel log path.
-
-If the panic address is invalid, or the referenced range is not readable by the
-task that's panicking, it is ignored.
+The kernel does not interpret the panic message in any way, but may be made
+available to the supervisor if it asks.
 
 [#sys_get_timer]
 === `GET_TIMER` (9)

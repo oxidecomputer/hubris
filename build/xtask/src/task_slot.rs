@@ -5,9 +5,9 @@
 use crate::elf;
 use anyhow::{bail, Result};
 use scroll::Pread;
-use std::path::PathBuf;
+use std::path::Path;
 
-pub const TASK_SLOT_TABLE_SECTION: &'static str = ".task_slot_table";
+pub const TASK_SLOT_TABLE_SECTION: &str = ".task_slot_table";
 
 #[derive(Debug)]
 pub struct TaskSlotTableEntry<'a> {
@@ -25,7 +25,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
         src: &'a [u8],
         elf: &goblin::elf::Elf<'a>,
     ) -> Result<(Self, usize), Self::Error> {
-        let endianness = elf::get_endianness(&elf);
+        let endianness = elf::get_endianness(elf);
         let src_offset = &mut 0;
 
         let taskidx_address = if elf.is_64 {
@@ -46,7 +46,7 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
         )?;
 
         let entry_section =
-            match crate::elf::get_section_by_vma(&elf, taskidx_address) {
+            match crate::elf::get_section_by_vma(elf, taskidx_address) {
                 Some(x) => x,
                 _ => bail!(
                     "slot '{}' points to a non-existant address {:#x}",
@@ -60,9 +60,9 @@ impl<'a> scroll::ctx::TryFromCtx<'a, &goblin::elf::Elf<'a>>
 
         Ok((
             Self {
-                taskidx_address: taskidx_address,
-                taskidx_file_offset: taskidx_file_offset,
-                slot_name: slot_name,
+                taskidx_address,
+                taskidx_file_offset,
+                slot_name,
             },
             *src_offset,
         ))
@@ -74,7 +74,7 @@ pub fn get_task_slot_table_entries<'a>(
     elf: &goblin::elf::Elf<'a>,
 ) -> Result<Vec<TaskSlotTableEntry<'a>>> {
     let task_slot_table_section =
-        match elf::get_section_by_name(&elf, TASK_SLOT_TABLE_SECTION) {
+        match elf::get_section_by_name(elf, TASK_SLOT_TABLE_SECTION) {
             Some(task_slot_table_section) => task_slot_table_section,
             _ => bail!("No {} section", TASK_SLOT_TABLE_SECTION),
         };
@@ -87,17 +87,15 @@ pub fn get_task_slot_table_entries<'a>(
     let cur_offset = &mut 0;
 
     while *cur_offset < task_slot_table.len() {
-        match task_slot_table.gread_with::<TaskSlotTableEntry>(cur_offset, elf)
-        {
-            Ok(x) => entries.push(x),
-            Err(x) => return Err(x.into()),
-        }
+        let x = task_slot_table
+            .gread_with::<TaskSlotTableEntry>(cur_offset, elf)?;
+        entries.push(x);
     }
 
     Ok(entries)
 }
 
-pub fn dump_task_slot_table(task_path: &PathBuf) -> Result<()> {
+pub fn dump_task_slot_table(task_path: &Path) -> Result<()> {
     let task_bin = std::fs::read(task_path)?;
     let elf = goblin::elf::Elf::parse(&task_bin)?;
 

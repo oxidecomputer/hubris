@@ -7,12 +7,9 @@ stacksize = 944
 [kernel]
 path = "."
 name = "demo-stm32g0-nucleo"
-requires = {flash = 32768, ram = 2552}
+requires = {flash = 12000, ram = 2000}
 features = ["g070", "panic-halt"]
 stacksize = 640
-
-[supervisor]
-notification = 1
 
 [outputs.flash]
 address = 0x08000000

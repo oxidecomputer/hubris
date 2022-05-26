@@ -74,7 +74,7 @@ impl Sbtsi {
 }
 
 impl TempSensor<Error> for Sbtsi {
-    fn read_temperature(&mut self) -> Result<Celsius, Error> {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
         // Reading the integer portion latches the decimal portion; we need
         // to read it first, and then immediately read the decimal portion.
         let i = self.read_reg(Register::CpuTempInt)?;

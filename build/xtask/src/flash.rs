@@ -71,7 +71,7 @@ impl FlashProgramConfig {
 impl FlashConfig {
     fn new(program: FlashProgram) -> Self {
         FlashConfig {
-            program: program,
+            program,
             args: vec![],
         }
     }
@@ -87,7 +87,7 @@ impl FlashConfig {
     //
     // Add the path to the payload as an argument to the flash program
     //
-    fn payload<'a>(&'a mut self) -> &'a mut Self {
+    fn payload(&mut self) -> &mut Self {
         self.args.push(FlashArgument::Payload);
         self
     }
@@ -112,7 +112,7 @@ impl FlashConfig {
     //
     // Add a flasher configuration file as an argument to the flash program
     //
-    fn config<'a>(&'a mut self) -> &'a mut Self {
+    fn config(&mut self) -> &mut Self {
         self.args.push(FlashArgument::Config);
         self
     }
@@ -122,13 +122,13 @@ impl FlashConfig {
     // our overall configuration
     //
     pub fn flatten(&mut self) -> anyhow::Result<()> {
-        if let FlashProgram::OpenOcd(ref config) = self.program {
-            if let FlashProgramConfig::Path(ref path) = config {
-                let p: PathBuf = path.iter().collect();
-                let text = std::fs::read_to_string(p)?;
-                self.program =
-                    FlashProgram::OpenOcd(FlashProgramConfig::Payload(text));
-            }
+        if let FlashProgram::OpenOcd(FlashProgramConfig::Path(path)) =
+            &self.program
+        {
+            let p: PathBuf = path.iter().collect();
+            let text = std::fs::read_to_string(p)?;
+            self.program =
+                FlashProgram::OpenOcd(FlashProgramConfig::Payload(text));
         }
 
         Ok(())
@@ -137,7 +137,7 @@ impl FlashConfig {
 
 pub fn config(
     board: &str,
-    chip_dir: &PathBuf,
+    chip_dir: &Path,
 ) -> anyhow::Result<Option<FlashConfig>> {
     match board {
         "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
@@ -214,7 +214,7 @@ fn chip_name(board: &str) -> anyhow::Result<&'static str> {
 pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
     ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
 
-    let toml = Config::from_file(&cfg)?;
+    let toml = Config::from_file(cfg)?;
 
     let mut archive = PathBuf::from("target");
     archive.push(&toml.name);

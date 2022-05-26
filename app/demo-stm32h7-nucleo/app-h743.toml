@@ -22,9 +22,6 @@ requires = {flash = 22000, ram = 4096}
 features = ["h743", "itm"]
 
 
-[supervisor]
-notification = 1
-
 # Flash sections are mapped into flash bank 1 (of 2).
 [outputs.flash]
 address = 0x08000000
