@@ -159,30 +159,34 @@ fn run(xtask: Xtask) -> Result<()> {
         } => {
             dist::package(verbose, edges, &cfg, Some(tasks))?;
         }
-        Xtask::Flash { args } => {
+        Xtask::Flash { mut args } => {
             dist::package(args.verbose, false, &args.cfg, None)?;
             let toml = Config::from_file(&args.cfg)?;
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
-            humility::run(&args, &chip, Some("flash"))?;
+            args.extra_options.push("--force".to_string());
+            humility::run(&args, &chip, Some("flash"), false)?;
         }
         Xtask::Sizes { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             sizes::run(&cfg, false)?;
         }
         Xtask::Humility { args } => {
-            humility::run(&args, &[], None)?;
+            humility::run(&args, &[], None, true)?;
         }
         Xtask::Gdb { noflash, mut args } => {
             if !noflash {
+                dist::package(args.verbose, false, &args.cfg, None)?;
+                // Delegate flashing to `humility gdb`, which also modifies
+                // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
             }
-            humility::run(&args, &[], Some("gdb"))?;
+            humility::run(&args, &[], Some("gdb"), true)?;
         }
         Xtask::Test { args, noflash } => {
             if !noflash {
                 run(Xtask::Flash { args: args.clone() })?;
             }
-            humility::run(&args, &[], Some("test"))?;
+            humility::run(&args, &[], Some("test"), false)?;
         }
         Xtask::Clippy {
             verbose,

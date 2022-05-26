@@ -14,8 +14,11 @@ pub fn run(
     args: &HumilityArgs,
     precmd: &[&str],
     cmd: Option<&str>,
+    interactive: bool,
 ) -> anyhow::Result<()> {
-    ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
+    if interactive {
+        ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
+    }
     let toml = Config::from_file(&args.cfg)?;
 
     let archive = Path::new("target")
