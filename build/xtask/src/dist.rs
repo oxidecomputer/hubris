@@ -562,7 +562,7 @@ fn build_bootloader(
     )?;
 
     if let Some(signing) = cfg.toml.signing.get("bootloader") {
-        do_sign_file(&cfg, signing, "bootloader", 0)?;
+        do_sign_file(cfg, signing, "bootloader", 0)?;
     }
 
     // We need to get the absolute symbols for the non-secure application
@@ -1026,7 +1026,7 @@ fn build(
     name: impl AsRef<Path>,
     build_config: BuildConfig,
 ) -> Result<()> {
-    println!("building path {}", build_config.crate_path.display());
+    println!("building crate {}", build_config.crate_name);
 
     let mut cmd = build_config.cmd("rustc");
     cmd.arg("--release");
@@ -1060,9 +1060,8 @@ fn build(
         let mut tree = build_config.cmd("tree");
         tree.arg("--edges").arg("features").arg("--verbose");
         println!(
-            "Path: {}\nRunning cargo {:?}",
-            build_config.crate_path.display(),
-            tree
+            "Crate: {}\nRunning cargo {:?}",
+            build_config.crate_name, tree
         );
         let tree_status = tree
             .status()

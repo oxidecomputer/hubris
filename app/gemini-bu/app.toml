@@ -5,7 +5,6 @@ chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]
-path = "."
 name = "gemini-bu"
 requires = {flash = 32768, ram = 4096}
 #
@@ -36,7 +35,6 @@ write = true
 execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 8192, ram = 2048}
@@ -45,7 +43,6 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
@@ -54,7 +51,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
 [tasks.i2c_driver]
-path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
@@ -72,7 +68,6 @@ task-slots = ["sys"]
 "i2c4.error" = 0b0000_1000
 
 [tasks.spd]
-path = "../../task/spd"
 name = "task-spd"
 features = ["h753", "itm"]
 priority = 3
@@ -86,7 +81,6 @@ task-slots = ["sys", "i2c_driver"]
 "i2c2.error" = 0b0000_0010
 
 [tasks.spi2_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 2048}
@@ -101,7 +95,6 @@ task-slots = ["sys"]
 global_config = "spi2"
 
 [tasks.spi4_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 2048}
@@ -116,7 +109,6 @@ task-slots = ["sys"]
 global_config = "spi4"
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
@@ -125,7 +117,6 @@ start = true
 task-slots = ["sys"]
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 3
 requires = {flash = 1024, ram = 1024}
@@ -133,7 +124,6 @@ start = true
 task-slots = ["user_leds"]
 
 [tasks.hf]
-path = "../../drv/gimlet-hf-server"
 name = "drv-gimlet-hf-server"
 features = ["h753", "hash"]
 priority = 4
@@ -145,7 +135,6 @@ interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys", "hash_driver"]
 
 [tasks.hash_driver]
-path = "../../drv/stm32h7-hash-server"
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 3
@@ -157,7 +146,6 @@ interrupts = {"hash.irq" = 1}
 task-slots = ["sys"]
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi", "qspi", "hash"]
 priority = 5
@@ -167,7 +155,6 @@ start = true
 task-slots = ["sys", "i2c_driver", "hf", "hash_driver"]
 
 [tasks.validate]
-path = "../../task/validate"
 name = "task-validate"
 priority = 3
 requires = {flash = 8192, ram = 4096 }
@@ -176,7 +163,6 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 6
 requires = {flash = 128, ram = 256}

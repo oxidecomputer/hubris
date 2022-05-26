@@ -5,7 +5,6 @@ chip = "../../chips/lpc55"
 stacksize = 1024
 
 [kernel]
-path = "."
 name = "gemini-bu-rot"
 requires = {flash = 21504, ram = 4096}
 features = ["itm"]
@@ -20,7 +19,6 @@ priv-key = "../../support/fake_certs/fake_private_key.pem"
 root-cert = "../../support/fake_certs/fake_certificate.der.crt"
 
 [bootloader]
-path = "../../stage0"
 name = "stage0"
 # Currently we have the first 0x8000 of flash and first 0x4000 of RAM
 # dedicated for the stage0 bootloader and the rest for Hubris. Once we have
@@ -56,7 +54,6 @@ write = true
 execute = true
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 8192, ram = 2048}
@@ -65,7 +62,6 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 7
 requires = {flash = 128, ram = 256}
@@ -73,7 +69,6 @@ stacksize = 256
 start = true
 
 [tasks.syscon_driver]
-path = "../../drv/lpc55-syscon"
 name = "drv-lpc55-syscon"
 priority = 2
 requires = {flash = 8192, ram = 2048}
@@ -81,7 +76,6 @@ uses = ["syscon", "anactrl", "pmc"]
 start = true
 
 [tasks.gpio_driver]
-path = "../../drv/lpc55-gpio"
 name = "drv-lpc55-gpio"
 priority = 3
 requires = {flash = 8192, ram = 2048}
@@ -90,7 +84,6 @@ start = true
 task-slots = ["syscon_driver"]
 
 [tasks.user_leds]
-path = "../../drv/user-leds"
 name = "drv-user-leds"
 features = ["lpc55"]
 priority = 4
@@ -99,7 +92,6 @@ start = true
 task-slots = ["gpio_driver"]
 
 [tasks.usart_driver]
-path = "../../drv/lpc55-usart"
 name = "drv-lpc55-usart"
 priority = 4
 requires = {flash = 8192, ram = 2048}
@@ -115,7 +107,6 @@ pins = [
 ]
 
 [tasks.rng_driver]
-path = "../../drv/lpc55-rng"
 name = "drv-lpc55-rng"
 priority = 3
 requires = {flash = 16384, ram = 4096}
@@ -125,7 +116,6 @@ stacksize = 2200
 task-slots = ["syscon_driver"]
 
 [tasks.spi0_driver]
-path = "../../drv/lpc55-spi-server"
 name = "drv-lpc55-spi-server"
 priority = 4
 requires = {flash = 16384, ram = 2048}
@@ -149,7 +139,6 @@ pins = [
 ]
 
 [tasks.swd]
-path = "../../drv/lpc55-swd"
 name = "drv-lpc55-swd"
 priority = 4
 requires = {flash = 16384, ram = 4096}
@@ -182,7 +171,6 @@ pins = [
 spi_num = 3
 
 [tasks.ping]
-path = "../../task/ping"
 name = "task-ping"
 features = ["uart"]
 priority = 6
@@ -191,7 +179,6 @@ start = true
 task-slots = [{peer = "pong"}, "usart_driver"]
 
 [tasks.pong]
-path = "../../task/pong"
 name = "task-pong"
 priority = 5
 requires = {flash = 8192, ram = 1024}
@@ -199,7 +186,6 @@ start = true
 task-slots = ["user_leds"]
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 priority = 5
 features = ["lpc55", "gpio", "spi", "spctrl"]

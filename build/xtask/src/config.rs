@@ -125,7 +125,6 @@ impl Config {
         &self,
         verbose: bool,
         crate_name: &str,
-        relative_path: &Path,
         features: &[String],
     ) -> BuildConfig {
         let mut args = vec![
@@ -183,10 +182,6 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let mut crate_path = self.app_toml_path.clone();
-        crate_path.pop();
-        crate_path.push(relative_path);
-
         let mut out_path = Path::new("").to_path_buf();
         out_path.push(&self.target);
         out_path.push("release");
@@ -195,7 +190,7 @@ impl Config {
         BuildConfig {
             args,
             env,
-            crate_path,
+            crate_name: crate_name.to_string(),
             out_path,
         }
     }
@@ -208,7 +203,6 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &self.kernel.name,
-            &self.kernel.path,
             &self.kernel.features,
         );
         for (var, value) in extra_env {
@@ -225,7 +219,6 @@ impl Config {
             self.common_build_config(
                 verbose,
                 &bootloader.name,
-                &bootloader.path,
                 &bootloader.features,
             )
         })
@@ -243,7 +236,6 @@ impl Config {
         let mut out = self.common_build_config(
             verbose,
             &task_toml.name,
-            &task_toml.path,
             &task_toml.features,
         );
 
@@ -319,7 +311,6 @@ pub struct Signing {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Bootloader {
-    pub path: PathBuf,
     pub name: String,
     #[serde(default)]
     pub features: Vec<String>,
@@ -335,7 +326,6 @@ pub struct Bootloader {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Kernel {
-    pub path: PathBuf,
     pub name: String,
     pub requires: IndexMap<String, u32>,
     pub stacksize: Option<u32>,
@@ -361,7 +351,6 @@ pub struct Output {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Task {
-    pub path: PathBuf,
     pub name: String,
     pub requires: IndexMap<String, u32>,
     pub priority: u8,
@@ -444,7 +433,7 @@ where
 pub struct BuildConfig {
     args: Vec<String>,
     env: BTreeMap<String, String>,
-    pub crate_path: PathBuf,
+    pub crate_name: String,
     pub out_path: PathBuf,
 }
 
@@ -462,13 +451,13 @@ impl BuildConfig {
         // path.
         let mut cmd = std::process::Command::new("cargo");
         cmd.arg(subcommand);
+        cmd.arg("-p").arg(&self.crate_name);
         for a in &self.args {
             cmd.arg(a);
         }
         for (k, v) in &self.env {
             cmd.env(k, v);
         }
-        cmd.current_dir(&self.crate_path);
         cmd
     }
 }

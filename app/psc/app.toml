@@ -5,7 +5,6 @@ chip = "../../chips/stm32h7"
 stacksize = 896
 
 [kernel]
-path = "."
 name = "psc"
 requires = {flash = 32768, ram = 4096}
 #
@@ -45,7 +44,6 @@ write = true
 dma = true
 
 [tasks.jefe]
-path = "../../task/jefe"
 name = "task-jefe"
 priority = 0
 requires = {flash = 8192, ram = 2048}
@@ -54,7 +52,6 @@ features = ["itm"]
 stacksize = 1536
 
 [tasks.sys]
-path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
@@ -63,7 +60,6 @@ uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
 [tasks.spi4_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 2048}
@@ -78,7 +74,6 @@ task-slots = ["sys"]
 global_config = "spi4"
 
 [tasks.spi2_driver]
-path = "../../drv/stm32h7-spi-server"
 name = "drv-stm32h7-spi-server"
 priority = 2
 requires = {flash = 16384, ram = 2048}
@@ -93,7 +88,6 @@ task-slots = ["sys"]
 global_config = "spi2"
 
 [tasks.i2c_driver]
-path = "../../drv/stm32h7-i2c-server"
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
@@ -111,7 +105,6 @@ task-slots = ["sys"]
 "i2c4.error" = 0b0000_1000
 
 [tasks.hiffy]
-path = "../../task/hiffy"
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
 priority = 3
@@ -121,7 +114,6 @@ start = true
 task-slots = ["sys", "i2c_driver"]
 
 [tasks.net]
-path = "../../task/net"
 name = "task-net"
 stacksize = 3800
 priority = 3
@@ -134,7 +126,6 @@ interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", { spi_driver = "spi2_driver" }]
 
 [tasks.udpecho]
-path = "../../task/udpecho"
 name = "task-udpecho"
 priority = 4
 requires = {flash = 16384, ram = 8192}
@@ -143,7 +134,6 @@ start = true
 task-slots = ["net"]
 
 [tasks.eeprom]
-path = "../../drv/eeprom"
 name = "drv-eeprom"
 priority = 3
 requires = {flash = 2048, ram = 256}
@@ -152,7 +142,6 @@ start = true
 task-slots = ["i2c_driver"]
 
 [tasks.idle]
-path = "../../task/idle"
 name = "task-idle"
 priority = 5
 requires = {flash = 128, ram = 256}
