@@ -4,7 +4,7 @@
 
 use std::convert::TryInto;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::bail;
 use goblin::Object;
@@ -45,9 +45,7 @@ pub fn run(cfg: &Path, only_suggest: bool) -> anyhow::Result<()> {
 
     let toml = Config::from_file(cfg)?;
 
-    let mut dist_dir = PathBuf::from("target");
-    dist_dir.push(&toml.name);
-    dist_dir.push("dist");
+    let dist_dir = Path::new("target").join(&toml.name).join("dist");
 
     let mut memories = IndexMap::new();
     for (name, out) in &toml.outputs {

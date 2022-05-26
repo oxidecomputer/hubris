@@ -182,10 +182,10 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let mut out_path = Path::new("").to_path_buf();
-        out_path.push(&self.target);
-        out_path.push("release");
-        out_path.push(crate_name);
+        let out_path = Path::new("")
+            .join(&self.target)
+            .join("release")
+            .join(crate_name);
 
         BuildConfig {
             args,
