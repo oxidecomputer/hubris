@@ -248,7 +248,7 @@ For convenience, there's also a `cargo xtask gdb` façade which calls `humility`
 with the appropriate build archive:
 
 ```console
-$ cargo xtask gdb app/demo-stm32f4-discovery/app.tom -- --run-openocd
+$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml -- --run-openocd
 # ... lots of output elided ...
 task_idle::main () at task/idle/src/main.rs:14
 14          loop {
