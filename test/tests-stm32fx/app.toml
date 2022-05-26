@@ -1,6 +1,7 @@
 name = "tests-stm32fx"
 target = "thumbv7em-none-eabihf"
 board = "stm32f4-discovery"
+chip = "../../chips/stm32f4"
 stacksize = 2048
 
 [kernel]
