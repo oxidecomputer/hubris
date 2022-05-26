@@ -410,7 +410,13 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
         crate::flash::config(cfg.toml.board.as_str(), &chip_dir)?
     {
         config.flatten()?;
-        archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+        archive.text(
+            img_dir.join("flash.ron"),
+            ron::ser::to_string_pretty(
+                &config,
+                ron::ser::PrettyConfig::default(),
+            )?,
+        )?;
     }
 
     let debug_dir = PathBuf::from("debug");
