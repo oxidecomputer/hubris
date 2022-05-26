@@ -410,7 +410,13 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
         crate::flash::config(cfg.toml.board.as_str(), &chip_dir)?
     {
         config.flatten()?;
-        archive.text(img_dir.join("flash.ron"), ron::to_string(&config)?)?;
+        archive.text(
+            img_dir.join("flash.ron"),
+            ron::ser::to_string_pretty(
+                &config,
+                ron::ser::PrettyConfig::default(),
+            )?,
+        )?;
     }
 
     let debug_dir = PathBuf::from("debug");
@@ -1027,7 +1033,7 @@ fn build(
 
     // This works because we control the environment in which we're about
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
-    let mut cargo_out = Path::new("target").to_path_buf();
+    let cargo_out = Path::new("target").to_path_buf();
 
     let remap_path_prefix: String = cfg
         .remap_paths

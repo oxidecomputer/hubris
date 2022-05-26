@@ -244,10 +244,11 @@ ID ADDR     TASK               GEN STATE
 using `arm-none-eabi-gdb`, optionally running its own `openocd` instance based
 on configuration data in the build archive.
 
-It can be invoked through `cargo xtask humility`:
+For convenience, there's also a `cargo xtask gdb` façade which calls `humility`
+with the appropriate build archive:
 
 ```console
-$ cargo xtask humility app/demo-stm32f4-discovery/app.tom gdb -- --run-openocd
+$ cargo xtask gdb app/demo-stm32f4-discovery/app.toml -- --run-openocd
 # ... lots of output elided ...
 task_idle::main () at task/idle/src/main.rs:14
 14          loop {
@@ -259,6 +260,10 @@ semihosting is enabled
 
 (gdb)
 ```
+
+Note that `cargo xtask gdb` will (by default) also run `dist` and `flash`, to
+ensure that the image on the chip is up to date.  The `-n`/`--noflash` option
+skips these steps.
 
 # Testing Hubris
 

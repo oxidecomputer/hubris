@@ -17,7 +17,6 @@ mod flash;
 mod humility;
 mod sizes;
 mod task_slot;
-mod test;
 
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
@@ -57,11 +56,18 @@ enum Xtask {
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
+        #[clap(flatten)]
+        args: HumilityArgs,
+    },
+
+    /// Runs `xtask dist`, `xtask flash` and then `humility gdb`
+    Gdb {
+        /// Do not flash a new image; just run `humility gdb`
+        #[clap(long, short)]
+        noflash: bool,
+
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `xtask dist` and reports the sizes of resulting tasks
@@ -75,25 +81,18 @@ enum Xtask {
 
     /// Runs `humility`, passing any arguments
     Humility {
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-
-        /// Options to pass to Humility
-        options: Vec<String>,
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `xtask dist`, `xtask flash` and then `humility test`
     Test {
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-
         /// Do not flash a new image; just run `humility test`
-        #[clap(short)]
+        #[clap(long, short)]
         noflash: bool,
 
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -121,11 +120,26 @@ enum Xtask {
     },
 }
 
-// For commands which may execute on specific packages, this enum
-// identifies the set of packages that should be operated upon.
+#[derive(Clone, Debug, Parser)]
+pub struct HumilityArgs {
+    /// Path to the image configuration file, in TOML.
+    cfg: PathBuf,
+
+    /// Request verbosity from tools we shell out to.
+    #[clap(short, long)]
+    verbose: bool,
+
+    /// Extra options to pass to Humility
+    #[clap(last = true)]
+    extra_options: Vec<String>,
+}
+
 fn main() -> Result<()> {
     let xtask = Xtask::parse();
+    run(xtask)
+}
 
+fn run(xtask: Xtask) -> Result<()> {
     match xtask {
         Xtask::Dist {
             verbose,
@@ -143,28 +157,34 @@ fn main() -> Result<()> {
         } => {
             dist::package(verbose, edges, &cfg, Some(tasks))?;
         }
-        Xtask::Flash { verbose, cfg } => {
-            dist::package(verbose, false, &cfg, None)?;
-            flash::run(verbose, &cfg)?;
+        Xtask::Flash { mut args } => {
+            dist::package(args.verbose, false, &args.cfg, None)?;
+            let toml = Config::from_file(&args.cfg)?;
+            let chip = ["-c", crate::flash::chip_name(&toml.board)?];
+            args.extra_options.push("--force".to_string());
+            humility::run(&args, &chip, Some("flash"), false)?;
         }
         Xtask::Sizes { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             sizes::run(&cfg, false)?;
         }
-        Xtask::Humility { cfg, options } => {
-            humility::run(&cfg, &options)?;
+        Xtask::Humility { args } => {
+            humility::run(&args, &[], None, true)?;
         }
-        Xtask::Test {
-            cfg,
-            noflash,
-            verbose,
-        } => {
+        Xtask::Gdb { noflash, mut args } => {
             if !noflash {
-                dist::package(verbose, false, &cfg, None)?;
-                flash::run(verbose, &cfg)?;
+                dist::package(args.verbose, false, &args.cfg, None)?;
+                // Delegate flashing to `humility gdb`, which also modifies
+                // the GDB startup script slightly (adding `stepi`)
+                args.extra_options.push("--load".to_string());
             }
-
-            test::run(verbose, &cfg)?;
+            humility::run(&args, &[], Some("gdb"), true)?;
+        }
+        Xtask::Test { args, noflash } => {
+            if !noflash {
+                run(Xtask::Flash { args: args.clone() })?;
+            }
+            humility::run(&args, &[], Some("test"), false)?;
         }
         Xtask::Clippy {
             verbose,
