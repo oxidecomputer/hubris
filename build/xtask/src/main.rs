@@ -134,8 +134,6 @@ pub struct HumilityArgs {
     extra_options: Vec<String>,
 }
 
-// For commands which may execute on specific packages, this enum
-// identifies the set of packages that should be operated upon.
 fn main() -> Result<()> {
     let xtask = Xtask::parse();
     run(xtask)
