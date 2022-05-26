@@ -3,13 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use serde::Serialize;
-use std::env;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-
-use anyhow::Context;
-
-use crate::Config;
 
 //
 // We allow for enough information to be put in the archive for the image to
@@ -191,7 +185,7 @@ pub fn config(
     }
 }
 
-fn chip_name(board: &str) -> anyhow::Result<&'static str> {
+pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     let b = match board {
         "lpcxpresso55s69" => "LPC55S69JBD100",
         "gemini-bu-rot-1" | "gimlet-rot-1" => "LPC55S69JBD100",
@@ -209,41 +203,4 @@ fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     };
 
     Ok(b)
-}
-
-pub fn run(verbose: bool, cfg: &Path) -> anyhow::Result<()> {
-    ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
-
-    let toml = Config::from_file(cfg)?;
-
-    let mut archive = PathBuf::from("target");
-    archive.push(&toml.name);
-    archive.push("dist");
-    archive.push(format!("build-{}.zip", &toml.name));
-
-    let humility_path = match env::var("HUBRIS_HUMILITY_PATH") {
-        Ok(path) => path,
-        _ => "humility".to_string(),
-    };
-
-    let mut humility = Command::new(humility_path);
-
-    humility.arg("-a").arg(archive);
-    humility.arg("-c").arg(chip_name(&toml.board)?);
-
-    if verbose {
-        humility.arg("-v");
-    }
-
-    humility.arg("flash").arg("--force");
-
-    let status = humility
-        .status()
-        .with_context(|| format!("failed to flash ({:?})", humility))?;
-
-    if !status.success() {
-        anyhow::bail!("flash command ({:?}) failed; see output", humility);
-    }
-
-    Ok(())
 }

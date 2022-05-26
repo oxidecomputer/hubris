@@ -3,20 +3,25 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::Context;
 
-use crate::Config;
+use crate::{Config, HumilityArgs};
 
-pub fn run(cfg: &Path, options: &[String]) -> anyhow::Result<()> {
-    let toml = Config::from_file(cfg)?;
+pub fn run(
+    args: &HumilityArgs,
+    precmd: &[&str],
+    cmd: Option<&str>,
+) -> anyhow::Result<()> {
+    ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
+    let toml = Config::from_file(&args.cfg)?;
 
-    let mut archive = PathBuf::from("target");
-    archive.push(&toml.name);
-    archive.push("dist");
-    archive.push(format!("build-{}.zip", &toml.name));
+    let archive = Path::new("target")
+        .join(&toml.name)
+        .join("dist")
+        .join(format!("build-{}.zip", &toml.name));
 
     let humility_path = match env::var("HUBRIS_HUMILITY_PATH") {
         Ok(path) => path,
@@ -25,8 +30,15 @@ pub fn run(cfg: &Path, options: &[String]) -> anyhow::Result<()> {
 
     let mut humility = Command::new(humility_path);
     humility.arg("-a").arg(archive);
+    for c in precmd {
+        humility.arg(c);
+    }
 
-    for opt in options {
+    if let Some(cmd) = cmd {
+        humility.arg(cmd);
+    }
+
+    for opt in &args.extra_options {
         humility.arg(opt);
     }
 

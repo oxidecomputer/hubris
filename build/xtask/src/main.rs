@@ -17,7 +17,6 @@ mod flash;
 mod humility;
 mod sizes;
 mod task_slot;
-mod test;
 
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
@@ -57,11 +56,8 @@ enum Xtask {
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `xtask dist` and reports the sizes of resulting tasks
@@ -75,25 +71,18 @@ enum Xtask {
 
     /// Runs `humility`, passing any arguments
     Humility {
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-
-        /// Options to pass to Humility
-        options: Vec<String>,
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `xtask dist`, `xtask flash` and then `humility test`
     Test {
-        /// Path to the image configuration file, in TOML.
-        cfg: PathBuf,
-
         /// Do not flash a new image; just run `humility test`
         #[clap(short)]
         noflash: bool,
 
-        /// Request verbosity from tools we shell out to.
-        #[clap(short)]
-        verbose: bool,
+        #[clap(flatten)]
+        args: HumilityArgs,
     },
 
     /// Runs `cargo clippy` on a specified task
@@ -121,6 +110,20 @@ enum Xtask {
     },
 }
 
+#[derive(Debug, Parser)]
+pub struct HumilityArgs {
+    /// Path to the image configuration file, in TOML.
+    cfg: PathBuf,
+
+    /// Request verbosity from tools we shell out to.
+    #[clap(short, long)]
+    verbose: bool,
+
+    /// Extra options to pass to clippy
+    #[clap(last = true)]
+    extra_options: Vec<String>,
+}
+
 // For commands which may execute on specific packages, this enum
 // identifies the set of packages that should be operated upon.
 fn main() -> Result<()> {
@@ -143,28 +146,27 @@ fn main() -> Result<()> {
         } => {
             dist::package(verbose, edges, &cfg, Some(tasks))?;
         }
-        Xtask::Flash { verbose, cfg } => {
-            dist::package(verbose, false, &cfg, None)?;
-            flash::run(verbose, &cfg)?;
+        Xtask::Flash { args } => {
+            dist::package(args.verbose, false, &args.cfg, None)?;
+            let toml = Config::from_file(&args.cfg)?;
+            let chip = ["-c", crate::flash::chip_name(&toml.board)?];
+            humility::run(&args, &chip, Some("flash"))?;
         }
         Xtask::Sizes { verbose, cfg } => {
             dist::package(verbose, false, &cfg, None)?;
             sizes::run(&cfg, false)?;
         }
-        Xtask::Humility { cfg, options } => {
-            humility::run(&cfg, &options)?;
+        Xtask::Humility { args } => {
+            humility::run(&args, &[], None)?;
         }
-        Xtask::Test {
-            cfg,
-            noflash,
-            verbose,
-        } => {
+        Xtask::Test { args, noflash } => {
             if !noflash {
-                dist::package(verbose, false, &cfg, None)?;
-                flash::run(verbose, &cfg)?;
+                dist::package(args.verbose, false, &args.cfg, None)?;
+                let toml = Config::from_file(&args.cfg)?;
+                let chip = ["-c", crate::flash::chip_name(&toml.board)?];
+                humility::run(&args, &chip, Some("flash"))?;
             }
-
-            test::run(verbose, &cfg)?;
+            humility::run(&args, &[], Some("test"))?;
         }
         Xtask::Clippy {
             verbose,
