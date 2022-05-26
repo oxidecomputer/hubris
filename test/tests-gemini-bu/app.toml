@@ -1,6 +1,7 @@
 name = "tests-gemini-bu"
 target = "thumbv7em-none-eabihf"
 board = "gemini-bu-1"
+chip = "../../chips/stm32h7"
 stacksize = 2048
 
 [kernel]

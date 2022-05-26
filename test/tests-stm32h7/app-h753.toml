@@ -1,6 +1,7 @@
 name = "tests-stm32h753"
 target = "thumbv7em-none-eabihf"
 board = "nucleo-h753zi"
+chip = "../../chips/stm32h7"
 stacksize = 2048
 
 [kernel]

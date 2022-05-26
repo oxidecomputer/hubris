@@ -1,6 +1,7 @@
 name = "tests-stm32g070"
 target = "thumbv6m-none-eabi"
 board = "stm32g070"
+chip = "../../chips/stm32g0"
 
 [kernel]
 path = "../../app/demo-stm32g0-nucleo"
