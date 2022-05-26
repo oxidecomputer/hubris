@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 
 use crate::config::Config;
@@ -135,6 +135,20 @@ pub struct HumilityArgs {
 }
 
 fn main() -> Result<()> {
+    // Check whether we're running from the right directory
+    if let Ok(root_path) = std::env::var("CARGO_MANIFEST_DIR") {
+        // This is $HUBRIS_DIR/build/xtask/, so we pop twice to get the Hubris
+        // root directory, then compare against our working directory.
+        let root_path = PathBuf::from(root_path);
+        let hubris_dir = root_path.parent().unwrap().parent().unwrap();
+        let current_dir = std::env::current_dir()?;
+        if hubris_dir.canonicalize()? != current_dir.canonicalize()? {
+            bail!(
+                "`cargo xtask` must be run from root directory of Hubris repo"
+            );
+        }
+    }
+
     let xtask = Xtask::parse();
     run(xtask)
 }
