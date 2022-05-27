@@ -183,17 +183,14 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let out_path = Path::new("")
-            .join(&self.target)
-            .join("release")
-            .join(crate_name);
+        let out_dir = Path::new("").join(&self.target).join("release");
 
         BuildConfig {
             args,
             env,
             crate_name: crate_name.to_string(),
             sysroot,
-            out_path,
+            out_dir,
         }
     }
 
@@ -439,6 +436,8 @@ where
 
 /// Stores arguments and environment variables to run on a particular task.
 pub struct BuildConfig<'a> {
+    pub crate_name: String,
+
     args: Vec<String>,
     env: BTreeMap<String, String>,
 
@@ -448,8 +447,8 @@ pub struct BuildConfig<'a> {
     /// hundred milliseconds per `cargo` invocation.
     sysroot: Option<&'a Path>,
 
-    pub crate_name: String,
-    pub out_path: PathBuf,
+    /// Directory where the files will be written by the compiler
+    out_dir: PathBuf,
 }
 
 impl BuildConfig<'_> {
@@ -477,5 +476,13 @@ impl BuildConfig<'_> {
             cmd.env(k, v);
         }
         cmd
+    }
+    pub fn out_path(&self, staticlib: bool) -> PathBuf {
+        let bin_name = if staticlib {
+            format!("lib{}.a", self.crate_name.replace('-', "_"))
+        } else {
+            self.crate_name.clone()
+        };
+        self.out_dir.join(bin_name)
     }
 }
