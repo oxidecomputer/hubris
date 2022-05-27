@@ -641,6 +641,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-fpga-api"
+version = "0.1.0"
+dependencies = [
+ "drv-spi-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-fpga-devices"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "cfg-if 1.0.0",
+ "drv-fpga-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-fpga-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "drv-fpga-api",
+ "drv-fpga-devices",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "gnarle",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-gimlet-hf-api"
 version = "0.1.0"
 dependencies = [
