@@ -16,9 +16,8 @@ drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-syscon"
+[lib]
+name = "drv_lpc55_syscon"
+crate_type = ["staticlib"]
 test = false
 bench = false

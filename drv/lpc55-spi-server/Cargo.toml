@@ -21,9 +21,8 @@ serde = "1"
 [features]
 spi0 = []
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-lpc55-spi-server"
+[lib]
+name = "drv_lpc55_spi_server"
+crate_type = ["staticlib"]
 test = false
 bench = false

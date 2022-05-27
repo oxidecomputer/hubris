@@ -16,7 +16,8 @@ build-util = {path = "../../build/util"}
 [features]
 uart = []
 
-[[bin]]
-name = "task-ping"
+[lib]
+name = "task_ping"
+crate_type = ["staticlib"]
 test = false
 bench = false
