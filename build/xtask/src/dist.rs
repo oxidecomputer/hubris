@@ -83,14 +83,15 @@ impl PackageConfig {
         let sysroot =
             PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
 
-        let host = Command::new("rustc").arg("-vV").output()?;
+        let host = Command::new(sysroot.join("bin").join("rustc"))
+            .arg("-vV")
+            .output()?;
         if !host.status.success() {
             bail!("Could not execute rustc to get host");
         }
         let host_triple = std::str::from_utf8(&host.stdout)?
-            .split('\n')
-            .flat_map(|line| line.strip_prefix("host: "))
-            .next()
+            .lines()
+            .find_map(|line| line.strip_prefix("host: "))
             .ok_or_else(|| anyhow!("Could not get host from rustc"))?
             .to_string();
 
