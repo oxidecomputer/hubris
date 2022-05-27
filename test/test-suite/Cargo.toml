@@ -29,7 +29,8 @@ semihosting = [ "userlib/log-semihosting" ]
 i2c-devices = ["drv-i2c-api", "drv-i2c-devices", "build-i2c"]
 fru-id-eeprom = ["i2c-devices"]
 
-[[bin]]
-name = "test-suite"
+[lib]
+name = "test_suite"
+crate_type = ["staticlib"]
 test = false
 bench = false

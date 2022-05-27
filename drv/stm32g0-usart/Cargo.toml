@@ -18,9 +18,8 @@ g070 = ["stm32g0/stm32g070", "drv-stm32xx-sys-api/g070"]
 g0b1 = ["stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1"]
 semihosting = ["userlib/log-semihosting"]
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-stm32g0-usart"
+[lib]
+name = "drv_stm32g0_usart"
+crate_type = ["staticlib"]
 test = false
 bench = false
