@@ -20,6 +20,7 @@ pub enum FpgaError {
     InvalidValue,
     PortDisabled,
     NotLocked,
+    AlreadyLocked,
 }
 
 impl From<FpgaError> for u16 {
@@ -33,6 +34,7 @@ impl From<FpgaError> for u16 {
             FpgaError::InvalidValue => 0x0301,
             FpgaError::PortDisabled => 0x0400,
             FpgaError::NotLocked => 0x0500,
+            FpgaError::AlreadyLocked => 0x0501,
         }
     }
 }
@@ -61,6 +63,7 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0301 => Ok(FpgaError::InvalidValue),
                 0x0400 => Ok(FpgaError::PortDisabled),
                 0x0500 => Ok(FpgaError::NotLocked),
+                0x0501 => Ok(FpgaError::AlreadyLocked),
                 _ => Err(()),
             },
         }

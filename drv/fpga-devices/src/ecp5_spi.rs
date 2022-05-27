@@ -2,7 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::ecp5::{Command, Ecp5Driver};
+use crate::ecp5::{Command, Ecp5Driver};
+use crate::FpgaUserDesign;
 use drv_fpga_api::FpgaError;
 use drv_spi_api::{self as spi_api, SpiDevice, SpiError};
 use drv_stm32xx_sys_api::{self as sys_api, GpioError, Sys};
@@ -129,20 +130,47 @@ impl Ecp5Driver for Ecp5UsingSpi {
     fn configuration_release(&self) -> Result<(), Self::Error> {
         Ok(self.configuration_port.release()?)
     }
+}
 
-    fn user_design_read(&self, data: &mut [u8]) -> Result<(), Self::Error> {
+impl FpgaUserDesign for Ecp5UsingSpi {
+    fn user_design_enabled(&self) -> Result<bool, FpgaError> {
+        Ok(!self.user_design_reset_n()?)
+    }
+
+    fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
+        use crate::ecp5::{ecp5_trace, Trace};
+
+        self.set_user_design_reset_n(enabled)?;
+
+        ecp5_trace(if enabled {
+            Trace::UserDesignResetDeasserted
+        } else {
+            Trace::UserDesignResetAsserted
+        });
+
+        Ok(())
+    }
+
+    fn reset_user_design(&self) -> Result<(), FpgaError> {
+        self.set_user_design_enabled(false)?;
+        userlib::hl::sleep_for(self.user_design_reset_duration());
+        self.set_user_design_enabled(true)?;
+        Ok(())
+    }
+
+    fn user_design_read(&self, data: &mut [u8]) -> Result<(), FpgaError> {
         Ok(self.user_design.read(data)?)
     }
 
-    fn user_design_write(&self, data: &[u8]) -> Result<(), Self::Error> {
+    fn user_design_write(&self, data: &[u8]) -> Result<(), FpgaError> {
         Ok(self.user_design.write(data)?)
     }
 
-    fn user_design_lock(&self) -> Result<(), Self::Error> {
+    fn user_design_lock(&self) -> Result<(), FpgaError> {
         Ok(self.user_design.lock(spi_api::CsState::Asserted)?)
     }
 
-    fn user_design_release(&self) -> Result<(), Self::Error> {
+    fn user_design_release(&self) -> Result<(), FpgaError> {
         Ok(self.user_design.release()?)
     }
 }

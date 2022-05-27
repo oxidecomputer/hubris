@@ -144,16 +144,20 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
     }
 
     fn lock(&mut self, msg: &userlib::RecvMessage) -> Result<(), RequestError> {
-        if let Some(task) = self.lock_holder {
-            // The fact that we received this message _at all_ means
-            // that the sender matched our closed receive, but just
-            // in case we have a server logic bug, let's check.
-            assert!(task == msg.sender);
+        match self.lock_holder {
+            Some(task) => {
+                // The fact that we received this message _at all_ means
+                // that the sender matched our closed receive, but just
+                // in case we have a server logic bug, let's check.
+                assert!(task == msg.sender);
+                Err(RequestError::Runtime(FpgaError::AlreadyLocked))
+            }
+            None => {
+                self.lock_holder = Some(msg.sender);
+                ringbuf_entry!(Trace::Locked(msg.sender));
+                Ok(())
+            }
         }
-
-        self.lock_holder = Some(msg.sender);
-        ringbuf_entry!(Trace::Locked(msg.sender));
-        Ok(())
     }
 
     fn release(
@@ -254,13 +258,12 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
     fn continue_bitstream_load(
         &mut self,
         _: &RecvMessage,
-        data: LenLimit<Leased<R, [u8]>, 128>,
+        data: ReadDataLease,
     ) -> Result<(), RequestError> {
         data.read_range(0..data.len(), &mut self.buffer[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
         let mut chunk = &self.buffer[..data.len()];
-        let mut decompress_buffer = [0; 512];
 
         match &mut self.bitstream_loader {
             None => return Err(RequestError::Runtime(FpgaError::InvalidState)),
@@ -269,6 +272,8 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
                 *len += chunk.len();
             }
             Some(BitstreamLoader::Compressed(decompressor, bitstream, len)) => {
+                let mut decompress_buffer = [0; 512];
+
                 while !chunk.is_empty() {
                     let decompressed_chunk = gnarle::decompress(
                         decompressor,

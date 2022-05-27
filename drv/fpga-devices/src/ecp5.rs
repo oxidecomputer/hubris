@@ -36,7 +36,6 @@ pub enum Id {
 )]
 #[repr(u8)]
 pub enum BitstreamError {
-    None = 0b000,
     InvalidId = 0b001,
     IllegalCommand = 0b010,
     CrcMismatch = 0b011,
@@ -80,9 +79,8 @@ bitfield! {
 
 impl Status {
     /// Decode the bitstream error field.
-    pub fn bitstream_error(&self) -> BitstreamError {
+    pub fn bitstream_error(&self) -> Option<BitstreamError> {
         BitstreamError::from_u32(self.bse_error_code())
-            .unwrap_or(BitstreamError::None)
     }
 }
 
@@ -107,7 +105,7 @@ pub enum Command {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
+pub enum Trace {
     None,
     Disabled,
     Enabled,
@@ -117,6 +115,7 @@ enum Trace {
     StandardBitstreamDetected,
     EncryptedBitstreamDetected,
     WriteBitstreamChunk,
+    BitstreamAccepted,
     BitstreamError(BitstreamError),
     UserDesignResetAsserted,
     UserDesignResetDeasserted,
@@ -125,12 +124,17 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+/// Tiny hack to let ECP5 driver inject additional trace events in this buffer.
+pub(crate) fn ecp5_trace(t: Trace) {
+    ringbuf_entry!(t);
+}
+
 pub const DEVICE_RESET_DURATION: u64 = 25;
 pub const USER_DESIGN_RESET_DURATION: u64 = 25;
 pub const BUSY_DURATION: u64 = 10;
 pub const DONE_DURATION: u64 = 10;
 
-pub trait Ecp5Driver {
+pub trait Ecp5Driver: FpgaUserDesign {
     type Error: Debug;
 
     /// PROGAM_N interface. This pin acts as a device reset and when asserted
@@ -184,6 +188,7 @@ pub trait Ecp5Driver {
     /// Returns the reset duration in ms for the user design.
     fn user_design_reset_duration(&self) -> u64;
 
+    /*
     /// Read/write the user design.
     fn user_design_read(&self, data: &mut [u8]) -> Result<(), Self::Error>;
     fn user_design_write(&self, data: &[u8]) -> Result<(), Self::Error>;
@@ -195,6 +200,7 @@ pub trait Ecp5Driver {
 
     /// Release the lock on the user design held previously.
     fn user_design_release(&self) -> Result<(), Self::Error>;
+    */
 }
 
 /// Newtype wrapping an Impl reference, allowing the remaining traits to be
@@ -403,7 +409,11 @@ where
     FpgaError: From<<Driver as Ecp5Driver>::Error>,
 {
     fn continue_load(&mut self, buf: &[u8]) -> Result<(), FpgaError> {
-        self.lock.as_ref().unwrap().0.configuration_write(buf)?;
+        self.lock
+            .as_ref()
+            .ok_or(FpgaError::InvalidState)?
+            .0
+            .configuration_write(buf)?;
         ringbuf_entry!(Trace::WriteBitstreamChunk);
         Ok(())
     }
@@ -423,8 +433,7 @@ where
             ringbuf_entry!(Trace::StandardBitstreamDetected);
         }
 
-        let error = status.bitstream_error();
-        if error != BitstreamError::None {
+        if let Some(error) = status.bitstream_error() {
             // Log and bail. This leaves the device in configuration mode (and
             // the SPI port enabled), allowing the caller to issue a Refresh
             // command and try again if so desired.
@@ -432,7 +441,7 @@ where
             return Err(FpgaError::BitstreamError(error as u8));
         }
 
-        ringbuf_entry!(Trace::BitstreamError(BitstreamError::None));
+        ringbuf_entry!(Trace::BitstreamAccepted);
 
         // Return to user mode, initiating the control sequence which will start
         // the fabric. Completion of this transition is externally observable
@@ -452,45 +461,33 @@ where
     }
 }
 
-/// Implement the Fpgauser_design trait for ECP5.
-impl<Driver: Ecp5Driver> FpgaUserDesign for Ecp5<Driver>
-where
-    FpgaError: From<<Driver as Ecp5Driver>::Error>,
-{
+/// Implement the FpgaUserDesign trait for ECP5.
+impl<Driver: Ecp5Driver> FpgaUserDesign for Ecp5<Driver> {
     fn user_design_enabled(&self) -> Result<bool, FpgaError> {
-        Ok(!self.driver.user_design_reset_n()?)
+        self.driver.user_design_enabled()
     }
 
     fn set_user_design_enabled(&self, enabled: bool) -> Result<(), FpgaError> {
-        self.driver.set_user_design_reset_n(enabled)?;
-        ringbuf_entry!(if enabled {
-            Trace::UserDesignResetDeasserted
-        } else {
-            Trace::UserDesignResetAsserted
-        });
-        Ok(())
+        self.driver.set_user_design_enabled(enabled)
     }
 
     fn reset_user_design(&self) -> Result<(), FpgaError> {
-        self.set_user_design_enabled(false)?;
-        hl::sleep_for(self.driver.user_design_reset_duration());
-        self.set_user_design_enabled(true)?;
-        Ok(())
+        self.driver.reset_user_design()
     }
 
     fn user_design_read(&self, data: &mut [u8]) -> Result<(), FpgaError> {
-        Ok(self.driver.user_design_read(data)?)
+        self.driver.user_design_read(data)
     }
 
     fn user_design_write(&self, data: &[u8]) -> Result<(), FpgaError> {
-        Ok(self.driver.user_design_write(data)?)
+        self.driver.user_design_write(data)
     }
 
     fn user_design_lock(&self) -> Result<(), FpgaError> {
-        Ok(self.driver.user_design_lock()?)
+        self.driver.user_design_lock()
     }
 
     fn user_design_release(&self) -> Result<(), FpgaError> {
-        Ok(self.driver.user_design_release()?)
+        self.driver.user_design_release()
     }
 }
