@@ -26,9 +26,8 @@ stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
 lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "drv-user-leds"
+[lib]
+name = "drv_user_leds"
+crate_type = ["staticlib"]
 test = false
 bench = false

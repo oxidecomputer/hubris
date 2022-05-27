@@ -11,7 +11,8 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 userlib = {path = "../../sys/userlib"}
 drv-user-leds-api = {path = "../../drv/user-leds-api"}
 
-[[bin]]
-name = "task-pong"
+[lib]
+name = "task_pong"
+crate_type = ["staticlib"]
 test = false
 bench = false
