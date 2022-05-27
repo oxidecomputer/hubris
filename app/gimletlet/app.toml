@@ -107,7 +107,7 @@ task-slots = ["user_leds"]
 
 [tasks.uartecho]
 name = "task-uartecho"
-features = ["stm32h743", "usart2"]
+features = ["stm32h753", "usart2"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 1}
 priority = 3
