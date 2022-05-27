@@ -409,16 +409,21 @@ where
     FpgaError: From<<Driver as Ecp5Driver>::Error>,
 {
     fn continue_load(&mut self, buf: &[u8]) -> Result<(), FpgaError> {
-        self.lock
-            .as_ref()
-            .ok_or(FpgaError::InvalidState)?
-            .0
-            .configuration_write(buf)?;
+        if self.lock.is_none() {
+            return Err(FpgaError::InvalidState);
+        }
+
+        self.lock.as_ref().unwrap().0.configuration_write(buf)?;
+
         ringbuf_entry!(Trace::WriteBitstreamChunk);
         Ok(())
     }
 
     fn finish_load(&mut self) -> Result<(), FpgaError> {
+        if self.lock.is_none() {
+            return Err(FpgaError::InvalidState);
+        }
+
         // Release the locked resources in the driver.
         self.lock = None;
 
