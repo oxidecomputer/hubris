@@ -127,6 +127,7 @@ impl Config {
         crate_name: &str,
         features: &[String],
         sysroot: Option<&'a Path>,
+        staticlib: bool,
     ) -> BuildConfig<'a> {
         let mut args = vec![
             "--no-default-features".to_string(),
@@ -183,14 +184,22 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let out_dir = Path::new("").join(&self.target).join("release");
+        let bin_name = if staticlib {
+            format!("lib{}.a", crate_name.replace('-', "_"))
+        } else {
+            crate_name.to_string()
+        };
+        let out_path = Path::new("")
+            .join(&self.target)
+            .join("release")
+            .join(bin_name);
 
         BuildConfig {
             args,
             env,
             crate_name: crate_name.to_string(),
             sysroot,
-            out_dir,
+            out_path,
         }
     }
 
@@ -205,6 +214,7 @@ impl Config {
             &self.kernel.name,
             &self.kernel.features,
             sysroot,
+            false,
         );
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
@@ -223,6 +233,7 @@ impl Config {
                 &bootloader.name,
                 &bootloader.features,
                 sysroot,
+                false,
             )
         })
     }
@@ -242,6 +253,7 @@ impl Config {
             &task_toml.name,
             &task_toml.features,
             sysroot,
+            true,
         );
 
         //
@@ -438,6 +450,9 @@ where
 pub struct BuildConfig<'a> {
     pub crate_name: String,
 
+    /// File written by the compiler
+    pub out_path: PathBuf,
+
     args: Vec<String>,
     env: BTreeMap<String, String>,
 
@@ -446,9 +461,6 @@ pub struct BuildConfig<'a> {
     /// the system façade (which may go through `rustup`).  This saves a few
     /// hundred milliseconds per `cargo` invocation.
     sysroot: Option<&'a Path>,
-
-    /// Directory where the files will be written by the compiler
-    out_dir: PathBuf,
 }
 
 impl BuildConfig<'_> {
@@ -476,13 +488,5 @@ impl BuildConfig<'_> {
             cmd.env(k, v);
         }
         cmd
-    }
-    pub fn out_path(&self, staticlib: bool) -> PathBuf {
-        let bin_name = if staticlib {
-            format!("lib{}.a", self.crate_name.replace('-', "_"))
-        } else {
-            self.crate_name.clone()
-        };
-        self.out_dir.join(bin_name)
     }
 }
