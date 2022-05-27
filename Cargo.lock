@@ -3035,6 +3035,7 @@ dependencies = [
  "drv-gimlet-seq-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-sidecar-seq-api",
  "paste",
  "ringbuf",
  "task-sensor-api",

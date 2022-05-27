@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "sidecar"
-requires = {flash = 32768, ram = 4192}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -195,6 +195,23 @@ stacksize = 1024
 start = true
 task-slots = ["sys", "i2c_driver", {fpga = "ecp5_mainboard"}]
 
+[tasks.power]
+name = "task-power"
+features = ["itm", "h753"]
+priority = 3
+requires = {flash = 16384, ram = 4096 }
+stacksize = 2048
+start = true
+task-slots = ["i2c_driver", "sensor", "sequencer"]
+
+[tasks.validate]
+name = "task-validate"
+priority = 3
+requires = {flash = 8192, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.idle]
 name = "task-idle"
 priority = 6
@@ -218,6 +235,7 @@ controller = 1
 name = "northeast0"
 description = "Northeast Corridor 0"
 pins = [ { gpio_port = "B", pins = [ 6, 7 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
 # I2C_NORTH_EAST1_SCL
@@ -284,6 +302,7 @@ af = 4
 name = "northwest1"
 description = "Northwest Corridor 1"
 pins = [ { pins = [ 7, 8 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
 # I2C4: South bend
@@ -387,6 +406,7 @@ name = "northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J70"
+removable = true
 
 [[config.i2c.devices]]
 bus = "northwest0"
@@ -396,12 +416,6 @@ description = "54V hot swap controller"
 pmbus = { rails = [ "V54_HSC" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U2"
-
-[[config.i2c.devices]]
-bus = "northwest0"
-address = 0b0010_111
-device = "bmr480"
-description = "IBC"
 
 [[config.i2c.devices]]
 bus = "northwest0"
@@ -446,7 +460,7 @@ device = "bmr491"
 name = "ibc"
 description = "Intermediate bus converter"
 pmbus = { rails = [ "V12P0_SYS" ] }
-sensors = { temperature = 1, power = 1, voltage = 1 }
+sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
 refdes = "U12"
 
 [[config.i2c.devices]]
@@ -479,7 +493,7 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "northwest1"
-address = 0b1000_000
+address = 0b0100_000
 device = "max31790"
 description = "Fan 2/3 controller"
 sensors = { speed = 4 }
