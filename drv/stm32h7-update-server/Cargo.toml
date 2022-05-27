@@ -16,7 +16,6 @@ zerocopy = "0.6.1"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "stm32h7_update_server"
 crate_type = ["staticlib"]
 test = false
 bench = false

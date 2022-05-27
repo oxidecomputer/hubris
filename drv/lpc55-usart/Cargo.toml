@@ -18,7 +18,6 @@ serde = "1"
 anyhow = "1.0.31"
 
 [lib]
-name = "drv_lpc55_usart"
 crate_type = ["staticlib"]
 test = false
 bench = false

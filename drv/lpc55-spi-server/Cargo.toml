@@ -22,7 +22,6 @@ serde = "1"
 spi0 = []
 
 [lib]
-name = "drv_lpc55_spi_server"
 crate_type = ["staticlib"]
 test = false
 bench = false

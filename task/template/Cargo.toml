@@ -7,7 +7,6 @@ edition = "2018"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
 [lib]
-name = "task_template"
 crate_type = ["staticlib"]
 test = false
 bench = false

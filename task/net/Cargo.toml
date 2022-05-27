@@ -59,7 +59,6 @@ proc-macro2 = "1"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "task_net"
 crate_type = ["staticlib"]
 test = false
 bench = false

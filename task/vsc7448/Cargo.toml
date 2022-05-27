@@ -29,7 +29,6 @@ build-util = {path = "../../build/util"}
 target = "thumbv7em-none-eabihf"
 
 [lib]
-name = "task_vsc7448"
 crate_type = ["staticlib"]
 test = false
 bench = false

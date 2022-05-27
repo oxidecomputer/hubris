@@ -19,7 +19,6 @@ idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git" }
 
 [lib]
-name = "drv_lpc55_rng"
 crate_type = ["staticlib"]
 test = false
 bench = false

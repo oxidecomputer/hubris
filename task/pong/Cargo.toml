@@ -12,7 +12,6 @@ userlib = {path = "../../sys/userlib"}
 drv-user-leds-api = {path = "../../drv/user-leds-api"}
 
 [lib]
-name = "task_pong"
 crate_type = ["staticlib"]
 test = false
 bench = false

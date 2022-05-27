@@ -17,7 +17,6 @@ build-i2c = {path = "../../build/i2c"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "drv_eeprom"
 crate_type = ["staticlib"]
 test = false
 bench = false

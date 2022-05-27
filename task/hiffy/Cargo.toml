@@ -52,7 +52,6 @@ spctrl = ["drv-sp-ctrl-api"]
 update = ["drv-update-api"]
 
 [lib]
-name = "task_hiffy"
 crate_type = ["staticlib"]
 test = false
 bench = false

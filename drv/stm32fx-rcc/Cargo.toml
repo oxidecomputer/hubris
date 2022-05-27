@@ -15,7 +15,6 @@ f3 = ["stm32f3/stm32f303"]
 f4 = ["stm32f4/stm32f407"]
 
 [lib]
-name = "drv_stm32fx_rcc"
 crate_type = ["staticlib"]
 test = false
 bench = false

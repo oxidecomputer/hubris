@@ -28,7 +28,6 @@ g070 = ["family-stm32g0", "stm32g0/stm32g070", "drv-stm32xx-sys-api/g070", "drv-
 g0b1 = ["family-stm32g0", "stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1", "drv-stm32xx-gpio-common/model-stm32g0b1"]
 
 [lib]
-name = "drv_stm32xx_sys"
 crate_type = ["staticlib"]
 test = false
 bench = false

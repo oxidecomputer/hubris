@@ -35,7 +35,6 @@ itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 
 [lib]
-name = "task_thermal"
 crate_type = ["staticlib"]
 test = false
 bench = false

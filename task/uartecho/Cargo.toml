@@ -29,7 +29,6 @@ usart6 = []
 uart7 = []
 
 [lib]
-name = "task_uartecho"
 crate_type = ["staticlib"]
 test = false
 bench = false

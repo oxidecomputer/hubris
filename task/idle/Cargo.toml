@@ -10,7 +10,6 @@ userlib = {path = "../../sys/userlib"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
 [lib]
-name = "task_idle"
 crate_type = ["staticlib"]
 test = false
 bench = false

@@ -16,7 +16,6 @@ zerocopy = "0.6.1"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "drv_lpc55_gpio"
 crate_type = ["staticlib"]
 test = false
 bench = false

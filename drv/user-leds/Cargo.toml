@@ -27,7 +27,6 @@ lpc55 = ["lpc55-pac", "drv-lpc55-gpio-api"]
 panic-messages = ["userlib/panic-messages"]
 
 [lib]
-name = "drv_user_leds"
 crate_type = ["staticlib"]
 test = false
 bench = false

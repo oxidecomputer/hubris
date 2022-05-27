@@ -26,7 +26,6 @@ serde = "1"
 quote = "1"
 
 [lib]
-name = "drv_lpc55_swd"
 crate_type = ["staticlib"]
 test = false
 bench = false

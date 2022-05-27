@@ -19,7 +19,6 @@ g0b1 = ["stm32g0/stm32g0b1", "drv-stm32xx-sys-api/g0b1"]
 semihosting = ["userlib/log-semihosting"]
 
 [lib]
-name = "drv_stm32g0_usart"
 crate_type = ["staticlib"]
 test = false
 bench = false

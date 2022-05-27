@@ -23,7 +23,6 @@ semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
 log-null = ["userlib/log-null"]
 
 [lib]
-name = "task_jefe"
 crate_type = ["staticlib"]
 test = false
 bench = false

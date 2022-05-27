@@ -14,7 +14,6 @@ task-net-api = {path = "../net-api"}
 vlan = ["task-net-api/vlan"]
 
 [lib]
-name = "task_udpecho"
 crate_type = ["staticlib"]
 test = false
 bench = false

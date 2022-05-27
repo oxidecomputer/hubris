@@ -22,7 +22,6 @@ itm = [ "userlib/log-itm" ]
 semihosting = ["cortex-m-semihosting", "userlib/log-semihosting"]
 
 [lib]
-name = "test_runner"
 crate_type = ["staticlib"]
 test = false
 bench = false

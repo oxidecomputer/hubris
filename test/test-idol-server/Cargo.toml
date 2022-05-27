@@ -17,7 +17,6 @@ build-util = {path = "../../build/util"}
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "test_idol_server"
 crate_type = ["staticlib"]
 test = false
 bench = false

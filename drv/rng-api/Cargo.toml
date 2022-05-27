@@ -19,6 +19,5 @@ custom-getrandom = ["getrandom/custom"]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [lib]
-name = "drv_rng_api"
 test = false
 bench = false

@@ -27,7 +27,6 @@ h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753",
 itm = [ "userlib/log-itm" ]
 
 [lib]
-name = "drv_stm32h7_i2c_server"
 crate_type = ["staticlib"]
 test = false
 bench = false
