@@ -13,9 +13,8 @@ ssmarshal = {version = "1", default-features = false}
 num-traits = {version = "0.2", default-features = false}
 task-net-api = {path = "../net-api"}
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "task-udpbroadcast"
+[lib]
+name = "task_udpbroadcast"
+crate_type = ["staticlib"]
 test = false
 bench = false

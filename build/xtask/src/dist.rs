@@ -57,6 +57,9 @@ struct PackageConfig {
     /// Sysroot of the relevant toolchain
     sysroot: PathBuf,
 
+    /// Host triple, e.g. `aarch64-apple-darwin`
+    host_triple: String,
+
     /// List of paths to be remapped by the compiler, to minimize strings in
     /// the resulting binaries.
     remap_paths: BTreeMap<PathBuf, &'static str>,
@@ -80,6 +83,17 @@ impl PackageConfig {
         let sysroot =
             PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
 
+        let host = Command::new("rustc").arg("-vV").output()?;
+        if !host.status.success() {
+            bail!("Could not execute rustc to get host");
+        }
+        let host_triple = std::str::from_utf8(&host.stdout)?
+            .split('\n')
+            .flat_map(|line| line.strip_prefix("host: "))
+            .next()
+            .ok_or_else(|| anyhow!("Could not get host from rustc"))?
+            .to_string();
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
@@ -88,6 +102,7 @@ impl PackageConfig {
             edges,
             dist_dir,
             sysroot,
+            host_triple,
             remap_paths: Self::remap_paths()?,
         })
     }
@@ -567,7 +582,7 @@ fn build_bootloader(
         .toml
         .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
         .unwrap();
-    build(cfg, &bootloader.name, build_config)?;
+    build(cfg, &bootloader.name, build_config, false)?;
 
     // Need a bootloader binary for signing
     objcopy_translate_format(
@@ -615,6 +630,13 @@ fn build_task(
 ) -> Result<u32> {
     let task_toml = &cfg.toml.tasks[name];
 
+    let build_config = cfg
+        .toml
+        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
+    build(cfg, name, build_config, true)
+        .context(format!("failed to build {}", name))?;
+
     generate_task_linker_script(
         "memory.x",
         &allocs.tasks[name],
@@ -624,15 +646,10 @@ fn build_task(
         })?,
     )
     .context(format!("failed to generate linker script for {}", name))?;
-
     fs::copy("build/task-link.x", "target/link.x")?;
 
-    let build_config = cfg
-        .toml
-        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
-        .unwrap();
-    build(cfg, name, build_config)
-        .context(format!("failed to build {}", name))?;
+    // Link the static archive
+    link(cfg, &cfg.dist_file(name))?;
 
     resolve_task_slots(cfg, name)?;
 
@@ -686,7 +703,7 @@ fn build_kernel(
         ],
         Some(&cfg.sysroot),
     );
-    build(cfg, "kernel", build_config)?;
+    build(cfg, "kernel", build_config, false)?;
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
@@ -1043,8 +1060,9 @@ fn generate_kernel_linker_script(
 
 fn build(
     cfg: &PackageConfig,
-    name: impl AsRef<Path>,
+    name: &str,
     build_config: BuildConfig,
+    staticlib: bool,
 ) -> Result<()> {
     println!("building crate {}", build_config.crate_name);
 
@@ -1063,18 +1081,22 @@ fn build(
     cmd.env(
         "RUSTFLAGS",
         &format!(
-            "-C link-arg=-Tlink.x \
-             -L {} \
-             -C link-arg=-z -C link-arg=common-page-size=0x20 \
+            "-C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -C overflow-checks=y \
              {}
              ",
-            cargo_out.display(),
             remap_path_prefix,
         ),
     );
+    if !staticlib {
+        cmd.arg("--");
+        cmd.arg("-C")
+            .arg("link-arg=-Tlink.x")
+            .arg("-L")
+            .arg(format!("{}", cargo_out.display()));
+    }
 
     if cfg.edges {
         let mut tree = build_config.cmd("tree");
@@ -1100,12 +1122,70 @@ fn build(
     }
 
     let out_file = cargo_out.join(build_config.out_path);
+    let out_file = if staticlib {
+        let bin_name = out_file.file_name().unwrap().to_str().unwrap();
+        let lib_name = format!("lib{}.a", bin_name.replace('-', "_"));
+        out_file.parent().unwrap().join(lib_name)
+    } else {
+        out_file
+    };
 
-    let dest = cfg.dist_file(name);
+    let dest = cfg.dist_file(if staticlib {
+        format!("{}.a", name)
+    } else {
+        name.to_string()
+    });
     println!("{} -> {}", out_file.display(), dest.display());
     std::fs::copy(&out_file, dest)?;
 
     Ok(())
+}
+
+fn link(cfg: &PackageConfig, out_file: &Path) -> Result<PathBuf> {
+    let mut ld = cfg.sysroot.clone();
+    for p in ["lib", "rustlib", &cfg.host_triple, "bin", "gcc-ld", "ld"] {
+        ld.push(p);
+    }
+    let mut cmd = Command::new(ld);
+    if cfg.verbose {
+        cmd.arg("--verbose");
+    }
+
+    // We expect the caller to set up our linker scripts, but copy them into
+    // our working directory here
+    let working_dir = out_file.parent().unwrap();
+    for f in ["link.x", "memory.x", "table.ld"] {
+        std::fs::copy(format!("target/{}", f), working_dir.join(f))
+            .context(format!("Could not copy {} to link dir", f))?;
+    }
+    let bin_name = out_file.file_name().unwrap().to_str().unwrap();
+    let lib_name = format!("{}.a", bin_name);
+
+    cmd.arg(lib_name);
+    cmd.arg("-o");
+    cmd.arg(bin_name);
+
+    cmd.arg("-Tlink.x");
+    cmd.arg("-z");
+    cmd.arg("common-page-size=0x20");
+    cmd.arg("-z");
+    cmd.arg("max-page-size=0x20");
+    cmd.arg("--gc-sections");
+    cmd.arg("-m");
+    cmd.arg("armelf"); // TODO: make this architecture-appropriate
+
+    cmd.current_dir(working_dir);
+
+    println!("{:?} in {}", cmd, out_file.parent().unwrap().display());
+    let status = cmd
+        .status()
+        .context(format!("failed to run linker ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
+
+    Ok(PathBuf::from(bin_name))
 }
 
 #[derive(Debug, Clone, Default, Hash)]

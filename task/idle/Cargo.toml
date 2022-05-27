@@ -9,9 +9,8 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "task-idle"
+[lib]
+name = "task_idle"
+crate_type = ["staticlib"]
 test = false
 bench = false

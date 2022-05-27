@@ -28,9 +28,8 @@ h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]
 
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "task-power"
+[lib]
+name = "task_power"
+crate_type = ["staticlib"]
 test = false
 bench = false
