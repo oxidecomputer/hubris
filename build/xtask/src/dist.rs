@@ -209,6 +209,14 @@ pub fn package(
         }
     }
 
+    // Build all tasks (which are static binaries, so they are not linked yet)
+    // For now, we build them one by one (FOR NOW)
+    for name in cfg.toml.tasks.keys() {
+        if tasks_to_build.contains(name.as_str()) {
+            build_task(&cfg, name)?;
+        }
+    }
+
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
     // the HashMap, because the kernel kconfig will still need it.
@@ -218,7 +226,7 @@ pub fn package(
         .keys()
         .map(|name| {
             let ep = if tasks_to_build.contains(name.as_str()) {
-                build_task(&cfg, name, &allocs, &mut all_output_sections)
+                link_task(&cfg, name, &allocs, &mut all_output_sections)
             } else {
                 Ok(allocs.tasks[name]["flash"].start)
             };
@@ -621,22 +629,24 @@ struct LoadSegment {
     data: Vec<u8>,
 }
 
-/// Builds a specific task, returning the entry point
-fn build_task(
+/// Builds a specific task
+fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+    let build_config = cfg
+        .toml
+        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
+    build(cfg, name, build_config, true)
+        .context(format!("failed to build {}", name))
+}
+
+/// Link a specific task, returning its entry point
+fn link_task(
     cfg: &PackageConfig,
     name: &str,
     allocs: &Allocations,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<u32> {
     let task_toml = &cfg.toml.tasks[name];
-
-    let build_config = cfg
-        .toml
-        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
-        .unwrap();
-    build(cfg, name, build_config, true)
-        .context(format!("failed to build {}", name))?;
-
     generate_task_linker_script(
         "memory.x",
         &allocs.tasks[name],
