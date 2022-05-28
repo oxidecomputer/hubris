@@ -62,8 +62,25 @@ impl BspT for Bsp {
     fn fans(&self) -> &[(Fan, SensorId)] {
         &self.fans
     }
-    fn fan_control(&self) -> &FanControl {
-        &self.fctrl
+
+    fn fan_control(
+        &self,
+        fan: drv_i2c_devices::max31790::Fan,
+        mut fctrl: impl FnMut(
+            &crate::control::FanControl,
+            drv_i2c_devices::max31790::Fan,
+        )
+    ) {
+        fctrl(&self.fctrl, fan)
+    }
+
+    fn fan_controls(
+        &self,
+        mut fctrl: impl FnMut(
+            &crate::control::FanControl,
+        )
+    ) {
+        fctrl(&self.fctrl)
     }
 
     fn power_mode(&self) -> u32 {

@@ -12,6 +12,7 @@ use userlib::units::*;
 use userlib::*;
 
 #[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
 pub enum I2cWatchdog {
     Disabled = 0b00,
     FiveSeconds = 0b01,

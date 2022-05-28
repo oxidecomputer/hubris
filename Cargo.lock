@@ -3121,6 +3121,7 @@ dependencies = [
  "drv-i2c-devices",
  "drv-onewire",
  "drv-onewire-devices",
+ "drv-sidecar-seq-api",
  "idol",
  "idol-runtime",
  "num-traits",

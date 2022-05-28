@@ -37,6 +37,7 @@ task_slot!(SENSOR, sensor);
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Start,
     ThermalMode(ThermalMode),
     FanReadFailed(usize, ResponseCode),
     MiscReadFailed(usize, ResponseCode),
@@ -207,6 +208,8 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());
+
+    ringbuf_entry!(Trace::Start);
 
     let mut bsp = Bsp::new(i2c_task);
     let control = ThermalControl::new(&mut bsp, sensor_api);
