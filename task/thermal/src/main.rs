@@ -21,13 +21,25 @@ use crate::{
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
-pub use drv_i2c_devices::max31790::Fan;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_thermal_api::{ThermalError, ThermalMode};
 use userlib::units::PWMDuty;
 use userlib::*;
+
+//
+// We define our own Fan type, as we may have more fans than any single
+// controller supports.
+//
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Fan(u8);
+
+impl From<Fan> for drv_i2c_devices::max31790::Fan {
+    fn from(fan: Fan) -> drv_i2c_devices::max31790::Fan {
+        drv_i2c_devices::max31790::Fan::try_from(fan.0).unwrap()
+    }
+}
 
 use task_sensor_api::Sensor as SensorApi;
 
@@ -112,7 +124,8 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         }
         let pwm =
             PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
-        if let Ok(fan) = Fan::try_from(index) {
+
+        if let Some(fan) = self.control.fan(index) {
             self.control
                 .set_fan_pwm(fan, pwm)
                 .map_err(|_| ThermalError::DeviceError.into())

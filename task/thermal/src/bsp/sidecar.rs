@@ -10,9 +10,9 @@ use crate::{
 };
 use core::convert::TryFrom;
 use drv_sidecar_seq_api::Sequencer;
-use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
+use drv_i2c_devices::max31790::Max31790;
 use task_sensor_api::SensorId;
 use userlib::{task_slot, units::Celsius, TaskId};
 use ringbuf::*;
@@ -46,7 +46,7 @@ pub(crate) struct Bsp {
     misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fans and their respective RPM sensors
-    fans: [(Fan, SensorId); NUM_FANS],
+    fans: [(crate::Fan, SensorId); NUM_FANS],
 
     fctrl: FanControl,
 
@@ -57,22 +57,24 @@ impl BspT for Bsp {
     fn inputs(&self) -> &[InputChannel] {
         &self.inputs
     }
+
     fn misc_sensors(&self) -> &[TemperatureSensor] {
         &self.misc_sensors
     }
-    fn fans(&self) -> &[(Fan, SensorId)] {
+
+    fn fans(&self) -> &[(crate::Fan, SensorId)] {
         &self.fans
     }
 
     fn fan_control(
         &self,
-        fan: drv_i2c_devices::max31790::Fan,
+        fan: crate::Fan,
         mut fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,
         )
     ) {
-        fctrl(&self.fctrl, fan)
+        fctrl(&self.fctrl, fan.into())
     }
 
     fn fan_controls(
@@ -98,7 +100,7 @@ impl BspT for Bsp {
         for (i, f) in fans.iter_mut().enumerate() {
             ringbuf_entry!(Trace::Fan(i));
             *f = Some((
-                Fan::try_from(i as u8).unwrap(),
+                crate::Fan(i as u8),
                 sensors::MAX31790_SPEED_SENSORS[i],
             ));
         }

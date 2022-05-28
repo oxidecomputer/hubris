@@ -27,12 +27,12 @@ pub(crate) trait BspT {
     /// fan control IC, but can choose which fans to control.
     fn fans(
         &self,
-    ) -> &[(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)];
+    ) -> &[(crate::Fan, task_sensor_api::SensorId)];
 
     /// Fan control IC for a specified fan
     fn fan_control(
         &self,
-        fan: drv_i2c_devices::max31790::Fan,
+        fan: crate::Fan,
         fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,

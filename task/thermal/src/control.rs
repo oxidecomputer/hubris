@@ -56,12 +56,12 @@ pub enum FanControl {
 }
 
 impl FanControl {
-    fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+    fn set_pwm(&self, fan: drv_i2c_devices::max31790::Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m) => m.set_pwm(fan, pwm),
         }
     }
-    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
+    pub fn fan_rpm(&self, fan: drv_i2c_devices::max31790::Fan) -> Result<Rpm, ResponseCode> {
         match self {
             Self::Max31790(m) => m.fan_rpm(fan),
         }
@@ -335,6 +335,16 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
             result = Some(fctrl.set_pwm(fan, pwm));
         });
         result.unwrap()
+    }
+
+    pub fn fan(&self, index: u8) -> Option<Fan> {
+        let f = self.bsp.fans();
+
+        if (index as usize) < f.len() {
+            Some(Fan(index))
+        } else {
+            None
+        }
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {

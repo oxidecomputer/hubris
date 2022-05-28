@@ -67,13 +67,13 @@ impl BspT for Bsp {
 
     fn fan_control(
         &self,
-        fan: drv_i2c_devices::max31790::Fan,
+        fan: crate::Fan,
         mut fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,
         )
     ) {
-        fctrl(&self.fctrl, fan)
+        fctrl(&self.fctrl, fan.into())
     }
 
     fn fan_controls(
