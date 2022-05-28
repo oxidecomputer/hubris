@@ -41,6 +41,12 @@ impl From<Fan> for drv_i2c_devices::max31790::Fan {
     }
 }
 
+impl From<usize> for Fan {
+    fn from(index: usize) -> Self {
+        Fan(index as u8)
+    }
+}
+
 use task_sensor_api::Sensor as SensorApi;
 
 task_slot!(I2C, i2c_driver);

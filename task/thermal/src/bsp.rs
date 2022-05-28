@@ -27,7 +27,7 @@ pub(crate) trait BspT {
     /// fan control IC, but can choose which fans to control.
     fn fans(
         &self,
-    ) -> &[(crate::Fan, task_sensor_api::SensorId)];
+    ) -> &[task_sensor_api::SensorId];
 
     /// Fan control IC for a specified fan
     fn fan_control(

@@ -46,9 +46,11 @@ pub(crate) struct Bsp {
     misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fans and their respective RPM sensors
-    fans: [(crate::Fan, SensorId); NUM_FANS],
+    fans: [SensorId; NUM_FANS],
 
-    fctrl: FanControl,
+    /// Our two fan controllers: east for 0/1 and west for 1/2
+    fctrl_east: FanControl,
+    fctrl_west: FanControl,
 
     seq: Sequencer,
 }
@@ -62,7 +64,7 @@ impl BspT for Bsp {
         &self.misc_sensors
     }
 
-    fn fans(&self) -> &[(crate::Fan, SensorId)] {
+    fn fans(&self) -> &[SensorId] {
         &self.fans
     }
 
@@ -74,7 +76,13 @@ impl BspT for Bsp {
             drv_i2c_devices::max31790::Fan,
         )
     ) {
-        fctrl(&self.fctrl, fan.into())
+        if fan.0 < 4 {
+            fctrl(&self.fctrl_east, fan.into());
+        } else if fan.0 < 8 {
+            fctrl(&self.fctrl_west, crate::Fan(fan.0 - 4).into());
+        } else {
+            panic!();
+        }
     }
 
     fn fan_controls(
@@ -83,7 +91,8 @@ impl BspT for Bsp {
             &crate::control::FanControl,
         )
     ) {
-        fctrl(&self.fctrl)
+        fctrl(&self.fctrl_east);
+        fctrl(&self.fctrl_west);
     }
 
     fn power_mode(&self) -> u32 {
@@ -99,17 +108,24 @@ impl BspT for Bsp {
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
             ringbuf_entry!(Trace::Fan(i));
-            *f = Some((
-                crate::Fan(i as u8),
-                sensors::MAX31790_SPEED_SENSORS[i],
-            ));
+            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         let fans = fans.map(Option::unwrap);
+
         ringbuf_entry!(Trace::Fans);
 
-        // Initializes and build a handle to the fan controller IC
-        let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
-        fctrl.initialize().unwrap();
+        //
+        // Fan 0/1 are on max31790[0]; Fan 2/3 are on max31790[1].
+        //
+        //   Fan 0  Northeast/Southeast
+        //   Fan 1  NNE/SNE
+        //   Fan 2  NNW/SNW
+        //   Fan 3  Northwest/Southwest
+        //
+        let fctrl_east = Max31790::new(&devices::max31790(i2c_task)[0]);
+        let fctrl_west = Max31790::new(&devices::max31790(i2c_task)[1]);
+        fctrl_east.initialize().unwrap();
+        fctrl_west.initialize().unwrap();
 
         ringbuf_entry!(Trace::Controller);
 
@@ -119,7 +135,8 @@ impl BspT for Bsp {
         Self {
             seq,
             fans,
-            fctrl: FanControl::Max31790(fctrl),
+            fctrl_east: FanControl::Max31790(fctrl_east),
+            fctrl_west: FanControl::Max31790(fctrl_west),
 
             inputs: [],
 

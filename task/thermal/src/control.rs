@@ -189,14 +189,14 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// integrity of the control loop is threatened.
     pub fn read_sensors(&mut self) -> Result<Option<f32>, ResponseCode> {
         // Read fan data and log it to the sensors task
-        for (i, (fan, sensor_id)) in self.bsp.fans().iter().enumerate() {
-            self.bsp.fan_control(*fan, |fctrl, fan| {
+        for (index, sensor_id) in self.bsp.fans().iter().enumerate() {
+            self.bsp.fan_control(Fan::from(index), |fctrl, fan| {
                 let post_result = match fctrl.fan_rpm(fan) {
                     Ok(reading) => {
                         self.sensor_api.post(*sensor_id, reading.0.into())
                     }
                     Err(e) => {
-                        ringbuf_entry!(Trace::FanReadFailed(i, e));
+                        ringbuf_entry!(Trace::FanReadFailed(index, e));
                         self.sensor_api.nodata(*sensor_id, e.into())
                     }
                 };
@@ -313,9 +313,9 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
             return Err(ThermalError::InvalidPWM);
         }
         let mut last_err = Ok(());
-        for (fan_id, _sensor_id) in self.bsp.fans() {
-            self.bsp.fan_control(*fan_id, |fctrl, fan_id| {
-                if let Err(e) = fctrl.set_pwm(fan_id, pwm) {
+        for (index, _sensor_id) in self.bsp.fans().iter().enumerate() {
+            self.bsp.fan_control(Fan::from(index), |fctrl, fan| {
+                if let Err(e) = fctrl.set_pwm(fan, pwm) {
                     last_err = Err(e);
                 }
             });
