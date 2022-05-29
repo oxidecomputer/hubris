@@ -25,9 +25,7 @@ pub(crate) trait BspT {
 
     /// Fan output group.  Each `ThermalControl` is limited to a single
     /// fan control IC, but can choose which fans to control.
-    fn fans(
-        &self,
-    ) -> &[task_sensor_api::SensorId];
+    fn fans(&self) -> &[task_sensor_api::SensorId];
 
     /// Fan control IC for a specified fan
     fn fan_control(
@@ -36,16 +34,11 @@ pub(crate) trait BspT {
         fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,
-        )
+        ),
     );
 
     /// All fan control ICs
-    fn fan_controls(
-        &self,
-        fctrl: impl FnMut(
-            &crate::control::FanControl,
-        )
-    );
+    fn fan_controls(&self, fctrl: impl FnMut(&crate::control::FanControl));
 
     /// Returns a `u32` with a single bit set that corresponds to a power mode,
     /// which in turn determines which sensors are active.

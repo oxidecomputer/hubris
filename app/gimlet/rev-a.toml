@@ -128,7 +128,7 @@ task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 
 [tasks.power]
 name = "task-power"
-features = ["itm", "h753"]
+features = ["itm", "h753", "gimlet"]
 priority = 5
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048

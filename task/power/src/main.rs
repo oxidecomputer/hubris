@@ -231,7 +231,7 @@ fn controllers() -> [PowerController; 15] {
     ]
 }
 
-#[cfg(any(target_board = "gimlet-a", taget_board = "gimlet-b"))]
+#[cfg(any(target_board = "gimlet-a", target_board = "gimlet-b"))]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, gimlet_seq);
 

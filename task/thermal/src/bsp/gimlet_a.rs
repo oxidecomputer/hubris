@@ -71,17 +71,12 @@ impl BspT for Bsp {
         mut fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,
-        )
+        ),
     ) {
         fctrl(&self.fctrl, fan.into());
     }
 
-    fn fan_controls(
-        &self,
-        mut fctrl: impl FnMut(
-            &crate::control::FanControl,
-        )
-    ) {
+    fn fan_controls(&self, mut fctrl: impl FnMut(&crate::control::FanControl)) {
         fctrl(&self.fctrl);
     }
 
@@ -136,7 +131,7 @@ impl BspT for Bsp {
                 ),
                 InputChannel::new(
                     TemperatureSensor::new(
-                        Device::T6Nic(Tmp451::new(
+                        Device::Tmp451(Tmp451::new(
                             &devices::tmp451(i2c_task)[0],
                             Target::Remote,
                         )),

@@ -9,24 +9,13 @@ use crate::{
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
 use core::convert::TryFrom;
-use drv_sidecar_seq_api::Sequencer;
+use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
-use drv_i2c_devices::max31790::Max31790;
+use drv_sidecar_seq_api::Sequencer;
+use ringbuf::*;
 use task_sensor_api::SensorId;
 use userlib::{task_slot, units::Celsius, TaskId};
-use ringbuf::*;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Trace {
-    None,
-    Initialize,
-    Fan(usize),
-    Fans,
-    Controller,
-}
-
-ringbuf!(Trace, 32, Trace::None);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
@@ -35,8 +24,7 @@ use i2c_config::sensors;
 task_slot!(SEQUENCER, sequencer);
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
-// const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_TMP451_TEMPERATURE_SENSORS;
-const NUM_TEMPERATURE_INPUTS: usize = 0;
+const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_TMP451_TEMPERATURE_SENSORS;
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
 pub(crate) struct Bsp {
@@ -74,23 +62,42 @@ impl BspT for Bsp {
         mut fctrl: impl FnMut(
             &crate::control::FanControl,
             drv_i2c_devices::max31790::Fan,
-        )
+        ),
     ) {
+        //
+        // Fan 0/1 are on the east max31790; fan 2/3 are on west max31790.  And
+        // because each fan has in fact two fans, here is the mapping of
+        // index to controller and fan:
+        //
+        // Index    Controller     Fan           MAX31790 Fan
+        //     0    East           NNE           0
+        //     1    East           SNE           1
+        //     2    East           Northeast     2
+        //     3    East           Southeast     3
+        //     4    West           Northwest     0
+        //     5    West           Southwest     1
+        //     6    West           NNW           2
+        //     7    West           SNW           3
+        //
         if fan.0 < 4 {
+            //
+            // East side: straight mapping of fan index to MAX31790 fan
+            //
             fctrl(&self.fctrl_east, fan.into());
         } else if fan.0 < 8 {
+            //
+            // West side: subtract 4 to get MAX31790 fan
+            //
             fctrl(&self.fctrl_west, crate::Fan(fan.0 - 4).into());
         } else {
+            //
+            // Illegal fan
+            //
             panic!();
         }
     }
 
-    fn fan_controls(
-        &self,
-        mut fctrl: impl FnMut(
-            &crate::control::FanControl,
-        )
-    ) {
+    fn fan_controls(&self, mut fctrl: impl FnMut(&crate::control::FanControl)) {
         fctrl(&self.fctrl_east);
         fctrl(&self.fctrl_west);
     }
@@ -101,36 +108,27 @@ impl BspT for Bsp {
     }
 
     fn new(i2c_task: TaskId) -> Self {
-        ringbuf_entry!(Trace::Initialize);
-
         // Awkwardly build the fan array, because there's not a great way
         // to build a fixed-size array from a function
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
-            ringbuf_entry!(Trace::Fan(i));
             *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         let fans = fans.map(Option::unwrap);
 
-        ringbuf_entry!(Trace::Fans);
-
-        //
-        // Fan 0/1 are on max31790[0]; Fan 2/3 are on max31790[1].
-        //
-        //   Fan 0  Northeast/Southeast
-        //   Fan 1  NNE/SNE
-        //   Fan 2  NNW/SNW
-        //   Fan 3  Northwest/Southwest
-        //
-        let fctrl_east = Max31790::new(&devices::max31790(i2c_task)[0]);
-        let fctrl_west = Max31790::new(&devices::max31790(i2c_task)[1]);
+        let fctrl_east = Max31790::new(&devices::max31790_east(i2c_task));
+        let fctrl_west = Max31790::new(&devices::max31790_west(i2c_task));
         fctrl_east.initialize().unwrap();
         fctrl_west.initialize().unwrap();
 
-        ringbuf_entry!(Trace::Controller);
-
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQUENCER.get_task_id());
+
+        //
+        // Guessing, big time
+        //
+        const MAX_TF2_TEMP: Celsius = Celsius(60f32);
+        const MAX_VSC7448_TEMP: Celsius = Celsius(60f32);
 
         Self {
             seq,
@@ -138,7 +136,32 @@ impl BspT for Bsp {
             fctrl_east: FanControl::Max31790(fctrl_east),
             fctrl_west: FanControl::Max31790(fctrl_west),
 
-            inputs: [],
+            inputs: [
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::Tmp451(Tmp451::new(
+                            &devices::tmp451_tf2(i2c_task),
+                            Target::Remote,
+                        )),
+                        sensors::TMP451_TF2_TEMPERATURE_SENSOR,
+                    ),
+                    MAX_TF2_TEMP,
+                    0,
+                    false,
+                ),
+                InputChannel::new(
+                    TemperatureSensor::new(
+                        Device::Tmp451(Tmp451::new(
+                            &devices::tmp451_vsc7448(i2c_task),
+                            Target::Remote,
+                        )),
+                        sensors::TMP451_VSC7448_TEMPERATURE_SENSOR,
+                    ),
+                    MAX_VSC7448_TEMP,
+                    0,
+                    false,
+                ),
+            ],
 
             // We monitor and log all of the air temperatures
             misc_sensors: [
@@ -149,15 +172,11 @@ impl BspT for Bsp {
                     sensors::TMP117_NORTHEAST_TEMPERATURE_SENSOR,
                 ),
                 TemperatureSensor::new(
-                    Device::Tmp117(Tmp117::new(&devices::tmp117_nne(
-                        i2c_task,
-                    ))),
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_nne(i2c_task))),
                     sensors::TMP117_NNE_TEMPERATURE_SENSOR,
                 ),
                 TemperatureSensor::new(
-                    Device::Tmp117(Tmp117::new(&devices::tmp117_nnw(
-                        i2c_task,
-                    ))),
+                    Device::Tmp117(Tmp117::new(&devices::tmp117_nnw(i2c_task))),
                     sensors::TMP117_NNW_TEMPERATURE_SENSOR,
                 ),
                 TemperatureSensor::new(

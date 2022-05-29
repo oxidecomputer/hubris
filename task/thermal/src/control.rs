@@ -20,7 +20,7 @@ use userlib::units::{Celsius, PWMDuty, Rpm};
 /// this `enum` return an `drv_i2c_api::ResponseCode`.
 pub enum Device {
     Tmp117(Tmp117),
-    T6Nic(Tmp451),
+    Tmp451(Tmp451),
     CPU(Sbtsi),
     Dimm(Tse2004Av),
 }
@@ -40,7 +40,7 @@ impl TemperatureSensor {
         let t = match &self.device {
             Device::Tmp117(dev) => dev.read_temperature()?,
             Device::CPU(dev) => dev.read_temperature()?,
-            Device::T6Nic(dev) => dev.read_temperature()?,
+            Device::Tmp451(dev) => dev.read_temperature()?,
             Device::Dimm(dev) => dev.read_temperature()?,
         };
         Ok(t)
@@ -56,12 +56,19 @@ pub enum FanControl {
 }
 
 impl FanControl {
-    fn set_pwm(&self, fan: drv_i2c_devices::max31790::Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+    fn set_pwm(
+        &self,
+        fan: drv_i2c_devices::max31790::Fan,
+        pwm: PWMDuty,
+    ) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m) => m.set_pwm(fan, pwm),
         }
     }
-    pub fn fan_rpm(&self, fan: drv_i2c_devices::max31790::Fan) -> Result<Rpm, ResponseCode> {
+    pub fn fan_rpm(
+        &self,
+        fan: drv_i2c_devices::max31790::Fan,
+    ) -> Result<Rpm, ResponseCode> {
         match self {
             Self::Max31790(m) => m.fan_rpm(fan),
         }
@@ -201,7 +208,8 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
                     }
                 };
                 if post_result.is_err() {
-                    self.post_failed_count = self.post_failed_count.wrapping_add(1);
+                    self.post_failed_count =
+                        self.post_failed_count.wrapping_add(1);
                 }
             });
         }

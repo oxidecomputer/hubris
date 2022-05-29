@@ -197,7 +197,7 @@ task-slots = ["sys", "i2c_driver", {fpga = "ecp5_mainboard"}]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["itm", "h753"]
+features = ["itm", "h753", "sidecar"]
 priority = 5
 requires = {flash = 32768, ram = 8192 }
 stacksize = 4504
@@ -206,7 +206,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 
 [tasks.power]
 name = "task-power"
-features = ["itm", "h753"]
+features = ["itm", "h753", "sidecar"]
 priority = 6
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
@@ -359,6 +359,7 @@ refdes = "U6"
 bus = "northeast0"
 address = 0b0100_011
 device = "max31790"
+name = "East"
 description = "Fan 0/1 controller"
 sensors = { speed = 4 }
 refdes = "U66"
@@ -449,6 +450,7 @@ removable = true
 bus = "northwest0"
 address = 0b1001_100
 device = "tmp451"
+name = "tf2"
 description = "TF2 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U64"
@@ -504,6 +506,7 @@ removable = true
 bus = "northwest1"
 address = 0b0100_000
 device = "max31790"
+name = "West"
 description = "Fan 2/3 controller"
 sensors = { speed = 4 }
 refdes = "U78"
@@ -587,6 +590,7 @@ refdes = "U20"
 bus = "south1"
 address = 0b1001_100
 device = "tmp451"
+name = "vsc7448"
 description = "VSC7448 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U65"
