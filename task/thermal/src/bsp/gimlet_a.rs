@@ -11,7 +11,6 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
-use core::convert::TryFrom;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
@@ -41,7 +40,7 @@ pub(crate) struct Bsp {
     misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fans and their respective RPM sensors
-    fans: [(Fan, SensorId); NUM_FANS],
+    fans: [SensorId; NUM_FANS],
 
     fctrl: FanControl,
 
@@ -56,14 +55,28 @@ impl BspT for Bsp {
     fn inputs(&self) -> &[InputChannel] {
         &self.inputs
     }
+
     fn misc_sensors(&self) -> &[TemperatureSensor] {
         &self.misc_sensors
     }
-    fn fans(&self) -> &[(Fan, SensorId)] {
+
+    fn fans(&self) -> &[SensorId] {
         &self.fans
     }
-    fn fan_control(&self) -> &FanControl {
-        &self.fctrl
+
+    fn fan_control(
+        &self,
+        fan: crate::Fan,
+        mut fctrl: impl FnMut(
+            &crate::control::FanControl,
+            drv_i2c_devices::max31790::Fan,
+        ),
+    ) {
+        fctrl(&self.fctrl, fan.into());
+    }
+
+    fn fan_controls(&self, mut fctrl: impl FnMut(&crate::control::FanControl)) {
+        fctrl(&self.fctrl);
     }
 
     fn power_mode(&self) -> u32 {
@@ -85,10 +98,7 @@ impl BspT for Bsp {
         // to build a fixed-size array from a function
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
-            *f = Some((
-                Fan::try_from(i as u8).unwrap(),
-                sensors::MAX31790_SPEED_SENSORS[i],
-            ));
+            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
         let fans = fans.map(Option::unwrap);
 
@@ -120,7 +130,7 @@ impl BspT for Bsp {
                 ),
                 InputChannel::new(
                     TemperatureSensor::new(
-                        Device::T6Nic(Tmp451::new(
+                        Device::Tmp451(Tmp451::new(
                             &devices::tmp451(i2c_task)[0],
                             Target::Remote,
                         )),

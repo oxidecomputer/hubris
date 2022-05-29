@@ -2,18 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// We deliberately build every possible BSP here; the linker will strip them,
-// and this prevents us from accidentally introducing breaking changes.
-mod gimlet_a;
-mod gimlet_b;
-
-// Check that every BSP implements the BspT trait. This also prevents
-// dead code warnings!
+//
+// Check that we have a BSP and that the implements the BspT trait. This also
+// prevents dead code warnings!
+//
 const _: () = {
     fn has_bsp<T: BspT>() {}
     fn assert_bsps() {
-        has_bsp::<gimlet_a::Bsp>();
-        has_bsp::<gimlet_b::Bsp>();
+        has_bsp::<Bsp>();
     }
 };
 
@@ -27,14 +23,24 @@ pub(crate) trait BspT {
     /// do not affect the control loop
     fn misc_sensors(&self) -> &[crate::control::TemperatureSensor];
 
-    /// Fan output group.  Each `ThermalControl` is limited to a single
-    /// fan control IC, but can choose which fans to control.
-    fn fans(
-        &self,
-    ) -> &[(drv_i2c_devices::max31790::Fan, task_sensor_api::SensorId)];
+    /// Fan sensors
+    fn fans(&self) -> &[task_sensor_api::SensorId];
 
-    /// Fan control IC
-    fn fan_control(&self) -> &crate::control::FanControl;
+    /// Fan control IC for a specified fan. Note that the input is a global
+    /// fan index, and the argument to the closure is both a reference to a
+    /// fan controller and a reference to a MAX31790 fan within that
+    /// controller (it is up to the BSP to perform this translation).
+    fn fan_control(
+        &self,
+        fan: crate::Fan,
+        fctrl: impl FnMut(
+            &crate::control::FanControl,
+            drv_i2c_devices::max31790::Fan,
+        ),
+    );
+
+    /// All fan control ICs
+    fn fan_controls(&self, fctrl: impl FnMut(&crate::control::FanControl));
 
     /// Returns a `u32` with a single bit set that corresponds to a power mode,
     /// which in turn determines which sensors are active.
@@ -43,9 +49,14 @@ pub(crate) trait BspT {
 
 cfg_if::cfg_if! {
     if #[cfg(target_board = "gimlet-a")] {
+        mod gimlet_a;
         pub(crate) use gimlet_a::*;
     } else if #[cfg(target_board = "gimlet-b")] {
+        mod gimlet_b;
         pub(crate) use gimlet_b::*;
+    } else if #[cfg(target_board = "sidecar-1")] {
+        mod sidecar;
+        pub(crate) use sidecar::*;
     } else {
         compile_error!("No BSP for the given board");
     }
