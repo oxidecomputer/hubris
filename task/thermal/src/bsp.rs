@@ -23,11 +23,13 @@ pub(crate) trait BspT {
     /// do not affect the control loop
     fn misc_sensors(&self) -> &[crate::control::TemperatureSensor];
 
-    /// Fan output group.  Each `ThermalControl` is limited to a single
-    /// fan control IC, but can choose which fans to control.
+    /// Fan sensors
     fn fans(&self) -> &[task_sensor_api::SensorId];
 
-    /// Fan control IC for a specified fan
+    /// Fan control IC for a specified fan. Note that the input is a global
+    /// fan index, and the argument to the closure is both a reference to a
+    /// fan controller and a reference to a MAX31790 fan within that
+    /// controller (it is up to the BSP to perform this translation).
     fn fan_control(
         &self,
         fan: crate::Fan,

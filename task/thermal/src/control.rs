@@ -18,6 +18,7 @@ use userlib::units::{Celsius, PWMDuty, Rpm};
 /// Type containing all of our temperature sensor types, so we can store them
 /// generically in an array.  These are all `I2cDevice`s, so functions on
 /// this `enum` return an `drv_i2c_api::ResponseCode`.
+#[allow(dead_code)]
 pub enum Device {
     Tmp117(Tmp117),
     Tmp451(Tmp451),
@@ -65,6 +66,7 @@ impl FanControl {
             Self::Max31790(m) => m.set_pwm(fan, pwm),
         }
     }
+
     pub fn fan_rpm(
         &self,
         fan: drv_i2c_devices::max31790::Fan,
@@ -73,6 +75,7 @@ impl FanControl {
             Self::Max31790(m) => m.fan_rpm(fan),
         }
     }
+
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
         match self {
             Self::Max31790(m) => m.set_watchdog(wd),

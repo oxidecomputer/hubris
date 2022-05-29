@@ -27,6 +27,7 @@ mod payload;
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,

@@ -37,6 +37,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 use i2c_config::sensors;
 
+#[allow(dead_code)]
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),
@@ -151,6 +152,7 @@ macro_rules! rail_controller {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! rail_controller_notemp {
     ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
@@ -168,6 +170,7 @@ macro_rules! rail_controller_notemp {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! adm1272_controller {
     ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {

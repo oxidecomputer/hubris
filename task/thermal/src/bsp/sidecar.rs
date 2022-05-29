@@ -8,12 +8,10 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
-use core::convert::TryFrom;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
 use drv_sidecar_seq_api::Sequencer;
-use ringbuf::*;
 use task_sensor_api::SensorId;
 use userlib::{task_slot, units::Celsius, TaskId};
 
@@ -27,6 +25,7 @@ const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_TMP451_TEMPERATURE_SENSORS;
 const NUM_FANS: usize = sensors::NUM_MAX31790_SPEED_SENSORS;
 
+#[allow(dead_code)]
 pub(crate) struct Bsp {
     inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
 

@@ -11,7 +11,6 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
-use core::convert::TryFrom;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
