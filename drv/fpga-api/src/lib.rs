@@ -221,9 +221,7 @@ impl FpgaUserDesign {
     where
         T: AsBytes + FromBytes,
     {
-        Ok(self
-            .0
-            .user_design_write(op, addr.into(), value.as_bytes())?)
+        self.0.user_design_write(op, addr.into(), value.as_bytes())
     }
 }
 

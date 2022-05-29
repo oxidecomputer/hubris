@@ -78,10 +78,8 @@ impl Sequencer {
     }
 
     pub fn enabled(&self) -> Result<bool, FpgaError> {
-        Ok(
-            self.read_masked(Addr::TOFINO_SEQ_CTRL, Reg::TOFINO_SEQ_CTRL::EN)?
-                != 0,
-        )
+        self.read_masked(Addr::TOFINO_SEQ_CTRL, Reg::TOFINO_SEQ_CTRL::EN)
+            .map(|v| v != 0)
     }
 
     pub fn set_enable(&self, enabled: bool) -> Result<(), FpgaError> {
@@ -117,10 +115,13 @@ impl Sequencer {
         self.fpga.read(Addr::TOFINO_POWER_ENABLE)
     }
 
+    /// The VID is only valid once Tofino is powered up and a delay after PoR
+    /// has lapsed. If the VID is read while in this state a `Some(..)` will be
+    /// returned. Attempting to read the VID outside this window will result in
+    /// `None`. An `FpgaError` is returned if communication with the mainboard
+    /// controller failed or an invalid value was read from the register.
     pub fn vid(&self) -> Result<Option<Tofino2Vid>, FpgaError> {
-        let mask =
-            Reg::TOFINO_POWER_VID::VID_VALID | Reg::TOFINO_POWER_VID::VID;
-        let v = self.read_masked(Addr::TOFINO_POWER_VID, mask)?;
+        let v: u8 = self.fpga.read(Addr::TOFINO_POWER_VID)?;
 
         if (v & Reg::TOFINO_POWER_VID::VID_VALID) != 0 {
             match Tofino2Vid::from_u8(v & Reg::TOFINO_POWER_VID::VID) {
