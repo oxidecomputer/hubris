@@ -164,7 +164,7 @@ task-slots = ["sys"]
 [tasks.hiffy]
 name = "task-hiffy"
 features = ["h753", "spi", "stm32h7", "itm", "i2c", "gpio"]
-priority = 3
+priority = 5 
 requires = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
@@ -173,7 +173,7 @@ task-slots = ["sys", "i2c_driver"]
 [tasks.sensor]
 name = "task-sensor"
 features = ["itm"]
-priority = 3
+priority = 4
 requires = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
@@ -195,10 +195,19 @@ stacksize = 1024
 start = true
 task-slots = ["sys", "i2c_driver", {fpga = "ecp5_mainboard"}]
 
+[tasks.thermal]
+name = "task-thermal"
+features = ["itm", "h753", "sidecar"]
+priority = 5
+requires = {flash = 32768, ram = 8192 }
+stacksize = 4504
+start = true
+task-slots = ["i2c_driver", "sensor", "sequencer"]
+
 [tasks.power]
 name = "task-power"
-features = ["itm", "h753"]
-priority = 3
+features = ["itm", "h753", "sidecar"]
+priority = 6
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048
 start = true
@@ -206,7 +215,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 
 [tasks.validate]
 name = "task-validate"
-priority = 3
+priority = 5
 requires = {flash = 8192, ram = 4096 }
 stacksize = 1000
 start = true
@@ -214,7 +223,7 @@ task-slots = ["i2c_driver"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -350,6 +359,7 @@ refdes = "U6"
 bus = "northeast0"
 address = 0b0100_011
 device = "max31790"
+name = "East"
 description = "Fan 0/1 controller"
 sensors = { speed = 4 }
 refdes = "U66"
@@ -358,7 +368,7 @@ refdes = "U66"
 bus = "northeast0"
 address = 0b1001_001
 device = "tmp117"
-name = "nne"
+name = "NNE"
 description = "North-northeast temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J69"
@@ -402,7 +412,7 @@ refdes = "U19"
 bus = "northeast1"
 address = 0b1001_000
 device = "tmp117"
-name = "northeast"
+name = "Northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J70"
@@ -430,7 +440,7 @@ refdes = "U18"
 bus = "northwest0"
 address = 0b1001_000
 device = "tmp117"
-name = "nnw"
+name = "NNW"
 description = "North-northwest temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J68"
@@ -440,6 +450,7 @@ removable = true
 bus = "northwest0"
 address = 0b1001_100
 device = "tmp451"
+name = "tf2"
 description = "TF2 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U64"
@@ -457,7 +468,7 @@ refdes = "U32"
 bus = "northwest0"
 address = 0b1100_111
 device = "bmr491"
-name = "ibc"
+name = "IBC"
 description = "Intermediate bus converter"
 pmbus = { rails = [ "V12P0_SYS" ] }
 sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
@@ -485,7 +496,7 @@ refdes = "U10"
 bus = "northwest1"
 address = 0b1001_001
 device = "tmp117"
-name = "northwest"
+name = "Northwest"
 description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J67"
@@ -495,6 +506,7 @@ removable = true
 bus = "northwest1"
 address = 0b0100_000
 device = "max31790"
+name = "West"
 description = "Fan 2/3 controller"
 sensors = { speed = 4 }
 refdes = "U78"
@@ -530,8 +542,9 @@ refdes = "U38"
 bus = "south0"
 address = 0b1001_010
 device = "tmp117"
-name = "south"
+name = "South"
 description = "South temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J71"
 removable = true
 
@@ -539,8 +552,9 @@ removable = true
 bus = "south0"
 address = 0b1001_000
 device = "tmp117"
-name = "southeast"
+name = "Southeast"
 description = "Southeast temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J73"
 removable = true
 
@@ -548,8 +562,9 @@ removable = true
 bus = "south0"
 address = 0b1001_001
 device = "tmp117"
-name = "southwest"
+name = "Southwest"
 description = "Southwest temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J72"
 removable = true
 
@@ -575,6 +590,7 @@ refdes = "U20"
 bus = "south1"
 address = 0b1001_100
 device = "tmp451"
+name = "vsc7448"
 description = "VSC7448 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U65"

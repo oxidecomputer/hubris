@@ -40,6 +40,7 @@ impl SequencerFpga {
     }
 
     /// Check for a valid identifier, deliberately eating any SPI errors.
+    #[allow(dead_code)]
     pub fn valid_ident(&self) -> bool {
         if let Ok(ident) = self.read_ident() {
             ident == EXPECTED_IDENT
