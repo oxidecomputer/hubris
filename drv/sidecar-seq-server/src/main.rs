@@ -27,6 +27,7 @@ mod payload;
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -95,25 +96,22 @@ impl Tofino {
     fn apply_vid(&mut self, vid: Tofino2Vid) -> Result<(), SeqError> {
         use userlib::units::Volts;
 
-        let mut set_vout = |value: Volts| {
-            self.vddcore
-                .set_vout(value)
-                .map_err(|_| SeqError::SetVddCoreVoutFailed)?;
+        let value = Volts(match vid {
+            Tofino2Vid::V0P922 => 0.922,
+            Tofino2Vid::V0P893 => 0.893,
+            Tofino2Vid::V0P867 => 0.867,
+            Tofino2Vid::V0P847 => 0.847,
+            Tofino2Vid::V0P831 => 0.831,
+            Tofino2Vid::V0P815 => 0.815,
+            Tofino2Vid::V0P790 => 0.790,
+            Tofino2Vid::V0P759 => 0.759,
+        });
+        self.vddcore
+            .set_vout(value)
+            .map_err(|_| SeqError::SetVddCoreVoutFailed)?;
 
-            ringbuf_entry!(Trace::SetVddCoreVout(value));
-            Ok(())
-        };
-
-        match vid {
-            Tofino2Vid::V0P922 => set_vout(Volts(0.922)),
-            Tofino2Vid::V0P893 => set_vout(Volts(0.893)),
-            Tofino2Vid::V0P867 => set_vout(Volts(0.867)),
-            Tofino2Vid::V0P847 => set_vout(Volts(0.847)),
-            Tofino2Vid::V0P831 => set_vout(Volts(0.831)),
-            Tofino2Vid::V0P815 => set_vout(Volts(0.815)),
-            Tofino2Vid::V0P790 => set_vout(Volts(0.790)),
-            Tofino2Vid::V0P759 => set_vout(Volts(0.759)),
-        }
+        ringbuf_entry!(Trace::SetVddCoreVout(value));
+        Ok(())
     }
 
     fn power_up(&mut self) -> Result<(), SeqError> {
@@ -151,10 +149,9 @@ impl Tofino {
 
     fn power_down(&mut self) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::InitiateTofinoPowerDown);
-        Ok(self
-            .sequencer
+        self.sequencer
             .set_enable(false)
-            .map_err(|_| SeqError::SequencerError)?)
+            .map_err(|_| SeqError::SequencerError)
     }
 
     fn handle_tick(&mut self) -> Result<(), SeqError> {
@@ -275,10 +272,11 @@ impl NotificationHandler for ServerImpl {
         let finish = sys_get_timer().now;
 
         // We now know when we were notified and when any work was completed.
-        // The assumption here is that `start` < `finish`, with the this won't
-        // hold if the system time rolls over. Anyway, armed with this
-        // information, find the next deadline some multiple of `TIMER_INTERVAL`
-        // in the future.
+        // Note that the assumption here is that `start` < `finish` and that
+        // this won't hold if the system time rolls over. But, the system timer
+        // is a u64, with each bit representing a ms, so in practice this should
+        // be fine. Anyway, armed with this information, find the next deadline
+        // some multiple of `TIMER_INTERVAL` in the future.
 
         let delta = finish - start;
         let next_deadline = finish + TIMER_INTERVAL - (delta % TIMER_INTERVAL);
@@ -311,7 +309,7 @@ fn main() -> ! {
         //policy: TofinoSequencerPolicy::LatchOffOnFault,
         policy: TofinoSequencerPolicy::Disabled,
         sequencer: TofinoSequencer::new(FPGA.get_task_id()),
-        vddcore: vddcore,
+        vddcore,
     };
 
     let mut server = ServerImpl {
@@ -368,10 +366,8 @@ fn main() -> ! {
         ringbuf_entry!(Trace::SkipLoadingClockConfiguration);
         server.clock_generator.config_loaded = true;
         server.tofino.policy = TofinoSequencerPolicy::LatchOffOnFault;
-    } else {
-        if let Err(_) = server.clock_generator.load_config() {
-            panic!();
-        }
+    } else if server.clock_generator.load_config().is_err() {
+        panic!()
     }
     ringbuf_entry!(Trace::ClockConfigurationComplete);
 

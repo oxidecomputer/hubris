@@ -11,7 +11,7 @@
 
 use drv_i2c_api::*;
 use ringbuf::*;
-use userlib::*; //{hl, FromPrimitive};
+use userlib::*;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {

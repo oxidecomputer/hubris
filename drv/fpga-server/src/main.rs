@@ -285,7 +285,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
                     // end of the `chunk`, in which case `decompressed_chunk`
                     // will be empty since more data is needed before output is
                     // generated.
-                    if decompressed_chunk.len() > 0 {
+                    if !decompressed_chunk.is_empty() {
                         bitstream.continue_load(decompressed_chunk)?;
                         *len += decompressed_chunk.len();
                     }
