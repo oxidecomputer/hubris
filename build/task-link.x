@@ -18,7 +18,7 @@ SECTIONS
   } > FLASH =0xdededede
 
   /* ### .rodata */
-  .rodata __etext : ALIGN(4)
+  .rodata : ALIGN(4)
   {
     *(.rodata .rodata.*);
 
@@ -34,7 +34,7 @@ SECTIONS
    * table.ld containing the actual bytes is generated at runtime.
    * Note the ALIGN requirement comes from TrustZone requirements.
    */
-  .addr_table __erodata : ALIGN(32) {
+  .addr_table : ALIGN(32) {
     __bootloader_fn_table = .;
     INCLUDE table.ld
     __end_flash = .;
