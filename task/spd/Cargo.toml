@@ -12,14 +12,14 @@ drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = fa
 drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", features = ["amd_erratum_1394"]}
 drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
-cfg-if = "0.1.10"
+cfg-if = "1"
 stm32h7 = { version = "0.14", default-features = false }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
-cfg-if = "0.1.10"
+cfg-if = "1"
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]

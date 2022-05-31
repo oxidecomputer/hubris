@@ -10,7 +10,7 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 stm32h7 = { version = "0.14", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-stm32h7-hash = {path = "../stm32h7-hash", default-features = false, optional = true}
-cfg-if = "0.1.10"
+cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-hash-api = {path = "../hash-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }

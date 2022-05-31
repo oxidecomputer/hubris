@@ -7,7 +7,7 @@ edition = "2018"
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
-cfg-if = "0.1.10"
+cfg-if = "1"
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 
 [build-dependencies]
