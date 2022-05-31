@@ -162,7 +162,7 @@ dependencies = [
  "anyhow",
  "build-util",
  "cargo_metadata",
- "cfg-if 0.1.10",
+ "cfg-if",
  "convert_case 0.4.0",
  "indexmap",
  "multimap",
@@ -175,7 +175,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "convert_case 0.4.0",
  "indexmap",
  "multimap",
@@ -262,12 +262,6 @@ name = "cc"
 version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
-
-[[package]]
-name = "cfg-if"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "cfg-if"
@@ -414,7 +408,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -424,7 +418,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673b836c1c5a73bd981805236f46dfddbe1092a6a829b22464bd40d7ceefd2f9"
 dependencies = [
  "bare-metal 1.0.0",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cortex-m",
  "riscv",
 ]
@@ -537,7 +531,7 @@ name = "demo-stm32g0-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -552,7 +546,7 @@ name = "demo-stm32h7-nucleo"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -657,7 +651,7 @@ name = "drv-fpga-devices"
 version = "0.1.0"
 dependencies = [
  "bitfield",
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-fpga-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
@@ -672,7 +666,7 @@ name = "drv-fpga-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-fpga-api",
  "drv-fpga-devices",
  "drv-spi-api",
@@ -703,7 +697,7 @@ name = "drv-gimlet-hf-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-hash-api",
@@ -735,7 +729,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-gimlet-seq-api",
@@ -821,7 +815,7 @@ name = "drv-lpc55-gpio-api"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "derive-idol-err",
  "idol",
  "num-traits",
@@ -845,7 +839,7 @@ dependencies = [
 name = "drv-lpc55-rng"
 version = "0.1.0"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-lpc55-syscon-api",
  "drv-rng-api",
  "idol",
@@ -1001,7 +995,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -1077,7 +1071,7 @@ dependencies = [
 name = "drv-stm32h7-eth"
 version = "0.1.0"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cortex-m",
  "smoltcp",
  "stm32h7",
@@ -1100,7 +1094,7 @@ name = "drv-stm32h7-hash-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-hash-api",
  "drv-stm32h7-hash",
@@ -1118,7 +1112,7 @@ name = "drv-stm32h7-i2c"
 version = "0.1.0"
 dependencies = [
  "bitfield",
- "cfg-if 0.1.10",
+ "cfg-if",
  "drv-i2c-api",
  "drv-stm32xx-sys-api",
  "num-traits",
@@ -1135,7 +1129,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-stm32h7-i2c",
@@ -1188,7 +1182,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "call_rustfmt",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-spi-api",
  "drv-stm32h7-spi",
@@ -1229,7 +1223,7 @@ dependencies = [
 name = "drv-stm32xx-gpio-common"
 version = "0.1.0"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "num-traits",
  "stm32g0",
  "stm32h7",
@@ -1241,7 +1235,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-stm32xx-gpio-common",
  "drv-stm32xx-sys-api",
  "idol",
@@ -1258,7 +1252,7 @@ name = "drv-stm32xx-sys-api"
 version = "0.1.0"
 dependencies = [
  "byteorder",
- "cfg-if 1.0.0",
+ "cfg-if",
  "derive-idol-err",
  "drv-stm32xx-gpio-common",
  "idol",
@@ -1271,7 +1265,7 @@ dependencies = [
 name = "drv-stm32xx-uid"
 version = "0.1.0"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -1290,7 +1284,7 @@ name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "drv-lpc55-gpio-api",
  "drv-stm32xx-sys-api",
  "drv-user-leds-api",
@@ -1381,7 +1375,7 @@ version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "975ccf83d8d9d0d84682850a38c8169027be83368805971cc4f238c2b245bc98"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "redox_syscall",
  "winapi",
@@ -1397,7 +1391,7 @@ version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6988e897c1c9c485f43b47a529cef42fde0547f9d8d41a7062518f1d8fc53f"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "crc32fast",
  "libc",
  "miniz_oxide",
@@ -1420,7 +1414,7 @@ name = "gemini-bu"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -1436,7 +1430,7 @@ name = "gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -1462,7 +1456,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "wasi",
 ]
@@ -1472,7 +1466,7 @@ name = "gimlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -1487,7 +1481,7 @@ name = "gimlet-rot"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -1502,7 +1496,7 @@ name = "gimletlet"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -1696,7 +1690,7 @@ dependencies = [
  "bitflags",
  "build-util",
  "byteorder",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "phash",
  "phash-gen",
@@ -1752,7 +1746,7 @@ version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -1760,7 +1754,7 @@ name = "lpc55-iocon-gen"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "proc-macro2",
  "quote",
  "zerocopy",
@@ -1781,7 +1775,7 @@ dependencies = [
 name = "lpc55_romapi"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if",
  "lpc55-pac",
  "num-derive",
  "num-traits",
@@ -1812,7 +1806,7 @@ name = "lpc55xpresso"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -1891,7 +1885,7 @@ checksum = "f305c2c2e4c39a82f7bf0bf65fb557f9070ce06781d4f2454295cc34b1c43188"
 dependencies = [
  "bitflags",
  "cc",
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "memoffset",
 ]
@@ -2615,7 +2609,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
 dependencies = [
  "block-buffer",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "digest",
  "opaque-debug",
@@ -2626,7 +2620,7 @@ name = "sidecar"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "drv-stm32h7-startup",
@@ -2724,7 +2718,7 @@ name = "stage0"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "ecdsa",
@@ -2890,7 +2884,7 @@ dependencies = [
  "build-i2c",
  "build-util",
  "byteorder",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-hf-api",
  "drv-hash-api",
@@ -2941,7 +2935,7 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "build-util",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-sidecar-seq-api",
@@ -3011,7 +3005,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
@@ -3030,7 +3024,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -3062,7 +3056,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-stm32h7-i2c",
@@ -3088,7 +3082,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-gimlet-seq-api",
  "drv-i2c-api",
@@ -3121,7 +3115,7 @@ name = "task-uartecho"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cortex-m",
  "drv-stm32h7-usart",
  "ringbuf",
@@ -3158,7 +3152,7 @@ dependencies = [
  "anyhow",
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -3188,7 +3182,7 @@ name = "task-vsc7448"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-sidecar-seq-api",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
@@ -3266,7 +3260,7 @@ version = "0.1.0"
 dependencies = [
  "armv6m-atomic-hack",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-semihosting",
  "hubris-num-tasks",
@@ -3282,7 +3276,7 @@ version = "0.1.0"
 dependencies = [
  "build-i2c",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "drv-i2c-api",
  "drv-i2c-devices",
@@ -3301,7 +3295,7 @@ name = "tests-gemini-bu"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3315,7 +3309,7 @@ dependencies = [
 name = "tests-gemini-bu-rot"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3329,7 +3323,7 @@ dependencies = [
 name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3358,7 +3352,7 @@ name = "tests-stm32g0"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3373,7 +3367,7 @@ name = "tests-stm32h7"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "kern",
@@ -3485,7 +3479,7 @@ dependencies = [
  "armv6m-atomic-hack",
  "bstringify",
  "build-util",
- "cfg-if 0.1.10",
+ "cfg-if",
  "num-derive",
  "num-traits",
  "paste",
@@ -3541,7 +3535,7 @@ name = "vsc7448"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if 1.0.0",
+ "cfg-if",
  "drv-spi-api",
  "ringbuf",
  "userlib",

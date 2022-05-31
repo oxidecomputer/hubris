@@ -20,7 +20,7 @@ drv-i2c-devices = {path = "../i2c-devices"}
 drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
 drv-gimlet-seq-api = {path = "../gimlet-seq-api"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
-cfg-if = "0.1.10"
+cfg-if = "1"
 gnarle = {path = "../../lib/gnarle"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 

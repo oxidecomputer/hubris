@@ -18,7 +18,7 @@ ssmarshal = { version = "1.0.0", default-features = false }
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
-cfg-if = "0.1.10"
+cfg-if = "1"
 armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 
 #

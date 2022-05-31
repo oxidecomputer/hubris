@@ -13,7 +13,7 @@ drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-spi-api = {path = "../spi-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 stm32h7 = { version = "0.14", default-features = false }
-cfg-if = "0.1.10"
+cfg-if = "1"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
