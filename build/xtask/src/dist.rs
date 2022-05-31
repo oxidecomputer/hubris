@@ -211,11 +211,11 @@ pub fn package(
     }
 
     // Build all tasks (which are static binaries, so they are not linked yet)
-    // For now, we build them one by one (FOR NOW)
-    let mut changed = HashMap::new();
+    // For now, we build them one by one and ignore the return value, because
+    // we're going to link them regardless of whether the build changed.
     for name in cfg.toml.tasks.keys() {
         if tasks_to_build.contains(name.as_str()) {
-            changed.insert(name, build_task(&cfg, name)?);
+            build_task(&cfg, name)?;
         }
     }
 
@@ -228,9 +228,10 @@ pub fn package(
         .keys()
         .map(|name| {
             let ep = if tasks_to_build.contains(name.as_str()) {
-                if changed[name] || !cfg.dist_file(name).exists() {
-                    link_task(&cfg, name, &allocs)?;
-                }
+                // Link tasks regardless of whether they have changed, because
+                // we don't want to track changes in the other linker input
+                // (task-link.x, memory.x, table.ld, etc)
+                link_task(&cfg, name, &allocs)?;
                 task_entry_point(&cfg, name, &mut all_output_sections)
             } else {
                 Ok(allocs.tasks[name]["flash"].start)
