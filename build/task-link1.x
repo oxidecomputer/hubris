@@ -4,8 +4,6 @@ ENTRY(_start);
 
 SECTIONS
 {
-  PROVIDE(_stack_start = ORIGIN(STACK) + LENGTH(STACK));
-
   /* ### .text */
   .text : {
     _stext = .;
@@ -13,7 +11,7 @@ SECTIONS
     *(.text .text.*);
     . = ALIGN(4);
     __etext = .;
-  } > FLASH =0xdededede
+  }
 
   /* ### .rodata */
   .rodata : ALIGN(4)
@@ -25,7 +23,7 @@ SECTIONS
        section will have the correct alignment. */
     . = ALIGN(4);
     __erodata = .;
-  } > FLASH
+  }
 
   /*
    * Table of entry points for Hubris to get into the bootloader.
@@ -36,7 +34,7 @@ SECTIONS
     __bootloader_fn_table = .;
     INCLUDE table.ld
     __end_flash = .;
-  } > FLASH
+  }
 
   /*
    * Sections in RAM
@@ -50,34 +48,28 @@ SECTIONS
     *(.data .data.*);
     . = ALIGN(4); /* 4-byte align the end (VMA) of this section */
     __edata = .;
-  } > RAM
+  }
 
-  /* LMA of .data */
-  __sidata = LOADADDR(.data);
-
-  .bss (NOLOAD) : ALIGN(4)
-  {
+  .bss (NOLOAD) : ALIGN(4) {
     . = ALIGN(4);
     __sbss = .;
     *(.bss .bss.*);
     . = ALIGN(4); /* 4-byte align the end (VMA) of this section */
     __ebss = .;
-  } > RAM
+  }
 
-  .uninit (NOLOAD) : ALIGN(4)
-  {
+  .uninit (NOLOAD) : ALIGN(4) {
     . = ALIGN(4);
     *(.uninit .uninit.*);
     . = ALIGN(4);
     /* Place the heap right after `.uninit` */
     __sheap = .;
-  } > RAM
+  }
 
   /* ## .got */
   /* Dynamic relocations are unsupported. This section is only used to detect relocatable code in
      the input files and raise an error if relocatable code is found */
-  .got (NOLOAD) :
-  {
+  .got (NOLOAD) : {
     KEEP(*(.got .got.*));
   }
 

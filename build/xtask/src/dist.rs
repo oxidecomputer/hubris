@@ -215,7 +215,7 @@ pub fn package(
     // we're going to link them regardless of whether the build changed.
     for name in cfg.toml.tasks.keys() {
         if tasks_to_build.contains(name.as_str()) {
-            build_task(&cfg, name)?;
+            build_task(&cfg, name, &allocs)?;
         }
     }
 
@@ -636,7 +636,23 @@ struct LoadSegment {
 }
 
 /// Builds a specific task, return `true` if anything changed
-fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
+fn build_task(
+    cfg: &PackageConfig,
+    name: &str,
+    allocs: &Allocations,
+) -> Result<bool> {
+    let task_toml = &cfg.toml.tasks[name];
+    generate_task_linker_script(
+        "memory.x",
+        &allocs.tasks[name],
+        Some(&task_toml.sections),
+        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+            anyhow!("{}: no stack size specified and there is no default", name)
+        })?,
+    )
+    .context(format!("failed to generate linker script for {}", name))?;
+    fs::copy("build/task-link1.x", "target/link.x")?;
+
     let build_config = cfg
         .toml
         .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
@@ -1086,7 +1102,7 @@ fn build(
     cfg: &PackageConfig,
     name: &str,
     build_config: BuildConfig,
-    staticlib: bool,
+    reloc: bool,
 ) -> Result<bool> {
     println!("building crate {}", build_config.crate_name);
 
@@ -1114,12 +1130,13 @@ fn build(
             remap_path_prefix,
         ),
     );
-    if !staticlib {
-        cmd.arg("--");
-        cmd.arg("-C")
-            .arg("link-arg=-Tlink.x")
-            .arg("-L")
-            .arg(format!("{}", cargo_out.display()));
+    cmd.arg("--");
+    cmd.arg("-C")
+        .arg("link-arg=-Tlink.x")
+        .arg("-L")
+        .arg(format!("{}", cargo_out.display()));
+    if reloc {
+        cmd.arg("-C").arg("link-arg=-r");
     }
 
     if cfg.edges {
@@ -1157,8 +1174,8 @@ fn build(
 
     // Destination where it should be copied (using the task name rather than
     // the crate name)
-    let dest = cfg.dist_file(if staticlib {
-        format!("{}.a", name)
+    let dest = cfg.dist_file(if reloc {
+        format!("{}.elf", name)
     } else {
         name.to_string()
     });
@@ -1191,17 +1208,12 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
             .context(format!("Could not copy {} to link dir", f))?;
     }
     let bin_name = out_file.file_name().unwrap().to_str().unwrap();
-    let lib_name = format!("{}.a", bin_name);
+    let lib_name = format!("{}.elf", bin_name);
 
     cmd.arg(lib_name);
     cmd.arg("-o");
     cmd.arg(bin_name);
-
     cmd.arg("-Tlink.x");
-    cmd.arg("-z");
-    cmd.arg("common-page-size=0x20");
-    cmd.arg("-z");
-    cmd.arg("max-page-size=0x20");
     cmd.arg("--gc-sections");
     cmd.arg("-m");
     cmd.arg("armelf"); // TODO: make this architecture-appropriate
