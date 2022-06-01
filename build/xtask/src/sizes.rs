@@ -13,9 +13,16 @@ use anyhow::bail;
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TaskSizes {
+    sizes: IndexMap<String, IndexMap<String, u64>>,
+    suggestions: IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
+}
 
 fn pow2_suggest(size: u64) -> u64 {
     size.next_power_of_two()
@@ -47,16 +54,13 @@ pub fn run(
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
-        let compare: (
-            IndexMap<String, IndexMap<String, u64>>,
-            IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
-        ) = serde_json::from_slice(&compare)?;
+        let compare: TaskSizes = serde_json::from_slice(&compare)?;
 
         compare_sizes(sizes, compare)?;
         process::exit(0);
     }
 
-    let (sizes, suggestions) = sizes;
+    let TaskSizes { sizes, suggestions } = sizes;
 
     let s = if only_suggest {
         atty::Stream::Stderr
@@ -172,12 +176,7 @@ pub fn run(
     Ok(())
 }
 
-fn create_sizes(
-    cfg: &Path,
-) -> anyhow::Result<(
-    IndexMap<String, IndexMap<String, u64>>,
-    IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
-)> {
+fn create_sizes(cfg: &Path) -> anyhow::Result<TaskSizes> {
     let toml = Config::from_file(&cfg)?;
 
     let dist_dir = Path::new("target").join(&toml.name).join("dist");
@@ -286,24 +285,18 @@ fn create_sizes(
         suggestions.insert(name.to_string(), task_sizes.1);
     }
 
-    Ok((sizes, suggestions))
+    Ok(TaskSizes { sizes, suggestions })
 }
 
 fn compare_sizes(
-    current_sizes: (
-        IndexMap<String, IndexMap<String, u64>>,
-        IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
-    ),
-    saved_sizes: (
-        IndexMap<String, IndexMap<String, u64>>,
-        IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
-    ),
+    current_sizes: TaskSizes,
+    saved_sizes: TaskSizes,
 ) -> anyhow::Result<()> {
     println!("Comparing against the previously saved sizes");
 
     // 0 is sizes, 1 is suggestions
-    let mut current_sizes = current_sizes.0;
-    let mut saved_sizes = saved_sizes.0;
+    let mut current_sizes = current_sizes.sizes;
+    let mut saved_sizes = saved_sizes.sizes;
 
     let mut names: HashSet<String> = current_sizes.keys().cloned().collect();
     names.extend(saved_sizes.keys().cloned());
