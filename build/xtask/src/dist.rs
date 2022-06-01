@@ -215,7 +215,7 @@ pub fn package(
     // we're going to link them regardless of whether the build changed.
     for name in cfg.toml.tasks.keys() {
         if tasks_to_build.contains(name.as_str()) {
-            build_task(&cfg, name, &allocs)?;
+            build_task(&cfg, name)?;
         }
     }
 
@@ -636,21 +636,7 @@ struct LoadSegment {
 }
 
 /// Builds a specific task, return `true` if anything changed
-fn build_task(
-    cfg: &PackageConfig,
-    name: &str,
-    allocs: &Allocations,
-) -> Result<bool> {
-    let task_toml = &cfg.toml.tasks[name];
-    generate_task_linker_script(
-        "memory.x",
-        &allocs.tasks[name],
-        Some(&task_toml.sections),
-        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
-            anyhow!("{}: no stack size specified and there is no default", name)
-        })?,
-    )
-    .context(format!("failed to generate linker script for {}", name))?;
+fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
     fs::copy("build/task-link1.x", "target/link.x")?;
 
     let build_config = cfg

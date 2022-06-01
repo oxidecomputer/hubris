@@ -1,5 +1,3 @@
-INCLUDE memory.x
-
 ENTRY(_start);
 
 SECTIONS
