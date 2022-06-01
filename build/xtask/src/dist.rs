@@ -1203,6 +1203,10 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
     cmd.arg("--gc-sections");
     cmd.arg("-m");
     cmd.arg("armelf"); // TODO: make this architecture-appropriate
+    cmd.arg("-z");
+    cmd.arg("common-page-size=0x20");
+    cmd.arg("-z");
+    cmd.arg("max-page-size=0x20");
 
     cmd.current_dir(working_dir);
 

@@ -184,15 +184,10 @@ impl Config {
             env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
         }
 
-        let bin_name = if staticlib {
-            format!("lib{}.a", crate_name.replace('-', "_"))
-        } else {
-            crate_name.to_string()
-        };
         let out_path = Path::new("")
             .join(&self.target)
             .join("release")
-            .join(bin_name);
+            .join(&crate_name);
 
         BuildConfig {
             args,
