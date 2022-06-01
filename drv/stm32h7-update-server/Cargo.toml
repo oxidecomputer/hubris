@@ -5,7 +5,7 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
-stm32h7 = { version = "0.14", features = ["stm32h753"] }
+stm32h7 = { version = "0.14", default-features = false, features = ["stm32h753"] }
 drv-update-api = { path = "../update-api/" }
 ringbuf = {path = "../../lib/ringbuf"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
