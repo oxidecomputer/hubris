@@ -127,7 +127,6 @@ impl Config {
         crate_name: &str,
         features: &[String],
         sysroot: Option<&'a Path>,
-        staticlib: bool,
     ) -> BuildConfig<'a> {
         let mut args = vec![
             "--no-default-features".to_string(),
@@ -209,7 +208,6 @@ impl Config {
             &self.kernel.name,
             &self.kernel.features,
             sysroot,
-            false,
         );
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
@@ -228,7 +226,6 @@ impl Config {
                 &bootloader.name,
                 &bootloader.features,
                 sysroot,
-                false,
             )
         })
     }
@@ -248,7 +245,6 @@ impl Config {
             &task_toml.name,
             &task_toml.features,
             sysroot,
-            true,
         );
 
         //

@@ -50,7 +50,7 @@ SECTIONS
     *(.data .data.*);
     . = ALIGN(4); /* 4-byte align the end (VMA) of this section */
     __edata = .;
-  } > RAM
+  } > RAM AT>FLASH
 
   /* LMA of .data */
   __sidata = LOADADDR(.data);
