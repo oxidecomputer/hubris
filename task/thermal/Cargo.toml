@@ -34,8 +34,9 @@ h7b3 = ["build-i2c/h7b3"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 
-[lib]
-name = "task_thermal"
-crate_type = ["staticlib"]
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-thermal"
 test = false
 bench = false

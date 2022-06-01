@@ -26,8 +26,9 @@ h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743",
 h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
 itm = [ "userlib/log-itm" ]
 
-[lib]
-name = "task_spd"
-crate_type = ["staticlib"]
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-spd"
 test = false
 bench = false

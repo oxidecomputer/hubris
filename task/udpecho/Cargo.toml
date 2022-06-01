@@ -13,8 +13,9 @@ task-net-api = {path = "../net-api"}
 [features]
 vlan = ["task-net-api/vlan"]
 
-[lib]
-name = "task_udpecho"
-crate_type = ["staticlib"]
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-udpecho"
 test = false
 bench = false
