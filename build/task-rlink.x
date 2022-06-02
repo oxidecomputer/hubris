@@ -1,3 +1,5 @@
+/* Linker script for a relocatable task
+ * This should be used with the `-r` linker flag */
 ENTRY(_start);
 
 SECTIONS

@@ -637,7 +637,8 @@ struct LoadSegment {
 
 /// Builds a specific task, return `true` if anything changed
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
-    fs::copy("build/task-link1.x", "target/link.x")?;
+    // Use relocatable linker script for this build
+    fs::copy("build/task-rlink.x", "target/link.x")?;
 
     let build_config = cfg
         .toml
