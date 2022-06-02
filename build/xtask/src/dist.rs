@@ -1148,13 +1148,6 @@ fn build(
     let status = cmd
         .status()
         .context(format!("failed to run rustc ({:?})", cmd))?;
-
-    // Compare file times to see if it has been modified
-    let changed = match prev_time {
-        Err(_) => true,
-        Ok(prev_time) => std::fs::metadata(&src_file)?.modified()? > prev_time,
-    };
-
     if !status.success() {
         bail!("command failed, see output for details");
     }
@@ -1167,7 +1160,14 @@ fn build(
         name.to_string()
     });
 
-    if !dest.exists() || changed {
+    // Compare file times to see if it has been modified
+    let newer = match prev_time {
+        Err(_) => true,
+        Ok(prev_time) => std::fs::metadata(&src_file)?.modified()? > prev_time,
+    };
+    let changed = newer || !dest.exists();
+
+    if changed {
         println!("{} -> {}", src_file.display(), dest.display());
         std::fs::copy(&src_file, dest)?;
     } else {
@@ -1197,17 +1197,19 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
     let bin_name = out_file.file_name().unwrap().to_str().unwrap();
     let lib_name = format!("{}.elf", bin_name);
 
+    let m = match cfg.toml.target.as_str() {
+        "thumbv6m-none-eabi"
+        | "thumbv7em-none-eabihf"
+        | "thumbv8m.main-none-eabihf" => "armelf",
+        _ => bail!("No target emulation for '{}'", cfg.toml.target),
+    };
     cmd.arg(lib_name);
-    cmd.arg("-o");
-    cmd.arg(bin_name);
+    cmd.arg("-o").arg(bin_name);
     cmd.arg("-Tlink.x");
     cmd.arg("--gc-sections");
-    cmd.arg("-m");
-    cmd.arg("armelf"); // TODO: make this architecture-appropriate
-    cmd.arg("-z");
-    cmd.arg("common-page-size=0x20");
-    cmd.arg("-z");
-    cmd.arg("max-page-size=0x20");
+    cmd.arg("-m").arg(m);
+    cmd.arg("-z").arg("common-page-size=0x20");
+    cmd.arg("-z").arg("max-page-size=0x20");
 
     cmd.current_dir(working_dir);
 
