@@ -7,11 +7,12 @@
 #![no_std]
 #![no_main]
 
-use drv_fpga_api::{DeviceState, FpgaError};
+use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
 use drv_i2c_devices::raa229618::Raa229618;
 use drv_sidecar_mainboard_controller_api::tofino2::{
-    Sequencer as TofinoSequencer, Tofino2Vid, TofinoSeqError, TofinoSeqState,
+    Sequencer as TofinoSequencer, Tofino2Vid, TofinoPcieReset, TofinoSeqError,
+    TofinoSeqState,
 };
 use drv_sidecar_mainboard_controller_api::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
@@ -50,6 +51,8 @@ enum Trace {
     InitiateTofinoPowerUp,
     InitiateTofinoPowerDown,
     SetVddCoreVout(userlib::units::Volts),
+    SetPCIePresent,
+    ClearPCIePresent,
     ClearingTofinoSequencerFault(TofinoSeqError),
 }
 
@@ -114,6 +117,18 @@ impl Tofino {
         Ok(())
     }
 
+    fn set_pcie_present(&mut self, present: bool) -> Result<(), SeqError> {
+        let entry = if present {
+            Trace::SetPCIePresent
+        } else {
+            Trace::ClearPCIePresent
+        };
+        ringbuf_entry!(entry);
+        self.sequencer
+            .set_pcie_present(present)
+            .map_err(|_| SeqError::FpgaError)
+    }
+
     fn power_up(&mut self) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::InitiateTofinoPowerUp);
 
@@ -140,6 +155,11 @@ impl Tofino {
                 self.apply_vid(vid)?;
                 self.sequencer.ack_vid()?;
                 ringbuf_entry!(Trace::TofinoVidAck);
+
+                // Set PCIe present and reset.
+                self.set_pcie_present(true)?;
+                self.sequencer.set_pcie_reset(TofinoPcieReset::Deasserted)?;
+
                 return Ok(());
             }
         }
@@ -149,6 +169,8 @@ impl Tofino {
 
     fn power_down(&mut self) -> Result<(), SeqError> {
         ringbuf_entry!(Trace::InitiateTofinoPowerDown);
+        self.set_pcie_present(false)?;
+        self.sequencer.set_pcie_reset(TofinoPcieReset::Asserted)?;
         self.sequencer
             .set_enable(false)
             .map_err(|_| SeqError::SequencerError)
@@ -242,6 +264,71 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .tofino
             .sequencer
             .power_status()
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_pcie_hotplug_ctrl(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .pcie_hotplug_ctrl()
+            .map_err(SeqError::from)?)
+    }
+
+    fn set_tofino_pcie_hotplug_ctrl(
+        &mut self,
+        _: &userlib::RecvMessage,
+        mask: u8,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .write_pcie_hotplug_ctrl(WriteOp::BitSet, mask)
+            .map_err(SeqError::from)?)
+    }
+
+    fn clear_tofino_pcie_hotplug_ctrl(
+        &mut self,
+        _: &userlib::RecvMessage,
+        mask: u8,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .write_pcie_hotplug_ctrl(WriteOp::BitClear, mask)
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_pcie_reset(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<TofinoPcieReset, RequestError<SeqError>> {
+        Ok(self.tofino.sequencer.pcie_reset().map_err(SeqError::from)?)
+    }
+
+    fn set_tofino_pcie_reset(
+        &mut self,
+        _: &userlib::RecvMessage,
+        reset: TofinoPcieReset,
+    ) -> Result<(), RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .set_pcie_reset(reset)
+            .map_err(SeqError::from)?)
+    }
+
+    fn tofino_pcie_hotplug_status(
+        &mut self,
+        _: &userlib::RecvMessage,
+    ) -> Result<u8, RequestError<SeqError>> {
+        Ok(self
+            .tofino
+            .sequencer
+            .pcie_hotplug_status()
             .map_err(SeqError::from)?)
     }
 
@@ -380,7 +467,8 @@ fn main() -> ! {
 
 mod idl {
     use super::{
-        SeqError, TofinoSeqError, TofinoSeqState, TofinoSequencerPolicy,
+        SeqError, TofinoPcieReset, TofinoSeqError, TofinoSeqState,
+        TofinoSequencerPolicy,
     };
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
