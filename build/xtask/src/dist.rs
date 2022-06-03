@@ -210,9 +210,10 @@ pub fn package(
         }
     }
 
-    // Build all tasks (which are static binaries, so they are not linked yet)
-    // For now, we build them one by one and ignore the return value, because
-    // we're going to link them regardless of whether the build changed.
+    // Build all tasks (which are relocatable executables, so they are not
+    // statically linked yet). For now, we build them one by one and ignore the
+    // return value, because we're going to link them regardless of whether the
+    // build changed.
     for name in cfg.toml.tasks.keys() {
         if tasks_to_build.contains(name.as_str()) {
             build_task(&cfg, name)?;
