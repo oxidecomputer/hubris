@@ -57,6 +57,9 @@ struct PackageConfig {
     /// Sysroot of the relevant toolchain
     sysroot: PathBuf,
 
+    /// Host triple, e.g. `aarch64-apple-darwin`
+    host_triple: String,
+
     /// List of paths to be remapped by the compiler, to minimize strings in
     /// the resulting binaries.
     remap_paths: BTreeMap<PathBuf, &'static str>,
@@ -80,6 +83,18 @@ impl PackageConfig {
         let sysroot =
             PathBuf::from(std::str::from_utf8(&sysroot.stdout)?.trim());
 
+        let host = Command::new(sysroot.join("bin").join("rustc"))
+            .arg("-vV")
+            .output()?;
+        if !host.status.success() {
+            bail!("Could not execute rustc to get host");
+        }
+        let host_triple = std::str::from_utf8(&host.stdout)?
+            .lines()
+            .find_map(|line| line.strip_prefix("host: "))
+            .ok_or_else(|| anyhow!("Could not get host from rustc"))?
+            .to_string();
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
@@ -88,6 +103,7 @@ impl PackageConfig {
             edges,
             dist_dir,
             sysroot,
+            host_triple,
             remap_paths: Self::remap_paths()?,
         })
     }
@@ -194,6 +210,16 @@ pub fn package(
         }
     }
 
+    // Build all tasks (which are relocatable executables, so they are not
+    // statically linked yet). For now, we build them one by one and ignore the
+    // return value, because we're going to link them regardless of whether the
+    // build changed.
+    for name in cfg.toml.tasks.keys() {
+        if tasks_to_build.contains(name.as_str()) {
+            build_task(&cfg, name)?;
+        }
+    }
+
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
     // the HashMap, because the kernel kconfig will still need it.
@@ -203,7 +229,11 @@ pub fn package(
         .keys()
         .map(|name| {
             let ep = if tasks_to_build.contains(name.as_str()) {
-                build_task(&cfg, name, &allocs, &mut all_output_sections)
+                // Link tasks regardless of whether they have changed, because
+                // we don't want to track changes in the other linker input
+                // (task-link.x, memory.x, table.ld, etc)
+                link_task(&cfg, name, &allocs)?;
+                task_entry_point(&cfg, name, &mut all_output_sections)
             } else {
                 Ok(allocs.tasks[name]["flash"].start)
             };
@@ -567,7 +597,7 @@ fn build_bootloader(
         .toml
         .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
         .unwrap();
-    build(cfg, &bootloader.name, build_config)?;
+    build(cfg, &bootloader.name, build_config, false)?;
 
     // Need a bootloader binary for signing
     objcopy_translate_format(
@@ -606,15 +636,26 @@ struct LoadSegment {
     data: Vec<u8>,
 }
 
-/// Builds a specific task, returning the entry point
-fn build_task(
+/// Builds a specific task, return `true` if anything changed
+fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
+    // Use relocatable linker script for this build
+    fs::copy("build/task-rlink.x", "target/link.x")?;
+
+    let build_config = cfg
+        .toml
+        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
+        .unwrap();
+    build(cfg, name, build_config, true)
+        .context(format!("failed to build {}", name))
+}
+
+/// Link a specific task
+fn link_task(
     cfg: &PackageConfig,
     name: &str,
     allocs: &Allocations,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
+) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
-
     generate_task_linker_script(
         "memory.x",
         &allocs.tasks[name],
@@ -624,16 +665,20 @@ fn build_task(
         })?,
     )
     .context(format!("failed to generate linker script for {}", name))?;
-
     fs::copy("build/task-link.x", "target/link.x")?;
 
-    let build_config = cfg
-        .toml
-        .task_build_config(name, cfg.verbose, Some(&cfg.sysroot))
-        .unwrap();
-    build(cfg, name, build_config)
-        .context(format!("failed to build {}", name))?;
+    // Link the static archive
+    link(cfg, &cfg.dist_file(name))
+}
 
+/// Loads a given task's ELF file, populating `all_output_sections` and
+/// returning its entry point.
+fn task_entry_point(
+    cfg: &PackageConfig,
+    name: &str,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<u32> {
+    let task_toml = &cfg.toml.tasks[name];
     resolve_task_slots(cfg, name)?;
 
     let mut symbol_table = BTreeMap::default();
@@ -686,7 +731,7 @@ fn build_kernel(
         ],
         Some(&cfg.sysroot),
     );
-    build(cfg, "kernel", build_config)?;
+    build(cfg, "kernel", build_config, false)?;
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
@@ -1043,9 +1088,10 @@ fn generate_kernel_linker_script(
 
 fn build(
     cfg: &PackageConfig,
-    name: impl AsRef<Path>,
+    name: &str,
     build_config: BuildConfig,
-) -> Result<()> {
+    reloc: bool,
+) -> Result<bool> {
     println!("building crate {}", build_config.crate_name);
 
     let mut cmd = build_config.cmd("rustc");
@@ -1063,18 +1109,23 @@ fn build(
     cmd.env(
         "RUSTFLAGS",
         &format!(
-            "-C link-arg=-Tlink.x \
-             -L {} \
-             -C link-arg=-z -C link-arg=common-page-size=0x20 \
+            "-C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -C overflow-checks=y \
              {}
              ",
-            cargo_out.display(),
             remap_path_prefix,
         ),
     );
+    cmd.arg("--");
+    cmd.arg("-C")
+        .arg("link-arg=-Tlink.x")
+        .arg("-L")
+        .arg(format!("{}", cargo_out.display()));
+    if reloc {
+        cmd.arg("-C").arg("link-arg=-r");
+    }
 
     if cfg.edges {
         let mut tree = build_config.cmd("tree");
@@ -1091,19 +1142,85 @@ fn build(
         }
     }
 
+    // File generated by the build system
+    let src_file = cargo_out.join(build_config.out_path);
+    let prev_time = std::fs::metadata(&src_file).and_then(|f| f.modified());
+
     let status = cmd
         .status()
         .context(format!("failed to run rustc ({:?})", cmd))?;
-
     if !status.success() {
         bail!("command failed, see output for details");
     }
 
-    let out_file = cargo_out.join(build_config.out_path);
+    // Destination where it should be copied (using the task name rather than
+    // the crate name)
+    let dest = cfg.dist_file(if reloc {
+        format!("{}.elf", name)
+    } else {
+        name.to_string()
+    });
 
-    let dest = cfg.dist_file(name);
-    println!("{} -> {}", out_file.display(), dest.display());
-    std::fs::copy(&out_file, dest)?;
+    // Compare file times to see if it has been modified
+    let newer = match prev_time {
+        Err(_) => true,
+        Ok(prev_time) => std::fs::metadata(&src_file)?.modified()? > prev_time,
+    };
+    let changed = newer || !dest.exists();
+
+    if changed {
+        println!("{} -> {}", src_file.display(), dest.display());
+        std::fs::copy(&src_file, dest)?;
+    } else {
+        println!("{} (unchanged)", dest.display());
+    }
+
+    Ok(changed)
+}
+
+fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
+    let mut ld = cfg.sysroot.clone();
+    for p in ["lib", "rustlib", &cfg.host_triple, "bin", "gcc-ld", "ld"] {
+        ld.push(p);
+    }
+    let mut cmd = Command::new(ld);
+    if cfg.verbose {
+        cmd.arg("--verbose");
+    }
+
+    // We expect the caller to set up our linker scripts, but copy them into
+    // our working directory here
+    let working_dir = out_file.parent().unwrap();
+    for f in ["link.x", "memory.x", "table.ld"] {
+        std::fs::copy(format!("target/{}", f), working_dir.join(f))
+            .context(format!("Could not copy {} to link dir", f))?;
+    }
+    let bin_name = out_file.file_name().unwrap().to_str().unwrap();
+    let lib_name = format!("{}.elf", bin_name);
+
+    let m = match cfg.toml.target.as_str() {
+        "thumbv6m-none-eabi"
+        | "thumbv7em-none-eabihf"
+        | "thumbv8m.main-none-eabihf" => "armelf",
+        _ => bail!("No target emulation for '{}'", cfg.toml.target),
+    };
+    cmd.arg(lib_name);
+    cmd.arg("-o").arg(bin_name);
+    cmd.arg("-Tlink.x");
+    cmd.arg("--gc-sections");
+    cmd.arg("-m").arg(m);
+    cmd.arg("-z").arg("common-page-size=0x20");
+    cmd.arg("-z").arg("max-page-size=0x20");
+
+    cmd.current_dir(working_dir);
+
+    let status = cmd
+        .status()
+        .context(format!("failed to run linker ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("command failed, see output for details");
+    }
 
     Ok(())
 }

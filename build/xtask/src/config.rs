@@ -186,7 +186,7 @@ impl Config {
         let out_path = Path::new("")
             .join(&self.target)
             .join("release")
-            .join(crate_name);
+            .join(&crate_name);
 
         BuildConfig {
             args,
@@ -439,6 +439,11 @@ where
 
 /// Stores arguments and environment variables to run on a particular task.
 pub struct BuildConfig<'a> {
+    pub crate_name: String,
+
+    /// File written by the compiler
+    pub out_path: PathBuf,
+
     args: Vec<String>,
     env: BTreeMap<String, String>,
 
@@ -447,9 +452,6 @@ pub struct BuildConfig<'a> {
     /// the system façade (which may go through `rustup`).  This saves a few
     /// hundred milliseconds per `cargo` invocation.
     sysroot: Option<&'a Path>,
-
-    pub crate_name: String,
-    pub out_path: PathBuf,
 }
 
 impl BuildConfig<'_> {
