@@ -63,6 +63,11 @@ struct PackageConfig {
     /// List of paths to be remapped by the compiler, to minimize strings in
     /// the resulting binaries.
     remap_paths: BTreeMap<PathBuf, &'static str>,
+
+    /// A single value produced by hashing the various linker scripts. This
+    /// allows us to force a rebuild when the linker scripts change, which
+    /// is not normally tracked by `cargo build`.
+    link_script_hash: u64,
 }
 
 impl PackageConfig {
@@ -95,6 +100,12 @@ impl PackageConfig {
             .ok_or_else(|| anyhow!("Could not get host from rustc"))?
             .to_string();
 
+        let mut extra_hash = fnv::FnvHasher::default();
+        for f in ["task-link.x", "task-rlink.x", "kernel-link.x"] {
+            let file_data = std::fs::read(Path::new("build").join(f))?;
+            file_data.hash(&mut extra_hash);
+        }
+
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
             app_src_dir: app_src_dir.to_path_buf(),
@@ -105,6 +116,7 @@ impl PackageConfig {
             sysroot,
             host_triple,
             remap_paths: Self::remap_paths()?,
+            link_script_hash: extra_hash.finish(),
         })
     }
 
@@ -1113,9 +1125,10 @@ fn build(
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -C overflow-checks=y \
+             -C metadata={} \
              {}
              ",
-            remap_path_prefix,
+            cfg.link_script_hash, remap_path_prefix,
         ),
     );
     cmd.arg("--");
