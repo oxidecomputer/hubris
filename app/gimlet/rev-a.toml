@@ -119,7 +119,7 @@ task-slots = ["sys", "i2c_driver"]
 
 [tasks.thermal]
 name = "task-thermal"
-features = ["itm", "h753", "gimlet"]
+features = ["itm", "gimlet"]
 priority = 5
 requires = {flash = 16384, ram = 8192 }
 stacksize = 4504
@@ -128,7 +128,7 @@ task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
 
 [tasks.power]
 name = "task-power"
-features = ["itm", "h753", "gimlet"]
+features = ["itm", "gimlet"]
 priority = 5
 requires = {flash = 16384, ram = 4096 }
 stacksize = 2048

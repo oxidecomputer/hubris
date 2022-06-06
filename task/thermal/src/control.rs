@@ -50,35 +50,29 @@ impl TemperatureSensor {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Enum containing all of our fan controller types, so we can store them
-/// generically in an array.
-pub enum FanControl {
-    Max31790(Max31790),
+/// Enum representing any of our fan controller types, bound to one of their
+/// fans.  This lets us handle heterogeneous fan controller ICs generically
+/// (although there's only one at the moment)
+pub enum FanControl<'a> {
+    Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
 }
 
-impl FanControl {
-    fn set_pwm(
-        &self,
-        fan: drv_i2c_devices::max31790::Fan,
-        pwm: PWMDuty,
-    ) -> Result<(), ResponseCode> {
+impl<'a> FanControl<'a> {
+    fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
         match self {
-            Self::Max31790(m) => m.set_pwm(fan, pwm),
+            Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
         }
     }
 
-    pub fn fan_rpm(
-        &self,
-        fan: drv_i2c_devices::max31790::Fan,
-    ) -> Result<Rpm, ResponseCode> {
+    pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
         match self {
-            Self::Max31790(m) => m.fan_rpm(fan),
+            Self::Max31790(m, fan) => m.fan_rpm(*fan),
         }
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
         match self {
-            Self::Max31790(m) => m.set_watchdog(wd),
+            Self::Max31790(m, _fan) => m.set_watchdog(wd),
         }
     }
 }
@@ -200,8 +194,8 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     pub fn read_sensors(&mut self) -> Result<Option<f32>, ResponseCode> {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.bsp.fans().iter().enumerate() {
-            self.bsp.fan_control(Fan::from(index), |fctrl, fan| {
-                let post_result = match fctrl.fan_rpm(fan) {
+            let post_result =
+                match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
                     Ok(reading) => {
                         self.sensor_api.post(*sensor_id, reading.0.into())
                     }
@@ -210,11 +204,9 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
                         self.sensor_api.nodata(*sensor_id, e.into())
                     }
                 };
-                if post_result.is_err() {
-                    self.post_failed_count =
-                        self.post_failed_count.wrapping_add(1);
-                }
-            });
+            if post_result.is_err() {
+                self.post_failed_count = self.post_failed_count.wrapping_add(1);
+            }
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
@@ -325,11 +317,10 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         }
         let mut last_err = Ok(());
         for (index, _sensor_id) in self.bsp.fans().iter().enumerate() {
-            self.bsp.fan_control(Fan::from(index), |fctrl, fan| {
-                if let Err(e) = fctrl.set_pwm(fan, pwm) {
-                    last_err = Err(e);
-                }
-            });
+            if let Err(e) = self.bsp.fan_control(Fan::from(index)).set_pwm(pwm)
+            {
+                last_err = Err(e);
+            }
         }
         last_err.map_err(|_| ThermalError::DeviceError)
     }
@@ -340,12 +331,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         fan: Fan,
         pwm: PWMDuty,
     ) -> Result<(), ResponseCode> {
-        let mut result = None;
-
-        self.bsp.fan_control(fan, |fctrl, fan| {
-            result = Some(fctrl.set_pwm(fan, pwm));
-        });
-        result.unwrap()
+        self.bsp.fan_control(fan).set_pwm(pwm)
     }
 
     pub fn fan(&self, index: u8) -> Option<Fan> {
@@ -359,12 +345,14 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
-        let mut result = None;
+        let mut result = Ok(());
 
-        self.bsp.fan_controls(|fctrl| {
-            result = Some(fctrl.set_watchdog(wd));
+        self.bsp.for_each_fctrl(|fctrl| {
+            if let Err(e) = fctrl.set_watchdog(wd) {
+                result = Err(e);
+            }
         });
 
-        result.unwrap()
+        result
     }
 }

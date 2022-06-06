@@ -27,20 +27,12 @@ pub(crate) trait BspT {
     fn fans(&self) -> &[task_sensor_api::SensorId];
 
     /// Fan control IC for a specified fan. Note that the input is a global
-    /// fan index, and the argument to the closure is both a reference to a
-    /// fan controller and a reference to a MAX31790 fan within that
-    /// controller (it is up to the BSP to perform this translation).
-    fn fan_control(
-        &self,
-        fan: crate::Fan,
-        fctrl: impl FnMut(
-            &crate::control::FanControl,
-            drv_i2c_devices::max31790::Fan,
-        ),
-    );
+    /// fan index, and the BSP translates from this global index to a specific
+    /// control and local fan index.
+    fn fan_control(&self, fan: crate::Fan) -> crate::control::FanControl;
 
     /// All fan control ICs
-    fn fan_controls(&self, fctrl: impl FnMut(&crate::control::FanControl));
+    fn for_each_fctrl(&self, fctrl: impl FnMut(crate::control::FanControl));
 
     /// Returns a `u32` with a single bit set that corresponds to a power mode,
     /// which in turn determines which sensors are active.

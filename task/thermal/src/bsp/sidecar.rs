@@ -8,6 +8,7 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
+use core::convert::TryInto;
 use drv_i2c_devices::max31790::Max31790;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
@@ -36,8 +37,8 @@ pub(crate) struct Bsp {
     fans: [SensorId; NUM_FANS],
 
     /// Our two fan controllers: east for 0/1 and west for 1/2
-    fctrl_east: FanControl,
-    fctrl_west: FanControl,
+    fctrl_east: Max31790,
+    fctrl_west: Max31790,
 
     seq: Sequencer,
 }
@@ -55,14 +56,7 @@ impl BspT for Bsp {
         &self.fans
     }
 
-    fn fan_control(
-        &self,
-        fan: crate::Fan,
-        mut fctrl: impl FnMut(
-            &crate::control::FanControl,
-            drv_i2c_devices::max31790::Fan,
-        ),
-    ) {
+    fn fan_control(&self, fan: crate::Fan) -> crate::control::FanControl {
         //
         // Fan 0/1 are on the east max31790; fan 2/3 are on west max31790.  And
         // because each fan has in fact two fans, here is the mapping of
@@ -82,12 +76,15 @@ impl BspT for Bsp {
             //
             // East side: straight mapping of fan index to MAX31790 fan
             //
-            fctrl(&self.fctrl_east, fan.into());
+            FanControl::Max31790(&self.fctrl_east, fan.0.try_into().unwrap())
         } else if fan.0 < 8 {
             //
             // West side: subtract 4 to get MAX31790 fan
             //
-            fctrl(&self.fctrl_west, crate::Fan(fan.0 - 4).into());
+            FanControl::Max31790(
+                &self.fctrl_west,
+                (fan.0 - 4).try_into().unwrap(),
+            )
         } else {
             //
             // Illegal fan
@@ -96,9 +93,10 @@ impl BspT for Bsp {
         }
     }
 
-    fn fan_controls(&self, mut fctrl: impl FnMut(&crate::control::FanControl)) {
-        fctrl(&self.fctrl_east);
-        fctrl(&self.fctrl_west);
+    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+        // Run the function on each fan control chip
+        fctrl(self.fan_control(0.into()));
+        fctrl(self.fan_control(4.into()));
     }
 
     fn power_mode(&self) -> u32 {
@@ -132,8 +130,8 @@ impl BspT for Bsp {
         Self {
             seq,
             fans,
-            fctrl_east: FanControl::Max31790(fctrl_east),
-            fctrl_west: FanControl::Max31790(fctrl_west),
+            fctrl_east,
+            fctrl_west,
 
             inputs: [
                 InputChannel::new(

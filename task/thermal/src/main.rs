@@ -35,12 +35,6 @@ use userlib::*;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Fan(u8);
 
-impl From<Fan> for drv_i2c_devices::max31790::Fan {
-    fn from(fan: Fan) -> drv_i2c_devices::max31790::Fan {
-        drv_i2c_devices::max31790::Fan::try_from(fan.0).unwrap()
-    }
-}
-
 impl From<usize> for Fan {
     fn from(index: usize) -> Self {
         Fan(index as u8)
