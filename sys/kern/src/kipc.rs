@@ -25,9 +25,9 @@ pub fn handle_kernel_message(
         4 => read_image_id(tasks, caller, args.response?),
         _ => {
             // Task has sent an unknown message to the kernel. That's bad.
-            return Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
+            Err(UserError::Unrecoverable(FaultInfo::SyscallUsage(
                 UsageError::BadKernelMessage,
-            )));
+            )))
         }
     }
 }

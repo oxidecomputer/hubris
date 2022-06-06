@@ -183,7 +183,7 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     tasks[caller].set_healthy_state(SchedState::InSend(callee_id));
     // We may not know what task to run next, but we're pretty sure it isn't the
     // caller.
-    return Ok(NextTask::Other.combine(next_task));
+    Ok(NextTask::Other.combine(next_task))
 }
 
 /// Implementation of the RECV IPC primitive.
@@ -384,7 +384,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
-    return Ok(NextTask::Same);
+    Ok(NextTask::Same)
 }
 
 /// Implementation of the `SET_TIMER` syscall.
@@ -447,12 +447,12 @@ fn borrow_read(
             tasks[caller]
                 .save_mut()
                 .set_borrow_response_and_length(0, n);
-            return Ok(NextTask::Same);
+            Ok(NextTask::Same)
         }
         Err(interact) => {
             let wake_hint = interact.apply_to_src(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
+            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
         }
     }
 }
@@ -490,12 +490,12 @@ fn borrow_write(
             tasks[caller]
                 .save_mut()
                 .set_borrow_response_and_length(0, n);
-            return Ok(NextTask::Same);
+            Ok(NextTask::Same)
         }
         Err(interact) => {
             let wake_hint = interact.apply_to_dst(tasks, lender)?;
             // Copy failed but not our side, report defecting lender.
-            return Err(UserError::Recoverable(abi::DEFECT, wake_hint));
+            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
         }
     }
 }
@@ -514,7 +514,7 @@ fn borrow_info(
     tasks[caller]
         .save_mut()
         .set_borrow_info(lease.attributes.bits(), lease.length as usize);
-    return Ok(NextTask::Same);
+    Ok(NextTask::Same)
 }
 
 fn borrow_lease(
@@ -817,5 +817,5 @@ fn reply_fault(
     // KEY ASSUMPTION: sends go from less important tasks to more important
     // tasks. As a result, Reply doesn't have scheduling implications unless
     // the task using it faults.
-    return Ok(NextTask::Same);
+    Ok(NextTask::Same)
 }

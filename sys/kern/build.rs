@@ -199,13 +199,13 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
         let irq_task_value = irq_task_map
             .values
             .iter()
-            .map(|o| fmt_irq_task(Some(&o)))
+            .map(|o| fmt_irq_task(Some(o)))
             .collect::<Vec<String>>()
             .join("\n        ");
         let task_irq_value = task_irq_map
             .values
             .iter()
-            .map(|o| fmt_task_irq(Some(&o)))
+            .map(|o| fmt_task_irq(Some(o)))
             .collect::<Vec<String>>()
             .join("\n        ");
 

@@ -476,7 +476,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         };
 
         // RLAR = our upper bound
-        let rlar = region.base + region.size
+        let rlar = (region.base + region.size)
                 | (i as u32) << 1 // AttrIndx
                 | (1 << 0); // enable
 
@@ -492,11 +492,11 @@ pub fn apply_memory_protection(task: &task::Task) {
             // MAIR
             if rnr < 4 {
                 let mut mair0 = (0xe000_edc0 as *const u32).read_volatile();
-                mair0 = mair0 | (mair as u32) << (rnr * 8);
+                mair0 |= (mair as u32) << (rnr * 8);
                 core::ptr::write_volatile(0xe000_edc0 as *mut u32, mair0);
             } else {
                 let mut mair1 = (0xe000_edc4 as *const u32).read_volatile();
-                mair1 = mair1 | (mair as u32) << ((rnr - 4) * 8);
+                mair1 |= (mair as u32) << ((rnr - 4) * 8);
                 core::ptr::write_volatile(0xe000_edc4 as *mut u32, mair1);
             }
             // RBAR
@@ -928,6 +928,7 @@ pub fn now() -> Timestamp {
 ///
 /// `TICKS[0]` is the least significant part, `TICKS[1]` the most significant.
 static TICKS: [AtomicU32; 2] = {
+    #[allow(clippy::declare_interior_mutable_const)]
     const ZERO: AtomicU32 = AtomicU32::new(0);
     [ZERO; 2]
 };

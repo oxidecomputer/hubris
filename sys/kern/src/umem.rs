@@ -318,6 +318,7 @@ pub fn safe_copy(
 
 /// Utility routine for getting `&mut` to _two_ elements of a slice, at indexes
 /// `i` and `j`. `i` and `j` must be distinct, or this will panic.
+#[allow(clippy::comparison_chain)]
 fn index2_distinct<T>(
     elements: &mut [T],
     i: usize,
