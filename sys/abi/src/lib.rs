@@ -9,10 +9,6 @@
 use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes, Unaligned};
 
-/// Magic number that appears at the start of an application header (`App`) to
-/// reassure the kernel that it is not reading uninitialized Flash.
-pub const CURRENT_APP_MAGIC: u32 = 0x1DE_fa7a1;
-
 /// Number of region slots in a `TaskDesc` record. Needs to be less or equal to
 /// than the number of regions in the MPU; may be less to improve context switch
 /// performance. (Though note that changing this alters the ABI.)
