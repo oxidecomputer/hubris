@@ -28,8 +28,8 @@ cfg-if = "0.1.10"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
-gimlet = ["drv-gimlet-seq-api"]
-sidecar = ["drv-sidecar-seq-api"]
+gimlet = ["drv-gimlet-seq-api", "h753"]
+sidecar = ["drv-sidecar-seq-api", "h753"]
 h743 = ["build-i2c/h743"]
 h753 = ["build-i2c/h753"]
 h7b3 = ["build-i2c/h7b3"]

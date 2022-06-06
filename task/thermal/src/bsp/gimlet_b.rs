@@ -11,6 +11,7 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
+use core::convert::TryInto;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
@@ -42,7 +43,7 @@ pub(crate) struct Bsp {
     /// Fans and their respective RPM sensors
     fans: [SensorId; NUM_FANS],
 
-    fctrl: FanControl,
+    fctrl: Max31790,
 
     seq: Sequencer,
 }
@@ -64,19 +65,12 @@ impl BspT for Bsp {
         &self.fans
     }
 
-    fn fan_control(
-        &self,
-        fan: crate::Fan,
-        mut fctrl: impl FnMut(
-            &crate::control::FanControl,
-            drv_i2c_devices::max31790::Fan,
-        ),
-    ) {
-        fctrl(&self.fctrl, fan.into());
+    fn fan_control(&self, fan: crate::Fan) -> FanControl {
+        FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
     }
 
-    fn fan_controls(&self, mut fctrl: impl FnMut(&crate::control::FanControl)) {
-        fctrl(&self.fctrl);
+    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+        fctrl(self.fan_control(0.into()))
     }
 
     fn power_mode(&self) -> u32 {
@@ -117,7 +111,7 @@ impl BspT for Bsp {
         Self {
             seq,
             fans,
-            fctrl: FanControl::Max31790(fctrl),
+            fctrl,
 
             inputs: [
                 InputChannel::new(

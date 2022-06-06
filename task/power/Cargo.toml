@@ -23,8 +23,8 @@ anyhow = "1.0.31"
 cfg-if = "0.1.10"
 
 [features]
-gimlet = ["drv-gimlet-seq-api"]
-sidecar = ["drv-sidecar-seq-api"]
+gimlet = ["drv-gimlet-seq-api", "h753"]
+sidecar = ["drv-sidecar-seq-api", "h753"]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 h743 = ["build-i2c/h743"]
