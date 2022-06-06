@@ -91,37 +91,53 @@ fn table() -> Option<&'static EventsTable> {
 }
 
 pub(crate) fn event_syscall_enter(nr: u32) {
-    table().map(|t| (t.syscall_enter)(nr));
+    if let Some(t) = table() {
+        (t.syscall_enter)(nr)
+    }
 }
 
 pub(crate) fn event_syscall_exit() {
-    table().map(|t| (t.syscall_exit)());
+    if let Some(t) = table() {
+        (t.syscall_exit)()
+    }
 }
 
 pub(crate) fn event_secondary_syscall_enter() {
-    table().map(|t| (t.secondary_syscall_enter)());
+    if let Some(t) = table() {
+        (t.secondary_syscall_enter)()
+    }
 }
 
 pub(crate) fn event_secondary_syscall_exit() {
-    table().map(|t| (t.secondary_syscall_exit)());
+    if let Some(t) = table() {
+        (t.secondary_syscall_exit)()
+    }
 }
 
 /// Signals entry to an ISR. This is `pub` in case you write your own
 /// non-kernel-managed ISR but you'd like to include it in ISR statistics.
 pub fn event_isr_enter() {
-    table().map(|t| (t.isr_enter)());
+    if let Some(t) = table() {
+        (t.isr_enter)()
+    }
 }
 
 /// Signals exit from an ISR. This is `pub` in case you write your own
 /// non-kernel-managed ISR but you'd like to include it in ISR statistics.
 pub fn event_isr_exit() {
-    table().map(|t| (t.isr_exit)());
+    if let Some(t) = table() {
+        (t.isr_exit)()
+    }
 }
 
 pub(crate) fn event_timer_isr_enter() {
-    table().map(|t| (t.timer_isr_enter)());
+    if let Some(t) = table() {
+        (t.timer_isr_enter)()
+    }
 }
 
 pub(crate) fn event_timer_isr_exit() {
-    table().map(|t| (t.timer_isr_exit)());
+    if let Some(t) = table() {
+        (t.timer_isr_exit)()
+    }
 }
