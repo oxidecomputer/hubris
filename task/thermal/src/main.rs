@@ -186,7 +186,7 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
             ThermalMode::Auto => {
                 if self.counter % CONTROL_RATE == 0 {
                     // TODO: what to do with errors here?
-                    self.control.run_control();
+                    let _ = self.control.run_control();
                 } else {
                     let _ = self.control.read_sensors();
                 }
