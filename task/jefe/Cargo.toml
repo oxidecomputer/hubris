@@ -6,7 +6,7 @@ edition = "2018"
 [dependencies]
 abi = {path = "../../sys/abi"}
 userlib = {path = "../../sys/userlib"}
-hubris-num-tasks = {path = "../../sys/num-tasks"}
+hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
@@ -16,6 +16,8 @@ armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
+serde = {version = "1", features = ["derive"]}
+anyhow = "1"
 
 [features]
 itm = [ "userlib/log-itm" ]

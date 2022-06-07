@@ -2943,6 +2943,7 @@ name = "task-jefe"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "anyhow",
  "armv6m-atomic-hack",
  "build-util",
  "cortex-m",
@@ -2950,6 +2951,7 @@ dependencies = [
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
+ "serde",
  "userlib",
  "zerocopy",
 ]
