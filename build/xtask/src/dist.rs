@@ -191,25 +191,6 @@ pub fn package(
     std::fs::create_dir_all(&cfg.dist_dir)?;
     check_rebuild(&cfg.toml)?;
 
-    // Allocate memories.
-    let (allocs, memories) = allocate_all(&cfg.toml)?;
-
-    // Print stats on memory usage
-    let starting_memories = cfg.toml.memories()?;
-    for (name, range) in &starting_memories {
-        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
-    }
-    println!("Used:");
-    for (name, new_range) in &memories {
-        let orig_range = &starting_memories[name];
-        let size = new_range.start - orig_range.start;
-        let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
-    }
-
-    // Build each task.
-    let mut all_output_sections = BTreeMap::default();
-
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
     {
@@ -232,6 +213,32 @@ pub fn package(
         }
     }
 
+    // Calculate the sizes of tasks, assigning dummy sizes to tasks that
+    // aren't active in this build.
+    let task_sizes: HashMap<_, _> = cfg
+        .toml
+        .tasks
+        .keys()
+        .map(|name| {
+            let size = if tasks_to_build.contains(name.as_str()) {
+                // Link tasks regardless of whether they have changed, because
+                // we don't want to track changes in the other linker input
+                // (task-link.x, memory.x, table.ld, etc)
+                link_dummy_task(&cfg, name)?;
+                task_size(&cfg, name)
+            } else {
+                Ok(1)
+            };
+            size.map(|sz| (name.clone(), sz))
+        })
+        .collect::<Result<_, _>>()?;
+
+    // Allocate memories.
+    let (allocs, memories) = allocate_all(&cfg.toml)?;
+
+    // Build each task.
+    let mut all_output_sections = BTreeMap::default();
+
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
     // the HashMap, because the kernel kconfig will still need it.
@@ -247,6 +254,7 @@ pub fn package(
                 link_task(&cfg, name, &allocs)?;
                 task_entry_point(&cfg, name, &mut all_output_sections)
             } else {
+                // Dummy entry point
                 Ok(allocs.tasks[name]["flash"].start)
             };
             ep.map(|ep| (name.clone(), ep))
@@ -269,6 +277,19 @@ pub fn package(
     // out here before linking stuff.
     if partial_build {
         return Ok(());
+    }
+
+    // Print stats on memory usage
+    let starting_memories = cfg.toml.memories()?;
+    for (name, range) in &starting_memories {
+        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
+    }
+    println!("Used:");
+    for (name, new_range) in &memories {
+        let orig_range = &starting_memories[name];
+        let size = new_range.start - orig_range.start;
+        let percent = size * 100 / (orig_range.end - orig_range.start);
+        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
     }
 
     // Generate combined SREC, which is our source of truth for combined images.
@@ -680,7 +701,30 @@ fn link_task(
     fs::copy("build/task-link.x", "target/link.x")?;
 
     // Link the static archive
-    link(cfg, &cfg.dist_file(name))
+    link(cfg, &format!("{}.elf", name), name)
+}
+
+/// Link a specific task using a dummy linker script that
+fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+    let task_toml = &cfg.toml.tasks[name];
+    let memories = cfg.toml.memories()?.into_iter().collect();
+    generate_task_linker_script(
+        "memory.x",
+        &memories, // ALL THE SPACE
+        Some(&task_toml.sections),
+        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+            anyhow!("{}: no stack size specified and there is no default", name)
+        })?,
+    )
+    .context(format!("failed to generate linker script for {}", name))?;
+    fs::copy("build/task-tlink.x", "target/link.x")?;
+
+    // Link the static archive
+    link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
+}
+
+fn task_size(cfg: &PackageConfig, name: &str) -> Result<u32> {
+    Ok(1)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and
@@ -1191,7 +1235,11 @@ fn build(
     Ok(changed)
 }
 
-fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
+fn link(
+    cfg: &PackageConfig,
+    src_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+    dst_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+) -> Result<()> {
     let mut ld = cfg.sysroot.clone();
     for p in ["lib", "rustlib", &cfg.host_triple, "bin", "gcc-ld", "ld"] {
         ld.push(p);
@@ -1203,13 +1251,13 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
 
     // We expect the caller to set up our linker scripts, but copy them into
     // our working directory here
-    let working_dir = out_file.parent().unwrap();
+    let working_dir = &cfg.dist_dir;
     for f in ["link.x", "memory.x", "table.ld"] {
         std::fs::copy(format!("target/{}", f), working_dir.join(f))
             .context(format!("Could not copy {} to link dir", f))?;
     }
-    let bin_name = out_file.file_name().unwrap().to_str().unwrap();
-    let lib_name = format!("{}.elf", bin_name);
+    assert!(AsRef::<Path>::as_ref(&src_file).is_relative());
+    assert!(AsRef::<Path>::as_ref(&dst_file).is_relative());
 
     let m = match cfg.toml.target.as_str() {
         "thumbv6m-none-eabi"
@@ -1217,8 +1265,8 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
         | "thumbv8m.main-none-eabihf" => "armelf",
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
-    cmd.arg(lib_name);
-    cmd.arg("-o").arg(bin_name);
+    cmd.arg(src_file);
+    cmd.arg("-o").arg(dst_file);
     cmd.arg("-Tlink.x");
     cmd.arg("--gc-sections");
     cmd.arg("-m").arg(m);

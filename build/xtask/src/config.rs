@@ -287,6 +287,20 @@ impl Config {
             })
             .collect()
     }
+
+    /// Calculates the output region which contains the given address
+    pub fn output_region(&self, vaddr: u64) -> Option<&str> {
+        let vaddr: u32 = match vaddr.try_into() {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        self.outputs
+            .iter()
+            .find(|(_name, out)| {
+                vaddr >= out.address && vaddr < out.address + out.size
+            })
+            .map(|(name, _out)| name.as_str())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

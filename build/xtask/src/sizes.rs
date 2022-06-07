@@ -2,14 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::convert::TryInto;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::process;
 
-use anyhow::bail;
+use anyhow::{bail, Result};
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
@@ -18,10 +18,18 @@ use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct TaskSizes {
-    sizes: IndexMap<String, IndexMap<String, u64>>,
-    suggestions: IndexMap<String, Vec<Vec<(String, u32, u64)>>>,
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
+struct Usage {
+    /// Actual memory usage
+    bytes: u64,
+    /// Amount of memory requested in the TOML file, or `None`
+    required: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskSizes<'a> {
+    /// Represents a map of task name -> memory region -> bytes used
+    sizes: IndexMap<&'a str, IndexMap<&'a str, Usage>>,
 }
 
 fn pow2_suggest(size: u64) -> u64 {
@@ -41,10 +49,9 @@ pub fn run(
     only_suggest: bool,
     compare: bool,
     save: bool,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
-
-    let sizes = create_sizes(cfg)?;
+    let sizes = create_sizes(&toml)?;
 
     let filename = format!("{}.json", toml.name);
 
@@ -54,13 +61,13 @@ pub fn run(
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
-        let compare: TaskSizes = serde_json::from_slice(&compare)?;
+        let compare: IndexMap<&str, IndexMap<&str, Usage>> =
+            serde_json::from_slice(&compare)?;
+        let compare = TaskSizes { sizes: compare };
 
         compare_sizes(sizes, compare)?;
         process::exit(0);
     }
-
-    let TaskSizes { sizes, suggestions } = sizes;
 
     let s = if only_suggest {
         atty::Stream::Stderr
@@ -81,22 +88,22 @@ pub fn run(
 
     let toml = Config::from_file(cfg)?;
     let mut print_task_sizes =
-        |name: &str, requires: &IndexMap<String, u32>| -> anyhow::Result<()> {
-            let sizes = &sizes[name];
+        |name: &str, requires: &IndexMap<String, u32>| -> Result<()> {
+            let sizes = &sizes.sizes[name];
 
             if !only_suggest {
                 writeln!(out, "{}", name)?;
             }
 
             for (mem_name, &used) in sizes {
-                if let Some(&size) = requires.get(mem_name) {
-                    let percent = used * 100 / size as u64;
+                if let Some(size) = used.required {
+                    let percent = used.bytes * 100 / size as u64;
                     if !only_suggest {
                         write!(
                             out,
                             "  {:<6} {: >5} bytes",
                             format!("{}:", mem_name),
-                            used,
+                            used.bytes,
                         )?;
                         let mut color = ColorSpec::new();
                         color.set_fg(Some(if percent >= 50 {
@@ -107,12 +114,12 @@ pub fn run(
                             Color::Red
                         }));
                         out.set_color(&color)?;
-                        write!(out, " ({}%)", percent,)?;
+                        write!(out, " ({}%)", percent)?;
                         out.reset()?;
                         writeln!(out)?;
                     }
                 } else {
-                    assert!(used == 0);
+                    assert!(used.bytes == 0);
                 }
             }
 
@@ -127,7 +134,7 @@ pub fn run(
         }
         print_task_sizes(&name, &task.requires)?;
     }
-
+    /*
     if !suggestions.is_empty() {
         let mut savings: IndexMap<String, u64> = IndexMap::new();
 
@@ -172,140 +179,100 @@ pub fn run(
             }
         }
     }
+    */
 
     Ok(())
 }
 
-fn create_sizes(cfg: &Path) -> anyhow::Result<TaskSizes> {
-    let toml = Config::from_file(&cfg)?;
+/// Loads the size of the given task (or kernel)
+fn load_task_size<'a>(
+    toml: &'a Config,
+    name: &str,
+    stacksize: u32,
+    requires: &IndexMap<String, u32>,
+) -> Result<IndexMap<&'a str, Usage>> {
+    // Load the .tmp file (which does not have flash fill) for everything
+    // except the kernel
+    let elf_name =
+        Path::new("target")
+            .join(&toml.name)
+            .join("dist")
+            .join(match name {
+                "kernel" => name.to_owned(),
+                _ => format!("{}.tmp", name),
+            });
 
-    let dist_dir = Path::new("target").join(&toml.name).join("dist");
+    let buffer = std::fs::read(elf_name)?;
+    let elf = match Object::parse(&buffer)? {
+        Object::Elf(elf) => elf,
+        o => bail!("Invalid Object {:?}", o),
+    };
 
-    let mut memories = IndexMap::new();
-    for (name, out) in &toml.outputs {
-        // This is called after `dist`, which logs this overflow gracefully
-        let end = out.address.checked_add(out.size).unwrap();
-        memories.insert(name.clone(), out.address..end);
+    let mut memory_sizes: IndexMap<&str, Usage> = IndexMap::new();
+    for phdr in &elf.program_headers {
+        if let Some(vregion) = toml.output_region(phdr.p_vaddr) {
+            memory_sizes.entry(vregion).or_default().bytes += phdr.p_memsz;
+        }
+        // If the VirtAddr disagrees with the PhysAddr, then this is a
+        // section which is relocated into RAM, so we also accumulate
+        // its FileSiz in the physical address (which is presumably
+        // flash).
+        if phdr.p_vaddr != phdr.p_paddr {
+            let region = toml.output_region(phdr.p_paddr).unwrap();
+            memory_sizes.entry(region).or_default().bytes += phdr.p_filesz;
+        }
+    }
+    memory_sizes.entry("ram").or_default().bytes += stacksize as u64;
+
+    for (mem_name, used) in memory_sizes.iter_mut() {
+        used.required = requires.get(*mem_name).map(|i| *i as u64)
     }
 
-    let output_region = |vaddr: u64| {
-        memories
-            .iter()
-            .find(|(_, region)| region.contains(&vaddr.try_into().unwrap()))
-            .map(|(name, _)| name.as_str())
-    };
+    Ok(memory_sizes)
+}
 
-    let suggest = if toml.target.starts_with("thumbv7")
-        || toml.target.starts_with("thumbv6m")
-    {
-        pow2_suggest
-    } else if toml.target.starts_with("thumbv8m") {
-        armv8m_suggest
-    } else {
-        panic!("Unknown target: {}", toml.target);
-    };
+fn create_sizes(toml: &Config) -> Result<TaskSizes> {
+    let mut sizes = IndexMap::new();
 
-    let check_task = move |name: &str,
-                           stacksize: u32,
-                           requires: &IndexMap<String, u32>|
-          -> anyhow::Result<(
-        IndexMap<String, u64>,
-        Vec<Vec<(String, u32, u64)>>,
-    )> {
-        let mut suggestions = Vec::new();
-        let mut sizes = IndexMap::new();
-
-        let mut elf_name = dist_dir.clone();
-        elf_name.push(name);
-        let buffer = std::fs::read(elf_name)?;
-        let elf = match Object::parse(&buffer)? {
-            Object::Elf(elf) => elf,
-            o => bail!("Invalid Object {:?}", o),
-        };
-
-        let mut memory_sizes = IndexMap::new();
-        for phdr in &elf.program_headers {
-            if let Some(vregion) = output_region(phdr.p_vaddr) {
-                *memory_sizes.entry(vregion).or_default() += phdr.p_memsz;
-            }
-            // If the VirtAddr disagrees with the PhysAddr, then this is a
-            // section which is relocated into RAM, so we also accumulate
-            // its FileSiz in the physical address (which is presumably
-            // flash).
-            if phdr.p_vaddr != phdr.p_paddr {
-                let region = output_region(phdr.p_paddr).unwrap();
-                *memory_sizes.entry(region).or_default() += phdr.p_filesz;
-            }
-        }
-        *memory_sizes.entry("ram").or_default() += stacksize as u64;
-
-        let mut my_suggestions = Vec::new();
-
-        for (mem_name, used) in memory_sizes {
-            if let Some(&size) = requires.get(mem_name) {
-                sizes.insert(mem_name.to_string(), used);
-                let suggestion = suggest(used);
-                if suggestion < size as u64 {
-                    my_suggestions.push((
-                        mem_name.to_string(),
-                        size,
-                        suggestion,
-                    ));
-                }
-            } else {
-                assert!(used == 0);
-            }
-        }
-        if !my_suggestions.is_empty() {
-            suggestions.push(my_suggestions);
-        }
-        Ok((sizes, suggestions))
-    };
-
-    let mut sizes: IndexMap<String, IndexMap<String, u64>> = IndexMap::new();
-    let mut suggestions: IndexMap<String, Vec<Vec<(String, u32, u64)>>> =
-        IndexMap::new();
-
-    let kernel_sizes = check_task(
+    let kernel_sizes = load_task_size(
+        &toml,
         "kernel",
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &toml.kernel.requires,
     )?;
-    sizes.insert(String::from("kernel"), kernel_sizes.0);
-    suggestions.insert(String::from("kernel"), kernel_sizes.1);
+    sizes.insert("kernel", kernel_sizes);
 
     for (name, task) in &toml.tasks {
-        let task_sizes = check_task(
-            &name,
-            task.stacksize.or(toml.stacksize).unwrap(),
-            &task.requires,
-        )?;
+        let stacksize = task.stacksize.or(toml.stacksize).unwrap();
+        let task_sizes =
+            load_task_size(&toml, &name, stacksize, &task.requires)?;
 
-        sizes.insert(name.to_string(), task_sizes.0);
-        suggestions.insert(name.to_string(), task_sizes.1);
+        sizes.insert(name, task_sizes);
     }
 
-    Ok(TaskSizes { sizes, suggestions })
+    Ok(TaskSizes { sizes })
 }
 
 fn compare_sizes(
     current_sizes: TaskSizes,
     saved_sizes: TaskSizes,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     println!("Comparing against the previously saved sizes");
 
-    // 0 is sizes, 1 is suggestions
     let mut current_sizes = current_sizes.sizes;
     let mut saved_sizes = saved_sizes.sizes;
 
-    let mut names: HashSet<String> = current_sizes.keys().cloned().collect();
-    names.extend(saved_sizes.keys().cloned());
+    let names: BTreeSet<&str> = current_sizes
+        .keys()
+        .chain(saved_sizes.keys())
+        .cloned()
+        .collect();
 
     for name in names {
         println!("Checking for differences in {}", name);
 
-        let current_size = current_sizes.entry(name.clone());
-        let saved_size = saved_sizes.entry(name.clone());
+        let current_size = current_sizes.entry(&name);
+        let saved_size = saved_sizes.entry(&name);
 
         match (current_size, saved_size) {
             // the common case; both are in both
@@ -314,7 +281,7 @@ fn compare_sizes(
                 let saved = saved_entry.get();
                 for (key, &value) in current {
                     let saved = saved.get(key).cloned().unwrap_or_default();
-                    let diff = value as i64 - saved as i64;
+                    let diff = value.bytes as i64 - saved.bytes as i64;
 
                     if diff != 0 {
                         println!("\t{}: {}", key, diff);
@@ -328,7 +295,7 @@ fn compare_sizes(
                 );
                 let saved = saved_entry.get();
                 for (key, value) in saved {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{}: {}", key, value.bytes);
                 }
             }
             // we have removed this entirely
@@ -336,7 +303,7 @@ fn compare_sizes(
                 println!("This task was removed since we last saved size information.");
                 let current = current_entry.get();
                 for (key, value) in current {
-                    println!("\t{}: {}", key, value);
+                    println!("\t{}: {}", key, value.bytes);
                 }
             }
             // this should never happen
