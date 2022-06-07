@@ -22,9 +22,9 @@ use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
 pub struct MemoryUsage {
     /// Actual memory usage
-    bytes: u64,
+    pub bytes: u64,
     /// Amount of memory requested in the TOML file, or `None`
-    required: Option<u64>,
+    pub required: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]

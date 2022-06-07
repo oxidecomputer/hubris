@@ -374,6 +374,7 @@ pub struct Output {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Task {
     pub name: String,
+    #[serde(default)]
     pub requires: IndexMap<String, u32>,
     pub priority: u8,
     pub stacksize: Option<u32>,
