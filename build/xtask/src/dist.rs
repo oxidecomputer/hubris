@@ -19,7 +19,7 @@ use termcolor::{Color, ColorSpec, WriteColor};
 use crate::{
     config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
     elf,
-    sizes::{load_task_size, MemoryUsage},
+    sizes::load_task_size,
     task_slot,
 };
 
@@ -230,24 +230,8 @@ pub fn package(
                 task_size(&cfg, name)
             } else {
                 // Dummy allocations
-                let out: IndexMap<_, _> = [
-                    (
-                        "flash",
-                        MemoryUsage {
-                            bytes: 64,
-                            required: None,
-                        },
-                    ),
-                    (
-                        "ram",
-                        MemoryUsage {
-                            bytes: 64,
-                            required: None,
-                        },
-                    ),
-                ]
-                .into_iter()
-                .collect();
+                let out: IndexMap<_, _> =
+                    [("flash", 64), ("ram", 64)].into_iter().collect();
                 Ok(out)
             };
             size.map(|sz| (name.as_str(), sz))
@@ -747,10 +731,10 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
 fn task_size<'a, 'b>(
     cfg: &'a PackageConfig,
     name: &'b str,
-) -> Result<IndexMap<&'a str, MemoryUsage>> {
+) -> Result<IndexMap<&'a str, u64>> {
     let task = &cfg.toml.tasks[name];
     let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
-    load_task_size(&cfg.toml, name, stacksize, &task.requires)
+    load_task_size(&cfg.toml, name, stacksize)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and
@@ -1358,7 +1342,7 @@ pub struct Allocations {
 /// requests per alignment size.
 pub fn allocate_all(
     toml: &Config,
-    task_sizes: &HashMap<&str, IndexMap<&str, MemoryUsage>>,
+    task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
 ) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1379,14 +1363,14 @@ pub fn allocate_all(
 
     for name in tasks.keys() {
         for (mem, amt) in task_sizes[name.as_str()].iter() {
-            let bytes = amt.bytes.next_power_of_two();
-            if let Some(r) = amt.required {
+            let bytes = amt.next_power_of_two();
+            if let Some(r) = tasks[name].requires.get(&mem.to_string()) {
                 if !r.is_power_of_two() {
                     bail!(
                         "task {}, memory region {}: requirement {} is not a power of two.",
                         name, name, r);
                 }
-                if bytes > r {
+                if bytes > *r as u64 {
                     bail!(
                         "task {}, memory region {}: requirement {} is too small (needs {}).",
                         name, name, r, bytes);
