@@ -58,6 +58,7 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let spi = spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
+    let hf = hf_api::HostFlash::from(HF.get_task_id());
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -296,6 +297,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: PowerState::A2,
         seq,
+        hf,
     };
 
     loop {
@@ -306,6 +308,7 @@ fn main() -> ! {
 struct ServerImpl {
     state: PowerState,
     seq: seq_spi::SequencerFpga,
+    hf: hf_api::HostFlash,
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -329,9 +332,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 // First, set our mux state to be the HostCPU
                 //
-                let hf = hf_api::HostFlash::from(HF.get_task_id());
-
-                if let Err(_) = hf.set_mux(hf_api::HfMuxState::HostCPU) {
+                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::HostCPU) {
                     return Err(SeqError::MuxToHostCPUFailed.into());
                 }
 
@@ -387,8 +388,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             }
 
             (PowerState::A0, PowerState::A2) => {
-                let hf = hf_api::HostFlash::from(HF.get_task_id());
-
                 //
                 // Flip the UART mux back to disabled
                 //
@@ -398,7 +397,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
-                if let Err(_) = hf.set_mux(hf_api::HfMuxState::SP) {
+                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::SP) {
                     return Err(SeqError::MuxToSPFailed.into());
                 }
 
