@@ -16,11 +16,14 @@ pub fn run(
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
 
+    let mut tasks = tasks.to_vec();
+
     if tasks.is_empty() {
-        bail!("Must provide one or more task names");
+        tasks.extend(toml.tasks.keys().cloned());
+        tasks.push("kernel".to_string());
     }
 
-    for name in tasks {
+    for name in &tasks {
         if !toml.tasks.contains_key(name) && name != "kernel" {
             bail!("{}", toml.task_name_suggestion(name));
         }

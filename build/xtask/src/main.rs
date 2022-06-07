@@ -113,7 +113,6 @@ enum Xtask {
         cfg: PathBuf,
 
         /// Name of task(s) to check.
-        #[clap(min_values = 1)]
         tasks: Vec<String>,
 
         /// Extra options to pass to clippy
