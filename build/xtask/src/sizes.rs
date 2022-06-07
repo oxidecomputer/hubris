@@ -18,6 +18,8 @@ use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
+/// Represents memory used in a particular region, along with the amount
+/// listed as "required" in the image TOML file (if present).
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
 struct Usage {
     /// Actual memory usage
@@ -69,6 +71,7 @@ pub fn run(
         process::exit(0);
     }
 
+    // Way too much setup to get output stream and colors set up
     let s = if only_suggest {
         atty::Stream::Stderr
     } else {
@@ -86,110 +89,120 @@ pub fn run(
     }(color_choice);
     let out = &mut out_stream;
 
-    let toml = Config::from_file(cfg)?;
-    let mut print_task_sizes =
-        |name: &str, requires: &IndexMap<String, u32>| -> Result<()> {
+    // Helpful
+    let names = std::iter::once("kernel")
+        .chain(toml.tasks.keys().map(|name| name.as_str()));
+
+    // Print detailed sizes relative to usage
+    if !only_suggest {
+        for name in names.clone() {
+            writeln!(out, "\n{}", name)?;
             let sizes = &sizes.sizes[name];
 
-            if !only_suggest {
-                writeln!(out, "{}", name)?;
-            }
-
             for (mem_name, &used) in sizes {
+                write!(
+                    out,
+                    "  {:<6} {: >5} bytes",
+                    format!("{}:", mem_name),
+                    used.bytes,
+                )?;
                 if let Some(size) = used.required {
                     let percent = used.bytes * 100 / size as u64;
-                    if !only_suggest {
-                        write!(
-                            out,
-                            "  {:<6} {: >5} bytes",
-                            format!("{}:", mem_name),
-                            used.bytes,
-                        )?;
-                        let mut color = ColorSpec::new();
-                        color.set_fg(Some(if percent >= 50 {
-                            Color::Green
-                        } else if percent > 25 {
-                            Color::Yellow
-                        } else {
-                            Color::Red
-                        }));
-                        out.set_color(&color)?;
-                        write!(out, " ({}%)", percent)?;
-                        out.reset()?;
-                        writeln!(out)?;
-                    }
+                    let mut color = ColorSpec::new();
+                    color.set_fg(Some(if percent >= 50 {
+                        Color::Green
+                    } else if percent > 25 {
+                        Color::Yellow
+                    } else {
+                        Color::Red
+                    }));
+                    out.set_color(&color)?;
+                    write!(out, " ({}%)", percent)?;
                 } else {
-                    assert!(used.bytes == 0);
+                    let mut color = ColorSpec::new();
+                    color.set_fg(Some(Color::Blue));
+                    out.set_color(&color)?;
+                    write!(out, " [auto]")?;
                 }
+                out.reset()?;
+                writeln!(out)?;
             }
-
-            Ok(())
-        };
-
-    print_task_sizes("kernel", &toml.kernel.requires)?;
-
-    for (name, task) in &toml.tasks {
-        if !only_suggest {
-            println!();
         }
-        print_task_sizes(&name, &task.requires)?;
     }
-    /*
-    if !suggestions.is_empty() {
-        let mut savings: IndexMap<String, u64> = IndexMap::new();
 
-        if only_suggest {
-            out.set_color(
-                ColorSpec::new().set_bold(true).set_fg(Some(Color::Yellow)),
-            )?;
-            write!(out, "warning")?;
-            out.reset()?;
-            writeln!(out, ": memory allocation is sub-optimal")?;
-            out.set_color(ColorSpec::new().set_bold(true))?;
-            writeln!(out, "Suggested improvements:")?;
-            out.reset()?;
-        } else {
-            out.set_color(ColorSpec::new().set_bold(true))?;
-            writeln!(out, "\n========== Suggested changes ==========")?;
-            out.reset()?;
-        }
+    let suggest = if toml.target.starts_with("thumbv7")
+        || toml.target.starts_with("thumbv6m")
+    {
+        pow2_suggest
+    } else if toml.target.starts_with("thumbv8m") {
+        armv8m_suggest
+    } else {
+        panic!("Unknown target: {}", toml.target);
+    };
 
-        for (name, list) in suggestions {
-            if list.is_empty() {
+    let mut printed_header = false;
+    let mut savings: IndexMap<&str, u64> = IndexMap::new();
+    for name in names.clone() {
+        let sizes = &sizes.sizes[name];
+        let mut printed_name = false;
+
+        for (mem, &used) in sizes.iter().filter(|u| u.1.required.is_some()) {
+            let size = used.required.unwrap();
+            let suggestion = suggest(used.bytes);
+            if suggestion >= size as u64 {
                 continue;
             }
-            writeln!(out, "{}:", name)?;
-            for list in list {
-                for (mem, prev, value) in list {
-                    write!(out, "  {:<6} {: >5}", format!("{}:", mem), value)?;
-                    out.set_color(ColorSpec::new().set_dimmed(true))?;
-                    writeln!(out, " (currently {})", prev)?;
+            if !printed_header {
+                printed_header = true;
+                if only_suggest {
+                    out.set_color(
+                        ColorSpec::new()
+                            .set_bold(true)
+                            .set_fg(Some(Color::Yellow)),
+                    )?;
+                    write!(out, "warning")?;
                     out.reset()?;
-                    *savings.entry(mem).or_default() += prev as u64 - value;
+                    writeln!(out, ": memory allocation is sub-optimal")?;
+                    out.set_color(ColorSpec::new().set_bold(true))?;
+                    writeln!(out, "Suggested improvements:")?;
+                    out.reset()?;
+                } else {
+                    out.set_color(ColorSpec::new().set_bold(true))?;
+                    writeln!(out, "\n========== Suggested changes ==========")?;
+                    out.reset()?;
                 }
             }
-        }
-
-        if !only_suggest {
-            out.set_color(ColorSpec::new().set_bold(true))?;
-            writeln!(out, "\n------------ Total savings ------------")?;
-            out.reset()?;
-            for (mem, savings) in &savings {
-                writeln!(out, "  {:<6} {}", format!("{}:", mem), savings)?;
+            if !printed_name {
+                printed_name = true;
+                writeln!(out, "{}:", name)?;
             }
+            write!(out, "  {:<6} {: >5}", format!("{}:", mem), suggestion)?;
+            out.set_color(ColorSpec::new().set_dimmed(true))?;
+            writeln!(out, " (currently {})", size)?;
+            out.reset()?;
+
+            *savings.entry(mem).or_default() += size as u64 - suggestion;
         }
     }
-    */
+
+    if !only_suggest && !savings.is_empty() {
+        out.set_color(ColorSpec::new().set_bold(true))?;
+        writeln!(out, "\n------------ Total savings ------------")?;
+        out.reset()?;
+        for (mem, savings) in &savings {
+            writeln!(out, "  {:<6} {}", format!("{}:", mem), savings)?;
+        }
+    }
 
     Ok(())
 }
 
 /// Loads the size of the given task (or kernel)
-fn load_task_size<'a>(
+pub fn load_task_size<'a>(
     toml: &'a Config,
     name: &str,
     stacksize: u32,
-    requires: &IndexMap<String, u32>,
+    requires: &'a IndexMap<String, u32>,
 ) -> Result<IndexMap<&'a str, Usage>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel
@@ -208,7 +221,21 @@ fn load_task_size<'a>(
         o => bail!("Invalid Object {:?}", o),
     };
 
-    let mut memory_sizes: IndexMap<&str, Usage> = IndexMap::new();
+    // Initialize the memory sizes array based on the `requires` map
+    // (which may not be present if we're doing autosizing)
+    let mut memory_sizes: IndexMap<&str, Usage> = requires
+        .iter()
+        .map(|(name, value)| {
+            (
+                name.as_str(),
+                Usage {
+                    bytes: 0,
+                    required: Some(*value as u64),
+                },
+            )
+        })
+        .collect();
+
     for phdr in &elf.program_headers {
         if let Some(vregion) = toml.output_region(phdr.p_vaddr) {
             memory_sizes.entry(vregion).or_default().bytes += phdr.p_memsz;
@@ -223,10 +250,6 @@ fn load_task_size<'a>(
         }
     }
     memory_sizes.entry("ram").or_default().bytes += stacksize as u64;
-
-    for (mem_name, used) in memory_sizes.iter_mut() {
-        used.required = requires.get(*mem_name).map(|i| *i as u64)
-    }
 
     Ok(memory_sizes)
 }
