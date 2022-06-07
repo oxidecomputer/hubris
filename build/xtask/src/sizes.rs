@@ -23,20 +23,6 @@ struct TaskSizes<'a> {
     sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
 }
 
-fn pow2_suggest(size: u64) -> u64 {
-    size.next_power_of_two()
-}
-
-fn armv8m_suggest(size: u64) -> u64 {
-    // Nearest chunk of 32
-    ((size + 31) / 32) * 32
-}
-
-fn kern_suggest(size: u64) -> u64 {
-    // Nearest chunk of 16
-    ((size + 15) / 16) * 16
-}
-
 /// When `only_suggest` is true, prints only the suggested improvements to
 /// stderr, rather than printing all sizes.  Suggestions are formatted to
 /// match compiler warnings.
@@ -95,6 +81,9 @@ pub fn run(
             let sizes = &sizes.sizes[name];
 
             for (mem_name, &used) in sizes {
+                if used == 0 && !requires.contains_key(&mem_name.to_string()) {
+                    continue;
+                }
                 write!(
                     out,
                     "  {:<6} {: >5} bytes",
@@ -125,16 +114,6 @@ pub fn run(
         }
     }
 
-    let suggest = if toml.target.starts_with("thumbv7")
-        || toml.target.starts_with("thumbv6m")
-    {
-        pow2_suggest
-    } else if toml.target.starts_with("thumbv8m") {
-        armv8m_suggest
-    } else {
-        panic!("Unknown target: {}", toml.target);
-    };
-
     let mut printed_header = false;
     let mut savings: IndexMap<&str, u64> = IndexMap::new();
     for name in names.clone() {
@@ -148,11 +127,7 @@ pub fn run(
                 _ => continue,
             };
 
-            let suggestion = if name == "kernel" {
-                kern_suggest(used)
-            } else {
-                suggest(used)
-            };
+            let suggestion = toml.suggest_memory_region_size(name, used);
             if suggestion >= size as u64 {
                 continue;
             }
