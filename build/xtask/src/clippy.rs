@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
@@ -47,7 +48,10 @@ pub fn run(
         }
 
         let build_config = if name == "kernel" {
-            let (allocs, _) = crate::dist::allocate_all(&toml)?;
+            // Build dummy allocations for each task
+            let mut task_sizes = HashMap::new();
+
+            let (allocs, _) = crate::dist::allocate_all(&toml, &task_sizes)?;
             // Pick dummy entry points for each task
             let entry_points = allocs
                 .tasks

@@ -229,14 +229,33 @@ pub fn package(
                 link_dummy_task(&cfg, name)?;
                 task_size(&cfg, name)
             } else {
-                Ok(IndexMap::new())
+                // Dummy allocations
+                let out: IndexMap<_, _> = [
+                    (
+                        "flash",
+                        MemoryUsage {
+                            bytes: 64,
+                            required: None,
+                        },
+                    ),
+                    (
+                        "ram",
+                        MemoryUsage {
+                            bytes: 64,
+                            required: None,
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect();
+                Ok(out)
             };
-            size.map(|sz| (name.clone(), sz))
+            size.map(|sz| (name.as_str(), sz))
         })
         .collect::<Result<_, _>>()?;
 
     // Allocate memories.
-    let (allocs, memories) = allocate_all(&cfg.toml)?;
+    let (allocs, memories) = allocate_all(&cfg.toml, &task_sizes)?;
 
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
@@ -748,13 +767,15 @@ fn task_entry_point(
     let (ep, flash) =
         load_elf(&cfg.dist_file(name), all_output_sections, &mut symbol_table)?;
 
-    if flash > task_toml.requires["flash"] as usize {
-        bail!(
-            "{} has insufficient flash: specified {} bytes, needs {}",
-            task_toml.name,
-            task_toml.requires["flash"],
-            flash
-        );
+    if let Some(required) = task_toml.requires.get("flash") {
+        if flash > *required as usize {
+            bail!(
+                "{} has insufficient flash: specified {} bytes, needs {}",
+                task_toml.name,
+                required,
+                flash
+            );
+        }
     }
     Ok(ep)
 }
@@ -1337,6 +1358,7 @@ pub struct Allocations {
 /// requests per alignment size.
 pub fn allocate_all(
     toml: &Config,
+    task_sizes: &HashMap<&str, IndexMap<&str, MemoryUsage>>,
 ) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1355,16 +1377,25 @@ pub fn allocate_all(
     let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
         BTreeMap::new();
 
-    for (name, task) in tasks {
-        for (mem, &amt) in &task.requires {
-            if !amt.is_power_of_two() {
-                bail!("task {}, memory region {}: requirement {} is not a power of two.",
-                    task.name, name, amt);
+    for name in tasks.keys() {
+        for (mem, amt) in task_sizes[name.as_str()].iter() {
+            let bytes = amt.bytes.next_power_of_two();
+            if let Some(r) = amt.required {
+                if !r.is_power_of_two() {
+                    bail!(
+                        "task {}, memory region {}: requirement {} is not a power of two.",
+                        name, name, r);
+                }
+                if bytes > r {
+                    bail!(
+                        "task {}, memory region {}: requirement {} is too small (needs {}).",
+                        name, name, r, bytes);
+                }
             }
             task_requests
-                .entry(mem.as_str())
+                .entry(mem)
                 .or_default()
-                .entry(amt)
+                .entry(bytes.try_into().unwrap())
                 .or_default()
                 .push_back(name.as_str());
         }
@@ -1606,11 +1637,15 @@ pub fn make_kconfig(
     // The remaining regions are allocated to tasks on a first-come first-serve
     // basis.
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
-        if power_of_two_required && !task.requires["flash"].is_power_of_two() {
+        if power_of_two_required
+            && !task_allocations[name]["flash"].len().is_power_of_two()
+        {
             panic!("Flash for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
         }
 
-        if power_of_two_required && !task.requires["ram"].is_power_of_two() {
+        if power_of_two_required
+            && !task_allocations[name]["ram"].len().is_power_of_two()
+        {
             panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
         }
 
@@ -1618,12 +1653,12 @@ pub fn make_kconfig(
         // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
         let mut task_regions = [0; 8];
 
-        if task.uses.len() + task.requires.len() > 8 {
+        if task.uses.len() + task_allocations[name].len() > 8 {
             panic!(
                 "task {} uses {} peripherals and {} memories (too many)",
                 name,
                 task.uses.len(),
-                task.requires.len()
+                task_allocations[name].len()
             );
         }
 
