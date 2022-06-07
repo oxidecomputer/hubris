@@ -104,7 +104,7 @@ fn main() -> ! {
     // with one of these activated.
     let current_mux_index = 0;
     for opt in &CONFIG.mux_options[1..] {
-        deactivate_mux_option(&opt, &sys);
+        deactivate_mux_option(opt, &sys);
     }
     activate_mux_option(&CONFIG.mux_options[current_mux_index], &sys, &spi);
 
@@ -270,14 +270,9 @@ impl ServerImpl {
         }
 
         // Get the required transfer lengths in the src and dest directions.
-        let src_len = data_src
-            .as_ref()
-            .map(|leased| LenLimit::len_as_u16(&leased))
-            .unwrap_or(0);
-        let dest_len = data_dest
-            .as_ref()
-            .map(|leased| LenLimit::len_as_u16(&leased))
-            .unwrap_or(0);
+        let src_len = data_src.as_ref().map(LenLimit::len_as_u16).unwrap_or(0);
+        let dest_len =
+            data_dest.as_ref().map(LenLimit::len_as_u16).unwrap_or(0);
         let overall_len = src_len.max(dest_len);
 
         // Zero-byte SPI transactions don't make sense and we'll

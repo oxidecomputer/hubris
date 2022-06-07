@@ -37,6 +37,7 @@ bitfield! {
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[allow(clippy::enum_variant_names)] // not great, TODO
 enum Timeout {
     TimeoutDisabled = 0b00,
     Timeout30ms = 0b01,

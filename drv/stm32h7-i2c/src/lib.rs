@@ -410,6 +410,7 @@ impl<'a> I2cController<'a> {
 
             laps += 1;
 
+            #[allow(clippy::comparison_chain)] // clippy misfire
             if laps == BUSY_SLEEP_THRESHOLD {
                 //
                 // If we have taken BUSY_SLEEP_THRESHOLD laps, we are going to

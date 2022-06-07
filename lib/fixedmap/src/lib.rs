@@ -17,20 +17,20 @@
 /// type `V`.
 ///
 #[derive(Debug)]
-pub struct FixedMap<K: Copy + PartialEq, V: Copy, const N: usize> {
+pub struct FixedMap<K, V, const N: usize> {
     contents: [Option<(K, V)>; N],
 }
 
-impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
-    ///
-    /// Create a new `FixedMap`.
-    ///
-    pub fn new() -> Self {
+impl<K: Copy, V: Copy, const N: usize> Default for FixedMap<K, V, { N }> {
+    /// Create an empty `FixedMap`.
+    fn default() -> Self {
         Self {
             contents: [None; N],
         }
     }
+}
 
+impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
     ///
     /// Gets the value that corresponds to `key`, returning `None` if no
     /// such key is in the map.
@@ -93,10 +93,8 @@ impl<K: Copy + PartialEq, V: Copy, const N: usize> FixedMap<K, V, { N }> {
                 Some((k, _)) => {
                     if k == key {
                         found = Some(i);
-                    } else {
-                        if found.is_some() {
-                            swap = Some(i);
-                        }
+                    } else if found.is_some() {
+                        swap = Some(i);
                     }
                 }
             }

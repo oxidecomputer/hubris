@@ -151,7 +151,7 @@ impl<'a> ServerImpl<'a> {
     /// Calls the `wake` function on the BSP, which handles things like
     /// periodic logging and monitoring of ports.
     pub fn wake(&self) {
-        self.bsp.wake(&self.iface.device());
+        self.bsp.wake(self.iface.device());
     }
 }
 
@@ -256,7 +256,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         value: u16,
     ) -> Result<(), RequestError<NetError>> {
         // TODO: this should not be open to all callers!
-        Ok(self.iface.device().smi_write(phy, register, value))
+        self.iface.device().smi_write(phy, register, value);
+        Ok(())
     }
 }
 

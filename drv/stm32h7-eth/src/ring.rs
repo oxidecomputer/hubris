@@ -13,16 +13,21 @@
 //! setting up the `static mut` data buffers required to call `new` on the
 //! respective ring types.
 
+// The ring APIs in general do not need to know if something is empty.
+#![allow(clippy::len_without_is_empty)]
+
 use core::cell::{Cell, UnsafeCell};
 use core::sync::atomic::{AtomicU32, Ordering};
 
 /// This can be used in an array initializer, while `AtomicU32::new(0)` cannot.
 /// Believe it!
+#[allow(clippy::declare_interior_mutable_const)]
 const ATOMIC_ZERO: AtomicU32 = AtomicU32::new(0);
 
 /// Similarly, we have to make this intermediate array to store an array of
 /// arrays of AtomicZero
 #[cfg(feature = "vlan")]
+#[allow(clippy::declare_interior_mutable_const)]
 const ATOMIC_ZERO_FOUR: [AtomicU32; 4] = [ATOMIC_ZERO; 4];
 
 /// Size of buffer used with the Ethernet DMA. This can be changed but must

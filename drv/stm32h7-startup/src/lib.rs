@@ -293,11 +293,14 @@ pub fn system_init_custom(
             .wrhighfreq()
             .bits(config.flash_write_delay)
     });
-    while {
+    loop {
         let r = p.FLASH.acr.read();
-        r.latency().bits() != config.flash_latency
-            || r.wrhighfreq().bits() != config.flash_write_delay
-    } {}
+        if r.latency().bits() == config.flash_latency
+            && r.wrhighfreq().bits() == config.flash_write_delay
+        {
+            break;
+        }
+    }
     // Not that reordering is likely here, since we polled, but: we
     // really do need the Flash to be programmed with more wait states
     // before switching the clock.
