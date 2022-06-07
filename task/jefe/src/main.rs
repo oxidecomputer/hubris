@@ -179,3 +179,6 @@ fn main() -> ! {
         }
     }
 }
+
+// Pull in generated notification data.
+include!(concat!(env!("OUT_DIR"), "/jefe_config.rs"));
