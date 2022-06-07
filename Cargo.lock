@@ -2949,9 +2949,23 @@ dependencies = [
  "cortex-m",
  "cortex-m-semihosting",
  "hubris-num-tasks",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "serde",
+ "task-jefe-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-jefe-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
  "userlib",
  "zerocopy",
 ]

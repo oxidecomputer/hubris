@@ -1,0 +1,18 @@
+// Jefe IPC API
+
+Interface(
+    name: "Jefe",
+    ops: {
+        "get_state": (
+            reply: Simple("u32"),
+            idempotent: true,
+        ),
+        "set_state": (
+            args: {
+                "state": "u32",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    },
+)
