@@ -443,16 +443,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .unwrap();
         Ok(())
     }
-
-    //
-    // By the time we are hanging out the shingle, the clock config is loaded.
-    //
-    fn is_clock_config_loaded(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<u8, RequestError<SeqError>> {
-        Ok(1)
-    }
 }
 
 fn reprogram_fpga(
