@@ -8,7 +8,9 @@
 
 use derive_idol_err::IdolError;
 use userlib::*;
-use zerocopy::AsBytes;
+
+// Re-export PowerState for client convenience.
+pub use drv_gimlet_state::PowerState;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum SeqError {
@@ -16,16 +18,6 @@ pub enum SeqError {
     MuxToHostCPUFailed = 2,
     MuxToSPFailed = 3,
     ClockConfigFailed = 4,
-}
-
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
-#[repr(u8)]
-pub enum PowerState {
-    A2 = 1,
-    A2PlusMono = 2,
-    A2PlusFans = 3,
-    A1 = 4,
-    A0 = 5,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

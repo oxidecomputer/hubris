@@ -716,6 +716,7 @@ name = "drv-gimlet-seq-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
+ "drv-gimlet-state",
  "idol",
  "num-traits",
  "userlib",
@@ -746,6 +747,15 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-gimlet-state"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
  "userlib",
  "zerocopy",
 ]
