@@ -388,8 +388,13 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
             (PowerState::A0, PowerState::A2) => {
                 let hf = hf_api::HostFlash::from(HF.get_task_id());
-                let a1a0 = Reg::PWRCTRL::A0C_DIS;
 
+                //
+                // Flip the UART mux back to disabled
+                //
+                uart_sp_to_sp3_disable();
+
+                let a1a0 = Reg::PWRCTRL::A0C_DIS;
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
@@ -505,7 +510,7 @@ cfg_if::cfg_if! {
             sys.gpio_configure_output(
                 UART_TX_ENABLE,
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             )
             .unwrap();
@@ -513,6 +518,19 @@ cfg_if::cfg_if! {
             sys.gpio_reset(UART_TX_ENABLE).unwrap();
         }
 
+        fn uart_sp_to_sp3_disable() {
+            let sys = sys_api::Sys::from(SYS.get_task_id());
+
+            sys.gpio_configure_output(
+                UART_TX_ENABLE,
+                sys_api::OutputType::PushPull,
+                sys_api::Speed::Low,
+                sys_api::Pull::None,
+            )
+            .unwrap();
+
+            sys.gpio_set(UART_TX_ENABLE).unwrap();
+        }
         const ENABLES_PORT: sys_api::Port = sys_api::Port::A;
         const ENABLE_V1P2_MASK: u16 = 1 << 15;
         const ENABLE_V3P3_MASK: u16 = 1 << 4;
