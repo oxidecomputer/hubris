@@ -32,7 +32,7 @@ pub(crate) fn sleep(
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 

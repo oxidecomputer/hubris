@@ -130,7 +130,7 @@ pub fn check(disposition: &mut [Disposition]) -> bool {
     }
 
     JEFE_EXTERNAL_ERRORS.fetch_add(1, Ordering::SeqCst);
-    return false;
+    false
 }
 
 ///

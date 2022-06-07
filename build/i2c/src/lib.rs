@@ -249,11 +249,11 @@ impl ConfigGenerator {
             //
             for (index, (p, port)) in c.ports.iter().enumerate() {
                 if let Some(name) = &port.name {
-                    match buses.insert(name.clone(), (c.controller, index)) {
-                        Some(_) => {
-                            panic!("i2c bus {} appears twice", name);
-                        }
-                        None => {}
+                    if buses
+                        .insert(name.clone(), (c.controller, index))
+                        .is_some()
+                    {
+                        panic!("i2c bus {} appears twice", name);
                     }
                 }
 
@@ -302,12 +302,12 @@ impl ConfigGenerator {
 
         Self {
             output: String::new(),
-            disposition: disposition,
-            controllers: controllers,
-            buses: buses,
-            ports: ports,
-            singletons: singletons,
-            devices: i2c.devices.unwrap_or(Vec::new()),
+            devices: i2c.devices.unwrap_or_default(),
+            disposition,
+            controllers,
+            buses,
+            ports,
+            singletons,
         }
     }
 
@@ -345,7 +345,7 @@ impl ConfigGenerator {
             self.controllers.len()
         )?;
 
-        if self.controllers.len() > 0 {
+        if !self.controllers.is_empty() {
             writeln!(
                 &mut s,
                 r##"
@@ -406,7 +406,7 @@ impl ConfigGenerator {
         }
 
         for c in &self.controllers {
-            for (_, port) in &c.ports {
+            for port in c.ports.values() {
                 len += port.pins.len();
             }
         }
@@ -486,7 +486,7 @@ impl ConfigGenerator {
         let mut len = 0;
 
         for c in &self.controllers {
-            for (_, port) in &c.ports {
+            for port in c.ports.values() {
                 len += port.muxes.len();
             }
         }
@@ -882,7 +882,7 @@ impl ConfigGenerator {
             if let Some(pmbus) = &d.pmbus {
                 if let Some(rails) = &pmbus.rails {
                     for (index, rail) in rails.iter().enumerate() {
-                        if rail.len() == 0 {
+                        if rail.is_empty() {
                             continue;
                         }
 
@@ -1018,23 +1018,23 @@ impl ConfigGenerator {
         for d in &self.devices {
             if let Some(s) = &d.sensors {
                 for i in 0..s.temperature {
-                    add_sensor(Sensor::Temperature, &d, i);
+                    add_sensor(Sensor::Temperature, d, i);
                 }
 
                 for i in 0..s.power {
-                    add_sensor(Sensor::Power, &d, i);
+                    add_sensor(Sensor::Power, d, i);
                 }
 
                 for i in 0..s.current {
-                    add_sensor(Sensor::Current, &d, i);
+                    add_sensor(Sensor::Current, d, i);
                 }
 
                 for i in 0..s.voltage {
-                    add_sensor(Sensor::Voltage, &d, i);
+                    add_sensor(Sensor::Voltage, d, i);
                 }
 
                 for i in 0..s.speed {
-                    add_sensor(Sensor::Speed, &d, i);
+                    add_sensor(Sensor::Speed, d, i);
                 }
             }
         }

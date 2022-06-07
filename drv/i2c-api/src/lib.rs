@@ -106,6 +106,7 @@ pub enum Controller {
 }
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[allow(clippy::unusual_byte_groupings)]
 pub enum ReservedAddress {
     GeneralCall = 0b0000_000,
     CBUSAddress = 0b0000_001,
@@ -257,11 +258,11 @@ impl I2cDevice {
         address: u8,
     ) -> Self {
         Self {
-            task: task,
-            controller: controller,
-            port: port,
-            segment: segment,
-            address: address,
+            task,
+            controller,
+            port,
+            segment,
+            address,
         }
     }
 }

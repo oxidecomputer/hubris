@@ -39,7 +39,7 @@ pub fn main() -> ! {
             loop {
                 match user_leds.led_toggle(current >> 1) {
                     Ok(_) => {
-                        current = current + 1;
+                        current += 1;
                         break;
                     }
                     Err(drv_user_leds_api::LedError::NotPresent) => {
