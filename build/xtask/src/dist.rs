@@ -18,7 +18,9 @@ use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
-    elf, task_slot,
+    elf,
+    sizes::{load_task_size, MemoryUsage},
+    task_slot,
 };
 
 use lpc55_sign::{crc_image, signed_image};
@@ -227,7 +229,7 @@ pub fn package(
                 link_dummy_task(&cfg, name)?;
                 task_size(&cfg, name)
             } else {
-                Ok(1)
+                Ok(IndexMap::new())
             };
             size.map(|sz| (name.clone(), sz))
         })
@@ -723,8 +725,13 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
 }
 
-fn task_size(cfg: &PackageConfig, name: &str) -> Result<u32> {
-    Ok(1)
+fn task_size<'a, 'b>(
+    cfg: &'a PackageConfig,
+    name: &'b str,
+) -> Result<IndexMap<&'a str, MemoryUsage>> {
+    let task = &cfg.toml.tasks[name];
+    let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
+    load_task_size(&cfg.toml, name, stacksize, &task.requires)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and

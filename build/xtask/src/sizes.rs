@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::BTreeSet;
-use std::convert::TryInto;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -21,7 +20,7 @@ use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 /// Represents memory used in a particular region, along with the amount
 /// listed as "required" in the image TOML file (if present).
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
-struct Usage {
+pub struct MemoryUsage {
     /// Actual memory usage
     bytes: u64,
     /// Amount of memory requested in the TOML file, or `None`
@@ -31,7 +30,7 @@ struct Usage {
 #[derive(Debug, Serialize)]
 struct TaskSizes<'a> {
     /// Represents a map of task name -> memory region -> bytes used
-    sizes: IndexMap<&'a str, IndexMap<&'a str, Usage>>,
+    sizes: IndexMap<&'a str, IndexMap<&'a str, MemoryUsage>>,
 }
 
 fn pow2_suggest(size: u64) -> u64 {
@@ -41,6 +40,11 @@ fn pow2_suggest(size: u64) -> u64 {
 fn armv8m_suggest(size: u64) -> u64 {
     // Nearest chunk of 32
     ((size + 31) / 32) * 32
+}
+
+fn kern_suggest(size: u64) -> u64 {
+    // Nearest chunk of 16
+    ((size + 15) / 16) * 16
 }
 
 /// When `only_suggest` is true, prints only the suggested improvements to
@@ -63,7 +67,7 @@ pub fn run(
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
-        let compare: IndexMap<&str, IndexMap<&str, Usage>> =
+        let compare: IndexMap<&str, IndexMap<&str, MemoryUsage>> =
             serde_json::from_slice(&compare)?;
         let compare = TaskSizes { sizes: compare };
 
@@ -148,7 +152,11 @@ pub fn run(
 
         for (mem, &used) in sizes.iter().filter(|u| u.1.required.is_some()) {
             let size = used.required.unwrap();
-            let suggestion = suggest(used.bytes);
+            let suggestion = if name == "kernel" {
+                kern_suggest(used.bytes)
+            } else {
+                suggest(used.bytes)
+            };
             if suggestion >= size as u64 {
                 continue;
             }
@@ -203,7 +211,7 @@ pub fn load_task_size<'a>(
     name: &str,
     stacksize: u32,
     requires: &'a IndexMap<String, u32>,
-) -> Result<IndexMap<&'a str, Usage>> {
+) -> Result<IndexMap<&'a str, MemoryUsage>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel
     let elf_name =
@@ -223,12 +231,12 @@ pub fn load_task_size<'a>(
 
     // Initialize the memory sizes array based on the `requires` map
     // (which may not be present if we're doing autosizing)
-    let mut memory_sizes: IndexMap<&str, Usage> = requires
+    let mut memory_sizes: IndexMap<&str, MemoryUsage> = requires
         .iter()
         .map(|(name, value)| {
             (
                 name.as_str(),
-                Usage {
+                MemoryUsage {
                     bytes: 0,
                     required: Some(*value as u64),
                 },
