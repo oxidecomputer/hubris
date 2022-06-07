@@ -51,12 +51,12 @@ fn generate_net_config(
             generate_socket_state(name, socket, config.vlan.map(|v| v.count))?
         )?;
     }
-    writeln!(out, "{}", generate_state_struct(&config)?)?;
-    writeln!(out, "{}", generate_constructor(&config)?)?;
-    writeln!(out, "{}", generate_owner_info(&config)?)?;
-    writeln!(out, "{}", generate_port_table(&config)?)?;
+    writeln!(out, "{}", generate_state_struct(config)?)?;
+    writeln!(out, "{}", generate_constructor(config)?)?;
+    writeln!(out, "{}", generate_owner_info(config)?)?;
+    writeln!(out, "{}", generate_port_table(config)?)?;
 
-    build_net::generate_socket_enum(&config, &mut out)?;
+    build_net::generate_socket_enum(config, &mut out)?;
 
     drop(out);
 

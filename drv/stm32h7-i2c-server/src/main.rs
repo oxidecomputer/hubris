@@ -17,24 +17,21 @@ use userlib::*;
 
 task_slot!(SYS, sys);
 
-fn lookup_controller<'a>(
-    controllers: &'a [I2cController],
+fn lookup_controller<'a, 'b>(
+    controllers: &'a [I2cController<'b>],
     controller: Controller,
-) -> Result<&'a I2cController<'a>, ResponseCode> {
-    for i in 0..controllers.len() {
-        if controllers[i].controller == controller {
-            return Ok(&controllers[i]);
-        }
-    }
-
-    Err(ResponseCode::BadController)
+) -> Result<&'a I2cController<'b>, ResponseCode> {
+    controllers
+        .iter()
+        .find(|c| c.controller == controller)
+        .ok_or(ResponseCode::BadController)
 }
 
 ///
 /// Validates a port for the specified controller.
 ///
-fn validate_port<'a>(
-    pins: &'a [I2cPin],
+fn validate_port(
+    pins: &[I2cPin],
     controller: Controller,
     port: PortIndex,
 ) -> Result<(), ResponseCode> {
@@ -135,7 +132,7 @@ fn reset_if_needed(
     // And now reset the mux, eating any errors.
     let _ = find_mux(controller, port, muxes, mux, |mux, _, _| {
         ringbuf_entry!(None);
-        mux.driver.reset(&mux, &sys)?;
+        mux.driver.reset(mux, &sys)?;
         Ok(())
     });
 }
@@ -152,8 +149,8 @@ fn main() -> ! {
     let muxes = i2c_config::muxes();
 
     // This is our actual mutable state
-    let mut portmap = PortMap::new();
-    let mut muxmap = MuxMap::new();
+    let mut portmap = PortMap::default();
+    let mut muxmap = MuxMap::default();
 
     // Turn the actual peripheral on so that we can interact with it.
     turn_on_i2c(&controllers);
@@ -184,7 +181,7 @@ fn main() -> ! {
                 let (addr, controller, port, mux) =
                     Marshal::unmarshal(payload)?;
 
-                if let Some(_) = ReservedAddress::from_u8(addr) {
+                if ReservedAddress::from_u8(addr).is_some() {
                     return Err(ResponseCode::ReservedAddress);
                 }
 
@@ -379,7 +376,7 @@ fn configure_muxes(
         configure_port(map, controller, mux.port, pins);
 
         loop {
-            match mux.driver.configure(&mux, controller, &sys, ctrl) {
+            match mux.driver.configure(mux, controller, &sys, ctrl) {
                 Ok(_) => {
                     break;
                 }

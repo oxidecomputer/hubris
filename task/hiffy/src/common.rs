@@ -285,7 +285,7 @@ pub(crate) fn qspi_read_status(
 ) -> Result<usize, Failure> {
     use drv_gimlet_hf_api as hf;
 
-    if rval.len() < 1 {
+    if rval.is_empty() {
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
@@ -422,7 +422,7 @@ pub(crate) fn qspi_sector_erase(
 ) -> Result<usize, Failure> {
     use drv_gimlet_hf_api as hf;
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
     let frame = &stack[stack.len() - 1..];
@@ -488,7 +488,7 @@ pub(crate) fn hash_digest_sha256(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         // return Err(Failure::Fault(Fault::MissingParameters));
         return Err(Failure::Fault(Fault::BadParameter(0)));
     }
@@ -512,7 +512,7 @@ pub(crate) fn hash_update(
 ) -> Result<usize, Failure> {
     use drv_hash_api as hash;
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::BadParameter(0)));
     }
     let frame = &stack[stack.len() - 1..];
@@ -555,7 +555,7 @@ pub(crate) fn rng_fill(
 ) -> Result<usize, Failure> {
     use drv_rng_api::Rng;
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
     if stack.len() > 1 {

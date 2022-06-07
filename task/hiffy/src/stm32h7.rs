@@ -141,6 +141,7 @@ pub enum Functions {
 }
 
 #[cfg(feature = "i2c")]
+#[allow(clippy::type_complexity)] // TODO - type is indeed not fantastic
 fn i2c_args(
     stack: &[Option<u32>],
 ) -> Result<
@@ -182,18 +183,9 @@ fn i2c_args(
 
     let mux = match (stack[2], stack[3]) {
         (Some(mux), Some(segment)) => Some((
-            match Mux::from_u32(mux) {
-                Some(mux) => mux,
-                None => {
-                    return Err(Failure::Fault(Fault::BadParameter(2)));
-                }
-            },
-            match Segment::from_u32(segment) {
-                Some(segment) => segment,
-                None => {
-                    return Err(Failure::Fault(Fault::BadParameter(3)));
-                }
-            },
+            Mux::from_u32(mux).ok_or(Failure::Fault(Fault::BadParameter(2)))?,
+            Segment::from_u32(segment)
+                .ok_or(Failure::Fault(Fault::BadParameter(3)))?,
         )),
         _ => None,
     };
@@ -203,10 +195,7 @@ fn i2c_args(
         None => return Err(Failure::Fault(Fault::EmptyParameter(4))),
     };
 
-    let register = match stack[5] {
-        Some(register) => Some(register as u8),
-        None => None,
-    };
+    let register = stack[5].map(|r| r as u8);
 
     Ok((controller, port, mux, addr, register))
 }
@@ -281,9 +270,7 @@ fn i2c_write(
     }
 
     let len = match stack[stack.len() - 1] {
-        Some(len) if len > 0 && len as usize <= buf.len() - 1 => {
-            Ok(len as usize)
-        }
+        Some(len) if len > 0 && (len as usize) < buf.len() => Ok(len as usize),
         _ => Err(Failure::Fault(Fault::BadParameter(7))),
     }?;
 
@@ -406,7 +393,7 @@ fn gpio_input(
     let task = SYS.get_task_id();
     let gpio = drv_stm32xx_sys_api::Sys::from(task);
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 

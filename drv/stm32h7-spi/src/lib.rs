@@ -73,7 +73,7 @@ impl Spi {
         // cannot presume to have either direct GPIO access _or_ IPC access.
         // - Clock on, reset off - again, we can't do this directly.
 
-        assert!(bits_per_frame >= 4 && bits_per_frame <= 32);
+        assert!((4..=32).contains(&bits_per_frame));
 
         // Write CFG1/CFG2 to configure
         self.reg

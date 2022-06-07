@@ -89,8 +89,8 @@ fn read_regs(
     ) {
         Err(code) => Err(mux.error_code(code)),
         _ => {
-            for i in 0..rbuf.len() {
-                ringbuf_entry!(Trace::Read(Register::from(i as u8), rbuf[i]));
+            for (i, &byte) in rbuf.iter().enumerate() {
+                ringbuf_entry!(Trace::Read(Register::from(i as u8), byte));
             }
 
             Ok(())
