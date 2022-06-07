@@ -74,6 +74,7 @@ impl Config {
             toml::from_slice(&chip_contents)?
         };
 
+        assert!(!toml.tasks.contains_key("kernel"));
         let buildhash = hasher.finish();
 
         Ok(Config {
@@ -300,6 +301,14 @@ impl Config {
                 vaddr >= out.address && vaddr < out.address + out.size
             })
             .map(|(name, _out)| name.as_str())
+    }
+
+    /// Looks up the `requires` array for the given task or the kernel
+    pub fn requires(&self, name: &str) -> &IndexMap<String, u32> {
+        match name {
+            "kernel" => &self.kernel.requires,
+            name => &self.tasks[name].requires,
+        }
     }
 }
 

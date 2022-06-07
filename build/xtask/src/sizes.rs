@@ -12,25 +12,15 @@ use anyhow::{bail, Result};
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
-/// Represents memory used in a particular region, along with the amount
-/// listed as "required" in the image TOML file (if present).
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Default)]
-pub struct MemoryUsage {
-    /// Actual memory usage
-    pub bytes: u64,
-    /// Amount of memory requested in the TOML file, or `None`
-    pub required: Option<u64>,
-}
-
 #[derive(Debug, Serialize)]
 struct TaskSizes<'a> {
     /// Represents a map of task name -> memory region -> bytes used
-    sizes: IndexMap<&'a str, IndexMap<&'a str, MemoryUsage>>,
+    sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
 }
 
 fn pow2_suggest(size: u64) -> u64 {
@@ -67,7 +57,7 @@ pub fn run(
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
-        let compare: IndexMap<&str, IndexMap<&str, MemoryUsage>> =
+        let compare: IndexMap<&str, IndexMap<&str, u64>> =
             serde_json::from_slice(&compare)?;
         let compare = TaskSizes { sizes: compare };
 
@@ -101,6 +91,7 @@ pub fn run(
     if !only_suggest {
         for name in names.clone() {
             writeln!(out, "\n{}", name)?;
+            let requires = toml.requires(name);
             let sizes = &sizes.sizes[name];
 
             for (mem_name, &used) in sizes {
@@ -108,10 +99,10 @@ pub fn run(
                     out,
                     "  {:<6} {: >5} bytes",
                     format!("{}:", mem_name),
-                    used.bytes,
+                    used,
                 )?;
-                if let Some(size) = used.required {
-                    let percent = used.bytes * 100 / size as u64;
+                if let Some(&size) = requires.get(&mem_name.to_string()) {
+                    let percent = used * 100 / size as u64;
                     let mut color = ColorSpec::new();
                     color.set_fg(Some(if percent >= 50 {
                         Color::Green
@@ -147,15 +138,20 @@ pub fn run(
     let mut printed_header = false;
     let mut savings: IndexMap<&str, u64> = IndexMap::new();
     for name in names.clone() {
+        let requires = toml.requires(name);
         let sizes = &sizes.sizes[name];
         let mut printed_name = false;
 
-        for (mem, &used) in sizes.iter().filter(|u| u.1.required.is_some()) {
-            let size = used.required.unwrap();
+        for (mem, &used) in sizes.iter() {
+            let size = match requires.get(&mem.to_string()) {
+                Some(s) => *s,
+                _ => continue,
+            };
+
             let suggestion = if name == "kernel" {
-                kern_suggest(used.bytes)
+                kern_suggest(used)
             } else {
-                suggest(used.bytes)
+                suggest(used)
             };
             if suggestion >= size as u64 {
                 continue;
@@ -210,8 +206,7 @@ pub fn load_task_size<'a>(
     toml: &'a Config,
     name: &str,
     stacksize: u32,
-    requires: &'a IndexMap<String, u32>,
-) -> Result<IndexMap<&'a str, MemoryUsage>> {
+) -> Result<IndexMap<&'a str, u64>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel
     let elf_name =
@@ -229,24 +224,10 @@ pub fn load_task_size<'a>(
         o => bail!("Invalid Object {:?}", o),
     };
 
-    // Initialize the memory sizes array based on the `requires` map
-    // (which may not be present if we're doing autosizing)
-    let mut memory_sizes: IndexMap<&str, MemoryUsage> = requires
-        .iter()
-        .map(|(name, value)| {
-            (
-                name.as_str(),
-                MemoryUsage {
-                    bytes: 0,
-                    required: Some(*value as u64),
-                },
-            )
-        })
-        .collect();
-
+    let mut memory_sizes = IndexMap::new();
     for phdr in &elf.program_headers {
         if let Some(vregion) = toml.output_region(phdr.p_vaddr) {
-            memory_sizes.entry(vregion).or_default().bytes += phdr.p_memsz;
+            *memory_sizes.entry(vregion).or_default() += phdr.p_memsz;
         }
         // If the VirtAddr disagrees with the PhysAddr, then this is a
         // section which is relocated into RAM, so we also accumulate
@@ -254,10 +235,10 @@ pub fn load_task_size<'a>(
         // flash).
         if phdr.p_vaddr != phdr.p_paddr {
             let region = toml.output_region(phdr.p_paddr).unwrap();
-            memory_sizes.entry(region).or_default().bytes += phdr.p_filesz;
+            *memory_sizes.entry(region).or_default() += phdr.p_filesz;
         }
     }
-    memory_sizes.entry("ram").or_default().bytes += stacksize as u64;
+    *memory_sizes.entry("ram").or_default() += stacksize as u64;
 
     Ok(memory_sizes)
 }
@@ -269,14 +250,12 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
         &toml,
         "kernel",
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &toml.kernel.requires,
     )?;
     sizes.insert("kernel", kernel_sizes);
 
     for (name, task) in &toml.tasks {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
-        let task_sizes =
-            load_task_size(&toml, &name, stacksize, &task.requires)?;
+        let task_sizes = load_task_size(&toml, &name, stacksize)?;
 
         sizes.insert(name, task_sizes);
     }
@@ -312,7 +291,7 @@ fn compare_sizes(
                 let saved = saved_entry.get();
                 for (key, &value) in current {
                     let saved = saved.get(key).cloned().unwrap_or_default();
-                    let diff = value.bytes as i64 - saved.bytes as i64;
+                    let diff = value as i64 - saved as i64;
 
                     if diff != 0 {
                         println!("\t{}: {}", key, diff);
@@ -326,7 +305,7 @@ fn compare_sizes(
                 );
                 let saved = saved_entry.get();
                 for (key, value) in saved {
-                    println!("\t{}: {}", key, value.bytes);
+                    println!("\t{}: {}", key, value);
                 }
             }
             // we have removed this entirely
@@ -334,7 +313,7 @@ fn compare_sizes(
                 println!("This task was removed since we last saved size information.");
                 let current = current_entry.get();
                 for (key, value) in current {
-                    println!("\t{}: {}", key, value.bytes);
+                    println!("\t{}: {}", key, value);
                 }
             }
             // this should never happen
