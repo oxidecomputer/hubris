@@ -174,6 +174,9 @@ impl Tofino {
                 TofinoSeqState::A2,
                 TofinoSeqError::None,
             ) => self.power_up(),
+            // RestartOnFault not yet implemented because we do not yet know how
+            // this should behave. And we probably still want to see/debug if a
+            // fault occurs and restart manually.
             _ => Ok(()), // Do nothing by default.
         }
     }
@@ -221,9 +224,9 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<SeqError>> {
-        ringbuf_entry!(Trace::ClearingTofinoSequencerFault(
-            self.tofino.sequencer.error().map_err(SeqError::from)?
-        ));
+        if let Ok(e) = self.tofino.sequencer.error().map_err(SeqError::from) {
+            ringbuf_entry!(Trace::ClearingTofinoSequencerFault(e));
+        }
         Ok(self
             .tofino
             .sequencer
@@ -306,7 +309,6 @@ fn main() -> ! {
         i2c_config::pmbus::v0p8_tf2_vdd_core(I2C.get_task_id());
     let vddcore = Raa229618::new(&i2c_device, rail);
     let tofino = Tofino {
-        //policy: TofinoSequencerPolicy::LatchOffOnFault,
         policy: TofinoSequencerPolicy::Disabled,
         sequencer: TofinoSequencer::new(FPGA.get_task_id()),
         vddcore,
