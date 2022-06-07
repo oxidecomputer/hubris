@@ -113,7 +113,7 @@ fn main() -> ! {
                     #[cfg(any(feature = "g031", feature = "g070"))]
                     if usart.isr.read().txe().bit() {
                         // TX register empty. Do we need to send something?
-                        step_transmit(&usart, txref);
+                        step_transmit(usart, txref);
                     }
 
                     #[cfg(feature = "g0b1")]
@@ -215,7 +215,7 @@ fn step_transmit(
         usart
             .cr1_fifo_disabled()
             .modify(|_, w| w.txeie().clear_bit());
-        core::mem::replace(state, None).unwrap().caller
+        state.take().unwrap().caller
     }
 
     let txs = if let Some(txs) = tx { txs } else { return };

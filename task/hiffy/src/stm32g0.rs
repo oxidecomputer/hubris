@@ -91,7 +91,7 @@ fn gpio_input(
     let task = SYS.get_task_id();
     let sys = drv_stm32xx_sys_api::Sys::from(task);
 
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
