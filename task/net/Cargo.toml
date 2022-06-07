@@ -25,6 +25,7 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
 ringbuf = {path = "../../lib/ringbuf"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
+task-jefe-api = {path = "../jefe-api"}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", optional = true}
 vsc85xx = { path = "../../drv/vsc85xx", optional = true }

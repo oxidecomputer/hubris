@@ -3009,6 +3009,7 @@ dependencies = [
  "ssmarshal",
  "stm32h7",
  "syn",
+ "task-jefe-api",
  "task-net-api",
  "userlib",
  "vsc7448-pac",
