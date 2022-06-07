@@ -310,6 +310,41 @@ impl Config {
             name => &self.tasks[name].requires,
         }
     }
+
+    /// Suggests an appropriate size for the given task (or "kernel"), given
+    /// its true size.  The size depends on MMU implementation, dispatched
+    /// based on the `target` in the config file.
+    pub fn suggest_memory_region_size(&self, name: &str, size: u64) -> u64 {
+        match name {
+            "kernel" => {
+                // Nearest chunk of 16
+                ((size + 15) / 16) * 16
+            }
+            _ => match self.target.as_str() {
+                "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+                    size.next_power_of_two()
+                }
+                "thumbv8m.main-none-eabihf" => {
+                    // Nearest chunk of 32
+                    ((size + 31) / 32) * 32
+                }
+                t => panic!("Unknown target {}", t),
+            },
+        }
+    }
+
+    /// Returns the desired alignment for a task memory region. This is
+    /// dependent on the processor's MMU.
+    pub fn task_memory_alignment(&self, size: u32) -> u32 {
+        match self.target.as_str() {
+            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+                assert!(size.is_power_of_two());
+                size
+            }
+            "thumbv8m.main-none-eabihf" => 32,
+            t => panic!("Unknown target {}", t),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

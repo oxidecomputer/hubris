@@ -1363,13 +1363,8 @@ pub fn allocate_all(
 
     for name in tasks.keys() {
         for (mem, amt) in task_sizes[name.as_str()].iter() {
-            let bytes = amt.next_power_of_two();
+            let bytes = toml.suggest_memory_region_size(name, *amt);
             if let Some(r) = tasks[name].requires.get(&mem.to_string()) {
-                if !r.is_power_of_two() {
-                    bail!(
-                        "task {}, memory region {}: requirement {} is not a power of two.",
-                        name, name, r);
-                }
                 if bytes > *r as u64 {
                     bail!(
                         "task {}, memory region {}: requirement {} is too small (needs {}).",
@@ -1427,13 +1422,14 @@ pub fn allocate_all(
                 for (&sz, q) in t_reqs.range_mut(..=align).rev() {
                     if let Some(task) = q.pop_front() {
                         // We can pack an equal or smaller one in.
+                        let align = toml.task_memory_alignment(sz);
                         allocs
                             .tasks
                             .entry(task.to_string())
                             .or_default()
                             .insert(
                                 region.to_string(),
-                                allocate_one(region, sz, avail)?,
+                                allocate_one(region, sz, align, avail)?,
                             );
                         continue 'fitloop;
                     }
@@ -1442,13 +1438,14 @@ pub fn allocate_all(
                 for (&sz, q) in t_reqs.range_mut(align + 1..) {
                     if let Some(task) = q.pop_front() {
                         // We've gotta use a larger one.
+                        let align = toml.task_memory_alignment(sz);
                         allocs
                             .tasks
                             .entry(task.to_string())
                             .or_default()
                             .insert(
                                 region.to_string(),
-                                allocate_one(region, sz, avail)?,
+                                allocate_one(region, sz, align, avail)?,
                             );
                         continue 'fitloop;
                     }
@@ -1493,12 +1490,10 @@ fn allocate_k(
 fn allocate_one(
     region: &str,
     size: u32,
+    align: u32,
     avail: &mut Range<u32>,
 ) -> Result<Range<u32>> {
-    // This condition is ensured by allocate_all.
-    assert!(size.is_power_of_two());
-
-    let size_mask = size - 1;
+    let size_mask = align - 1;
 
     // Our base address will be larger than avail.start if it doesn't meet our
     // minimum requirements. Round up.
