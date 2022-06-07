@@ -510,7 +510,7 @@ cfg_if::cfg_if! {
             sys.gpio_configure_output(
                 UART_TX_ENABLE,
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             )
             .unwrap();
@@ -524,7 +524,7 @@ cfg_if::cfg_if! {
             sys.gpio_configure_output(
                 UART_TX_ENABLE,
                 sys_api::OutputType::PushPull,
-                sys_api::Speed::High,
+                sys_api::Speed::Low,
                 sys_api::Pull::None,
             )
             .unwrap();
