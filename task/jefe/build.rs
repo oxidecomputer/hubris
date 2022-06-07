@@ -8,6 +8,13 @@ use std::collections::BTreeMap;
 use std::io::Write;
 
 fn main() -> Result<()> {
+    idol::server::build_server_support(
+        "../../idl/jefe.idol",
+        "server_stub.rs",
+        idol::server::ServerStyle::InOrder,
+    )
+    .unwrap();
+
     build_util::expose_m_profile();
 
     let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
@@ -21,7 +28,7 @@ fn main() -> Result<()> {
     let task = "hubris_num_tasks::Task";
     writeln!(
         out,
-        "const MAILING_LIST: [({}, usize); {}] = [",
+        "pub(crate) const MAILING_LIST: [({}, u32); {}] = [",
         task, count
     )?;
     for (name, rec) in cfg.on_state_change {
