@@ -1,0 +1,624 @@
+{
+    "type": "addrmap",
+    "inst_name": "sidecar_mainboard_controller",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "ID0",
+            "addr_offset": 0,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 0 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID1",
+            "addr_offset": 1,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 1 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID2",
+            "addr_offset": 2,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 2 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID3",
+            "addr_offset": 3,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 3 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SCRATCHPAD",
+            "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SCRATCHPAD",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_SEQ_CTRL",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CLEAR_ERROR",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set self clearing bit to clear Tofino sequencer error state"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Set bit to power up Tofino, clear bit to power down Tofino"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "ACK_VID",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Acknowledge that VDDCORE has been adjusted according to the VID"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PCIE_RESET",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Keep Tofino PCIe in reset"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_SEQ_STATE",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "STATE",
+                    "lsb": 0,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Tofino Sequencer State"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_SEQ_STEP",
+            "addr_offset": 7,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "STEP",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Sequencing Step"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_SEQ_ERROR",
+            "addr_offset": 8,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ERROR",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Sequencing Error"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_ENABLE",
+            "addr_offset": 9,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDD_1P8_EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 1.8V Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_CORE_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD Core Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_PCIE_EN",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.75V PCIe Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VDDT_EN",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.9V VDDT Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P5_EN",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.5V Enable"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P8_EN",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.8V Enable"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_GOOD",
+            "addr_offset": 10,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDD_1P8_PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 1.8V Power Good"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_CORE_PG",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD Core Power Good"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_PCIE_PG",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.75V PCIe Power Good"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VDDT_PG",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.9V VDDT Power Good"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P5_PG",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.5V Power Good"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P8_PG",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.8V Power Good"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_FAULT",
+            "addr_offset": 11,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDD_1P8_FAULT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 1.8V Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_CORE_FAULT",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD Core Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESERVED1",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Reserved"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VDDT_FAULT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.9V VDDT Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P5_FAULT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.5V Fault"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESERVED2",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Reserved"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_VRHOT",
+            "addr_offset": 12,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VDD_1P8_VRHOT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 1.8V VRHOT"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_CORE_VRHOT",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD Core VRHOT"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESERVED1",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Reserved"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDD_VDDT_VRHOT",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDD 0.9V VDDT VRHOT"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P5_VRHOT",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.5V VRHOT"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VDDA_1P8_VRHOT",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VDDA 1.8V VRHOT"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_POWER_VID",
+            "addr_offset": 13,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "VID",
+                    "lsb": 0,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VID Value"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESERVED",
+                    "lsb": 4,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Reserved"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "VID_VALID",
+                    "lsb": 7,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "VID Valid"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_RESET",
+            "addr_offset": 14,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PWRON",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Tofino package is in reset"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PCIE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "PCIe link is in reset"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "TOFINO_MISC",
+            "addr_offset": 15,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "THERMAL_ALERT",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Thermal Alert"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "CLOCKS_EN",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Clocks Enable"
+                }
+            ]
+        }
+    ]
+}

@@ -1,19 +1,20 @@
 [package]
-name = "drv-sidecar-seq-api"
+name = "drv-sidecar-mainboard-controller-api"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-derive-idol-err = {path = "../../lib/derive-idol-err" }
+drv-fpga-api = {path = "../../drv/fpga-api"}
 userlib = {path = "../../sys/userlib"}
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
-drv-fpga-api = {path = "../fpga-api"}
-drv-sidecar-mainboard-controller-api = {path = "../sidecar-mainboard-controller-api"}
 
 # a target for `cargo xtask check`
 [package.metadata.build]
 target = "thumbv7em-none-eabihf"
 
 [build-dependencies]
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+build-util = {path = "../../build/util"}
+serde = { version = "1.0.114", features = ["derive"] }
+serde_json = "1.0"
+gnarle = {path = "../../lib/gnarle"}
