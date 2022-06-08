@@ -136,7 +136,7 @@ priority = 5
 requires = {flash = 32768, ram = 8192 }
 stacksize = 4504
 start = true
-task-slots = ["i2c_driver", "sensor", "gimlet_seq"]
+task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
 [tasks.power]
 name = "task-power"
@@ -163,7 +163,7 @@ priority = 4
 requires = {flash = 65536, ram = 4096 }
 stacksize = 1600
 start = true
-task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf"]
+task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
 
 [tasks.gimlet_seq.config]
 fpga_image = "fpga-b.bin"

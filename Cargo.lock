@@ -747,6 +747,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
