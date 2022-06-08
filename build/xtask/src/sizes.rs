@@ -12,12 +12,11 @@ use anyhow::{bail, Result};
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
-use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{dist::DEFAULT_KERNEL_STACK, Config};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 struct TaskSizes<'a> {
     /// Represents a map of task name -> memory region -> bytes used
     sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
@@ -39,7 +38,7 @@ pub fn run(
 
     if save {
         println!("Writing json to {}", filename);
-        fs::write(filename, serde_json::ser::to_string(&sizes)?)?;
+        fs::write(filename, serde_json::ser::to_string(&sizes.sizes)?)?;
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
