@@ -158,11 +158,19 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
     fn set_state(
         &mut self,
-        _msg: &userlib::RecvMessage,
+        msg: &userlib::RecvMessage,
         state: u32,
     ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        // TODO: this is where we'd filter on msg.sender if state changes are
-        // restricted to a subset of tasks.
+        // If a task is designated as state owner, ensure that this RPC came
+        // from that task.
+        if let Some(owner) = generated::STATE_OWNER {
+            if msg.sender.index() != owner as usize {
+                // We'll pretend this operation doesn't exist.
+                // TODO this should be AccessViolation but that isn't exposed in
+                // the current version of idol.
+                return Err(idol_runtime::ClientError::UnknownOperation.fail());
+            }
+        }
 
         if self.state != state {
             self.state = state;

@@ -36,6 +36,13 @@ fn main() -> Result<()> {
     }
     writeln!(out, "];")?;
 
+    write!(out, "pub(crate) const STATE_OWNER: Option<{}> = ", task)?;
+    if let Some(owner) = cfg.state_owner {
+        writeln!(out, "Some({}::{});", task, owner)?;
+    } else {
+        writeln!(out, "None;")?;
+    }
+
     Ok(())
 }
 
@@ -46,6 +53,10 @@ struct Config {
     /// Task requests to be notified on state change, as a map from task name to
     /// `StateChange` record.
     on_state_change: BTreeMap<String, StateChange>,
+    /// Name of task responsible for state changes. If provided, a state change
+    /// request from any other task will result in that task being faulted.
+    #[serde(default)]
+    state_owner: Option<String>,
 }
 
 /// Description of something a task wants done on state change.
