@@ -690,6 +690,7 @@ fn link_task(
     name: &str,
     allocs: &Allocations,
 ) -> Result<()> {
+    println!("linking task '{}'", name);
     let task_toml = &cfg.toml.tasks[name];
     generate_task_linker_script(
         "memory.x",
