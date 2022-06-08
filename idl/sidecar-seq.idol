@@ -60,7 +60,64 @@ Interface(
             reply: Result(
                 ok: "u32",
                 err: CLike("SeqError"),
-            )
+            ),
+        ),
+        "tofino_pcie_hotplug_ctrl": (
+            doc: "Return the PCIe hotplug control register",
+            reply: Result(
+                ok: "u8",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "set_tofino_pcie_hotplug_ctrl": (
+            doc: "Set bits in the Tofino PCIe endpoint CTRL register",
+            args: {
+                "mask": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "clear_tofino_pcie_hotplug_ctrl": (
+            doc: "Clear bits in the Tofino PCIe endpoint CTRL register",
+            args: {
+                "mask": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "tofino_pcie_hotplug_status": (
+            doc: "Return the PCIe hotplug status register",
+            reply: Result(
+                ok: "u8",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "tofino_pcie_reset": (
+            doc: "Return the state of Tofino PCIe reset",
+            reply: Result(
+                ok: (
+                    type: "TofinoPcieReset",
+                    recv: FromPrimitive("u8"),
+                ),
+                err: CLike("SeqError"),
+            ),
+        ),
+        "set_tofino_pcie_reset": (
+            doc: "Return the state of Tofino PCIe reset",
+            args: {
+                "reset": (
+                    type: "TofinoPcieReset",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("SeqError"),
+            ),
         ),
 
         "is_clock_config_loaded": (

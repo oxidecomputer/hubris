@@ -55,6 +55,15 @@ pub struct Status {
     error: TofinoSeqError,
     vid: Option<Tofino2Vid>,
     power: u32,
+    pcie_status: u8,
+}
+
+#[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
+#[repr(u8)]
+pub enum TofinoPcieReset {
+    HostControl,
+    Asserted,
+    Deasserted,
 }
 
 impl Sequencer {
@@ -133,12 +142,89 @@ impl Sequencer {
         }
     }
 
+    pub fn pcie_hotplug_ctrl(&self) -> Result<u8, FpgaError> {
+        self.fpga.read(Addr::PCIE_HOTPLUG_CTRL)
+    }
+
+    pub fn write_pcie_hotplug_ctrl(
+        &self,
+        op: WriteOp,
+        value: u8,
+    ) -> Result<(), FpgaError> {
+        self.fpga.write(op, Addr::PCIE_HOTPLUG_CTRL, value)
+    }
+
+    pub fn set_pcie_present(&self, present: bool) -> Result<(), FpgaError> {
+        self.write_pcie_hotplug_ctrl(
+            present.into(),
+            Reg::PCIE_HOTPLUG_CTRL::PRESENT,
+        )
+    }
+
+    pub fn set_pcie_power_fault(&self, fault: bool) -> Result<(), FpgaError> {
+        self.write_pcie_hotplug_ctrl(
+            fault.into(),
+            Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT,
+        )
+    }
+
+    pub fn set_pcie_alert(&self, alert: bool) -> Result<(), FpgaError> {
+        self.write_pcie_hotplug_ctrl(
+            alert.into(),
+            Reg::PCIE_HOTPLUG_CTRL::ALERT,
+        )
+    }
+
+    pub fn pcie_reset(&self) -> Result<TofinoPcieReset, FpgaError> {
+        let ctrl = self.pcie_hotplug_ctrl()?;
+        let reset = (ctrl & Reg::PCIE_HOTPLUG_CTRL::RESET) != 0;
+        let override_host_reset =
+            (ctrl & Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET) != 0;
+
+        match (override_host_reset, reset) {
+            (false, _) => Ok(TofinoPcieReset::HostControl),
+            (true, false) => Ok(TofinoPcieReset::Deasserted),
+            (true, true) => Ok(TofinoPcieReset::Asserted),
+        }
+    }
+
+    pub fn set_pcie_reset(
+        &self,
+        reset: TofinoPcieReset,
+    ) -> Result<(), FpgaError> {
+        let ctrl = self.pcie_hotplug_ctrl()?;
+        let ctrl_next = match reset {
+            TofinoPcieReset::HostControl => {
+                // Clear RESET, OVERRIDE_HOST_RESET.
+                ctrl & !(Reg::PCIE_HOTPLUG_CTRL::RESET
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET)
+            }
+            TofinoPcieReset::Asserted => {
+                // Set RESET, OVERRIDE_HOST_RESET.
+                ctrl | Reg::PCIE_HOTPLUG_CTRL::RESET
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET
+            }
+            TofinoPcieReset::Deasserted => {
+                // Set HOST_OVERRIDE_RESET, clear RESET.
+                (ctrl & !Reg::PCIE_HOTPLUG_CTRL::RESET)
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET
+            }
+        };
+
+        self.write_pcie_hotplug_ctrl(WriteOp::Write, ctrl_next)
+    }
+
+    pub fn pcie_hotplug_status(&self) -> Result<u8, FpgaError> {
+        self.fpga.read(Addr::PCIE_HOTPLUG_STATUS)
+    }
+
     pub fn status(&self) -> Result<Status, FpgaError> {
         Ok(Status {
             state: self.state()?,
             error: self.error()?,
             vid: self.vid()?,
             power: self.power_status()?,
+            pcie_status: self.pcie_hotplug_status()?,
         })
     }
 }
