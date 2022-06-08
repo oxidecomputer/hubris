@@ -37,14 +37,14 @@ execute = false  # let's assume XN until proven otherwise
 [tasks.runner]
 name = "test-runner"
 priority = 0
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
 features = ["itm"]
 
 [tasks.suite]
 name = "test-suite"
 priority = 2
-requires = {flash = 65536, ram = 4096}
+max-sizes = {flash = 65536, ram = 4096}
 start = true
 stacksize = 2048
 features = ["itm", "fru-id-eeprom"]
@@ -60,14 +60,14 @@ tup = [[1, true], [2, true], [3, false]]
 [tasks.assist]
 name = "test-assist"
 priority = 1
-requires = {flash = 16384, ram = 1024}
+max-sizes = {flash = 16384, ram = 1024}
 start = true
 features = ["itm"]
 
 [tasks.idol]
 name = "test-idol-server"
 priority = 1
-requires = {flash = 4096, ram = 1024}
+max-sizes = {flash = 4096, ram = 1024}
 stacksize = 1024
 start = true
 
@@ -75,7 +75,7 @@ start = true
 name = "drv-stm32xx-sys"
 features = ["h753"]
 priority = 1
-requires = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
@@ -83,7 +83,7 @@ start = true
 name = "drv-stm32h7-i2c-server"
 features = ["h753", "itm"]
 priority = 2
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c2", "i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]
@@ -99,7 +99,7 @@ task-slots = ["sys"]
 [tasks.idle]
 name = "task-idle"
 priority = 3
-requires = {flash = 128, ram = 256}
+max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
