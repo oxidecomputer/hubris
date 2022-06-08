@@ -224,11 +224,15 @@ pub fn load_task_size<'a>(
     // afterwards.
     let mut memory_sizes = IndexMap::new();
     let mut record_size = |start, size| {
-        let region = toml.output_region(start).unwrap();
-        let end = start + size;
-        let r = memory_sizes.entry(region).or_insert_with(|| start..end);
-        r.start = r.start.min(start);
-        r.end = r.end.max(end);
+        if let Some(region) = toml.output_region(start) {
+            let end = start + size;
+            let r = memory_sizes.entry(region).or_insert_with(|| start..end);
+            r.start = r.start.min(start);
+            r.end = r.end.max(end);
+            true
+        } else {
+            false
+        }
     };
     for phdr in &elf.program_headers {
         record_size(phdr.p_vaddr, phdr.p_memsz);
@@ -238,7 +242,9 @@ pub fn load_task_size<'a>(
         // its FileSiz in the physical address (which is presumably
         // flash).
         if phdr.p_vaddr != phdr.p_paddr {
-            record_size(phdr.p_paddr, phdr.p_filesz);
+            if !record_size(phdr.p_paddr, phdr.p_filesz) {
+                bail!("Failed to remap relocated section at {}", phdr.p_paddr);
+            }
         }
     }
     let mut memory_sizes: IndexMap<&str, u64> = memory_sizes
