@@ -102,11 +102,27 @@ pub fn run(
                     }));
                     out.set_color(&color)?;
                     write!(out, " ({}%)", percent)?;
-                } else {
+
+                    let autosize = toml.suggest_memory_region_size(name, used);
+                    if size != autosize as u32 && name != "kernel" {
+                        let mut color = ColorSpec::new();
+                        color.set_fg(Some(Color::Blue));
+                        out.set_color(&color)?;
+                        write!(
+                            out,
+                            " [autosized to {}]",
+                            toml.suggest_memory_region_size(name, used)
+                        )?;
+                    }
+                } else if name != "kernel" {
                     let mut color = ColorSpec::new();
                     color.set_fg(Some(Color::Blue));
                     out.set_color(&color)?;
-                    write!(out, " [auto]")?;
+                    write!(
+                        out,
+                        " [autosized to {}]",
+                        toml.suggest_memory_region_size(name, used)
+                    )?;
                 }
                 out.reset()?;
                 writeln!(out)?;
@@ -157,10 +173,13 @@ pub fn run(
             }
             write!(out, "  {:<6} {: >5}", format!("{}:", mem), suggestion)?;
             out.set_color(ColorSpec::new().set_dimmed(true))?;
-            writeln!(out, " (currently {})", size)?;
+            if name == "kernel" {
+                writeln!(out, " (currently {})", size)?;
+                *savings.entry(mem).or_default() += size as u64 - suggestion;
+            } else {
+                writeln!(out, " (autosized with max {})", size)?;
+            }
             out.reset()?;
-
-            *savings.entry(mem).or_default() += size as u64 - suggestion;
         }
     }
 
