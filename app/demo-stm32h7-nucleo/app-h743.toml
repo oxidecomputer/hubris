@@ -49,7 +49,7 @@ dma = true
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
-requires = {flash = 8192, ram = 2048}
+max-sizes = {flash = 8192, ram = 2048}
 start = true
 features = ["itm"]
 stacksize = 1536
@@ -58,7 +58,7 @@ stacksize = 1536
 name = "drv-stm32xx-sys"
 features = ["h743"]
 priority = 1
-requires = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
@@ -66,7 +66,7 @@ start = true
 name = "drv-stm32h7-i2c-server"
 features = ["h743"]
 priority = 2
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 uses = ["i2c1", "i2c2", "i2c3", "i2c4"]
 start = true
 task-slots = ["sys"]
@@ -78,7 +78,7 @@ task-slots = ["sys"]
 [tasks.spi_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 features = ["spi1", "h743"]
 uses = ["spi1"]
 start = true
@@ -93,7 +93,7 @@ global_config = "spi1"
 name = "task-net"
 stacksize = 3800
 priority = 2
-requires = {flash = 65536, ram = 8192, sram1 = 32768}
+max-sizes = {flash = 65536, ram = 8192, sram1 = 32768}
 features = ["h743"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
@@ -105,7 +105,7 @@ task-slots = ["sys"]
 name = "drv-user-leds"
 features = ["stm32h7"]
 priority = 2
-requires = {flash = 2048, ram = 1024}
+max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
@@ -113,14 +113,14 @@ task-slots = ["sys"]
 name = "task-ping"
 features = []
 priority = 4
-requires = {flash = 8192, ram = 1024}
+max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}]
 
 [tasks.pong]
 name = "task-pong"
 priority = 3
-requires = {flash = 1024, ram = 1024}
+max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
@@ -130,7 +130,7 @@ features = ["stm32h743", "usart3"]
 uses = ["usart3"]
 interrupts = {"usart3.irq" = 1}
 priority = 3
-requires = {flash = 16384, ram = 4096}
+max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
@@ -138,7 +138,7 @@ task-slots = ["sys"]
 [tasks.udpecho]
 name = "task-udpecho"
 priority = 3
-requires = {flash = 16384, ram = 8192}
+max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -147,7 +147,7 @@ task-slots = ["net"]
 name = "task-hiffy"
 features = ["h743", "stm32h7", "itm", "i2c", "gpio", "spi", "rng"]
 priority = 4
-requires = {flash = 32768, ram = 32768 }
+max-sizes = {flash = 32768, ram = 32768 }
 stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "rng_driver"]
@@ -155,7 +155,7 @@ task-slots = ["sys", "i2c_driver", "rng_driver"]
 [tasks.idle]
 name = "task-idle"
 priority = 5
-requires = {flash = 128, ram = 256}
+max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
@@ -163,7 +163,7 @@ start = true
 features = ["h743"]
 priority = 3
 name = "drv-stm32h7-rng"
-requires = {flash = 8192, ram = 512}
+max-sizes = {flash = 8192, ram = 512}
 stacksize = 256
 start = true
 task-slots = ["sys", "user_leds"]

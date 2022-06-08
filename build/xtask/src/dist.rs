@@ -223,9 +223,6 @@ pub fn package(
         .keys()
         .map(|name| {
             let size = if tasks_to_build.contains(name.as_str()) {
-                // Link tasks regardless of whether they have changed, because
-                // we don't want to track changes in the other linker input
-                // (task-link.x, memory.x, table.ld, etc)
                 link_dummy_task(&cfg, name)?;
                 task_size(&cfg, name)
             } else {
