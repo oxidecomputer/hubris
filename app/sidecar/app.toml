@@ -181,7 +181,7 @@ start = true
 [tasks.ecp5_mainboard]
 name = "drv-fpga-server"
 priority = 3
-requires = {flash = 32768, ram = 4096}
+max-sizes = {flash = 32768, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys", {spi_driver = "spi5_driver"}]
