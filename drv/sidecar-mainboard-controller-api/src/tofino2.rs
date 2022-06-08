@@ -58,14 +58,6 @@ pub struct Status {
     pcie_status: u8,
 }
 
-fn set_or_clear(p: bool) -> WriteOp {
-    if p {
-        WriteOp::BitSet
-    } else {
-        WriteOp::BitClear
-    }
-}
-
 #[derive(Copy, Clone, PartialEq, FromPrimitive, AsBytes)]
 #[repr(u8)]
 pub enum TofinoPcieReset {
@@ -164,40 +156,35 @@ impl Sequencer {
 
     pub fn set_pcie_present(&self, present: bool) -> Result<(), FpgaError> {
         self.write_pcie_hotplug_ctrl(
-            set_or_clear(present),
+            present.into(),
             Reg::PCIE_HOTPLUG_CTRL::PRESENT,
         )
     }
 
     pub fn set_pcie_power_fault(&self, fault: bool) -> Result<(), FpgaError> {
         self.write_pcie_hotplug_ctrl(
-            set_or_clear(fault),
+            fault.into(),
             Reg::PCIE_HOTPLUG_CTRL::POWER_FAULT,
         )
     }
 
     pub fn set_pcie_alert(&self, alert: bool) -> Result<(), FpgaError> {
         self.write_pcie_hotplug_ctrl(
-            set_or_clear(alert),
+            alert.into(),
             Reg::PCIE_HOTPLUG_CTRL::ALERT,
         )
     }
 
     pub fn pcie_reset(&self) -> Result<TofinoPcieReset, FpgaError> {
         let ctrl = self.pcie_hotplug_ctrl()?;
-        match (
-            ctrl & Reg::PCIE_HOTPLUG_CTRL::RESET,
-            ctrl & Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET,
-        ) {
-            (_, 0) => Ok(TofinoPcieReset::HostControl),
-            (0, Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET) => {
-                Ok(TofinoPcieReset::Deasserted)
-            }
-            (
-                Reg::PCIE_HOTPLUG_CTRL::RESET,
-                Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET,
-            ) => Ok(TofinoPcieReset::Asserted),
-            _ => Err(FpgaError::InvalidValue),
+        let reset = (ctrl & Reg::PCIE_HOTPLUG_CTRL::RESET) != 0;
+        let override_host_reset =
+            (ctrl & Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET) != 0;
+
+        match (override_host_reset, reset) {
+            (false, _) => Ok(TofinoPcieReset::HostControl),
+            (true, false) => Ok(TofinoPcieReset::Deasserted),
+            (true, true) => Ok(TofinoPcieReset::Asserted),
         }
     }
 
@@ -214,8 +201,8 @@ impl Sequencer {
             }
             TofinoPcieReset::Asserted => {
                 // Set RESET, OVERRIDE_HOST_RESET.
-                ctrl | (Reg::PCIE_HOTPLUG_CTRL::RESET
-                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET)
+                ctrl | Reg::PCIE_HOTPLUG_CTRL::RESET
+                    | Reg::PCIE_HOTPLUG_CTRL::OVERRIDE_HOST_RESET
             }
             TofinoPcieReset::Deasserted => {
                 // Set HOST_OVERRIDE_RESET, clear RESET.
