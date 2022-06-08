@@ -218,20 +218,35 @@ pub fn load_task_size<'a>(
         o => bail!("Invalid Object {:?}", o),
     };
 
+    // We can't naively add up section sizes, since there may be gaps left
+    // by alignment requirements.  Instead, we track the min and max bounds
+    // within each memory region (flash, RAM, etc), then extract the sizes
+    // afterwards.
     let mut memory_sizes = IndexMap::new();
+    let mut record_size = |start, size| {
+        let region = toml.output_region(start).unwrap();
+        let end = start + size;
+        let r = memory_sizes.entry(region).or_insert_with(|| start..end);
+        r.start = r.start.min(start);
+        r.end = r.end.max(end);
+    };
     for phdr in &elf.program_headers {
-        if let Some(vregion) = toml.output_region(phdr.p_vaddr) {
-            *memory_sizes.entry(vregion).or_default() += phdr.p_memsz;
-        }
+        record_size(phdr.p_vaddr, phdr.p_memsz);
+
         // If the VirtAddr disagrees with the PhysAddr, then this is a
         // section which is relocated into RAM, so we also accumulate
         // its FileSiz in the physical address (which is presumably
         // flash).
         if phdr.p_vaddr != phdr.p_paddr {
-            let region = toml.output_region(phdr.p_paddr).unwrap();
-            *memory_sizes.entry(region).or_default() += phdr.p_filesz;
+            record_size(phdr.p_paddr, phdr.p_filesz);
         }
     }
+    let mut memory_sizes: IndexMap<&str, u64> = memory_sizes
+        .into_iter()
+        .map(|(name, range)| (name, range.end - range.start))
+        .collect();
+
+    // XXX: are there alignment issues with the stack here?
     *memory_sizes.entry("ram").or_default() += stacksize as u64;
 
     Ok(memory_sizes)
