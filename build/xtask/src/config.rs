@@ -303,15 +303,21 @@ impl Config {
             .map(|(name, _out)| name.as_str())
     }
 
-    /// Checks whether the given chip's MPU requires power-of-two sized regions
-    pub fn mpu_power_of_two_required(&self) -> bool {
+    fn mpu_alignment(&self) -> MpuAlignment {
         // ARMv6-M and ARMv7-M require that memory regions be a power of two.
         // ARMv8-M does not.
         match self.target.as_str() {
-            "thumbv8m.main-none-eabihf" => false,
-            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => true,
+            "thumbv8m.main-none-eabihf" => MpuAlignment::Chunk(32),
+            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+                MpuAlignment::PowerOfTwo
+            }
             t => panic!("Unknown mpu requirements for target '{}'", t),
         }
+    }
+
+    /// Checks whether the given chip's MPU requires power-of-two sized regions
+    pub fn mpu_power_of_two_required(&self) -> bool {
+        matches!(self.mpu_alignment(), MpuAlignment::PowerOfTwo)
     }
 
     /// Looks up the `requires` array for the given task or the kernel
@@ -331,15 +337,9 @@ impl Config {
                 // Nearest chunk of 16
                 ((size + 15) / 16) * 16
             }
-            _ => match self.target.as_str() {
-                "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
-                    size.next_power_of_two()
-                }
-                "thumbv8m.main-none-eabihf" => {
-                    // Nearest chunk of 32
-                    ((size + 31) / 32) * 32
-                }
-                t => panic!("Unknown target {}", t),
+            _ => match self.mpu_alignment() {
+                MpuAlignment::PowerOfTwo => size.next_power_of_two(),
+                MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
             },
         }
     }
@@ -347,15 +347,22 @@ impl Config {
     /// Returns the desired alignment for a task memory region. This is
     /// dependent on the processor's MMU.
     pub fn task_memory_alignment(&self, size: u32) -> u32 {
-        match self.target.as_str() {
-            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+        match self.mpu_alignment() {
+            MpuAlignment::PowerOfTwo => {
                 assert!(size.is_power_of_two());
                 size
             }
-            "thumbv8m.main-none-eabihf" => 32,
-            t => panic!("Unknown target {}", t),
+            MpuAlignment::Chunk(c) => c.try_into().unwrap(),
         }
     }
+}
+
+/// Represents an MPU's desired alignment strategy
+enum MpuAlignment {
+    /// Regions should be power-of-two sized and aligned
+    PowerOfTwo,
+    /// Regions should be aligned to chunks with a particular granularity
+    Chunk(u64),
 }
 
 #[derive(Clone, Debug, Deserialize)]
