@@ -38,6 +38,10 @@ pub(crate) trait BspT {
 
     /// Returns a `u32` with a single bit set that corresponds to a power mode,
     /// which in turn determines which sensors are active.
+    ///
+    /// A return value of `0` implies that the system has not yet initialized
+    /// far enough for _any_ sensors, or the fan controller, to be safely
+    /// accessed.
     fn power_mode(&self) -> u32;
 }
 

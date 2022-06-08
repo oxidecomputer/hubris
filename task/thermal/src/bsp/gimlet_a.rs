@@ -12,20 +12,21 @@ use crate::{
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
 use core::convert::TryFrom;
-use drv_gimlet_seq_api::{PowerState, Sequencer};
+use drv_gimlet_state::PowerState;
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
 use drv_i2c_devices::tmp117::*;
 use drv_i2c_devices::tmp451::*;
 use drv_i2c_devices::tse2004av::*;
+use task_jefe_api::Jefe;
 use task_sensor_api::SensorId;
-use userlib::{task_slot, units::Celsius, TaskId};
+use userlib::{task_slot, units::Celsius, FromPrimitive, TaskId};
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 use i2c_config::devices;
 use i2c_config::sensors;
 
-task_slot!(SEQ, gimlet_seq);
+task_slot!(JEFE, jefe);
 
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
 const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
@@ -45,7 +46,7 @@ pub(crate) struct Bsp {
 
     fctrl: FanControl,
 
-    seq: Sequencer,
+    jefe: Jefe,
 }
 
 // Use bitmasks to determine when sensors should be polled
@@ -67,16 +68,18 @@ impl BspT for Bsp {
     }
 
     fn power_mode(&self) -> u32 {
-        match self.seq.get_state() {
-            Ok(p) => match p {
+        match PowerState::from_u32(self.jefe.get_state()) {
+            Some(p) => match p {
                 PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
                 PowerState::A2
                 | PowerState::A2PlusMono
                 | PowerState::A2PlusFans => POWER_STATE_A2,
             },
-            // If `get_state` failed, then enable all sensors.  One of them
-            // will presumably fail and will drop us into failsafe
-            Err(_) => u32::MAX,
+            None => {
+                // Don't poll any sensors if we've managed to race the
+                // sequencer.
+                0
+            }
         }
     }
 
@@ -96,15 +99,15 @@ impl BspT for Bsp {
         let fctrl = Max31790::new(&devices::max31790(i2c_task)[0]);
         fctrl.initialize().unwrap();
 
-        // Handle for the sequencer task, which we check for power state
-        let seq = Sequencer::from(SEQ.get_task_id());
+        // Handle for El Jefe, which we check for power state
+        let jefe = Jefe::from(JEFE.get_task_id());
 
         const MAX_DIMM_TEMP: Celsius = Celsius(60f32);
         const MAX_CPU_TEMP: Celsius = Celsius(55f32);
         const MAX_T6_TEMP: Celsius = Celsius(55f32);
 
         Self {
-            seq,
+            jefe,
             fans,
             fctrl: FanControl::Max31790(fctrl),
 

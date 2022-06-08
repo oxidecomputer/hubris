@@ -48,10 +48,27 @@ ringbuf!(Trace, 32, Trace::None);
 ////////////////////////////////////////////////////////////////////////////////
 
 struct ServerImpl<'a, B> {
-    mode: ThermalMode,
-    control: ThermalControl<'a, B>,
+    mode: ModeState<'a, B>,
     deadline: u64,
-    counter: u64,
+}
+
+enum ModeState<'a, B> {
+    /// We have not yet started the control loop, and have raw access to the
+    /// BSP.
+    NotStarted(&'a B),
+    /// We have started the control loop.
+    Started {
+        /// Control loop state, which takes over the BSP once we're started all
+        /// the way up.
+        control: ThermalControl<'a, B>,
+        /// Tracks whether we're in automatic mode. This is (ab)using a bool as
+        /// a subset of `ThermalMode` so that we don't have to deal with the
+        /// `Off` state, which shouldn't be observable here.
+        auto: bool,
+        /// Number of times we've woken, counting up to the next control loop
+        /// iteration.
+        counter: u64,
+    },
 }
 
 const TIMER_MASK: u32 = 1 << 0;
@@ -60,7 +77,7 @@ const TIMER_INTERVAL: u64 = 1000;
 /// How often to run the control loop, in multiples of TIMER_INTERVAL
 const CONTROL_RATE: u64 = 10;
 
-impl<'a, B: BspT> ServerImpl<'a, B> {
+impl<B: BspT> ServerImpl<'_, B> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -70,8 +87,13 @@ impl<'a, B: BspT> ServerImpl<'a, B> {
         &mut self,
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
-        self.set_mode(ThermalMode::Manual);
-        self.control.set_pwm(initial_pwm)
+        if let ModeState::Started { control, auto, .. } = &mut self.mode {
+            *auto = false;
+            ringbuf_entry!(Trace::ThermalMode(ThermalMode::Manual));
+            control.set_pwm(initial_pwm)
+        } else {
+            Err(ThermalError::NotStarted.into())
+        }
     }
 
     /// Configures the control loop to run in automatic mode.
@@ -83,40 +105,53 @@ impl<'a, B: BspT> ServerImpl<'a, B> {
         &mut self,
         initial_pwm: PWMDuty,
     ) -> Result<(), ThermalError> {
-        self.set_mode(ThermalMode::Auto);
-        self.control.reset(initial_pwm)
+        if let ModeState::Started { control, auto, .. } = &mut self.mode {
+            *auto = true;
+            ringbuf_entry!(Trace::ThermalMode(ThermalMode::Auto));
+            control.reset(initial_pwm)
+        } else {
+            Err(ThermalError::NotStarted.into())
+        }
     }
 
-    fn set_mode(&mut self, m: ThermalMode) {
-        self.mode = m;
-        ringbuf_entry!(Trace::ThermalMode(m));
-    }
-
-    fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ThermalError> {
-        self.control
-            .set_watchdog(wd)
-            .map_err(|_| ThermalError::DeviceError)
+    fn set_watchdog(&mut self, wd: I2cWatchdog) -> Result<(), ThermalError> {
+        if let ModeState::Started { control, .. } = &mut self.mode {
+            control
+                .set_watchdog(wd)
+                .map_err(|_| ThermalError::DeviceError)
+        } else {
+            Err(ThermalError::NotStarted.into())
+        }
     }
 }
 
-impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
+impl<B: BspT> idl::InOrderThermalImpl for ServerImpl<'_, B> {
     fn set_fan_pwm(
         &mut self,
         _: &RecvMessage,
         index: u8,
         pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
-        if self.mode != ThermalMode::Manual {
-            return Err(ThermalError::NotInManualMode.into());
-        }
-        let pwm =
-            PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
-        if let Ok(fan) = Fan::try_from(index) {
-            self.control
-                .set_fan_pwm(fan, pwm)
-                .map_err(|_| ThermalError::DeviceError.into())
-        } else {
-            Err(ThermalError::InvalidFan.into())
+        match &mut self.mode {
+            ModeState::NotStarted(_) => Err(ThermalError::NotStarted.into()),
+            ModeState::Started { auto: true, .. } => {
+                Err(ThermalError::NotInManualMode.into())
+            }
+            ModeState::Started {
+                auto: false,
+                control,
+                ..
+            } => {
+                let pwm = PWMDuty::try_from(pwm)
+                    .map_err(|_| ThermalError::InvalidPWM)?;
+                if let Ok(fan) = Fan::try_from(index) {
+                    control
+                        .set_fan_pwm(fan, pwm)
+                        .map_err(|_| ThermalError::DeviceError.into())
+                } else {
+                    Err(ThermalError::InvalidFan.into())
+                }
+            }
         }
     }
 
@@ -172,32 +207,58 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
     }
 }
 
-impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
+impl<B: BspT> NotificationHandler for ServerImpl<'_, B> {
     fn current_notification_mask(&self) -> u32 {
         TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
         self.deadline += TIMER_INTERVAL;
-        self.counter += 1;
         sys_set_timer(Some(self.deadline), TIMER_MASK);
 
-        match self.mode {
-            ThermalMode::Auto => {
-                if self.counter % CONTROL_RATE == 0 {
-                    // TODO: what to do with errors here?
-                    self.control.run_control();
-                } else {
-                    let _ = self.control.read_sensors();
+        match &mut self.mode {
+            ModeState::NotStarted(bsp) => {
+                // See if we can leave the Off state yet.
+                if bsp.power_mode() != 0 {
+                    // We can!
+                    let sensor_api = SensorApi::from(SENSOR.get_task_id());
+                    let control = ThermalControl::new(*bsp, sensor_api);
+
+                    self.mode = ModeState::Started {
+                        control,
+                        auto: false,
+                        counter: 0,
+                    };
+                    self.set_mode_manual(PWMDuty(0)).unwrap();
                 }
             }
-            ThermalMode::Manual => {
+
+            ModeState::Started {
+                auto: true,
+                control,
+                counter,
+            } => {
+                *counter += 1;
+
+                if *counter % CONTROL_RATE == 0 {
+                    // TODO: what to do with errors here?
+                    control.run_control();
+                } else {
+                    let _ = control.read_sensors();
+                }
+            }
+
+            ModeState::Started {
+                auto: false,
+                control,
+                counter,
+            } => {
+                // TODO do we need to advance the counter here?
+                *counter += 1;
+
                 // Ignore read errors, since the control loop isn't actually
                 // running in this mode.
-                let _ = self.control.read_sensors();
-            }
-            ThermalMode::Off => {
-                panic!("Mode must not be 'Off' when server is running")
+                let _ = control.read_sensors();
             }
         }
     }
@@ -206,22 +267,17 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
 #[export_name = "main"]
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
-    let sensor_api = SensorApi::from(SENSOR.get_task_id());
 
-    let mut bsp = Bsp::new(i2c_task);
-    let control = ThermalControl::new(&mut bsp, sensor_api);
+    let bsp = Bsp::new(i2c_task);
 
     // This will put our timer in the past, and should immediately kick us.
     let deadline = sys_get_timer().now;
     sys_set_timer(Some(deadline), TIMER_MASK);
 
     let mut server = ServerImpl {
-        mode: ThermalMode::Off,
-        control,
+        mode: ModeState::NotStarted(&bsp),
         deadline,
-        counter: 0,
     };
-    server.set_mode_manual(PWMDuty(0)).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     loop {
