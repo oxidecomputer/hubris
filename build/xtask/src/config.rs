@@ -303,11 +303,22 @@ impl Config {
             .map(|(name, _out)| name.as_str())
     }
 
+    /// Checks whether the given chip's MPU requires power-of-two sized regions
+    pub fn mpu_power_of_two_required(&self) -> bool {
+        // ARMv6-M and ARMv7-M require that memory regions be a power of two.
+        // ARMv8-M does not.
+        match self.target.as_str() {
+            "thumbv8m.main-none-eabihf" => false,
+            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => true,
+            t => panic!("Unknown mpu requirements for target '{}'", t),
+        }
+    }
+
     /// Looks up the `requires` array for the given task or the kernel
     pub fn requires(&self, name: &str) -> &IndexMap<String, u32> {
         match name {
             "kernel" => &self.kernel.requires,
-            name => &self.tasks[name].requires,
+            name => &self.tasks[name].max_sizes,
         }
     }
 
@@ -419,7 +430,7 @@ pub struct Output {
 pub struct Task {
     pub name: String,
     #[serde(default)]
-    pub requires: IndexMap<String, u32>,
+    pub max_sizes: IndexMap<String, u32>,
     pub priority: u8,
     pub stacksize: Option<u32>,
     #[serde(default)]

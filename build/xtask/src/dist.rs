@@ -751,7 +751,7 @@ fn task_entry_point(
     let (ep, flash) =
         load_elf(&cfg.dist_file(name), all_output_sections, &mut symbol_table)?;
 
-    if let Some(required) = task_toml.requires.get("flash") {
+    if let Some(required) = task_toml.max_sizes.get("flash") {
         if flash > *required as usize {
             bail!(
                 "{} has insufficient flash: specified {} bytes, needs {}",
@@ -1364,7 +1364,7 @@ pub fn allocate_all(
     for name in tasks.keys() {
         for (mem, amt) in task_sizes[name.as_str()].iter() {
             let bytes = toml.suggest_memory_region_size(name, *amt);
-            if let Some(r) = tasks[name].requires.get(&mem.to_string()) {
+            if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
                 if bytes > *r as u64 {
                     bail!(
                         "task {}, memory region {}: requirement {} is too small (needs {}).",
@@ -1562,15 +1562,7 @@ pub fn make_kconfig(
         .flat_map(|(_name, task)| task.uses.iter())
         .collect::<HashSet<_>>();
 
-    // ARMv6-M and ARMv7-M require that memory regions be a power of two.
-    // ARMv8-M does not.
-    let power_of_two_required = match toml.target.as_str() {
-        "thumbv8m.main-none-eabihf" => false,
-        "thumbv7em-none-eabihf" => true,
-        "thumbv6m-none-eabi" => true,
-        t => panic!("Unknown mpu requirements for target '{}'", t),
-    };
-
+    let power_of_two_required = toml.mpu_power_of_two_required();
     for (name, p) in toml.peripherals.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
@@ -1619,13 +1611,17 @@ pub fn make_kconfig(
         if power_of_two_required
             && !task_allocations[name]["flash"].len().is_power_of_two()
         {
-            panic!("Flash for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
+            panic!(
+                "Flash for task '{}' is required to be a power of two, but has size {}",
+                task.name, task_allocations[name]["flash"].len());
         }
 
         if power_of_two_required
             && !task_allocations[name]["ram"].len().is_power_of_two()
         {
-            panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
+            panic!(
+                "Ram for task '{}' is required to be a power of two, but has size {}",
+                task.name, task_allocations[name]["ram"].len());
         }
 
         // Regions are referenced by index into the table we just generated.
