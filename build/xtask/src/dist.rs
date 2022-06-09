@@ -1365,8 +1365,8 @@ pub fn allocate_all(
             if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
                 if bytes > *r as u64 {
                     bail!(
-                        "task {}, memory region {}: requirement {} is too small (needs {}).",
-                        name, name, r, bytes);
+                        "task {}: needs {} bytes of {} but max-sizes limits it to {}",
+                        name, bytes, mem, r);
                 }
             }
             task_requests
@@ -1491,6 +1491,8 @@ fn allocate_one(
     align: u32,
     avail: &mut Range<u32>,
 ) -> Result<Range<u32>> {
+    assert!(size.is_power_of_two());
+
     let size_mask = align - 1;
 
     // Our base address will be larger than avail.start if it doesn't meet our

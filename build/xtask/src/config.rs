@@ -7,7 +7,7 @@ use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -59,6 +59,9 @@ impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
         let cfg_contents = std::fs::read(&cfg)?;
         let toml: RawConfig = toml::from_slice(&cfg_contents)?;
+        if toml.tasks.contains_key("kernel") {
+            bail!("'kernel' is reserved and cannot be used as a task name");
+        }
 
         let mut hasher = DefaultHasher::new();
         hasher.write(&cfg_contents);
@@ -74,7 +77,6 @@ impl Config {
             toml::from_slice(&chip_contents)?
         };
 
-        assert!(!toml.tasks.contains_key("kernel"));
         let buildhash = hasher.finish();
 
         Ok(Config {
@@ -291,10 +293,7 @@ impl Config {
 
     /// Calculates the output region which contains the given address
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
-        let vaddr: u32 = match vaddr.try_into() {
-            Ok(v) => v,
-            Err(_) => return None,
-        };
+        let vaddr = u32::try_from(vaddr).ok()?;
         self.outputs
             .iter()
             .find(|(_name, out)| {
@@ -317,10 +316,13 @@ impl Config {
 
     /// Checks whether the given chip's MPU requires power-of-two sized regions
     pub fn mpu_power_of_two_required(&self) -> bool {
-        matches!(self.mpu_alignment(), MpuAlignment::PowerOfTwo)
+        self.mpu_alignment() == MpuAlignment::PowerOfTwo
     }
 
-    /// Looks up the `requires` array for the given task or the kernel
+    /// Looks up the sizing array for the given task or the kernel.  For tasks,
+    /// this is the `max_sizes` array establishing upper bounds on autosizing;
+    /// for the kernel, this is the `requires` array which defines its size
+    /// (there is no kernel autosizing).
     pub fn requires(&self, name: &str) -> &IndexMap<String, u32> {
         match name {
             "kernel" => &self.kernel.requires,
@@ -337,32 +339,44 @@ impl Config {
                 // Nearest chunk of 16
                 ((size + 15) / 16) * 16
             }
-            _ => match self.mpu_alignment() {
-                MpuAlignment::PowerOfTwo => size.next_power_of_two(),
-                MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
-            },
+            _ => self.mpu_alignment().suggest_memory_region_size(size),
         }
     }
 
     /// Returns the desired alignment for a task memory region. This is
     /// dependent on the processor's MMU.
     pub fn task_memory_alignment(&self, size: u32) -> u32 {
-        match self.mpu_alignment() {
-            MpuAlignment::PowerOfTwo => {
-                assert!(size.is_power_of_two());
-                size
-            }
-            MpuAlignment::Chunk(c) => c.try_into().unwrap(),
-        }
+        self.mpu_alignment().memory_region_alignment(size)
     }
 }
 
 /// Represents an MPU's desired alignment strategy
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum MpuAlignment {
     /// Regions should be power-of-two sized and aligned
     PowerOfTwo,
     /// Regions should be aligned to chunks with a particular granularity
     Chunk(u64),
+}
+
+impl MpuAlignment {
+    /// Suggests a minimal memory region size fitting the given number of bytes
+    fn suggest_memory_region_size(&self, size: u64) -> u64 {
+        match self {
+            MpuAlignment::PowerOfTwo => size.next_power_of_two(),
+            MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
+        }
+    }
+    /// Returns the desired alignment for a region of a particular size
+    fn memory_region_alignment(&self, size: u32) -> u32 {
+        match self {
+            MpuAlignment::PowerOfTwo => {
+                assert!(size.is_power_of_two());
+                size
+            }
+            MpuAlignment::Chunk(c) => (*c).try_into().unwrap(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
