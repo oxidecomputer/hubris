@@ -21,13 +21,25 @@ use crate::{
 };
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
-pub use drv_i2c_devices::max31790::Fan;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
 use task_thermal_api::{ThermalError, ThermalMode};
 use userlib::units::PWMDuty;
 use userlib::*;
+
+//
+// We define our own Fan type, as we may have more fans than any single
+// controller supports.
+//
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Fan(u8);
+
+impl From<usize> for Fan {
+    fn from(index: usize) -> Self {
+        Fan(index as u8)
+    }
+}
 
 use task_sensor_api::Sensor as SensorApi;
 
@@ -37,6 +49,7 @@ task_slot!(SENSOR, sensor);
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
+    Start,
     ThermalMode(ThermalMode),
     FanReadFailed(usize, ResponseCode),
     MiscReadFailed(usize, ResponseCode),
@@ -111,7 +124,8 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         }
         let pwm =
             PWMDuty::try_from(pwm).map_err(|_| ThermalError::InvalidPWM)?;
-        if let Ok(fan) = Fan::try_from(index) {
+
+        if let Some(fan) = self.control.fan(index) {
             self.control
                 .set_fan_pwm(fan, pwm)
                 .map_err(|_| ThermalError::DeviceError.into())
@@ -186,7 +200,7 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
             ThermalMode::Auto => {
                 if self.counter % CONTROL_RATE == 0 {
                     // TODO: what to do with errors here?
-                    self.control.run_control();
+                    let _ = self.control.run_control();
                 } else {
                     let _ = self.control.read_sensors();
                 }
@@ -207,6 +221,8 @@ impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let sensor_api = SensorApi::from(SENSOR.get_task_id());
+
+    ringbuf_entry!(Trace::Start);
 
     let mut bsp = Bsp::new(i2c_task);
     let control = ThermalControl::new(&mut bsp, sensor_api);

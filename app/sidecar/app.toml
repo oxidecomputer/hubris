@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "sidecar"
-requires = {flash = 32768, ram = 4192}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -164,7 +164,7 @@ task-slots = ["sys"]
 [tasks.hiffy]
 name = "task-hiffy"
 features = ["h753", "spi", "stm32h7", "itm", "i2c", "gpio"]
-priority = 3
+priority = 5 
 requires = {flash = 32768, ram = 16384 }
 stacksize = 1024
 start = true
@@ -173,7 +173,7 @@ task-slots = ["sys", "i2c_driver"]
 [tasks.sensor]
 name = "task-sensor"
 features = ["itm"]
-priority = 3
+priority = 4
 requires = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
@@ -195,9 +195,35 @@ stacksize = 1024
 start = true
 task-slots = ["sys", "i2c_driver", {fpga = "ecp5_mainboard"}]
 
+[tasks.thermal]
+name = "task-thermal"
+features = ["itm", "sidecar"]
+priority = 5
+requires = {flash = 32768, ram = 8192 }
+stacksize = 4504
+start = true
+task-slots = ["i2c_driver", "sensor", "sequencer"]
+
+[tasks.power]
+name = "task-power"
+features = ["itm", "sidecar"]
+priority = 6
+requires = {flash = 16384, ram = 4096 }
+stacksize = 2048
+start = true
+task-slots = ["i2c_driver", "sensor", "sequencer"]
+
+[tasks.validate]
+name = "task-validate"
+priority = 5
+requires = {flash = 8192, ram = 4096 }
+stacksize = 1000
+start = true
+task-slots = ["i2c_driver"]
+
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 requires = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -218,6 +244,7 @@ controller = 1
 name = "northeast0"
 description = "Northeast Corridor 0"
 pins = [ { gpio_port = "B", pins = [ 6, 7 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
 # I2C_NORTH_EAST1_SCL
@@ -284,6 +311,7 @@ af = 4
 name = "northwest1"
 description = "Northwest Corridor 1"
 pins = [ { pins = [ 7, 8 ], af = 4 } ]
+muxes = [ { driver = "pca9548", address = 0x70 } ]
 
 #
 # I2C4: South bend
@@ -331,6 +359,7 @@ refdes = "U6"
 bus = "northeast0"
 address = 0b0100_011
 device = "max31790"
+name = "East"
 description = "Fan 0/1 controller"
 sensors = { speed = 4 }
 refdes = "U66"
@@ -339,7 +368,7 @@ refdes = "U66"
 bus = "northeast0"
 address = 0b1001_001
 device = "tmp117"
-name = "nne"
+name = "NNE"
 description = "North-northeast temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J69"
@@ -383,10 +412,11 @@ refdes = "U19"
 bus = "northeast1"
 address = 0b1001_000
 device = "tmp117"
-name = "northeast"
+name = "Northeast"
 description = "Northeast temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J70"
+removable = true
 
 [[config.i2c.devices]]
 bus = "northwest0"
@@ -396,12 +426,6 @@ description = "54V hot swap controller"
 pmbus = { rails = [ "V54_HSC" ] }
 sensors = { temperature = 1, voltage = 1, current = 1 }
 refdes = "U2"
-
-[[config.i2c.devices]]
-bus = "northwest0"
-address = 0b0010_111
-device = "bmr480"
-description = "IBC"
 
 [[config.i2c.devices]]
 bus = "northwest0"
@@ -416,7 +440,7 @@ refdes = "U18"
 bus = "northwest0"
 address = 0b1001_000
 device = "tmp117"
-name = "nnw"
+name = "NNW"
 description = "North-northwest temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J68"
@@ -426,6 +450,7 @@ removable = true
 bus = "northwest0"
 address = 0b1001_100
 device = "tmp451"
+name = "tf2"
 description = "TF2 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U64"
@@ -443,10 +468,10 @@ refdes = "U32"
 bus = "northwest0"
 address = 0b1100_111
 device = "bmr491"
-name = "ibc"
+name = "IBC"
 description = "Intermediate bus converter"
 pmbus = { rails = [ "V12P0_SYS" ] }
-sensors = { temperature = 1, power = 1, voltage = 1 }
+sensors = { temperature = 1, power = 1, voltage = 1, current = 1 }
 refdes = "U12"
 
 [[config.i2c.devices]]
@@ -471,7 +496,7 @@ refdes = "U10"
 bus = "northwest1"
 address = 0b1001_001
 device = "tmp117"
-name = "northwest"
+name = "Northwest"
 description = "Northwest temperature sensor"
 sensors = { temperature = 1 }
 refdes = "J67"
@@ -479,8 +504,9 @@ removable = true
 
 [[config.i2c.devices]]
 bus = "northwest1"
-address = 0b1000_000
+address = 0b0100_000
 device = "max31790"
+name = "West"
 description = "Fan 2/3 controller"
 sensors = { speed = 4 }
 refdes = "U78"
@@ -516,8 +542,9 @@ refdes = "U38"
 bus = "south0"
 address = 0b1001_010
 device = "tmp117"
-name = "south"
+name = "South"
 description = "South temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J71"
 removable = true
 
@@ -525,8 +552,9 @@ removable = true
 bus = "south0"
 address = 0b1001_000
 device = "tmp117"
-name = "southeast"
+name = "Southeast"
 description = "Southeast temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J73"
 removable = true
 
@@ -534,8 +562,9 @@ removable = true
 bus = "south0"
 address = 0b1001_001
 device = "tmp117"
-name = "southwest"
+name = "Southwest"
 description = "Southwest temperature sensor"
+sensors = { temperature = 1 }
 refdes = "J72"
 removable = true
 
@@ -561,6 +590,7 @@ refdes = "U20"
 bus = "south1"
 address = 0b1001_100
 device = "tmp451"
+name = "vsc7448"
 description = "VSC7448 temperature sensor"
 sensors = { temperature = 1 }
 refdes = "U65"

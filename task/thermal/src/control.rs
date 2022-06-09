@@ -18,9 +18,10 @@ use userlib::units::{Celsius, PWMDuty, Rpm};
 /// Type containing all of our temperature sensor types, so we can store them
 /// generically in an array.  These are all `I2cDevice`s, so functions on
 /// this `enum` return an `drv_i2c_api::ResponseCode`.
+#[allow(dead_code)]
 pub enum Device {
     Tmp117(Tmp117),
-    T6Nic(Tmp451),
+    Tmp451(Tmp451),
     CPU(Sbtsi),
     Dimm(Tse2004Av),
 }
@@ -40,7 +41,7 @@ impl TemperatureSensor {
         let t = match &self.device {
             Device::Tmp117(dev) => dev.read_temperature()?,
             Device::CPU(dev) => dev.read_temperature()?,
-            Device::T6Nic(dev) => dev.read_temperature()?,
+            Device::Tmp451(dev) => dev.read_temperature()?,
             Device::Dimm(dev) => dev.read_temperature()?,
         };
         Ok(t)
@@ -49,26 +50,29 @@ impl TemperatureSensor {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Enum containing all of our fan controller types, so we can store them
-/// generically in an array.
-pub enum FanControl {
-    Max31790(Max31790),
+/// Enum representing any of our fan controller types, bound to one of their
+/// fans.  This lets us handle heterogeneous fan controller ICs generically
+/// (although there's only one at the moment)
+pub enum FanControl<'a> {
+    Max31790(&'a Max31790, drv_i2c_devices::max31790::Fan),
 }
 
-impl FanControl {
-    fn set_pwm(&self, fan: Fan, pwm: PWMDuty) -> Result<(), ResponseCode> {
+impl<'a> FanControl<'a> {
+    fn set_pwm(&self, pwm: PWMDuty) -> Result<(), ResponseCode> {
         match self {
-            Self::Max31790(m) => m.set_pwm(fan, pwm),
+            Self::Max31790(m, fan) => m.set_pwm(*fan, pwm),
         }
     }
-    pub fn fan_rpm(&self, fan: Fan) -> Result<Rpm, ResponseCode> {
+
+    pub fn fan_rpm(&self) -> Result<Rpm, ResponseCode> {
         match self {
-            Self::Max31790(m) => m.fan_rpm(fan),
+            Self::Max31790(m, fan) => m.fan_rpm(*fan),
         }
     }
+
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
         match self {
-            Self::Max31790(m) => m.set_watchdog(wd),
+            Self::Max31790(m, _fan) => m.set_watchdog(wd),
         }
     }
 }
@@ -189,17 +193,17 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// integrity of the control loop is threatened.
     pub fn read_sensors(&mut self) -> Result<Option<f32>, ResponseCode> {
         // Read fan data and log it to the sensors task
-        let fctrl = self.bsp.fan_control();
-        for (i, (fan, sensor_id)) in self.bsp.fans().iter().enumerate() {
-            let post_result = match fctrl.fan_rpm(*fan) {
-                Ok(reading) => {
-                    self.sensor_api.post(*sensor_id, reading.0.into())
-                }
-                Err(e) => {
-                    ringbuf_entry!(Trace::FanReadFailed(i, e));
-                    self.sensor_api.nodata(*sensor_id, e.into())
-                }
-            };
+        for (index, sensor_id) in self.bsp.fans().iter().enumerate() {
+            let post_result =
+                match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
+                    Ok(reading) => {
+                        self.sensor_api.post(*sensor_id, reading.0.into())
+                    }
+                    Err(e) => {
+                        ringbuf_entry!(Trace::FanReadFailed(index, e));
+                        self.sensor_api.nodata(*sensor_id, e.into())
+                    }
+                };
             if post_result.is_err() {
                 self.post_failed_count = self.post_failed_count.wrapping_add(1);
             }
@@ -311,10 +315,10 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         if pwm.0 > 100 {
             return Err(ThermalError::InvalidPWM);
         }
-        let fctrl = self.bsp.fan_control();
         let mut last_err = Ok(());
-        for (fan_id, _sensor_id) in self.bsp.fans() {
-            if let Err(e) = fctrl.set_pwm(*fan_id, pwm) {
+        for (index, _sensor_id) in self.bsp.fans().iter().enumerate() {
+            if let Err(e) = self.bsp.fan_control(Fan::from(index)).set_pwm(pwm)
+            {
                 last_err = Err(e);
             }
         }
@@ -327,10 +331,28 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         fan: Fan,
         pwm: PWMDuty,
     ) -> Result<(), ResponseCode> {
-        self.bsp.fan_control().set_pwm(fan, pwm)
+        self.bsp.fan_control(fan).set_pwm(pwm)
+    }
+
+    pub fn fan(&self, index: u8) -> Option<Fan> {
+        let f = self.bsp.fans();
+
+        if (index as usize) < f.len() {
+            Some(Fan(index))
+        } else {
+            None
+        }
     }
 
     pub fn set_watchdog(&self, wd: I2cWatchdog) -> Result<(), ResponseCode> {
-        self.bsp.fan_control().set_watchdog(wd)
+        let mut result = Ok(());
+
+        self.bsp.for_each_fctrl(|fctrl| {
+            if let Err(e) = fctrl.set_watchdog(wd) {
+                result = Err(e);
+            }
+        });
+
+        result
     }
 }

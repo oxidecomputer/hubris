@@ -11,7 +11,7 @@ use crate::{
     bsp::BspT,
     control::{Device, FanControl, InputChannel, TemperatureSensor},
 };
-use core::convert::TryFrom;
+use core::convert::TryInto;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
@@ -40,10 +40,10 @@ pub(crate) struct Bsp {
     /// Monitored sensors
     misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
-    /// Fans and their respective RPM sensors
-    fans: [(Fan, SensorId); NUM_FANS],
+    /// Fan RPM sensors
+    fans: [SensorId; NUM_FANS],
 
-    fctrl: FanControl,
+    fctrl: Max31790,
 
     seq: Sequencer,
 }
@@ -56,14 +56,21 @@ impl BspT for Bsp {
     fn inputs(&self) -> &[InputChannel] {
         &self.inputs
     }
+
     fn misc_sensors(&self) -> &[TemperatureSensor] {
         &self.misc_sensors
     }
-    fn fans(&self) -> &[(Fan, SensorId)] {
+
+    fn fans(&self) -> &[SensorId] {
         &self.fans
     }
-    fn fan_control(&self) -> &FanControl {
-        &self.fctrl
+
+    fn fan_control(&self, fan: crate::Fan) -> FanControl {
+        FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
+    }
+
+    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
+        fctrl(self.fan_control(0.into()))
     }
 
     fn power_mode(&self) -> u32 {
@@ -85,11 +92,9 @@ impl BspT for Bsp {
         // to build a fixed-size array from a function
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
-            *f = Some((
-                Fan::try_from(i as u8).unwrap(),
-                sensors::MAX31790_SPEED_SENSORS[i],
-            ));
+            *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
+
         let fans = fans.map(Option::unwrap);
 
         // Initializes and build a handle to the fan controller IC
@@ -106,7 +111,7 @@ impl BspT for Bsp {
         Self {
             seq,
             fans,
-            fctrl: FanControl::Max31790(fctrl),
+            fctrl,
 
             inputs: [
                 InputChannel::new(
@@ -120,7 +125,7 @@ impl BspT for Bsp {
                 ),
                 InputChannel::new(
                     TemperatureSensor::new(
-                        Device::T6Nic(Tmp451::new(
+                        Device::Tmp451(Tmp451::new(
                             &devices::tmp451(i2c_task)[0],
                             Target::Remote,
                         )),

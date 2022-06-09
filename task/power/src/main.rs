@@ -10,7 +10,6 @@
 #![no_std]
 #![no_main]
 
-use drv_gimlet_seq_api as seq_api;
 use drv_i2c_devices::adm1272::*;
 use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
@@ -24,19 +23,25 @@ use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::{CurrentSensor, TempSensor, VoltageSensor};
 
 use sensor_api::{NoData, SensorId};
-use seq_api::PowerState;
+
+#[derive(Copy, Clone, PartialEq)]
+enum PowerState {
+    A0,
+    A2,
+}
 
 task_slot!(I2C, i2c_driver);
 task_slot!(SENSOR, sensor);
-task_slot!(SEQUENCER, gimlet_seq);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 use i2c_config::sensors;
 
+#[allow(dead_code)]
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),
+    SerDes(Isl68224),
     Mem(Raa229618),
     MemVpp(Isl68224),
     Sys(Tps546B24A),
@@ -45,7 +50,7 @@ enum Device {
 }
 
 struct PowerController {
-    state: seq_api::PowerState,
+    state: PowerState,
     device: Device,
     voltage: SensorId,
     current: SensorId,
@@ -103,6 +108,7 @@ impl PowerController {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
             Device::MemVpp(_) => panic!(),
+            Device::SerDes(dev) => read_temperature(dev),
             Device::Sys(dev) => read_temperature(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
         }
@@ -113,6 +119,7 @@ impl PowerController {
             Device::IBC(dev) => read_current(dev),
             Device::Core(dev) | Device::Mem(dev) => read_current(dev),
             Device::MemVpp(dev) => read_current(dev),
+            Device::SerDes(dev) => read_current(dev),
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
         }
@@ -123,6 +130,7 @@ impl PowerController {
             Device::IBC(dev) => read_voltage(dev),
             Device::Core(dev) | Device::Mem(dev) => read_voltage(dev),
             Device::MemVpp(dev) => read_voltage(dev),
+            Device::SerDes(dev) => read_voltage(dev),
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
         }
@@ -133,7 +141,7 @@ macro_rules! rail_controller {
     ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerController {
-                state: seq_api::PowerState::$state,
+                state: PowerState::$state,
                 device: Device::$which({
                     let (device, rail) = i2c_config::pmbus::$rail($task);
                     [<$dev:camel>]::new(&device, rail)
@@ -148,11 +156,12 @@ macro_rules! rail_controller {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! rail_controller_notemp {
     ($task:expr, $which:ident, $dev:ident, $rail:ident, $state:ident) => {
         paste::paste! {
             PowerController {
-                state: seq_api::PowerState::$state,
+                state: PowerState::$state,
                 device: Device::$which({
                     let (device, rail) = i2c_config::pmbus::$rail($task);
                     [<$dev:camel>]::new(&device, rail)
@@ -165,11 +174,12 @@ macro_rules! rail_controller_notemp {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! adm1272_controller {
     ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
         paste::paste! {
             PowerController {
-                state: seq_api::PowerState::$state,
+                state: PowerState::$state,
                 device: Device::$which({
                     let (device, _) = i2c_config::pmbus::$rail($task);
                     Adm1272::new(&device, $rsense)
@@ -228,17 +238,73 @@ fn controllers() -> [PowerController; 15] {
     ]
 }
 
+#[cfg(feature = "gimlet")]
+fn get_state() -> PowerState {
+    task_slot!(SEQUENCER, gimlet_seq);
+
+    use drv_gimlet_seq_api as seq_api;
+
+    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
+
+    match sequencer.get_state() {
+        Ok(seq_api::PowerState::A0) => PowerState::A0,
+        Ok(seq_api::PowerState::A2) => PowerState::A2,
+        _ => {
+            panic!("bad state");
+        }
+    }
+}
+
+#[cfg(target_board = "sidecar-1")]
+fn controllers() -> [PowerController; 15] {
+    let task = I2C.get_task_id();
+
+    [
+        rail_controller!(task, IBC, bmr491, v12p0_sys, A2),
+        adm1272_controller!(task, Fan, v54_fan0, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_fan1, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_fan2, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_fan3, A2, Ohms(0.001)),
+        adm1272_controller!(task, Fan, v54_hsc, A2, Ohms(0.001)),
+        rail_controller!(task, Core, raa229618, v0p8_tf2_vdd_core, A0),
+        rail_controller!(task, Sys, tps546B24A, v3p3_sys, A2),
+        rail_controller!(task, Sys, tps546B24A, v5p0_sys, A2),
+        rail_controller!(task, Core, raa229618, v1p5_tf2_vdda, A0),
+        rail_controller!(task, Core, raa229618, v0p9_tf2_vddt, A0),
+        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdda, A0),
+        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdd, A0),
+        rail_controller!(task, Sys, tps546B24A, v1p0_mgmt, A2),
+        rail_controller!(task, Sys, tps546B24A, v1p8_sys, A2),
+    ]
+}
+
+#[cfg(target_board = "sidecar-1")]
+fn get_state() -> PowerState {
+    task_slot!(SEQUENCER, sequencer);
+
+    use drv_sidecar_seq_api as seq_api;
+
+    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
+
+    match sequencer.tofino_seq_state() {
+        Ok(seq_api::TofinoSeqState::A0) => PowerState::A0,
+        Ok(seq_api::TofinoSeqState::A2) => PowerState::A2,
+        _ => {
+            panic!("bad state");
+        }
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let sensor = sensor_api::Sensor::from(SENSOR.get_task_id());
-    let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
 
     let mut controllers = controllers();
 
     loop {
         hl::sleep_for(1000);
 
-        let state = sequencer.get_state().unwrap();
+        let state = get_state();
 
         for c in &mut controllers {
             if c.state == PowerState::A0 && state != PowerState::A0 {
