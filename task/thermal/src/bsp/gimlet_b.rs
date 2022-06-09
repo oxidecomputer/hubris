@@ -40,7 +40,7 @@ pub(crate) struct Bsp {
     /// Monitored sensors
     misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
-    /// Fans and their respective RPM sensors
+    /// Fan RPM sensors
     fans: [SensorId; NUM_FANS],
 
     fctrl: Max31790,
