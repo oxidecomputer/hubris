@@ -38,21 +38,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // Global starts at `GlobalConfig`.
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct TaskConfig {
     spi: SpiTaskConfig,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SpiTaskConfig {
     global_config: String,
 }
 
+/// This represents our _subset_ of global config and _must not_ be marked with
+/// `deny_unknown_fields`!
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
 struct GlobalConfig {
     spi: BTreeMap<String, SpiConfig>,
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SpiConfig {
     controller: usize,
     fifo_depth: Option<usize>,
@@ -61,6 +67,7 @@ struct SpiConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SpiMuxOptionConfig {
     outputs: Vec<AfPinSetConfig>,
     input: AfPinConfig,
@@ -84,6 +91,7 @@ enum ConfigPort {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct AfPinSetConfig {
     port: ConfigPort,
     pins: Vec<usize>,
@@ -91,6 +99,7 @@ struct AfPinSetConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct AfPinConfig {
     #[serde(flatten)]
     pc: GpioPinConfig,
@@ -98,6 +107,7 @@ struct AfPinConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct GpioPinConfig {
     port: ConfigPort,
     pin: usize,
@@ -108,6 +118,7 @@ struct GpioPinConfig {
 struct Af(usize);
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DeviceDescriptorConfig {
     mux: String,
     #[serde(default)]

@@ -5,6 +5,7 @@ use build_lpc55pins::PinConfig;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct TaskConfig {
     pins: Vec<PinConfig>,
 }

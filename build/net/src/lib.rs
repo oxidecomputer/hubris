@@ -9,12 +9,16 @@ use std::collections::BTreeMap;
 // Network config schema definition.
 //
 
+/// This represents our _subset_ of global config and _must not_ be marked with
+/// `deny_unknown_fields`!
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct GlobalConfig {
     pub net: NetConfig,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct NetConfig {
     /// Sockets known to the system, indexed by name.
     pub sockets: BTreeMap<String, SocketConfig>,
@@ -29,6 +33,7 @@ pub struct NetConfig {
 /// handling is really, really fragile, and currently it would be an enum with a
 /// single variant anyway.
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct SocketConfig {
     pub kind: String,
     pub owner: TaskNote,
@@ -38,6 +43,7 @@ pub struct SocketConfig {
 }
 
 #[derive(Copy, Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct VLanConfig {
     /// Address of the 0-index VLAN
     pub start: usize,
@@ -46,12 +52,14 @@ pub struct VLanConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct BufSize {
     pub packets: usize,
     pub bytes: usize,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TaskNote {
     pub name: String,
     pub notification: u32,

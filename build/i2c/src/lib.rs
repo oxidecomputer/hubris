@@ -18,12 +18,13 @@ use std::path::Path;
 // build-specific types; we must not set `deny_unknown_fields` here.
 //
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 struct Config {
     i2c: I2cConfig,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cConfig {
     controllers: Vec<I2cController>,
     devices: Option<Vec<I2cDevice>>,
@@ -44,7 +45,7 @@ struct I2cConfig {
 // ordering.
 //
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cController {
     controller: u8,
     ports: BTreeMap<String, I2cPort>,
@@ -63,7 +64,7 @@ struct I2cController {
 // additional lengths to assure that these mistakes are caught in compilation.
 //
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cDevice {
     /// device part name
@@ -108,7 +109,7 @@ struct I2cDevice {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPort {
     name: Option<String>,
     #[allow(dead_code)]
@@ -127,7 +128,7 @@ struct I2cPinSet {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cMux {
     driver: String,
     address: u8,
@@ -135,14 +136,14 @@ struct I2cMux {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 #[allow(dead_code)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPmbus {
     rails: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cSensors {
     #[serde(default)]

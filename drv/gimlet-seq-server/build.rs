@@ -7,6 +7,7 @@ use std::fmt::Write;
 use std::{env, fs, path::PathBuf};
 
 #[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Config {
     fpga_image: String,
     register_defs: String,
