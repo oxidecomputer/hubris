@@ -319,17 +319,6 @@ impl Config {
         self.mpu_alignment() == MpuAlignment::PowerOfTwo
     }
 
-    /// Looks up the sizing array for the given task or the kernel.  For tasks,
-    /// this is the `max_sizes` array establishing upper bounds on autosizing;
-    /// for the kernel, this is the `requires` array which defines its size
-    /// (there is no kernel autosizing).
-    pub fn requires(&self, name: &str) -> &IndexMap<String, u32> {
-        match name {
-            "kernel" => &self.kernel.requires,
-            name => &self.tasks[name].max_sizes,
-        }
-    }
-
     /// Suggests an appropriate size for the given task (or "kernel"), given
     /// its true size.  The size depends on MMU implementation, dispatched
     /// based on the `target` in the config file.

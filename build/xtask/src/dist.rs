@@ -167,7 +167,7 @@ pub fn package(
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
-) -> Result<()> {
+) -> Result<Allocations> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -278,7 +278,7 @@ pub fn package(
     // If we've done a partial build (which may have included the kernel), bail
     // out here before linking stuff.
     if partial_build {
-        return Ok(());
+        return Ok(allocs);
     }
 
     // Print stats on memory usage
@@ -363,7 +363,7 @@ pub fn package(
 
     write_gdb_script(&cfg)?;
     build_archive(&cfg)?;
-    Ok(())
+    Ok(allocs)
 }
 
 /// Convert SREC to other formats for convenience.
@@ -1299,7 +1299,7 @@ fn link(
 #[derive(Debug, Clone, Default, Hash)]
 pub struct Allocations {
     /// Map from memory-name to address-range
-    kernel: BTreeMap<String, Range<u32>>,
+    pub kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
     pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
 }
