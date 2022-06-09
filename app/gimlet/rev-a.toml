@@ -75,7 +75,7 @@ stacksize = 872
 task-slots = ["sys"]
 
 [tasks.spi4_driver.config.spi]
-global_config = "spi4"
+global-config = "spi4"
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -89,7 +89,7 @@ stacksize = 872
 task-slots = ["sys"]
 
 [tasks.spi2_driver.config.spi]
-global_config = "spi2"
+global-config = "spi2"
 
 [tasks.i2c_driver]
 name = "drv-stm32h7-i2c-server"

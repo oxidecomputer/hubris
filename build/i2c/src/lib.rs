@@ -120,7 +120,7 @@ struct I2cPort {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPinSet {
     gpio_port: Option<String>,
     pins: Vec<u8>,

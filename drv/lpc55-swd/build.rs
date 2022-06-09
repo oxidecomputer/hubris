@@ -8,7 +8,7 @@ use serde::Deserialize;
 use std::io::Write;
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct TaskConfig {
     in_cfg: Vec<PinConfig>,
     out_cfg: Vec<PinConfig>,

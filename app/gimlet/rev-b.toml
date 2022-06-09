@@ -87,7 +87,7 @@ stacksize = 872
 task-slots = ["sys"]
 
 [tasks.spi4_driver.config.spi]
-global_config = "spi4"
+global-config = "spi4"
 
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
@@ -101,7 +101,7 @@ stacksize = 872
 task-slots = ["sys"]
 
 [tasks.spi2_driver.config.spi]
-global_config = "spi2"
+global-config = "spi2"
 
 [tasks.i2c_driver]
 name = "drv-stm32h7-i2c-server"
@@ -170,8 +170,8 @@ start = true
 task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
 
 [tasks.gimlet_seq.config]
-fpga_image = "fpga-b.bin"
-register_defs = "gimlet_regs.json"
+fpga-image = "fpga-b.bin"
+register-defs = "gimlet_regs.json"
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
@@ -708,38 +708,38 @@ removable = true
 [config.spi.spi2]
 controller = 2
 
-[config.spi.spi2.mux_options.port_i]
+[config.spi.spi2.mux-options.port-i]
 outputs = [
     {port = "I", pins = [1, 3], af = 5},
 ]
 input = {port = "I", pin = 2, af = 5}
 
-[config.spi.spi2.mux_options.port_b]
+[config.spi.spi2.mux-options.port-b]
 outputs = [
     {port = "B", pins = [13, 15], af = 5},
 ]
 input = {port = "B", pin = 14, af = 5}
 
 [config.spi.spi2.devices.sequencer]
-mux = "port_b"
+mux = "port-b"
 cs = [{port = "B", pin = 5}]
 
 [config.spi.spi2.devices.ice40]
-mux = "port_b"
+mux = "port-b"
 cs = [{port = "B", pin = 5}]
 
 [config.spi.spi2.devices.ksz8463]
-mux = "port_i"
+mux = "port-i"
 cs = [{port = "I", pin = 0}]
 
 [config.spi.spi2.devices.local_flash]
-mux = "port_b"
+mux = "port-b"
 cs = [{port = "B", pin = 12}]
 
 [config.spi.spi4]
 controller = 4
 
-[config.spi.spi4.mux_options.rot]
+[config.spi.spi4.mux-options.rot]
 outputs = [
     {port = "E", pins = [2, 6], af = 5},
 ]
@@ -748,7 +748,7 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "rot"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV16"
+clock-divider = "DIV16"
 
 [config.net]
 vlan = { start = 0x301, count = 2 }

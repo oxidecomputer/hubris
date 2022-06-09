@@ -44,7 +44,7 @@ struct TaskConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct SpiTaskConfig {
     global_config: String,
 }
@@ -58,7 +58,7 @@ struct GlobalConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct SpiConfig {
     controller: usize,
     fifo_depth: Option<usize>,
@@ -67,7 +67,7 @@ struct SpiConfig {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct SpiMuxOptionConfig {
     outputs: Vec<AfPinSetConfig>,
     input: AfPinConfig,
@@ -118,7 +118,7 @@ struct GpioPinConfig {
 struct Af(usize);
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct DeviceDescriptorConfig {
     mux: String,
     #[serde(default)]
