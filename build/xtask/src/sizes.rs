@@ -74,9 +74,10 @@ pub fn run(
 
     // Print detailed sizes relative to usage
     if !only_suggest {
-        print_memory_map(&toml, &sizes, allocs)?;
-        println!();
-        print_task_table(&toml, &sizes, allocs)?;
+        let map = build_memory_map(&toml, &sizes, &allocs)?;
+        print_memory_map(&toml, &map)?;
+        print!("\n\n");
+        print_task_table(&toml, &map)?;
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -124,12 +125,12 @@ pub fn run(
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 enum Recommended {
     FixedSize(u32),
     MaxSize(u32),
 }
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 struct MemoryChunk<'a> {
     used_size: u64,
     total_size: u32,
@@ -185,10 +186,8 @@ fn build_memory_map<'a>(
 
 fn print_task_table(
     toml: &Config,
-    sizes: &TaskSizes,
-    allocs: &Allocations,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let map = build_memory_map(toml, sizes, allocs)?;
     let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
     let mem_pad = map
         .values()
@@ -204,6 +203,19 @@ fn print_task_table(
         .max()
         .unwrap_or(0) as usize;
 
+    // Turn the memory map around so we can index it by [region][task name]
+    let map: BTreeMap<&str, BTreeMap<&str, MemoryChunk>> = map
+        .into_iter()
+        .map(|(region, map)| {
+            (
+                *region,
+                map.into_iter()
+                    .map(|(_, chunk)| (chunk.owner, *chunk))
+                    .collect(),
+            )
+        })
+        .collect();
+
     println!(
         "{:<task$}  {:<reg$}  {:<mem$}  {:<mem$}  LIMIT",
         "PROGRAM",
@@ -214,13 +226,13 @@ fn print_task_table(
         reg = region_pad,
         mem = mem_pad,
     );
+
     for name in
         std::iter::once("kernel").chain(toml.tasks.keys().map(|k| k.as_str()))
     {
         let mut printed_name = false;
         for (region, map) in &map {
-            // XXX O(N^2) lookup here, but N is small
-            if let Some(chunk) = map.values().find(|c| c.owner == name) {
+            if let Some(chunk) = map.get(name) {
                 print!(
                     "{:<task$}  ",
                     if !printed_name { name } else { "" },
@@ -248,10 +260,8 @@ fn print_task_table(
 
 fn print_memory_map(
     toml: &Config,
-    sizes: &TaskSizes,
-    allocs: &Allocations,
+    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
 ) -> Result<()> {
-    let map = build_memory_map(toml, sizes, allocs)?;
     let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
     let mem_pad = map
         .values()
@@ -259,7 +269,7 @@ fn print_memory_map(
         .map(|c| format!("{}", c.total_size).len())
         .max()
         .unwrap_or(0) as usize;
-    for (mem_name, map) in &map {
+    for (mem_name, map) in map {
         println!("\n{}:", mem_name);
         println!(
             "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
