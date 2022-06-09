@@ -74,7 +74,9 @@ pub fn run(
 
     // Print detailed sizes relative to usage
     if !only_suggest {
-        print_memory_map(&toml, &sizes, allocs)?
+        print_memory_map(&toml, &sizes, allocs)?;
+        println!();
+        print_task_table(&toml, &sizes, allocs)?;
     }
 
     // Because tasks are autosized, the only place where we can improve
@@ -122,23 +124,24 @@ pub fn run(
     Ok(())
 }
 
-fn print_memory_map(
-    toml: &Config,
-    sizes: &TaskSizes,
-    allocs: &Allocations,
-) -> Result<()> {
-    #[derive(Debug)]
-    enum Recommended {
-        FixedSize(u32),
-        MaxSize(u32),
-    }
-    #[derive(Debug)]
-    struct MemoryChunk<'a> {
-        used_size: u64,
-        total_size: u32,
-        owner: &'a str,
-        recommended: Option<Recommended>,
-    }
+#[derive(Debug)]
+enum Recommended {
+    FixedSize(u32),
+    MaxSize(u32),
+}
+#[derive(Debug)]
+struct MemoryChunk<'a> {
+    used_size: u64,
+    total_size: u32,
+    owner: &'a str,
+    recommended: Option<Recommended>,
+}
+
+fn build_memory_map<'a>(
+    toml: &'a Config,
+    sizes: &'a TaskSizes,
+    allocs: &'a Allocations,
+) -> Result<BTreeMap<&'a str, BTreeMap<u32, MemoryChunk<'a>>>> {
     let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk>> = BTreeMap::new();
 
     for (name, requires, alloc) in toml
@@ -177,6 +180,78 @@ fn print_memory_map(
             );
         }
     }
+    Ok(map)
+}
+
+fn print_task_table(
+    toml: &Config,
+    sizes: &TaskSizes,
+    allocs: &Allocations,
+) -> Result<()> {
+    let map = build_memory_map(toml, sizes, allocs)?;
+    let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
+    let mem_pad = map
+        .values()
+        .flat_map(|m| m.values())
+        .map(|c| format!("{}", c.total_size).len())
+        .chain(std::iter::once(4))
+        .max()
+        .unwrap_or(0) as usize;
+    let region_pad = map
+        .keys()
+        .chain(std::iter::once(&"REGION"))
+        .map(|c| format!("{}", c).len())
+        .max()
+        .unwrap_or(0) as usize;
+
+    println!(
+        "{:<task$}  {:<reg$}  {:<mem$}  {:<mem$}  LIMIT",
+        "PROGRAM",
+        "REGION",
+        "USED",
+        "SIZE",
+        task = task_pad,
+        reg = region_pad,
+        mem = mem_pad,
+    );
+    for name in
+        std::iter::once("kernel").chain(toml.tasks.keys().map(|k| k.as_str()))
+    {
+        let mut printed_name = false;
+        for (region, map) in &map {
+            // XXX O(N^2) lookup here, but N is small
+            if let Some(chunk) = map.values().find(|c| c.owner == name) {
+                print!(
+                    "{:<task$}  ",
+                    if !printed_name { name } else { "" },
+                    task = task_pad
+                );
+                printed_name = true;
+                print!("{:<reg$}  ", region, reg = region_pad);
+                print!(
+                    "{:<mem$}  {:<mem$}  ",
+                    chunk.used_size,
+                    chunk.total_size,
+                    mem = mem_pad,
+                );
+                match chunk.recommended {
+                    None => print!("(auto)"),
+                    Some(Recommended::MaxSize(m)) => print!("{}", m),
+                    Some(Recommended::FixedSize(_)) => print!("(fixed)"),
+                }
+                println!("");
+            }
+        }
+    }
+    Ok(())
+}
+
+fn print_memory_map(
+    toml: &Config,
+    sizes: &TaskSizes,
+    allocs: &Allocations,
+) -> Result<()> {
+    let map = build_memory_map(toml, sizes, allocs)?;
     let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
     let mem_pad = map
         .values()
@@ -188,7 +263,7 @@ fn print_memory_map(
         println!("\n{}:", mem_name);
         println!(
             "      ADDRESS  | {:^task$} | {:>mem$} | {:>mem$} | LIMIT",
-            "TASK NAME",
+            "PROGRAM",
             "USED",
             "SIZE",
             task = task_pad,
