@@ -9,6 +9,7 @@ use serde::Deserialize;
 use std::io::Write;
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Pin {
     port: usize,
     pin: usize,
@@ -35,7 +36,7 @@ impl ToTokens for Pin {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct PinConfig {
     pin: Pin,
     alt: usize,
