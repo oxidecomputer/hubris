@@ -2,12 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::path::PathBuf;
-
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
+use std::path::PathBuf;
 
-use crate::config::Config;
+use crate::config::{Config, Name};
 
 pub fn run(
     verbose: bool,
@@ -17,26 +16,19 @@ pub fn run(
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
 
-    let mut tasks = tasks.to_vec();
-
-    if tasks.is_empty() {
-        tasks.extend(toml.tasks.keys().cloned());
-        tasks.push("kernel".to_string());
-    }
-
-    for name in &tasks {
-        if !toml.tasks.contains_key(name) && name != "kernel" {
-            bail!("{}", toml.task_name_suggestion(name));
-        }
-    }
+    // If no arguments are passed in, run on every task and the kernel
+    let tasks: Vec<Name> = if tasks.is_empty() {
+        toml.tasks
+            .keys()
+            .map(|s| Name::Task(s.as_str()))
+            .chain(std::iter::once(Name::Kernel))
+            .collect()
+    } else {
+        tasks.iter().map(|s| Name::from(s.as_str())).collect()
+    };
 
     for (i, name) in tasks.iter().enumerate() {
-        let crate_name = if name == "kernel" {
-            "kernel"
-        } else {
-            let task_toml = &toml.tasks[name];
-            task_toml.name.as_str()
-        };
+        let crate_name = toml.crate_name(*name)?;
         if tasks.len() > 1 {
             if i > 0 {
                 println!();
@@ -47,38 +39,43 @@ pub fn run(
             );
         }
 
-        let build_config = if name == "kernel" {
-            // Build dummy allocations for each task
-            let fake_sizes: IndexMap<_, _> =
-                [("flash", 64), ("ram", 64)].into_iter().collect();
-            let task_sizes = toml
-                .tasks
-                .keys()
-                .map(|name| (name.as_str(), fake_sizes.clone()))
-                .collect();
+        let build_config = match name {
+            Name::Kernel => {
+                // Build dummy allocations for each task
+                let fake_sizes: IndexMap<_, _> =
+                    [("flash", 64), ("ram", 64)].into_iter().collect();
+                let task_sizes = toml
+                    .tasks
+                    .keys()
+                    .map(|name| (Name::Task(name.as_str()), fake_sizes.clone()))
+                    .collect();
 
-            let (allocs, _) = crate::dist::allocate_all(&toml, &task_sizes)?;
-            // Pick dummy entry points for each task
-            let entry_points = allocs
-                .tasks
-                .iter()
-                .map(|(k, v)| (k.clone(), v["flash"].start))
-                .collect();
+                let (allocs, _) =
+                    crate::dist::allocate_all(&toml, &task_sizes)?;
+                // Pick dummy entry points for each task
+                let entry_points = allocs
+                    .tasks
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v["flash"].start))
+                    .collect();
 
-            let kconfig =
-                crate::dist::make_kconfig(&toml, &allocs.tasks, &entry_points)?;
-            let kconfig = ron::ser::to_string(&kconfig)?;
+                let kconfig = crate::dist::make_kconfig(
+                    &toml,
+                    &allocs.tasks,
+                    &entry_points,
+                )?;
+                let kconfig = ron::ser::to_string(&kconfig)?;
 
-            toml.kernel_build_config(
-                verbose,
-                &[
-                    ("HUBRIS_KCONFIG", &kconfig),
-                    ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
-                ],
-                None,
-            )
-        } else {
-            toml.task_build_config(name, verbose, None).unwrap()
+                toml.kernel_build_config(
+                    verbose,
+                    &[
+                        ("HUBRIS_KCONFIG", &kconfig),
+                        ("HUBRIS_IMAGE_ID", "1234"), // dummy image ID
+                    ],
+                    None,
+                )
+            }
+            Name::Task(t) => toml.task_build_config(t, verbose, None).unwrap(),
         };
         let mut cmd = build_config.cmd("clippy");
 

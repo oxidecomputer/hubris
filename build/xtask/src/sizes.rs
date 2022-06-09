@@ -14,12 +14,15 @@ use indexmap::map::Entry;
 use indexmap::IndexMap;
 use termcolor::{Color, ColorSpec, WriteColor};
 
-use crate::{dist::DEFAULT_KERNEL_STACK, Config};
+use crate::{
+    config::{Config, Name},
+    dist::DEFAULT_KERNEL_STACK,
+};
 
 #[derive(Debug)]
 struct TaskSizes<'a> {
     /// Represents a map of task name -> memory region -> bytes used
-    sizes: IndexMap<&'a str, IndexMap<&'a str, u64>>,
+    sizes: IndexMap<Name<'a>, IndexMap<&'a str, u64>>,
 }
 
 /// When `only_suggest` is true, prints only the suggested improvements to
@@ -38,12 +41,21 @@ pub fn run(
 
     if save {
         println!("Writing json to {}", filename);
-        fs::write(filename, serde_json::ser::to_string(&sizes.sizes)?)?;
+        let sizes: IndexMap<String, IndexMap<&str, u64>> = sizes
+            .sizes
+            .into_iter()
+            .map(|(name, m)| (name.as_str().to_owned(), m))
+            .collect();
+        fs::write(filename, serde_json::ser::to_string(&sizes)?)?;
         process::exit(0);
     } else if compare {
         let compare = fs::read(filename)?;
         let compare: IndexMap<&str, IndexMap<&str, u64>> =
             serde_json::from_slice(&compare)?;
+        let compare = compare
+            .into_iter()
+            .map(|(name, m)| (Name::from(name), m))
+            .collect();
         let compare = TaskSizes { sizes: compare };
 
         compare_sizes(sizes, compare)?;
@@ -69,15 +81,15 @@ pub fn run(
     let out = &mut out_stream;
 
     // Helpful
-    let names = std::iter::once("kernel")
-        .chain(toml.tasks.keys().map(|name| name.as_str()));
+    let names = std::iter::once(Name::Kernel)
+        .chain(toml.tasks.keys().map(|n| Name::Task(n.as_str())));
 
     // Print detailed sizes relative to usage
     if !only_suggest {
         for name in names.clone() {
             writeln!(out, "\n{}", name)?;
             let requires = toml.requires(name);
-            let sizes = &sizes.sizes[name];
+            let sizes = &sizes.sizes[&name];
 
             for (mem_name, &used) in sizes {
                 if used == 0 && !requires.contains_key(&mem_name.to_string()) {
@@ -103,7 +115,7 @@ pub fn run(
                     write!(out, " ({}%)", percent)?;
 
                     let autosize = toml.suggest_memory_region_size(name, used);
-                    if size != autosize as u32 && name != "kernel" {
+                    if size != autosize as u32 && name != Name::Kernel {
                         let mut color = ColorSpec::new();
                         color.set_fg(Some(Color::Blue));
                         out.set_color(&color)?;
@@ -113,7 +125,7 @@ pub fn run(
                             toml.suggest_memory_region_size(name, used)
                         )?;
                     }
-                } else if name != "kernel" {
+                } else if name != Name::Kernel {
                     let mut color = ColorSpec::new();
                     color.set_fg(Some(Color::Blue));
                     out.set_color(&color)?;
@@ -133,7 +145,7 @@ pub fn run(
     let mut savings: IndexMap<&str, u64> = IndexMap::new();
     for name in names.clone() {
         let requires = toml.requires(name);
-        let sizes = &sizes.sizes[name];
+        let sizes = &sizes.sizes[&name];
         let mut printed_name = false;
 
         for (mem, &used) in sizes.iter() {
@@ -172,11 +184,15 @@ pub fn run(
             }
             write!(out, "  {:<6} {: >5}", format!("{}:", mem), suggestion)?;
             out.set_color(ColorSpec::new().set_dimmed(true))?;
-            if name == "kernel" {
-                writeln!(out, " (currently {})", size)?;
-                *savings.entry(mem).or_default() += size as u64 - suggestion;
-            } else {
-                writeln!(out, " (autosized with max {})", size)?;
+            match name {
+                Name::Kernel => {
+                    writeln!(out, " (currently {})", size)?;
+                    *savings.entry(mem).or_default() +=
+                        size as u64 - suggestion;
+                }
+                Name::Task(_) => {
+                    writeln!(out, " (autosized with max {})", size)?;
+                }
             }
             out.reset()?;
         }
@@ -195,9 +211,9 @@ pub fn run(
 }
 
 /// Loads the size of the given task (or kernel)
-pub fn load_task_size<'a>(
+pub fn load_elf_size<'a>(
     toml: &'a Config,
-    name: &str,
+    name: Name,
     stacksize: u32,
 ) -> Result<IndexMap<&'a str, u64>> {
     // Load the .tmp file (which does not have flash fill) for everything
@@ -207,8 +223,8 @@ pub fn load_task_size<'a>(
             .join(&toml.name)
             .join("dist")
             .join(match name {
-                "kernel" => name.to_owned(),
-                _ => format!("{}.tmp", name),
+                Name::Kernel => "kernel".to_owned(),
+                Name::Task(t) => format!("{}.tmp", t),
             });
 
     let buffer = std::fs::read(elf_name)?;
@@ -260,16 +276,17 @@ pub fn load_task_size<'a>(
 fn create_sizes(toml: &Config) -> Result<TaskSizes> {
     let mut sizes = IndexMap::new();
 
-    let kernel_sizes = load_task_size(
+    let kernel_sizes = load_elf_size(
         &toml,
-        "kernel",
+        Name::Kernel,
         toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
-    sizes.insert("kernel", kernel_sizes);
+    sizes.insert(Name::Kernel, kernel_sizes);
 
     for (name, task) in &toml.tasks {
+        let name = Name::Task(name);
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
-        let task_sizes = load_task_size(&toml, &name, stacksize)?;
+        let task_sizes = load_elf_size(&toml, name, stacksize)?;
 
         sizes.insert(name, task_sizes);
     }
@@ -286,17 +303,17 @@ fn compare_sizes(
     let mut current_sizes = current_sizes.sizes;
     let mut saved_sizes = saved_sizes.sizes;
 
-    let names: BTreeSet<&str> = current_sizes
+    let names: BTreeSet<Name> = current_sizes
         .keys()
         .chain(saved_sizes.keys())
         .cloned()
         .collect();
 
-    for name in names {
+    for name in &names {
         println!("Checking for differences in {}", name);
 
-        let current_size = current_sizes.entry(&name);
-        let saved_size = saved_sizes.entry(&name);
+        let current_size = current_sizes.entry(*name);
+        let saved_size = saved_sizes.entry(*name);
 
         match (current_size, saved_size) {
             // the common case; both are in both

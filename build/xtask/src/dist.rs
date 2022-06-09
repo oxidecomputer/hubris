@@ -17,9 +17,9 @@ use serde::Serialize;
 use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
-    config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
+    config::{Bootloader, BuildConfig, Config, Name, Signing, SigningMethod},
     elf,
-    sizes::load_task_size,
+    sizes::load_elf_size,
     task_slot,
 };
 
@@ -166,26 +166,27 @@ pub fn package(
     verbose: bool,
     edges: bool,
     app_toml: &Path,
-    tasks_to_build: Option<Vec<String>>,
+    stuff_to_build: Option<Vec<String>>,
 ) -> Result<()> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
     // convenient flag, running other checks as well.
-    let (partial_build, tasks_to_build): (bool, BTreeSet<&str>) =
-        if let Some(task_names) = tasks_to_build.as_ref() {
-            check_task_names(&cfg.toml, task_names)?;
-            (true, task_names.iter().map(|p| p.as_str()).collect())
+    let (partial_build, stuff_to_build): (bool, BTreeSet<Name>) =
+        if let Some(task_names) = stuff_to_build.as_ref() {
+            let stuff_to_build: Vec<Name> =
+                task_names.iter().map(|p| Name::from(p.as_str())).collect();
+            check_task_names(&cfg.toml, &stuff_to_build)?;
+            (true, stuff_to_build.into_iter().collect())
         } else {
-            assert!(!cfg.toml.tasks.contains_key("kernel"));
             check_task_priorities(&cfg.toml)?;
             (
                 false,
                 cfg.toml
                     .tasks
                     .keys()
-                    .map(|p| p.as_str())
-                    .chain(std::iter::once("kernel"))
+                    .map(|p| Name::Task(p.as_str()))
+                    .chain(std::iter::once(Name::Kernel))
                     .collect(),
             )
         };
@@ -210,7 +211,7 @@ pub fn package(
     // return value, because we're going to link them regardless of whether the
     // build changed.
     for name in cfg.toml.tasks.keys() {
-        if tasks_to_build.contains(name.as_str()) {
+        if stuff_to_build.contains(&Name::Task(name)) {
             build_task(&cfg, name)?;
         }
     }
@@ -222,7 +223,7 @@ pub fn package(
         .tasks
         .keys()
         .map(|name| {
-            let size = if tasks_to_build.contains(name.as_str()) {
+            let size = if stuff_to_build.contains(&Name::Task(name)) {
                 link_dummy_task(&cfg, name)?;
                 task_size(&cfg, name)
             } else {
@@ -231,7 +232,7 @@ pub fn package(
                     [("flash", 64), ("ram", 64)].into_iter().collect();
                 Ok(out)
             };
-            size.map(|sz| (name.as_str(), sz))
+            size.map(|sz| (Name::Task(name), sz))
         })
         .collect::<Result<_, _>>()?;
 
@@ -249,7 +250,7 @@ pub fn package(
         .tasks
         .keys()
         .map(|name| {
-            let ep = if tasks_to_build.contains(name.as_str()) {
+            let ep = if stuff_to_build.contains(&Name::Task(name)) {
                 // Link tasks regardless of whether they have changed, because
                 // we don't want to track changes in the other linker input
                 // (task-link.x, memory.x, table.ld, etc)
@@ -264,7 +265,7 @@ pub fn package(
         .collect::<Result<_, _>>()?;
 
     // Build the kernel!
-    let kern_build = if tasks_to_build.contains("kernel") {
+    let kern_build = if stuff_to_build.contains(&Name::Kernel) {
         Some(build_kernel(
             &cfg,
             &allocs,
@@ -514,7 +515,7 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
     Ok(())
 }
 
-fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
+fn check_task_names(toml: &Config, task_names: &[Name]) -> Result<()> {
     // Quick sanity-check if we're trying to build individual tasks which
     // aren't present in the app.toml, or ran `cargo xtask build ...` without
     // any specified tasks.
@@ -524,11 +525,18 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
              Did you mean to run `cargo xtask dist`?"
         );
     }
-    let all_tasks = toml.tasks.keys().collect::<BTreeSet<_>>();
+    let all_tasks = toml
+        .tasks
+        .keys()
+        .map(|s| s.as_str())
+        .collect::<BTreeSet<_>>();
     if let Some(name) = task_names
         .iter()
-        .filter(|name| name.as_str() != "kernel")
-        .find(|name| !all_tasks.contains(name))
+        .filter_map(|name| match name {
+            Name::Kernel => None,
+            Name::Task(t) => Some(t),
+        })
+        .find(|name| !all_tasks.contains(*name))
     {
         bail!(toml.task_name_suggestion(name))
     }
@@ -732,7 +740,7 @@ fn task_size<'a, 'b>(
 ) -> Result<IndexMap<&'a str, u64>> {
     let task = &cfg.toml.tasks[name];
     let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
-    load_task_size(&cfg.toml, name, stacksize)
+    load_elf_size(&cfg.toml, Name::Task(name), stacksize)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and
@@ -1338,9 +1346,9 @@ pub struct Allocations {
 ///
 /// This means that the algorithm needs to keep track of a queue of pending
 /// requests per alignment size.
-pub fn allocate_all(
-    toml: &Config,
-    task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
+pub fn allocate_all<'a>(
+    toml: &'a Config,
+    task_sizes: &'a HashMap<Name<'a>, IndexMap<&str, u64>>,
 ) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1360,8 +1368,9 @@ pub fn allocate_all(
         BTreeMap::new();
 
     for name in tasks.keys() {
-        for (mem, amt) in task_sizes[name.as_str()].iter() {
-            let bytes = toml.suggest_memory_region_size(name, *amt);
+        let tname = Name::Task(name.as_str());
+        for (mem, amt) in task_sizes[&tname].iter() {
+            let bytes = toml.suggest_memory_region_size(tname, *amt);
             if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
                 if bytes > *r as u64 {
                     bail!(

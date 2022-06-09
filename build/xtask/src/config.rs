@@ -323,23 +323,25 @@ impl Config {
     /// this is the `max_sizes` array establishing upper bounds on autosizing;
     /// for the kernel, this is the `requires` array which defines its size
     /// (there is no kernel autosizing).
-    pub fn requires(&self, name: &str) -> &IndexMap<String, u32> {
+    pub fn requires(&self, name: Name) -> &IndexMap<String, u32> {
         match name {
-            "kernel" => &self.kernel.requires,
-            name => &self.tasks[name].max_sizes,
+            Name::Kernel => &self.kernel.requires,
+            Name::Task(name) => &self.tasks[name].max_sizes,
         }
     }
 
-    /// Suggests an appropriate size for the given task (or "kernel"), given
-    /// its true size.  The size depends on MMU implementation, dispatched
-    /// based on the `target` in the config file.
-    pub fn suggest_memory_region_size(&self, name: &str, size: u64) -> u64 {
+    /// Suggests an appropriate size for the given task or , given its true
+    /// true size.  The size depends on MMU implementation, dispatched based
+    /// on the `target` in the config file.
+    pub fn suggest_memory_region_size(&self, name: Name, size: u64) -> u64 {
         match name {
-            "kernel" => {
+            Name::Kernel => {
                 // Nearest chunk of 16
                 ((size + 15) / 16) * 16
             }
-            _ => self.mpu_alignment().suggest_memory_region_size(size),
+            Name::Task(_) => {
+                self.mpu_alignment().suggest_memory_region_size(size)
+            }
         }
     }
 
@@ -347,6 +349,48 @@ impl Config {
     /// dependent on the processor's MMU.
     pub fn task_memory_alignment(&self, size: u32) -> u32 {
         self.mpu_alignment().memory_region_alignment(size)
+    }
+
+    /// Returns the crate name for either the kernel or a particular task
+    pub fn crate_name(&self, name: Name) -> Result<&str> {
+        match name {
+            Name::Kernel => Ok("kernel"),
+            Name::Task(t) => match self.tasks.get(&t.to_string()) {
+                Some(task_toml) => Ok(task_toml.name.as_str()),
+                None => Err(anyhow!("{}", self.task_name_suggestion(t))),
+            },
+        }
+    }
+}
+
+/// Represents either a task name or the kernel
+#[derive(Copy, Clone, Debug, PartialEq, Ord, PartialOrd, Eq, Hash)]
+pub enum Name<'a> {
+    Kernel,
+    Task(&'a str),
+}
+
+impl Name<'_> {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Name::Kernel => "kernel",
+            Name::Task(t) => t,
+        }
+    }
+}
+
+impl<'a> From<&'a str> for Name<'a> {
+    fn from(s: &'a str) -> Self {
+        match s {
+            "kernel" => Self::Kernel,
+            _ => Self::Task(s),
+        }
+    }
+}
+
+impl std::fmt::Display for Name<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
