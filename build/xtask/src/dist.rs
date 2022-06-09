@@ -1491,7 +1491,7 @@ fn allocate_one(
     align: u32,
     avail: &mut Range<u32>,
 ) -> Result<Range<u32>> {
-    assert!(size.is_power_of_two());
+    assert!(align.is_power_of_two());
 
     let size_mask = align - 1;
 
