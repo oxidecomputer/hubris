@@ -1,0 +1,11 @@
+[package]
+name = "drv-gimlet-state"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }

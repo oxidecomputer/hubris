@@ -3,14 +3,15 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{mgmt, pins};
-use drv_gimlet_seq_api::Sequencer;
+use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use userlib::{hl::sleep_for, task_slot};
+use task_jefe_api::Jefe;
+use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
 
 task_slot!(SPI, spi_driver);
-task_slot!(SEQ, seq);
+task_slot!(JEFE, jefe);
 
 // This system wants to be woken periodically to do logging
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
@@ -43,10 +44,29 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 pub struct Bsp(mgmt::Bsp);
 
 pub fn preinit() {
-    // Wait for the sequencer to turn on the clock
-    let seq = Sequencer::from(SEQ.get_task_id());
-    while seq.is_clock_config_loaded().unwrap_or(0) == 0 {
-        sleep_for(10);
+    // Wait for the sequencer to turn on the clock. This requires that Jefe
+    // state change notifications are routed to our notification bit 3.
+    let jefe = Jefe::from(JEFE.get_task_id());
+
+    loop {
+        // This laborious list is intended to ensure that new power states have
+        // to be added explicitly here.
+        match PowerState::from_u32(jefe.get_state()) {
+            Some(PowerState::A2)
+            | Some(PowerState::A2PlusMono)
+            | Some(PowerState::A2PlusFans)
+            | Some(PowerState::A1)
+            | Some(PowerState::A0) => {
+                break;
+            }
+            None => {
+                // This happens before we're in a valid power state.
+                //
+                // Only listen to our Jefe notification. Discard any error since
+                // this can't fail but the compiler doesn't know that.
+                let _ = sys_recv_closed(&mut [], 1 << 3, TaskId::KERNEL);
+            }
+        }
     }
 }
 

@@ -19,11 +19,13 @@ use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::RequestError;
 use seq_spi::{Addr, Reg};
+use task_jefe_api::Jefe;
 
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
 task_slot!(I2C, i2c_driver);
 task_slot!(HF, hf);
+task_slot!(JEFE, jefe);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -58,6 +60,8 @@ ringbuf!(Trace, 64, Trace::None);
 fn main() -> ! {
     let spi = spi_api::Spi::from(SPI.get_task_id());
     let sys = sys_api::Sys::from(SYS.get_task_id());
+    let jefe = Jefe::from(JEFE.get_task_id());
+    let hf = hf_api::HostFlash::from(HF.get_task_id());
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
@@ -289,6 +293,8 @@ fn main() -> ! {
     })
     .unwrap();
 
+    jefe.set_state(PowerState::A2 as u32);
+
     ringbuf_entry!(Trace::ClockConfigSuccess);
     ringbuf_entry!(Trace::A2);
 
@@ -296,6 +302,8 @@ fn main() -> ! {
     let mut server = ServerImpl {
         state: PowerState::A2,
         seq,
+        jefe,
+        hf,
     };
 
     loop {
@@ -306,6 +314,15 @@ fn main() -> ! {
 struct ServerImpl {
     state: PowerState,
     seq: seq_spi::SequencerFpga,
+    jefe: Jefe,
+    hf: hf_api::HostFlash,
+}
+
+impl ServerImpl {
+    fn update_state_internal(&mut self, state: PowerState) {
+        self.state = state;
+        self.jefe.set_state(state as u32);
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
@@ -329,9 +346,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 // First, set our mux state to be the HostCPU
                 //
-                let hf = hf_api::HostFlash::from(HF.get_task_id());
-
-                if let Err(_) = hf.set_mux(hf_api::HfMuxState::HostCPU) {
+                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::HostCPU) {
                     return Err(SeqError::MuxToHostCPUFailed.into());
                 }
 
@@ -382,13 +397,11 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 uart_sp_to_sp3_enable();
                 ringbuf_entry!(Trace::UartEnabled);
 
-                self.state = PowerState::A0;
+                self.update_state_internal(PowerState::A0);
                 Ok(())
             }
 
             (PowerState::A0, PowerState::A2) => {
-                let hf = hf_api::HostFlash::from(HF.get_task_id());
-
                 //
                 // Flip the UART mux back to disabled
                 //
@@ -398,11 +411,11 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
-                if let Err(_) = hf.set_mux(hf_api::HfMuxState::SP) {
+                if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::SP) {
                     return Err(SeqError::MuxToSPFailed.into());
                 }
 
-                self.state = PowerState::A2;
+                self.update_state_internal(PowerState::A2);
                 ringbuf_entry!(Trace::A2);
                 Ok(())
             }
@@ -429,16 +442,6 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             .clear_bytes(Addr::EARLY_POWER_CTRL, &[off])
             .unwrap();
         Ok(())
-    }
-
-    //
-    // By the time we are hanging out the shingle, the clock config is loaded.
-    //
-    fn is_clock_config_loaded(
-        &mut self,
-        _: &RecvMessage,
-    ) -> Result<u8, RequestError<SeqError>> {
-        Ok(1)
     }
 }
 

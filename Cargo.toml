@@ -40,6 +40,7 @@ members = [
     "task/template",
 
     "task/jefe",
+    "task/jefe-api",
     "task/ping",
     "task/pong",
     "task/idle",
@@ -102,6 +103,7 @@ members = [
     "drv/user-leds-api",
     "drv/ice40-spi-program",
     "drv/gimlet-seq-server",
+    "drv/gimlet-state",
     "drv/gimlet-hf-server",
     "drv/gimlet-hf-api",
     "drv/vsc7448",

@@ -54,6 +54,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+on-state-change = {net = {bit-number = 3}}
+
 [tasks.sys]
 name = "drv-stm32xx-sys"
 features = ["h743"]
