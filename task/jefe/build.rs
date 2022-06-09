@@ -48,7 +48,7 @@ fn main() -> Result<()> {
 
 /// Jefe task-level configuration.
 #[derive(Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct Config {
     /// Task requests to be notified on state change, as a map from task name to
     /// `StateChange` record.
@@ -61,7 +61,7 @@ struct Config {
 
 /// Description of something a task wants done on state change.
 #[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct StateChange {
     /// Number of notification bit to signal (_not_ mask).
     bit_number: u8,
