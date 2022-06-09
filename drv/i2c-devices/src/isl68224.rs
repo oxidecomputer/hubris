@@ -4,7 +4,7 @@
 
 use core::cell::Cell;
 
-use crate::{CurrentSensor, Validate, VoltageSensor};
+use crate::{CurrentSensor, TempSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use pmbus::commands::isl68224::*;
 use pmbus::commands::CommandCode;
@@ -101,6 +101,14 @@ impl VoltageSensor<Error> for Isl68224 {
         self.set_rail()?;
         let vout = pmbus_read!(self.device, READ_VOUT)?;
         Ok(Volts(vout.get(self.read_mode()?)?.0))
+    }
+}
+
+impl TempSensor<Error> for Isl68224 {
+    fn read_temperature(&self) -> Result<Celsius, Error> {
+        self.set_rail()?;
+        let temp = pmbus_read!(self.device, READ_TEMPERATURE_1)?;
+        Ok(Celsius(temp.get()?.0))
     }
 }
 

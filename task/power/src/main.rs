@@ -41,6 +41,7 @@ use i2c_config::sensors;
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),
+    SerDes(Isl68224),
     Mem(Raa229618),
     MemVpp(Isl68224),
     Sys(Tps546B24A),
@@ -107,6 +108,7 @@ impl PowerController {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
             Device::MemVpp(_) => panic!(),
+            Device::SerDes(dev) => read_temperature(dev),
             Device::Sys(dev) => read_temperature(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
         }
@@ -117,6 +119,7 @@ impl PowerController {
             Device::IBC(dev) => read_current(dev),
             Device::Core(dev) | Device::Mem(dev) => read_current(dev),
             Device::MemVpp(dev) => read_current(dev),
+            Device::SerDes(dev) => read_current(dev),
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
         }
@@ -127,6 +130,7 @@ impl PowerController {
             Device::IBC(dev) => read_voltage(dev),
             Device::Core(dev) | Device::Mem(dev) => read_voltage(dev),
             Device::MemVpp(dev) => read_voltage(dev),
+            Device::SerDes(dev) => read_voltage(dev),
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
         }
@@ -252,7 +256,7 @@ fn get_state() -> PowerState {
 }
 
 #[cfg(target_board = "sidecar-1")]
-fn controllers() -> [PowerController; 6] {
+fn controllers() -> [PowerController; 15] {
     let task = I2C.get_task_id();
 
     [
@@ -262,6 +266,15 @@ fn controllers() -> [PowerController; 6] {
         adm1272_controller!(task, Fan, v54_fan2, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan3, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_hsc, A2, Ohms(0.001)),
+        rail_controller!(task, Core, raa229618, v0p8_tf2_vdd_core, A0),
+        rail_controller!(task, Sys, tps546B24A, v3p3_sys, A2),
+        rail_controller!(task, Sys, tps546B24A, v5p0_sys, A2),
+        rail_controller!(task, Core, raa229618, v1p5_tf2_vdda, A0),
+        rail_controller!(task, Core, raa229618, v0p9_tf2_vddt, A0),
+        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdda, A0),
+        rail_controller!(task, SerDes, isl68224, v1p8_tf2_vdd, A0),
+        rail_controller!(task, Sys, tps546B24A, v1p0_mgmt, A2),
+        rail_controller!(task, Sys, tps546B24A, v1p8_sys, A2),
     ]
 }
 
