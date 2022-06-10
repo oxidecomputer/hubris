@@ -142,6 +142,8 @@ enum Trace {
     WaitRx,
     WaitTx,
     BusySleep,
+    Stop,
+    RepeatedStart(bool),
     None,
 }
 
@@ -722,16 +724,16 @@ impl<'a> I2cController<'a> {
 
         #[rustfmt::skip]
         i2c.cr1.modify(|_, w| { w
-            .gcen().clear_bit()         // disable General Call
-            .nostretch().clear_bit()    // enable clock stretching
-            .sbc().clear_bit()          // disable byte control 
-            .errie().set_bit()          // enable Error Interrupt
-            .tcie().set_bit()           // enable Transfer Complete interrupt
-            .stopie().set_bit()         // enable Stop Detection interrupt
-            .nackie().set_bit()         // enable NACK interrupt
-            .addrie().set_bit()         // enable Address interrupt
-            .rxie().set_bit()           // enable RX interrupt
-            .txie().set_bit()           // enable TX interrupt
+            .gcen().clear_bit()           // disable General Call
+            .nostretch().clear_bit()      // enable clock stretching
+            .sbc().clear_bit()            // disable byte control 
+            .errie().clear_bit()          // \
+            .tcie().clear_bit()           //  |
+            .stopie().clear_bit()         //  | disable
+            .nackie().clear_bit()         //  | all
+            .addrie().clear_bit()         //  | interrupt
+            .rxie().clear_bit()           //  | sources
+            .txie().clear_bit()           // /
         });
 
         i2c.cr1.modify(|_, w| w.pe().set_bit());
@@ -744,101 +746,175 @@ impl<'a> I2cController<'a> {
         mut rxbyte: impl FnMut(u8, u8),
         mut txbyte: impl FnMut(u8) -> Option<u8>,
     ) -> ! {
+        // Note: configure_as_target toggles the CR1.PE bit, which has the side
+        // effect of clearing all flags.
         self.configure_as_target();
 
         let i2c = self.registers;
         let notification = self.notification;
 
-        (ctrl.enable)(notification);
-
         'addrloop: loop {
+            // Flush our TXDR. TODO: does this ever matter in practice? Are we
+            // making it to this point with TXE clear?
+            i2c.isr.modify(|_, w| w.txe().set_bit());
+
+            // Wait to be addressed.
             let (is_write, addr) = loop {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(Trace::AddrISR(isr.bits()));
 
+                // We expect STOPF to have been handled by the transaction loop
+                // below, but given that there may be other irrelevant
+                // transactions on the bus, we'll go ahead and clear it here.
                 if isr.stopf().is_stop() {
                     i2c.icr.write(|w| w.stopcf().set_bit());
                     continue;
                 }
 
+                // ADDR being set means that we've been addressed -- either as a
+                // result of a START condition, or a repeated START punted by
+                // the transaction loop below.
                 if isr.addr().is_match() {
+                    i2c.icr.write(|w| w.addrcf().set_bit());
                     ringbuf_entry!(Trace::AddrMatch);
                     break (isr.dir().is_write(), isr.addcode().bits());
                 }
 
+                // Enable the interrupt sources we care about. Note that despite
+                // handling STOPF above, we don't enable an interrupt on it,
+                // because we don't actually care.
+                i2c.cr1.modify(|_, w| w.addrie().set_bit());
                 ringbuf_entry!(Trace::WaitAddr);
-                (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
+                (ctrl.wfi)(notification);
+                // Turn interrupt sources back off.
+                i2c.cr1.modify(|_, w| w.addrie().clear_bit());
             };
 
-            // Flush our TXDR
-            i2c.isr.modify(|_, w| w.txe().set_bit());
-
-            // Clear our Address interrupt
-            i2c.icr.write(|w| w.addrcf().set_bit());
-
-            //
             // See if we want to initiate with this address, NACK'ing it if
             // not.  Note that if we are being sent bytes, it is too late to
             // NACK the address itself; the NACK will be on the write.
             //
+            // Note also that, if we decline to respond to the address, we're
+            // still going to go through all the transaction machinery below!
+            // This helps to ensure that we maintain the flags correctly. It has
+            // the semi-strange side effect that we will process transactions
+            // sent to any other device on the bus, and send responses that keep
+            // SDA in its recessive (high) state so the other device can talk.
+            //
+            // This means we will inject our clock stretching intervals into
+            // _all traffic_ and is probably worth fixing (TODO).
             let initiated = initiate(addr);
 
             if !initiated {
+                // NACK the first byte.
                 i2c.cr2.modify(|_, w| w.nack().set_bit());
                 ringbuf_entry!(Trace::AddrNack(addr));
             }
 
             if is_write {
+                // During the write phase, the host sends bytes our way, and we
+                // have the opportunity to ACK/NACK each one. This phase
+                // continues until the host generates either a repeated start or
+                // a stop condition.
+                //
+                // If we're not responding to this transaction, we have set the
+                // NACK flag above. However, this only applies to one byte. The
+                // host is free to continue clocking us after a NACK, which we
+                // handle below.
                 'rxloop: loop {
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::RxISR(isr.bits()));
 
-                    if isr.addr().is_match() {
-                        //
-                        // If we have an address match, check to see if this is
-                        // change in direction; if it is, break out of our receive
-                        // loop.
-                        //
-                        if !isr.dir().is_write() {
-                            i2c.icr.write(|w| w.addrcf().set_bit());
-                            break 'rxloop;
-                        }
+                    // Note: the order of interrupt flag handling in this
+                    // routine is important. More details interleaved below.
 
-                        i2c.icr.write(|w| w.addrcf().set_bit());
-                        continue 'rxloop;
-                    }
-
-                    if isr.stopf().is_stop() {
-                        i2c.icr.write(|w| w.stopcf().set_bit());
-                        break 'rxloop;
-                    }
-
-                    if isr.nackf().is_nack() {
-                        i2c.icr.write(|w| w.nackcf().set_bit());
-                        break 'rxloop;
-                    }
-
+                    // Check for and handle RXNE first, to ensure that incoming
+                    // data gets handled and isn't left around waiting for
+                    // later. We can be confident that the data waiting in RX is
+                    // from this transaction, and not a later transaction on the
+                    // far side of a STOP/NACK, because we have configured the
+                    // controller to clock-stretch if we're repeatedly
+                    // addressed, preventing the reception of further data until
+                    // we get out of this loop and do it all over again.
                     if isr.rxne().is_not_empty() {
-                        //
-                        // We have a byte; we'll read it, and continue to wait
-                        // for additional bytes.
-                        //
+                        // Always take the byte from the shift register, even if
+                        // we're ignoring it, lest the shift register clog up.
                         let rx = i2c.rxdr.read().rxdata().bits();
 
                         if initiated {
                             ringbuf_entry!(Trace::Rx(addr, rx));
                             rxbyte(addr, rx);
                         } else {
+                            // We're ignoring this byte. It has already been
+                            // NACK'd, and the NACK flag is self-clearing. Ask
+                            // to NACK the next. Our request will be canceled by
+                            // STOP or ADDR.
+                            i2c.cr2.modify(|_, w| w.nack().set_bit());
                             ringbuf_entry!(Trace::RxNack(addr, rx));
                         }
 
+                        // Bounce up to the top of the loop, which will cause
+                        // other flags to get handled.
                         continue 'rxloop;
                     }
 
+                    // If we have seen a STOP condition, our current transaction
+                    // is over, and we want to ignore the ADDR flag being set
+                    // since that'll get handled at the top of the loop.
+                    if isr.stopf().is_stop() {
+                        ringbuf_entry!(Trace::Stop);
+                        i2c.icr.write(|w| w.stopcf().set_bit());
+                        continue 'addrloop;
+                    }
+
+                    // Note: during this phase we are receiving data from the
+                    // controller and generating ACKs/NACKs. This means the
+                    // NACKF is irrelevant, as it's only set when a NACK is
+                    // _received._
+
+                    // If we've processed all incoming data and have not seen a
+                    // STOP condition, then the ADDR flag being set means we've
+                    // been addressed in a repeated start.
+                    if isr.addr().is_match() {
+                        i2c.icr.write(|w| w.addrcf().set_bit());
+
+                        //
+                        // If we have an address match, check to see if this is
+                        // change in direction; if it is, break out of our receive
+                        // loop.
+                        //
+                        if !isr.dir().is_write() {
+                            ringbuf_entry!(Trace::RepeatedStart(true));
+                            break 'rxloop;
+                        }
+
+                        // Repeated start without a direction change is
+                        // slightly weird, but, we'll handle it as best we can.
+                        ringbuf_entry!(Trace::RepeatedStart(false));
+                        continue 'rxloop;
+                    }
+
+                    // Enable the interrupt sources we use.
+                    #[rustfmt::skip]
+                    i2c.cr1.modify(|_, w| {
+                        w.stopie().set_bit()
+                            .addrie().set_bit()
+                            .rxie().set_bit()
+                    });
+
                     ringbuf_entry!(Trace::WaitRx);
-                    (ctrl.wfi)(notification);
                     (ctrl.enable)(notification);
+                    (ctrl.wfi)(notification);
+
+                    // Turn them back off before we potentially break out of the
+                    // loop above.
+                    #[rustfmt::skip]
+                    i2c.cr1.modify(|_, w| {
+                        w.stopie().clear_bit()
+                            .addrie().clear_bit()
+                            .rxie().clear_bit()
+                    });
                 }
             }
 
@@ -846,19 +922,43 @@ impl<'a> I2cController<'a> {
                 let isr = i2c.isr.read();
                 ringbuf_entry!(Trace::TxISR(isr.bits()));
 
+                // First, we want to see if we're still transmitting.
+
+                // See if the host has NACK'd us. When our peripheral receives a
+                // NACK, it releases the SDA/SCL lines and stops setting TXIS.
+                if isr.nackf().is_nack() {
+                    i2c.icr.write(|w| w.nackcf().set_bit());
+                    // Do _not_ abort the transmission at this point. The host
+                    // may do something dumb like continue reading past our
+                    // NACK. Wait for STOP or ADDR (repeated start).
+
+                    // Fall through to the other flag handling below.
+                }
+
+                // A STOP condition _always_ indicates that the transmission is
+                // over... even if we don't think we're done sending. So,
+                // process it before attempting to put more data on the wire in
+                // response to TXIS below.
+                if isr.stopf().is_stop() {
+                    i2c.icr.write(|w| w.stopcf().set_bit());
+                    break 'txloop;
+                }
+
+                // ADDR will be set by a repeated start. We'll handle it by
+                // _leaving it set_ and bopping back up to the top to start a
+                // new transaction.
                 if isr.addr().is_match() {
-                    //
-                    // We really aren't expecting this, so kick out to the top
-                    // of the loop to try to make sense of it.
-                    //
                     continue 'addrloop;
                 }
 
+                // If we get here, it means the host is still clocking bytes out
+                // of us, so we need to send _something_ or we'll lock the bus
+                // forever.
                 if isr.txis().is_empty() {
-                    //
                     // This byte is deliberately indistinguishable from no
-                    // activity from the target on the bus.
-                    //
+                    // activity from the target on the bus. This is
+                    // important since we're wired-ANDing our output with
+                    // any other I2C devices at this point.
                     const FILLER: u8 = 0xff;
 
                     if initiated {
@@ -889,17 +989,30 @@ impl<'a> I2cController<'a> {
                         i2c.txdr.write(|w| w.txdata().bits(FILLER));
                     }
 
+                    // Don't WFI because there may be more work to do
+                    // immediately.
                     continue 'txloop;
                 }
 
-                if isr.nackf().is_nack() {
-                    i2c.icr.write(|w| w.nackcf().set_bit());
-                    continue 'addrloop;
-                }
-
+                // Enable the interrupt sources we care about.
+                #[rustfmt::skip]
+                i2c.cr1.modify(|_, w| {
+                    w.txie().set_bit()
+                        .addrie().set_bit()
+                        .nackie().set_bit()
+                        .stopie().set_bit()
+                });
                 ringbuf_entry!(Trace::WaitTx);
-                (ctrl.wfi)(notification);
                 (ctrl.enable)(notification);
+                (ctrl.wfi)(notification);
+                // Turn interrupt sources back off.
+                #[rustfmt::skip]
+                i2c.cr1.modify(|_, w| {
+                    w.txie().clear_bit()
+                        .addrie().clear_bit()
+                        .nackie().clear_bit()
+                        .stopie().clear_bit()
+                });
             }
         }
     }
