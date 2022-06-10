@@ -277,23 +277,23 @@ pub(crate) fn spi_rot_send_recv(
         return Err(Failure::Fault(Fault::ReturnValueOverflow));
     }
 
-    if stack.len() < 1 {
+    if stack.len() < 2 {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
     let frame = &stack[stack.len() - 2..];
     let msgtype: msg::MsgType = frame[0]
-        .ok_or(Failure::Fault(Fault::MissingParameters))?
+        .ok_or(Failure::Fault(Fault::BadParameter(0)))?
         .into();
     let len: usize =
-        frame[1].ok_or(Failure::Fault(Fault::MissingParameters))? as usize;
+        frame[1].ok_or(Failure::Fault(Fault::BadParameter(1)))? as usize;
 
     let server = msg::SpiMsg::from(SPI_ROT.get_task_id());
     // Echo, &data[..].len() == 0x800, rval[..].len() == 0x100
     let result =
         func_err(server.send_recv(msgtype, &data[0..len], &mut rval[..]))?;
     match msg::MsgType::from(result[0]) {
-        msg::MsgType::EchoReturn | msg::MsgType::Sprockets => {
+        msg::MsgType::EchoReturn | msg::MsgType::Status | msg::MsgType::Sprockets => {
             Ok(result[1] as usize)
         }
         _ => {

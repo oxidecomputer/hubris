@@ -17,7 +17,8 @@ sprockets-rot = {path = "../../../sprockets/rot", default-features = false}
 sprockets-common = {path = "../../../sprockets/common"}
 hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
 salty = "0.2.0"
-
+lpc55_romapi = { path = "../lpc55-romapi" }
+crc = "3.0.0"
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

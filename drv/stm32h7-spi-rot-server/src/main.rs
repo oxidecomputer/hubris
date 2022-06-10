@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{ClientError, Leased, RequestError, R, W};
 // use idol_runtime::{NotificationHandler, ClientError, Leased, RequestError, R, W};
 // TODO: This should be in drv/oxide-spi-sp-rot or some such
 use drv_spi_api::{CsState, Spi, SpiError};
@@ -15,11 +15,16 @@ use userlib::*;
 
 task_slot!(SPI, spi_driver);
 task_slot!(SYS, sys);
-const SPI_TO_ROT_DEVICE: u8 = 0;
 
 use ringbuf::*;
 
-const _ROT_IRQ: u32 = 1 << 0; // XXX this is not plumbed yet.
+const SPI_TO_ROT_DEVICE: u8 = 0;
+
+// On Gemini, the STM32H753 is in a LQFP176 package with ROT_IRQ on pin2/PE3
+const ROT_IRQ: sys_api::PinSet  = sys_api::PinSet {
+    port: sys_api::Port::E,
+    pin_mask: 1 << 3,
+};
 
 // const PACKET_MASK: u32 = 1 << 0;
 
@@ -32,10 +37,13 @@ enum Trace {
     RspLen(usize),
     SpiError(SpiError),
     Data(u8, u8, u8, u8),
+    GpioPort(u16, u16),
     Line,
     EchoMsgType,
     SprocketsMsgType,
+    StatusMsgType,
     ReturnOk(MsgType, u32),
+    Waited(usize),
 }
 ringbuf!(Trace, 32, Trace::Init);
 
@@ -43,12 +51,15 @@ ringbuf!(Trace, 32, Trace::Init);
 fn main() -> ! {
     ringbuf_entry!(Trace::Line);
     let spi = Spi::from(SPI.get_task_id()).device(SPI_TO_ROT_DEVICE);
-    let _sys = sys_api::Sys::from(SYS.get_task_id());
+    let sys = sys_api::Sys::from(SYS.get_task_id());
+
+    sys.gpio_configure_input(ROT_IRQ, sys_api::Pull::None).unwrap_lite();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     // The larger of the two buffers.
     let message = &mut [0u8; drv_spi_msg::SPI_RSP_BUF_SIZE];
     let mut server = ServerImpl {
+        sys,
         spi,
         message: *message,
     };
@@ -77,6 +88,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     match msg.msgtype() {
         MsgType::Echo => ringbuf_entry!(Trace::EchoMsgType),
         MsgType::Sprockets => ringbuf_entry!(Trace::SprocketsMsgType),
+        MsgType::Status => ringbuf_entry!(Trace::StatusMsgType),
         _ => {
             ringbuf_entry!(Trace::Line);
             return Err(MsgError::BadMessageType);
@@ -85,17 +97,56 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     let xmit_len = SPI_HEADER_SIZE + msg.payload_len();
     ringbuf_entry!(Trace::Line);
 
+    let port = server.sys.gpio_read_input(ROT_IRQ.port).unwrap_lite();
+    let rot_irq = port & ROT_IRQ.pin_mask;
+    // let rot_irq = server.sys.gpio_read(ROT_IRQ).unwrap_lite();
+    if 0 == rot_irq {   // We are surprised that ROT_IRQ is asserted
+        // It is intended to be ok to ignore RoT responses.
+        //
+        // TODO: fully explore the implications of that in the context of
+        // our fully developed implementation.
+        //
+        // The RoT must be able to observe SP resets.
+        // During the normal start-up seqeunce, the RoT is controlling the
+        // SP's boot up sequence. However, the SP can reset itself and
+        // individual Hubris tasks may fail and be restarted.
+        // TODO: Should this task send an explicit message telling the RoT
+        // that the SP has fully initialize? The first Sprockets message may
+        // serve as that indication.
+        //
+        // If the RoT ever does asynchronous transmission of messages
+        // then we'll see ROT_IRQ asserted without having first sent a message.
+        //
+        // If SP and RoT are out of sync, e.g. this task restarts and an old
+        // response is still in the RoT's transmit FIFO, then we can also see
+        // ROT_IRQ asserted when not expected.
+
+        ringbuf_entry!(Trace::GpioPort(port, ROT_IRQ.pin_mask));
+        // XXX For now, async and unhandled responses are not expected.
+        panic!();  
+    }
     if let Err(spi_error) = server.spi.write(&server.message[0..xmit_len]) {
         // XXX this does not return
         ringbuf_entry!(Trace::SpiError(spi_error));
         return Err(MsgError::SpiServerError);
     }
-    ringbuf_entry!(Trace::Line);
 
-    // Right now, we sleep for what should be long enough for the RoT
-    // to queue a response. In the future, we need to watch ROT_IRQ.
-    hl::sleep_for(1); // XXX 1 ms is arbitrary, IRQ will remove need.
-    ringbuf_entry!(Trace::Line);
+    // We sleep and poll for what should be long enough for the RoT
+    // to queue a response.
+    // XXX For better performance and power efficiency,
+    // take an interrupt on ROT_IRQ falling edge with timeout.
+    let mut limit = 1000_usize; // XXX Time limit is arbitrary.
+    loop {                  // Use interrupt instead of polling.
+        if 0 == server.sys.gpio_read(ROT_IRQ).unwrap_lite() {
+            break;
+        }
+        limit -= 1;
+        if limit == 0 {
+            panic!();
+        }
+        hl::sleep_for(1);
+    }
+    ringbuf_entry!(Trace::Waited(1000-limit));
 
     /*
     // Unmask our interrupt.
@@ -170,6 +221,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
 }
 
 struct ServerImpl {
+    sys: sys_api::Sys,
     spi: drv_spi_api::SpiDevice,
     pub message: [u8; SPI_RSP_BUF_SIZE],
 }

@@ -400,6 +400,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
 name = "crc-any"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -407,6 +416,12 @@ checksum = "073375684a58dece169afbdc9879a027f3698118ad3814938316c6002b7aa921"
 dependencies = [
  "debug-helper",
 ]
+
+[[package]]
+name = "crc-catalog"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
@@ -888,12 +903,14 @@ version = "0.1.0"
 dependencies = [
  "build-lpc55pins",
  "build-util",
+ "crc",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
  "drv-spi-msg",
  "hubpack",
  "lpc55-pac",
+ "lpc55_romapi",
  "num-traits",
  "ringbuf",
  "salty",

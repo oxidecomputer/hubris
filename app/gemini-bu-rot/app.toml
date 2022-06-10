@@ -120,7 +120,7 @@ name = "drv-lpc55-spi-server"
 priority = 4
 max-sizes = {flash = 65536, ram = 32768}
 features = ["spi0"]
-uses = ["flexcomm3", "flexcomm8"]
+uses = ["flexcomm3", "flexcomm8", "bootrom"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
 stacksize = 16384

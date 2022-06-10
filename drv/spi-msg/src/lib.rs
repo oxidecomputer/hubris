@@ -84,24 +84,6 @@ impl From<u32> for MsgType {
     }
 }
 
-//impl From<u8> for MsgType {
-//    fn from(msgtype: u8) -> Self {
-//        match FromPrimitive::from_u8(msgtype) {
-//            Some(err) => err,
-//            None => panic!("Invalid u32 for conversion to MsgType."),
-//        }
-//    }
-//}
-
-//impl From<u32> for MsgType {
-//    fn from(msgtype: u32) -> Self {
-//        match FromPrimitive::from_u32(msgtype) {
-//            Some(err) => err,
-//            None => panic!("Invalid u32 for conversion to MsgType."),
-//        }
-//    }
-//}
-
 #[derive(FromBytes, AsBytes, Unaligned, Debug)]
 #[repr(C)]
 pub struct MsgHeader {
@@ -129,6 +111,9 @@ impl<'a, B: ByteSliceMut> Msg<B> {
         self.header.version == SPI_MSG_VERSION
     }
 
+    // There is always a header, even if invalid. So, there can never
+    // be an empty message.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         SPI_HEADER_SIZE + self.payload_len()
     }

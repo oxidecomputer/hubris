@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "gemini-bu"
-requires = {flash = 32768, ram = 4096}
+requires = {flash = 32768, ram = 8192}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -129,7 +129,7 @@ features = ["stm32h743", "usart1-pa9pa10"]
 uses = ["usart1"]
 interrupts = {"usart1.irq" = 1}
 priority = 5
-requires = {flash = 65536, ram = 32768}
+max-sizes = {flash = 65536, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys", {spi_driver = "spi4_driver"}]
@@ -168,7 +168,7 @@ task-slots = ["sys", "i2c_driver", "hf", "hash_driver", "spi_rot"]
 [tasks.spi_rot]
 name = "drv-stm32h7-spi-rot-server"
 priority = 5
-max-sizes = {flash = 8192, ram = 32768}
+max-sizes = {flash = 16384, ram = 32768}
 stacksize = 16384
 start = true
 task-slots = ["sys", {spi_driver = "spi4_driver"}]
@@ -326,3 +326,4 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
+clock_divider = "DIV256"
