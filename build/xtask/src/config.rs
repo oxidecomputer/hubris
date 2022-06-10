@@ -7,7 +7,7 @@ use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -59,6 +59,9 @@ impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
         let cfg_contents = std::fs::read(&cfg)?;
         let toml: RawConfig = toml::from_slice(&cfg_contents)?;
+        if toml.tasks.contains_key("kernel") {
+            bail!("'kernel' is reserved and cannot be used as a task name");
+        }
 
         let mut hasher = DefaultHasher::new();
         hasher.write(&cfg_contents);
@@ -287,6 +290,82 @@ impl Config {
             })
             .collect()
     }
+
+    /// Calculates the output region which contains the given address
+    pub fn output_region(&self, vaddr: u64) -> Option<&str> {
+        let vaddr = u32::try_from(vaddr).ok()?;
+        self.outputs
+            .iter()
+            .find(|(_name, out)| {
+                vaddr >= out.address && vaddr < out.address + out.size
+            })
+            .map(|(name, _out)| name.as_str())
+    }
+
+    fn mpu_alignment(&self) -> MpuAlignment {
+        // ARMv6-M and ARMv7-M require that memory regions be a power of two.
+        // ARMv8-M does not.
+        match self.target.as_str() {
+            "thumbv8m.main-none-eabihf" => MpuAlignment::Chunk(32),
+            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+                MpuAlignment::PowerOfTwo
+            }
+            t => panic!("Unknown mpu requirements for target '{}'", t),
+        }
+    }
+
+    /// Checks whether the given chip's MPU requires power-of-two sized regions
+    pub fn mpu_power_of_two_required(&self) -> bool {
+        self.mpu_alignment() == MpuAlignment::PowerOfTwo
+    }
+
+    /// Suggests an appropriate size for the given task (or "kernel"), given
+    /// its true size.  The size depends on MMU implementation, dispatched
+    /// based on the `target` in the config file.
+    pub fn suggest_memory_region_size(&self, name: &str, size: u64) -> u64 {
+        match name {
+            "kernel" => {
+                // Nearest chunk of 16
+                ((size + 15) / 16) * 16
+            }
+            _ => self.mpu_alignment().suggest_memory_region_size(size),
+        }
+    }
+
+    /// Returns the desired alignment for a task memory region. This is
+    /// dependent on the processor's MMU.
+    pub fn task_memory_alignment(&self, size: u32) -> u32 {
+        self.mpu_alignment().memory_region_alignment(size)
+    }
+}
+
+/// Represents an MPU's desired alignment strategy
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum MpuAlignment {
+    /// Regions should be power-of-two sized and aligned
+    PowerOfTwo,
+    /// Regions should be aligned to chunks with a particular granularity
+    Chunk(u64),
+}
+
+impl MpuAlignment {
+    /// Suggests a minimal memory region size fitting the given number of bytes
+    fn suggest_memory_region_size(&self, size: u64) -> u64 {
+        match self {
+            MpuAlignment::PowerOfTwo => size.next_power_of_two(),
+            MpuAlignment::Chunk(c) => ((size + c - 1) / c) * c,
+        }
+    }
+    /// Returns the desired alignment for a region of a particular size
+    fn memory_region_alignment(&self, size: u32) -> u32 {
+        match self {
+            MpuAlignment::PowerOfTwo => {
+                assert!(size.is_power_of_two());
+                size
+            }
+            MpuAlignment::Chunk(c) => (*c).try_into().unwrap(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -360,7 +439,8 @@ pub struct Output {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Task {
     pub name: String,
-    pub requires: IndexMap<String, u32>,
+    #[serde(default)]
+    pub max_sizes: IndexMap<String, u32>,
     pub priority: u8,
     pub stacksize: Option<u32>,
     #[serde(default)]

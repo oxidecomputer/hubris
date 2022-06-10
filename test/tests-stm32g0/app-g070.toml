@@ -35,7 +35,7 @@ execute = false  # let's assume XN until proven otherwise
 [tasks.runner]
 name = "test-runner"
 priority = 0
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
 stacksize = 1904
@@ -43,7 +43,7 @@ stacksize = 1904
 [tasks.suite]
 name = "test-suite"
 priority = 2
-requires = {flash = 65536, ram = 2048}
+max-sizes = {flash = 65536, ram = 2048}
 start = true
 features = ["semihosting"]
 task-slots = ["assist", "idol", "suite", "runner"]
@@ -59,7 +59,7 @@ tup = [[1, true], [2, true], [3, false]]
 [tasks.assist]
 name = "test-assist"
 priority = 1
-requires = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 2048}
 start = true
 features = ["semihosting"]
 stacksize = 1504
@@ -67,13 +67,13 @@ stacksize = 1504
 [tasks.idol]
 name = "test-idol-server"
 priority = 1
-requires = {flash = 4096, ram = 1024}
+max-sizes = {flash = 4096, ram = 1024}
 stacksize = 1024
 start = true
 
 [tasks.idle]
 name = "task-idle"
 priority = 3
-requires = {flash = 128, ram = 64}
+max-sizes = {flash = 128, ram = 64}
 stacksize = 64
 start = true

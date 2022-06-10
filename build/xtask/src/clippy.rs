@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 use anyhow::{bail, Result};
+use indexmap::IndexMap;
 
 use crate::config::Config;
 
@@ -47,7 +48,16 @@ pub fn run(
         }
 
         let build_config = if name == "kernel" {
-            let (allocs, _) = crate::dist::allocate_all(&toml)?;
+            // Build dummy allocations for each task
+            let fake_sizes: IndexMap<_, _> =
+                [("flash", 64), ("ram", 64)].into_iter().collect();
+            let task_sizes = toml
+                .tasks
+                .keys()
+                .map(|name| (name.as_str(), fake_sizes.clone()))
+                .collect();
+
+            let (allocs, _) = crate::dist::allocate_all(&toml, &task_sizes)?;
             // Pick dummy entry points for each task
             let entry_points = allocs
                 .tasks

@@ -18,7 +18,9 @@ use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
-    elf, task_slot,
+    elf,
+    sizes::load_task_size,
+    task_slot,
 };
 
 use lpc55_sign::{crc_image, signed_image};
@@ -165,7 +167,7 @@ pub fn package(
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
-) -> Result<()> {
+) -> Result<Allocations> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -191,25 +193,6 @@ pub fn package(
     std::fs::create_dir_all(&cfg.dist_dir)?;
     check_rebuild(&cfg.toml)?;
 
-    // Allocate memories.
-    let (allocs, memories) = allocate_all(&cfg.toml)?;
-
-    // Print stats on memory usage
-    let starting_memories = cfg.toml.memories()?;
-    for (name, range) in &starting_memories {
-        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
-    }
-    println!("Used:");
-    for (name, new_range) in &memories {
-        let orig_range = &starting_memories[name];
-        let size = new_range.start - orig_range.start;
-        let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
-    }
-
-    // Build each task.
-    let mut all_output_sections = BTreeMap::default();
-
     // If there is a bootloader, build it first as there may be dependencies
     // for applications
     {
@@ -232,6 +215,32 @@ pub fn package(
         }
     }
 
+    // Calculate the sizes of tasks, assigning dummy sizes to tasks that
+    // aren't active in this build.
+    let task_sizes: HashMap<_, _> = cfg
+        .toml
+        .tasks
+        .keys()
+        .map(|name| {
+            let size = if tasks_to_build.contains(name.as_str()) {
+                link_dummy_task(&cfg, name)?;
+                task_size(&cfg, name)
+            } else {
+                // Dummy allocations
+                let out: IndexMap<_, _> =
+                    [("flash", 64), ("ram", 64)].into_iter().collect();
+                Ok(out)
+            };
+            size.map(|sz| (name.as_str(), sz))
+        })
+        .collect::<Result<_, _>>()?;
+
+    // Allocate memories.
+    let (allocs, memories) = allocate_all(&cfg.toml, &task_sizes)?;
+
+    // Build each task.
+    let mut all_output_sections = BTreeMap::default();
+
     // Build all relevant tasks, collecting entry points into a HashMap.  If
     // we're doing a partial build, then assign a dummy entry point into
     // the HashMap, because the kernel kconfig will still need it.
@@ -247,6 +256,7 @@ pub fn package(
                 link_task(&cfg, name, &allocs)?;
                 task_entry_point(&cfg, name, &mut all_output_sections)
             } else {
+                // Dummy entry point
                 Ok(allocs.tasks[name]["flash"].start)
             };
             ep.map(|ep| (name.clone(), ep))
@@ -268,7 +278,20 @@ pub fn package(
     // If we've done a partial build (which may have included the kernel), bail
     // out here before linking stuff.
     if partial_build {
-        return Ok(());
+        return Ok(allocs);
+    }
+
+    // Print stats on memory usage
+    let starting_memories = cfg.toml.memories()?;
+    for (name, range) in &starting_memories {
+        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
+    }
+    println!("Used:");
+    for (name, new_range) in &memories {
+        let orig_range = &starting_memories[name];
+        let size = new_range.start - orig_range.start;
+        let percent = size * 100 / (orig_range.end - orig_range.start);
+        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
     }
 
     // Generate combined SREC, which is our source of truth for combined images.
@@ -340,7 +363,7 @@ pub fn package(
 
     write_gdb_script(&cfg)?;
     build_archive(&cfg)?;
-    Ok(())
+    Ok(allocs)
 }
 
 /// Convert SREC to other formats for convenience.
@@ -667,6 +690,7 @@ fn link_task(
     name: &str,
     allocs: &Allocations,
 ) -> Result<()> {
+    println!("linking task '{}'", name);
     let task_toml = &cfg.toml.tasks[name];
     generate_task_linker_script(
         "memory.x",
@@ -680,7 +704,35 @@ fn link_task(
     fs::copy("build/task-link.x", "target/link.x")?;
 
     // Link the static archive
-    link(cfg, &cfg.dist_file(name))
+    link(cfg, &format!("{}.elf", name), name)
+}
+
+/// Link a specific task using a dummy linker script that
+fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
+    let task_toml = &cfg.toml.tasks[name];
+    let memories = cfg.toml.memories()?.into_iter().collect();
+    generate_task_linker_script(
+        "memory.x",
+        &memories, // ALL THE SPACE
+        Some(&task_toml.sections),
+        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+            anyhow!("{}: no stack size specified and there is no default", name)
+        })?,
+    )
+    .context(format!("failed to generate linker script for {}", name))?;
+    fs::copy("build/task-tlink.x", "target/link.x")?;
+
+    // Link the static archive
+    link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
+}
+
+fn task_size<'a, 'b>(
+    cfg: &'a PackageConfig,
+    name: &'b str,
+) -> Result<IndexMap<&'a str, u64>> {
+    let task = &cfg.toml.tasks[name];
+    let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
+    load_task_size(&cfg.toml, name, stacksize)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and
@@ -697,13 +749,15 @@ fn task_entry_point(
     let (ep, flash) =
         load_elf(&cfg.dist_file(name), all_output_sections, &mut symbol_table)?;
 
-    if flash > task_toml.requires["flash"] as usize {
-        bail!(
-            "{} has insufficient flash: specified {} bytes, needs {}",
-            task_toml.name,
-            task_toml.requires["flash"],
-            flash
-        );
+    if let Some(required) = task_toml.max_sizes.get("flash") {
+        if flash > *required as usize {
+            bail!(
+                "{} has insufficient flash: specified {} bytes, needs {}",
+                task_toml.name,
+                required,
+                flash
+            );
+        }
     }
     Ok(ep)
 }
@@ -1191,7 +1245,11 @@ fn build(
     Ok(changed)
 }
 
-fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
+fn link(
+    cfg: &PackageConfig,
+    src_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+    dst_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+) -> Result<()> {
     let mut ld = cfg.sysroot.clone();
     for p in ["lib", "rustlib", &cfg.host_triple, "bin", "gcc-ld", "ld"] {
         ld.push(p);
@@ -1203,13 +1261,13 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
 
     // We expect the caller to set up our linker scripts, but copy them into
     // our working directory here
-    let working_dir = out_file.parent().unwrap();
+    let working_dir = &cfg.dist_dir;
     for f in ["link.x", "memory.x", "table.ld"] {
         std::fs::copy(format!("target/{}", f), working_dir.join(f))
             .context(format!("Could not copy {} to link dir", f))?;
     }
-    let bin_name = out_file.file_name().unwrap().to_str().unwrap();
-    let lib_name = format!("{}.elf", bin_name);
+    assert!(AsRef::<Path>::as_ref(&src_file).is_relative());
+    assert!(AsRef::<Path>::as_ref(&dst_file).is_relative());
 
     let m = match cfg.toml.target.as_str() {
         "thumbv6m-none-eabi"
@@ -1217,8 +1275,8 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
         | "thumbv8m.main-none-eabihf" => "armelf",
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
-    cmd.arg(lib_name);
-    cmd.arg("-o").arg(bin_name);
+    cmd.arg(src_file);
+    cmd.arg("-o").arg(dst_file);
     cmd.arg("-Tlink.x");
     cmd.arg("--gc-sections");
     cmd.arg("-m").arg(m);
@@ -1241,7 +1299,7 @@ fn link(cfg: &PackageConfig, out_file: &Path) -> Result<()> {
 #[derive(Debug, Clone, Default, Hash)]
 pub struct Allocations {
     /// Map from memory-name to address-range
-    kernel: BTreeMap<String, Range<u32>>,
+    pub kernel: BTreeMap<String, Range<u32>>,
     /// Map from task-name to memory-name to address-range
     pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
 }
@@ -1282,6 +1340,7 @@ pub struct Allocations {
 /// requests per alignment size.
 pub fn allocate_all(
     toml: &Config,
+    task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
 ) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
@@ -1300,16 +1359,20 @@ pub fn allocate_all(
     let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
         BTreeMap::new();
 
-    for (name, task) in tasks {
-        for (mem, &amt) in &task.requires {
-            if !amt.is_power_of_two() {
-                bail!("task {}, memory region {}: requirement {} is not a power of two.",
-                    task.name, name, amt);
+    for name in tasks.keys() {
+        for (mem, amt) in task_sizes[name.as_str()].iter() {
+            let bytes = toml.suggest_memory_region_size(name, *amt);
+            if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
+                if bytes > *r as u64 {
+                    bail!(
+                        "task {}: needs {} bytes of {} but max-sizes limits it to {}",
+                        name, bytes, mem, r);
+                }
             }
             task_requests
-                .entry(mem.as_str())
+                .entry(mem)
                 .or_default()
-                .entry(amt)
+                .entry(bytes.try_into().unwrap())
                 .or_default()
                 .push_back(name.as_str());
         }
@@ -1357,13 +1420,14 @@ pub fn allocate_all(
                 for (&sz, q) in t_reqs.range_mut(..=align).rev() {
                     if let Some(task) = q.pop_front() {
                         // We can pack an equal or smaller one in.
+                        let align = toml.task_memory_alignment(sz);
                         allocs
                             .tasks
                             .entry(task.to_string())
                             .or_default()
                             .insert(
                                 region.to_string(),
-                                allocate_one(region, sz, avail)?,
+                                allocate_one(region, sz, align, avail)?,
                             );
                         continue 'fitloop;
                     }
@@ -1372,13 +1436,14 @@ pub fn allocate_all(
                 for (&sz, q) in t_reqs.range_mut(align + 1..) {
                     if let Some(task) = q.pop_front() {
                         // We've gotta use a larger one.
+                        let align = toml.task_memory_alignment(sz);
                         allocs
                             .tasks
                             .entry(task.to_string())
                             .or_default()
                             .insert(
                                 region.to_string(),
-                                allocate_one(region, sz, avail)?,
+                                allocate_one(region, sz, align, avail)?,
                             );
                         continue 'fitloop;
                     }
@@ -1423,12 +1488,12 @@ fn allocate_k(
 fn allocate_one(
     region: &str,
     size: u32,
+    align: u32,
     avail: &mut Range<u32>,
 ) -> Result<Range<u32>> {
-    // This condition is ensured by allocate_all.
-    assert!(size.is_power_of_two());
+    assert!(align.is_power_of_two());
 
-    let size_mask = size - 1;
+    let size_mask = align - 1;
 
     // Our base address will be larger than avail.start if it doesn't meet our
     // minimum requirements. Round up.
@@ -1497,15 +1562,7 @@ pub fn make_kconfig(
         .flat_map(|(_name, task)| task.uses.iter())
         .collect::<HashSet<_>>();
 
-    // ARMv6-M and ARMv7-M require that memory regions be a power of two.
-    // ARMv8-M does not.
-    let power_of_two_required = match toml.target.as_str() {
-        "thumbv8m.main-none-eabihf" => false,
-        "thumbv7em-none-eabihf" => true,
-        "thumbv6m-none-eabi" => true,
-        t => panic!("Unknown mpu requirements for target '{}'", t),
-    };
-
+    let power_of_two_required = toml.mpu_power_of_two_required();
     for (name, p) in toml.peripherals.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
@@ -1532,7 +1589,7 @@ pub fn make_kconfig(
 
     for (name, p) in toml.extratext.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
-            panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+            panic!("Memory region for extratext '{}' is required to be a power of two, but has size {}", name, p.size);
         }
 
         peripheral_index.insert(name, regions.len());
@@ -1549,26 +1606,20 @@ pub fn make_kconfig(
     }
 
     // The remaining regions are allocated to tasks on a first-come first-serve
-    // basis.
+    // basis. We don't check power-of-two requirements in task_allocations
+    // because it's the result of autosizing, which already takes the MPU into
+    // account.
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
-        if power_of_two_required && !task.requires["flash"].is_power_of_two() {
-            panic!("Flash for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
-        }
-
-        if power_of_two_required && !task.requires["ram"].is_power_of_two() {
-            panic!("Ram for task '{}' is required to be a power of two, but has size {}", task.name, task.requires["flash"]);
-        }
-
         // Regions are referenced by index into the table we just generated.
         // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
         let mut task_regions = [0; 8];
 
-        if task.uses.len() + task.requires.len() > 8 {
+        if task.uses.len() + task_allocations[name].len() > 8 {
             panic!(
                 "task {} uses {} peripherals and {} memories (too many)",
                 name,
                 task.uses.len(),
-                task.requires.len()
+                task_allocations[name].len()
             );
         }
 

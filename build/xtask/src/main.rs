@@ -167,8 +167,8 @@ fn run(xtask: Xtask) -> Result<()> {
             edges,
             cfg,
         } => {
-            dist::package(verbose, edges, &cfg, None)?;
-            sizes::run(&cfg, true, false, false)?;
+            let allocs = dist::package(verbose, edges, &cfg, None)?;
+            sizes::run(&cfg, &allocs, true, false, false)?;
         }
         Xtask::Build {
             verbose,
@@ -191,8 +191,8 @@ fn run(xtask: Xtask) -> Result<()> {
             compare,
             save,
         } => {
-            dist::package(verbose, false, &cfg, None)?;
-            sizes::run(&cfg, false, compare, save)?;
+            let allocs = dist::package(verbose, false, &cfg, None)?;
+            sizes::run(&cfg, &allocs, false, compare, save)?;
         }
         Xtask::Humility { args } => {
             humility::run(&args, &[], None, true)?;
