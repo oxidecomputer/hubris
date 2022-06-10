@@ -304,13 +304,23 @@ fn print_memory_map(
                     print!("    {:#010x} | ", start + chunk.total_size);
                     println!(
                         "{:<size$} | {:>mem$} | {:>mem$} | ",
-                        "[padding]",
+                        "-padding-",
                         "--",
                         next - (start + chunk.total_size),
                         size = task_pad,
                         mem = mem_pad,
                     );
                 }
+            } else {
+                print!("    {:#010x} | ", start + chunk.total_size);
+                println!(
+                    "{:<size$} | {:>mem$} | {:>mem$} | ",
+                    "--end--",
+                    "",
+                    "",
+                    size = task_pad,
+                    mem = mem_pad,
+                );
             }
         }
     }
