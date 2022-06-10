@@ -921,10 +921,7 @@ circuit's active low requirement</td>
         <td class="RegisterName" colspan="3*"></td>
         <td class="Offset" colspan="2*"></td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
-                <td class="rsvdspandef" colspan="6*">RSVD</td>
-                <td class="validspandef" colspan="2*">NICPWREN</td>
-                <td class="validspandef" colspan="2*">A0C_DIS</td>
-                <td class="validspandef" colspan="2*">A0B_EN</td>
+                <td class="rsvdspandef" colspan="12*">RSVD</td>
                 <td class="validspandef" colspan="2*">A0A_EN</td>
                 <td class="validspandef" colspan="2*">A1PWREN</td>
     </tr>
@@ -935,31 +932,6 @@ circuit's active low requirement</td>
         <td class="FieldHeader" colspan="2*">Access</td>
         <td class="FieldHeader" colspan="2*">Reset</td>
         <td class="FieldHeader" colspan="14">Description</td>
-    </tr>
-    <tr class="cat15" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NICPWREN</td>
-        <td class="FieldDesc" colspan="1*">4</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">NIC power enable (starts state machine)</td>
-    </tr>
-    <tr class="cat15" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">A0C_DIS</td>
-        <td class="FieldDesc" colspan="1*">3</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">A0 Group C power stages occur autonomously (assuming SMBus commands turn on the 
-RA229618 outputs) *unless* this bit is set.</td>
-    </tr>
-    <tr class="cat15" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">A0B_EN</td>
-        <td class="FieldDesc" colspan="1*">2</td>
-        <td class="FieldDesc" colspan="2*">rw</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">A0 Group B power enable (starts state machine)</td>
     </tr>
     <tr class="cat15" style="display: none">
         <td class="Blank" colspan="3*"></td>
@@ -1641,9 +1613,9 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)</td>
         <td class="bitdef" colspan="1*">&nbsp;7..0</td>
                 <td class="rsvdspandef" colspan="2*">RSVD</td>
                 <td class="validspandef" colspan="2*">NIC_3V3_PG</td>
-                <td class="validspandef" colspan="2*">NIC_V1P8_PG</td>
-                <td class="validspandef" colspan="2*">NIC_V1P5_PG</td>
-                <td class="validspandef" colspan="2*">NIC_AV1P5_PG</td>
+                <td class="validspandef" colspan="2*">NIC_V1P5D_PG</td>
+                <td class="validspandef" colspan="2*">NIC_V1P5A_PG</td>
+                <td class="validspandef" colspan="2*">NIC_V1P2_ENET_PG</td>
                 <td class="validspandef" colspan="2*">NIC_V1P2_PG</td>
                 <td class="validspandef" colspan="2*">NIC_V1P1_PG</td>
                 <td class="validspandef" colspan="2*">NIC_V0P96_PG</td>
@@ -1666,27 +1638,27 @@ SP3_VDDCR_SOC_A0 (PWR_CONT2_SP3_PG0 net)</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P8_PG</td>
+        <td class="FieldDesc" colspan="2*">NIC_V1P5D_PG</td>
         <td class="FieldDesc" colspan="1*">5</td>
-        <td class="FieldDesc" colspan="2*">r</td>
-        <td class="FieldDesc" colspan="2*">0</td>
-        <td class="FieldDesc" colspan="14">Power good for V1P8_NIC_A0HP  (PWR_CONT_NIC_PG1 net)</td>
-    </tr>
-    <tr class="cat27" style="display: none">
-        <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_V1P5_PG</td>
-        <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>
-        <td class="FieldDesc" colspan="2*">NIC_AV1P5_PG</td>
-        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">NIC_V1P5A_PG</td>
+        <td class="FieldDesc" colspan="1*">4</td>
         <td class="FieldDesc" colspan="2*">r</td>
         <td class="FieldDesc" colspan="2*">0</td>
         <td class="FieldDesc" colspan="14">Power good for V1P5_NIC_AVDD_A0HP (inverted NIC_TO_SEQ_V1P5A_PG_L net)</td>
+    </tr>
+    <tr class="cat27" style="display: none">
+        <td class="Blank" colspan="3*"></td>
+        <td class="FieldDesc" colspan="2*">NIC_V1P2_ENET_PG</td>
+        <td class="FieldDesc" colspan="1*">3</td>
+        <td class="FieldDesc" colspan="2*">r</td>
+        <td class="FieldDesc" colspan="2*">0</td>
+        <td class="FieldDesc" colspan="14">Power good for V1P2_NIC_ETH  (inverted NIC_TO_SEQ_V1P2_PG_L net)</td>
     </tr>
     <tr class="cat27" style="display: none">
         <td class="Blank" colspan="3*"></td>

@@ -518,39 +518,6 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "A0 Group A power enable (starts state machine)"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "A0B_EN",
-                    "lsb": 2,
-                    "msb": 2,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "A0 Group B power enable (starts state machine)"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "A0C_DIS",
-                    "lsb": 3,
-                    "msb": 3,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "A0 Group C power stages occur autonomously (assuming SMBus commands turn on the \nRA229618 outputs) *unless* this bit is set."
-                },
-                {
-                    "type": "field",
-                    "inst_name": "NICPWREN",
-                    "lsb": 4,
-                    "msb": 4,
-                    "reset": 0,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "NIC power enable (starts state machine)"
                 }
             ]
         },
@@ -1113,9 +1080,20 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "NIC_AV1P5_PG",
+                    "inst_name": "NIC_V1P2_ENET_PG",
                     "lsb": 3,
                     "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power good\u00a0for\u00a0V1P2_NIC_ETH  (inverted NIC_TO_SEQ_V1P2_PG_L net)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_V1P5A_PG",
+                    "lsb": 4,
+                    "msb": 4,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
@@ -1124,25 +1102,14 @@
                 },
                 {
                     "type": "field",
-                    "inst_name": "NIC_V1P5_PG",
-                    "lsb": 4,
-                    "msb": 4,
-                    "reset": 0,
-                    "sw_access": "r",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "Power good\u00a0for\u00a0V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "NIC_V1P8_PG",
+                    "inst_name": "NIC_V1P5D_PG",
                     "lsb": 5,
                     "msb": 5,
                     "reset": 0,
                     "sw_access": "r",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Power good\u00a0for\u00a0V1P8_NIC_A0HP  (PWR_CONT_NIC_PG1 net)"
+                    "desc": "Power good\u00a0for\u00a0V1P5_NIC_PCIE_MEM_A0HP (inverted NIC_TO_SEQ_V1P5D_PG_L net)"
                 },
                 {
                     "type": "field",
