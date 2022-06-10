@@ -1589,7 +1589,7 @@ pub fn make_kconfig(
 
     for (name, p) in toml.extratext.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
-            panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
+            panic!("Memory region for extratext '{}' is required to be a power of two, but has size {}", name, p.size);
         }
 
         peripheral_index.insert(name, regions.len());
@@ -1606,24 +1606,10 @@ pub fn make_kconfig(
     }
 
     // The remaining regions are allocated to tasks on a first-come first-serve
-    // basis.
+    // basis. We don't check power-of-two requirements in task_allocations
+    // because it's the result of autosizing, which already takes the MPU into
+    // account.
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
-        if power_of_two_required
-            && !task_allocations[name]["flash"].len().is_power_of_two()
-        {
-            panic!(
-                "Flash for task '{}' is required to be a power of two, but has size {}",
-                task.name, task_allocations[name]["flash"].len());
-        }
-
-        if power_of_two_required
-            && !task_allocations[name]["ram"].len().is_power_of_two()
-        {
-            panic!(
-                "Ram for task '{}' is required to be a power of two, but has size {}",
-                task.name, task_allocations[name]["ram"].len());
-        }
-
         // Regions are referenced by index into the table we just generated.
         // Each task has up to 8, chosen from its 'requires' and 'uses' keys.
         let mut task_regions = [0; 8];
