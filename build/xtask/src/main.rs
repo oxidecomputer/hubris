@@ -45,12 +45,15 @@ enum Xtask {
         verbose: bool,
         /// Run `cargo tree --edges features ...` before each invocation of
         /// `cargo rustc ...`
-        #[clap(short, long)]
+        #[clap(short, long, conflicts_with = "list")]
         edges: bool,
+        /// Print a list of all tasks
+        #[clap(short, long)]
+        list: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
         /// Name of task(s) to build.
-        #[clap(min_values = 1)]
+        #[clap(min_values = 1, conflicts_with = "list")]
         tasks: Vec<String>,
     },
 
@@ -173,10 +176,15 @@ fn run(xtask: Xtask) -> Result<()> {
         Xtask::Build {
             verbose,
             edges,
+            list,
             cfg,
             tasks,
         } => {
-            dist::package(verbose, edges, &cfg, Some(tasks))?;
+            if list {
+                dist::list_tasks(&cfg)?;
+            } else {
+                dist::package(verbose, edges, &cfg, Some(tasks))?;
+            }
         }
         Xtask::Flash { mut args } => {
             dist::package(args.verbose, false, &args.cfg, None)?;

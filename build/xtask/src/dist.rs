@@ -162,6 +162,24 @@ impl PackageConfig {
     }
 }
 
+pub fn list_tasks(app_toml: &Path) -> Result<()> {
+    let toml = Config::from_file(app_toml)?;
+    let pad = toml
+        .tasks
+        .keys()
+        .map(String::as_str)
+        .chain(std::iter::once("kernel"))
+        .map(|m| m.len())
+        .max()
+        .unwrap_or(1);
+    println!("  {:<pad$}  CRATE", "TASK", pad = pad);
+    println!("  {:<pad$}  {}", "kernel", toml.kernel.name, pad = pad);
+    for (name, task) in toml.tasks {
+        println!("  {:<pad$}  {}", name, task.name, pad = pad);
+    }
+    Ok(())
+}
+
 pub fn package(
     verbose: bool,
     edges: bool,
