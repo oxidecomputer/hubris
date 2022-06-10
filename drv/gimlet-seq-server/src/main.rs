@@ -407,8 +407,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 uart_sp_to_sp3_disable();
 
-                let a1a0 = Reg::PWRCTRL::A0C_DIS;
-                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+                let a1a0 = Reg::PWRCTRL::A1PWREN | Reg::PWRCTRL::A0A_EN;
+                self.seq.clear_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
                 if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::SP) {
