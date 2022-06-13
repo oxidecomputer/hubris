@@ -137,7 +137,7 @@ enum Trace {
     EnqueuedMsg(usize),
     EnqueueFail,
     EnqueueTooBig,
-    GetThePayload,
+    GetThePayload(usize),
     HeaderCollect,
     HeaderComplete,
     HeaderOnly,
@@ -145,9 +145,8 @@ enum Trace {
     InvalidRxState(RxState),
     Irq(bool, bool, bool),
     Line,
-    EndOfFrame,
-    SsaClear,
-    SsdClear,
+    SSAsserted,
+    SSDeasserted,
     Loop(u16, u16, TxState, RxState),
     LStat(bool, bool, bool, bool, bool, bool, bool, u8, u8),
     PayloadComplete,
@@ -175,7 +174,6 @@ struct TxContext<'a> {
     count: usize,  // index for transmit
     end: usize,    // end of packet index
     rot_irq: bool, // Track ROT_IRQ state
-    inframe: bool, // true when SP has CSn asserted.
 }
 
 struct RxContext<'a> {
@@ -199,7 +197,6 @@ impl<'a> TxContext<'a> {
             count: 0,
             end: 0,
             rot_irq: false,
-            inframe: false,
         }
     }
 
@@ -326,7 +323,7 @@ impl<'a> RxContext<'a> {
                         ringbuf_entry!(Trace::HeaderOnly);
                     } else {
                         self.state = RxState::Payload;
-                        ringbuf_entry!(Trace::GetThePayload);
+                        ringbuf_entry!(Trace::GetThePayload(self.end));
                     }
                 }
             }
@@ -389,9 +386,7 @@ fn main() -> ! {
     // Configure ROT_IRQ
     let rot_irq = Pin::PIO0_18; // XXX Should be in app.toml
                                // Direction must be set after other pin configuration.
-    if gpio.set_dir(rot_irq, Direction::Output).is_err() {
-        panic!();
-    }
+    gpio.set_dir(rot_irq, Direction::Output).unwrap_lite();
     // At the begining, we are ready to receive and have nothing to transmit.
     // Ensure that ROT_IRQ is not asserted
     gpio.set_val(rot_irq, Value::One).unwrap_lite();
@@ -402,9 +397,7 @@ fn main() -> ! {
     // to reset the SP.
 
     let sp_reset = Pin::PIO0_9; // XXX Should be in app.toml
-    if gpio.set_dir(sp_reset, Direction::Input).is_err() {
-        panic!();
-    }
+    gpio.set_dir(sp_reset, Direction::Input).unwrap_lite();
     // TODO: SP reset and reset detection don't have to be here,
     // However, SP reset will affect Sprockets state, so here may be good.
     // TODO: Detect SP reset events and invalidate any trust/session that may exist.
@@ -447,10 +440,23 @@ fn main() -> ! {
     pub const CRC32: Crc<u32> = Crc::<u32>::new(&CRC_32_CKSUM);
     let bootrom_crc32 = CRC32.checksum(&bootrom().data[..]).to_le_bytes();
 
+    let (
+        mut prev_txerr,
+        mut prev_rxerr,
+        mut prev_perint,
+        mut prev_txempty,
+        mut prev_txnotfull,
+        mut prev_rxnotempty,
+        mut prev_rxfull,
+        mut prev_txlvl,
+        mut prev_rxlvl,
+    ) = (false, false, false, false, false, false, false, 0u8, 0u8);
+
+    // true when SP has CSn asserted.
+    let mut inframe = false;  
+
     loop {
-        if sys_recv_closed(&mut [], 1, TaskId::KERNEL).is_err() {
-            panic!()
-        }
+        sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap_lite();
 
         // Note: SP RESET needs to be monitored, otherwise, any
         // forced looping here could be a denial of service attack against
@@ -458,27 +464,27 @@ fn main() -> ! {
         // security related state means a compromised SP could operate using
         // the trust gained in the previous session.
         // Upper layers may mitigate that, but check on it.
-        olc = olc.wrapping_add(1u16);
+        olc = olc.wrapping_add(1u16);   // Outer Loop Count
         let mut ilc = 0u16;
         loop {
-            ilc = ilc.wrapping_add(1u16);
+            ilc = ilc.wrapping_add(1u16);   // Inner Loop Count
             let mut again = false;
 
-            let (ssa, ssd, mstidle) = spi.intstat();
+            let (ssa, ssd, _mstidle) = spi.intstat();
             if ssa {
-                ringbuf_entry!(Trace::SsaClear);
+                ringbuf_entry!(Trace::SSAsserted);
                 spi.ssa_clear();
                 // We could call rctx.ready() here,
                 // but the sot flag serves that purpose.
                 // Fielding the SSA interrupt may get us ready sooner.
                 // TODO: measure interrupt latency to process first Rx byte.
                 // XXX YY again = true;
-                tctx.inframe = true;
+                inframe = true;
             }
             if ssd {
-                ringbuf_entry!(Trace::SsdClear);
+                ringbuf_entry!(Trace::SSDeasserted);
                 spi.ssd_clear();
-                tctx.inframe = false;
+                inframe = false;
             }
 
             // ringbuf_entry!(Trace::Stat(spi.get_fifostat()));
@@ -494,24 +500,30 @@ fn main() -> ! {
                 rxlvl,
             ) = spi.stat();
 
-            if ssa
-                || ssd
-                || txerr
-                || rxerr
-                || perint
-                || txempty
-                || txnotfull
-                || rxnotempty
-                || rxfull
-                || txlvl != 8
-                || rxlvl != 0
-            {
+            if (prev_txerr != prev_txerr) ||
+                (prev_rxerr !=  prev_rxerr) ||
+                (prev_perint !=  prev_perint) ||
+                (prev_txempty !=  prev_txempty) ||
+                (prev_txnotfull !=  prev_txnotfull) ||
+                (prev_rxnotempty !=  prev_rxnotempty) ||
+                (prev_rxfull !=  prev_rxfull) ||
+                (prev_txlvl !=  prev_txlvl) ||
+                (prev_rxlvl !=  prev_rxlvl) {
                 ringbuf_entry!(Trace::Loop(olc, ilc, tctx.state, rctx.state));
-                ringbuf_entry!(Trace::Irq(ssa, ssd, mstidle));
+                ringbuf_entry!(Trace::Irq(ssa, ssd, _mstidle));
                 ringbuf_entry!(Trace::LStat(
                     txerr, rxerr, perint, txempty, txnotfull, rxnotempty,
                     rxfull, txlvl, rxlvl
                 ));
+                prev_txerr = txerr;
+                prev_rxerr = rxerr;
+                prev_perint = perint;
+                prev_txempty = txempty;
+                prev_txnotfull = txnotfull;
+                prev_rxnotempty = rxnotempty;
+                prev_rxfull = rxfull;
+                prev_txlvl = txlvl;
+                prev_rxlvl = rxlvl;
             }
 
             // TODO: catch aborted transmissions.
@@ -520,16 +532,11 @@ fn main() -> ! {
             // Messages from the RoT to SP do not begin writing to FIFOWR
             // until the SPI bus is idle (CSn not asserted).
             // next CSn is asserted.
-            if !tctx.inframe && tctx.state == TxState::Queued {
+            if !inframe && tctx.state == TxState::Queued {
                 tctx.state = TxState::Writing;
                 spi.txerr_clear();
                 spi.enable_tx();
                 ringbuf_entry!(Trace::StartTx(ssa, ssd));
-                //if ssa {
-                // There is work to do now.
-                // XXX YY again = true;
-                //}
-                // assert IRQ
                 gpio.set_val(rot_irq, Value::Zero).unwrap_lite();
                 tctx.rot_irq = true;
                 ringbuf_entry!(Trace::AssertRotIrq);
@@ -631,10 +638,12 @@ fn main() -> ! {
             }
 
             // CSn de-assert is detected to catch the end of frame condition.
+            // If Rx end of frame occurs and no data is left in fifo to satisfy
+            // read length, then that is an error (an underrun that should have
+            // been already caught or a failure to send all the data.)
             // End of frame disagreement with count from header is cause
             // for sending an error response.
-            if ssd {
-                ringbuf_entry!(Trace::EndOfFrame);
+            if !inframe && !spi.has_byte() {
                 // The SP is not talking to us, it cannot be consuming data
                 // If we were recieving and didn't get a complete message,
                 // then we're not getting any more bytes and that could be

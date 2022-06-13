@@ -18,7 +18,6 @@ sprockets-common = {path = "../../../sprockets/common"}
 corncobs = "0.1.1"
 hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
 
-drv-spi-api = {path = "../../drv/spi-api"}
 drv-spi-msg = {path = "../../drv/spi-msg"}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
 [build-dependencies]

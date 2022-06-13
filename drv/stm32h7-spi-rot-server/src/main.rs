@@ -43,7 +43,10 @@ enum Trace {
     SprocketsMsgType,
     StatusMsgType,
     ReturnOk(MsgType, u32),
-    Waited(usize),
+    Waited(u64, u64, u64, u64, u64),
+    RotIrqTimeout,
+    RotIrqAsserted,
+    SendRecv(MsgType, usize, usize),
 }
 ringbuf!(Trace, 32, Trace::Init);
 
@@ -135,18 +138,44 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     // to queue a response.
     // XXX For better performance and power efficiency,
     // take an interrupt on ROT_IRQ falling edge with timeout.
-    let mut limit = 1000_usize; // XXX Time limit is arbitrary.
+    // Sprockets::get_measurements took 133.4ms on Gemini
+    // let mut limit = 1250000_usize; // 1.04ms Time limit is somewhat arbitrary.
+    // const LIMIT_START: usize = 25000000; // 1.99ms @ sleep_for(1);
+    // const LIMIT_START: usize = 1_000_000_000; // 1.73ms @ sleep_for(1)
+    // const LIMIT_START: usize = 1_000_000_000; // 2.02ms @ sleep_for(2)
+    // const LIMIT_START: usize = 1_000_000_000; // 1.59ms @ sleep_for(10)
+    const LIMIT_START: u64 = 1_000_000_000;
+    const NAP: u64 = 1;
+    let mut limit = LIMIT_START; // 1.04ms Time limit is somewhat arbitrary.
+                                  // TODO: put timelimit in Status
+    let start: u64 = sys_get_timer().now;
+    let mut stats: [u64; 4] = [0; 4]; // zero, NAP/4, NAP, >NAP
     loop {                  // Use interrupt instead of polling.
         if 0 == server.sys.gpio_read(ROT_IRQ).unwrap_lite() {
+            ringbuf_entry!(Trace::RotIrqAsserted);
             break;
         }
         limit -= 1;
         if limit == 0 {
-            panic!();
+            ringbuf_entry!(Trace::RotIrqTimeout);
+            break;
         }
-        hl::sleep_for(1);
+        let pre = sys_get_timer().now;
+        hl::sleep_for(NAP);
+        let delta = sys_get_timer().now - pre;
+        if delta == 0 {
+            stats[0] += 1;
+        } else if delta <= NAP/4 {
+            stats[1] += 1;
+        } else if delta <= NAP {
+            stats[2] += 1;
+        } else {
+            stats[3] += 1;
+        }
     }
-    ringbuf_entry!(Trace::Waited(1000-limit));
+    ringbuf_entry!(
+        Trace::Waited(sys_get_timer().now - start,
+          stats[0], stats[1], stats[2], stats[3]));
 
     /*
     // Unmask our interrupt.
@@ -242,8 +271,11 @@ impl idl::InOrderSpiMsgImpl for ServerImpl {
         msg.set_version();
         msg.set_len(source.len());
         msg.set_msgtype(msgtype);
+        ringbuf_entry!(Trace::SendRecv(msgtype, source.len(), msg.payload_buf().len()));
+        if source.len() > msg.payload_buf().len() {
+            ringbuf_entry!(Trace::Line);
+        }
         // Read the message into our local buffer offset by the header size
-        ringbuf_entry!(Trace::Line);
         source
             .read_range(
                 0..source.len(),

@@ -9,22 +9,20 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
-use drv_spi_api::{CsState, Spi, SpiError};
+// use drv_spi_api::{CsState, Spi, SpiError};
 use drv_spi_msg::*;
 use drv_usart::Usart;
 use ringbuf::*;
 use tinyvec::SliceVec;
 use userlib::*;
 
-use corncobs;
+//use corncobs;
 use hubpack::{serialize, SerializedSize};
 use sprockets_common::msgs::{
     RotError, RotRequestV1, RotResponseV1, RotResultV1,
 };
 
-const SPI_TO_ROT_DEVICE: u8 = 0;
-
-task_slot!(SPI, spi_driver);
+task_slot!(SPI_ROT, spi_rot);
 task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,19 +31,9 @@ enum Trace {
     TxFull,
     Rx(u8),
     RxOverrun,
-    ValidReq,
-    JunkReq,
     AboutToDecode,
     TooLarge,
-    FailedToHandle,
     RotRequestSize(usize),
-    RspLen(usize),
-    BadProtocol(u8),
-    BadMessageLength(usize),
-    SpiError(SpiError),
-    Data(u8, u8, u8, u8),
-    SpiMsgError(MsgError),
-    Line,
 }
 
 ringbuf!(Trace, 64, Trace::Rx(0));
@@ -75,15 +63,12 @@ fn main() -> ! {
     req_buf.set_len(0);
     let mut rsp_buf = SliceVec::from(&mut rsp_buf_backing);
 
-    // This holds framed messages from SPI
-    let mut spi_buf = [0u8; RotResponseV1::MAX_SIZE + SPI_HEADER_SIZE];
-
     // TODO: Prevent the need for this by using corncobs::encode_iter
     let mut rsp_buf_encoded = SliceVec::from(&mut rsp_buf_encoded_backing);
 
     let mut need_to_tx: Option<(&SliceVec<u8>, usize)> = None;
 
-    let mut spi = Spi::from(SPI.get_task_id()).device(SPI_TO_ROT_DEVICE);
+    let spirot = drv_spi_msg::SpiMsg::from(SPI_ROT.get_task_id());
 
     sys_irq_control(USART_IRQ, true);
 
@@ -127,7 +112,28 @@ fn main() -> ! {
 
             // Keep looking for 0, as we are using COBS for framing.
             if byte == 0 {
-                handle_req(&mut spi, &mut spi_buf, &mut req_buf, &mut rsp_buf);
+                ringbuf_entry!(Trace::AboutToDecode);
+                if decode_frame(&mut req_buf).is_err()  {
+                    err_rsp(RotError::BadEncoding, &mut rsp_buf);
+                }
+                // Make the slice large enough to write into
+                rsp_buf.set_len(rsp_buf.capacity());
+
+                match spirot.send_recv(MsgType::Sprockets,
+                    req_buf.as_slice(), rsp_buf.as_mut_slice()) {
+                    Ok(r) => {
+                        let msgtype: MsgType = r[0].into();
+                        let len = r[1];
+                        match msgtype {
+                            drv_spi_msg::MsgType::Sprockets => rsp_buf.set_len(len as usize),
+                            _ => err_rsp(RotError::SpiError, &mut rsp_buf),
+                        }
+                    }
+                    Err(_err) => {
+                        err_rsp(RotError::SpiError, &mut rsp_buf);
+                    },
+                }
+
                 uart.enable_tx_fifo_empty_interrupt();
                 rsp_buf_encoded.set_len(rsp_buf_encoded.capacity());
                 let size = corncobs::encode_buf(
@@ -167,104 +173,6 @@ fn main() -> ! {
     }
 }
 
-fn handle_req(
-    spi: &mut drv_spi_api::SpiDevice,
-    spi_buf: &mut [u8],
-    req_buf: &mut SliceVec<u8>,
-    rsp_buf: &mut SliceVec<u8>,
-) {
-    ringbuf_entry!(Trace::AboutToDecode);
-    if let Err(_) = decode_frame(req_buf) {
-        err_rsp(RotError::BadEncoding, rsp_buf);
-    }
-    // Make the slice large enough to write into
-    rsp_buf.set_len(rsp_buf.capacity());
-
-    match spi_send_recv(spi, spi_buf, req_buf.as_slice()) {
-        Ok(len) => {
-            rsp_buf.set_len(len);
-            rsp_buf.as_mut_slice().copy_from_slice(
-                &spi_buf[SPI_HEADER_SIZE..SPI_HEADER_SIZE + len],
-            );
-        }
-        Err(()) => err_rsp(RotError::SpiError, rsp_buf),
-    }
-}
-
-fn spi_send_recv(
-    spi: &mut drv_spi_api::SpiDevice,
-    spi_buf: &mut [u8],
-    req_buf: &[u8],
-) -> Result<usize, ()> {
-    // TODO: This is a lot of boilerplate for every message.
-    let mut msg = drv_spi_msg::Msg::parse(&mut spi_buf[..]).unwrap_lite();
-    msg.set_version();
-    msg.set_len(req_buf.len());
-    msg.set_msgtype(MsgType::Sprockets);
-    msg.payload_buf()[..req_buf.len()].copy_from_slice(req_buf);
-    let len = msg.len();
-
-    ringbuf_entry!(Trace::Data(spi_buf[0], spi_buf[1], spi_buf[2], spi_buf[3]));
-
-    if let Err(spi_error) = spi.write(&spi_buf[..len]) {
-        // XXX this does not return
-        ringbuf_entry!(Trace::SpiError(spi_error));
-        return Err(());
-    }
-    ringbuf_entry!(Trace::Line);
-
-    // Right now, we sleep for what should be long enough for the RoT
-    // to queue a response. In the future, we need to watch ROT_IRQ.
-    hl::sleep_for(1); // XXX 1 ms is arbitrary, IRQ will remove need.
-    ringbuf_entry!(Trace::Line);
-
-    spi.lock(CsState::Asserted).map_err(|_| ())?;
-    ringbuf_entry!(Trace::Line);
-
-    // Read header
-    if let Err(spi_error) = spi.read(&mut spi_buf[0..SPI_HEADER_SIZE]) {
-        ringbuf_entry!(Trace::SpiError(spi_error));
-        spi.release().unwrap_lite();
-        return Err(());
-    }
-
-    ringbuf_entry!(Trace::Data(spi_buf[0], spi_buf[1], spi_buf[2], spi_buf[3]));
-
-    let msg = Msg::parse(&mut spi_buf[..]).unwrap_lite();
-    if !msg.is_supported_version() {
-        ringbuf_entry!(Trace::BadProtocol(spi_buf[0]));
-        spi.release().unwrap_lite();
-        return Err(());
-    }
-    let rlen = msg.payload_len();
-    ringbuf_entry!(Trace::RspLen(rlen));
-    if rlen > spi_buf.len() - SPI_HEADER_SIZE {
-        ringbuf_entry!(Trace::BadMessageLength(rlen));
-        spi.release().unwrap_lite();
-        return Err(());
-    }
-    if let Err(spi_error) =
-        spi.read(&mut spi_buf[SPI_HEADER_SIZE..SPI_HEADER_SIZE + rlen])
-    {
-        ringbuf_entry!(Trace::SpiError(spi_error));
-        spi.release().unwrap_lite();
-        return Err(());
-    }
-    spi.release().unwrap_lite();
-
-    let msg = Msg::parse(&mut spi_buf[0..rlen + SPI_HEADER_SIZE]).unwrap_lite();
-    match msg.payload_get() {
-        Err(err) => {
-            ringbuf_entry!(Trace::SpiMsgError(err));
-            Err(())
-        }
-        Ok(buf) => {
-            assert_eq!(buf.len(), rlen);
-            Ok(buf.len())
-        }
-    }
-}
-
 // Serialize an Error response for a spi related error
 fn err_rsp(err: RotError, rsp_buf: &mut SliceVec<u8>) {
     // Make the slice large enough to write into
@@ -281,12 +189,12 @@ fn err_rsp(err: RotError, rsp_buf: &mut SliceVec<u8>) {
 }
 
 // Decode a corncobs frame
-fn decode_frame(req_buf: &mut SliceVec<u8>) -> Result<(), RotError> {
+fn decode_frame(req_buf: &mut SliceVec<u8>) -> Result<usize, RotError> {
     let size = corncobs::decode_in_place(req_buf.as_mut_slice())
         .map_err(|_| RotError::BadEncoding)?;
     req_buf.set_len(size);
     ringbuf_entry!(Trace::RotRequestSize(size));
-    Ok(())
+    Ok(size)
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
