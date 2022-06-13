@@ -156,6 +156,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-buffer"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bf7fe51849ea569fd452f37822f606a5cabb684dc918707a0193fd4664ff324"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "bstringify"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -455,6 +464,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crypto-common"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bfb12502f3fc46cca1bb51ac28df9d618d813cdc3d2f25b9fe775a34af26bb3"
+dependencies = [
+ "generic-array",
+ "typenum",
+]
+
+[[package]]
 name = "crypto-mac"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -639,6 +658,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "digest"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
+dependencies = [
+ "block-buffer 0.10.2",
+ "crypto-common",
+]
+
+[[package]]
 name = "drv-eeprom"
 version = "0.1.0"
 dependencies = [
@@ -818,7 +847,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-onewire",
  "num-traits",
- "pmbus 0.1.0 (git+https://github.com/oxidecomputer/pmbus)",
+ "pmbus",
  "ringbuf",
  "userlib",
  "zerocopy",
@@ -1707,15 +1736,6 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hif"
-version = "0.2.3"
-dependencies = [
- "pkg-version",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "hif"
 version = "0.3.1"
 source = "git+https://github.com/oxidecomputer/hif#34aace65cbf458129dcd8007715a94bc488b2931"
 dependencies = [
@@ -1731,7 +1751,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
 dependencies = [
  "crypto-mac 0.10.1",
- "digest",
+ "digest 0.9.0",
 ]
 
 [[package]]
@@ -1741,7 +1761,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
  "crypto-mac 0.11.1",
- "digest",
+ "digest 0.9.0",
 ]
 
 [[package]]
@@ -1823,6 +1843,12 @@ name = "itoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
+
+[[package]]
+name = "keccak"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 
 [[package]]
 name = "kern"
@@ -2357,20 +2383,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "convert_case 0.3.2",
- "libm",
- "num-derive",
- "num-traits",
- "ron 0.6.6",
- "serde",
- "serde_with",
-]
-
-[[package]]
-name = "pmbus"
-version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/pmbus#1907e4470c84f7dfd86e8ca9a910f97ce548076e"
 dependencies = [
  "anyhow",
@@ -2609,7 +2621,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c2603e2823634ab331437001b411b9ed11660fbc4066f3908c84a9439260d"
 dependencies = [
  "byteorder",
- "digest",
+ "digest 0.9.0",
  "lazy_static",
  "num-bigint-dig",
  "num-integer",
@@ -2792,11 +2804,21 @@ version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.9.0",
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.9.0",
  "opaque-debug",
+]
+
+[[package]]
+name = "sha3"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a31480366ec990f395a61b7c08122d99bd40544fdb5abcfc1b06bb29994312c"
+dependencies = [
+ "digest 0.10.3",
+ "keccak",
 ]
 
 [[package]]
@@ -2821,7 +2843,7 @@ version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2807892cfa58e081aa1f1111391c7a0649d4fa127a4ffbe34bcbfb35a1171a4"
 dependencies = [
- "digest",
+ "digest 0.9.0",
  "rand_core",
 ]
 
@@ -2840,14 +2862,6 @@ dependencies = [
  "bitflags",
  "byteorder",
  "managed",
-]
-
-[[package]]
-name = "spd"
-version = "0.1.0"
-dependencies = [
- "num-derive",
- "num-traits",
 ]
 
 [[package]]
@@ -3058,7 +3072,7 @@ dependencies = [
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hif 0.3.1",
+ "hif",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
@@ -3283,6 +3297,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-sp-measure"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "drv-sp-ctrl-api",
+ "idol",
+ "quote",
+ "ringbuf",
+ "serde",
+ "sha3",
+ "userlib",
+]
+
+[[package]]
 name = "task-spd"
 version = "0.1.0"
 dependencies = [
@@ -3296,7 +3325,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "spd 0.1.0 (git+https://github.com/oxidecomputer/spd)",
+ "spd",
  "stm32h7",
  "userlib",
 ]

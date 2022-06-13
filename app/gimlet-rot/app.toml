@@ -119,4 +119,14 @@ pins = [
 ]
 spi_num = 5
 
+# We intentionally do not start this task to avoid conflicts with the SP
+# debug connection.
+[tasks.sp_measure]
+name = "task-sp-measure"
+priority = 5
+max-sizes = {flash = 32768, ram = 8192}
+task-slots = ["swd"]
+stacksize = 2048
 
+[tasks.sp_measure.config]
+binary_path = "../../target/gimlet-b/dist/default/final.bin"

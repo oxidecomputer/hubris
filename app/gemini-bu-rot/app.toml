@@ -152,4 +152,12 @@ stacksize = 2048
 start = true
 task-slots = ["gpio_driver", "swd"]
 
+[tasks.sp_measure]
+name = "task-sp-measure"
+priority = 3
+max-sizes = {flash = 131072, ram = 8192}
+task-slots = ["swd"]
+stacksize = 2048
 
+[tasks.sp_measure.config]
+binary_path = "../../target/gemini-bu/dist/final.bin"
