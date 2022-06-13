@@ -182,11 +182,5 @@ pub mod Reg {{
 }
 
 fn compress(input: &[u8]) -> Vec<u8> {
-    let mut output = vec![];
-    gnarle::compress(input, |chunk| {
-        output.extend_from_slice(chunk);
-        Ok::<_, std::convert::Infallible>(())
-    })
-    .ok();
-    output
+    miniz_oxide::deflate::compress_to_vec(input, 8)
 }

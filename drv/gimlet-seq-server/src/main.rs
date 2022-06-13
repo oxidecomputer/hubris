@@ -18,6 +18,7 @@ use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
 use idol_runtime::RequestError;
+use miniz_oxide::inflate;
 use seq_spi::{Addr, Reg};
 use task_jefe_api::Jefe;
 
@@ -452,16 +453,23 @@ fn reprogram_fpga(
 ) -> Result<(), ice40::Ice40Error> {
     ice40::begin_bitstream_load(&spi, &sys, &config)?;
 
-    // We've got the bitstream in Flash, so we can technically just send it in
-    // one transaction, but we'll want chunking later -- so let's make sure
-    // chunking works.
-    let mut bitstream = COMPRESSED_BITSTREAM;
-    let mut decompressor = gnarle::Decompressor::default();
-    let mut chunk = [0; 256];
-    while !bitstream.is_empty() || !decompressor.is_idle() {
-        let out =
-            gnarle::decompress(&mut decompressor, &mut bitstream, &mut chunk);
-        ice40::continue_bitstream_load(&spi, out)?;
+    let mut decompressor = inflate::core::DecompressorOxide::new();
+    let mut in_pos: usize = 0;
+    loop {
+        let mut chunk = [0; 256];
+        let (status, in_read, out_written) =
+            inflate::core::decompress(
+                &mut decompressor,
+                &COMPRESSED_BITSTREAM[in_pos..],
+                &mut chunk,
+                0, // out_pos
+                inflate::core::inflate_flags::TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+            );
+        ice40::continue_bitstream_load(&spi, &chunk[..out_written])?;
+        in_pos += in_read as usize;
+        if status == inflate::TINFLStatus::Done {
+            break;
+        }
     }
 
     ice40::finish_bitstream_load(&spi, &sys, &config)

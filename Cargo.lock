@@ -743,6 +743,7 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
+ "miniz_oxide 0.5.3",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1430,7 +1431,7 @@ dependencies = [
  "cfg-if",
  "crc32fast",
  "libc",
- "miniz_oxide",
+ "miniz_oxide 0.4.4",
 ]
 
 [[package]]
@@ -1887,6 +1888,14 @@ checksum = "a92518e98c078586bc6c934028adcca4c92a53d6a958196de835170a01d84e4b"
 dependencies = [
  "adler",
  "autocfg 1.0.1",
+]
+
+[[package]]
+name = "miniz_oxide"
+version = "0.5.3"
+source = "git+https://github.com/oxidecomputer/miniz_oxide.git?branch=with-alloc#a6c620bf8114166a74a7e512478447f6de93130c"
+dependencies = [
+ "adler",
 ]
 
 [[package]]
