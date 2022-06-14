@@ -9,6 +9,7 @@ vlan = ["build-net/vlan"]
 
 [dependencies]
 derive-idol-err = {path = "../../lib/derive-idol-err" }
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 userlib = {path = "../../sys/userlib"}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}

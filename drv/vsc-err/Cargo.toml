@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 drv-spi-api = {path = "../spi-api"}
 task-net-api = {path = "../../task/net-api", optional = true }
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 mgmt = ["task-net-api"]

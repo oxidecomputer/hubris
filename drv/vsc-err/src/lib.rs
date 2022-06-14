@@ -10,16 +10,13 @@
 #![no_std]
 
 use drv_spi_api::SpiError;
-
-#[cfg(feature = "mgmt")]
-use task_net_api::NetError;
+use idol_runtime::ServerDeath;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VscError {
     SpiError(SpiError),
 
-    #[cfg(feature = "mgmt")]
-    NetError(NetError),
+    ServerDied,
 
     BadChipId(u32),
     Serdes1gReadTimeout {
@@ -103,9 +100,8 @@ impl From<SpiError> for VscError {
     }
 }
 
-#[cfg(feature = "mgmt")]
-impl From<NetError> for VscError {
-    fn from(s: NetError) -> Self {
-        Self::NetError(s)
+impl From<ServerDeath> for VscError {
+    fn from(_s: ServerDeath) -> Self {
+        Self::ServerDied
     }
 }
