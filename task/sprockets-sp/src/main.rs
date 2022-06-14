@@ -119,13 +119,13 @@ fn main() -> ! {
                 // Make the slice large enough to write into
                 rsp_buf.set_len(rsp_buf.capacity());
 
-                match spirot.send_recv(MsgType::Sprockets,
+                match spirot.send_recv(MsgType::SprocketsReq,
                     req_buf.as_slice(), rsp_buf.as_mut_slice()) {
                     Ok(r) => {
                         let msgtype: MsgType = r[0].into();
                         let len = r[1];
                         match msgtype {
-                            drv_spi_msg::MsgType::Sprockets => rsp_buf.set_len(len as usize),
+                            drv_spi_msg::MsgType::SprocketsRsp => rsp_buf.set_len(len as usize),
                             _ => err_rsp(RotError::SpiError, &mut rsp_buf),
                         }
                     }

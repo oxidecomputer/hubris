@@ -48,11 +48,13 @@ pub const SPI_MSG_VERSION: u8 = 1; // Supported message format
 #[repr(u8)]
 pub enum MsgType {
     Invalid = 0,
-    Error = 1,
-    Echo = 2,
-    EchoReturn = 3,
-    Status = 4,
-    Sprockets = 5,
+    ErrorRsp = 1,
+    EchoReq = 2,
+    EchoRsp = 3,
+    StatusReq = 4,
+    StatusRsp = 5,
+    SprocketsReq = 6,
+    SprocketsRsp = 7,
     Unknown = 0xff,
 }
 
@@ -60,11 +62,13 @@ impl From<u8> for MsgType {
     fn from(msgtype: u8) -> Self {
         match msgtype {
             0 => MsgType::Invalid,
-            1 => MsgType::Error,
-            2 => MsgType::Echo,
-            3 => MsgType::EchoReturn,
-            4 => MsgType::Status,
-            5 => MsgType::Sprockets,
+            1 => MsgType::ErrorRsp,
+            2 => MsgType::EchoReq,
+            3 => MsgType::EchoRsp,
+            4 => MsgType::StatusReq,
+            5 => MsgType::StatusRsp,
+            6 => MsgType::SprocketsReq,
+            7 => MsgType::SprocketsRsp,
             _ => MsgType::Unknown,
         }
     }
@@ -74,11 +78,13 @@ impl From<u32> for MsgType {
     fn from(msgtype: u32) -> Self {
         match msgtype {
             0 => MsgType::Invalid,
-            1 => MsgType::Error,
-            2 => MsgType::Echo,
-            3 => MsgType::EchoReturn,
-            4 => MsgType::Status,
-            5 => MsgType::Sprockets,
+            1 => MsgType::ErrorRsp,
+            2 => MsgType::EchoReq,
+            3 => MsgType::EchoRsp,
+            4 => MsgType::StatusReq,
+            5 => MsgType::StatusRsp,
+            6 => MsgType::SprocketsReq,
+            7 => MsgType::SprocketsRsp,
             _ => MsgType::Unknown,
         }
     }
@@ -91,6 +97,8 @@ pub struct MsgHeader {
     len_lsb: u8,
     len_msb: u8,
     msgtype: u8,
+    // TODO: Should there be a CRC here and what strength?
+    // CRCxx(version|len_lsb|len_msb|payload)
 }
 pub const SPI_HEADER_SIZE: usize = core::mem::size_of::<MsgHeader>();
 pub const MAX_SPI_MSG_PAYLOAD_SIZE: usize = 512;

@@ -7,7 +7,6 @@
 
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 // use idol_runtime::{NotificationHandler, ClientError, Leased, RequestError, R, W};
-// TODO: This should be in drv/oxide-spi-sp-rot or some such
 use drv_spi_api::{CsState, Spi, SpiError};
 use drv_spi_msg::*;
 use drv_stm32xx_sys_api as sys_api;
@@ -32,16 +31,12 @@ const ROT_IRQ: sys_api::PinSet  = sys_api::PinSet {
 enum Trace {
     Init,
     BadMessageLength(usize),
-    _BadMessageType(drv_spi_msg::MsgType),
     BadProtocol(u8),
     RspLen(usize),
     SpiError(SpiError),
     Data(u8, u8, u8, u8),
     GpioPort(u16, u16),
     Line,
-    EchoMsgType,
-    SprocketsMsgType,
-    StatusMsgType,
     ReturnOk(MsgType, u32),
     Waited(u64, u64, u64, u64, u64),
     RotIrqTimeout,
@@ -52,7 +47,6 @@ ringbuf!(Trace, 32, Trace::Init);
 
 #[export_name = "main"]
 fn main() -> ! {
-    ringbuf_entry!(Trace::Line);
     let spi = Spi::from(SPI.get_task_id()).device(SPI_TO_ROT_DEVICE);
     let sys = sys_api::Sys::from(SYS.get_task_id());
 
@@ -68,30 +62,23 @@ fn main() -> ! {
     };
 
     loop {
-        ringbuf_entry!(Trace::Line);
         idol_runtime::dispatch(&mut buffer, &mut server);
-        ringbuf_entry!(Trace::Line);
     }
 }
 
 fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
-    // The server struct contains a message to be transmitted to the RoT.
-    // The same buffer will hold the response from the RoT.
     ringbuf_entry!(Trace::Data(
-        server.message[0],
-        server.message[1],
-        server.message[2],
-        server.message[3]
+        server.message[0],  // Protocol == 1
+        server.message[1],  // Payload size LSB
+        server.message[2],  // Payload size MSB
+        server.message[3]   // MsgType
     ));
     let msg = Msg::parse(&mut server.message[..]).unwrap_lite();
     if !msg.is_supported_version() {
         return Err(MsgError::BadMessageType);
     }
-    ringbuf_entry!(Trace::Line);
     match msg.msgtype() {
-        MsgType::Echo => ringbuf_entry!(Trace::EchoMsgType),
-        MsgType::Sprockets => ringbuf_entry!(Trace::SprocketsMsgType),
-        MsgType::Status => ringbuf_entry!(Trace::StatusMsgType),
+        MsgType::EchoReq | MsgType::SprocketsReq | MsgType::StatusReq => (),
         _ => {
             ringbuf_entry!(Trace::Line);
             return Err(MsgError::BadMessageType);
@@ -139,12 +126,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     // XXX For better performance and power efficiency,
     // take an interrupt on ROT_IRQ falling edge with timeout.
     // Sprockets::get_measurements took 133.4ms on Gemini
-    // let mut limit = 1250000_usize; // 1.04ms Time limit is somewhat arbitrary.
-    // const LIMIT_START: usize = 25000000; // 1.99ms @ sleep_for(1);
-    // const LIMIT_START: usize = 1_000_000_000; // 1.73ms @ sleep_for(1)
-    // const LIMIT_START: usize = 1_000_000_000; // 2.02ms @ sleep_for(2)
-    // const LIMIT_START: usize = 1_000_000_000; // 1.59ms @ sleep_for(10)
-    const LIMIT_START: u64 = 1_000_000_000;
+    const LIMIT_START: u64 = 1_000_000;
     const NAP: u64 = 1;
     let mut limit = LIMIT_START; // 1.04ms Time limit is somewhat arbitrary.
                                   // TODO: put timelimit in Status

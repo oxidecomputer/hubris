@@ -288,10 +288,11 @@ impl<'a> RxContext<'a> {
                     _ => {
                         // Form an error response unless Tx is sending something
                         // valid.
-                        if tx.enqueue(MsgType::Error, EnqueueBuf::Copy(&self.rx[0..1])) {
+                        if tx.enqueue(MsgType::ErrorRsp,
+                            EnqueueBuf::Copy(&self.rx[0..1])) {
                             ringbuf_entry!(Trace::Enqueued);
                             self.state = RxState::Dispatch; // or RxState::Error?
-                                                            // TODO: a documented error type should be the first byte.
+                            // TODO: a documented error type should be the first byte.
                         } else {
                             // We received garbage at sot but Tx was not idle.
                             ringbuf_entry!(Trace::EnqueueFail);
@@ -314,7 +315,7 @@ impl<'a> RxContext<'a> {
                         //let mut buf = [0u8; SPI_HEADER_SIZE];
                         //buf[..SPI_HEADER_SIZE].clone_from_slice(&self.rx[..SPI_HEADER_SIZE]);
 
-                        if tx.enqueue(MsgType::Error,
+                        if tx.enqueue(MsgType::ErrorRsp,
                             EnqueueBuf::Copy(&self.rx[0..SPI_HEADER_SIZE])) {
                             self.state = RxState::Dispatch;
                         }
@@ -655,7 +656,7 @@ fn main() -> ! {
                     rctx.state == RxState::Payload {
                         // XXX include a more useful error response?
                         ringbuf_entry!(Trace::RxFragment);
-                        if tctx.enqueue(MsgType::Error, EnqueueBuf::Empty) {
+                        if tctx.enqueue(MsgType::ErrorRsp, EnqueueBuf::Empty) {
                             ringbuf_entry!(Trace::CannotSendRxFragError);
                             rctx.state = RxState::Dispatch;
                             // XXX YY again = true;
@@ -683,18 +684,18 @@ fn main() -> ! {
                         // Invalid message protocol and length are already
                         // handled in rx_byte().
                         match rmsg.msgtype() {
-                            MsgType::Status => {
+                            MsgType::StatusReq => {
                                 ringbuf_entry!(Trace::RespondToStatus);
-                                tctx.enqueue(MsgType::Status, EnqueueBuf::Copy(&bootrom_crc32[..]));
+                                tctx.enqueue(MsgType::StatusRsp, EnqueueBuf::Copy(&bootrom_crc32[..]));
                                 again = true;
                             },
-                            MsgType::Echo => {
+                            MsgType::EchoReq => {
                                 ringbuf_entry!(Trace::RespondToEcho);
-                                tctx.enqueue(MsgType::EchoReturn,
+                                tctx.enqueue(MsgType::EchoRsp,
                                     EnqueueBuf::Copy(rmsg.payload_get().unwrap_lite()));
                                 again = true;
                             }
-                            MsgType::Sprockets => {
+                            MsgType::SprocketsReq => {
                                 ringbuf_entry!(Trace::RespondToSprockets);
                                 let rsp_buf = &mut tctx.tx[SPI_HEADER_SIZE..];
                                 let size = match sprocket.handle(
@@ -715,13 +716,14 @@ fn main() -> ! {
                                     }
                                 };
 
-                                tctx.enqueue(MsgType::Sprockets, EnqueueBuf::TxBuf(size));
+                                tctx.enqueue(MsgType::SprocketsRsp,
+                                    EnqueueBuf::TxBuf(size));
                                 again = true;
                             },
                             _ => {
                                 // The message received was an unknown type.
                                 ringbuf_entry!(Trace::RespondToUnknown);
-                                tctx.enqueue(MsgType::Error, EnqueueBuf::Empty);
+                                tctx.enqueue(MsgType::ErrorRsp, EnqueueBuf::Empty);
                             }
                         }
                     }

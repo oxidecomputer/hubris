@@ -293,7 +293,7 @@ pub(crate) fn spi_rot_send_recv(
     let result =
         func_err(server.send_recv(msgtype, &data[0..len], &mut rval[..]))?;
     match msg::MsgType::from(result[0]) {
-        msg::MsgType::EchoReturn | msg::MsgType::Status | msg::MsgType::Sprockets => {
+        msg::MsgType::EchoRsp | msg::MsgType::StatusRsp | msg::MsgType::SprocketsRsp => {
             Ok(result[1] as usize)
         }
         _ => {
