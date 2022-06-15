@@ -112,6 +112,7 @@ members = [
     "drv/hash-api",
     "drv/eeprom",
     "drv/stm32h7-hash-server",
+    "drv/stm32h7-spi-rot-server",
     "drv/rng-api",
     "drv/sp-ctrl-api",
 

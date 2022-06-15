@@ -138,6 +138,8 @@ pub enum Functions {
     FinishUpdate((), drv_update_api::UpdateError),
     #[cfg(feature = "update")]
     BlockSize((), drv_update_api::UpdateError),
+    #[cfg(feature = "spi-rot")]
+    SpirotSendRecv((u32, u32), drv_spi_api::SpiError),
 }
 
 #[cfg(feature = "i2c")]
@@ -595,6 +597,8 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::finish_update,
     #[cfg(feature = "update")]
     crate::common::block_size,
+    #[cfg(feature = "spi-rot")]
+    crate::common::spi_rot_send_recv,
 ];
 
 //

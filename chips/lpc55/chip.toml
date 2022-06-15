@@ -49,3 +49,7 @@ size = 4096
 [flash]
 address = 0x50034000
 size = 0x1000
+
+[bootrom]
+address = 0x03000000
+size = 0x10000

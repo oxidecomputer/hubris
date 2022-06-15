@@ -394,6 +394,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
 name = "crc-any"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -401,6 +410,12 @@ checksum = "073375684a58dece169afbdc9879a027f3698118ad3814938316c6002b7aa921"
 dependencies = [
  "debug-helper",
 ]
+
+[[package]]
+name = "crc-catalog"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
@@ -880,10 +895,13 @@ version = "0.1.0"
 dependencies = [
  "build-lpc55pins",
  "build-util",
+ "crc",
  "drv-lpc55-gpio-api",
  "drv-lpc55-spi",
  "drv-lpc55-syscon-api",
+ "drv-spi-msg",
  "lpc55-pac",
+ "lpc55_romapi",
  "num-traits",
  "ringbuf",
  "serde",
@@ -1069,6 +1087,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-spi-msg"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-stm32fx-rcc"
 version = "0.1.0"
 dependencies = [
@@ -1209,6 +1239,22 @@ dependencies = [
  "ringbuf",
  "stm32h7",
  "vcell",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32h7-spi-rot-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-spi-api",
+ "drv-spi-msg",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
  "zerocopy",
 ]
 
@@ -2586,18 +2632,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.130"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f12d06de37cf59146fbdecab66aa99f9fe4f78722e3607577a5375d66bd0c913"
+checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.130"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7bc1a1ab1961464eae040d96713baa5a724a8152c1222492465b54322ec508b"
+checksum = "08597e7152fcd306f41838ed3e37be9eaeed2b61c42e2117266a554fab4662f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2929,6 +2975,7 @@ dependencies = [
  "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
+ "drv-spi-msg",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
  "drv-update-api",

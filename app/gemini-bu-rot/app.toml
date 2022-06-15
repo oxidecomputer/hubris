@@ -108,7 +108,7 @@ pins = [
 
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
-priority = 3
+priority = 4
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
@@ -118,24 +118,29 @@ task-slots = ["syscon_driver"]
 [tasks.spi0_driver]
 name = "drv-lpc55-spi-server"
 priority = 4
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 65536, ram = 32768}
 features = ["spi0"]
-uses = ["flexcomm3", "flexcomm8"]
+uses = ["flexcomm3", "flexcomm8", "bootrom"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
-stacksize = 1000
+stacksize = 16384
 task-slots = ["gpio_driver", "syscon_driver"]
 
+# Gemini has external pullups on all of these signals.
 [tasks.spi0_driver.config]
 pins = [
 # HS_SPI_MOSI = P0_26 = FUN9
-{ pin = { port = 0, pin = 26}, alt = 9},
+{ pin = { port = 0, pin = 26}, alt = 9, mode = "NoPull"},
 # HS_SPI_MISO = P1_3 = FUN6
-{ pin = { port = 1, pin = 3}, alt = 6},
+{ pin = { port = 1, pin = 3}, alt = 6, mode = "NoPull"},
 # HS_SPI_SCK = P1_2 = FUN6
-{ pin = { port = 1, pin = 2}, alt = 6},
+{ pin = { port = 1, pin = 2}, alt = 6, mode = "NoPull"},
 # HS_SSEL1 = P1_1 = FUN5
-{ pin = { port = 1, pin = 1}, alt = 5},
+{ pin = { port = 1, pin = 1}, alt = 5, mode = "NoPull"},
+# ROT_IRQ = P0_18 = FUN0
+{ pin = { port = 0, pin = 18}, alt = 0, mode = "NoPull"},
+# SP_RESET = P0_9 = FUN0
+{ pin = { port = 0, pin = 9}, alt = 0, mode = "NoPull"},
 ]
 
 [tasks.swd]

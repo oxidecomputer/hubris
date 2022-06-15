@@ -1,0 +1,24 @@
+// SP to RoT communications over SPI
+
+Interface(
+    name: "SpiMsg",
+    ops: {
+        "send_recv": (
+            doc: "Send then receive a message from the RoT",
+            args: {
+                "msgtype": (
+                    type: "MsgType",
+                    recv: From("u8"),
+                ),
+            },
+            leases: {
+                "message": (type: "[u8]", read: true),
+                "response": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "[u32; 2]",
+                err: CLike("MsgError"),
+            ),
+	),
+    },
+)

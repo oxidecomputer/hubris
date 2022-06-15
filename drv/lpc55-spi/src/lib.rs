@@ -120,6 +120,10 @@ impl Spi {
             .modify(|_, w| w.emptytx().set_bit().emptyrx().set_bit());
     }
 
+    pub fn drain_tx(&mut self) {
+        self.reg.fifocfg.modify(|_, w| w.emptytx().set_bit());
+    }
+
     pub fn enable(&mut self) {
         self.drain();
         self.reg
@@ -157,8 +161,34 @@ impl Spi {
         self.reg.fifointenclr.write(|w| w.rxlvl().set_bit());
     }
 
+    pub fn ssa_enable(&mut self) {
+        self.reg.intenset.write(|w| w.ssaen().enabled());
+    }
+
+    pub fn ssa_disable(&mut self) {
+        self.reg.intenclr.write(|w| w.ssaen().set_bit());
+    }
+
+    /// Clear Slave Select Asserted interrupt
+    pub fn ssa_clear(&mut self) {
+        self.reg.stat.write(|w| w.ssa().set_bit());
+    }
+
+    pub fn ssd_enable(&mut self) {
+        self.reg.intenset.write(|w| w.ssden().enabled());
+    }
+
+    pub fn ssd_disable(&mut self) {
+        self.reg.intenclr.write(|w| w.ssden().set_bit());
+    }
+
+    /// Clear Slave Select De-asserted interrupt
+    pub fn ssd_clear(&mut self) {
+        self.reg.stat.write(|w| w.ssd().set_bit());
+    }
+
     pub fn mstidle_enable(&mut self) {
-        self.reg.intenset.write(|w| w.mstidleen().set_bit());
+        self.reg.intenset.modify(|_, w| w.mstidleen().set_bit());
     }
 
     pub fn mstidle_disable(&mut self) {
@@ -195,7 +225,7 @@ impl Spi {
         rxignore: bool,
         len_bits: u8,
     ) {
-        if len_bits > 16 || len_bits < 4 {
+        if !(4..=16).contains(&len_bits) {
             panic!()
         }
 
@@ -225,11 +255,72 @@ impl Spi {
         self.reg.fifointstat.read().bits()
     }
 
+    // 35.6.8 SPI interrupt status register
+    // Reading this register clears the interrupt conditions.
+    //
+    // Slave select assert - set on transitions from de-asserted to asserted.
+    // Slave select de-assert - set on transitions from asserted to de-asserted.
+    // Master idle status flag - true when master function is fully idle.
+    pub fn intstat(&self) -> (bool, bool, bool) {
+        let stat = self.reg.intstat.read();
+        (stat.ssa().bits(), stat.ssd().bits(), stat.mstidle().bits())
+    }
+
+    pub fn stat(
+        &mut self,
+    ) -> (bool, bool, bool, bool, bool, bool, bool, u8, u8) {
+        let stat = self.reg.fifostat.read();
+        (
+            stat.txerr().bits(),
+            stat.rxerr().bits(),
+            stat.perint().bits(),
+            stat.txempty().bits(),
+            stat.txnotfull().bits(),
+            stat.rxnotempty().bits(),
+            stat.rxfull().bits(),
+            stat.txlvl().bits() as u8,
+            stat.rxlvl().bits() as u8,
+        )
+        // self.reg.fiford.read().rxdata().bits() as u8
+    }
+
+    pub fn txerr_clear(&mut self) {
+        self.reg.fifostat.modify(|_, w| w.txerr().set_bit());
+    }
+
+    pub fn rxerr_clear(&mut self) {
+        self.reg.fifostat.modify(|_, w| w.rxerr().set_bit());
+    }
+
     pub fn read_u8(&mut self) -> u8 {
         // TODO Do something with the Start of Transfer Flag?
         // "This flag will be 1 if this is the first data after the
         // SSELs went from de-asserted to asserted"
         self.reg.fiford.read().rxdata().bits() as u8
+    }
+
+    pub fn check_u8_csn_sot(&mut self) -> (u8, bool, bool) {
+        // TODO Do something with the Start of Transfer Flag?
+        // "This flag will be 1 if this is the first data after the
+        // SSELs went from de-asserted to asserted"
+        let rd = self.reg.fifordnopop.read();
+        (
+            rd.rxdata().bits() as u8,
+            rd.rxssel1_n().bits(),
+            rd.sot().bits(),
+        )
+    }
+
+    pub fn read_u8_csn_sot(&mut self) -> (u8, bool, bool) {
+        // TODO Do something with the Start of Transfer Flag?
+        // "This flag will be 1 if this is the first data after the
+        // SSELs went from de-asserted to asserted"
+        let rd = self.reg.fiford.read();
+        (
+            rd.rxdata().bits() as u8,
+            rd.rxssel1_n().bits(),
+            rd.sot().bits(),
+        )
     }
 
     pub fn read_u16(&mut self) -> u16 {

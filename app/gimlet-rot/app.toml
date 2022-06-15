@@ -84,7 +84,7 @@ pins = [
 [tasks.spi0_driver]
 name = "drv-lpc55-spi-server"
 priority = 4
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 uses = ["iocon", "flexcomm3", "flexcomm8"]
 features = ["spi0"]
 start = true
