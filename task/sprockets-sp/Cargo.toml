@@ -1,5 +1,5 @@
 [package]
-name = "task-uartecho"
+name = "task-sprockets-sp"
 version = "0.1.0"
 edition = "2018"
 
@@ -11,9 +11,15 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 ringbuf = {path = "../../lib/ringbuf"}
 tinyvec = "1.5.1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+salty = "0.2.0"
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
+sprockets-common = {path = "../../../sprockets/common"}
+corncobs = "0.1.1"
+hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
 
+drv-spi-msg = {path = "../../drv/spi-msg"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
 [build-dependencies]
 build-util = {path = "../../build/util"}
 
@@ -30,6 +36,6 @@ usart6 = []
 uart7 = []
 
 [[bin]]
-name = "task-uartecho"
+name = "task-sprockets-sp"
 test = false
 bench = false

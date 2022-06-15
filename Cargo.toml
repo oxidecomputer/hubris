@@ -51,6 +51,7 @@ members = [
     "task/sensor",
     "task/sensor-api",
     "task/spd",
+    "task/sprockets-sp/",
     "task/thermal",
     "task/thermal-api",
     "task/uartecho",
@@ -74,6 +75,7 @@ members = [
     "drv/stm32h7-eth",
     "drv/stm32h7-hash",
     "drv/stm32h7-i2c-server",
+    "drv/stm32h7-spi-rot-server",
     "drv/stm32h7-qspi",
     "drv/stm32h7-rng",
     "drv/stm32h7-spi",
@@ -115,6 +117,7 @@ members = [
     "drv/stm32h7-spi-rot-server",
     "drv/rng-api",
     "drv/sp-ctrl-api",
+    "drv/spi-msg",
 
     "drv/sidecar-mainboard-controller-api",
     "drv/sidecar-mainboard-i2c-emulator",

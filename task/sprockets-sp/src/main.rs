@@ -9,43 +9,66 @@
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;
 
+// use drv_spi_api::{CsState, Spi, SpiError};
+use drv_spi_msg::*;
 use drv_usart::Usart;
 use ringbuf::*;
-use tinyvec::ArrayVec;
+use tinyvec::SliceVec;
 use userlib::*;
 
+//use corncobs;
+use hubpack::{serialize, SerializedSize};
+use sprockets_common::msgs::{
+    RotError, RotRequestV1, RotResponseV1, RotResultV1,
+};
+
+task_slot!(SPI_ROT, spi_rot);
 task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum UartLog {
+enum Trace {
     Tx(u8),
     TxFull,
     Rx(u8),
     RxOverrun,
-    PinsConfigured,
+    AboutToDecode,
+    TooLarge,
+    RotRequestSize(usize),
 }
 
-ringbuf!(UartLog, 64, UartLog::Rx(0));
+ringbuf!(Trace, 64, Trace::Rx(0));
 
 /// Notification mask for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1;
 
-/// Size in bytes of our in-memory buffer to store a line to echo back; lines
-/// longer than this will be truncated to this many bytes.
-const BUF_LEN: usize = 32;
-
-enum NeedToTx {
-    FlushLineStart(&'static [u8]),
-    FlushLine,
-    FlushLineEnd(&'static [u8]),
-    EchoPreviousByte(u8),
-}
-
 #[export_name = "main"]
 fn main() -> ! {
     let uart = configure_uart_device();
-    let mut line_buf = ArrayVec::<[u8; BUF_LEN]>::new();
-    let mut need_to_tx = None;
+    let mut req_buf_backing =
+        [0u8; corncobs::max_encoded_len(RotRequestV1::MAX_SIZE)];
+
+    // This is not a COBS encoded buffer. We are using corncobs::encode_iter to
+    // write bytes over tx. Therefore there is no need for the extra space
+    // required for COBS.
+    let mut rsp_buf_backing = [0u8; RotResponseV1::MAX_SIZE];
+
+    let mut rsp_buf_encoded_backing =
+        [0u8; corncobs::max_encoded_len(RotResponseV1::MAX_SIZE)];
+
+    // We use a SliceVec instead of an ArrayVec since the capacities returned
+    // from corncobs::max_encoded_len are not necessarily fewer than 32 or
+    // powers of two <= 4096.
+    // See https://docs.rs/tinyvec/latest/tinyvec/trait.Array.html
+    let mut req_buf = SliceVec::from(&mut req_buf_backing);
+    req_buf.set_len(0);
+    let mut rsp_buf = SliceVec::from(&mut rsp_buf_backing);
+
+    // TODO: Prevent the need for this by using corncobs::encode_iter
+    let mut rsp_buf_encoded = SliceVec::from(&mut rsp_buf_encoded_backing);
+
+    let mut need_to_tx: Option<(&SliceVec<u8>, usize)> = None;
+
+    let spirot = drv_spi_msg::SpiMsg::from(SPI_ROT.get_task_id());
 
     sys_irq_control(USART_IRQ, true);
 
@@ -57,44 +80,16 @@ fn main() -> ! {
         // Walk through our tx state machine to handle echoing lines back; note
         // that many of these cases intentionally break after refilling
         // `need_to_tx` if we fill the TX fifo.
-        while let Some(tx_state) = need_to_tx.take() {
-            match tx_state {
-                NeedToTx::FlushLineStart(mut crnl) => {
-                    crnl = &crnl[tx_until_fifo_full(&uart, crnl)..];
-                    if crnl.is_empty() {
-                        need_to_tx = Some(NeedToTx::FlushLine);
-                    } else {
-                        need_to_tx = Some(NeedToTx::FlushLineStart(crnl));
-                        break;
-                    }
-                }
-                NeedToTx::FlushLine => {
-                    let n = tx_until_fifo_full(&uart, &line_buf);
-                    line_buf.drain(..n);
-                    if line_buf.is_empty() {
-                        need_to_tx = Some(NeedToTx::FlushLineEnd(b"\r\n"));
-                    } else {
-                        need_to_tx = Some(NeedToTx::FlushLine);
-                        break;
-                    }
-                }
-                NeedToTx::FlushLineEnd(mut crnl) => {
-                    crnl = &crnl[tx_until_fifo_full(&uart, crnl)..];
-                    if !crnl.is_empty() {
-                        need_to_tx = Some(NeedToTx::FlushLineStart(crnl));
-                    }
-                    break;
-                }
-
-                // this state isn't for line echo; this is the case where we
-                // pulled a byte out of the RX fifo but couldn't immediately put
-                // it back into the TX fifo
-                NeedToTx::EchoPreviousByte(byte) => {
-                    if !try_tx_push(&uart, byte) {
-                        need_to_tx = Some(NeedToTx::EchoPreviousByte(byte));
-                    }
-                    break;
-                }
+        while need_to_tx.is_some() {
+            let (buf, pos) = need_to_tx.as_mut().unwrap();
+            if buf.len() == *pos {
+                need_to_tx = None;
+                break;
+            }
+            if !try_tx_push(&uart, buf[*pos]) {
+                break;
+            } else {
+                *pos += 1;
             }
         }
 
@@ -107,32 +102,69 @@ fn main() -> ! {
 
         // all tx is done; now pull from the rx fifo
         if uart.check_and_clear_rx_overrun() {
-            ringbuf_entry!(UartLog::RxOverrun);
+            ringbuf_entry!(Trace::RxOverrun);
         }
 
         while let Some(byte) = uart.try_rx_pop() {
-            ringbuf_entry!(UartLog::Rx(byte));
+            ringbuf_entry!(Trace::Rx(byte));
 
-            // minicom default settings only ever sends `\r` as line
-            // endings, so we only check for that to decide when to echo a line
-            if byte == b'\r' {
+            req_buf.push(byte);
+
+            // Keep looking for 0, as we are using COBS for framing.
+            if byte == 0 {
+                ringbuf_entry!(Trace::AboutToDecode);
+                if decode_frame(&mut req_buf).is_err()  {
+                    err_rsp(RotError::BadEncoding, &mut rsp_buf);
+                }
+                // Make the slice large enough to write into
+                rsp_buf.set_len(rsp_buf.capacity());
+
+                match spirot.send_recv(MsgType::SprocketsReq,
+                    req_buf.as_slice(), rsp_buf.as_mut_slice()) {
+                    Ok(r) => {
+                        let msgtype: MsgType = r[0].into();
+                        let len = r[1];
+                        match msgtype {
+                            drv_spi_msg::MsgType::SprocketsRsp => rsp_buf.set_len(len as usize),
+                            _ => err_rsp(RotError::SpiError, &mut rsp_buf),
+                        }
+                    }
+                    Err(_err) => {
+                        err_rsp(RotError::SpiError, &mut rsp_buf);
+                    },
+                }
+
                 uart.enable_tx_fifo_empty_interrupt();
-                need_to_tx = Some(NeedToTx::FlushLineStart(b"\r\n"));
+                rsp_buf_encoded.set_len(rsp_buf_encoded.capacity());
+                let size = corncobs::encode_buf(
+                    rsp_buf.as_slice(),
+                    rsp_buf_encoded.as_mut_slice(),
+                );
+                rsp_buf_encoded.set_len(size);
+                need_to_tx = Some((&rsp_buf_encoded, 0));
+                req_buf.clear();
                 break;
             }
 
-            // not a line end. stash it in `line_buf` if there's room...
-            let _ = line_buf.try_push(byte);
-
-            // ...and echo it back
-            if !try_tx_push(&uart, byte) {
+            // Max request size exceeded
+            if req_buf.len() == req_buf.capacity() {
+                ringbuf_entry!(Trace::TooLarge);
+                err_rsp(RotError::BadEncoding, &mut rsp_buf);
                 uart.enable_tx_fifo_empty_interrupt();
-                need_to_tx = Some(NeedToTx::EchoPreviousByte(byte));
+
+                rsp_buf_encoded.set_len(rsp_buf_encoded.capacity());
+                let size = corncobs::encode_buf(
+                    rsp_buf.as_slice(),
+                    rsp_buf_encoded.as_mut_slice(),
+                );
+                rsp_buf_encoded.set_len(size);
+                need_to_tx = Some((&mut rsp_buf_encoded, 0));
+                req_buf.clear();
                 break;
             }
         }
 
-        // rennable USART interrupts
+        // re-enable USART interrupts
         sys_irq_control(USART_IRQ, true);
 
         // Uncomment this to artifically slow down the task to make it easier to
@@ -141,15 +173,28 @@ fn main() -> ! {
     }
 }
 
-// push as much of `data` as we can into `uart`'s TX FIFO, returning the number
-// of bytes enqueued
-fn tx_until_fifo_full(uart: &Usart, data: &[u8]) -> usize {
-    for (i, &byte) in data.iter().enumerate() {
-        if !try_tx_push(uart, byte) {
-            return i;
-        }
-    }
-    data.len()
+// Serialize an Error response for a spi related error
+fn err_rsp(err: RotError, rsp_buf: &mut SliceVec<u8>) {
+    // Make the slice large enough to write into
+    rsp_buf.set_len(rsp_buf.capacity());
+    let rsp = RotResponseV1 {
+        version: 1,
+        id: 0,
+        result: RotResultV1::Err(err),
+    };
+    let size = serialize(&mut rsp_buf.as_mut_slice(), &rsp).unwrap();
+
+    // Properly size the slice for reading
+    rsp_buf.set_len(size);
+}
+
+// Decode a corncobs frame
+fn decode_frame(req_buf: &mut SliceVec<u8>) -> Result<usize, RotError> {
+    let size = corncobs::decode_in_place(req_buf.as_mut_slice())
+        .map_err(|_| RotError::BadEncoding)?;
+    req_buf.set_len(size);
+    ringbuf_entry!(Trace::RotRequestSize(size));
+    Ok(size)
 }
 
 // wrapper around `usart.try_tx_push()` that registers the result in our
@@ -157,9 +202,9 @@ fn tx_until_fifo_full(uart: &Usart, data: &[u8]) -> usize {
 fn try_tx_push(usart: &Usart, val: u8) -> bool {
     let ret = usart.try_tx_push(val);
     if ret {
-        ringbuf_entry!(UartLog::Tx(val));
+        ringbuf_entry!(Trace::Tx(val));
     } else {
-        ringbuf_entry!(UartLog::TxFull);
+        ringbuf_entry!(Trace::TxFull);
     }
     ret
 }
@@ -201,7 +246,6 @@ fn configure_uart_device() -> Usart {
             usart = unsafe { &*device::USART1::ptr() };
             peripheral = Peripheral::Usart1;
             pins = PINS;
-            ringbuf_entry!(UartLog::PinsConfigured);
         } else if #[cfg(feature = "usart2")] {
             const PINS: &[(PinSet, Alternate)] = &[
                 (Port::D.pin(5).and_pin(6), Alternate::AF7),
@@ -246,7 +290,7 @@ fn configure_uart_device() -> Usart {
             peripheral = Peripheral::Uart7;
             pins = PINS;
         } else {
-            compile_error!("no usartX/uartX feature specified");
+            compiler_error!("no usartX/uartX feature specified");
         }
     }
 

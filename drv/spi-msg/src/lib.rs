@@ -9,6 +9,8 @@
 use derive_idol_err::IdolError;
 use zerocopy::{AsBytes, ByteSliceMut, FromBytes, LayoutVerified, Unaligned};
 //use userlib::*;
+use hubpack::SerializedSize;
+use sprockets_common::msgs::{RotRequestV1, RotResponseV1};
 use userlib::{sys_send, FromPrimitive};
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
@@ -100,10 +102,8 @@ pub struct MsgHeader {
 }
 pub const SPI_HEADER_SIZE: usize = core::mem::size_of::<MsgHeader>();
 pub const MAX_SPI_MSG_PAYLOAD_SIZE: usize = 512;
-//pub const SPI_REQ_BUF_SIZE: usize = SPI_HEADER_SIZE + RotRequestV1::MAX_SIZE;
-//pub const SPI_RSP_BUF_SIZE: usize = SPI_HEADER_SIZE + RotResponseV1::MAX_SIZE;
-pub const SPI_REQ_BUF_SIZE: usize = SPI_HEADER_SIZE + MAX_SPI_MSG_PAYLOAD_SIZE;
-pub const SPI_RSP_BUF_SIZE: usize = SPI_HEADER_SIZE + MAX_SPI_MSG_PAYLOAD_SIZE;
+pub const SPI_REQ_BUF_SIZE: usize = SPI_HEADER_SIZE + RotRequestV1::MAX_SIZE;
+pub const SPI_RSP_BUF_SIZE: usize = SPI_HEADER_SIZE + RotResponseV1::MAX_SIZE;
 
 pub struct Msg<B> {
     header: LayoutVerified<B, MsgHeader>,

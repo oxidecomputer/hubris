@@ -105,14 +105,25 @@ max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
 
-[tasks.uartecho]
-name = "task-uartecho"
-features = ["stm32h753", "usart2"]
-uses = ["usart2"]
-interrupts = {"usart2.irq" = 1}
+#[tasks.uartecho]
+#name = "task-uartecho"
+#features = ["stm32h753", "usart2"]
+#uses = ["usart2"]
+#interrupts = {"usart2.irq" = 1}
+#priority = 3
+#max-sizes = {flash = 8192, ram = 4096}
+#stacksize = 2048
+#start = true
+#task-slots = ["sys"]
+
+[tasks.sprockets_sp]
+name = "task-sprockets-sp"
+features = ["stm32h743", "usart1"]
+uses = ["usart1"]
+interrupts = {"usart1.irq" = 1}
 priority = 3
-max-sizes = {flash = 8192, ram = 4096}
-stacksize = 2048
+max-sizes = {flash = 65536, ram = 32768}
+stacksize = 16384
 start = true
 task-slots = ["sys"]
 

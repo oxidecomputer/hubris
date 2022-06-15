@@ -19,6 +19,8 @@ use crc::{Crc, CRC_32_CKSUM};
 use lpc55_romapi::bootrom;
 use userlib::*;
 
+mod sprockets;
+
 task_slot!(SYSCON, syscon_driver);
 task_slot!(GPIO, gpio_driver);
 
@@ -139,6 +141,7 @@ enum Trace {
     ResetRxToIdle,
     Responding,
     RespondToEcho,
+    RespondToSprockets,
     RespondToStatus,
     RespondToUnknown,
     RxFragment,
@@ -146,6 +149,8 @@ enum Trace {
     RxState(RxState),
     Tx(TxState, u8, usize),
     StartTx(bool, bool),
+    ValidSprocketsReq,
+    InvalidSprocketsReq,
     None,
 }
 
@@ -168,7 +173,7 @@ struct RxContext<'a> {
 
 enum EnqueueBuf<'a> {
     Copy(&'a [u8]),
-    _TxBuf(usize),
+    TxBuf(usize),
     Empty,
 }
 
@@ -194,7 +199,7 @@ impl<'a> TxContext<'a> {
         }
         let len = match buf {
             EnqueueBuf::Copy(buf) => buf.len(),
-            EnqueueBuf::_TxBuf(len) => len,
+            EnqueueBuf::TxBuf(len) => len,
             EnqueueBuf::Empty => 0,
         };
         if len > self.tx.len() {
@@ -273,7 +278,7 @@ impl<'a> RxContext<'a> {
                         // valid.
                         if tx.enqueue(
                             MsgType::ErrorRsp,
-                            EnqueueBuf::Copy(&self.rx[0..1]),
+                            EnqueueBuf::Copy(&self.rx[0..1])
                         ) {
                             ringbuf_entry!(Trace::Enqueued);
                             self.state = RxState::Dispatch; // or RxState::Error?
@@ -302,7 +307,7 @@ impl<'a> RxContext<'a> {
 
                         if tx.enqueue(
                             MsgType::ErrorRsp,
-                            EnqueueBuf::Copy(&self.rx[0..SPI_HEADER_SIZE]),
+                            EnqueueBuf::Copy(&self.rx[0..SPI_HEADER_SIZE])
                         ) {
                             self.state = RxState::Dispatch;
                         }
@@ -412,6 +417,9 @@ fn main() -> ! {
     spi.ssa_enable(); // Interrupt on CSn changing to asserted.
     spi.ssd_enable(); // Interrupt on CSn changing to deasserted.
     ringbuf_entry!(Trace::Initialized); // XXX
+
+    // Initialize sprockets-rot
+    let mut sprocket = sprockets::init();
 
     let mut olc = 0u16;
 
@@ -672,20 +680,45 @@ fn main() -> ! {
                                 ringbuf_entry!(Trace::RespondToStatus);
                                 tctx.enqueue(
                                     MsgType::StatusRsp,
-                                    EnqueueBuf::Copy(&bootrom_crc32[..]),
+                                    EnqueueBuf::Copy(&bootrom_crc32[..])
                                 );
                                 again = true;
-                            }
+                            },
                             MsgType::EchoReq => {
                                 ringbuf_entry!(Trace::RespondToEcho);
                                 tctx.enqueue(
                                     MsgType::EchoRsp,
                                     EnqueueBuf::Copy(
-                                        rmsg.payload_get().unwrap_lite(),
-                                    ),
+                                        rmsg.payload_get().unwrap_lite()
+                                    )
                                 );
                                 again = true;
-                            }
+                            },
+                            MsgType::SprocketsReq => {
+                                ringbuf_entry!(Trace::RespondToSprockets);
+                                let rsp_buf = &mut tctx.tx[SPI_HEADER_SIZE..];
+                                let size = match sprocket.handle(
+                                    rmsg.payload_get().unwrap_lite(),
+                                    rsp_buf,
+                                ) {
+                                    Ok(size) => {
+                                        ringbuf_entry!(
+                                            Trace::ValidSprocketsReq
+                                        );
+                                        size
+                                    }
+                                    Err(_) => {
+                                        ringbuf_entry!(
+                                            Trace::InvalidSprocketsReq
+                                        );
+                                        sprockets::bad_encoding_rsp(rsp_buf)
+                                    }
+                                };
+
+                                tctx.enqueue(MsgType::SprocketsRsp,
+                                    EnqueueBuf::TxBuf(size));
+                                again = true;
+                            },
                             _ => {
                                 // The message received was an unknown type.
                                 ringbuf_entry!(Trace::RespondToUnknown);
