@@ -21,7 +21,7 @@ stacksize = 1536
 
 [tasks.idle]
 name = "task-idle"
-priority = 7
+priority = 13
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
@@ -36,7 +36,7 @@ uses = ["rom", "secure_syscon", "syscon", "flash"]
 
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
-priority = 2
+priority = 1
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
 start = true
@@ -53,14 +53,14 @@ task-slots = ["syscon_driver"]
 [tasks.user_leds]
 name = "drv-user-leds"
 features = ["lpc55"]
-priority = 4
+priority = 10
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = ["gpio_driver"]
 
 [tasks.usart_driver]
 name = "drv-lpc55-usart"
-priority = 4
+priority = 8
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["flexcomm0"]
 start = true
@@ -75,34 +75,35 @@ pins = [
 
 [tasks.rng_driver]
 name = "drv-lpc55-rng"
-priority = 3
+priority = 7
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["rng", "pmc"]
 start = true
 stacksize = 2200
 task-slots = ["syscon_driver"]
 
-[tasks.spi0_driver]
-name = "drv-lpc55-spi-server"
+[tasks.sprot]
+name = "drv-lpc55-sprot-server"
 priority = 4
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 32768, ram = 32768}
 features = ["spi0"]
-uses = ["flexcomm3", "flexcomm8"]
+uses = ["flexcomm3", "flexcomm8", "bootrom"]
 start = true
 interrupts = {"flexcomm8.hs_spi" = 1}
-stacksize = 1000
+stacksize = 16384
 task-slots = ["gpio_driver", "syscon_driver"]
 
-[tasks.spi0_driver.config]
+# There are external pullups on all of these signals.
+[tasks.sprot.config]
 pins = [
 # HS_SPI_MOSI = P0_26 = FUN9
-{ pin = { port = 0, pin = 26}, alt = 9},
+{ pin = { port = 0, pin = 26}, alt = 9, mode = "NoPull"},
 # HS_SPI_MISO = P1_3 = FUN6
-{ pin = { port = 1, pin = 3}, alt = 6},
+{ pin = { port = 1, pin = 3}, alt = 6, mode = "NoPull"},
 # HS_SPI_SCK = P1_2 = FUN6
-{ pin = { port = 1, pin = 2}, alt = 6},
+{ pin = { port = 1, pin = 2}, alt = 6, mode = "NoPull"},
 # HS_SSEL1 = P1_1 = FUN5
-{ pin = { port = 1, pin = 1}, alt = 5},
+{ pin = { port = 1, pin = 1}, alt = 5, mode = "NoPull"},
 # ROT_IRQ = P0_18 = FUN0
 { name = "ROT_IRQ", pin = { port = 0, pin = 18}, alt = 0, mode = "NoPull", direction = "output"},
 # SP_RESET = P0_9 = FUN0
@@ -111,7 +112,7 @@ pins = [
 
 [tasks.swd]
 name = "drv-lpc55-swd"
-priority = 4
+priority = 5
 max-sizes = {flash = 16384, ram = 4096}
 uses = ["flexcomm3", "iocon"]
 start = true
@@ -137,28 +138,13 @@ pins = [
 # SCK
 { pin =  { port = 0, pin = 6 }, alt = 1 },
 # CS, not strictly necessary but handy for debugging
-{ pin = {port = 0, pin = 20}, alt =  1},
+# { pin = {port = 0, pin = 20}, alt =  1},
 ]
 spi_num = 3
 
-[tasks.ping]
-name = "task-ping"
-features = ["uart"]
-priority = 6
-max-sizes = {flash = 8192, ram = 2048}
-start = true
-task-slots = [{peer = "pong"}, "usart_driver"]
-
-[tasks.pong]
-name = "task-pong"
-priority = 5
-max-sizes = {flash = 8192, ram = 1024}
-start = true
-task-slots = ["user_leds"]
-
 [tasks.hiffy]
 name = "task-hiffy"
-priority = 5
+priority = 9
 features = ["lpc55", "gpio", "spi", "spctrl", "update"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
@@ -167,7 +153,7 @@ task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.sp_measure]
 name = "task-sp-measure"
-priority = 3
+priority = 6
 max-sizes = {flash = 131072, ram = 8192}
 task-slots = ["swd"]
 stacksize = 2048

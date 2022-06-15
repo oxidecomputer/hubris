@@ -107,7 +107,7 @@ task-slots = ["sys"]
 [tasks.spd]
 name = "task-spd"
 features = ["h753", "itm"]
-priority = 2
+priority = 4
 max-sizes = {flash = 16384, ram = 16384}
 uses = ["i2c1"]
 start = true

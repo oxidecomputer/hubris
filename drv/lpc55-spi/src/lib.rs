@@ -16,6 +16,9 @@ impl From<&'static device::spi0::RegisterBlock> for Spi {
     }
 }
 
+// TODO: Update upstream to include the HW register that holds this constant.
+pub const FIFOWR_SIZE: usize = 8;
+
 #[repr(u32)]
 pub enum TxLvl {
     TxEmpty = 0,
@@ -120,6 +123,10 @@ impl Spi {
             .modify(|_, w| w.emptytx().set_bit().emptyrx().set_bit());
     }
 
+    pub fn drain_tx(&mut self) {
+        self.reg.fifocfg.modify(|_, w| w.emptytx().set_bit());
+    }
+
     pub fn enable(&mut self) {
         self.drain();
         self.reg
@@ -155,6 +162,32 @@ impl Spi {
 
     pub fn disable_rx(&mut self) {
         self.reg.fifointenclr.write(|w| w.rxlvl().set_bit());
+    }
+
+    pub fn ssa_enable(&mut self) {
+        self.reg.intenset.write(|w| w.ssaen().enabled());
+    }
+
+    pub fn ssa_disable(&mut self) {
+        self.reg.intenclr.write(|w| w.ssaen().set_bit());
+    }
+
+    /// Clear Slave Select Asserted interrupt
+    pub fn ssa_clear(&mut self) {
+        self.reg.stat.write(|w| w.ssa().set_bit());
+    }
+
+    pub fn ssd_enable(&mut self) {
+        self.reg.intenset.write(|w| w.ssden().enabled());
+    }
+
+    pub fn ssd_disable(&mut self) {
+        self.reg.intenclr.write(|w| w.ssden().set_bit());
+    }
+
+    /// Clear Slave Select De-asserted interrupt
+    pub fn ssd_clear(&mut self) {
+        self.reg.stat.write(|w| w.ssd().set_bit());
     }
 
     pub fn mstidle_enable(&mut self) {
@@ -196,11 +229,7 @@ impl Spi {
         len_bits: u8,
     ) {
         // SPI hardware only supports lengths of range 4-16 bits
-        #[allow(clippy::manual_range_contains)]
-        if len_bits > 16 || len_bits < 4 {
-            panic!()
-        }
-
+        assert!((4..=16).contains(&len_bits));
         self.reg.fifowr.write(|w| unsafe {
             w.len()
                 // Data length, per NXP docs:
@@ -225,6 +254,28 @@ impl Spi {
 
     pub fn get_fifostat(&self) -> u32 {
         self.reg.fifointstat.read().bits()
+    }
+
+    /// Destructive read of SPI Interrupt Status Register.
+    /// Slave select assert - set on transitions from de-asserted to asserted.
+    /// Slave select de-assert - set on transitions from asserted to de-asserted.
+    /// Master idle status flag - true when master function is fully idle.
+    // N.B. Reading this register clears the interrupt conditions.
+    // NXP Document UM11126 35.6.8 SPI interrupt status register
+    pub fn intstat(&self) -> device::spi0::intstat::R {
+        self.reg.intstat.read()
+    }
+
+    pub fn fifostat(&mut self) -> device::spi0::fifostat::R {
+        self.reg.fifostat.read()
+    }
+
+    pub fn txerr_clear(&mut self) {
+        self.reg.fifostat.modify(|_, w| w.txerr().set_bit());
+    }
+
+    pub fn rxerr_clear(&mut self) {
+        self.reg.fifostat.modify(|_, w| w.rxerr().set_bit());
     }
 
     pub fn read_u8(&mut self) -> u8 {

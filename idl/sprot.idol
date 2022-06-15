@@ -1,0 +1,72 @@
+// SP to RoT communications over SPI
+
+Interface(
+    name: "SpRot",
+    ops: {
+        "send_recv": (
+            doc: "Send then receive a message from the RoT",
+            args: {
+                "msgtype": (
+                    type: "MsgType",
+                    recv: FromPrimitive("u8"),
+                ),
+            },
+            leases: {
+                "message": (type: "[u8]", read: true),
+                "response": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "SpRotReturn",
+                err: CLike("MsgError"),
+            ),
+        ),
+        "send_recv_retries": (
+            doc: "Send then receive a message from the RoT. Retry on recoverable errors.",
+            args: {
+                "msgtype": (
+                    type: "MsgType",
+                    recv: FromPrimitive("u8"),
+                ),
+                "attempts": (
+                    type: "u16",
+                ),
+            },
+            leases: {
+                "message": (type: "[u8]", read: true),
+                "response": (type: "[u8]", write: true),
+            },
+            reply: Result(
+                ok: "SpRotReturn",
+                err: CLike("MsgError"),
+            ),
+        ),
+	"status": (
+            doc: "Return untrusted status from RoT",
+	    reply: Result(
+	        ok: "Status",
+		err: CLike("MsgError"),
+	    ),
+	),
+        "pulse_cs": (
+            doc: "SPI Chip Select assert, delay, deassert",
+            args: {
+                "delay": "u16",
+            },
+            reply: Result(
+                ok: "SpRotPulseStatus",
+                err: CLike("MsgError"),
+            ),
+        ),
+        "rot_sink": (
+            doc: "SP locally generates and sends count buffers of size to RoT",
+            args: {
+                "count": "u16",
+                "size": "u16",
+            },
+            reply: Result(
+                ok: "SpRotSinkStatus",
+                err: CLike("MsgError"),
+            ),
+        ),
+    },
+)

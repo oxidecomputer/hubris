@@ -77,7 +77,7 @@ cfg_if::cfg_if! {
 /// Number of "scratch" bytes available to Hiffy programs. Humility uses this
 /// to deliver data used by some operations. This number can be increased at
 /// the cost of RAM.
-const HIFFY_SCRATCH_SIZE: usize = 256;
+const HIFFY_SCRATCH_SIZE: usize = 512;
 
 ///
 /// These HIFFY_* global variables constitute the interface with Humility;

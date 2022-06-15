@@ -1,0 +1,40 @@
+[package]
+name = "drv-lpc55-sprot-server"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+zerocopy = "0.6.1"
+lpc55-pac = "0.4"
+drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+drv-lpc55-spi = {path = "../lpc55-spi"}
+drv-sprot-api = {path = "../sprot-api"}
+num-traits = { version = "0.2.12", default-features = false }
+drv-lpc55-gpio-api = {path = "../lpc55-gpio-api"}
+# TODO: [issue on humility](https://github.com/oxidecomputer/humility/issues/237)
+#ringbuf = {path = "../../lib/ringbuf", features = ["disabled"]}
+ringbuf = {path = "../../lib/ringbuf"}
+lpc55_romapi = { path = "../lpc55-romapi" }
+crc = "3.0.0"
+sprockets-common = {git = "https://github.com/oxidecomputer/sprockets.git", default-features = false}
+sprockets-rot = {git = "https://github.com/oxidecomputer/sprockets.git", default-features = false}
+hubpack = { rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25", git = "https://github.com/cbiffle/hubpack.git"}
+salty = "0.2.0"
+if_chain = "1"
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+build-lpc55pins = {path = "../../build/lpc55pins"}
+serde = "1"
+quote = "1"
+
+[features]
+spi0 = []
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-lpc55-sprot-server"
+test = false
+bench = false

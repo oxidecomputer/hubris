@@ -1,0 +1,31 @@
+[package]
+name = "drv-stm32h7-sprot-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+ringbuf = {path = "../../lib/ringbuf"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+drv-spi-api = {path = "../../drv/spi-api"}
+drv-sprot-api = {path = "../../drv/sprot-api"}
+drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+cfg-if = "1"
+if_chain = "1"
+# byteorder = {version = "1.4", default-features = false}
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[features]
+sink_test = []
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-stm32h7-sprot-server"
+test = false
+bench = false
