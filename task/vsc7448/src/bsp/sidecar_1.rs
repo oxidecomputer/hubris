@@ -82,6 +82,76 @@ pub fn preinit() {
     }
 }
 
+mod map {
+    // See RFD144 for a detailed look at the design
+    use vsc7448::status::{PortMap, PortMode::*};
+    use vsc7448::Speed::*;
+    pub const SIDECAR_MAP: PortMap = PortMap {
+        ports: [
+            Some(Sgmii), // 0  | DEV1G_0 |  SERDES1G_1  | Cubby 0
+            Some(Sgmii), // 1  | DEV1G_1 |  SERDES1G_2  | Cubby 0
+            Some(Sgmii), // 2  | DEV1G_2 |  SERDES1G_3  | Cubby 2
+            Some(Sgmii), // 3  | DEV1G_3 |  SERDES1G_4  | Cubby 3
+            Some(Sgmii), // 4  | DEV1G_4 |  SERDES1G_5  | Cubby 4
+            Some(Sgmii), // 5  | DEV1G_5 |  SERDES1G_6  | Cubby 5
+            Some(Sgmii), // 6  | DEV1G_6 |  SERDES1G_7  | Cubby 6
+            Some(Sgmii), // 7  | DEV1G_7 |  SERDES1G_8  | Cubby 7
+            Some(Sgmii), // 8  | DEV2G5_0 |  SERDES6G_0  | Cubby 8
+            Some(Sgmii), // 9  | DEV2G5_1 |  SERDES6G_1  | Cubby 9
+            Some(Sgmii), // 10 | DEV2G5_2 |  SERDES6G_2  | Cubby 10
+            Some(Sgmii), // 11 | DEV2G5_3 |  SERDES6G_3  | Cubby 11
+            Some(Sgmii), // 12 | DEV2G5_4 |  SERDES6G_4  | Cubby 12
+            Some(Sgmii), // 13 | DEV2G5_5 |  SERDES6G_5  | Cubby 13
+            Some(Sgmii), // 14 | DEV2G5_6 |  SERDES6G_6  | Cubby 14
+            Some(Sgmii), // 15 | DEV2G5_7 |  SERDES6G_7  | Cubby 15
+            Some(Sgmii), // 16 | DEV2G5_8 |  SERDES6G_8  | Cubby 16
+            Some(Sgmii), // 17 | DEV2G5_9 |  SERDES6G_9  | Cubby 17
+            Some(Sgmii), // 18 | DEV2G5_10 |  SERDES6G_10 | Cubby 18
+            Some(Sgmii), // 19 | DEV2G5_11 |  SERDES6G_11 | Cubby 19
+            Some(Sgmii), // 20 | DEV2G5_12 |  SERDES6G_12 | Cubby 20
+            Some(Sgmii), // 21 | DEV2G5_13 |  SERDES6G_13 | Cubby 21
+            None,        // 22
+            None,        // 23
+            Some(Sgmii), // 24 | DEV2G5_16 |  SERDES6G_16 | Cubby 22
+            Some(Sgmii), // 25 | DEV2G5_17 |  SERDES6G_17 | Cubby 23
+            Some(Sgmii), // 26 | DEV2G5_18 |  SERDES6G_18 | Cubby 24
+            Some(Sgmii), // 27 | DEV2G5_19 |  SERDES6G_19 | Cubby 25
+            Some(Sgmii), // 28 | DEV2G5_20 |  SERDES6G_20 | Cubby 26
+            Some(Sgmii), // 29 | DEV2G5_21 |  SERDES6G_21 | Cubby 27
+            Some(Sgmii), // 30 | DEV2G5_22 |  SERDES6G_22 | Cubby 28
+            Some(Sgmii), // 31 | DEV2G5_23 |  SERDES6G_23 | Cubby 29
+            None,        // 32 | Unused
+            None,        // 33 | Unused
+            None,        // 34 | Unused
+            None,        // 35 | Unused
+            None,        // 36 | Unused
+            None,        // 37 | Unused
+            None,        // 38 | Unused
+            None,        // 39 | Unused
+            //////////// ///////////////////////////////////////////////////////
+            // Going to an on-board VSC8504 PHY (PHY4, U40), which is
+            // configured over MIIM by the SP.
+            Some(Qsgmii(Speed100M)), // 40 | DEV1G_16 |  SERDES6G_14 | Peer SP
+            Some(Qsgmii(Speed100M)), // 41 | DEV1G_17 |  SERDES6G_14 | PSC0
+            Some(Qsgmii(Speed100M)), // 42 | DEV1G_18 |  SERDES6G_14 | PSC1
+            None,                    // 43 | Unused
+            ///////////////////////////////////////////////////////////////////
+            // Going to the front panel QSFP board, where there's a VSC8504
+            // that's configured by the FPGA
+            Some(Qsgmii(Speed100M)), // 44 | DEV1G_20 |  SERDES6G_15 | Technician 0
+            Some(Qsgmii(Speed100M)), // 45 | DEV1G_21 |  SERDES6G_15 | Technician 0
+            None,                    // 46 | Unused
+            None,                    // 47 | Unused
+            ///////////////////////////////////////////////////////////////////
+            Some(Sgmii), // 48 | DEV2G5_24 |  SERDES1G_0  | Local SP
+            Some(Sfi),   // 49 | DEV10G_0  |  SERDES10G_0 | Tofino 2
+            None,        // 50 | Unused
+            Some(Sgmii), // 51 | DEV2G5_27 |  SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
+            Some(Sgmii), // 52 | DEV2G5_28 |  SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
+        ],
+    };
+}
+
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
@@ -103,73 +173,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         let sys = SYS.get_task_id();
         let sys = Sys::from(sys);
 
-        // See RFD144 for a detailed look at the design
-        self.vsc7448.init_sgmii(&[
-            0,  // DEV1G_0   | SERDES1G_1  | Cubby 0
-            1,  // DEV1G_1   | SERDES1G_2  | Cubby 1
-            2,  // DEV1G_2   | SERDES1G_3  | Cubby 2
-            3,  // DEV1G_3   | SERDES1G_4  | Cubby 3
-            4,  // DEV1G_4   | SERDES1G_5  | Cubby 4
-            5,  // DEV1G_5   | SERDES1G_6  | Cubby 5
-            6,  // DEV1G_6   | SERDES1G_7  | Cubby 6
-            7,  // DEV1G_7   | SERDES1G_8  | Cubby 7
-            8,  // DEV2G5_0  | SERDES6G_0  | Cubby 8
-            9,  // DEV2G5_1  | SERDES6G_1  | Cubby 9
-            10, // DEV2G5_2  | SERDES6G_2  | Cubby 10
-            11, // DEV2G5_3  | SERDES6G_3  | Cubby 11
-            12, // DEV2G5_4  | SERDES6G_4  | Cubby 12
-            13, // DEV2G5_5  | SERDES6G_5  | Cubby 13
-            14, // DEV2G5_6  | SERDES6G_6  | Cubby 14
-            15, // DEV2G5_7  | SERDES6G_7  | Cubby 15
-            16, // DEV2G5_8  | SERDES6G_8  | Cubby 16
-            17, // DEV2G5_9  | SERDES6G_9  | Cubby 17
-            18, // DEV2G5_10 | SERDES6G_10 | Cubby 18
-            19, // DEV2G5_11 | SERDES6G_11 | Cubby 19
-            20, // DEV2G5_12 | SERDES6G_12 | Cubby 20
-            21, // DEV2G5_13 | SERDES6G_13 | Cubby 21
-            24, // DEV2G5_16 | SERDES6G_16 | Cubby 22
-            25, // DEV2G5_17 | SERDES6G_17 | Cubby 23
-            26, // DEV2G5_18 | SERDES6G_18 | Cubby 24
-            27, // DEV2G5_19 | SERDES6G_19 | Cubby 25
-            28, // DEV2G5_20 | SERDES6G_20 | Cubby 26
-            29, // DEV2G5_21 | SERDES6G_21 | Cubby 27
-            30, // DEV2G5_22 | SERDES6G_22 | Cubby 28
-            31, // DEV2G5_23 | SERDES6G_23 | Cubby 29
-            48, // DEV2G5_24 | SERDES1G_0  | Local SP
-        ])?;
-        self.vsc7448.init_10g_sgmii(&[
-            51, // DEV2G5_27 | SERDES10G_2 | Cubby 30   (shadows DEV10G_2)
-            52, // DEV2G5_28 | SERDES10G_3 | Cubby 31   (shadows DEV10G_3)
-        ])?;
-
         self.phy_init(&sys)?;
-        self.vsc7448.init_qsgmii(
-            &[
-                // Going to an on-board VSC8504 PHY (PHY4, U40), which is
-                // configured over MIIM by the SP.
-                //
-                // 40 | DEV1G_16 | SERDES6G_14 | Peer SP
-                // 41 | DEV1G_17 | SERDES6G_14 | PSC0
-                // 42 | DEV1G_18 | SERDES6G_14 | PSC1
-                // 43 | Unused
-                40,
-                // Going out to the front panel board, where there's a waiting
-                // PHY that is configured by the FPGA.
-                //
-                // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
-                // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
-                // 42 | Unused
-                // 43 | Unused
-                44,
-            ],
-            vsc7448::Speed::Speed100M,
-        )?;
-
-        self.vsc7448.init_sfi(&[
-            49, //  DEV10G_0 | SERDES10G_0 | Tofino 2
-        ])?;
-
-        self.vsc7448.apply_calendar()?;
+        self.vsc7448.configure_ports_from_map(&map::SIDECAR_MAP)?;
 
         Ok(())
     }

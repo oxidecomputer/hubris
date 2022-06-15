@@ -7,6 +7,7 @@
 pub mod mac;
 pub mod miim_phy;
 pub mod spi;
+pub mod status;
 
 mod dev;
 mod port;
@@ -21,6 +22,7 @@ pub use dev::Speed;
 pub use vsc_err::VscError;
 
 use crate::dev::{Dev10g, DevGeneric};
+use crate::status::{PortDev, PortMap, PortMode};
 
 /// This trait abstracts over various ways of talking to a VSC7448.
 pub trait Vsc7448Rw {
@@ -131,29 +133,77 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Self { rw }
     }
 
+    pub fn configure_ports_from_map(
+        &self,
+        map: &PortMap,
+    ) -> Result<(), VscError> {
+        for (port, cfg) in map
+            .ports
+            .iter()
+            .enumerate()
+            .filter(|(_port, cfg)| cfg.is_some())
+        {
+            match cfg {
+                PortMode::Sgmii => {
+                    if port < 49 {
+                        self.init_sgmii(port as u8)
+                    } else {
+                        // SGMII over 10G SERDE, shadowing a 10G port
+                        self.init_10g_sgmii(port as u8)
+                    }
+                }
+                PortMode::Sfi => self.init_sfi(port as u8),
+                PortMode::Qsgmii(speed) => self.init_qsgmii(port as u8, speed),
+            }?;
+        }
+        self.apply_calendar()?;
+        Ok(())
+    }
+
+    pub fn decode_port(port: u8, mode: PortMode) -> (PortDev, u8) {
+        match mode {
+            PortMode::Sgmii => match port {
+                0..=7 => (PortDev::Dev1g, port),
+                8..=31 => (PortDev::Dev2g5, port - 8),
+                48..=51 => (PortDev::Dev2g5, port - 24),
+                _ => panic!(),
+            },
+            PortMode::Qsgmii(_) => match port {
+                0..=7 => (PortDev::Dev1g, port),
+                8..=31 => (PortDev::Dev2g5, port - 8),
+                32..=47 => (PortDev::Dev1g, port - 24),
+                _ => panic!(),
+            },
+            PortMode::Sfi => match port {
+                49..=52 => (PortDev::Dev10g, port - 49),
+                _ => panic!(),
+            },
+        }
+    }
+
     /// Initializes the given ports as an SFI connection.  The given ports must
     /// be in the range 49..=52, otherwise this function will panic.
     ///
     /// This will configure the appropriate DEV10G and SERDES10G.
-    pub fn init_sfi(&self, ports: &[u8]) -> Result<(), VscError> {
-        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
-        for &port in ports {
-            assert!(port >= 49);
-            assert!(port <= 52);
-            let dev = Dev10g::new(port - 49)?;
-            dev.init_sfi(self.rw)?;
-            // Disable ASM / DSM stat collection for this port, since that
-            // data will be collected in the DEV10G instead
-            self.modify(ASM().CFG().PORT_CFG(port), |r| {
-                r.set_csc_stat_dis(1);
-            })?;
-            self.modify(DSM().CFG().BUF_CFG(port), |r| {
-                r.set_csc_stat_dis(1);
-            })?;
-            serdes_cfg.apply(dev.index(), self.rw)?;
+    fn init_sfi(&self, port: u8) -> Result<(), VscError> {
+        let (dev_type, dev_num) = Self::decode_port(port, PortMode::Sfi);
+        assert_eq!(dev_type, PortDev::Dev10g);
 
-            self.set_calendar_bandwidth(port, Bandwidth::Bw10G)?;
-        }
+        let dev = Dev10g::new(dev_num)?;
+        dev.init_sfi(self.rw)?;
+        // Disable ASM / DSM stat collection for this port, since that
+        // data will be collected in the DEV10G instead
+        self.modify(ASM().CFG().PORT_CFG(port), |r| {
+            r.set_csc_stat_dis(1);
+        })?;
+        self.modify(DSM().CFG().BUF_CFG(port), |r| {
+            r.set_csc_stat_dis(1);
+        })?;
+
+        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
+        serdes_cfg.apply(dev.index(), self.rw)?;
+
+        self.set_calendar_bandwidth(port, Bandwidth::Bw10G)?;
         Ok(())
     }
 
@@ -161,41 +211,36 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// convert from ports to DEV and SERDES.
     ///
     /// Each value in `ports` must be between 0 and 31, or 48 (the NPI port)
-    pub fn init_sgmii(&self, ports: &[u8]) -> Result<(), VscError> {
-        let sd1g_cfg = serdes1g::Config::new(serdes1g::Mode::Sgmii);
-        let sd6g_cfg = serdes6g::Config::new(serdes6g::Mode::Sgmii);
+    fn init_sgmii(&self, port: u8) -> Result<(), VscError> {
+        let (dev_type, dev_num) = Self::decode_port(port, PortMode::Sgmii);
+        let dev = match dev_type {
+            PortDev::Dev1g => DevGeneric::new_1g,
+            PortDev::Dev2g5 => DevGeneric::new_2g5,
+            PortDev::Dev10g => panic!(),
+        }(dev_num)?;
+        assert_eq!(dev.port(), port);
 
-        for &p in ports {
-            assert!(p <= 31 || p == 48);
-            let dev_type = match p {
-                0..=7 => DevGeneric::new_1g,
-                8..=31 | 48 => DevGeneric::new_2g5,
-                _ => panic!(),
-            };
-            let dev = match p {
-                0..=7 => p,
-                8..=31 => p - 8,
-                48 => 24,
-                _ => panic!(),
-            };
-            let dev = dev_type(dev)?;
-            assert_eq!(dev.port(), p);
+        dev.init_sgmii(self.rw, dev::Speed::Speed100M)?;
 
-            dev.init_sgmii(self.rw, dev::Speed::Speed100M)?;
+        // SERDES1G_1 maps to Port 0, SERDES1G_2 to Port 1, etc
+        // SERDES6G_0 maps to Port 8, SERDES6G_1 to Port 9, etc
+        // (notice that there's an offset here; SERDES1G_0 is used by the
+        //  NPI port, i.e. port 48)
+        let serde_num = match port {
+            0..=7 => port + 1,
+            8..=31 => port - 8,
+            48 => 0,
+            _ => panic!(),
+        };
+        match port {
+            0..=7 | 48 => serdes1g::Config::new(serdes1g::Mode::Sgmii)
+                .apply(serde_num, self.rw),
+            8..=31 => serdes6g::Config::new(serdes6g::Mode::Sgmii)
+                .apply(serde_num, self.rw),
+            _ => panic!(),
+        }?;
 
-            // SERDES1G_1 maps to Port 0, SERDES1G_2 to Port 1, etc
-            // SERDES6G_0 maps to Port 8, SERDES6G_1 to Port 9, etc
-            // (notice that there's an offset here; SERDES1G_0 is used by the
-            //  NPI port, i.e. port 48)
-            match p {
-                0..=7 => sd1g_cfg.apply(p + 1, self.rw),
-                8..=31 => sd6g_cfg.apply(p - 8, self.rw),
-                48 => sd1g_cfg.apply(0, self.rw),
-                _ => panic!(),
-            }?;
-
-            self.set_calendar_bandwidth(p, Bandwidth::Bw1G)?;
-        }
+        self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         Ok(())
     }
 
@@ -203,66 +248,41 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// This will configure the appropriate DEV1G or DEV2G5 devices, and the
     /// appropriate SERDES6G, based on Table 8 in the datasheet;
     ///
-    /// Each value in `start_ports` must be divisible by 4 and below 48;
-    /// otherwise, this function will panic.
-    pub fn init_qsgmii(
-        &self,
-        start_ports: &[u8],
-        speed: dev::Speed,
-    ) -> Result<(), VscError> {
-        let qsgmii_cfg = serdes6g::Config::new(serdes6g::Mode::Qsgmii);
-
-        // Set a bit to enable QSGMII for these block
-        self.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-            let mut e = r.qsgmii_ena();
-            for p in start_ports {
-                e |= 1 << (p / 4);
-            }
-            r.set_qsgmii_ena(e);
-        })?;
-        for &start_port in start_ports {
-            assert!(start_port < 48);
-            assert_eq!(start_port % 4, 0);
-
-            let (dev_type, start_dev): (fn(u8) -> Result<DevGeneric, _>, u8) =
-                match start_port {
-                    0 => (DevGeneric::new_1g, 0),
-                    4 => (DevGeneric::new_1g, 4),
-                    8 => (DevGeneric::new_2g5, 0),
-                    12 => (DevGeneric::new_2g5, 4),
-                    16 => (DevGeneric::new_2g5, 8),
-                    20 => (DevGeneric::new_2g5, 12),
-                    24 => (DevGeneric::new_2g5, 16),
-                    28 => (DevGeneric::new_2g5, 20),
-                    32 => (DevGeneric::new_1g, 8),
-                    36 => (DevGeneric::new_1g, 12),
-                    40 => (DevGeneric::new_1g, 16),
-                    44 => (DevGeneric::new_1g, 20),
-                    _ => panic!(),
-                };
-
-            // Ports 0-3 use SERDES6G_4, 4-7 use SERDES6G_5, etc
-            let serde = (start_port / 4) + 4;
-
-            // Reset the PCS TX clock domain.  In the SDK, this is accompanied
-            // by the cryptic comment "BZ23738", which may refer to an errata
-            // of some kind?
-            for dev in (start_dev + 1)..(start_dev + 4) {
-                self.modify(
-                    dev_type(dev)?.regs().DEV_CFG_STATUS().DEV_RST_CTRL(),
-                    |r| r.set_pcs_tx_rst(0),
-                )?;
-            }
-
-            qsgmii_cfg.apply(serde, self.rw)?;
-
-            for dev in start_dev..(start_dev + 4) {
-                dev_type(dev)?.init_sgmii(self.rw, speed)?;
-            }
-            for port in start_port..start_port + 4 {
-                self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
-            }
+    /// The value of `start_port` must be divisible by 4; otherwise, this
+    /// function will panic.
+    fn init_qsgmii(&self, port: u8, speed: dev::Speed) -> Result<(), VscError> {
+        if port % 4 == 0 {
+            // Set a bit to enable QSGMII for these block
+            self.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
+                let mut e = r.qsgmii_ena();
+                e |= 1 << (port / 4);
+                r.set_qsgmii_ena(e);
+            })?;
         }
+
+        let (dev_type, dev_num) = Self::decode_port(port, PortMode::Sgmii);
+        let dev = match dev_type {
+            PortDev::Dev1g => DevGeneric::new_1g,
+            PortDev::Dev2g5 => DevGeneric::new_2g5,
+            PortDev::Dev10g => panic!(),
+        }(dev_num)?;
+
+        // Reset the PCS TX clock domain.  In the SDK, this is accompanied
+        // by the cryptic comment "BZ23738", which may refer to an errata
+        // of some kind?
+        self.modify(dev.regs().DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
+            r.set_pcs_tx_rst(0)
+        })?;
+
+        // Ports 0-3 use SERDES6G_4, 4-7 use SERDES6G_5, etc
+        if port % 4 == 0 {
+            let serde = (port / 4) + 4;
+            let qsgmii_cfg = serdes6g::Config::new(serdes6g::Mode::Qsgmii);
+            qsgmii_cfg.apply(serde, self.rw)?;
+        }
+
+        dev.init_sgmii(self.rw, speed)?;
+        self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         Ok(())
     }
 
@@ -270,38 +290,33 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// This is only valid for ports 49-52, and will panic otherwise; see
     /// Table 9 for details.
-    pub fn init_10g_sgmii(&self, ports: &[u8]) -> Result<(), VscError> {
+    fn init_10g_sgmii(&self, port: u8) -> Result<(), VscError> {
+        let d2g5 = DevGeneric::new_2g5(port - 24).unwrap();
+        let d10g = Dev10g::new(port - 49).unwrap();
+        assert!(d2g5.port() == d10g.port());
+
+        // We have to disable and flush the 10G port that shadows this port
+        port::port10g_flush(&d10g, self)?;
+
+        // "Configure the 10G Mux mode to DEV2G5"
+        self.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| match d10g.index() {
+            0 => r.set_dev10g_0_mode(3),
+            1 => r.set_dev10g_1_mode(3),
+            2 => r.set_dev10g_2_mode(3),
+            3 => r.set_dev10g_3_mode(3),
+            d => panic!("Invalid DEV10G {}", d),
+        })?;
+        // This bit must be set when a 10G port runs below 10G speed
+        self.modify(DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()), |r| {
+            r.set_dev10g_shadow_ena(1);
+        })?;
+
         let serdes10g_cfg_sgmii =
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
-        for &port in ports {
-            assert!(port >= 49);
-            assert!(port <= 52);
-            let d2g5 = DevGeneric::new_2g5(port - 24).unwrap();
-            let d10g = Dev10g::new(port - 49).unwrap();
-            assert!(d2g5.port() == d10g.port());
+        serdes10g_cfg_sgmii.apply(d10g.index(), self.rw)?;
+        d2g5.init_sgmii(self.rw, dev::Speed::Speed100M)?;
 
-            // We have to disable and flush the 10G port that shadows this port
-            port::port10g_flush(&d10g, self)?;
-
-            // "Configure the 10G Mux mode to DEV2G5"
-            self.modify(HSIO().HW_CFGSTAT().HW_CFG(), |r| {
-                match d10g.index() {
-                    0 => r.set_dev10g_0_mode(3),
-                    1 => r.set_dev10g_1_mode(3),
-                    2 => r.set_dev10g_2_mode(3),
-                    3 => r.set_dev10g_3_mode(3),
-                    d => panic!("Invalid DEV10G {}", d),
-                }
-            })?;
-            // This bit must be set when a 10G port runs below 10G speed
-            self.modify(DSM().CFG().DEV_TX_STOP_WM_CFG(d2g5.port()), |r| {
-                r.set_dev10g_shadow_ena(1);
-            })?;
-            serdes10g_cfg_sgmii.apply(d10g.index(), self.rw)?;
-            d2g5.init_sgmii(self.rw, dev::Speed::Speed100M)?;
-
-            self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
-        }
+        self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         Ok(())
     }
 
@@ -513,7 +528,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     /// [set_calendar_bandwidth].  Returns an error if the total bandwidth
     /// exceeds the chip's limit of 84 Gbps, or if communication to the
     /// chip fails in some other way.
-    pub fn apply_calendar(&self) -> Result<(), VscError> {
+    fn apply_calendar(&self) -> Result<(), VscError> {
         let mut total_bw_mhz = 0;
         for i in 0..4 {
             let d = self.read(QSYS().CALCFG().CAL_AUTO(i))?.cal_auto();

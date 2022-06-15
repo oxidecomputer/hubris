@@ -26,6 +26,83 @@ enum Trace {
 }
 ringbuf!(Trace, 16, Trace::None);
 
+////////////////////////////////////////////////////////////////////////////////
+
+mod map {
+    // See RFD144 for a detailed look at the design
+    use vsc7448::status::{PortMap, PortMode::*};
+    use vsc7448::Speed::*;
+    pub const DEV_KIT_MAP: PortMap = PortMap {
+        ports: [
+            Some(Qsgmii(Speed1G)), //  0  | DEV1G_0
+            Some(Qsgmii(Speed1G)), //  1  | DEV1G_1
+            Some(Qsgmii(Speed1G)), //  2  | DEV1G_2
+            Some(Qsgmii(Speed1G)), //  3  | DEV1G_3
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  4  | DEV1G_4
+            Some(Qsgmii(Speed1G)), //  5  | DEV1G_5
+            Some(Qsgmii(Speed1G)), //  6  | DEV1G_6
+            Some(Qsgmii(Speed1G)), //  7  | DEV1G_7
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  8  | DEV2G5_0
+            Some(Qsgmii(Speed1G)), //  9  | DEV2G5_1
+            Some(Qsgmii(Speed1G)), //  10 | DEV2G5_2
+            Some(Qsgmii(Speed1G)), //  11 | DEV2G5_3
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  12 | DEV2G5_4
+            Some(Qsgmii(Speed1G)), //  13 | DEV2G5_5
+            Some(Qsgmii(Speed1G)), //  14 | DEV2G5_6
+            Some(Qsgmii(Speed1G)), //  15 | DEV2G5_7
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  16 | DEV2G5_8
+            Some(Qsgmii(Speed1G)), //  17 | DEV2G5_9
+            Some(Qsgmii(Speed1G)), //  18 | DEV2G5_10
+            Some(Qsgmii(Speed1G)), //  19 | DEV2G5_11
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  20 | DEV2G5_12
+            Some(Qsgmii(Speed1G)), //  21 | DEV2G5_13
+            Some(Qsgmii(Speed1G)), //  22 | DEV2G5_14
+            Some(Qsgmii(Speed1G)), //  23 | DEV2G5_15
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  24 | DEV2G5_16
+            Some(Qsgmii(Speed1G)), //  25 | DEV2G5_17
+            Some(Qsgmii(Speed1G)), //  26 | DEV2G5_18
+            Some(Qsgmii(Speed1G)), //  27 | DEV2G5_19
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  28 | DEV2G5_20
+            Some(Qsgmii(Speed1G)), //  29 | DEV2G5_21
+            Some(Qsgmii(Speed1G)), //  30 | DEV2G5_22
+            Some(Qsgmii(Speed1G)), //  31 | DEV2G5_23
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  32 | DEV1G_8
+            Some(Qsgmii(Speed1G)), //  33 | DEV1G_9
+            Some(Qsgmii(Speed1G)), //  34 | DEV1G_10
+            Some(Qsgmii(Speed1G)), //  35 | DEV1G_11
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  36 | DEV1G_12
+            Some(Qsgmii(Speed1G)), //  37 | DEV1G_13
+            Some(Qsgmii(Speed1G)), //  38 | DEV1G_14
+            Some(Qsgmii(Speed1G)), //  39 | DEV1G_15
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  40 | DEV1G_16
+            Some(Qsgmii(Speed1G)), //  41 | DEV1G_17
+            Some(Qsgmii(Speed1G)), //  42 | DEV1G_18
+            Some(Qsgmii(Speed1G)), //  43 | DEV1G_19
+            ///////////////////////////////////////////////////////////////////
+            Some(Qsgmii(Speed1G)), //  44 | DEV1G_20
+            Some(Qsgmii(Speed1G)), //  45 | DEV1G_21
+            Some(Qsgmii(Speed1G)), //  46 | DEV1G_22
+            Some(Qsgmii(Speed1G)), //  47 | DEV1G_23
+            ///////////////////////////////////////////////////////////////////
+            None,        // 48
+            Some(Sfi),   // 49 | DEV10G_0
+            Some(Sfi),   // 50 | DEV10G_1
+            Some(Sgmii), // 51 | DEV2G5_27
+            Some(Sgmii), // 52 | DEV2G5_28
+        ],
+    };
+}
+////////////////////////////////////////////////////////////////////////////////
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
     vsc8522: [Vsc8522; 4],
@@ -85,15 +162,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.gpio_init()?;
         self.phy_init()?;
 
-        self.vsc7448.init_qsgmii(
-            &[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44],
-            vsc7448::Speed::Speed1G,
-        )?;
-        self.vsc7448.init_sfi(&[49, 50])?;
-        self.vsc7448.init_10g_sgmii(&[51, 52])?;
+        self.vsc7448.configure_ports_from_map(&map::DEV_KIT_MAP)?;
         self.vsc7448.configure_vlan_optional()?;
-
-        self.vsc7448.apply_calendar()?;
 
         self.leds.led_off(0).unwrap();
         self.leds.led_on(3).unwrap();
