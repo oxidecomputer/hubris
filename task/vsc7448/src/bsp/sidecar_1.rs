@@ -156,8 +156,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 // Going out to the front panel board, where there's a waiting
                 // PHY that is configured by the FPGA.
                 //
-                // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
-                // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
+                // 44 | DEV1G_20 | SERDES6G_15 | Technician 0
+                // 45 | DEV1G_21 | SERDES6G_15 | Technician 1
                 // 42 | Unused
                 // 43 | Unused
                 44,
