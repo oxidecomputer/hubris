@@ -140,7 +140,6 @@ pub enum Functions {
     FinishUpdate((), drv_update_api::UpdateError),
     #[cfg(feature = "update")]
     BlockSize((), drv_update_api::UpdateError),
-
     #[cfg(feature = "sprot")]
     SpRotSendRecv((u32, u32), drv_spi_api::SpiError),
     #[cfg(feature = "sprot")]

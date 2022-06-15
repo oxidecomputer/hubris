@@ -27,6 +27,7 @@ start = true
 features = ["g030"]
 task-slots = ["jefe"]
 stacksize = 256
+task-slots = ["jefe"]
 
 [tasks.pong]
 name = "task-pong"

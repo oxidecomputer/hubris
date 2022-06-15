@@ -310,9 +310,3 @@ input = {port = "E", pin = 5, af = 5}
 [config.spi.spi4.devices.rot]
 mux = "port_e"
 cs = [{port = "E", pin = 4}]
-clock_divider = "DIV256"
-
-[config.sprot]
-# ROT_IRQ (af=0 for GPIO, af=15 when EXTI is implemneted)
-# {port = "D", pins = [0], af = 0},
-rot_irq = { port = "E", pin = 3, af = 0}
