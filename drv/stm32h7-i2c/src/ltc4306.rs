@@ -88,7 +88,7 @@ fn read_reg_u8(
     mux: &I2cMux,
     controller: &I2cController,
     reg: u8,
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) -> Result<u8, ResponseCode> {
     let mut rval = 0u8;
     let wlen = 1;
@@ -114,7 +114,7 @@ fn write_reg_u8(
     controller: &I2cController,
     reg: u8,
     val: u8,
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -135,7 +135,7 @@ impl I2cMuxDriver for Ltc4306 {
         mux: &I2cMux,
         _controller: &I2cController,
         gpio: &sys_api::Sys,
-        _ctrl: &I2cControl,
+        _ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.configure(gpio)
     }
@@ -145,7 +145,7 @@ impl I2cMuxDriver for Ltc4306 {
         mux: &I2cMux,
         controller: &I2cController,
         segment: Segment,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg3 = Register3(0);
 

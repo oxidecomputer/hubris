@@ -395,14 +395,10 @@ fn main() -> ! {
         rval
     };
 
-    let ctrl = I2cControl {
-        enable: |notification| {
-            sys_irq_control(notification, true);
-        },
-        wfi: |notification| {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-        },
-    };
-
-    controller.operate_as_target(&ctrl, &mut initiate, &mut rx, &mut tx);
+    controller.operate_as_target(
+        &mut DefaultControl,
+        &mut initiate,
+        &mut rx,
+        &mut tx,
+    );
 }

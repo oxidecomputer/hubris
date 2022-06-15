@@ -74,7 +74,7 @@ fn read_regs(
     mux: &I2cMux,
     controller: &I2cController,
     rbuf: &mut [u8],
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) -> Result<(), ResponseCode> {
     match controller.write_read(
         mux.address,
@@ -103,7 +103,7 @@ fn write_reg(
     controller: &I2cController,
     reg: Register,
     val: u8,
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) -> Result<(), ResponseCode> {
     let mut wbuf = [0u8; 3];
 
@@ -142,7 +142,7 @@ impl I2cMuxDriver for Max7358 {
         mux: &I2cMux,
         controller: &I2cController,
         gpio: &sys_api::Sys,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), ResponseCode> {
         mux.configure(gpio)?;
 
@@ -196,7 +196,7 @@ impl I2cMuxDriver for Max7358 {
         mux: &I2cMux,
         controller: &I2cController,
         segment: Segment,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = SwitchControl(0);
 

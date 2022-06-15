@@ -50,15 +50,26 @@ pub struct I2cController<'a> {
     pub registers: &'a RegisterBlock,
 }
 
-///
-/// A structure that defines interrupt control flow functions that will be
-/// used to pass control flow into the kernel to either enable or wait for
-/// interrupts.  Note that this is deliberately a struct and not a trait,
-/// allowing the [`I2cMuxDriver`] trait to itself be a trait object.
-///
-pub struct I2cControl {
-    pub enable: fn(u32),
-    pub wfi: fn(u32),
+/// Defines interrupt control flow functions that will be used to pass control
+/// flow into the kernel to either enable or wait for interrupts.
+pub trait I2cControl {
+    fn enable(&mut self, mask: u32);
+    fn wfi(&mut self, mask: u32);
+}
+
+/// An implementation of `I2cControl` that does the typical thing for a Hubris
+/// task: uses syscalls to enable IRQs and uses a closed notification receive to
+/// WFI.
+#[derive(Copy, Clone, PartialEq)]
+pub struct DefaultControl;
+
+impl I2cControl for DefaultControl {
+    fn enable(&mut self, notification: u32) {
+        sys_irq_control(notification, true);
+    }
+    fn wfi(&mut self, notification: u32) {
+        let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
+    }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -78,7 +89,7 @@ pub trait I2cMuxDriver {
         mux: &I2cMux,
         controller: &I2cController,
         sys: &sys_api::Sys,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
     /// Reset the mux
@@ -94,7 +105,7 @@ pub trait I2cMuxDriver {
         mux: &I2cMux,
         controller: &I2cController,
         segment: drv_i2c_api::Segment,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 }
 
@@ -448,7 +459,7 @@ impl<'a> I2cController<'a> {
         getbyte: impl Fn(usize) -> Option<u8>,
         mut rlen: ReadLength,
         mut putbyte: impl FnMut(usize, u8) -> Option<()>,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         // Assert our preconditions as described above
         assert!(wlen > 0 || rlen != ReadLength::Fixed(0));
@@ -492,8 +503,8 @@ impl<'a> I2cController<'a> {
                         break;
                     }
 
-                    (ctrl.wfi)(notification);
-                    (ctrl.enable)(notification);
+                    ctrl.wfi(notification);
+                    ctrl.enable(notification);
                 }
 
                 // Get a single byte.
@@ -522,8 +533,8 @@ impl<'a> I2cController<'a> {
                     break;
                 }
 
-                (ctrl.wfi)(notification);
-                (ctrl.enable)(notification);
+                ctrl.wfi(notification);
+                ctrl.enable(notification);
             }
         }
 
@@ -567,8 +578,8 @@ impl<'a> I2cController<'a> {
                 }
 
                 loop {
-                    (ctrl.wfi)(notification);
-                    (ctrl.enable)(notification);
+                    ctrl.wfi(notification);
+                    ctrl.enable(notification);
 
                     let isr = i2c.isr.read();
                     ringbuf_entry!(Trace::ReadISR(isr.bits()));
@@ -614,8 +625,8 @@ impl<'a> I2cController<'a> {
 
                 self.check_errors(&isr)?;
 
-                (ctrl.wfi)(notification);
-                (ctrl.enable)(notification);
+                ctrl.wfi(notification);
+                ctrl.enable(notification);
             }
         }
 
@@ -645,7 +656,7 @@ impl<'a> I2cController<'a> {
         &self,
         addr: u8,
         ops: &[I2cKonamiCode],
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         let i2c = self.registers;
         let notification = self.notification;
@@ -688,8 +699,8 @@ impl<'a> I2cController<'a> {
                     break;
                 }
 
-                (ctrl.wfi)(notification);
-                (ctrl.enable)(notification);
+                ctrl.wfi(notification);
+                ctrl.enable(notification);
             }
         }
 
@@ -739,7 +750,7 @@ impl<'a> I2cController<'a> {
 
     pub fn operate_as_target(
         &self,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
         mut initiate: impl FnMut(u8) -> bool,
         mut rxbyte: impl FnMut(u8, u8),
         mut txbyte: impl FnMut(u8) -> Option<u8>,
@@ -749,7 +760,7 @@ impl<'a> I2cController<'a> {
         let i2c = self.registers;
         let notification = self.notification;
 
-        (ctrl.enable)(notification);
+        ctrl.enable(notification);
 
         'addrloop: loop {
             let (is_write, addr) = loop {
@@ -767,8 +778,8 @@ impl<'a> I2cController<'a> {
                 }
 
                 ringbuf_entry!(Trace::WaitAddr);
-                (ctrl.wfi)(notification);
-                (ctrl.enable)(notification);
+                ctrl.wfi(notification);
+                ctrl.enable(notification);
             };
 
             // Flush our TXDR
@@ -837,8 +848,8 @@ impl<'a> I2cController<'a> {
                     }
 
                     ringbuf_entry!(Trace::WaitRx);
-                    (ctrl.wfi)(notification);
-                    (ctrl.enable)(notification);
+                    ctrl.wfi(notification);
+                    ctrl.enable(notification);
                 }
             }
 
@@ -898,8 +909,8 @@ impl<'a> I2cController<'a> {
                 }
 
                 ringbuf_entry!(Trace::WaitTx);
-                (ctrl.wfi)(notification);
-                (ctrl.enable)(notification);
+                ctrl.wfi(notification);
+                ctrl.enable(notification);
             }
         }
     }

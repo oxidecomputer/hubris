@@ -75,7 +75,7 @@ fn configure_mux(
     port: PortIndex,
     mux: Option<(Mux, Segment)>,
     muxes: &[I2cMux],
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) -> Result<(), ResponseCode> {
     find_mux(controller, port, muxes, mux, |mux, id, segment| {
         // Determine if the current segment matches our specified segment...
@@ -160,16 +160,9 @@ fn main() -> ! {
     // Field messages.
     let mut buffer = [0; 4];
 
-    let ctrl = I2cControl {
-        enable: |notification| {
-            sys_irq_control(notification, true);
-        },
-        wfi: |notification| {
-            let _ = sys_recv_closed(&mut [], notification, TaskId::KERNEL);
-        },
-    };
+    let mut ctrl = DefaultControl;
 
-    configure_muxes(&muxes, &controllers, &pins, &mut portmap, &ctrl);
+    configure_muxes(&muxes, &controllers, &pins, &mut portmap, &mut ctrl);
 
     loop {
         hl::recv_without_notification(&mut buffer, |op, msg| match op {
@@ -196,7 +189,7 @@ fn main() -> ! {
                     port,
                     mux,
                     &muxes,
-                    &ctrl,
+                    &mut ctrl,
                 ) {
                     Ok(_) => {}
                     Err(code) => {
@@ -247,7 +240,7 @@ fn main() -> ! {
 
                         rbuf.write_at(pos, byte)
                     },
-                    &ctrl,
+                    &mut ctrl,
                 ) {
                     Err(code) => {
                         reset_if_needed(code, controller, port, &muxes, mux);
@@ -365,7 +358,7 @@ fn configure_muxes(
     controllers: &[I2cController],
     pins: &[I2cPin],
     map: &mut PortMap,
-    ctrl: &I2cControl,
+    ctrl: &mut dyn I2cControl,
 ) {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
