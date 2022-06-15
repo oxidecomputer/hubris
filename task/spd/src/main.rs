@@ -29,6 +29,8 @@ use drv_stm32xx_sys_api::*;
 use ringbuf::*;
 use userlib::*;
 
+use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
+
 task_slot!(SYS, sys);
 task_slot!(I2C, i2c_driver);
 
@@ -278,6 +280,7 @@ fn main() -> ! {
     let vbank = Cell::new(Some(0u8));
     let page = Cell::new(spd::Page(0));
     let voffs = RefCell::new(&mut voffs);
+    let spd_data = RefCell::new(spd_data);
 
     //
     // For initiation, we only allow SPD-related addresses if the mux has
@@ -378,7 +381,7 @@ fn main() -> ! {
 
                     let mut voffs = voffs.borrow_mut();
                     let offs = (ndx * spd::MAX_SIZE) + voffs[ndx] as usize;
-                    let rbyte = spd_data[offs + page.get().offset()];
+                    let rbyte = spd_data.borrow()[offs + page.get().offset()];
 
                     // It is our intent to overflow the add (that is, when
                     // performing a read at offset 0xff, the next read should
@@ -395,10 +398,79 @@ fn main() -> ! {
         rval
     };
 
-    controller.operate_as_target(
-        &mut DefaultControl,
-        &mut initiate,
-        &mut rx,
-        &mut tx,
-    );
+    let mut server = ServerImpl {
+        notification_mask: 0,
+        spd_data: &spd_data,
+    };
+
+    controller.operate_as_target(&mut server, &mut initiate, &mut rx, &mut tx);
+}
+
+struct ServerImpl<'s> {
+    notification_mask: u32,
+    spd_data: &'s RefCell<&'s mut [u8; 8192]>,
+}
+
+impl I2cControl for ServerImpl<'_> {
+    fn enable(&mut self, notification: u32) {
+        sys_irq_control(notification, true);
+    }
+    fn wfi(&mut self, notification: u32) {
+        // Store the mask to smuggle it through to our handler below.
+        self.notification_mask = notification;
+
+        // This will be relatively small, so, stack-allocated is fine.
+        let mut buffer = [0; idl::INCOMING_SIZE];
+
+        idol_runtime::dispatch_n(&mut buffer, self)
+    }
+}
+
+impl idl::InOrderSpdImpl for ServerImpl<'_> {
+    fn eeprom_update(
+        &mut self,
+        _msg: &RecvMessage,
+        index: u8,
+        page1: bool,
+        offset: u8,
+        data: LenLimit<Leased<idol_runtime::R, [u8]>, 256>,
+    ) -> Result<(), RequestError<core::convert::Infallible>> {
+        let eeprom_base = spd::MAX_SIZE * usize::from(index);
+        let eeprom_offset = 256 * usize::from(page1) + usize::from(offset);
+
+        if eeprom_offset + data.len() > spd::MAX_SIZE {
+            return Err(ClientError::BadMessageContents.fail());
+        }
+
+        let addr = eeprom_base + eeprom_offset;
+
+        let mut spd_data = self.spd_data.borrow_mut();
+
+        if addr + data.len() > spd_data.len() {
+            return Err(ClientError::BadMessageContents.fail());
+        }
+
+        // With the checks above this should not be able to return Err, so, we
+        // unwrap.
+        data.read_range(0..data.len(), &mut spd_data[addr..addr + data.len()])
+            .unwrap_lite();
+
+        Ok(())
+    }
+}
+
+impl idol_runtime::NotificationHandler for ServerImpl<'_> {
+    fn current_notification_mask(&self) -> u32 {
+        self.notification_mask
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        // We do nothing here -- we use the notification purely to break us out
+        // of receive to do more I2C things.
+    }
+}
+
+// And the Idol bits
+mod idl {
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
