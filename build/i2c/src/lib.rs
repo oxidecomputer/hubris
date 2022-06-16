@@ -1144,6 +1144,7 @@ pub fn codegen(disposition: Disposition) -> Result<()> {
 
         Disposition::Devices => {
             g.generate_devices()?;
+            g.generate_ports()?;
             g.generate_pmbus()?;
         }
 
