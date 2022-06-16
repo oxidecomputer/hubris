@@ -24,6 +24,8 @@ cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"
 gnarle = {path = "../../lib/gnarle"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+spd = { git = "https://github.com/oxidecomputer/spd" }
+task-spd-api = {path = "../../task/spd-api"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

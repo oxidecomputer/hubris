@@ -32,7 +32,6 @@ use userlib::*;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError};
 
 task_slot!(SYS, sys);
-task_slot!(I2C, i2c_driver);
 
 mod ltc4306;
 
@@ -62,135 +61,27 @@ type Bank = (Controller, drv_i2c_api::PortIndex, Option<(Mux, Segment)>);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
-    Found(usize),
-    Ready(u32),
+    Ready,
     Initiate(u8, bool),
     Rx(u8, u8),
     Tx(u8, Option<u8>),
-    Present(u8, u8, usize),
-    BankAbsent(u8),
-    Absent(u8, u8, usize),
-    ReadTop(usize),
-    ReadBottom(usize),
     MemInitiate(usize),
     MemSetOffset(usize, u8),
     MuxState(ltc4306::State, ltc4306::State),
+
+    DataUpdate {
+        index: u8,
+        page1: bool,
+        offset: u8,
+        len: u8,
+    },
+
     None,
 }
 
 ringbuf!(Trace, 16, Trace::None);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
-
-fn read_spd_data(
-    banks: &[Bank],
-    present: &mut [bool],
-    spd_data: &mut [u8],
-) -> usize {
-    let i2c_task = I2C.get_task_id();
-    let mut npresent = 0;
-
-    //
-    // For each bank, we're going to iterate over each device, reading all 512
-    // bytes of SPD data from each.
-    //
-    for nbank in 0..banks.len() as u8 {
-        let (controller, port, mux) = banks[nbank as usize];
-
-        let addr = spd::Function::PageAddress(spd::Page(0))
-            .to_device_code()
-            .unwrap();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
-
-        if let Err(_) = page.write(&[0]) {
-            //
-            // If our operation fails, we are going to assume that there
-            // are no DIMMs on this bank.
-            //
-            ringbuf_entry!(Trace::BankAbsent(nbank));
-            continue;
-        }
-
-        for i in 0..spd::MAX_DEVICES {
-            let mem = spd::Function::Memory(i).to_device_code().unwrap();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
-            let ndx = (nbank * spd::MAX_DEVICES) as usize + i as usize;
-            let offs = ndx * spd::MAX_SIZE;
-
-            //
-            // Try reading the first byte; if this fails, we will assume
-            // the device isn't present.
-            //
-            let first = match spd.read_reg::<u8, u8>(0) {
-                Ok(val) => {
-                    ringbuf_entry!(Trace::Present(nbank, i, ndx));
-                    present[ndx] = true;
-                    npresent += 1;
-                    val
-                }
-                Err(_) => {
-                    ringbuf_entry!(Trace::Absent(nbank, i, ndx));
-                    continue;
-                }
-            };
-
-            ringbuf_entry!(Trace::ReadBottom(ndx));
-
-            //
-            // We'll store that byte and then read 255 more.
-            //
-            spd_data[offs] = first;
-
-            let base = offs + 1;
-            let limit = base + 255;
-
-            spd.read_into(&mut spd_data[base..limit]).unwrap();
-        }
-
-        //
-        // Now flip over to the top page.
-        //
-        let addr = spd::Function::PageAddress(spd::Page(1))
-            .to_device_code()
-            .unwrap();
-        let page = I2cDevice::new(i2c_task, controller, port, None, addr);
-
-        //
-        // We really don't expect this to fail, and if it does, tossing here
-        // seems to be best option:  things are pretty wrong.
-        //
-        page.write(&[0]).unwrap();
-
-        //
-        // ...and two more reads for each (present) device.
-        //
-        for i in 0..spd::MAX_DEVICES {
-            let ndx = (nbank as u8 * spd::MAX_DEVICES) as usize + i as usize;
-            let offs = (ndx * spd::MAX_SIZE) + 256;
-
-            if !present[ndx] {
-                continue;
-            }
-
-            ringbuf_entry!(Trace::ReadTop(ndx));
-
-            let mem = spd::Function::Memory(i).to_device_code().unwrap();
-            let spd = I2cDevice::new(i2c_task, controller, port, mux, mem);
-
-            let chunk = 128;
-            let base = offs;
-            let limit = base + chunk;
-            spd.read_reg_into::<u8>(0, &mut spd_data[base..limit])
-                .unwrap();
-
-            let base = offs + chunk;
-            let limit = base + chunk;
-            spd.read_into(&mut spd_data[base..limit]).unwrap();
-        }
-    }
-
-    npresent
-}
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -242,25 +133,6 @@ fn main() -> ! {
 
     // The actual SPD data itself
     let spd_data = unsafe { &mut SPD_DATA };
-    let mut ndelay = 0;
-
-    //
-    // It's conceivable that we are racing the sequencer and that DIMMs may
-    // not be immediately visible; until we have a better way of synchronously
-    // waiting on the sequencer, loop until we have found DIMMs.
-    //
-    loop {
-        let ndimms = read_spd_data(&BANKS, &mut present, &mut spd_data[..]);
-
-        ringbuf_entry!(Trace::Found(ndimms));
-
-        if ndimms != 0 {
-            break;
-        }
-
-        ndelay += 1;
-        hl::sleep_for(10);
-    }
 
     // Enable the controller
     let sys = Sys::from(SYS.get_task_id());
@@ -270,7 +142,7 @@ fn main() -> ! {
     // Configure our pins
     configure_pins(&pins);
 
-    ringbuf_entry!(Trace::Ready(ndelay));
+    ringbuf_entry!(Trace::Ready);
 
     //
     // Initialize our virtual state.  Note that we initialize with bank 0
@@ -281,6 +153,7 @@ fn main() -> ! {
     let page = Cell::new(spd::Page(0));
     let voffs = RefCell::new(&mut voffs);
     let spd_data = RefCell::new(spd_data);
+    let present = RefCell::new(&mut present);
 
     //
     // For initiation, we only allow SPD-related addresses if the mux has
@@ -295,7 +168,7 @@ fn main() -> ! {
                         let base = (bank * spd::MAX_DEVICES) as usize;
                         let ndx = base + device as usize;
                         ringbuf_entry!(Trace::MemInitiate(ndx));
-                        present[ndx]
+                        present.borrow()[ndx]
                     }
                     _ => false,
                 }
@@ -401,6 +274,7 @@ fn main() -> ! {
     let mut server = ServerImpl {
         notification_mask: 0,
         spd_data: &spd_data,
+        present: &present,
     };
 
     controller.operate_as_target(&mut server, &mut initiate, &mut rx, &mut tx);
@@ -409,6 +283,7 @@ fn main() -> ! {
 struct ServerImpl<'s> {
     notification_mask: u32,
     spd_data: &'s RefCell<&'s mut [u8; 8192]>,
+    present: &'s RefCell<&'s mut [bool; 16]>,
 }
 
 impl I2cControl for ServerImpl<'_> {
@@ -449,6 +324,15 @@ impl idl::InOrderSpdImpl for ServerImpl<'_> {
         if addr + data.len() > spd_data.len() {
             return Err(ClientError::BadMessageContents.fail());
         }
+
+        ringbuf_entry!(Trace::DataUpdate {
+            index,
+            page1,
+            offset,
+            len: data.len() as u8,
+        });
+
+        self.present.borrow_mut()[usize::from(index)] = true;
 
         // With the checks above this should not be able to return Err, so, we
         // unwrap.
