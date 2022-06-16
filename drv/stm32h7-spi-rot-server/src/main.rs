@@ -40,6 +40,7 @@ enum Trace {
     ReturnOk(MsgType, u32),
     RotIrqTimeout,
     RotIrqAsserted,
+    UnexpectedRotIrqRestart,
     SendRecv(MsgType, usize, usize),
 }
 ringbuf!(Trace, 32, Trace::Init);
@@ -60,6 +61,20 @@ fn main() -> ! {
         spi,
         message: *message,
     };
+
+    // If RoT and SP are out of sync, then sending a ResetComms message to
+    // the RoT should cause ROT_IRQ to deassert and RoT to become ready.
+    if server.is_rot_irq_asserted() {
+        // XXX It's bad form to compose the message this way.
+        const message: [u8; 4] =
+            [SPI_MSG_VERSION, 0, 0, MsgType::ResetComms as u8];
+        if let Err(spi_error) = server.spi.write(&message[..]) {
+            ringbuf_entry!(Trace::SpiError(spi_error));
+            hl::sleep_for(1000);
+            panic!();
+        }
+        hl::sleep_for(300);
+    }
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -87,10 +102,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     let xmit_len = SPI_HEADER_SIZE + msg.payload_len();
     ringbuf_entry!(Trace::Line);
 
-    let port = server.sys.gpio_read_input(ROT_IRQ.port).unwrap_lite();
-    let rot_irq = port & ROT_IRQ.pin_mask;
-    // let rot_irq = server.sys.gpio_read(ROT_IRQ).unwrap_lite();
-    if 0 == rot_irq {
+    if server.is_rot_irq_asserted() {
         // We are surprised that ROT_IRQ is asserted
         // It is intended to be ok to ignore RoT responses.
         //
@@ -108,7 +120,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
         // response is still in the RoT's transmit FIFO, then we can also see
         // ROT_IRQ asserted when not expected.
 
-        ringbuf_entry!(Trace::GpioPort(port, ROT_IRQ.pin_mask));
+        ringbuf_entry!(Trace::UnexpectedRotIrqRestart);
         // Async and unhandled responses from RoT are not expected.
         panic!();
     }
@@ -126,7 +138,7 @@ fn do_send_recv(server: &mut ServerImpl) -> Result<usize, MsgError> {
     let mut limit = LIMIT_START; // 1.04ms Time limit is somewhat arbitrary.
                                  // TODO: put this time limit in StatusRsp
     loop {
-        if 0 == server.sys.gpio_read(ROT_IRQ).unwrap_lite() {
+        if server.is_rot_irq_asserted() {
             ringbuf_entry!(Trace::RotIrqAsserted);
             break;
         }
@@ -214,6 +226,13 @@ struct ServerImpl {
     sys: sys_api::Sys,
     spi: drv_spi_api::SpiDevice,
     pub message: [u8; SPI_RSP_BUF_SIZE],
+}
+
+impl ServerImpl {
+    fn is_rot_irq_asserted(&self) -> bool {
+        self.sys.gpio_read_input(ROT_IRQ.port).unwrap_lite() & ROT_IRQ.pin_mask
+            == 0
+    }
 }
 
 impl idl::InOrderSpiMsgImpl for ServerImpl {

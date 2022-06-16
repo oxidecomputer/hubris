@@ -55,6 +55,7 @@ pub enum MsgType {
     StatusRsp = 5,
     SprocketsReq = 6,
     SprocketsRsp = 7,
+    ResetComms = 8,
     Unknown = 0xff,
 }
 
@@ -69,6 +70,7 @@ impl From<u8> for MsgType {
             5 => MsgType::StatusRsp,
             6 => MsgType::SprocketsReq,
             7 => MsgType::SprocketsRsp,
+            8 => MsgType::ResetComms,
             _ => MsgType::Unknown,
         }
     }
@@ -85,6 +87,7 @@ impl From<u32> for MsgType {
             5 => MsgType::StatusRsp,
             6 => MsgType::SprocketsReq,
             7 => MsgType::SprocketsRsp,
+            8 => MsgType::ResetComms,
             _ => MsgType::Unknown,
         }
     }

@@ -115,6 +115,7 @@ impl From<u8> for TxState {
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
+    ResetComms,
     AlreadyEnqueuedMsg,
     BadMsgLength,
     CannotSendRxFragError,
@@ -615,8 +616,7 @@ fn main() -> ! {
                 ringbuf_entry!(Trace::Rx(rctx.state, b, rctx.count, csn, sot));
                 rctx.rx_byte(b, sot, &mut tctx);
                 if rctx.state == RxState::Header
-                    && tctx.state != TxState::Idle
-                    && tctx.rot_irq
+                    && (tctx.state != TxState::Idle || tctx.rot_irq)
                 {
                     // Full duplex is not supported.
                     // If the SP is sending a message to RoT
@@ -626,9 +626,8 @@ fn main() -> ! {
                     ringbuf_entry!(Trace::DeassertRotIrq);
                     tctx.rot_irq = false;
                     tctx.state = TxState::Idle;
-                    // drain Tx FIFO?
-                    // We will see as much as got put into the Tx FIFO go
-                    // over the SPI bus.
+                    spi.send_u8(0); // write a no-op byte.
+                    spi.drain_tx(); // Throw away byte just written.
                 }
             }
 
@@ -665,6 +664,8 @@ fn main() -> ! {
                     rctx.state = RxState::Responding;
                     ringbuf_entry!(Trace::Responding);
 
+                    // XXX The logic in the Rx state machine enforces
+                    // TxState::Idle whenever a message is received.
                     if tctx.state == TxState::Idle {
                         let rmsg = Msg::parse(&mut *rctx.rx).unwrap_lite();
 
@@ -718,6 +719,12 @@ fn main() -> ! {
                                 tctx.enqueue(MsgType::SprocketsRsp,
                                     EnqueueBuf::TxBuf(size));
                                 again = true;
+                            },
+                            MsgType::ResetComms => {
+                                ringbuf_entry!(Trace::ResetComms);
+                                rctx.ready();   // Reset Rx state machine.
+                                                // and leave Tx in Idle.
+                                spi.drain();
                             },
                             _ => {
                                 // The message received was an unknown type.
