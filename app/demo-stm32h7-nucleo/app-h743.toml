@@ -115,7 +115,7 @@ task-slots = ["sys"]
 [tasks.ping]
 name = "task-ping"
 features = []
-priority = 4
+priority = 5
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}]
@@ -157,7 +157,7 @@ task-slots = ["sys", "i2c_driver", "rng_driver"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 5
+priority = 6
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
