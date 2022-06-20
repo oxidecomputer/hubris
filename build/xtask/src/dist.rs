@@ -1939,7 +1939,7 @@ impl Archive {
 
         let archive = File::create(&tmp_path)?;
         let mut inner = zip::ZipWriter::new(archive);
-        inner.set_comment("hubris build archive v1.0.0");
+        inner.set_comment("hubris build archive v2");
         Ok(Self {
             final_path,
             tmp_path,
