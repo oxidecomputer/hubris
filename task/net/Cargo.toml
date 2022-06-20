@@ -41,7 +41,7 @@ features = [
 ]
 
 [features]
-mgmt = ["vsc85xx/mgmt", "vsc7448-pac", "drv-spi-api", "ksz8463", "drv-user-leds-api"]
+mgmt = ["vsc85xx", "vsc7448-pac", "drv-spi-api", "ksz8463", "drv-user-leds-api"]
 gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]

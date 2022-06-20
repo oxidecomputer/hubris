@@ -243,7 +243,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         _msg: &userlib::RecvMessage,
         phy: u8,
         register: u8,
-    ) -> Result<u16, RequestError<NetError>> {
+    ) -> Result<u16, idol_runtime::RequestError<core::convert::Infallible>>
+    {
         // TODO: this should not be open to all callers!
         Ok(self.iface.device().smi_read(phy, register))
     }
@@ -254,10 +255,9 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         phy: u8,
         register: u8,
         value: u16,
-    ) -> Result<(), RequestError<NetError>> {
+    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
         // TODO: this should not be open to all callers!
-        self.iface.device().smi_write(phy, register, value);
-        Ok(())
+        Ok(self.iface.device().smi_write(phy, register, value))
     }
 }
 
