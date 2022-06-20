@@ -14,12 +14,16 @@ drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"
 stm32h7 = { version = "0.14", default-features = false }
+task-spd-api = {path = "../spd-api"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+zerocopy = "0.6.1"
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 build-i2c = {path = "../../build/i2c"}
 anyhow = "1.0.31"
 cfg-if = "1"
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]

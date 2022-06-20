@@ -29,7 +29,7 @@ impl I2cMuxDriver for Pca9548 {
         mux: &I2cMux,
         _controller: &I2cController,
         gpio: &sys_api::Sys,
-        _ctrl: &I2cControl,
+        _ctrl: &mut dyn I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode> {
         mux.configure(gpio)
     }
@@ -39,7 +39,7 @@ impl I2cMuxDriver for Pca9548 {
         mux: &I2cMux,
         controller: &I2cController,
         segment: Segment,
-        ctrl: &I2cControl,
+        ctrl: &mut dyn I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = ControlRegister(0);
 

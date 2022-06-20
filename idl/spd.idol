@@ -1,0 +1,19 @@
+// SPD Proxy IPC API
+
+Interface(
+    name: "Spd",
+    ops: {
+        "eeprom_update": (
+            args: {
+                "index": "u8",
+                "page1": "bool",
+                "offset": "u8",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
+    },
+)

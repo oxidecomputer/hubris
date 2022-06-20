@@ -747,7 +747,9 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
+ "spd",
  "task-jefe-api",
+ "task-spd-api",
  "userlib",
  "zerocopy",
 ]
@@ -3115,11 +3117,26 @@ dependencies = [
  "drv-i2c-api",
  "drv-stm32h7-i2c",
  "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "ringbuf",
  "spd",
  "stm32h7",
+ "task-spd-api",
  "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-spd-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
