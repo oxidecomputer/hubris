@@ -54,7 +54,7 @@ impl Vsc7448Rw for Vsc7448Spi {
         // - 4 bytes of data
         const SIZE: usize = 7 + SPI_NUM_PAD_BYTES as usize;
         let mut out = [0; SIZE];
-        self.0.exchange(&data[..], &mut out[..])?;
+        self.0.exchange(data, &mut out[..])?;
         let value = u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap());
 
         ringbuf_entry!(Trace::Read {
