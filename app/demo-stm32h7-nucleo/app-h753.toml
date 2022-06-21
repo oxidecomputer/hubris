@@ -109,14 +109,14 @@ task-slots = ["sys"]
 [tasks.ping]
 name = "task-ping"
 features = []
-priority = 4
+priority = 6 
 max-sizes = {flash = 8192, ram = 1024}
 start = true
 task-slots = [{peer = "pong"}]
 
 [tasks.pong]
 name = "task-pong"
-priority = 3
+priority = 6
 max-sizes = {flash = 1024, ram = 1024}
 start = true
 task-slots = ["user_leds"]
@@ -162,7 +162,7 @@ task-slots = ["sys"]
 
 [tasks.idle]
 name = "task-idle"
-priority = 6
+priority = 7
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true

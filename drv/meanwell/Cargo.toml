@@ -1,0 +1,30 @@
+[package]
+name = "drv-meanwell"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib"}
+drv-user-leds-api = {path = "../../drv/user-leds-api"}
+drv-meanwell-api = {path = "../../drv/meanwell-api"}
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", optional = true}
+cfg-if = "1"
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+[features]
+stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
+stm32h7 = ["drv-stm32xx-sys-api/family-stm32h7"]
+panic-messages = ["userlib/panic-messages"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-meanwell"
+test = false
+bench = false

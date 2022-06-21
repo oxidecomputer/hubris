@@ -1,0 +1,37 @@
+// API for a Meanwell on a bench
+
+Interface(
+    name: "Meanwell",
+    ops: {
+        "power_on": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MeanwellError"),
+            ),
+            idempotent: true,
+        ),
+        "power_off": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MeanwellError"),
+            ),
+            idempotent: true,
+        ),
+        "is_on": (
+            args: {
+                "index": "usize",
+            },
+            reply: Result(
+                ok: "bool",
+                err: CLike("MeanwellError"),
+            ),
+            idempotent: true,
+        ),
+    },
+)
