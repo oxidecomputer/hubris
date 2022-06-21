@@ -95,36 +95,27 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         self.phy.check_base_port()?;
         crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
 
-        // Configure MAC in QSGMII mode and enable autonegotiation, then force
-        // 100M mode ("Force-speed protocol transfer mode")
-        self.phy.broadcast(|v| {
-            v.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-                r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
-            })?;
-            v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-                r.set_auto_neg_ena(1);
-            })?;
-            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 7; // ANEG_ENA
-                r.0 |= 1 << 13; // FORCE_ADV_ABILITY
-            })?;
-            // Force 100M mode
-            v.write(
-                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
-                0x8401.into(),
-            )?;
-            Ok(())
+        // Configure to QSGMII mode
+        // (this is a global register, so we only need to write it once)
+        self.phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+            r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
         })?;
 
         // Enable 4 port MAC QSGMII
         self.phy.cmd(0x80E0)?;
 
         self.phy.broadcast(|v| {
+            // These are both sticky bits
             v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 // SGMII MAC interface mode (default)
                 r.set_mac_interface_mode(0);
                 // SerDes fiber/SFP protocol transfer mode only
                 r.set_media_operating_mode(0b001);
+            })?;
+
+            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 7; // ANEG_ENA
+                r.0 &= !(1 << 11); // FORCE_ADV_ABILITY
             })
         })?;
 
@@ -134,6 +125,30 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         for p in 0..4 {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
+
+        // Configure MAC in QSGMII mode and enable autonegotiation, then force
+        // 100M mode ("Force-speed protocol transfer mode")
+        self.phy.broadcast(|v| {
+            v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+                r.set_auto_neg_ena(1);
+                // Convert to u16 to set a bit that's not in the autogen code
+                let mut r_: u16 = (*r).into();
+                r_ |= 1 << 8; // Duplex
+                r_ |= 1 << 13; // Force speed select LSB (1 for 100M)
+                r_ &= !(1 << 6); // Force speed select MSB (0 for 100M)
+                *r = r_.into();
+            })?;
+            // Force 100M mode
+            v.write(
+                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
+                0x8401.into(),
+            )?;
+            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 7; // ANEG_ENA (again)
+                r.0 |= 1 << 11; // FORCE_ADV_ABILITY
+            })?;
+            Ok(())
+        })?;
 
         Ok(())
     }

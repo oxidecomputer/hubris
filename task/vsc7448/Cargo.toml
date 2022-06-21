@@ -18,7 +18,7 @@ vsc85xx = {path = "../../drv/vsc85xx" }
 
 [features]
 leds = ["drv-user-leds-api"]
-mgmt = ["task-net-api", "vsc85xx/mgmt", "vsc7448/mgmt"]
+mgmt = ["task-net-api"]
 sidecar = ["drv-sidecar-seq-api"]
 
 [build-dependencies]

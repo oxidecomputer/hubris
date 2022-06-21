@@ -1710,7 +1710,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#add88a535411bd98254b193887e39150d4bb500c"
+source = "git+https://github.com/oxidecomputer/idolatry.git#994077e3ecff3ec6df15c082fc4f810cf27c97f2"
 dependencies = [
  "indexmap",
  "quote",
@@ -1722,7 +1722,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#add88a535411bd98254b193887e39150d4bb500c"
+source = "git+https://github.com/oxidecomputer/idolatry.git#994077e3ecff3ec6df15c082fc4f810cf27c97f2"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -3051,6 +3051,7 @@ dependencies = [
  "build-net",
  "derive-idol-err",
  "idol",
+ "idol-runtime",
  "num-traits",
  "serde",
  "smoltcp",
@@ -3609,6 +3610,7 @@ name = "vsc-err"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "idol-runtime",
  "task-net-api",
 ]
 

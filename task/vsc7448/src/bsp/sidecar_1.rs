@@ -77,7 +77,7 @@ impl<'a> PhyRw for NetPhyRw<'a> {
 pub fn preinit() {
     // Wait for the sequencer to turn on the clock
     let seq = Sequencer::from(SEQ.get_task_id());
-    while seq.is_clock_config_loaded().unwrap_or(false) {
+    while !seq.is_clock_config_loaded().unwrap_or(false) {
         sleep_for(10);
     }
 }
@@ -156,8 +156,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 // Going out to the front panel board, where there's a waiting
                 // PHY that is configured by the FPGA.
                 //
-                // 44 | DEV1G_16 | SERDES6G_15 | Technician 0
-                // 45 | DEV1G_17 | SERDES6G_15 | Technician 1
+                // 44 | DEV1G_20 | SERDES6G_15 | Technician 0
+                // 45 | DEV1G_21 | SERDES6G_15 | Technician 1
                 // 42 | Unused
                 // 43 | Unused
                 44,

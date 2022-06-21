@@ -40,7 +40,7 @@ Interface(
             },
             reply: Result(
                 ok: "u16",
-                err: CLike("NetError"),
+                err: ServerDeath,
             ),
         ),
         "smi_write": (
@@ -52,7 +52,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("NetError"),
+                err: ServerDeath,
             ),
         ),
     },
