@@ -12,6 +12,7 @@ use userlib::*;
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
 pub enum MeanwellError {
     NotPresent = 1,
+    GpioError = 2,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

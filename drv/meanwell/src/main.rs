@@ -2,12 +2,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//!
+//! An exceedingly simple driver to deal with the management of Meanwell power
+//! supplies from a Gimletlet on a benchtop.  This driver has nothing
+//! Meanwell-specific (or indeed even power-specific); this is really just a
+//! wrapper around the seven GPIOs present on J16 on the Gimletlet.  We also
+//! use this opportunity to indicate a different LED pattern (a quick blue LED
+//! blink, once per second) to make it clear from across a room that a
+//! particularly Gimletlet is serving to manage Meanwell supplies.
+//!
 #![no_std]
 #![no_main]
 
 use drv_meanwell_api::MeanwellError;
-use idol_runtime::RequestError;
 use idol_runtime::NotificationHandler;
+use idol_runtime::RequestError;
 use userlib::*;
 
 use drv_stm32xx_sys_api as sys_api;
@@ -17,16 +26,57 @@ struct ServerImpl {
     led_on: bool,
 }
 
-#[cfg(target_board = "gimletlet-2")]
-const MEANWELL_PINS: &[sys_api::PinSet] = &[
-    sys_api::Port::B.pin(14),
-    sys_api::Port::B.pin(15),
-    sys_api::Port::D.pin(8),
-    sys_api::Port::D.pin(9),
-    sys_api::Port::D.pin(10),
-    sys_api::Port::D.pin(11),
-    sys_api::Port::D.pin(12),
-];
+cfg_if::cfg_if! {
+    if #[cfg(any(target_board = "gimletlet-1", target_board = "gimletlet-2"))] {
+        const MEANWELL_PINS: &[sys_api::PinSet] = &[
+            sys_api::Port::B.pin(14),
+            sys_api::Port::B.pin(15),
+            sys_api::Port::D.pin(8),
+            sys_api::Port::D.pin(9),
+            sys_api::Port::D.pin(10),
+            sys_api::Port::D.pin(11),
+            sys_api::Port::D.pin(12),
+        ];
+
+        // In keeping with the Meanwell's blue indicator LED, we use only the
+        // blue LED to indicate that this is a Meanwell management Gimletlet.
+        const LED_INDEX: usize = 3;
+    } else {
+        compile_error!("unsupported Meanwell board");
+    }
+}
+
+fn set(index: usize, val: bool) -> Result<(), RequestError<MeanwellError>> {
+    use drv_stm32xx_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    if index >= MEANWELL_PINS.len() {
+        Err(MeanwellError::NotPresent.into())
+    } else {
+        match sys.gpio_set_to(MEANWELL_PINS[index], val) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(MeanwellError::GpioError.into()),
+        }
+    }
+}
+
+fn get(index: usize) -> Result<bool, RequestError<MeanwellError>> {
+    use drv_stm32xx_sys_api::*;
+
+    let sys = SYS.get_task_id();
+    let sys = Sys::from(sys);
+
+    if index >= MEANWELL_PINS.len() {
+        Err(MeanwellError::NotPresent.into())
+    } else {
+        match sys.gpio_read(MEANWELL_PINS[index]) {
+            Ok(val) => Ok(val != 0),
+            Err(_) => Err(MeanwellError::GpioError.into()),
+        }
+    }
+}
 
 impl idl::InOrderMeanwellImpl for ServerImpl {
     fn power_on(
@@ -34,7 +84,7 @@ impl idl::InOrderMeanwellImpl for ServerImpl {
         _: &RecvMessage,
         index: usize,
     ) -> Result<(), RequestError<MeanwellError>> {
-        Ok(())
+        set(index, true)
     }
 
     fn power_off(
@@ -42,7 +92,7 @@ impl idl::InOrderMeanwellImpl for ServerImpl {
         _: &RecvMessage,
         index: usize,
     ) -> Result<(), RequestError<MeanwellError>> {
-        Ok(())
+        set(index, false)
     }
 
     fn is_on(
@@ -50,7 +100,7 @@ impl idl::InOrderMeanwellImpl for ServerImpl {
         _: &RecvMessage,
         index: usize,
     ) -> Result<bool, RequestError<MeanwellError>> {
-        Ok(false)
+        get(index)
     }
 }
 
@@ -67,14 +117,15 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+        let user_leds =
+            drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
 
         if !self.led_on {
-            user_leds.led_on(3).unwrap();
+            user_leds.led_on(LED_INDEX).unwrap();
             self.led_on = true;
             self.deadline += TIMER_INTERVAL_SHORT;
         } else {
-            user_leds.led_off(3).unwrap();
+            user_leds.led_off(LED_INDEX).unwrap();
             self.led_on = false;
             self.deadline += TIMER_INTERVAL_LONG;
         }
@@ -102,11 +153,20 @@ fn main() -> ! {
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
+    //
+    // We can safely do this even if the pins are already configured without
+    // changing their state.
+    //
     for pin in MEANWELL_PINS {
-        sys.gpio_configure_output(*pin, OutputType::PushPull, Speed::Low, Pull::None).unwrap();
+        sys.gpio_configure_output(
+            *pin,
+            OutputType::PushPull,
+            Speed::Low,
+            Pull::None,
+        )
+        .unwrap();
     }
 
-    // Handle messages.
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch_n(&mut incoming, &mut serverimpl);
@@ -115,6 +175,5 @@ fn main() -> ! {
 
 mod idl {
     use super::MeanwellError;
-
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
