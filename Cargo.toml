@@ -114,6 +114,8 @@ members = [
     "drv/stm32h7-hash-server",
     "drv/rng-api",
     "drv/sp-ctrl-api",
+    "drv/meanwell",
+    "drv/meanwell-api",
 
     "drv/sidecar-mainboard-controller-api",
     "drv/sidecar-mainboard-i2c-emulator",
