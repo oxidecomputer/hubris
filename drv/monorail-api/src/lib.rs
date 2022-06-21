@@ -5,10 +5,12 @@
 #![no_std]
 
 use derive_idol_err::IdolError;
-pub use vsc7448::{VscError, config::PortConfig};
+use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, ToPrimitive};
 
-#[derive(Copy, Clone, Debug)]
+pub use vsc7448::{config::PortConfig, VscError};
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PortStatus {
     pub cfg: PortConfig,
     pub link_up: bool,

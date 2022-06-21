@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! High-level configuration abstraction for the VSC7448
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Port speed
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,7 +97,7 @@ impl PortMap {
                     let dev_num = match p {
                         0..=7 => p,
                         8..=31 => p - 8,
-                        48..=52 => 24,
+                        48..=52 => p - 24,
                         _ => unreachable!(), // checked above
                     };
                     // Note that port 48 is a DEV2G5 but uses SERDES1G instead
@@ -143,10 +143,4 @@ impl PortMap {
             }
         })
     }
-}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct PortStatus {
-    cfg: PortConfig,
-    link_up: bool,
 }

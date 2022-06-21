@@ -1933,6 +1933,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "num-traits",
+ "serde",
  "userlib",
  "vsc7448",
 ]

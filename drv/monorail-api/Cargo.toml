@@ -9,7 +9,9 @@ edition = "2021"
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 userlib = {path = "../../sys/userlib"}
 vsc7448 = {path = "../vsc7448"}
+
 num-traits = {version = "0.2", default-features = false}
+serde = { version = "1", features = ["derive"], default-features = false}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

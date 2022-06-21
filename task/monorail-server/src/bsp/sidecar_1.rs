@@ -16,6 +16,9 @@ task_slot!(SEQ, seq);
 
 const MAC_SEEN_COUNT: usize = 64;
 
+/// Interval at which `Bsp::wake()` is called by the main loop
+pub const WAKE_INTERVAL: Option<u64> = Some(500);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -26,6 +29,8 @@ enum Trace {
     Vsc8504Error(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
@@ -238,7 +243,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    fn step(&mut self) {
+    pub fn wake(&mut self) -> Result<(), VscError> {
         for port in 0..4 {
             let rw = &mut NetPhyRw(&mut self.net);
             let mut vsc8504 = self.vsc8504.phy(port, rw);
@@ -304,12 +309,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 }
             }
         }
-    }
-
-    pub fn run(&mut self) -> ! {
-        loop {
-            self.step();
-            sleep_for(100);
-        }
+        Ok(())
     }
 }

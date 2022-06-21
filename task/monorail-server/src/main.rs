@@ -6,8 +6,9 @@
 #![no_main]
 
 mod bsp;
+mod server;
 
-use bsp::Bsp;
+use crate::{bsp::Bsp, server::ServerImpl};
 use drv_spi_api::Spi;
 use ringbuf::*;
 use userlib::*;
@@ -23,6 +24,7 @@ enum Trace {
     ChipInitFailed(VscError),
     BspInit(u64),
     BspInitFailed(VscError),
+    WakeErr(VscError),
 }
 ringbuf!(Trace, 2, Trace::None);
 
@@ -48,21 +50,24 @@ fn main() -> ! {
     }
 
     let t0 = sys_get_timer().now;
-    match Bsp::new(&vsc7448) {
-        Ok(mut bsp) => {
+    let bsp = match Bsp::new(&vsc7448) {
+        Ok(bsp) => {
             let t1 = sys_get_timer().now;
             ringbuf_entry!(Trace::BspInit(t1 - t0));
-            bsp.run(); // Does not terminate
+            bsp
         }
         Err(e) => {
             ringbuf_entry!(Trace::BspInitFailed(e));
             panic!("Could not initialize BSP: {:?}", e);
         }
-    }
-}
+    };
 
-mod idl {
-    use monorail_api::MonorailError;
-    use vsc7448::config::PortStatus;
-    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+    let mut server = ServerImpl::new(bsp);
+    loop {
+        if let Err(e) = server.wake() {
+            ringbuf_entry!(Trace::WakeErr(e));
+        }
+        let mut msgbuf = [0u8; server::INCOMING_SIZE];
+        idol_runtime::dispatch_n(&mut msgbuf, &mut server);
+    }
 }

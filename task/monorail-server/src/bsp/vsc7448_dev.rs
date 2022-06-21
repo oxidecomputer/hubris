@@ -15,6 +15,9 @@ pub const REFCLK_SEL: vsc7448::RefClockFreq = vsc7448::RefClockFreq::Clk125MHz;
 pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> =
     Some(vsc7448::RefClockFreq::Clk25MHz);
 
+/// Interval at which `Bsp::wake()` is called by the main loop
+pub const WAKE_INTERVAL: Option<u64> = Some(500);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -22,7 +25,6 @@ enum Trace {
     PhyLinkChanged { port: u8, status: u16 },
     SgmiiError { dev: u8, err: VscError },
     MacAddress(vsc7448::mac::MacTableEntry),
-    VscErr(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -86,7 +88,7 @@ mod map {
         QSGMII, // 45 | DEV1G_21  | SERDES6G_15
         QSGMII, // 46 | DEV1G_22  | SERDES6G_15
         QSGMII, // 47 | DEV1G_23  | SERDES6G_15
-        QSGMII, // 48 | DEV1G_24  | SERDES6G_15
+        None,   // 48 | Unused (NPI)
         SFI,    // 49 | DEV10G_0  | SERDES10G_0 | OTS switch
         SFI,    // 50 | DEV10G_0  | SERDES10G_0 | OTS switch
         SGMII,  // 51 | DEV2G5_27 | SERDES10G_2 | mgmt bringup board
@@ -198,7 +200,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         }
     }
 
-    fn wake(&mut self) -> Result<(), VscError> {
+    pub fn wake(&mut self) -> Result<(), VscError> {
         let mut any_phy_up = false;
         for miim in [1, 2] {
             for phy in 0..24 {
@@ -248,15 +250,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
         Ok(())
-    }
-
-    pub fn run(&mut self) -> ! {
-        loop {
-            hl::sleep_for(500);
-            if let Err(e) = self.wake() {
-                ringbuf_entry!(Trace::VscErr(e));
-            }
-        }
     }
 }
 
