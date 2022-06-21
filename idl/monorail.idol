@@ -1,0 +1,18 @@
+// Monorail management network RPC interface
+
+Interface(
+    name: "Monorail",
+    ops: {
+        "get_port_status": (
+            doc: "Reads the state of a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "PortStatus",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+    },
+)

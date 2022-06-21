@@ -1,14 +1,19 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! High-level configuration abstraction for the VSC7448
+use serde::{Serialize, Deserialize};
 
 /// Port speed
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Speed {
     Speed100M,
     Speed1G,
     Speed10G,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PortMode {
     Sfi,
     Sgmii(Speed),
@@ -24,21 +29,21 @@ impl PortMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PortDev {
     Dev1g,
     Dev2g5,
     Dev10g,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PortSerdes {
     Serdes1g,
     Serdes6g,
     Serdes10g,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PortConfig {
     pub mode: PortMode,
     pub dev: (PortDev, u8),
@@ -138,4 +143,10 @@ impl PortMap {
             }
         })
     }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct PortStatus {
+    cfg: PortConfig,
+    link_up: bool,
 }

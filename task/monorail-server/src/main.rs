@@ -60,3 +60,9 @@ fn main() -> ! {
         }
     }
 }
+
+mod idl {
+    use monorail_api::MonorailError;
+    use vsc7448::config::PortStatus;
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
+}
