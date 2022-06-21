@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    config::Speed,
     port::{port10g_flush, port1g_flush},
     Vsc7448Rw, VscError,
 };
@@ -14,12 +15,6 @@ use vsc7448_pac::*;
 pub enum DevGeneric {
     Dev1g(u8),
     Dev2g5(u8),
-}
-
-#[derive(Copy, Clone)]
-pub enum Speed {
-    Speed100M,
-    Speed1G,
 }
 
 impl DevGeneric {

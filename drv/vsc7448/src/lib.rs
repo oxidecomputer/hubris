@@ -4,6 +4,7 @@
 
 #![no_std]
 
+pub mod config;
 pub mod mac;
 pub mod miim_phy;
 pub mod spi;
@@ -17,7 +18,7 @@ mod serdes6g;
 use userlib::hl::sleep_for;
 use vsc7448_pac::{types::RegisterAddress, *};
 
-pub use dev::Speed;
+pub use config::Speed;
 pub use vsc_err::VscError;
 
 use crate::dev::{Dev10g, DevGeneric};
@@ -181,7 +182,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             let dev = dev_type(dev)?;
             assert_eq!(dev.port(), p);
 
-            dev.init_sgmii(self.rw, dev::Speed::Speed100M)?;
+            dev.init_sgmii(self.rw, Speed::Speed100M)?;
 
             // SERDES1G_1 maps to Port 0, SERDES1G_2 to Port 1, etc
             // SERDES6G_0 maps to Port 8, SERDES6G_1 to Port 9, etc
@@ -208,7 +209,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     pub fn init_qsgmii(
         &self,
         start_ports: &[u8],
-        speed: dev::Speed,
+        speed: Speed,
     ) -> Result<(), VscError> {
         let qsgmii_cfg = serdes6g::Config::new(serdes6g::Mode::Qsgmii);
 
@@ -298,7 +299,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 r.set_dev10g_shadow_ena(1);
             })?;
             serdes10g_cfg_sgmii.apply(d10g.index(), self.rw)?;
-            d2g5.init_sgmii(self.rw, dev::Speed::Speed100M)?;
+            d2g5.init_sgmii(self.rw, Speed::Speed100M)?;
 
             self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         }
