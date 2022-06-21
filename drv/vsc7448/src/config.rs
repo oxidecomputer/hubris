@@ -60,6 +60,10 @@ impl PortMap {
         Self(p)
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Decodes the configuration of the given port.
     ///
     /// # Special cases

@@ -8,7 +8,10 @@ use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::{FromPrimitive, ToPrimitive};
 
-pub use vsc7448::{config::PortConfig, VscError};
+pub use vsc7448::{
+    config::{PortConfig, PortDev, PortMode},
+    VscError,
+};
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PortStatus {
@@ -65,6 +68,10 @@ pub enum MonorailError {
     MiimReadErr,
     MiimIdleTimeout,
     MiimReadTimeout,
+
+    // Custom errors that aren't pulled from VscError
+    InvalidPort,
+    UnconfiguredPort,
 }
 
 impl From<VscError> for MonorailError {

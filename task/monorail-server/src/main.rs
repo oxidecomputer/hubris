@@ -62,7 +62,7 @@ fn main() -> ! {
         }
     };
 
-    let mut server = ServerImpl::new(bsp);
+    let mut server = ServerImpl::new(bsp, &vsc7448, &bsp::PORT_MAP);
     loop {
         if let Err(e) = server.wake() {
             ringbuf_entry!(Trace::WakeErr(e));

@@ -138,8 +138,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         &self,
         map: &PortMap,
     ) -> Result<(), VscError> {
-        const NUM_PORTS: usize = 53;
-        for p in 0..NUM_PORTS {
+        for p in 0..map.len() {
             if let Some(cfg) = map.port_config(p as u8) {
                 self.configure_port_from_config(p as u8, cfg)?;
             }

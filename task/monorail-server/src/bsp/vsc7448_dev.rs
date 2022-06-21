@@ -35,7 +35,7 @@ mod map {
         PortMode::{self, *},
         Speed::*,
     };
-    const SGMII: Option<PortMode> = Some(Sgmii(Speed100M));
+    const SGMII: Option<PortMode> = Some(Sgmii(Speed1G));
     const QSGMII: Option<PortMode> = Some(Qsgmii(Speed100M));
     const SFI: Option<PortMode> = Some(Sfi);
 
