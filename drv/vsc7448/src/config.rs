@@ -1,27 +1,37 @@
 //! High-level configuration abstraction for the VSC7448
 
-/// Port speed (only used for SGMII and QSGMII modes)
-#[derive(Copy, Clone, Debug)]
+/// Port speed
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Speed {
     Speed100M,
     Speed1G,
+    Speed10G,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PortMode {
     Sfi,
     Sgmii(Speed),
     Qsgmii(Speed),
 }
 
-#[derive(Copy, Clone, Debug)]
+impl PortMode {
+    pub fn speed(&self) -> Speed {
+        match self {
+            PortMode::Sfi => Speed::Speed10G,
+            PortMode::Sgmii(s) | PortMode::Qsgmii(s) => *s,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PortDev {
     Dev1g,
     Dev2g5,
     Dev10g,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PortSerdes {
     Serdes1g,
     Serdes6g,
@@ -31,8 +41,8 @@ pub enum PortSerdes {
 #[derive(Copy, Clone, Debug)]
 pub struct PortConfig {
     pub mode: PortMode,
-    pub dev: (PortDev, usize),
-    pub serdes: (PortSerdes, usize),
+    pub dev: (PortDev, u8),
+    pub serdes: (PortSerdes, u8),
 }
 
 /// The VSC7448 has 52 physical ports.  The port mode uniquely determines the
@@ -59,8 +69,8 @@ impl PortMap {
     /// # Panics
     /// This will panic if i >= 52, or if the given port can't be configured in
     /// the requested mode.
-    pub fn port_config(&self, p: usize) -> Option<PortConfig> {
-        self.0[p].map(|mode| {
+    pub fn port_config(&self, p: u8) -> Option<PortConfig> {
+        self.0[p as usize].map(|mode| {
             match mode {
                 PortMode::Sfi => {
                     let dev_num = match p {

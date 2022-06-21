@@ -103,6 +103,7 @@ impl DevGeneric {
             r.set_giga_mode_ena(match speed {
                 Speed::Speed1G => 1,
                 Speed::Speed100M => 0,
+                Speed::Speed10G => panic!("Invalid speed for SGMII"),
             });
         })?;
 
@@ -121,6 +122,7 @@ impl DevGeneric {
                     r.set_rx_ifg1(1);
                     r.set_rx_ifg2(4);
                 }
+                Speed::Speed10G => unreachable!(), // checked above
             }
         })?;
 
@@ -159,6 +161,7 @@ impl DevGeneric {
                 // instead, but the SDK always uses 0
                 Speed::Speed1G => 0,
                 Speed::Speed100M => 1,
+                Speed::Speed10G => unreachable!(), // checked above
             })
         })?;
 
@@ -181,6 +184,7 @@ impl DevGeneric {
             r.set_speed_sel(match speed {
                 Speed::Speed1G => 2,
                 Speed::Speed100M => 1,
+                Speed::Speed10G => unreachable!(), // checked above
             });
         })?;
 
