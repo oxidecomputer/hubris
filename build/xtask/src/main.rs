@@ -21,6 +21,13 @@ mod task_slot;
 #[derive(Debug, Parser)]
 #[clap(max_term_width = 80, about = "extra tasks to help you work on Hubris")]
 enum Xtask {
+    Generate {
+        /// Request verbosity from tools we shell out to.
+        #[clap(short)]
+        verbose: bool,
+        /// Path to the image configuration file, in TOML.
+        cfg: PathBuf,
+    },
     /// Builds a collection of cross-compiled binaries at non-overlapping
     /// addresses, and then combines them into a system image with an
     /// application descriptor.
@@ -165,6 +172,14 @@ fn main() -> Result<()> {
 
 fn run(xtask: Xtask) -> Result<()> {
     match xtask {
+        Xtask::Generate { verbose, cfg } => {
+            let c = crate::config::MultiImage::from_file(&cfg)?;
+            if verbose {
+                println!("Bootloader => {:?}", c.bootloader_toml);
+                println!("A image => {:?}", c.a_toml);
+                println!("B image => {:?}", c.b_toml);
+            }
+        }
         Xtask::Dist {
             verbose,
             edges,

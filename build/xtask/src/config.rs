@@ -4,12 +4,126 @@
 
 use std::collections::{hash_map::DefaultHasher, BTreeMap};
 use std::hash::Hasher;
+use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct MetaConfig {
+    base_name: String,
+    bootloader_toml: String,
+    image_toml: String,
+    a_memory: String,
+    b_memory: String,
+}
+
+pub struct MultiImage {
+    pub bootloader_toml: PathBuf,
+    pub a_toml: PathBuf,
+    pub b_toml: PathBuf,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+struct MemoryFrag {
+    outputs: IndexMap<String, Output>,
+}
+
+impl MultiImage {
+    pub fn from_file(cfg: &Path) -> Result<Self> {
+        let cfg_contents = std::fs::read(&cfg)?;
+        let toml: MetaConfig = toml::from_slice(&cfg_contents)?;
+
+        // We use the memory regions from the A and B images to
+        // generate three TOMLS
+
+        let a_file = cfg.parent().unwrap().join(&toml.a_memory);
+        let a = std::fs::read(&a_file)?;
+        let a_toml: MemoryFrag = toml::from_slice(&a)?;
+
+        let b_file = cfg.parent().unwrap().join(&toml.b_memory);
+        let b = std::fs::read(&b_file)?;
+        let b_toml: MemoryFrag = toml::from_slice(&b)?;
+
+        let meta_dir =
+            Path::new("target").join(format!("{}-meta", &toml.base_name));
+
+        std::fs::create_dir_all(&meta_dir)?;
+
+        // Step 1: Bootloader TOML
+        let bootloader_toml = cfg.parent().unwrap().join(&toml.bootloader_toml);
+        let bootloader_bytes = std::fs::read(&bootloader_toml)?;
+
+        let bootloader_path = meta_dir.join("bootloader.toml");
+
+        let mut bootloader = std::fs::File::create(&bootloader_path)?;
+
+        writeln!(bootloader, "# THIS IS AN AUTO GENERATED FILE")?;
+        writeln!(bootloader, "# CHANGE THE TEMPLATE INSTEAD OF THIS FILE")?;
+        writeln!(bootloader, "name = \"{}-bootloader\"", &toml.base_name)?;
+
+        bootloader.write(&bootloader_bytes)?;
+
+        writeln!(bootloader, "[images.a]")?;
+        writeln!(
+            bootloader,
+            "{}",
+            toml::to_string(a_toml.outputs.get("flash").unwrap())?
+        )?;
+
+        writeln!(bootloader, "[images.b]")?;
+        writeln!(
+            bootloader,
+            "{}",
+            toml::to_string(b_toml.outputs.get("flash").unwrap())?
+        )?;
+
+        drop(bootloader);
+
+        // A Image
+        let image_toml = cfg.parent().unwrap().join(&toml.image_toml);
+        let image_toml_bytes = std::fs::read(&image_toml)?;
+        //std::fs::copy(&image_toml, "target/image-a.toml")?;
+        //std::fs::copy(&image_toml, "target/image-b.toml")?;
+
+        let image_a_path = meta_dir.join("image_a.toml");
+        let image_b_path = meta_dir.join("image_a.toml");
+
+        let mut image_a = std::fs::File::create(&image_a_path)?;
+        let mut image_b = std::fs::File::create(&image_b_path)?;
+
+        writeln!(image_a, "# THIS IS AN AUTO GENERATED FILE")?;
+        writeln!(image_a, "# CHANGE THE TEMPLATE INSTEAD OF THIS FILE")?;
+        writeln!(image_a, "name = \"{}-a\"", &toml.base_name)?;
+        image_a.write(&image_toml_bytes)?;
+
+        writeln!(image_b, "# THIS IS AN AUTO GENERATED FILE")?;
+        writeln!(image_b, "# CHANGE THE TEMPLATE INSTEAD OF THIS FILE")?;
+        writeln!(image_b, "name = \"{}-b\"", &toml.base_name)?;
+        image_b.write(&image_toml_bytes)?;
+
+        for (name, e) in a_toml.outputs {
+            writeln!(image_a, "[outputs.{}]", name)?;
+            writeln!(image_a, "{}", toml::to_string(&e)?)?;
+        }
+
+        for (name, e) in b_toml.outputs {
+            writeln!(image_b, "[outputs.{}]", name)?;
+            writeln!(image_b, "{}", toml::to_string(&e)?)?;
+        }
+
+        Ok(MultiImage {
+            bootloader_toml: bootloader_path.to_path_buf(),
+            a_toml: image_a_path.to_path_buf(),
+            b_toml: image_b_path.to_path_buf(),
+        })
+    }
+}
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -22,17 +136,22 @@ struct RawConfig {
     board: String,
     chip: String,
     #[serde(default)]
-    signing: IndexMap<String, Signing>,
+    signing: Option<Signing>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
-    bootloader: Option<Bootloader>,
+    #[serde(default)]
+    header: bool,
+    //bootloader: Option<Bootloader>,
     kernel: Kernel,
     outputs: IndexMap<String, Output>,
+    #[serde(default)]
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
+    #[serde(default)]
+    images: IndexMap<String, Output>,
 }
 
 #[derive(Clone, Debug)]
@@ -41,10 +160,10 @@ pub struct Config {
     pub target: String,
     pub board: String,
     pub chip: String,
-    pub signing: IndexMap<String, Signing>,
+    pub signing: Option<Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
-    pub bootloader: Option<Bootloader>,
+    pub header: bool,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Output>,
     pub tasks: IndexMap<String, Task>,
@@ -53,6 +172,7 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
+    pub images: IndexMap<String, Output>,
 }
 
 impl Config {
@@ -87,15 +207,16 @@ impl Config {
             signing: toml.signing,
             secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
-            bootloader: toml.bootloader,
             kernel: toml.kernel,
             outputs: toml.outputs,
             tasks: toml.tasks,
+            header: toml.header,
             peripherals,
             extratext: toml.extratext,
             config: toml.config,
             buildhash,
             app_toml_path: cfg.to_owned(),
+            images: toml.images,
         })
     }
 
@@ -216,21 +337,6 @@ impl Config {
             out.env.insert(var.to_string(), value.to_string());
         }
         out
-    }
-
-    pub fn bootloader_build_config<'a>(
-        &self,
-        verbose: bool,
-        sysroot: Option<&'a Path>,
-    ) -> Option<BuildConfig<'a>> {
-        self.bootloader.as_ref().map(|bootloader| {
-            self.common_build_config(
-                verbose,
-                &bootloader.name,
-                &bootloader.features,
-                sysroot,
-            )
-        })
     }
 
     pub fn task_build_config<'a>(
@@ -369,30 +475,10 @@ impl MpuAlignment {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum SigningMethod {
-    Crc,
-    Rsa,
-    Ecc,
-}
-
-impl std::fmt::Display for SigningMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Crc => "crc",
-            Self::Rsa => "rsa",
-            Self::Ecc => "ecc",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Signing {
-    pub method: SigningMethod,
-    pub priv_key: Option<PathBuf>,
-    pub root_cert: Option<PathBuf>,
+    pub priv_key: PathBuf,
+    pub root_cert: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -420,7 +506,7 @@ pub struct Kernel {
     pub features: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Output {
     pub address: u32,
