@@ -22,7 +22,7 @@ impl<'a> MiimBridge<'a> {
 impl PhyRw for MiimBridge<'_> {
     #[inline(always)]
     fn read_raw<T: From<u16>>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
@@ -31,7 +31,7 @@ impl PhyRw for MiimBridge<'_> {
 
     #[inline(always)]
     fn write_raw<T>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,

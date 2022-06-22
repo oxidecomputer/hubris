@@ -21,6 +21,7 @@ pub mod vsc8504;
 pub mod vsc8522;
 pub mod vsc85x2;
 
+use core::cell::Cell;
 use ringbuf::*;
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
@@ -34,7 +35,7 @@ pub trait PhyRw {
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read`
     fn read_raw<T: From<u16>>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError>;
@@ -43,7 +44,7 @@ pub trait PhyRw {
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read` and `write`
     fn write_raw<T>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
@@ -61,7 +62,7 @@ pub trait PhyRw {
 pub struct Phy<'a, P> {
     pub port: u8,
     pub rw: &'a mut P,
-    last_page: Option<u16>,
+    last_page: Cell<Option<u16>>,
 }
 
 impl<'a, P: PhyRw> Phy<'a, P> {
@@ -69,7 +70,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         Self {
             port,
             rw,
-            last_page: None,
+            last_page: Cell::new(None),
         }
     }
 
@@ -77,20 +78,20 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     /// else is allowed to modify the PHY registers, which is mentioned in the
     /// `struct Phy` docstring.
     #[inline(always)]
-    fn set_page(&mut self, page: u16) -> Result<(), VscError> {
-        if self.last_page.map(|p| p != page).unwrap_or(true) {
+    fn set_page(&self, page: u16) -> Result<(), VscError> {
+        if self.last_page.get().map(|p| p != page).unwrap_or(true) {
             self.rw.write_raw::<phy::standard::PAGE>(
                 self.port,
                 phy::STANDARD::PAGE(),
                 page.into(),
             )?;
-            self.last_page = Some(page);
+            self.last_page.set(Some(page));
         }
         Ok(())
     }
 
     #[inline(always)]
-    pub fn read<T>(&mut self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
+    pub fn read<T>(&self, reg: PhyRegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u16> + Clone,
         u16: From<T>,
@@ -101,7 +102,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 
     #[inline(always)]
     pub fn write<T>(
-        &mut self,
+        &self,
         reg: PhyRegisterAddress<T>,
         value: T,
     ) -> Result<(), VscError>
@@ -115,7 +116,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 
     #[inline(always)]
     pub fn write_with<T, F>(
-        &mut self,
+        &self,
         reg: PhyRegisterAddress<T>,
         f: F,
     ) -> Result<(), VscError>
@@ -133,7 +134,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     /// to the VSC7448 via MIIM.
     #[inline(always)]
     pub fn modify<T, F>(
-        &mut self,
+        &self,
         reg: PhyRegisterAddress<T>,
         f: F,
     ) -> Result<(), VscError>
@@ -149,7 +150,7 @@ impl<'a, P: PhyRw> Phy<'a, P> {
 
     #[inline(always)]
     pub fn wait_timeout<T, F>(
-        &mut self,
+        &self,
         reg: PhyRegisterAddress<T>,
         f: F,
     ) -> Result<(), VscError>

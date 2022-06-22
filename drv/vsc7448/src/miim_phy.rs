@@ -65,7 +65,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448MiimPhy<'a, R> {
 
 impl<R: Vsc7448Rw> PhyRw for Vsc7448MiimPhy<'_, R> {
     fn read_raw<T: From<u16>>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
@@ -92,7 +92,7 @@ impl<R: Vsc7448Rw> PhyRw for Vsc7448MiimPhy<'_, R> {
     }
 
     fn write_raw<T>(
-        &mut self,
+        &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
         value: T,

@@ -116,7 +116,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             None => return Err(MonorailError::NoPhy.into()),
             Some(t) => t,
         };
-        let mut phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
         phy.read(PhyRegisterAddress::from_page_and_addr_unchecked(page, reg))
             .map_err(MonorailError::from)
             .map_err(RequestError::from)

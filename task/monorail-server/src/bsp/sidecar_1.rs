@@ -122,7 +122,7 @@ pub struct NetPhyRw<'a>(&'a mut task_net_api::Net);
 impl<'a> PhyRw for NetPhyRw<'a> {
     #[inline(always)]
     fn read_raw<T: From<u16>>(
-        &mut self,
+        &self,
         port: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
@@ -134,7 +134,7 @@ impl<'a> PhyRw for NetPhyRw<'a> {
 
     #[inline(always)]
     fn write_raw<T>(
-        &mut self,
+        &self,
         port: u8,
         reg: PhyRegisterAddress<T>,
         value: T,
@@ -246,7 +246,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     pub fn wake(&mut self) -> Result<(), VscError> {
         for port in 0..4 {
             let rw = &mut NetPhyRw(&mut self.net);
-            let mut vsc8504 = self.vsc8504.phy(port, rw);
+            let vsc8504 = self.vsc8504.phy(port, rw);
             match vsc8504.phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(status) => {
                     let status = u16::from(status);
