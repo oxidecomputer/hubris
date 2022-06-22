@@ -69,9 +69,11 @@ pub enum MonorailError {
     MiimIdleTimeout,
     MiimReadTimeout,
 
-    // Custom errors that aren't pulled from VscError
+    // ----------- Custom errors that aren't pulled from VscError -------------
     InvalidPort,
     UnconfiguredPort,
+    /// The given port does not have a PHY associated with it
+    NoPhy,
 }
 
 impl From<VscError> for MonorailError {

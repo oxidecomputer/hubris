@@ -251,6 +251,22 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         }
         Ok(())
     }
+
+    /// Decodes a port into a `PhyRw` handle and port within that PHY.
+    ///
+    /// This is a BSP-specific function
+    pub fn phy_rw_handle(
+        &mut self,
+        port: u8,
+    ) -> Option<(Vsc7448MiimPhy<R>, u8)> {
+        let miim = match port {
+            0..=23 => 1,
+            24..=48 => 2,
+            _ => return None,
+        };
+        let phy_port = port % 24;
+        Some((Vsc7448MiimPhy::new(&self.vsc7448.rw, miim), phy_port))
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

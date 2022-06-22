@@ -14,5 +14,18 @@ Interface(
             ),
             encoding: Ssmarshal,
         ),
+        "read_phy_reg": (
+            doc: "Read a register from the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )
