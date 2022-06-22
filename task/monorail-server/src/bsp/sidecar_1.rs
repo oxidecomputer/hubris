@@ -118,7 +118,7 @@ pub use map::PORT_MAP;
 /// For convenience, we implement `PhyRw` on a thin wrapper around the `net`
 /// task handle.  We read and write to PHYs using RPC calls to the `net` task,
 /// which owns the ethernet peripheral containing the MDIO block.
-struct NetPhyRw<'a>(&'a mut task_net_api::Net);
+pub struct NetPhyRw<'a>(&'a mut task_net_api::Net);
 impl<'a> PhyRw for NetPhyRw<'a> {
     #[inline(always)]
     fn read_raw<T: From<u16>>(
@@ -310,5 +310,18 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
         Ok(())
+    }
+
+    /// Decodes a port into a `PhyRw` handle and port within that PHY.
+    ///
+    /// This is a BSP-specific function
+    pub fn phy_rw_handle(&mut self, port: u8) -> Option<(NetPhyRw, u8)> {
+        match port {
+            // Ports 40-43 connect to a VSC8504 PHY over QSGMII and represent
+            // ports 4-7 on the PHY.
+            40..=43 => Some((NetPhyRw(&mut self.net), port - 40 + 4)),
+            44..=47 => None, // TODO: front panel (QSFP board)
+            _ => None,
+        }
     }
 }
