@@ -35,13 +35,14 @@ impl Vsc7448Spi {
 impl Vsc7448Rw for Vsc7448Spi {
     /// Reads from a VSC7448 register.  The register must be in the switch
     /// core register block, i.e. having an address in the range
-    /// 0x71000000-0x72000000; otherwise, this will panic.
+    /// 0x71000000-0x72000000; otherwise, this return an error.
     fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
     where
         T: From<u32>,
     {
-        assert!(reg.addr >= 0x71000000);
-        assert!(reg.addr < 0x72000000);
+        if reg.addr < 0x71000000 || reg.addr >= 0x72000000 {
+            return Err(VscError::BadRegAddr(reg.addr));
+        }
 
         // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
         // a register address to a request over SPI.

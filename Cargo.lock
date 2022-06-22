@@ -3660,7 +3660,7 @@ dependencies = [
 [[package]]
 name = "vsc7448-pac"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/vsc7448#873309872f2260672bd875a5c4a4ad5121da52df"
+source = "git+https://github.com/oxidecomputer/vsc7448#22700dceaeadc3d9600d3cb74cbf4e639c9850e1"
 dependencies = [
  "derive_more",
 ]

@@ -120,6 +120,21 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             }
         }
     }
+
+    fn read_vsc7448_reg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        addr: u32,
+    ) -> Result<u32, RequestError<MonorailError>> {
+        let addr =
+            vsc7448_pac::types::RegisterAddress::<u32>::from_addr_unchecked(
+                addr,
+            );
+        self.vsc7448
+            .read(addr)
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {

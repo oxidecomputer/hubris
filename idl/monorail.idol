@@ -25,7 +25,16 @@ Interface(
                 ok: "u16",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
+        ),
+        "read_vsc7448_reg": (
+            doc: "Read a register from the VSC7448",
+            args: {
+                "addr": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("MonorailError"),
+            ),
         ),
     },
 )
