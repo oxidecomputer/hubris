@@ -167,7 +167,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Checks the given PHY's status, return `true` if the link is up
     fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
         let phy_rw = &mut Vsc7448MiimPhy::new(self.vsc7448, miim);
-        let mut p = Phy::new(phy, phy_rw);
+        let p = Phy::new(phy, phy_rw);
         match p.read(phy::STANDARD::MODE_STATUS()) {
             Ok(status) => {
                 let up = (status.0 & (1 << 5)) != 0;
@@ -252,20 +252,25 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    /// Decodes a port into a `PhyRw` handle and port within that PHY.
+    /// Calls a function on a `Phy` associated with the given port.
     ///
-    /// This is a BSP-specific function
-    pub fn phy_rw_handle(
+    /// Returns `None` if the given port isn't associated with a PHY
+    /// (for example, because it's an SGMII link)
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<Vsc7448MiimPhy<R>>) -> T>(
         &mut self,
         port: u8,
-    ) -> Option<(Vsc7448MiimPhy<R>, u8)> {
+        callback: F,
+    ) -> Option<T> {
         let miim = match port {
             0..=23 => 1,
             24..=48 => 2,
             _ => return None,
         };
         let phy_port = port % 24;
-        Some((Vsc7448MiimPhy::new(&self.vsc7448.rw, miim), phy_port))
+        let mut phy_rw: Vsc7448MiimPhy<R> =
+            Vsc7448MiimPhy::new(&self.vsc7448.rw, miim);
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        Some(callback(phy))
     }
 }
 

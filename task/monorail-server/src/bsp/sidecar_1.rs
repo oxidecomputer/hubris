@@ -312,16 +312,64 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    /// Decodes a port into a `PhyRw` handle and port within that PHY.
+    /// Calls a function on a `Phy` associated with the given port.
     ///
-    /// This is a BSP-specific function
-    pub fn phy_rw_handle(&mut self, port: u8) -> Option<(NetPhyRw, u8)> {
-        match port {
+    /// Returns `None` if the given port isn't associated with a PHY
+    /// (for example, because it's an SGMII link)
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<GenericPhyRw>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+    ) -> Option<T> {
+        let (mut phy_rw, phy_port) = match port {
             // Ports 40-43 connect to a VSC8504 PHY over QSGMII and represent
             // ports 4-7 on the PHY.
-            40..=43 => Some((NetPhyRw(&mut self.net), port - 40 + 4)),
-            44..=47 => None, // TODO: front panel (QSFP board)
-            _ => None,
+            40..=43 => {
+                let phy_rw = GenericPhyRw::Net(NetPhyRw(&mut self.net));
+                let phy_port = port - 40 + 4;
+                (phy_rw, phy_port)
+            }
+            44..=47 => {
+                // TODO: add a `PhyRw` handle that talks over SPI to the QSFP
+                // FPGA to do MDIO
+                unimplemented!()
+            }
+            _ => return None,
+        };
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        Some(callback(phy))
+    }
+}
+
+/// Simple enum that contains all possible `PhyRw` handle types
+pub enum GenericPhyRw<'a> {
+    Net(NetPhyRw<'a>),
+}
+
+impl<'a> PhyRw for GenericPhyRw<'a> {
+    #[inline(always)]
+    fn read_raw<T: From<u16>>(
+        &self,
+        port: u8,
+        reg: PhyRegisterAddress<T>,
+    ) -> Result<T, VscError> {
+        match self {
+            GenericPhyRw::Net(n) => n.read_raw(port, reg),
+        }
+    }
+    #[inline(always)]
+    fn write_raw<T>(
+        &self,
+        port: u8,
+        reg: PhyRegisterAddress<T>,
+        value: T,
+    ) -> Result<(), VscError>
+    where
+        u16: From<T>,
+        T: From<u16> + Clone,
+    {
+        match self {
+            GenericPhyRw::Net(n) => n.write_raw(port, reg, value),
         }
     }
 }

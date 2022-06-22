@@ -112,14 +112,13 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         } else if self.map.port_config(port).is_none() {
             return Err(MonorailError::UnconfiguredPort.into());
         }
-        let (mut phy_rw, phy_port) = match self.bsp.phy_rw_handle(port) {
+        let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
+        match self.bsp.phy_fn(port, |phy| phy.read(addr)) {
             None => return Err(MonorailError::NoPhy.into()),
-            Some(t) => t,
-        };
-        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
-        phy.read(PhyRegisterAddress::from_page_and_addr_unchecked(page, reg))
-            .map_err(MonorailError::from)
-            .map_err(RequestError::from)
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
     }
 }
 
