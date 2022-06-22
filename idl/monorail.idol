@@ -26,6 +26,19 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
+        "write_phy_reg": (
+            doc: "Read a register from the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
         "read_vsc7448_reg": (
             doc: "Read a register from the VSC7448",
             args: {
@@ -33,6 +46,17 @@ Interface(
             },
             reply: Result(
                 ok: "u32",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_vsc7448_reg": (
+            doc: "Write a VSC7448 register",
+            args: {
+                "addr": "u32",
+                "value": "u32",
+            },
+            reply: Result(
+                ok: "()",
                 err: CLike("MonorailError"),
             ),
         ),

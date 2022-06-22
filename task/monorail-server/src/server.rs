@@ -121,6 +121,28 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         }
     }
 
+    fn write_phy_reg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+        page: u16,
+        reg: u8,
+        value: u16,
+    ) -> Result<(), RequestError<MonorailError>> {
+        if usize::from(port) >= self.map.len() {
+            return Err(MonorailError::InvalidPort.into());
+        } else if self.map.port_config(port).is_none() {
+            return Err(MonorailError::UnconfiguredPort.into());
+        }
+        let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
+        match self.bsp.phy_fn(port, |phy| phy.write(addr, value)) {
+            None => return Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
+    }
+
     fn read_vsc7448_reg(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -132,6 +154,22 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             );
         self.vsc7448
             .read(addr)
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn write_vsc7448_reg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        addr: u32,
+        value: u32,
+    ) -> Result<(), RequestError<MonorailError>> {
+        let addr =
+            vsc7448_pac::types::RegisterAddress::<u32>::from_addr_unchecked(
+                addr,
+            );
+        self.vsc7448
+            .write(addr, value)
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
     }

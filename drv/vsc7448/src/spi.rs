@@ -104,7 +104,8 @@ impl Vsc7448Rw for Vsc7448Spi {
     /// if you want to modify it, then use [Self::modify] instead.
     ///
     /// The register must be in the switch core register block, i.e. having an
-    /// address in the range 0x71000000-0x72000000; otherwise, this will panic.
+    /// address in the range 0x71000000-0x72000000; otherwise, this will
+    /// return an error.
     fn write<T>(
         &self,
         reg: RegisterAddress<T>,
@@ -113,8 +114,9 @@ impl Vsc7448Rw for Vsc7448Spi {
     where
         u32: From<T>,
     {
-        assert!(reg.addr >= 0x71000000);
-        assert!(reg.addr < 0x72000000);
+        if reg.addr < 0x71000000 || reg.addr >= 0x72000000 {
+            return Err(VscError::BadRegAddr(reg.addr));
+        }
 
         let addr = (reg.addr & 0x00FFFFFF) >> 2;
         let value = u32::from(value);
