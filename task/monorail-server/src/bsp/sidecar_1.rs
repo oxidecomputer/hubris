@@ -332,7 +332,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             44..=47 => {
                 // TODO: add a `PhyRw` handle that talks over SPI to the QSFP
                 // FPGA to do MDIO
-                todo!()
+                return None;
             }
             _ => return None,
         };

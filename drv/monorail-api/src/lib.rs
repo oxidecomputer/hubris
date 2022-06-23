@@ -148,5 +148,6 @@ pub enum PhyType {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PhyStatus {
     pub ty: PhyType,
-    pub link_up: bool,
+    pub mac_link_up: bool,
+    pub media_link_up: bool,
 }

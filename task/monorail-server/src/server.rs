@@ -175,9 +175,14 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 _ => return Err(MonorailError::UnknownPhyId),
             };
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
-            let link_up = (status.0 & (1 << 2)) != 0;
-            // TODO: read link_up
-            Ok(PhyStatus { ty, link_up })
+            let media_link_up = (status.0 & (1 << 2)) != 0;
+            let status = phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
+            let mac_link_up = (status.0 & (1 << 2)) != 0;
+            Ok(PhyStatus {
+                ty,
+                mac_link_up,
+                media_link_up,
+            })
         }) {
             None => return Err(MonorailError::NoPhy.into()),
             Some(r) => {
