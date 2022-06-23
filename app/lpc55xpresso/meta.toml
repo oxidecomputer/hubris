@@ -1,0 +1,5 @@
+base-name = "lpc55xpresso"
+bootloader-toml = "bootloader.toml.template"
+image-toml = "image.toml.template"
+a-memory = "a.toml"
+b-memory = "b.toml"

@@ -92,7 +92,7 @@ impl MultiImage {
         //std::fs::copy(&image_toml, "target/image-b.toml")?;
 
         let image_a_path = meta_dir.join("image_a.toml");
-        let image_b_path = meta_dir.join("image_a.toml");
+        let image_b_path = meta_dir.join("image_b.toml");
 
         let mut image_a = std::fs::File::create(&image_a_path)?;
         let mut image_b = std::fs::File::create(&image_b_path)?;

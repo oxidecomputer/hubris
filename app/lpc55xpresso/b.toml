@@ -1,0 +1,12 @@
+[outputs.flash]
+address = 0x00038000
+size = 0x38000
+read = true
+execute = true
+
+[outputs.ram]
+address = 0x20004000
+size = 0x18000
+read = true
+write = true
+execute = true
