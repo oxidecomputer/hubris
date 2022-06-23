@@ -268,7 +268,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         };
         let phy_port = port % 24;
         let mut phy_rw: Vsc7448MiimPhy<R> =
-            Vsc7448MiimPhy::new(&self.vsc7448.rw, miim);
+            Vsc7448MiimPhy::new(self.vsc7448.rw, miim);
         let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
         Some(callback(phy))
     }

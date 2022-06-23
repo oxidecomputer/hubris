@@ -57,9 +57,9 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
     /// Helper function to return an error if a user-specified port is invalid
     fn check_port(&self, port: u8) -> Result<(), MonorailError> {
         if usize::from(port) >= self.map.len() {
-            Err(MonorailError::InvalidPort.into())
+            Err(MonorailError::InvalidPort)
         } else if self.map.port_config(port).is_none() {
-            Err(MonorailError::UnconfiguredPort.into())
+            Err(MonorailError::UnconfiguredPort)
         } else {
             Ok(())
         }
@@ -127,7 +127,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         }
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         match self.bsp.phy_fn(port, |phy| phy.read(addr)) {
-            None => return Err(MonorailError::NoPhy.into()),
+            None => Err(MonorailError::NoPhy.into()),
             Some(r) => {
                 r.map_err(MonorailError::from).map_err(RequestError::from)
             }
@@ -145,7 +145,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         self.check_port(port)?;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         match self.bsp.phy_fn(port, |phy| phy.write(addr, value)) {
-            None => return Err(MonorailError::NoPhy.into()),
+            None => Err(MonorailError::NoPhy.into()),
             Some(r) => {
                 r.map_err(MonorailError::from).map_err(RequestError::from)
             }
@@ -184,7 +184,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                 media_link_up,
             })
         }) {
-            None => return Err(MonorailError::NoPhy.into()),
+            None => Err(MonorailError::NoPhy.into()),
             Some(r) => {
                 r.map_err(MonorailError::from).map_err(RequestError::from)
             }

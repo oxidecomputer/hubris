@@ -63,6 +63,9 @@ impl PortMap {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+    pub fn is_empty(&self) -> bool {
+        false
+    }
 
     /// Decodes the configuration of the given port.
     ///

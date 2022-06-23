@@ -253,7 +253,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                     if status != self.vsc8504_mode_status[port as usize] {
                         ringbuf_entry!(Trace::Vsc8504ModeStatus {
                             port,
-                            status: u16::from(status)
+                            status
                         });
                         self.vsc8504_mode_status[port as usize] = status;
                     }
@@ -266,7 +266,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                     if status != self.vsc8504_mac_status[port as usize] {
                         ringbuf_entry!(Trace::Vsc8504MacStatus {
                             port,
-                            status: u16::from(status)
+                            status
                         });
                         self.vsc8504_mac_status[port as usize] = status;
                     }

@@ -190,9 +190,9 @@ impl Ksz8463 {
         // Request counter with given offset.
         self.write(
             Register::IACR,
-            (1 << 12) |        // Read
-            (0b11 << 10) |     // MIB counter
-            offset as u16 + b, // Offset
+            (1 << 12) |          // Read
+            (0b11 << 10) |       // MIB counter
+            (offset as u16 + b), // Offset
         )?;
 
         // Read counter data, looping until the 'valid' bit is 1

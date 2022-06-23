@@ -589,7 +589,8 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     ) -> Result<(), VscError> {
         // "constant terms"
         let ib_filt_val = (1 << 7) | (1 << 6) | (1 << 5);
-        let ib_frc_val = (0 << 3) | (0 << 2) | (0 << 1);
+        let ib_frc_val = 0; // (0 << 3) | (0 << 2) | (0 << 1)
+
         // "configurable terms"
         let reg_val = (u32::from(ib_tjtag) << 17)
             | (u32::from(ib_tsdet) << 12)
