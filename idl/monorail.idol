@@ -14,6 +14,17 @@ Interface(
             ),
             encoding: Ssmarshal,
         ),
+        "get_phy_status": (
+            doc: "Reads the state of the phy associated with a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "PhyStatus",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
         "read_phy_reg": (
             doc: "Read a register from the PHY associated with a particular port",
             args: {

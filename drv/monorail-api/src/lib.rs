@@ -70,7 +70,9 @@ pub enum MonorailError {
     MiimReadTimeout,
 
     // ----------- Custom errors that aren't pulled from VscError -------------
+    /// The given port is outside the valid port range
     InvalidPort,
+    /// The given port is not configured
     UnconfiguredPort,
     /// The given port does not have a PHY associated with it
     NoPhy,
@@ -133,4 +135,18 @@ impl From<VscError> for MonorailError {
             VscError::MiimReadTimeout => Self::MiimReadTimeout,
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum PhyType {
+    Vsc8504,
+    Vsc8522,
+    Vsc8552,
+    Vsc8562,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct PhyStatus {
+    pub ty: PhyType,
+    pub link_up: bool,
 }

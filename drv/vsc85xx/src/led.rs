@@ -35,7 +35,7 @@ pub enum LEDMode {
 
 impl<'a, P: PhyRw> Phy<'a, P> {
     pub fn set_led_mode(
-        &mut self,
+        &self,
         led: LED,
         mode: LEDMode,
     ) -> Result<(), VscError> {

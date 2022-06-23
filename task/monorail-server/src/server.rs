@@ -4,7 +4,9 @@
 
 use crate::bsp::{self, Bsp};
 use idol_runtime::{NotificationHandler, RequestError};
-use monorail_api::{MonorailError, PortDev, PortStatus, VscError};
+use monorail_api::{
+    MonorailError, PhyStatus, PhyType, PortDev, PortStatus, VscError,
+};
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{config::PortMap, Vsc7448, Vsc7448Rw};
 use vsc7448_pac::{types::PhyRegisterAddress, *};
@@ -50,6 +52,17 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             }
         }
         Ok(())
+    }
+
+    /// Helper function to return an error if a user-specified port is invalid
+    fn check_port(&self, port: u8) -> Result<(), MonorailError> {
+        if usize::from(port) >= self.map.len() {
+            Err(MonorailError::InvalidPort.into())
+        } else if self.map.port_config(port).is_none() {
+            Err(MonorailError::UnconfiguredPort.into())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -129,13 +142,43 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         reg: u8,
         value: u16,
     ) -> Result<(), RequestError<MonorailError>> {
-        if usize::from(port) >= self.map.len() {
-            return Err(MonorailError::InvalidPort.into());
-        } else if self.map.port_config(port).is_none() {
-            return Err(MonorailError::UnconfiguredPort.into());
-        }
+        self.check_port(port)?;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         match self.bsp.phy_fn(port, |phy| phy.write(addr, value)) {
+            None => return Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
+    }
+
+    fn get_phy_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<PhyStatus, RequestError<MonorailError>> {
+        self.check_port(port)?;
+        match self.bsp.phy_fn(port, |phy| {
+            let ty = match phy.read_id()? {
+                vsc85xx::vsc85x2::VSC8552_ID => PhyType::Vsc8552,
+                vsc85xx::vsc85x2::VSC8562_ID => {
+                    // See discussion in vsc85x2.rs
+                    let rev = phy.read(phy::GPIO::EXTENDED_REVISION())?;
+                    if u16::from(rev) & 0x4000 == 0 {
+                        PhyType::Vsc8562
+                    } else {
+                        return Err(MonorailError::UnknownPhyId);
+                    }
+                }
+                vsc85xx::vsc8504::VSC8504_ID => PhyType::Vsc8504,
+                vsc85xx::vsc8522::VSC8522_ID => PhyType::Vsc8522,
+                _ => return Err(MonorailError::UnknownPhyId),
+            };
+            let status = phy.read(phy::STANDARD::MODE_STATUS())?;
+            let link_up = (status.0 & (1 << 2)) != 0;
+            // TODO: read link_up
+            Ok(PhyStatus { ty, link_up })
+        }) {
             None => return Err(MonorailError::NoPhy.into()),
             Some(r) => {
                 r.map_err(MonorailError::from).map_err(RequestError::from)
@@ -187,6 +230,6 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 }
 
 mod idl {
-    use super::{MonorailError, PortStatus};
+    use super::{MonorailError, PhyStatus, PortStatus};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
