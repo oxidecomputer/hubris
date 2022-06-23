@@ -7,6 +7,7 @@ use lpc55_romapi::FLASH_PAGE_SIZE;
 
 extern "C" {
     static IMAGEA: abi::ImageVectors;
+    static IMAGEB: abi::ImageVectors;
     // __vector size is currently defined in the linker script as
     //
     // __vector_size = SIZEOF(.vector_table);
@@ -43,6 +44,23 @@ pub fn get_image_a() -> Option<Image> {
     let imagea = unsafe { &IMAGEA };
 
     let img = Image(imagea);
+
+    if !img.validate() {
+        return None;
+    }
+
+    Some(img)
+}
+
+pub fn get_image_b() -> Option<Image> {
+    // Safety: this is unsafe because `IMAGEA` is coming from
+    // an extern, and might violate alignment rules or even be
+    // modified externally and subject to data races. In our case
+    // we have to assume that neither of these is true, since it's
+    // being furnished by our linker script, which we trust.
+    let imageb = unsafe { &IMAGEB };
+
+    let img = Image(imageb);
 
     if !img.validate() {
         return None;

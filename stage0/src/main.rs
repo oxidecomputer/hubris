@@ -172,12 +172,15 @@ fn main() -> ! {
 
     check_system_freq();
 
-    let imagea = match image_header::get_image_a() {
+    let image = match image_header::get_image_a() {
         Some(a) => a,
-        None => panic!(),
+        None => match image_header::get_image_b() {
+            Some(b) => b,
+            None => panic!(),
+        }
     };
 
     unsafe {
-        branch_to_image(imagea);
+        branch_to_image(image);
     }
 }

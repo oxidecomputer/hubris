@@ -700,8 +700,8 @@ fn build_kernel(
     if update_elf(
         &cfg.dist_file("kernel"),
         &cfg.dist_file("kernel.modified"),
-        //&allocs.kernel
         &cfg.toml.memories()?,
+        all_output_sections,
     )? {
         std::fs::copy(&cfg.dist_file("kernel"), cfg.dist_file("kernel.orig"))?;
         std::fs::copy(
@@ -1573,13 +1573,12 @@ fn update_elf(
     input: &Path,
     output: &Path,
     map: &IndexMap<String, Range<u32>>,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<bool> {
     use goblin::container::Container;
-    //    use goblin::elf::program_header::PT_LOAD;
     use zerocopy::AsBytes;
 
     let mut file_image = std::fs::read(input)?;
-    let image_len = std::fs::metadata(input)?.len();
     let elf = goblin::elf::Elf::parse(&file_image)?;
 
     if elf.header.container()? != Container::Little {
@@ -1596,9 +1595,26 @@ fn update_elf(
                 && (sec.sh_size as usize)
                     >= core::mem::size_of::<abi::ImageHeader>()
             {
+                let flash = map.get("flash").unwrap();
+
+                // Compute the total image size by finding the highest address
+                // from all the tasks built. Because this is the kernel all
+                // tasks must be built
+                let mut end = 0;
+
+                for (addr, sec) in all_output_sections {
+                    if (*addr as u32) > flash.start && (*addr as u32) < flash.end {
+                        if (*addr as u32) > end {
+                            end = addr + (sec.data.len() as u32);
+                        }
+                    }
+                }
+
+                let len = end - flash.start;
+
                 let mut header = abi::ImageHeader {
                     magic: abi::HEADER_MAGIC,
-                    total_image_len: image_len as u32,
+                    total_image_len: len as u32,
                     ..Default::default()
                 };
 
