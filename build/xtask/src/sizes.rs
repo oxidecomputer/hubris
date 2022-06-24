@@ -9,10 +9,10 @@ use std::path::Path;
 use std::process;
 
 use anyhow::{bail, Result};
+use colored::*;
 use goblin::Object;
 use indexmap::map::Entry;
 use indexmap::IndexMap;
-use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     dist::{Allocations, DEFAULT_KERNEL_STACK},
@@ -54,23 +54,11 @@ pub fn run(
         process::exit(0);
     }
 
-    // Way too much setup to get output stream and colors set up
-    let s = if only_suggest {
-        atty::Stream::Stderr
+    let mut out: Box<dyn Write> = if only_suggest {
+        Box::new(std::io::stderr())
     } else {
-        atty::Stream::Stdout
+        Box::new(std::io::stdout())
     };
-    let color_choice = if atty::is(s) {
-        termcolor::ColorChoice::Auto
-    } else {
-        termcolor::ColorChoice::Never
-    };
-    let mut out_stream = match s {
-        atty::Stream::Stderr => termcolor::StandardStream::stderr,
-        atty::Stream::Stdout => termcolor::StandardStream::stdout,
-        _ => panic!("Invalid stream"),
-    }(color_choice);
-    let out = &mut out_stream;
 
     // Print detailed sizes relative to usage
     if !only_suggest {
@@ -97,29 +85,28 @@ pub fn run(
         if !printed_header {
             printed_header = true;
             if only_suggest {
-                out.set_color(
-                    ColorSpec::new().set_bold(true).set_fg(Some(Color::Yellow)),
-                )?;
-                write!(out, "warning")?;
-                out.reset()?;
+                write!(out, "{}", "warning".bold().yellow())?;
                 writeln!(out, ": memory allocation is sub-optimal")?;
-                out.set_color(ColorSpec::new().set_bold(true))?;
-                writeln!(out, "Suggested improvements:")?;
-                out.reset()?;
+                writeln!(out, "{}", "Suggested improvements:".bold())?;
             } else {
-                out.set_color(ColorSpec::new().set_bold(true))?;
-                writeln!(out, "\n========== Suggested changes ==========")?;
-                out.reset()?;
+                writeln!(
+                    out,
+                    "{}",
+                    "\n========== Suggested changes ==========".bold()
+                )?;
             }
         }
         if !printed_name {
             printed_name = true;
             writeln!(out, "kernel:")?;
         }
-        write!(out, "  {:<6} {: >5}", format!("{}:", mem), suggestion)?;
-        out.set_color(ColorSpec::new().set_dimmed(true))?;
-        writeln!(out, " (currently {})", size)?;
-        out.reset()?;
+        writeln!(
+            out,
+            "  {:<6} {: >5} {}",
+            format!("{}:", mem),
+            suggestion,
+            format!(" (currently {})", size).dimmed()
+        )?;
     }
 
     Ok(())

@@ -11,10 +11,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
+use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
-use termcolor::{Color, ColorSpec, WriteColor};
 
 use crate::{
     config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
@@ -828,14 +828,6 @@ fn build_kernel(
 
 /// Prints warning messages about priority inversions
 fn check_task_priorities(toml: &Config) -> Result<()> {
-    let color_choice = if atty::is(atty::Stream::Stderr) {
-        termcolor::ColorChoice::Auto
-    } else {
-        termcolor::ColorChoice::Never
-    };
-    let mut out_stream = termcolor::StandardStream::stderr(color_choice);
-    let out = &mut out_stream;
-
     let idle_priority = toml.tasks["idle"].priority;
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
         for callee in task.task_slots.values() {
@@ -847,16 +839,11 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
             if p >= task.priority && name != callee {
                 // TODO: once all priority inversions are fixed, return an
                 // error so no more can be introduced
-                let mut color = ColorSpec::new();
-                color.set_fg(Some(Color::Red));
-                out.set_color(&color)?;
-                write!(out, "Priority inversion: ")?;
-                out.reset()?;
-                writeln!(
-                    out,
+                eprint!("{}", "Priority inversion: ".red());
+                eprintln!(
                     "task {} (priority {}) calls into {} (priority {})",
                     name, task.priority, callee, p
-                )?;
+                );
             }
         }
         if task.priority >= idle_priority && name != "idle" {

@@ -325,6 +325,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3726,10 +3737,10 @@ version = "1.0.0"
 dependencies = [
  "abi",
  "anyhow",
- "atty",
  "byteorder",
  "cargo_metadata",
  "clap 3.0.14",
+ "colored",
  "ctrlc",
  "dunce",
  "filetime",
@@ -3745,7 +3756,6 @@ dependencies = [
  "serde_json",
  "srec",
  "strsim 0.10.0",
- "termcolor",
  "toml",
  "walkdir",
  "zerocopy",
