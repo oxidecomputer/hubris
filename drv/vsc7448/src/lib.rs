@@ -20,9 +20,10 @@ use userlib::hl::sleep_for;
 use vsc7448_pac::{types::RegisterAddress, *};
 
 pub use config::Speed;
+pub use dev::DevGeneric;
 pub use vsc_err::VscError;
 
-use crate::dev::{Dev10g, DevGeneric};
+use crate::dev::Dev10g;
 
 /// This trait abstracts over various ways of talking to a VSC7448.
 pub trait Vsc7448Rw {

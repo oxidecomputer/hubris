@@ -5,10 +5,11 @@
 use crate::bsp::{self, Bsp};
 use idol_runtime::{NotificationHandler, RequestError};
 use monorail_api::{
-    MonorailError, PhyStatus, PhyType, PortDev, PortStatus, VscError,
+    MonorailError, PacketCount, PhyStatus, PhyType, PortCounters, PortDev,
+    PortStatus, VscError,
 };
 use userlib::{sys_get_timer, sys_set_timer};
-use vsc7448::{config::PortMap, Vsc7448, Vsc7448Rw};
+use vsc7448::{config::PortMap, DevGeneric, Vsc7448, Vsc7448Rw};
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
 pub struct ServerImpl<'a, R> {
@@ -80,23 +81,18 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             Some(cfg) => cfg,
         };
         let link_up = match cfg.dev.0 {
-            PortDev::Dev1g => {
+            // These devices use the same register layout, so we can
+            // consolidate into a single branch ere.
+            PortDev::Dev1g | PortDev::Dev2g5 => {
+                let dev = match cfg.dev.0 {
+                    PortDev::Dev1g => DevGeneric::new_1g(cfg.dev.1),
+                    PortDev::Dev2g5 => DevGeneric::new_2g5(cfg.dev.1),
+                    _ => unreachable!(),
+                }
+                .map_err(MonorailError::from)?;
                 let reg = self
                     .vsc7448
-                    .read(
-                        DEV1G(cfg.dev.1).PCS1G_CFG_STATUS().PCS1G_LINK_STATUS(),
-                    )
-                    .map_err(MonorailError::from)?;
-                (reg.link_status() != 0) && (reg.signal_detect() != 0)
-            }
-            PortDev::Dev2g5 => {
-                let reg = self
-                    .vsc7448
-                    .read(
-                        DEV2G5(cfg.dev.1)
-                            .PCS1G_CFG_STATUS()
-                            .PCS1G_LINK_STATUS(),
-                    )
+                    .read(dev.regs().PCS1G_CFG_STATUS().PCS1G_LINK_STATUS())
                     .map_err(MonorailError::from)?;
                 (reg.link_status() != 0) && (reg.signal_detect() != 0)
             }
@@ -111,6 +107,158 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             }
         };
         Ok(PortStatus { cfg, link_up })
+    }
+
+    fn get_port_counters(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<PortCounters, RequestError<MonorailError>> {
+        if usize::from(port) >= self.map.len() {
+            return Err(MonorailError::InvalidPort.into());
+        }
+        let cfg = match self.map.port_config(port) {
+            None => return Err(MonorailError::UnconfiguredPort.into()),
+            Some(cfg) => cfg,
+        };
+        let (tx, rx) = match cfg.dev.0 {
+            PortDev::Dev1g | PortDev::Dev2g5 => {
+                let stats = ASM().DEV_STATISTICS(port);
+                let rx_uc = self
+                    .vsc7448
+                    .read(stats.RX_UC_CNT())
+                    .map_err(MonorailError::from)?;
+                let rx_bc = self
+                    .vsc7448
+                    .read(stats.RX_BC_CNT())
+                    .map_err(MonorailError::from)?;
+                let rx_mc = self
+                    .vsc7448
+                    .read(stats.RX_MC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_uc = self
+                    .vsc7448
+                    .read(stats.TX_UC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_bc = self
+                    .vsc7448
+                    .read(stats.TX_BC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_mc = self
+                    .vsc7448
+                    .read(stats.TX_MC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx = PacketCount {
+                    unicast: tx_uc.into(),
+                    multicast: tx_mc.into(),
+                    broadcast: tx_bc.into(),
+                };
+                let rx = PacketCount {
+                    unicast: rx_uc.into(),
+                    multicast: rx_mc.into(),
+                    broadcast: rx_bc.into(),
+                };
+                (tx, rx)
+            }
+            PortDev::Dev10g => {
+                let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
+                let rx_uc = self
+                    .vsc7448
+                    .read(stats.RX_UC_CNT())
+                    .map_err(MonorailError::from)?;
+                let rx_bc = self
+                    .vsc7448
+                    .read(stats.RX_BC_CNT())
+                    .map_err(MonorailError::from)?;
+                let rx_mc = self
+                    .vsc7448
+                    .read(stats.RX_MC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_uc = self
+                    .vsc7448
+                    .read(stats.TX_UC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_bc = self
+                    .vsc7448
+                    .read(stats.TX_BC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx_mc = self
+                    .vsc7448
+                    .read(stats.TX_MC_CNT())
+                    .map_err(MonorailError::from)?;
+                let tx = PacketCount {
+                    unicast: tx_uc.into(),
+                    multicast: tx_mc.into(),
+                    broadcast: tx_bc.into(),
+                };
+                let rx = PacketCount {
+                    unicast: rx_uc.into(),
+                    multicast: rx_mc.into(),
+                    broadcast: rx_bc.into(),
+                };
+                (tx, rx)
+            }
+        };
+        Ok(PortCounters { tx, rx })
+    }
+
+    fn reset_port_counters(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        port: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        if usize::from(port) >= self.map.len() {
+            return Err(MonorailError::InvalidPort.into());
+        }
+        let cfg = match self.map.port_config(port) {
+            None => return Err(MonorailError::UnconfiguredPort.into()),
+            Some(cfg) => cfg,
+        };
+        match cfg.dev.0 {
+            PortDev::Dev1g | PortDev::Dev2g5 => {
+                let stats = ASM().DEV_STATISTICS(port);
+                self.vsc7448
+                    .write(stats.RX_UC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.RX_BC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.RX_MC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_UC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_BC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_MC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+            }
+            PortDev::Dev10g => {
+                let stats = DEV10G(cfg.dev.1).DEV_STATISTICS_32BIT();
+                self.vsc7448
+                    .write(stats.RX_UC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.RX_BC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.RX_MC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_UC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_BC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+                self.vsc7448
+                    .write(stats.TX_MC_CNT(), 0.into())
+                    .map_err(MonorailError::from)?;
+            }
+        }
+        Ok(())
     }
 
     fn read_phy_reg(
@@ -235,6 +383,6 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 }
 
 mod idl {
-    use super::{MonorailError, PhyStatus, PortStatus};
+    use super::{MonorailError, PhyStatus, PortCounters, PortStatus};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

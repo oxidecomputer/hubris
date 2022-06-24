@@ -19,6 +19,19 @@ pub struct PortStatus {
     pub link_up: bool,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct PacketCount {
+    pub multicast: u32,
+    pub unicast: u32,
+    pub broadcast: u32,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct PortCounters {
+    pub rx: PacketCount,
+    pub tx: PacketCount,
+}
+
 /// Error-code-only version of [VscError], for use in RPC calls
 #[derive(
     Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, IdolError,
