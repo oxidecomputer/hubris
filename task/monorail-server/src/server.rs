@@ -81,24 +81,24 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         };
         let link_up = match cfg.dev.0 {
             PortDev::Dev1g => {
-                self.vsc7448
+                let reg = self
+                    .vsc7448
                     .read(
                         DEV1G(cfg.dev.1).PCS1G_CFG_STATUS().PCS1G_LINK_STATUS(),
                     )
-                    .map_err(MonorailError::from)?
-                    .link_status()
-                    != 0
+                    .map_err(MonorailError::from)?;
+                (reg.link_status() != 0) && (reg.signal_detect() != 0)
             }
             PortDev::Dev2g5 => {
-                self.vsc7448
+                let reg = self
+                    .vsc7448
                     .read(
                         DEV2G5(cfg.dev.1)
                             .PCS1G_CFG_STATUS()
                             .PCS1G_LINK_STATUS(),
                     )
-                    .map_err(MonorailError::from)?
-                    .link_status()
-                    != 0
+                    .map_err(MonorailError::from)?;
+                (reg.link_status() != 0) && (reg.signal_detect() != 0)
             }
             PortDev::Dev10g => {
                 // Section of 3.8.2.2 describes how to monitor link status for
