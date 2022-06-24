@@ -1,20 +1,28 @@
 [package]
-name = "task-vsc7448"
+name = "task-monorail-server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cfg-if = "1"
 drv-sidecar-seq-api = {path = "../../drv/sidecar-seq-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api"}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", features = ["family-stm32h7"]}
 drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true }
+monorail-api = {path = "../../drv/monorail-api" }
 ringbuf = {path = "../../lib/ringbuf" }
 task-net-api = { path = "../net-api", optional = true }
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 vsc7448 = {path = "../../drv/vsc7448" }
-vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 vsc85xx = {path = "../../drv/vsc85xx" }
+
+cfg-if = "1"
+num-traits = {version = "0.2", default-features = false}
+serde = { version = "1", features = ["derive"], default-features = false}
+ssmarshal = { version = "1", default-features = false }
+zerocopy = "0.6.1"
+
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 
 [features]
 leds = ["drv-user-leds-api"]
@@ -23,14 +31,4 @@ sidecar = ["drv-sidecar-seq-api"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
-# This section is here to discourage RLS/rust-analyzer from doing test builds,
-# since test builds don't work for cross compilation.
-[[bin]]
-name = "task-vsc7448"
-test = false
-bench = false
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

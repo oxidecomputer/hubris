@@ -96,12 +96,12 @@ stacksize = 2048
 start = true
 task-slots = ["sys", "i2c_driver", "user_leds"]
 
-[tasks.vsc7448]
-name = "task-vsc7448"
+[tasks.monorail]
+name = "task-monorail-server"
 priority = 3
-max-sizes = {flash = 131072, ram = 4096}
+max-sizes = {flash = 131072, ram = 8192}
 features = ["leds"]
-stacksize = 2048
+stacksize = 4096
 start = true
 task-slots = ["sys", "user_leds", { spi_driver = "spi4_driver" }]
 

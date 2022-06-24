@@ -1,0 +1,97 @@
+// Monorail management network RPC interface
+
+Interface(
+    name: "Monorail",
+    ops: {
+        "get_port_status": (
+            doc: "Reads the state of a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "PortStatus",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+        "get_port_counters": (
+            doc: "Reads the packet counters for a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "PortCounters",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+        "reset_port_counters": (
+            doc: "Reads the packet counters for a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+        "get_phy_status": (
+            doc: "Reads the state of the phy associated with a port",
+            args: {
+                "port": "u8",
+            },
+            reply: Result(
+                ok: "PhyStatus",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
+        "read_phy_reg": (
+            doc: "Read a register from the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_phy_reg": (
+            doc: "Read a register from the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc7448_reg": (
+            doc: "Read a register from the VSC7448",
+            args: {
+                "addr": "u32",
+            },
+            reply: Result(
+                ok: "u32",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_vsc7448_reg": (
+            doc: "Write a VSC7448 register",
+            args: {
+                "addr": "u32",
+                "value": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+    },
+)

@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 drv-spi-api = {path = "../spi-api"}
-task-net-api = {path = "../../task/net-api", optional = true }
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

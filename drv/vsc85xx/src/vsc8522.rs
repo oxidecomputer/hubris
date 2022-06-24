@@ -6,7 +6,7 @@ use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
 
-const VSC8522_ID: u32 = 0x706f3;
+pub const VSC8522_ID: u32 = 0x706f3;
 
 /// Represents a VSC8522, which is a 12-port PHY used on the VSC7448 dev kit.
 /// `base_port` is the PHY address of the chip's port 0.

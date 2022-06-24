@@ -6,7 +6,7 @@ use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::phy;
 
-const VSC8504_ID: u32 = 0x704c2;
+pub const VSC8504_ID: u32 = 0x704c2;
 
 /// Represents a VSC8504, which is a 4-port PHY used on Sidecar.
 /// `base_port` is the PHY address of the chip's port 0.

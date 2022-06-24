@@ -5,13 +5,15 @@ edition = "2021"
 
 [dependencies]
 cfg-if = "1"
-userlib = {path = "../../sys/userlib" }
+serde = { version = "1", features = ["derive"], default-features = false}
 
 drv-spi-api = {path = "../../drv/spi-api"}
 ringbuf = {path = "../../lib/ringbuf" }
+userlib = {path = "../../sys/userlib" }
 vsc-err = { path = "../vsc-err" }
-vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 vsc85xx = { path = "../vsc85xx" }
+
+vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

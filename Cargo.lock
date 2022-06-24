@@ -1928,6 +1928,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "monorail-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "num-traits",
+ "serde",
+ "userlib",
+ "vsc7448",
+]
+
+[[package]]
 name = "multimap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3020,6 +3031,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-monorail-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "drv-sidecar-seq-api",
+ "drv-spi-api",
+ "drv-stm32xx-sys-api",
+ "drv-user-leds-api",
+ "idol",
+ "idol-runtime",
+ "monorail-api",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "ssmarshal",
+ "task-net-api",
+ "userlib",
+ "vsc7448",
+ "vsc7448-pac",
+ "vsc85xx",
+ "zerocopy",
+]
+
+[[package]]
 name = "task-net"
 version = "0.1.0"
 dependencies = [
@@ -3269,24 +3305,6 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "task-vsc7448"
-version = "0.1.0"
-dependencies = [
- "build-util",
- "cfg-if",
- "drv-sidecar-seq-api",
- "drv-spi-api",
- "drv-stm32xx-sys-api",
- "drv-user-leds-api",
- "ringbuf",
- "task-net-api",
- "userlib",
- "vsc7448",
- "vsc7448-pac",
- "vsc85xx",
 ]
 
 [[package]]
@@ -3622,7 +3640,6 @@ version = "0.1.0"
 dependencies = [
  "drv-spi-api",
  "idol-runtime",
- "task-net-api",
 ]
 
 [[package]]
@@ -3633,6 +3650,7 @@ dependencies = [
  "cfg-if",
  "drv-spi-api",
  "ringbuf",
+ "serde",
  "userlib",
  "vsc-err",
  "vsc7448-pac",
@@ -3642,7 +3660,7 @@ dependencies = [
 [[package]]
 name = "vsc7448-pac"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/vsc7448#873309872f2260672bd875a5c4a4ad5121da52df"
+source = "git+https://github.com/oxidecomputer/vsc7448#22700dceaeadc3d9600d3cb74cbf4e639c9850e1"
 dependencies = [
  "derive_more",
 ]

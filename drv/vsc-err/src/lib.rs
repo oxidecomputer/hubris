@@ -15,7 +15,6 @@ use idol_runtime::ServerDeath;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum VscError {
     SpiError(SpiError),
-
     ServerDied,
 
     BadChipId(u32),

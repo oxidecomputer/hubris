@@ -257,7 +257,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         value: u16,
     ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
         // TODO: this should not be open to all callers!
-        Ok(self.iface.device().smi_write(phy, register, value))
+        self.iface.device().smi_write(phy, register, value);
+        Ok(())
     }
 }
 

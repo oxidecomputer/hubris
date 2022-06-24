@@ -928,7 +928,7 @@ impl SynthMultCalc {
         };
         out.settings = SynthSettingsCalc::new(num_in_tmp, div_in_tmp);
 
-        out.speed_sel = if dr_khz < 5_000_000 { true } else { false };
+        out.speed_sel = dr_khz < 5_000_000;
         out.freq_mult_byp =
             FrequencyDecoderBypass::new(out.settings.freq_mult)?;
 

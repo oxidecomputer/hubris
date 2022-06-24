@@ -131,8 +131,8 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 
-[tasks.vsc7448]
-name = "task-vsc7448"
+[tasks.monorail]
+name = "task-monorail-server"
 priority = 5
 max-sizes = {flash = 131072, ram = 8192}
 features = ["mgmt", "sidecar"]

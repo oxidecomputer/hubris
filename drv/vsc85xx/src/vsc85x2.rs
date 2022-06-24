@@ -7,13 +7,13 @@ use vsc7448_pac::phy;
 
 // These IDs are (id1 << 16) | id2, meaning they also capture device revision
 // number.  This matters, because the patches are device-revision specific.
-const VSC8552_ID: u32 = 0x704e2;
+pub const VSC8552_ID: u32 = 0x704e2;
 
 // The datasheet will tell you that the ID for the VSC8562 should be 0x707b1.
 // Don't believe its lies!  The SDK (as the one source of truth) informs us
 // that it shares an ID with the VSC8564, then has a secondary ID in the
 // EXTENDED_CHIP_ID register
-const VSC8562_ID: u32 = 0x707e1;
+pub const VSC8562_ID: u32 = 0x707e1;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Vsc85x2Type {

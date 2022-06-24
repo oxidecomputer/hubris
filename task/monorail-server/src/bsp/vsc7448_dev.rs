@@ -15,6 +15,9 @@ pub const REFCLK_SEL: vsc7448::RefClockFreq = vsc7448::RefClockFreq::Clk125MHz;
 pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> =
     Some(vsc7448::RefClockFreq::Clk25MHz);
 
+/// Interval at which `Bsp::wake()` is called by the main loop
+pub const WAKE_INTERVAL: Option<u64> = Some(500);
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
@@ -22,9 +25,77 @@ enum Trace {
     PhyLinkChanged { port: u8, status: u16 },
     SgmiiError { dev: u8, err: VscError },
     MacAddress(vsc7448::mac::MacTableEntry),
-    VscErr(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
+
+mod map {
+    // Local module to avoid leaking imports
+    use vsc7448::config::{
+        PortMap,
+        PortMode::{self, *},
+        Speed::*,
+    };
+    const SGMII: Option<PortMode> = Some(Sgmii(Speed1G));
+    const QSGMII: Option<PortMode> = Some(Qsgmii(Speed1G));
+    const SFI: Option<PortMode> = Some(Sfi);
+
+    pub const PORT_MAP: PortMap = PortMap::new([
+        QSGMII, // 0  | DEV1G_0   | SERDES6G_4
+        QSGMII, // 1  | DEV1G_1   | SERDES6G_4
+        QSGMII, // 2  | DEV1G_2   | SERDES6G_4
+        QSGMII, // 3  | DEV1G_3   | SERDES6G_4
+        QSGMII, // 4  | DEV1G_4   | SERDES6G_5
+        QSGMII, // 5  | DEV1G_5   | SERDES6G_5
+        QSGMII, // 6  | DEV1G_6   | SERDES6G_5
+        QSGMII, // 7  | DEV1G_7   | SERDES6G_5
+        QSGMII, // 8  | DEV2G5_0  | SERDES6G_6
+        QSGMII, // 9  | DEV2G5_1  | SERDES6G_6
+        QSGMII, // 10 | DEV2G5_2  | SERDES6G_6
+        QSGMII, // 11 | DEV2G5_3  | SERDES6G_6
+        QSGMII, // 12 | DEV2G5_4  | SERDES6G_7
+        QSGMII, // 13 | DEV2G5_5  | SERDES6G_7
+        QSGMII, // 14 | DEV2G5_6  | SERDES6G_7
+        QSGMII, // 15 | DEV2G5_7  | SERDES6G_7
+        QSGMII, // 16 | DEV2G5_8  | SERDES6G_8
+        QSGMII, // 17 | DEV2G5_9  | SERDES6G_8
+        QSGMII, // 18 | DEV2G5_10 | SERDES6G_8
+        QSGMII, // 19 | DEV2G5_11 | SERDES6G_8
+        QSGMII, // 20 | DEV2G5_12 | SERDES6G_9
+        QSGMII, // 21 | DEV2G5_13 | SERDES6G_9
+        QSGMII, // 22 | DEV2G5_14 | SERDES6G_9
+        QSGMII, // 23 | DEV2G5_15 | SERDES6G_9
+        QSGMII, // 24 | DEV2G5_16 | SERDES6G_10
+        QSGMII, // 25 | DEV2G5_17 | SERDES6G_10
+        QSGMII, // 26 | DEV2G5_18 | SERDES6G_10
+        QSGMII, // 27 | DEV2G5_19 | SERDES6G_10
+        QSGMII, // 28 | DEV2G5_20 | SERDES6G_11
+        QSGMII, // 29 | DEV2G5_21 | SERDES6G_11
+        QSGMII, // 30 | DEV2G5_22 | SERDES6G_11
+        QSGMII, // 31 | DEV2G5_23 | SERDES6G_11
+        QSGMII, // 32 | DEV1G_8   | SERDES6G_12
+        QSGMII, // 33 | DEV1G_9   | SERDES6G_12
+        QSGMII, // 34 | DEV1G_10  | SERDES6G_12
+        QSGMII, // 35 | DEV1G_11  | SERDES6G_12
+        QSGMII, // 36 | DEV1G_12  | SERDES6G_13
+        QSGMII, // 37 | DEV1G_13  | SERDES6G_13
+        QSGMII, // 38 | DEV1G_14  | SERDES6G_13
+        QSGMII, // 39 | DEV1G_15  | SERDES6G_13
+        QSGMII, // 40 | DEV1G_16  | SERDES6G_14
+        QSGMII, // 41 | DEV1G_17  | SERDES6G_14
+        QSGMII, // 42 | DEV1G_18  | SERDES6G_14
+        QSGMII, // 43 | DEV1G_19  | SERDES6G_14
+        QSGMII, // 44 | DEV1G_20  | SERDES6G_15
+        QSGMII, // 45 | DEV1G_21  | SERDES6G_15
+        QSGMII, // 46 | DEV1G_22  | SERDES6G_15
+        QSGMII, // 47 | DEV1G_23  | SERDES6G_15
+        None,   // 48 | Unused (NPI)
+        SFI,    // 49 | DEV10G_0  | SERDES10G_0 | OTS switch
+        SFI,    // 50 | DEV10G_0  | SERDES10G_0 | OTS switch
+        SGMII,  // 51 | DEV2G5_27 | SERDES10G_2 | mgmt bringup board
+        SGMII,  // 52 | DEV2G5_28 | SERDES10G_3 | mgmt bringup board
+    ]);
+}
+pub use map::PORT_MAP;
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
@@ -85,15 +156,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.gpio_init()?;
         self.phy_init()?;
 
-        self.vsc7448.init_qsgmii(
-            &[0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44],
-            vsc7448::Speed::Speed1G,
-        )?;
-        self.vsc7448.init_sfi(&[49, 50])?;
-        self.vsc7448.init_10g_sgmii(&[51, 52])?;
+        self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
         self.vsc7448.configure_vlan_optional()?;
-
-        self.vsc7448.apply_calendar()?;
 
         self.leds.led_off(0).unwrap();
         self.leds.led_on(3).unwrap();
@@ -103,7 +167,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Checks the given PHY's status, return `true` if the link is up
     fn check_phy(&mut self, miim: u8, phy: u8) -> bool {
         let phy_rw = &mut Vsc7448MiimPhy::new(self.vsc7448, miim);
-        let mut p = Phy::new(phy, phy_rw);
+        let p = Phy::new(phy, phy_rw);
         match p.read(phy::STANDARD::MODE_STATUS()) {
             Ok(status) => {
                 let up = (status.0 & (1 << 5)) != 0;
@@ -136,7 +200,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         }
     }
 
-    fn wake(&mut self) -> Result<(), VscError> {
+    pub fn wake(&mut self) -> Result<(), VscError> {
         let mut any_phy_up = false;
         for miim in [1, 2] {
             for phy in 0..24 {
@@ -188,13 +252,25 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
-    pub fn run(&mut self) -> ! {
-        loop {
-            hl::sleep_for(500);
-            if let Err(e) = self.wake() {
-                ringbuf_entry!(Trace::VscErr(e));
-            }
-        }
+    /// Calls a function on a `Phy` associated with the given port.
+    ///
+    /// Returns `None` if the given port isn't associated with a PHY
+    /// (for example, because it's an SGMII link)
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<Vsc7448MiimPhy<R>>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+    ) -> Option<T> {
+        let miim = match port {
+            0..=23 => 1,
+            24..=48 => 2,
+            _ => return None,
+        };
+        let phy_port = port % 24;
+        let mut phy_rw: Vsc7448MiimPhy<R> =
+            Vsc7448MiimPhy::new(self.vsc7448.rw, miim);
+        let phy = vsc85xx::Phy::new(phy_port, &mut phy_rw);
+        Some(callback(phy))
     }
 }
 

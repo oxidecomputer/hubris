@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
+    config::Speed,
     port::{port10g_flush, port1g_flush},
     Vsc7448Rw, VscError,
 };
@@ -14,12 +15,6 @@ use vsc7448_pac::*;
 pub enum DevGeneric {
     Dev1g(u8),
     Dev2g5(u8),
-}
-
-#[derive(Copy, Clone)]
-pub enum Speed {
-    Speed100M,
-    Speed1G,
 }
 
 impl DevGeneric {
@@ -46,28 +41,21 @@ impl DevGeneric {
     /// chip is configured.
     pub fn port(&self) -> u8 {
         match *self {
-            DevGeneric::Dev1g(d) => {
-                if d < 8 {
-                    d
-                } else {
-                    // DEV1G_8-23 are only available in QSGMII mode, where
-                    // they map to ports 32-47 (Table 8)
-                    d + 24
-                }
-            }
-            DevGeneric::Dev2g5(d) => {
-                if d < 24 {
-                    d + 8
-                } else if d == 24 {
-                    // DEV2G5_24 is the NPI port, configured through SERDES1G_0
-                    48
-                } else {
-                    // DEV2G5_25-28 are only available when running through
-                    // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
-                    // 49-52, using SERDES10G_0-3 (Table 9)
-                    d + 24
-                }
-            }
+            DevGeneric::Dev1g(d) => match d {
+                0..=7 => d,
+                // DEV1G_8-23 are only available in QSGMII mode, where
+                // they map to ports 32-47 (Table 8)
+                d => d + 24,
+            },
+            DevGeneric::Dev2g5(d) => match d {
+                0..=23 => d + 8,
+                // DEV2G5_24 is the NPI port, configured through SERDES1G_0
+                24 => 48,
+                // DEV2G5_25-28 are only available when running through
+                // a SERDES10G in SGMII 1G/2.5G mode.  They map to ports
+                // 49-52, using SERDES10G_0-3 (Table 9)
+                d => d + 24,
+            },
         }
     }
     /// Returns the register block for this device.  This is always a DEV1G
@@ -108,6 +96,7 @@ impl DevGeneric {
             r.set_giga_mode_ena(match speed {
                 Speed::Speed1G => 1,
                 Speed::Speed100M => 0,
+                Speed::Speed10G => panic!("Invalid speed for SGMII"),
             });
         })?;
 
@@ -126,6 +115,7 @@ impl DevGeneric {
                     r.set_rx_ifg1(1);
                     r.set_rx_ifg2(4);
                 }
+                Speed::Speed10G => unreachable!(), // checked above
             }
         })?;
 
@@ -164,6 +154,7 @@ impl DevGeneric {
                 // instead, but the SDK always uses 0
                 Speed::Speed1G => 0,
                 Speed::Speed100M => 1,
+                Speed::Speed10G => unreachable!(), // checked above
             })
         })?;
 
@@ -186,6 +177,7 @@ impl DevGeneric {
             r.set_speed_sel(match speed {
                 Speed::Speed1G => 2,
                 Speed::Speed100M => 1,
+                Speed::Speed10G => unreachable!(), // checked above
             });
         })?;
 
