@@ -40,7 +40,7 @@ mod map {
     const SFI: Option<PortMode> = Some(Sfi);
 
     pub const PORT_MAP: PortMap = PortMap::new([
-        QSGMII, // 0  | DEV;G_0   | SERDES6G_4
+        QSGMII, // 0  | DEV1G_0   | SERDES6G_4
         QSGMII, // 1  | DEV1G_1   | SERDES6G_4
         QSGMII, // 2  | DEV1G_2   | SERDES6G_4
         QSGMII, // 3  | DEV1G_3   | SERDES6G_4
