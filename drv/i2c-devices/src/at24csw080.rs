@@ -4,6 +4,7 @@
 
 //! Driver for the AT24CSW080/4 I2C EEPROM
 
+use crate::Validate;
 use core::convert::TryInto;
 use drv_i2c_api::*;
 use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
@@ -24,7 +25,7 @@ const WRITE_TIME_MS: u64 = 5;
 /// limiting, it may be possible to use Acknowledge Polling (section 7.3 of the
 /// datasheet). This would use NAK to indicate that the device is not present,
 /// which has more room for confusion.
-pub struct At24csw080 {
+pub struct At24Csw080 {
     /// We store a `DeviceHandle` instead of an `I2cDevice` to force users
     /// of this API to call either `eeprom()` or `registers()`, since the I2C
     /// address must be dynamically generated.
@@ -64,6 +65,15 @@ impl From<ResponseCode> for Error {
     }
 }
 
+impl From<Error> for ResponseCode {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::I2cError(code) => code,
+            _ => panic!(),
+        }
+    }
+}
+
 /// Word address for the write-protect register
 ///
 /// According to the datasheet (Table 8-3), this is `11xx_xxxx`; we're filling
@@ -80,13 +90,13 @@ const WPR_PERMANENTLY_LOCK: u8 = 0b0010_0001;
 /// bits with all zeros.
 const SECURITY_REGISTER_WORD_ADDR: u8 = 0b0110_0000;
 
-impl core::fmt::Display for At24csw080 {
+impl core::fmt::Display for At24Csw080 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "at24csw080: {}", &self.device)
     }
 }
 
-impl At24csw080 {
+impl At24Csw080 {
     pub fn new(dev: I2cDevice) -> Self {
         Self {
             device: handle::DeviceHandle::new(dev),
@@ -423,5 +433,19 @@ mod handle {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             self.0.fmt(f)
         }
+    }
+}
+
+impl Validate<ResponseCode> for At24Csw080 {
+    fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
+        // Read the first byte of the unique ID. This value is not a constant.
+        // Because of their unique addressing scheme however, there can be only
+        // one of these per I2C segment and successfully reading this byte
+        // should be a resonable enough proxy to conclude the device is present
+        // and operational.
+        At24Csw080::new(*device)
+            .read_security_register_byte(0)
+            .map(|_| true)
+            .map_err(Into::into)
     }
 }
