@@ -664,6 +664,8 @@ dependencies = [
  "bitfield",
  "cfg-if",
  "drv-fpga-api",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "num-traits",
@@ -676,10 +678,13 @@ dependencies = [
 name = "drv-fpga-server"
 version = "0.1.0"
 dependencies = [
+ "build-i2c",
  "build-util",
  "cfg-if",
  "drv-fpga-api",
  "drv-fpga-devices",
+ "drv-i2c-api",
+ "drv-i2c-devices",
  "drv-spi-api",
  "drv-stm32xx-sys-api",
  "gnarle",

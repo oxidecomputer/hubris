@@ -10,6 +10,7 @@ use drv_fpga_api::{DeviceState, FpgaError};
 
 pub mod ecp5;
 pub mod ecp5_spi;
+pub mod ecp5_spi_mux_pca9538;
 
 /// Trait to be implemented by FPGA device drivers in order to be exposed using
 /// the FPGA server. This trait allows managing the FPGA device itself as well

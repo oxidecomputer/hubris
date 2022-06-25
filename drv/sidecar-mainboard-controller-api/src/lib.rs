@@ -22,12 +22,13 @@ pub struct MainboardController {
 }
 
 impl MainboardController {
+    pub const DEVICE_INDEX: u8 = 0;
     pub const EXPECTED_IDENT: u32 = 0x1DE_AA55;
 
     pub fn new(task_id: userlib::TaskId) -> Self {
         Self {
-            fpga: Fpga::new(task_id),
-            user_design: FpgaUserDesign::new(task_id),
+            fpga: Fpga::new(task_id, Self::DEVICE_INDEX),
+            user_design: FpgaUserDesign::new(task_id, Self::DEVICE_INDEX),
         }
     }
 
