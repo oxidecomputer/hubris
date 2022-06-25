@@ -16,7 +16,8 @@ drv-i2c-devices = {path = "../i2c-devices"}
 drv-fpga-api = {path = "../fpga-api"}
 drv-sidecar-seq-api = {path = "../sidecar-seq-api"}
 drv-sidecar-mainboard-controller-api = {path = "../sidecar-mainboard-controller-api"}
-cortex-m = { version = "0.7", features = ["inline-asm"] }
+drv-sidecar-front-io-api = {path = "../sidecar-front-io-api", features = ["controller", "phy_smi"]}
+cortex-m = { version = "0.7", features = ["inline-asm"]}
 cfg-if = "1"
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 

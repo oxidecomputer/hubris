@@ -267,6 +267,28 @@ impl FpgaUserDesign {
     }
 }
 
+/// Poll the device state of the FPGA to determine if it is ready to receive
+/// a bitstream, resetting the device if needed.
+pub fn await_fpga_ready(
+    fpga: &mut Fpga,
+    sleep_ticks: u64,
+) -> Result<DeviceState, FpgaError> {
+    let mut state = fpga.state()?;
+
+    while match state {
+        DeviceState::AwaitingBitstream | DeviceState::RunningUserDesign => {
+            false
+        }
+        _ => true,
+    } {
+        fpga.reset()?;
+        userlib::hl::sleep_for(sleep_ticks);
+        state = fpga.state()?;
+    }
+
+    Ok(state)
+}
+
 pub mod idl {
     use super::{BitstreamType, DeviceState, FpgaError, WriteOp};
     use userlib::*;

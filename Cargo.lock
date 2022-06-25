@@ -1032,6 +1032,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sidecar-front-io-api"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-fpga-api",
+ "gnarle",
+ "num-traits",
+ "ringbuf",
+ "serde",
+ "serde_json",
+ "userlib",
+ "vsc7448-pac",
+ "vsc85xx",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-sidecar-mainboard-controller-api"
 version = "0.1.0"
 dependencies = [
@@ -1079,6 +1096,7 @@ dependencies = [
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
+ "drv-sidecar-front-io-api",
  "drv-sidecar-mainboard-controller-api",
  "drv-sidecar-seq-api",
  "idol",

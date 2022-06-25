@@ -1,0 +1,415 @@
+{
+    "type": "addrmap",
+    "inst_name": "qsfp_x32_controller",
+    "addr_offset": 0,
+    "children": [
+        {
+            "type": "reg",
+            "inst_name": "ID0",
+            "addr_offset": 0,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID0",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 0 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID1",
+            "addr_offset": 1,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID1",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 1 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID2",
+            "addr_offset": 2,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID2",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 2 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "ID3",
+            "addr_offset": 3,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID3",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Byte 3 of ID"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SCRATCHPAD",
+            "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "SCRATCHPAD",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Scribble Register for read-write use"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "FPGA_ID",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ID",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "0 for FPGA0, 1 for FPGA1"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_STATUS",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "EN_V1P0",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for 1.0V PHY VR"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_V1P0",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power Good of  V1P0_PHY_A2"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_V2P5",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power Good of V2P5_PHY_A2"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "COMA_MODE",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FPGA1_TO_PHY_COMA_MODE"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "REFCLK_EN",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FPGA1_TO_PHY_REFCLK_EN"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESET_L",
+                    "lsb": 5,
+                    "msb": 5,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Value of FPGA1_TO_PHY_RESET_L"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "READY",
+                    "lsb": 6,
+                    "msb": 6,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "The VSC8562 has been brought out of reset and is ready for\nsoftware control"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_CTRL",
+            "addr_offset": 7,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for the VSC8562 power up state machine"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "COMA_MODE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Software control for the COMA_MODE pin."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_STATUS",
+            "addr_offset": 8,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "BUSY",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "1 if a transaction is in progress"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_RDATA_H",
+            "addr_offset": 9,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Upper byte of read data"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_RDATA_L",
+            "addr_offset": 10,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Lower byte of read data"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_WDATA_H",
+            "addr_offset": 11,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Upper byte of write data"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_WDATA_L",
+            "addr_offset": 12,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Lower byte of write data"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_PHY_ADDR",
+            "addr_offset": 13,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ADDR",
+                    "lsb": 0,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Address for which PHY to configure"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_REG_ADDR",
+            "addr_offset": 14,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "ADDR",
+                    "lsb": 0,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Address for a register"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "PHY_SMI_CTRL",
+            "addr_offset": 15,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RW",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Read = 0, Write = 1"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "START",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Write a 1 here to begin a transaction"
+                }
+            ]
+        }
+    ]
+}

@@ -214,10 +214,14 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 name = "drv-sidecar-seq-server"
 features = []
 priority = 3
-max-sizes = {flash = 131072, ram = 2048}
+max-sizes = {flash = 262144, ram = 2048}
 stacksize = 1024
 start = true
-task-slots = ["sys", "i2c_driver", {fpga = "ecp5_mainboard"}]
+task-slots = [
+    "sys",
+    "i2c_driver",
+    {mainboard = "ecp5_mainboard"},
+    {front_io = "ecp5_front_io"}]
 
 [tasks.thermal]
 name = "task-thermal"

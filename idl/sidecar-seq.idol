@@ -135,5 +135,20 @@ Interface(
                 err: CLike("SeqError"),
             ),
         ),
+
+        "front_io_board_present": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("SeqError"),
+            ),
+        ),
+        "front_io_phy_ready": (
+            args: {},
+            reply: Result(
+                ok: "bool",
+                err: CLike("SeqError"),
+            ),
+        ),
     },
 )
