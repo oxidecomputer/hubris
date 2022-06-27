@@ -57,7 +57,7 @@ impl TempSensor<Error> for Pct2075 {
     fn read_temperature(&self) -> Result<Celsius, Error> {
         match self.device.read_reg::<u8, [u8; 2]>(Register::Temp as u8) {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
-            Err(code) => Err(Error::BadTempRead { code: code }),
+            Err(code) => Err(Error::BadTempRead { code }),
         }
     }
 }

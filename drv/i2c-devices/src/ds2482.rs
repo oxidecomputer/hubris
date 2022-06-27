@@ -100,7 +100,7 @@ fn read_register(device: &I2cDevice, register: Register) -> Result<u8, Error> {
             ringbuf_entry!(Trace::ReadError(register, code));
             Err(Error::BadRegisterRead {
                 reg: register,
-                code: code,
+                code,
             })
         }
     }
@@ -123,10 +123,7 @@ fn send_command(
         }
         Err(code) => {
             ringbuf_entry!(Trace::CommandError(cmd, code));
-            Err(Error::BadCommand {
-                cmd: cmd,
-                code: code,
-            })
+            Err(Error::BadCommand { cmd, code })
         }
     }
 }

@@ -61,7 +61,7 @@ impl TempSensor<Error> for Mcp9808 {
             .read_reg::<u8, [u8; 2]>(Register::Temperature as u8)
         {
             Ok(buf) => Ok(convert((buf[0], buf[1]))),
-            Err(code) => Err(Error::BadTempRead { code: code }),
+            Err(code) => Err(Error::BadTempRead { code }),
         }
     }
 }

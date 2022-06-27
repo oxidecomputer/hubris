@@ -27,7 +27,7 @@ pub enum Error {
 
 impl From<pmbus::Error> for Error {
     fn from(err: pmbus::Error) -> Self {
-        Error::InvalidData { err: err }
+        Error::InvalidData { err }
     }
 }
 

@@ -71,7 +71,7 @@ impl Ds18b20 {
     /// doesn't match the DS18B20 family code, `None` is returned.
     pub fn new(id: drv_onewire::Identifier) -> Option<Self> {
         if drv_onewire::family(id) == Some(drv_onewire::Family::DS18B20) {
-            Some(Self { id: id })
+            Some(Self { id })
         } else {
             None
         }

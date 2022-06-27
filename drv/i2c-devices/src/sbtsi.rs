@@ -65,10 +65,7 @@ impl Sbtsi {
     fn read_reg(&self, reg: Register) -> Result<u8, Error> {
         match self.device.read_reg::<u8, u8>(reg as u8) {
             Ok(buf) => Ok(buf),
-            Err(code) => Err(Error::BadRegisterRead {
-                reg: reg,
-                code: code,
-            }),
+            Err(code) => Err(Error::BadRegisterRead { reg, code }),
         }
     }
 }
