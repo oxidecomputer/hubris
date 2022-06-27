@@ -53,7 +53,7 @@ impl Raa229618 {
     pub fn new(device: &I2cDevice, rail: u8) -> Self {
         Raa229618 {
             device: *device,
-            rail: rail,
+            rail,
             mode: Cell::new(None),
         }
     }

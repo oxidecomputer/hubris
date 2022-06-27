@@ -54,7 +54,7 @@ impl Tse2004Av {
         self.device
             .read_reg::<u8, u16>(reg as u8)
             .map_err(|code| Error::BadRegisterRead { reg, code })
-            .map(|b| u16::from_be(b))
+            .map(u16::from_be)
     }
 }
 
