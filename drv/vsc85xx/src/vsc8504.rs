@@ -104,8 +104,8 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // Enable 4 port MAC QSGMII
         self.phy.cmd(0x80E0)?;
 
+        // All of these bits are sticky
         self.phy.broadcast(|v| {
-            // These are both sticky bits
             v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 // SGMII MAC interface mode (default)
                 r.set_mac_interface_mode(0);
@@ -115,7 +115,6 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
 
             v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
                 r.0 |= 1 << 7; // ANEG_ENA
-                r.0 &= !(1 << 11); // FORCE_ADV_ABILITY
             })
         })?;
 
@@ -126,26 +125,14 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
-        // Configure MAC in QSGMII mode and enable autonegotiation, then force
-        // 100M mode ("Force-speed protocol transfer mode")
+        // Configure MAC in QSGMII mode and enable autonegotiation
         self.phy.broadcast(|v| {
             v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
                 r.set_auto_neg_ena(1);
                 // Convert to u16 to set a bit that's not in the autogen code
                 let mut r_: u16 = (*r).into();
                 r_ |= 1 << 8; // Duplex
-                r_ |= 1 << 13; // Force speed select LSB (1 for 100M)
-                r_ &= !(1 << 6); // Force speed select MSB (0 for 100M)
                 *r = r_.into();
-            })?;
-            // Force 100M mode
-            v.write(
-                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
-                0x8401.into(),
-            )?;
-            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 7; // ANEG_ENA (again)
-                r.0 |= 1 << 11; // FORCE_ADV_ABILITY
             })?;
             Ok(())
         })?;
