@@ -13,9 +13,5 @@ idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 num-traits = {version = "0.2.12", default-features = false}
 zerocopy = "0.6.1"
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

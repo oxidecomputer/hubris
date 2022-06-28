@@ -8,12 +8,6 @@ ringbuf = {path = "../../lib/ringbuf"}
 userlib = {path = "../../sys/userlib"}
 drv-i2c-api = {path = "../i2c-api"}
 
-# a target for `cargo xtask check`
-[package.metadata.build]
-target = "thumbv7em-none-eabihf"
-
-[build-dependencies]
-
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
