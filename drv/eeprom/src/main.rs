@@ -58,7 +58,7 @@ impl From<Error> for EepromError {
 }
 
 struct EepromServer {
-    dev: At24csw080,
+    dev: At24Csw080,
 }
 
 /// The simplest possible EEPROM implementation.
@@ -92,7 +92,7 @@ impl idl::InOrderEepromImpl for EepromServer {
 fn main() -> ! {
     let i2c_task = I2C.get_task_id();
     let dev =
-        At24csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
+        At24Csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
     let mut srv = EepromServer { dev };
     let mut buffer = [0u8; idl::INCOMING_SIZE];
     loop {
