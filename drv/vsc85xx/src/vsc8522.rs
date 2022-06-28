@@ -68,6 +68,15 @@ impl<'a, P: PhyRw> Vsc8522Phy<'a, P> {
 
         // Configure the PHY in QSGMII + 12 port mode
         self.phy.cmd(0x80A0)?;
+
+        // Enable MAC autonegotiation
+        self.phy.broadcast(|p| {
+            p.modify(
+                phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(),
+                |g| g.0 |= 1 << 7, // Enable MAC SerDes autonegotiation
+            )
+        })?;
+
         Ok(())
     }
 }
