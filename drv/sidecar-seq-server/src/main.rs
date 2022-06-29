@@ -224,9 +224,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<bool, RequestError<SeqError>> {
-        let phy_smi = self.front_io_board.phy_smi();
-        Ok(self.front_io_board.present()
-            && phy_smi.phy_powered_up_and_ready().map_err(SeqError::from)?)
+        if !self.front_io_board.present() {
+            Err(SeqError::NoFrontIOBoard.into())
+        } else {
+            let phy_smi = self.front_io_board.phy_smi();
+            Ok(phy_smi.phy_powered_up_and_ready().map_err(SeqError::from)?)
+        }
     }
 }
 
