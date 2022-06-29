@@ -100,12 +100,10 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
-        // "Bug# 19146
-        //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity
-        //  for 100FX"
-        //
-        // (we're not using 100BASE-FX here, but the patch does other stuff too)
-        self.sd1g_patch(false)?;
+        // The SDK calls `vtss_phy_sd1g_patch_private` here, but that doesn't
+        // work for me: the MCB-mediated access to SERDES registers times out.
+        // It's probably okay to skip it, though, because we're not using the
+        // 1G SERDES (which are for fiber / SGMII _media_ links).
 
         // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
         self.fix_bz21484()?;
