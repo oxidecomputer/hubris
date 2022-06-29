@@ -39,6 +39,7 @@ pub struct PortCounters {
 pub enum MonorailError {
     SpiError,
     ServerDied,
+    ProxyError,
     BadChipId,
     Serdes1gReadTimeout,
     Serdes1gWriteTimeout,
@@ -96,6 +97,7 @@ impl From<VscError> for MonorailError {
         match e {
             VscError::SpiError(..) => Self::SpiError,
             VscError::ServerDied => Self::ServerDied,
+            VscError::ProxyError(..) => Self::ProxyError,
 
             VscError::BadChipId(..) => Self::BadChipId,
             VscError::Serdes1gReadTimeout { .. } => Self::Serdes1gReadTimeout,

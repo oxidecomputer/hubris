@@ -16,6 +16,9 @@ use idol_runtime::ServerDeath;
 pub enum VscError {
     SpiError(SpiError),
     ServerDied,
+    /// Error code produced by a proxy device handling PHY register
+    /// reads/writes.
+    ProxyError(u16),
 
     BadChipId(u32),
     Serdes1gReadTimeout {

@@ -8,7 +8,7 @@
 
 use derive_idol_err::IdolError;
 use drv_fpga_api::FpgaError;
-pub use drv_sidecar_mainboard_controller_api::tofino2::{
+pub use drv_sidecar_mainboard_controller::tofino2::{
     TofinoPcieReset, TofinoSeqError, TofinoSeqState,
 };
 use userlib::*;
