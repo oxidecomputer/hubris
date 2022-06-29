@@ -293,9 +293,27 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
         if let Some(phy_rw) = &mut self.vsc8562 {
+            // Do a hard power cycle of the PHY; the fine details of sequencing
+            // are handled by the FPGA
+            phy_rw
+                .set_phy_power_enabled(false)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+            sleep_for(10);
+            phy_rw
+                .set_phy_power_enabled(true)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+            while !phy_rw
+                .phy_powered_up_and_ready()
+                .map_err(|e| VscError::ProxyError(e.into()))?
+            {
+                sleep_for(20);
+            }
             let mut phy = vsc85xx::Phy::new(0, phy_rw);
             let mut v = Vsc8562Phy { phy: &mut phy };
             v.init_qsgmii()?;
+            phy_rw
+                .set_phy_coma_mode(false)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
         }
         Ok(())
     }
