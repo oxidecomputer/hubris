@@ -267,26 +267,43 @@ impl FpgaUserDesign {
     }
 }
 
-/// Poll the device state of the FPGA to determine if it is ready to receive
-/// a bitstream, resetting the device if needed.
+/// Poll the device state of the FPGA to determine if it is either ready to receive
+/// a bitstream or already programmed. The FPGA is reset , resetting the device if needed.
 pub fn await_fpga_ready(
     fpga: &mut Fpga,
     sleep_ticks: u64,
 ) -> Result<DeviceState, FpgaError> {
-    let mut state = fpga.state()?;
+    loop {
+        let state = fpga.state()?;
 
-    while match state {
-        DeviceState::AwaitingBitstream | DeviceState::RunningUserDesign => {
-            false
+        match state {
+            DeviceState::Disabled => return Err(FpgaError::InvalidState),
+            DeviceState::AwaitingBitstream | DeviceState::RunningUserDesign => {
+                return Ok(state)
+            }
+            _ => {
+                fpga.reset()?;
+            }
         }
-        _ => true,
-    } {
-        fpga.reset()?;
+
         userlib::hl::sleep_for(sleep_ticks);
-        state = fpga.state()?;
+    }
+}
+
+/// Load a bitstream.
+pub fn load_bitstream(
+    fpga: &mut Fpga,
+    data: &[u8],
+    bitstream_type: BitstreamType,
+    chunk_len: usize,
+) -> Result<(), FpgaError> {
+    let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
+
+    for chunk in data.chunks(chunk_len) {
+        bitstream.continue_load(chunk)?;
     }
 
-    Ok(state)
+    bitstream.finish_load()
 }
 
 pub mod idl {

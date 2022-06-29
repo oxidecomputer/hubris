@@ -3,6 +3,7 @@ cargo-features = ["resolver", "named-profiles"]
 [workspace]
 members = [
     "build/call_rustfmt",
+    "build/fpga-regmap",
     "build/i2c",
     "build/net",
     "build/phash-gen",
@@ -118,8 +119,8 @@ members = [
     "drv/vsc7448",
     "drv/vsc85xx",
 
-    "drv/sidecar-front-io-api",
-    "drv/sidecar-mainboard-controller-api",
+    "drv/sidecar-front-io",
+    "drv/sidecar-mainboard-controller",
     "drv/sidecar-mainboard-i2c-emulator",
     "drv/sidecar-seq-api",
     "drv/sidecar-seq-server",

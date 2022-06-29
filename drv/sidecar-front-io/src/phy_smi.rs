@@ -84,7 +84,7 @@ impl PhySmi {
         Ok(())
     }
 
-    fn read_raw<T: From<u16>>(
+    fn read_raw_inner<T: From<u16>>(
         &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
@@ -106,7 +106,7 @@ impl PhySmi {
         Ok(v.into())
     }
 
-    fn write_raw<T>(
+    fn write_raw_inner<T>(
         &self,
         phy: u8,
         reg: PhyRegisterAddress<T>,
@@ -136,7 +136,7 @@ impl PhyRw for PhySmi {
         phy: u8,
         reg: PhyRegisterAddress<T>,
     ) -> Result<T, VscError> {
-        self.read_raw(phy, reg)
+        self.read_raw_inner(phy, reg)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
 
@@ -151,7 +151,7 @@ impl PhyRw for PhySmi {
         u16: From<T>,
         T: From<u16> + Clone,
     {
-        self.write_raw(phy, reg, value)
+        self.write_raw_inner(phy, reg, value)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
 }

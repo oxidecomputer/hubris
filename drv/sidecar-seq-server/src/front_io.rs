@@ -4,9 +4,7 @@
 
 use crate::*;
 use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
-use drv_sidecar_front_io_api::{
-    controller::FrontIOController, phy_smi::PhySmi,
-};
+use drv_sidecar_front_io::{controller::FrontIOController, phy_smi::PhySmi};
 
 #[allow(dead_code)]
 pub(crate) struct FrontIOBoard {

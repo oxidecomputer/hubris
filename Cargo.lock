@@ -156,6 +156,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd769563b4ea2953e2825c9e6b7470a5f55f67e0be00030bf3e390a2a6071f64"
 
 [[package]]
+name = "build-fpga-regmap"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "build-i2c"
 version = "0.1.0"
 dependencies = [
@@ -1032,16 +1040,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sidecar-front-io-api"
+name = "drv-sidecar-front-io"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "drv-fpga-api",
  "gnarle",
  "num-traits",
  "ringbuf",
- "serde",
- "serde_json",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",
@@ -1049,9 +1056,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-sidecar-mainboard-controller-api"
+name = "drv-sidecar-mainboard-controller"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-util",
  "drv-fpga-api",
  "gnarle",
@@ -1077,7 +1085,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-fpga-api",
- "drv-sidecar-mainboard-controller-api",
+ "drv-sidecar-mainboard-controller",
  "idol",
  "num-traits",
  "userlib",
@@ -1096,8 +1104,8 @@ dependencies = [
  "drv-fpga-api",
  "drv-i2c-api",
  "drv-i2c-devices",
- "drv-sidecar-front-io-api",
- "drv-sidecar-mainboard-controller-api",
+ "drv-sidecar-front-io",
+ "drv-sidecar-mainboard-controller",
  "drv-sidecar-seq-api",
  "idol",
  "idol-runtime",

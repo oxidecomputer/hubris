@@ -4,34 +4,6 @@
 
 use serde::Deserialize;
 use std::fmt::Write;
-use std::{env, fs, path::PathBuf};
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_target_board();
-
-    let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
-
-    fs::write(out_dir.join("sidecar_mainboard_controller.rs"), regs()?)?;
-
-    let ecp5_bitstream_name = match env::var("HUBRIS_BOARD")?.as_str() {
-        "gimletlet-2" => "sidecar_mainboard_emulator_ecp5_evn.bit",
-        "sidecar-1" => "sidecar_mainboard_controller.bit",
-        _ => {
-            println!("No FPGA image for target board");
-            std::process::exit(1)
-        }
-    };
-    let fpga_bitstream = fs::read(ecp5_bitstream_name)?;
-    let compressed_fpga_bitstream = compress(&fpga_bitstream);
-
-    fs::write(out_dir.join("ecp5.bin.rle"), &compressed_fpga_bitstream)?;
-
-    // Make sure the app image is rebuilt if the bitstream file for this target
-    // changes.
-    println!("cargo:rerun-if-changed={}", ecp5_bitstream_name);
-
-    Ok(())
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -52,9 +24,8 @@ enum Node {
     },
 }
 
-fn regs() -> Result<String, Box<dyn std::error::Error>> {
+pub fn fpga_regs(regs: &str) -> Result<String, Box<dyn std::error::Error>> {
     let mut output = String::new();
-    let regs = include_str!("sidecar_mainboard_controller.json");
 
     let node: Node = serde_json::from_str(regs)?;
 
@@ -152,16 +123,4 @@ pub mod Reg {{
     writeln!(&mut output, "}}")?;
 
     Ok(output)
-}
-
-fn compress(input: &[u8]) -> Vec<u8> {
-    let mut output = vec![];
-
-    gnarle::compress(input, |chunk| {
-        output.extend_from_slice(chunk);
-        Ok::<_, std::convert::Infallible>(())
-    })
-    .ok();
-
-    output
 }

@@ -36,16 +36,15 @@ impl FrontIOController {
         await_fpga_ready(&mut self.fpga, sleep_ticks)
     }
 
-    /// Load the mainboard controller bitstream.
+    /// Load the front io board controller bitstream.
+    #[inline]
     pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
-        let mut bitstream =
-            self.fpga.start_bitstream_load(BitstreamType::Compressed)?;
-
-        for chunk in COMPRESSED_BITSTREAM[..].chunks(128) {
-            bitstream.continue_load(chunk)?;
-        }
-
-        bitstream.finish_load()
+        drv_fpga_api::load_bitstream(
+            &mut self.fpga,
+            &COMPRESSED_BITSTREAM[..],
+            BitstreamType::Compressed,
+            128,
+        )
     }
 
     /// Check for a valid identifier

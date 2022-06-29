@@ -4,10 +4,7 @@
 
 #![no_std]
 
-use drv_fpga_api::{
-    BitstreamType, DeviceState, Fpga, FpgaError, FpgaUserDesign,
-};
-use userlib::hl::sleep_for;
+use drv_fpga_api::*;
 
 static COMPRESSED_BITSTREAM: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/ecp5.bin.rle"));
@@ -38,41 +35,22 @@ impl MainboardController {
         &mut self,
         sleep_ticks: u64,
     ) -> Result<DeviceState, FpgaError> {
-        let mut state = self.fpga.state()?;
-
-        while match state {
-            DeviceState::AwaitingBitstream | DeviceState::RunningUserDesign => {
-                false
-            }
-            _ => true,
-        } {
-            self.fpga.reset()?;
-            sleep_for(sleep_ticks);
-            state = self.fpga.state()?;
-        }
-
-        Ok(state)
+        await_fpga_ready(&mut self.fpga, sleep_ticks)
     }
 
     /// Load the mainboard controller bitstream.
     pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
-        let mut bitstream =
-            self.fpga.start_bitstream_load(BitstreamType::Compressed)?;
-
-        for chunk in COMPRESSED_BITSTREAM[..].chunks(128) {
-            bitstream.continue_load(chunk)?;
-        }
-
-        bitstream.finish_load()
+        load_bitstream(
+            &mut self.fpga,
+            &COMPRESSED_BITSTREAM[..],
+            BitstreamType::Compressed,
+            128,
+        )
     }
 
-    /// Reads the IDENT0:3 registers as a big-endian 32-bit integer.
-    pub fn ident(&self) -> Result<u32, FpgaError> {
-        Ok(u32::from_be(self.user_design.read(Addr::ID0)?))
-    }
-
-    /// Check for a valid identifier
-    pub fn ident_valid(&self, ident: u32) -> bool {
-        ident == Self::EXPECTED_IDENT
+    /// Check for a valid peripheral identifier.
+    pub fn ident_valid(&self) -> Result<(u32, bool), FpgaError> {
+        let ident = u32::from_be(self.user_design.read(Addr::ID0)?);
+        Ok((ident, ident == Self::EXPECTED_IDENT))
     }
 }

@@ -13,10 +13,10 @@ use crate::front_io::FrontIOBoard;
 use crate::tofino::Tofino;
 use drv_fpga_api::{DeviceState, FpgaError, WriteOp};
 use drv_i2c_api::{I2cDevice, ResponseCode};
-use drv_sidecar_mainboard_controller_api::tofino2::{
+use drv_sidecar_mainboard_controller::tofino2::{
     Tofino2Vid, TofinoPcieReset, TofinoSeqError, TofinoSeqState,
 };
-use drv_sidecar_mainboard_controller_api::MainboardController;
+use drv_sidecar_mainboard_controller::MainboardController;
 use drv_sidecar_seq_api::{SeqError, TofinoSequencerPolicy};
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
@@ -287,9 +287,8 @@ fn main() -> ! {
             ringbuf_entry!(Trace::LoadingFpgaBitstream);
 
             if let Err(e) = server.mainboard_controller.load_bitstream() {
-                ringbuf_entry!(Trace::FpgaBitstreamError(
-                    u32::try_from(e).unwrap()
-                ));
+                let code = u32::try_from(e).unwrap();
+                ringbuf_entry!(Trace::FpgaBitstreamError(code));
                 panic!();
             }
         }
@@ -299,14 +298,19 @@ fn main() -> ! {
         _ => panic!(),
     }
 
-    ringbuf_entry!(Trace::FpgaInitComplete);
-
-    let ident = server.mainboard_controller.ident().unwrap();
-    if !server.mainboard_controller.ident_valid(ident) {
-        ringbuf_entry!(Trace::InvalidMainboardControllerIdent(ident));
-        panic!();
+    match server.mainboard_controller.ident_valid() {
+        Ok((ident, valid)) => {
+            if valid {
+                ringbuf_entry!(Trace::ValidMainboardControllerIdent(ident))
+            } else {
+                ringbuf_entry!(Trace::InvalidMainboardControllerIdent(ident));
+                panic!();
+            }
+        }
+        Err(_) => panic!(),
     }
-    ringbuf_entry!(Trace::ValidMainboardControllerIdent(ident));
+
+    ringbuf_entry!(Trace::FpgaInitComplete);
 
     // The sequencer for the clock generator currently does not have a feedback
     // mechanism/register we can read. Sleeping a short while seems to be
