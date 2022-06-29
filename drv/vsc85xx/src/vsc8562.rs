@@ -86,7 +86,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         crate::viper::ViperPhy { phy: self.phy }.patch()?;
 
         // Enable two MAC 1/2 QSGMII ports
-        self.phy.cmd(0x80E0);
+        self.phy.cmd(0x80E0)?;
 
         if !self.sd6g_has_patch()? {
             self.sd6g_patch(true)?;
