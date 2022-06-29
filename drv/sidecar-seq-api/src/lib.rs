@@ -23,6 +23,7 @@ pub enum SeqError {
     SequencerTimeout = 5,
     InvalidTofinoVid = 6,
     SetVddCoreVoutFailed = 7,
+    NoFrontIOBoard = 8,
 }
 
 impl From<FpgaError> for SeqError {
