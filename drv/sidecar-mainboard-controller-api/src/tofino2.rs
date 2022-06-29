@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use super::{Addr, Reg};
+use crate::{Addr, MainboardController, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
 use userlib::FromPrimitive;
 use zerocopy::AsBytes;
@@ -69,7 +69,10 @@ pub enum TofinoPcieReset {
 impl Sequencer {
     pub fn new(task_id: userlib::TaskId) -> Self {
         Self {
-            fpga: FpgaUserDesign::new(task_id),
+            fpga: FpgaUserDesign::new(
+                task_id,
+                MainboardController::DEVICE_INDEX,
+            ),
         }
     }
 

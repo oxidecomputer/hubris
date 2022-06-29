@@ -19,6 +19,7 @@ pub enum FpgaError {
     InvalidState,
     InvalidValue,
     PortDisabled,
+    BadDevice,
     NotLocked,
     AlreadyLocked,
 }
@@ -33,8 +34,9 @@ impl From<FpgaError> for u16 {
             FpgaError::InvalidState => 0x0300,
             FpgaError::InvalidValue => 0x0301,
             FpgaError::PortDisabled => 0x0400,
-            FpgaError::NotLocked => 0x0500,
-            FpgaError::AlreadyLocked => 0x0501,
+            FpgaError::BadDevice => 0x0500,
+            FpgaError::NotLocked => 0x0501,
+            FpgaError::AlreadyLocked => 0x0502,
         }
     }
 }
@@ -62,8 +64,9 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0300 => Ok(FpgaError::InvalidState),
                 0x0301 => Ok(FpgaError::InvalidValue),
                 0x0400 => Ok(FpgaError::PortDisabled),
-                0x0500 => Ok(FpgaError::NotLocked),
-                0x0501 => Ok(FpgaError::AlreadyLocked),
+                0x0500 => Ok(FpgaError::BadDevice),
+                0x0501 => Ok(FpgaError::NotLocked),
+                0x0502 => Ok(FpgaError::AlreadyLocked),
                 _ => Err(()),
             },
         }
@@ -122,13 +125,16 @@ impl From<bool> for WriteOp {
     }
 }
 
-pub struct FpgaLock(idl::Fpga);
+pub struct FpgaLock {
+    server: idl::Fpga,
+    device_index: u8,
+}
 
 impl Deref for FpgaLock {
     type Target = idl::Fpga;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.server
     }
 }
 
@@ -140,31 +146,37 @@ impl Drop for FpgaLock {
     }
 }
 
-pub struct Fpga(idl::Fpga);
+pub struct Fpga {
+    server: idl::Fpga,
+    device_index: u8,
+}
 
 impl Fpga {
-    pub fn new(task_id: userlib::TaskId) -> Self {
-        Self(idl::Fpga::from(task_id))
+    pub fn new(task_id: userlib::TaskId, device_index: u8) -> Self {
+        Self {
+            server: idl::Fpga::from(task_id),
+            device_index,
+        }
     }
 
     pub fn enabled(&self) -> Result<bool, FpgaError> {
-        self.0.device_enabled()
+        self.server.device_enabled(self.device_index)
     }
 
     pub fn set_enabled(&mut self, enabled: bool) -> Result<(), FpgaError> {
-        self.0.set_device_enabled(enabled)
+        self.server.set_device_enabled(self.device_index, enabled)
     }
 
     pub fn reset(&mut self) -> Result<(), FpgaError> {
-        self.0.reset_device()
+        self.server.reset_device(self.device_index)
     }
 
     pub fn state(&self) -> Result<DeviceState, FpgaError> {
-        self.0.device_state()
+        self.server.device_state(self.device_index)
     }
 
     pub fn id(&self) -> Result<u32, FpgaError> {
-        self.0.device_id()
+        self.server.device_id(self.device_index)
     }
 
     pub fn start_bitstream_load(
@@ -172,13 +184,17 @@ impl Fpga {
         bitstream_type: BitstreamType,
     ) -> Result<Bitstream, FpgaError> {
         let lock = self.lock()?;
-        lock.0.start_bitstream_load(bitstream_type)?;
+        lock.server
+            .start_bitstream_load(lock.device_index, bitstream_type)?;
         Ok(Bitstream(lock))
     }
 
     pub fn lock(&mut self) -> Result<FpgaLock, FpgaError> {
-        self.0.lock()?;
-        Ok(FpgaLock(self.0.clone()))
+        self.server.lock(self.device_index)?;
+        Ok(FpgaLock {
+            server: self.server.clone(),
+            device_index: self.device_index,
+        })
     }
 }
 
@@ -194,23 +210,30 @@ impl Bitstream {
     }
 }
 
-pub struct FpgaUserDesign(idl::Fpga);
+pub struct FpgaUserDesign {
+    server: idl::Fpga,
+    device_index: u8,
+}
 
 impl FpgaUserDesign {
-    pub fn new(task_id: userlib::TaskId) -> Self {
-        Self(idl::Fpga::from(task_id))
+    pub fn new(task_id: userlib::TaskId, device_index: u8) -> Self {
+        Self {
+            server: idl::Fpga::from(task_id),
+            device_index,
+        }
     }
 
     pub fn enabled(&self) -> Result<bool, FpgaError> {
-        self.0.user_design_enabled()
+        self.server.user_design_enabled(self.device_index)
     }
 
     pub fn set_enabled(&mut self, enabled: bool) -> Result<(), FpgaError> {
-        self.0.set_user_design_enabled(enabled)
+        self.server
+            .set_user_design_enabled(self.device_index, enabled)
     }
 
     pub fn reset(&mut self) -> Result<(), FpgaError> {
-        self.0.reset_user_design()
+        self.server.reset_user_design(self.device_index)
     }
 
     pub fn read<T>(&self, addr: impl Into<u16>) -> Result<T, FpgaError>
@@ -218,7 +241,11 @@ impl FpgaUserDesign {
         T: AsBytes + Default + FromBytes,
     {
         let mut v = T::default();
-        self.0.user_design_read(addr.into(), v.as_bytes_mut())?;
+        self.server.user_design_read(
+            self.device_index,
+            addr.into(),
+            v.as_bytes_mut(),
+        )?;
         Ok(v)
     }
 
@@ -231,7 +258,12 @@ impl FpgaUserDesign {
     where
         T: AsBytes + FromBytes,
     {
-        self.0.user_design_write(op, addr.into(), value.as_bytes())
+        self.server.user_design_write(
+            self.device_index,
+            op,
+            addr.into(),
+            value.as_bytes(),
+        )
     }
 }
 

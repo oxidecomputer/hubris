@@ -5,6 +5,9 @@ Interface(
     ops: {
         "device_enabled": (
             doc: "Return true if the FPGA is enabled, false otherwise",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "bool",
                 err: CLike("FpgaError"),
@@ -13,6 +16,7 @@ Interface(
         "set_device_enabled": (
             doc: "Enable or disable the FPGA",
             args: {
+                "device_index": "u8",
                 "enabled": "bool",
             },
             reply: Result(
@@ -22,6 +26,9 @@ Interface(
         ),
         "reset_device": (
             doc: "Reset the FPGA",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),
@@ -29,6 +36,9 @@ Interface(
         ),
         "device_state": (
             doc: "Return the current device state",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: (
                     type: "DeviceState",
@@ -39,6 +49,9 @@ Interface(
         ),
         "device_id": (
             doc: "Return the device id, if applicable",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "u32",
                 err: CLike("FpgaError"),
@@ -47,6 +60,7 @@ Interface(
         "start_bitstream_load": (
             doc: "Prepare the device to load a bitstream",
             args: {
+                "device_index": "u8",
                 "bitstream_type": (
                     type: "BitstreamType",
                     recv: FromPrimitive("u8"),
@@ -59,6 +73,7 @@ Interface(
         ),
         "continue_bitstream_load": (
             doc: "Load the next chunk of the bitstream",
+            args: {},
             leases: {
                 "data": (type: "[u8]", read: true, max_len: Some(128)),
             },
@@ -69,6 +84,7 @@ Interface(
         ),
         "finish_bitstream_load": (
             doc: "Finish loading a bitstream",
+            args: {},
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),
@@ -77,6 +93,9 @@ Interface(
 
         "user_design_enabled": (
             doc: "Return true if the user design reset is released, false otherwise",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "bool",
                 err: CLike("FpgaError"),
@@ -85,6 +104,7 @@ Interface(
         "set_user_design_enabled": (
             doc: "Set the reset state for the user_design",
             args: {
+                "device_index": "u8",
                 "enabled": "bool",
             },
             reply: Result(
@@ -94,6 +114,9 @@ Interface(
         ),
         "reset_user_design": (
             doc: "Reset the user_design",
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),
@@ -102,6 +125,7 @@ Interface(
         "user_design_read": (
             doc: "Read N bytes from the user design, starting at the given address",
             args: {
+                "device_index": "u8",
                 "addr": "u16",
             },
             leases: {
@@ -115,6 +139,7 @@ Interface(
         "user_design_write": (
             doc: "Write N bytes to the user design, starting at the given address",
             args: {
+                "device_index": "u8",
                 "op": (
                     type: "WriteOp",
                     recv: FromPrimitive("u8"),
@@ -131,7 +156,9 @@ Interface(
         ),
         "lock": (
             doc: "Take exclusive control of this FPGA or the user design.",
-            args: {},
+            args: {
+                "device_index": "u8",
+            },
             reply: Result(
                 ok: "()",
                 err: CLike("FpgaError"),

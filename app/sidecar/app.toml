@@ -59,6 +59,20 @@ max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
 
+[tasks.spi1_driver]
+name = "drv-stm32h7-spi-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 2048}
+features = ["h753", "spi1"]
+uses = ["spi1"]
+start = true
+interrupts = {"spi1.irq" = 1}
+stacksize = 880
+task-slots = ["sys"]
+
+[tasks.spi1_driver.config.spi]
+global_config = "spi1"
+
 [tasks.spi2_driver]
 name = "drv-stm32h7-spi-server"
 priority = 2
@@ -180,11 +194,21 @@ start = true
 
 [tasks.ecp5_mainboard]
 name = "drv-fpga-server"
+features = ["mainboard"]
 priority = 3
 max-sizes = {flash = 32768, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys", {spi_driver = "spi5_driver"}]
+
+[tasks.ecp5_front_io]
+name = "drv-fpga-server"
+features = ["front_io"]
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+stacksize = 2048
+start = true
+task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
@@ -266,7 +290,7 @@ controller = 2
 # I2C_FRONT_IO0_SDA
 #
 [config.i2c.controllers.ports.F]
-name = "frontio"
+name = "front_io"
 description = "Front I/O Board"
 pins = [ { pins = [ 0, 1 ], af = 4 } ]
 
@@ -613,11 +637,12 @@ refdes = "U65"
 # device = "at24csw080"
 # description = ""
 
-# [[config.i2c.devices]]
-# bus = "south2"
-# address = 0b1010_0**
-# device = "at24csw080"
-# description = ""
+[[config.i2c.devices]]
+bus = "south2"
+address = 0b1010_000
+device = "at24csw080"
+description = "Mainboard FRUID"
+refdes = "U91"
 
 # [[config.i2c.devices]]
 # device = "tf2"
@@ -625,6 +650,37 @@ refdes = "U65"
 # address = 0b1011_011
 # description = ""
 
+[[config.i2c.devices]]
+bus = "front_io"
+address = 0b1010_000
+device = "at24csw080"
+description = "Front IO board FRUID"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front_io"
+address = 0b1110_011
+device = "pca9538"
+description = "Front IO GPIO expander"
+removable = true
+
+[config.spi.spi1]
+controller = 1
+
+[config.spi.spi1.mux_options.port_adg]
+outputs = [
+    {port = "A", pins = [5], af = 5}, # FRONT_IO_SCK
+    {port = "D", pins = [7], af = 5}, # FRONT_IO_COPI
+]
+input = {port = "G", pin = 9, af = 5} # FRONT_IO_CIPO
+
+[config.spi.spi1.devices.ecp5_front_io_fpga]
+mux = "port_adg"
+cs = [{port = "G", pin = 10}] # FRONT_IO_CS0
+
+[config.spi.spi1.devices.ecp5_front_io_user_design]
+mux = "port_adg"
+cs = [{port = "A", pin = 15}] # FRONT_IO_CS1
 
 [config.spi.spi2]
 controller = 2

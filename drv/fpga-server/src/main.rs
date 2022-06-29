@@ -12,10 +12,7 @@ use userlib::*;
 use zerocopy::{byteorder, AsBytes, Unaligned, U16};
 
 use drv_fpga_api::{BitstreamType, DeviceState, FpgaError, WriteOp};
-use drv_fpga_devices::{
-    ecp5, ecp5::Ecp5, ecp5_spi::Ecp5UsingSpi, Fpga, FpgaBitstream,
-    FpgaUserDesign,
-};
+use drv_fpga_devices::{ecp5, Fpga, FpgaBitstream, FpgaUserDesign};
 use drv_spi_api::Spi;
 use drv_stm32xx_sys_api::{self as sys_api, Sys};
 use idol_runtime::{ClientError, Leased, LenLimit, R, W};
@@ -23,11 +20,18 @@ use idol_runtime::{ClientError, Leased, LenLimit, R, W};
 task_slot!(SYS, sys);
 task_slot!(SPI, spi_driver);
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "front_io")] {
+        task_slot!(I2C, i2c_driver);
+        include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
-    DeviceId(u32),
-    StartBitstreamLoad(BitstreamType),
+    DeviceId(u8, u32),
+    StartBitstreamLoad(u8, BitstreamType),
     ContinueBitstreamLoad(usize),
     FinishBitstreamLoad(usize),
     Locked(TaskId),
@@ -42,8 +46,10 @@ fn main() -> ! {
     let user_design = Spi::from(SPI.get_task_id()).device(1);
 
     cfg_if::cfg_if! {
-        if #[cfg(target_board = "sidecar-1")] {
-            let driver = Ecp5UsingSpi {
+        if #[cfg(all(target_board = "sidecar-1", feature = "mainboard", feature = "front_io"))] {
+            compile_error!("Cannot enable both mainboard and front_io simultaneously");
+        } else if #[cfg(all(target_board = "sidecar-1", feature = "mainboard"))] {
+            let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::J.pin(15),
                 init_n: sys_api::Port::J.pin(12),
@@ -53,8 +59,42 @@ fn main() -> ! {
                 user_design_reset_n: sys_api::Port::J.pin(14),
                 user_design_reset_duration: ecp5::USER_DESIGN_RESET_DURATION,
             };
+            driver.configure_gpio();
+
+            let devices = [ecp5::Ecp5::new(driver)];
+        } else if #[cfg(all(target_board = "sidecar-1", feature = "front_io"))] {
+            use drv_i2c_devices::pca9538::*;
+            use drv_fpga_devices::ecp5_spi_mux_pca9538::*;
+
+            let gpio = Pca9538::new(
+                i2c_config::devices::pca9538(I2C.get_task_id())[0],
+            );
+            let driver = Driver::new(DriverConfig {
+                sys,
+                gpio,
+                spi_mux_select: sys_api::Port::F.pin(3),
+                configuration_port,
+                user_design,
+                user_design_reset_duration: ecp5::USER_DESIGN_RESET_DURATION,
+            });
+
+            driver.init().unwrap();
+
+            let device0_pins = DevicePins{
+                    done: PinSet::pin(3),
+                    init_n: PinSet::pin(0),
+                    program_n: PinSet::pin(1),
+                    user_design_reset_n: PinSet::pin(2),
+                };
+            let device1_pins = DevicePins {
+                    done: PinSet::pin(7),
+                    init_n: PinSet::pin(4),
+                    program_n: PinSet::pin(5),
+                    user_design_reset_n: PinSet::pin(6),
+                };
+            let devices = driver.init_devices(device0_pins, device1_pins).unwrap();
         } else if #[cfg(target_board = "gimletlet-2")] {
-            let driver = Ecp5UsingSpi {
+            let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::E.pin(15),
                 init_n: sys_api::Port::D.pin(12),
@@ -64,23 +104,29 @@ fn main() -> ! {
                 user_design_reset_n: sys_api::Port::D.pin(11),
                 user_design_reset_duration: ecp5::USER_DESIGN_RESET_DURATION,
             };
+            driver.configure_gpio();
+
+            let devices = [ecp5::Ecp5::new(driver)];
         } else {
-            compile_error!("Board is not supported by the task/fpga");
+            compile_error!("Board is not supported by drv/fpga-server");
         }
     }
-    driver.configure_gpio();
 
-    let device = Ecp5::new(driver);
     let mut incoming = [0u8; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         lock_holder: None,
-        device: &device,
+        devices: &devices,
         buffer: [0u8; 128],
         bitstream_loader: None,
     };
 
-    if let Ok(DeviceState::AwaitingBitstream) = server.device.device_state() {
-        ringbuf_entry!(Trace::DeviceId(server.device.device_id().unwrap()));
+    for (i, device) in server.devices.iter().enumerate() {
+        if let Ok(DeviceState::AwaitingBitstream) = device.device_state() {
+            ringbuf_entry!(Trace::DeviceId(
+                i as u8,
+                device.device_id().unwrap()
+            ));
+        }
     }
 
     loop {
@@ -93,9 +139,14 @@ enum BitstreamLoader<'a, Device: Fpga<'a>> {
     Compressed(gnarle::Decompressor, Device::Bitstream, usize),
 }
 
+struct LockState {
+    task: userlib::TaskId,
+    device_index: usize,
+}
+
 struct ServerImpl<'a, Device: Fpga<'a> + FpgaUserDesign> {
-    lock_holder: Option<userlib::TaskId>,
-    device: &'a Device,
+    lock_holder: Option<LockState>,
+    devices: &'a [Device],
     buffer: [u8; 128],
     bitstream_loader: Option<BitstreamLoader<'a, Device>>,
 }
@@ -117,11 +168,36 @@ impl<Device: FpgaUserDesign> Drop for UserDesignLock<'_, Device> {
 }
 
 impl<'a, Device: Fpga<'a> + FpgaUserDesign> ServerImpl<'a, Device> {
+    fn check_lock_and_get_device(
+        &self,
+        caller: userlib::TaskId,
+        device_index: u8,
+    ) -> Result<&'a Device, FpgaError> {
+        let device_index = usize::from(device_index);
+
+        if let Some(lock_state) = &self.lock_holder {
+            // The fact that we received this message _at all_ means
+            // that the sender matched our closed receive, but just
+            // in case we have a server logic bug, let's check.
+            assert!(lock_state.task == caller);
+
+            if lock_state.device_index != device_index {
+                return Err(FpgaError::BadDevice);
+            }
+        }
+
+        self.devices.get(device_index).ok_or(FpgaError::BadDevice)
+    }
+
     fn lock_user_design(
         &self,
+        caller: userlib::TaskId,
+        device_index: u8,
     ) -> Result<UserDesignLock<'a, Device>, FpgaError> {
-        self.device.user_design_lock().map_err(FpgaError::from)?;
-        Ok(UserDesignLock(self.device))
+        let device = self.check_lock_and_get_device(caller, device_index)?;
+
+        device.user_design_lock().map_err(FpgaError::from)?;
+        Ok(UserDesignLock(device))
     }
 }
 
@@ -133,7 +209,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
     for ServerImpl<'a, Device>
 {
     fn recv_source(&self) -> Option<userlib::TaskId> {
-        self.lock_holder
+        self.lock_holder.as_ref().map(|s| s.task)
     }
 
     fn closed_recv_fail(&mut self) {
@@ -143,18 +219,23 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         self.bitstream_loader = None;
     }
 
-    fn lock(&mut self, msg: &userlib::RecvMessage) -> Result<(), RequestError> {
-        match self.lock_holder {
-            Some(task) => {
-                // The fact that we received this message _at all_ means
-                // that the sender matched our closed receive, but just
-                // in case we have a server logic bug, let's check.
-                assert!(task == msg.sender);
+    fn lock(
+        &mut self,
+        msg: &userlib::RecvMessage,
+        device_index: u8,
+    ) -> Result<(), RequestError> {
+        match &self.lock_holder {
+            Some(lock_state) => {
+                assert!(lock_state.task == msg.sender);
                 Err(RequestError::Runtime(FpgaError::AlreadyLocked))
             }
             None => {
-                self.lock_holder = Some(msg.sender);
                 ringbuf_entry!(Trace::Locked(msg.sender));
+
+                self.lock_holder = Some(LockState {
+                    task: msg.sender,
+                    device_index: usize::from(device_index),
+                });
                 Ok(())
             }
         }
@@ -164,14 +245,11 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         &mut self,
         msg: &userlib::RecvMessage,
     ) -> Result<(), RequestError> {
-        if let Some(task) = self.lock_holder {
-            // The fact that we received this message _at all_ means
-            // that the sender matched our closed receive, but just
-            // in case we have a server logic bug, let's check.
-            assert!(task == msg.sender);
+        if let Some(lock_state) = &self.lock_holder {
+            assert!(lock_state.task == msg.sender);
+            ringbuf_entry!(Trace::Released(msg.sender));
 
             self.lock_holder = None;
-            ringbuf_entry!(Trace::Released(msg.sender));
             Ok(())
         } else {
             Err(FpgaError::NotLocked.into())
@@ -180,78 +258,111 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
     fn device_enabled(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
     ) -> Result<bool, RequestError> {
-        Ok(self.device.device_enabled()?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .device_enabled()
+            .map_err(Into::into)
     }
 
     fn set_device_enabled(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
         enabled: bool,
     ) -> Result<(), RequestError> {
-        Ok(self.device.set_device_enabled(enabled)?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .set_device_enabled(enabled)
+            .map_err(Into::into)
     }
 
-    fn reset_device(&mut self, _: &RecvMessage) -> Result<(), RequestError> {
-        Ok(self.device.reset_device()?)
+    fn reset_device(
+        &mut self,
+        msg: &RecvMessage,
+        device_index: u8,
+    ) -> Result<(), RequestError> {
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .reset_device()
+            .map_err(Into::into)
     }
 
     fn device_state(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
     ) -> Result<DeviceState, RequestError> {
-        Ok(self.device.device_state()?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .device_state()
+            .map_err(Into::into)
     }
 
-    fn device_id(&mut self, _: &RecvMessage) -> Result<u32, RequestError> {
-        Ok(self.device.device_id()?)
+    fn device_id(
+        &mut self,
+        msg: &RecvMessage,
+        device_index: u8,
+    ) -> Result<u32, RequestError> {
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .device_id()
+            .map_err(Into::into)
     }
 
     fn user_design_enabled(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
     ) -> Result<bool, RequestError> {
-        Ok(self.device.user_design_enabled()?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .user_design_enabled()
+            .map_err(Into::into)
     }
 
     fn set_user_design_enabled(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
         enabled: bool,
     ) -> Result<(), RequestError> {
-        Ok(self.device.set_user_design_enabled(enabled)?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .set_user_design_enabled(enabled)
+            .map_err(Into::into)
     }
 
     fn reset_user_design(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
     ) -> Result<(), RequestError> {
-        Ok(self.device.reset_user_design()?)
+        self.check_lock_and_get_device(msg.sender, device_index)?
+            .reset_user_design()
+            .map_err(Into::into)
     }
 
     fn start_bitstream_load(
         &mut self,
-        _: &RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
         bitstream_type: BitstreamType,
     ) -> Result<(), RequestError> {
         if self.bitstream_loader.is_some() {
             return Err(RequestError::Runtime(FpgaError::InvalidState));
         }
 
+        let device =
+            self.check_lock_and_get_device(msg.sender, device_index)?;
+
         self.bitstream_loader = Some(match bitstream_type {
-            BitstreamType::Uncompressed => BitstreamLoader::Uncompressed(
-                self.device.start_bitstream_load()?,
-                0,
-            ),
+            BitstreamType::Uncompressed => {
+                BitstreamLoader::Uncompressed(device.start_bitstream_load()?, 0)
+            }
             BitstreamType::Compressed => BitstreamLoader::Compressed(
                 gnarle::Decompressor::default(),
-                self.device.start_bitstream_load()?,
+                device.start_bitstream_load()?,
                 0,
             ),
         });
 
-        ringbuf_entry!(Trace::StartBitstreamLoad(bitstream_type));
+        ringbuf_entry!(Trace::StartBitstreamLoad(device_index, bitstream_type));
         Ok(())
     }
 
@@ -319,21 +430,23 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
     fn user_design_read(
         &mut self,
-        _: &userlib::RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
         addr: u16,
         data: WriteDataLease,
     ) -> Result<(), RequestError> {
-        let header = user_designRequestHeader {
+        let header = UserDesignRequestHeader {
             cmd: 0x1,
             addr: U16::new(addr),
         };
 
-        let _lock = self.lock_user_design()?; // Released on function exit.
+        // Released on function exit.
+        let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        self.device
+        lock.0
             .user_design_write(header.as_bytes())
             .map_err(FpgaError::from)?;
-        self.device
+        lock.0
             .user_design_read(&mut self.buffer[..data.len()])
             .map_err(FpgaError::from)?;
 
@@ -345,7 +458,8 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
     fn user_design_write(
         &mut self,
-        _: &userlib::RecvMessage,
+        msg: &RecvMessage,
+        device_index: u8,
         op: WriteOp,
         addr: u16,
         data: ReadDataLease,
@@ -353,17 +467,18 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
         data.read_range(0..data.len(), &mut self.buffer[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
-        let header = user_designRequestHeader {
+        let header = UserDesignRequestHeader {
             cmd: u8::from(op),
             addr: U16::new(addr),
         };
 
-        let _lock = self.lock_user_design()?; // Released on function exit.
+        // Released on function exit.
+        let lock = self.lock_user_design(msg.sender, device_index)?;
 
-        self.device
+        lock.0
             .user_design_write(header.as_bytes())
             .map_err(FpgaError::from)?;
-        self.device
+        lock.0
             .user_design_write(&self.buffer[..data.len()])
             .map_err(FpgaError::from)?;
 
@@ -373,7 +488,7 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
 #[derive(AsBytes, Unaligned)]
 #[repr(C)]
-struct user_designRequestHeader {
+struct UserDesignRequestHeader {
     cmd: u8,
     addr: U16<byteorder::BigEndian>,
 }
