@@ -278,6 +278,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             dev_type(dev)?.init_sgmii(self.rw, cfg.mode.speed())?;
         }
         for port in p..p + 4 {
+            // Min bandwidth is 1G, so we'll use it here
+            // (for both 100M and 1G port speeds)
             self.set_calendar_bandwidth(port, Bandwidth::Bw1G)?;
         }
         Ok(())

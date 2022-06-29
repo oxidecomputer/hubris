@@ -148,7 +148,7 @@ task-slots = ["net"]
 [tasks.monorail]
 name = "task-monorail-server"
 priority = 6
-max-sizes = {flash = 131072, ram = 8192}
+max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar"]
 stacksize = 4096
 start = true

@@ -78,8 +78,11 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         ringbuf_entry!(Trace::Vsc8562InitQsgmii(self.phy.port));
         self.phy.check_base_port()?;
 
-        self.phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-            r.0 |= 0x4000; // QSGMII MAC interface mode
+        // Configure QSGMII MAC interface mode
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+                r.0 |= 0x4000; // QSGMII MAC interface mode
+            })
         })?;
 
         // Apply the initial patch (more patches to SerDes happen later)
@@ -91,6 +94,12 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         if !self.sd6g_has_patch()? {
             self.sd6g_patch(true)?;
         }
+
+        self.phy.broadcast(|v| {
+            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 7; // Enable Clause 37 MAC Autonegotiation
+            })
+        })?;
 
         // Leave phy::STANDARD::EXTENDED_PHY_CONTROL in its default config
 
