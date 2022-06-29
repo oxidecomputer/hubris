@@ -2,17 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_sidecar_seq_api::Sequencer;
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_sidecar_seq_api::{Sequencer, SeqError};
+use drv_stm32xx_sys_api::{self as sys_api};
+use drv_sidecar_front_io::phy_smi::PhySmi;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{vsc8504::Vsc8504, PhyRw};
+use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
 task_slot!(SEQ, seq);
+task_slot!(FRONT_IO, ecp5_front_io);
 
 const MAC_SEEN_COUNT: usize = 64;
 
@@ -34,8 +36,18 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+
+    /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
+
+    /// API handle for the `Net` task, which is used for PHY control over RPC
     net: task_net_api::Net,
+
+    /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
+    /// used for PHY control via a Rube Goldberg machine of
+    ///     Hubris RPC -> SPI -> FPGA -> MDIO -> PHY
+    vsc8562: PhySmi,
+
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
     vsc8504_mode_status: [u16; 4],
     vsc8504_mac_status: [u16; 4],
@@ -155,6 +167,15 @@ pub fn preinit() {
     while !seq.is_clock_config_loaded().unwrap_or(false) {
         sleep_for(10);
     }
+    // Wait for the front IO board to be configured (or for the board to
+    // be reported as missing).
+    loop {
+        let ready = seq.front_io_phy_ready();
+        match ready {
+            Ok(true) | Err(SeqError::NoFrontIOBoard) => break,
+            _ => sleep_for(10),
+        }
+    }
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
@@ -164,6 +185,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
+            vsc8562: PhySmi::new(FRONT_IO.get_task_id()),
             net,
             known_macs: [None; MAC_SEEN_COUNT],
             vsc8504_mode_status: [0; 4],
@@ -174,17 +196,19 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     fn init(&mut self) -> Result<(), VscError> {
-        // Get a handle to modify GPIOs
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
-        self.phy_init(&sys)?;
+        self.phy_vsc8504_init()?;
+        self.phy_vsc8562_init()?;
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
 
         Ok(())
     }
 
-    fn phy_init(&mut self, sys: &Sys) -> Result<(), VscError> {
+    /// Configures the local PHY ("PHY4"), which is an on-board VSC8504
+    fn phy_vsc8504_init(&mut self) -> Result<(), VscError> {
+        // Get a handle to modify GPIOs
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
         // Let's configure the on-board PHY first
         // Relevant pins are
         // - MIIM_SP_TO_PHY_MDC_2V5 (PC1)
@@ -240,6 +264,13 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         sys.gpio_reset(coma_mode).unwrap();
 
+        Ok(())
+    }
+
+    pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
+        let mut phy = vsc85xx::Phy::new(0, &mut self.vsc8562);
+        let v = Vsc8562Phy { phy: &mut phy };
+        // TODO
         Ok(())
     }
 
@@ -332,7 +363,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             44..=47 => {
                 // TODO: add a `PhyRw` handle that talks over SPI to the QSFP
                 // FPGA to do MDIO
-                return None;
+                (GenericPhyRw::FrontIo(&self.vsc8562), 0)
             }
             _ => return None,
         };
@@ -344,6 +375,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 /// Simple enum that contains all possible `PhyRw` handle types
 pub enum GenericPhyRw<'a> {
     Net(NetPhyRw<'a>),
+    FrontIo(&'a PhySmi),
 }
 
 impl<'a> PhyRw for GenericPhyRw<'a> {
@@ -355,6 +387,7 @@ impl<'a> PhyRw for GenericPhyRw<'a> {
     ) -> Result<T, VscError> {
         match self {
             GenericPhyRw::Net(n) => n.read_raw(port, reg),
+            GenericPhyRw::FrontIo(n) => n.read_raw(port, reg),
         }
     }
     #[inline(always)]
@@ -370,6 +403,7 @@ impl<'a> PhyRw for GenericPhyRw<'a> {
     {
         match self {
             GenericPhyRw::Net(n) => n.write_raw(port, reg, value),
+            GenericPhyRw::FrontIo(n) => n.write_raw(port, reg, value),
         }
     }
 }

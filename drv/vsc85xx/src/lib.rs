@@ -14,11 +14,11 @@ mod tesla;
 mod util;
 mod viper;
 mod vsc8552;
-mod vsc8562;
 
 // User-facing handles to various PHY types
 pub mod vsc8504;
 pub mod vsc8522;
+pub mod vsc8562;
 pub mod vsc85x2;
 
 use core::cell::Cell;
