@@ -125,23 +125,17 @@ impl Driver {
         let output_pins =
             pins.init_n | pins.program_n | pins.user_design_reset_n;
 
-        self.config
-            .gpio
-            .set_mode(
-                output_pins,
-                pca9538::Mode::Output,
-                pca9538::Polarity::Normal,
-            )
-            .unwrap();
+        self.config.gpio.set_mode(
+            output_pins,
+            pca9538::Mode::Output,
+            pca9538::Polarity::Normal,
+        )?;
 
-        self.config
-            .gpio
-            .set_mode(
-                pins.done,
-                pca9538::Mode::Input,
-                pca9538::Polarity::Normal,
-            )
-            .unwrap();
+        self.config.gpio.set_mode(
+            pins.done,
+            pca9538::Mode::Input,
+            pca9538::Polarity::Normal,
+        )?;
 
         Ok(DeviceInstance {
             driver: self,

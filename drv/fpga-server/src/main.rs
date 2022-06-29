@@ -80,19 +80,25 @@ fn main() -> ! {
 
             driver.init().unwrap();
 
-            let device0_pins = DevicePins{
+            // Loop forever until devices come up
+            let devices = loop {
+                let device0_pins = DevicePins{
                     done: PinSet::pin(3),
                     init_n: PinSet::pin(0),
                     program_n: PinSet::pin(1),
                     user_design_reset_n: PinSet::pin(2),
                 };
-            let device1_pins = DevicePins {
+                let device1_pins = DevicePins {
                     done: PinSet::pin(7),
                     init_n: PinSet::pin(4),
                     program_n: PinSet::pin(5),
                     user_design_reset_n: PinSet::pin(6),
                 };
-            let devices = driver.init_devices(device0_pins, device1_pins).unwrap();
+                match driver.init_devices(device0_pins, device1_pins) {
+                    Ok(devices) => break devices,
+                    Err(e) => userlib::hl::sleep_for(10),
+                }
+            };
         } else if #[cfg(target_board = "gimletlet-2")] {
             let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,

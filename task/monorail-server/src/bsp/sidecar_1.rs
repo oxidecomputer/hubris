@@ -46,7 +46,9 @@ pub struct Bsp<'a, R> {
     /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
     /// used for PHY control via a Rube Goldberg machine of
     ///     Hubris RPC -> SPI -> FPGA -> MDIO -> PHY
-    vsc8562: PhySmi,
+    ///
+    /// This is `None` if the front IO board isn't connected.
+    vsc8562: Option<PhySmi>,
 
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
     vsc8504_mode_status: [u16; 4],
@@ -182,10 +184,20 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let net = task_net_api::Net::from(NET.get_task_id());
+        let seq = Sequencer::from(SEQ.get_task_id());
+        let has_front_io = match seq.front_io_phy_ready() {
+            Ok(true) => true,
+            Err(SeqError::NoFrontIOBoard) => false,
+            _ => panic!("front IO board went away after preinit()"),
+        };
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
-            vsc8562: PhySmi::new(FRONT_IO.get_task_id()),
+            vsc8562: if has_front_io {
+                Some(PhySmi::new(FRONT_IO.get_task_id()))
+            } else {
+                None
+            },
             net,
             known_macs: [None; MAC_SEEN_COUNT],
             vsc8504_mode_status: [0; 4],
@@ -268,9 +280,12 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
-        let mut phy = vsc85xx::Phy::new(0, &mut self.vsc8562);
-        let mut v = Vsc8562Phy { phy: &mut phy };
-        v.init_qsgmii()
+        if let Some(phy_rw) = &mut self.vsc8562 {
+            let mut phy = vsc85xx::Phy::new(0, phy_rw);
+            let mut v = Vsc8562Phy { phy: &mut phy };
+            v.init_qsgmii()?;
+        }
+        Ok(())
     }
 
     pub fn wake(&mut self) -> Result<(), VscError> {
@@ -360,9 +375,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 (phy_rw, phy_port)
             }
             44..=47 => {
-                // TODO: add a `PhyRw` handle that talks over SPI to the QSFP
-                // FPGA to do MDIO
-                (GenericPhyRw::FrontIo(&self.vsc8562), 0)
+                if let Some(phy_rw) = &self.vsc8562 {
+                    (GenericPhyRw::FrontIo(phy_rw), 0)
+                } else {
+                    return None;
+                }
             }
             _ => return None,
         };
