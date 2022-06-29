@@ -263,7 +263,7 @@ fn main() -> ! {
     loop {
         let mut status = [0u8];
 
-        seq.read_bytes(Addr::PWRCTRL, &mut status).unwrap();
+        seq.read_bytes(Addr::PWR_CTRL, &mut status).unwrap();
         ringbuf_entry!(Trace::A1Status(status[0]));
 
         if status[0] == 0 {
@@ -353,8 +353,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 // We are going to pass through A1 on the way to A0.
                 //
-                let a1a0 = Reg::PWRCTRL::A1PWREN | Reg::PWRCTRL::A0A_EN;
-                self.seq.write_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+                let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
+                self.seq.write_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
 
                 loop {
                     let mut power = [0u8, 0u8];
@@ -407,8 +407,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 //
                 uart_sp_to_sp3_disable();
 
-                let a1a0 = Reg::PWRCTRL::A1PWREN | Reg::PWRCTRL::A0A_EN;
-                self.seq.clear_bytes(Addr::PWRCTRL, &[a1a0]).unwrap();
+                let a1a0 = Reg::PWR_CTRL::A1PWREN | Reg::PWR_CTRL::A0A_EN;
+                self.seq.clear_bytes(Addr::PWR_CTRL, &[a1a0]).unwrap();
                 vcore_soc_off();
 
                 if let Err(_) = self.hf.set_mux(hf_api::HfMuxState::SP) {
