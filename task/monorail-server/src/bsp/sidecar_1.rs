@@ -4,7 +4,7 @@
 
 use drv_sidecar_front_io::phy_smi::PhySmi;
 use drv_sidecar_seq_api::{SeqError, Sequencer};
-use drv_stm32xx_sys_api::{self as sys_api};
+use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
