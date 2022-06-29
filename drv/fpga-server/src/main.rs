@@ -96,7 +96,7 @@ fn main() -> ! {
                 };
                 match driver.init_devices(device0_pins, device1_pins) {
                     Ok(devices) => break devices,
-                    Err(e) => userlib::hl::sleep_for(10),
+                    Err(_) => userlib::hl::sleep_for(10),
                 }
             };
         } else if #[cfg(target_board = "gimletlet-2")] {

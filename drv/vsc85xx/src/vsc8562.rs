@@ -336,12 +336,12 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.mcb_write(0x3f, 0)?;
 
         // "b. Configure sd6g for desired operating mode"
-        // Settings for SGMII
-        let pll_fsm_ctrl_data = 60;
-        let qrate = 1;
-        let if_mode = 1;
-        let des_bw_ana_val = 3;
-        self.phy.cmd(0x80F0)?; // XXX: why do we need to do this again here?
+        // XXX Not sure if we _actually_ need to do this again here
+        if qsgmii {
+            self.phy.cmd(0x80E0)?;
+        } else {
+            self.phy.cmd(0x80F0)?;
+        }
 
         self.mcb_read(0x11, 0)?; // "read LCPLL MCB into CSRs"
         self.mcb_read(0x3f, 0)?; // "read 6G MCB into CSRs"
