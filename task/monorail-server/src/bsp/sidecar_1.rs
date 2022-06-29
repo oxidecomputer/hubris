@@ -213,6 +213,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8562_init()?;
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
 
+        /*
         // Enable autonegotation on the QSGMII ports to the VSC8562 on the
         // front panel IO board.
         for p in 20..24 {
@@ -225,6 +226,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 },
             )?;
         }
+        */
         Ok(())
     }
 
