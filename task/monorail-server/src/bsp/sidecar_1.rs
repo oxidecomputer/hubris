@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_sidecar_seq_api::{Sequencer, SeqError};
-use drv_stm32xx_sys_api::{self as sys_api};
 use drv_sidecar_front_io::phy_smi::PhySmi;
+use drv_sidecar_seq_api::{SeqError, Sequencer};
+use drv_stm32xx_sys_api::{self as sys_api};
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
@@ -269,9 +269,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
     pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
         let mut phy = vsc85xx::Phy::new(0, &mut self.vsc8562);
-        let v = Vsc8562Phy { phy: &mut phy };
-        // TODO
-        Ok(())
+        let mut v = Vsc8562Phy { phy: &mut phy };
+        v.init_qsgmii()
     }
 
     pub fn wake(&mut self) -> Result<(), VscError> {
