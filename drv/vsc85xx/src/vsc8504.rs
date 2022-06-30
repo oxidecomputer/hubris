@@ -4,6 +4,7 @@
 
 use crate::{Phy, PhyRw, Trace, VscError};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
+use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
 
 pub const VSC8504_ID: u32 = 0x704c2;
@@ -104,17 +105,21 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // Enable 4 port MAC QSGMII
         self.phy.cmd(0x80E0)?;
 
+        sleep_for(10);
+
         // All of these bits are sticky
-        self.phy.broadcast(|v| {
-            v.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
                 // SGMII MAC interface mode (default)
                 r.set_mac_interface_mode(0);
                 // SerDes fiber/SFP protocol transfer mode only
                 r.set_media_operating_mode(0b001);
-            })?;
+            })
+        })?;
 
-            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 7; // ANEG_ENA
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+                r.set_auto_neg_ena(1);
             })
         })?;
 
@@ -125,14 +130,23 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
-        // Configure MAC in QSGMII mode and enable autonegotiation
-        self.phy.broadcast(|v| {
-            v.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-                r.set_auto_neg_ena(1);
-                // Convert to u16 to set a bit that's not in the autogen code
-                let mut r_: u16 = (*r).into();
-                r_ |= 1 << 8; // Duplex
-                *r = r_.into();
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 7; // ANEG_ENA
+                r.0 &= !(1 << 11); // Force advertised ability
+            })?;
+            // XXX: is this necessary?
+            phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.0 |= 1 << 11; // Force advertised ability
+            })?;
+            phy.modify(
+                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
+                |r| {
+                    *r = 0x8401.into(); // 100M
+                },
+            )?;
+            phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+                r.set_restart_auto_neg(1);
             })?;
             Ok(())
         })?;
