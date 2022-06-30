@@ -119,7 +119,7 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
 
         self.phy.broadcast(|phy| {
             phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-                r.set_auto_neg_ena(1);
+                r.set_auto_neg_ena(0);
             })
         })?;
 
@@ -132,11 +132,6 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
 
         self.phy.broadcast(|phy| {
             phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.set_aneg_ena(1);
-                r.set_force_adv_ability(0);
-            })?;
-            // XXX: is this necessary?
-            phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
                 r.set_force_adv_ability(1);
             })?;
             phy.modify(
@@ -145,9 +140,6 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
                     *r = 0x8401.into(); // 100M
                 },
             )?;
-            phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-                r.set_restart_auto_neg(1);
-            })?;
             Ok(())
         })?;
 
