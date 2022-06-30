@@ -76,7 +76,9 @@ impl BspT for Bsp {
     fn power_mode(&self) -> u32 {
         match self.seq.get_state() {
             Ok(p) => match p {
-                PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
+                PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
+                    POWER_STATE_A0
+                }
                 PowerState::A2
                 | PowerState::A2PlusMono
                 | PowerState::A2PlusFans => POWER_STATE_A2,

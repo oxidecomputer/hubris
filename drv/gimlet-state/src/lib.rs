@@ -18,4 +18,5 @@ pub enum PowerState {
     A2PlusFans = 3,
     A1 = 4,
     A0 = 5,
+    A0PlusHP = 6,
 }

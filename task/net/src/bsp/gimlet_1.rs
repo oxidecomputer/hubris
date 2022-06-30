@@ -56,7 +56,8 @@ pub fn preinit() {
             | Some(PowerState::A2PlusMono)
             | Some(PowerState::A2PlusFans)
             | Some(PowerState::A1)
-            | Some(PowerState::A0) => {
+            | Some(PowerState::A0)
+            | Some(PowerState::A0PlusHP) => {
                 break;
             }
             None => {

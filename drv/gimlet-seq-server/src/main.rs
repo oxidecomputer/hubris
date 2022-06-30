@@ -17,7 +17,7 @@ use drv_gimlet_seq_api::{PowerState, SeqError};
 use drv_ice40_spi_program as ice40;
 use drv_spi_api as spi_api;
 use drv_stm32xx_sys_api as sys_api;
-use idol_runtime::RequestError;
+use idol_runtime::{NotificationHandler, RequestError};
 use seq_spi::{Addr, Reg};
 use task_jefe_api::Jefe;
 
@@ -45,9 +45,10 @@ enum Trace {
     A2,
     A1Power(u8, u8),
     A0Power(u8),
+    NICPowerEnableLow(bool),
     RailsOn,
     UartEnabled,
-    GetState(TaskId),
+    GetState,
     SetState(PowerState, PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
@@ -72,6 +73,10 @@ fn main() -> ! {
     //
     // This is the expected reset state, but, good to be sure.
     sys.gpio_configure_input(PGS_PINS, PGS_PULL).unwrap();
+
+    // Set SP3_TO_SP_NIC_PWREN_L to be an input
+    sys.gpio_configure_input(NIC_PWREN_L_PINS, NIC_PWREN_L_PULL)
+        .unwrap();
 
     // Unconditionally set our sequencing-related GPIOs to outputs.
     //
@@ -304,10 +309,11 @@ fn main() -> ! {
         seq,
         jefe,
         hf,
+        deadline: 0,
     };
 
     loop {
-        idol_runtime::dispatch(&mut buffer, &mut server);
+        idol_runtime::dispatch_n(&mut buffer, &mut server);
     }
 }
 
@@ -316,6 +322,48 @@ struct ServerImpl {
     seq: seq_spi::SequencerFpga,
     jefe: Jefe,
     hf: hf_api::HostFlash,
+    deadline: u64,
+}
+
+const TIMER_MASK: u32 = 1 << 0;
+const TIMER_INTERVAL: u64 = 10;
+
+impl NotificationHandler for ServerImpl {
+    fn current_notification_mask(&self) -> u32 {
+        TIMER_MASK
+    }
+
+    fn handle_notification(&mut self, _bits: u32) {
+        match self.state {
+            PowerState::A0 => {
+                let sys = sys_api::Sys::from(SYS.get_task_id());
+                let pwren_l = sys.gpio_read_input(NIC_PWREN_L_PORT).unwrap()
+                    & NIC_PWREN_L_MASK
+                    != 0;
+
+                ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+
+                let cld_rst = Reg::NIC_CTRL::CLD_RST;
+
+                if !pwren_l {
+                    //
+                    // We XXX
+                    //
+                    self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]);
+                    self.update_state_internal(PowerState::A0PlusHP);
+
+                    //
+                    // Deliberately return without re-arming the timer.
+                    //
+                    return;
+                }
+            }
+            _ => {}
+        }
+
+        self.deadline += TIMER_INTERVAL;
+        sys_set_timer(Some(self.deadline), TIMER_MASK);
+    }
 }
 
 impl ServerImpl {
@@ -330,7 +378,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
         &mut self,
         rm: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
-        ringbuf_entry!(Trace::GetState(rm.sender));
+        ringbuf_entry!(Trace::GetState);
         Ok(self.state)
     }
 
@@ -390,6 +438,12 @@ impl idl::InOrderSequencerImpl for ServerImpl {
 
                     hl::sleep_for(1);
                 }
+
+                //
+                // And establish our timer to check SP3_TO_SP_NIC_PWREN_L.
+                //
+                self.deadline = sys_get_timer().now + TIMER_INTERVAL;
+                sys_set_timer(Some(self.deadline), TIMER_MASK);
 
                 //
                 // Finally, enable transmission to the SP3's UART
@@ -564,6 +618,17 @@ cfg_if::cfg_if! {
 
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
+
+        const NIC_PWREN_L_PORT: sys_api::Port = sys_api::Port::F;
+        const NIC_PWREN_L_MASK: u16 = 1 << 4;
+
+        const NIC_PWREN_L_PINS: sys_api::PinSet = sys_api::PinSet {
+            port: NIC_PWREN_L_PORT,
+            pin_mask: NIC_PWREN_L_MASK,
+        };
+
+        // Externally pulled to V3P3_SYS_A0
+        const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
 
         fn vcore_soc_off() {
             use drv_i2c_devices::raa229618::Raa229618;
