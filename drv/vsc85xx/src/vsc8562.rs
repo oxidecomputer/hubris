@@ -78,15 +78,15 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         ringbuf_entry!(Trace::Vsc8562InitQsgmii(self.phy.port));
         self.phy.check_base_port()?;
 
+        // Apply the initial patch (more patches to SerDes happen later)
+        crate::viper::ViperPhy { phy: self.phy }.patch()?;
+
         // Configure QSGMII MAC interface mode
         self.phy.broadcast(|phy| {
             phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
                 r.0 |= 0x4000; // QSGMII MAC interface mode
             })
         })?;
-
-        // Apply the initial patch (more patches to SerDes happen later)
-        crate::viper::ViperPhy { phy: self.phy }.patch()?;
 
         // Enable two MAC 1/2 QSGMII ports
         self.phy.cmd(0x80E0)?;
