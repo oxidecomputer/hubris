@@ -132,12 +132,12 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
 
         self.phy.broadcast(|phy| {
             phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 7; // ANEG_ENA
-                r.0 &= !(1 << 11); // Force advertised ability
+                r.set_aneg_ena(1);
+                r.set_force_adv_ability(0);
             })?;
             // XXX: is this necessary?
             phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 11; // Force advertised ability
+                r.set_force_adv_ability(1);
             })?;
             phy.modify(
                 phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),

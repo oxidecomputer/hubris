@@ -325,7 +325,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
             let media_link_up = (status.0 & (1 << 2)) != 0;
             let status = phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
-            let mac_link_up = (status.0 & (1 << 2)) != 0;
+            let mac_link_up = status.mac_link_status() != 0;
             Ok(PhyStatus {
                 ty,
                 mac_link_up,
