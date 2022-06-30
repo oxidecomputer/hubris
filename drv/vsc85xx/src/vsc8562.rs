@@ -95,14 +95,6 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             self.sd6g_patch(true)?;
         }
 
-        /*
-        self.phy.broadcast(|v| {
-            v.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.0 |= 1 << 7; // Enable Clause 37 MAC Autonegotiation
-            })
-        })?;
-        */
-
         // Leave phy::STANDARD::EXTENDED_PHY_CONTROL in its default config
 
         // Now, we reset the PHY to put those settings into effect.  For some
