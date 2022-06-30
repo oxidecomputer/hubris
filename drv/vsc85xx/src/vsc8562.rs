@@ -38,7 +38,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.phy.cmd(0x80F0)?;
 
         ////////////////////////////////////////////////////////////////////////
-        if !self.sd6g_has_patch()? {
+        if !self.sd6g_has_patch(false)? {
             self.sd6g_patch(false)?;
         }
 
@@ -91,16 +91,16 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // Enable two MAC 1/2 QSGMII ports
         self.phy.cmd(0x80E0)?;
 
-        if !self.sd6g_has_patch()? {
-            self.sd6g_patch(true)?;
-        }
-
         // Leave phy::STANDARD::EXTENDED_PHY_CONTROL in its default config
 
         // Now, we reset the PHY to put those settings into effect.  For some
         // reason, we can't do a broadcast reset, so we do it port-by-port.
         for p in 0..2 {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
+        }
+
+        if !self.sd6g_has_patch(true)? {
+            self.sd6g_patch(true)?;
         }
 
         // The SDK calls `vtss_phy_sd1g_patch_private` here, but that doesn't
@@ -160,7 +160,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     }
 
     /// `vtss_phy_chk_serdes_patch_init_private`
-    fn sd6g_has_patch(&mut self) -> Result<bool, VscError> {
+    fn sd6g_has_patch(&mut self, qsgmii: bool) -> Result<bool, VscError> {
         self.mcb_read(0x3f, 0)?;
         let cfg0 = self.macsec_csr_read(7, 0x22)?;
         let ib_reg_pat_sel_offset = (cfg0 & 0x00000300) >> 8;
@@ -182,8 +182,8 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         let des = self.macsec_csr_read(7, 0x21)?;
         let des_bw_ana = (des & 0x0000000e) >> 1; // bit   3:1
 
-        // This is configured for SGMII specifically
-        Ok(des_bw_ana == 3)
+        let expected_des_bw_ana = if qsgmii { 5 } else { 3 };
+        Ok(des_bw_ana == expected_des_bw_ana)
     }
 
     /// Based on `vtss_phy_sd6g_patch_private`.
