@@ -118,7 +118,7 @@ global_config = "spi5"
 [tasks.net]
 name = "task-net"
 stacksize = 3800
-priority = 4
+priority = 5
 features = ["mgmt", "h753", "sidecar"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
@@ -131,7 +131,7 @@ task-slots = ["sys",
 
 [tasks.udpecho]
 name = "task-udpecho"
-priority = 5
+priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -139,7 +139,7 @@ task-slots = ["net"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
-priority = 5
+priority = 6
 max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
@@ -147,12 +147,12 @@ task-slots = ["net"]
 
 [tasks.monorail]
 name = "task-monorail-server"
-priority = 5
-max-sizes = {flash = 131072, ram = 8192}
+priority = 6
+max-sizes = {flash = 262144, ram = 8192}
 features = ["mgmt", "sidecar"]
 stacksize = 4096
 start = true
-task-slots = ["sys", "net",
+task-slots = ["sys", "net", "ecp5_front_io",
               { spi_driver = "spi2_driver" },
               { seq = "sequencer" }]
 
@@ -213,7 +213,7 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi1_driver"}]
 [tasks.sequencer]
 name = "drv-sidecar-seq-server"
 features = []
-priority = 3
+priority = 4
 max-sizes = {flash = 262144, ram = 2048}
 stacksize = 1024
 start = true
