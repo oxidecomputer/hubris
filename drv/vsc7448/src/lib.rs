@@ -277,10 +277,9 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         for dev in cfg.dev.1..(cfg.dev.1 + 4) {
             let dev = dev_type(dev)?;
             dev.init_sgmii(self.rw, cfg.mode.speed())?;
-            self.modify(
-                dev.regs().PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(),
-                |r| r.set_aneg_ena(1),
-            )?;
+            self.modify(dev.regs().PCS1G_CFG_STATUS().PCS1G_ANEG_CFG(), |r| {
+                r.set_aneg_ena(1)
+            })?;
         }
         for port in p..p + 4 {
             // Min bandwidth is 1G, so we'll use it here
