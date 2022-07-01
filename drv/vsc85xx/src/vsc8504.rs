@@ -102,9 +102,12 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
         })?;
 
-        // Enable 4 port MAC QSGMII
+        // Enable 4 port MAC QSGMII (line 5844)
         self.phy.cmd(0x80E0)?;
+        sleep_for(10);
 
+        // "Setup media in micro program"
+        self.phy.cmd(0x8FC1)?; // XXX (??)
         sleep_for(10);
 
         // All of these bits are sticky

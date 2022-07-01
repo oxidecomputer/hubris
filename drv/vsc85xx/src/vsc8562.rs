@@ -108,11 +108,10 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // (despite the name, this is also called for VIPER, line 8313)
 
         // "Setup MAC Configuration" (5760)
-        self.phy.broadcast(|phy| {
-            phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-                // IF_MODE_SELECT = QSGMII
-                r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14);
-            })
+        // (this is a global register, so we only need to write to it once)
+        self.phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+            // IF_MODE_SELECT = QSGMII
+            r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14);
         })?;
 
         // "Configure SerDes macros for QSGMII MAC interface (See TN1080)"
@@ -129,10 +128,10 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         // `conf->media_if == VTSS_PHY_MEDIA_IF_CU`
 
         // "Turn off SerDes for 100Base-FX" (line 5934)
-        self.phy.cmd(0x81f1)?; // XXX (?)
+        self.phy.cmd(0x8FF1)?; // XXX (?)
 
         // "Turn off SerDes for 1000Base-FX" (line 5937)
-        self.phy.cmd(0x81e1)?; // XXX (?)
+        self.phy.cmd(0x8FE1)?; // XXX (?)
         sleep_for(10); // vtss_phy.c:5941
 
         // TODO: "Setup Media interface" (line 5952)
