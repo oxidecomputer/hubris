@@ -176,9 +176,14 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
                 // Enable "MAC interface autonegotiation parallel detect",
                 //    else data flow is stopped for the CU ports if PHY has MAC ANEG enabled and the switch is connected to isn't"
                 r.set_mac_if_pd_ena(1);
+                r.set_force_adv_ability(1);
                 // XXX: Should I set the force_adv_ability bit here?
                 // That requires setting up register 18E3
             })?;
+            phy.write(
+                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
+                0x8801.into(),
+            )?;
             Ok(())
         })?;
         // "Setup Reg23E3" (line 9002)
@@ -320,11 +325,11 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         let ib_tsdet_cal = 16;
         let ib_tsdet_mm = 5;
 
-        let (pll_fsm_ctrl_data, qrate, if_mode, des_bw_ana_val) = if qsgmii {
-            (120, 0, 3, 5)
-        } else {
-            (60, 1, 1, 3)
-        };
+        // "Configure for SGMII only for IB_CAL"
+        let pll_fsm_ctrl_data = 60;
+        let qrate = 1;
+        let if_mode = 1;
+        let des_bw_ana_val = 3;
 
         // `detune_pll5g`
         self.macsec_csr_modify(7, 0x8, |r| {
@@ -459,6 +464,12 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         } else {
             self.phy.cmd(0x80F0)?;
         }
+
+        let (pll_fsm_ctrl_data, qrate, if_mode, des_bw_ana_val) = if qsgmii {
+            (120, 0, 3, 5)
+        } else {
+            (60, 1, 1, 3)
+        };
 
         self.mcb_read(0x11, 0)?; // "read LCPLL MCB into CSRs"
         self.mcb_read(0x3f, 0)?; // "read 6G MCB into CSRs"
