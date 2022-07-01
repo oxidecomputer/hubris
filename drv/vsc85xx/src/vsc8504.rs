@@ -110,6 +110,9 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         self.phy.cmd(0x8FC1)?; // XXX (??)
         sleep_for(10);
 
+        // "Set packet mode" (line 5961)
+        // Skipping this for now.
+
         // All of these bits are sticky
         self.phy.broadcast(|phy| {
             phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
