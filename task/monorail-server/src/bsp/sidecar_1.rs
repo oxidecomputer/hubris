@@ -395,7 +395,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
             44..=47 => {
                 if let Some(phy_rw) = &self.vsc8562 {
-                    (GenericPhyRw::FrontIo(phy_rw), 0)
+                    (GenericPhyRw::FrontIo(phy_rw), port - 44)
                 } else {
                     return None;
                 }
