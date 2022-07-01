@@ -74,34 +74,124 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     }
 
     pub fn init_qsgmii(&mut self) -> Result<(), VscError> {
-        // This is roughly based on `vtss_phy_reset_private`
         ringbuf_entry!(Trace::Vsc8562InitQsgmii(self.phy.port));
         self.phy.check_base_port()?;
 
         // Apply the initial patch (more patches to SerDes happen later)
+        //
+        // This comes from `vtss_phy_pre_init_seq_viper` in the SDK, and
+        // has to be done before anything else.
         crate::viper::ViperPhy { phy: self.phy }.patch()?;
 
-        // Configure QSGMII MAC interface mode
+        // This is roughly based on `vtss_phy_reset_private`. The SDK is an
+        // absolute disaster zone, so I'm going to be pretty verbose about
+        // where each chunk of logic comes from.
+        //
+        // Here's the high-level map of where we're going
+        //
+        //  phy_reset_private
+        //      vtss_phy_mac_media_if_tesla_setup (also for VIPER)
+        //          vtss_phy_sd6g_patch_private
+        //      port_reset
+        //          vtss_phy_soft_reset_port
+        //              Do the actual port resetting here!
+        //              vtss_phy_conf_1g_set_private
+        //              vtss_phy_conf_set_private
+        // Ready to get started?
+
+        // "-- Step 2: Pre-reset setup of MAC and Media interface --"
+        // (There is no Step 1, apparently)
+        //
+        // We are now entering
+        //      phy_reset_private
+        //          vtss_phy_mac_media_if_tesla_setup
+        // (despite the name, this is also called for VIPER, line 8313)
+
+        // "Setup MAC Configuration" (5760)
         self.phy.broadcast(|phy| {
             phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-                r.0 |= 0x4000; // QSGMII MAC interface mode
+                // IF_MODE_SELECT = QSGMII
+                r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14);
             })
         })?;
 
-        // Enable two MAC 1/2 QSGMII ports
+        // "Configure SerDes macros for QSGMII MAC interface (See TN1080)"
+        // (line 5836)
         self.phy.cmd(0x80E0)?;
 
-        // Leave phy::STANDARD::EXTENDED_PHY_CONTROL in its default config
+        // Do the actual serdes6g patching (line 5904)
+        if !self.sd6g_has_patch(true)? {
+            self.sd6g_patch(true)?;
+        }
+        sleep_for(10); // line 5928
 
-        // Now, we reset the PHY to put those settings into effect.  For some
-        // reason, we can't do a broadcast reset, so we do it port-by-port.
+        // We are running with copper media, so take the branch
+        // `conf->media_if == VTSS_PHY_MEDIA_IF_CU`
+
+        // "Turn off SerDes for 100Base-FX" (line 5934)
+        self.phy.cmd(0x81f1)?; // XXX (?)
+
+        // "Turn off SerDes for 1000Base-FX" (line 5937)
+        self.phy.cmd(0x81e1)?; // XXX (?)
+        sleep_for(10); // vtss_phy.c:5941
+
+        // TODO: "Setup Media interface" (line 5952)
+        // "Set packet mode"
+
+        // Congratulations!
+        // You are now exiting vtss_phy_mac_media_if_tesla_setup and returning
+        // to phy_reset_private:8313
+
+        // "-- Step 3: Reset PHY --" (line 8349)
+        // We are now entering
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        // (vtss_atom_patch_suspend is a no-op on Viper)
+
+        // Do the actual PHY reset (line 937)
         for p in 0..2 {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
-        if !self.sd6g_has_patch(true)? {
-            self.sd6g_patch(true)?;
-        }
+        // We are now roughly at line 948, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_1g_set_private
+        // There's nothing to here; the defaults are fine (automatic
+        // master/slave configuration)
+
+        // We are now roughly at line 954, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_set_private
+        // TODO: set up aneg here, set up PHY_MODE_CONTROL
+
+        // We're now at line 8977, "Setup Reg16E3"
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                // This should allow link-up if the MAC is not doing auto-neg.
+                // Enable "MAC interface autonegotiation parallel detect",
+                //    else data flow is stopped for the CU ports if PHY has MAC ANEG enabled and the switch is connected to isn't"
+                r.set_mac_if_pd_ena(1);
+                // XXX: Should I set the force_adv_ability bit here?
+                // That requires setting up register 18E3
+            })?;
+            Ok(())
+        })?;
+        // "Setup Reg23E3" (line 9002)
+        // Nothing to do here, since we're not using the media SERDES?
+
+        // "Force AMS Override" (line 9027)
+        // Nothing to do here, because the default media operating mode is
+        // Cat5 copper only.
+
+        // We are now exiting vtss_phy_soft_reset_port, then exiting
+        // port_reset.
+
+        // At this point, we are at "Step 4: Run startup scripts" (line 8365)
 
         // The SDK calls `vtss_phy_sd1g_patch_private` here, but that doesn't
         // work for me: the MCB-mediated access to SERDES registers times out.
@@ -110,6 +200,39 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
 
         // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
         self.fix_bz21484()?;
+
+        // ...and we're done with phy_reset_private!
+
+        // Now, we'll do `vtss_phy_sd6g_ob_post_wr_private`, which tweaks
+        // the SERDES6G configuration
+        self.mcb_read(0x3f, 0)?;
+        let ob_ena1v_mode = 1;
+        let ob_pol = 1;
+        let ob_resistor_ctr = 1;
+        let ob_sr_h = 0;
+        let ob_sr = 0;
+        let ob_post0 = 0;
+        let ob_post1 = 0;
+        self.sd6g_ob_cfg_write(
+            ob_ena1v_mode,
+            ob_pol,
+            ob_post0,
+            ob_post1,
+            ob_sr_h,
+            ob_resistor_ctr,
+            ob_sr,
+        )?;
+        self.mcb_write(0x3f, 0)?;
+
+        // ...and `vtss_phy_sd6g_ob_lev_wr_private`
+        self.mcb_read(0x3f, 0)?;
+        let ob_ena_cas = 0; // QSGMII
+                            // ob_lev isn't specified in the SDK, but it seems like this SERDES6G
+                            // is using the same macro as the VSC7448 itself, and we use 24 for
+                            // QSGMII operation (see `serdes6g.rs` for details)
+        let ob_lev = 24;
+        self.sd6g_ob_cfg1_write(ob_ena_cas, ob_lev)?;
+        self.mcb_write(0x3f, 0)?;
         Ok(())
     }
 
@@ -763,6 +886,39 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             | (u32::from(rx_freqoff_dir) << 1)
             | u32::from(rx_freqoff_ena);
         self.macsec_csr_write(7, 0x37, reg_val)
+    }
+
+    /// `vtss_phy_sd6g_ob_cfg_wr_private`
+    fn sd6g_ob_cfg_write(
+        &mut self,
+        ob_ena1v_mode: u8,
+        ob_pol: u8,
+        ob_post0: u8,
+        ob_post1: u8,
+        ob_sr_h: u8,
+        ob_resistor_ctr: u8,
+        ob_sr: u8,
+    ) -> Result<(), VscError> {
+        let reg_val = (u32::from(ob_ena1v_mode) << 30)
+            | (u32::from(ob_pol) << 29)
+            | (u32::from(ob_post0) << 23)
+            | (u32::from(ob_post1) << 18)
+            | (u32::from(ob_sr_h) << 8)
+            | (u32::from(ob_resistor_ctr) << 4)
+            | (u32::from(ob_sr) << 0);
+
+        self.macsec_csr_write(7, 0x28, reg_val)
+    }
+
+    /// `vtss_phy_sd6g_ob_cfg1_wr_private`
+    fn sd6g_ob_cfg1_write(
+        &mut self,
+        ob_ena_cas: u8,
+        ob_lev: u8,
+    ) -> Result<(), VscError> {
+        let reg_val = (u32::from(ob_ena_cas) << 6) | (u32::from(ob_lev) << 0);
+
+        self.macsec_csr_write(7, 0x29, reg_val)
     }
 
     /// `vtss_phy_pll5g_cfg0_wr_private`
