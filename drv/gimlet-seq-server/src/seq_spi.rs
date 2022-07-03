@@ -59,6 +59,17 @@ impl SequencerFpga {
         self.raw_spi_read(Cmd::Read, addr.into(), data_out)
     }
 
+    /// Performs a single-byte READ command against `addr` as a convenience
+    /// routine
+    pub fn read_byte(
+        &self,
+        addr: impl Into<u16>,
+    ) -> Result<u8, spi_api::SpiError> {
+        let mut buf = [0u8];
+        self.read_bytes(addr, &mut buf)?;
+        Ok(buf[0])
+    }
+
     /// Performs the WRITE command against `addr`. This can write as many bytes
     /// as you like from `data_in`.
     pub fn write_bytes(

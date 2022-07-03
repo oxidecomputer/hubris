@@ -160,6 +160,8 @@ struct I2cSensors {
 
     #[serde(default)]
     speed: usize,
+
+    names: Option<Vec<String>>,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -994,7 +996,19 @@ impl ConfigGenerator {
                     d.name.clone()
                 }
             } else {
-                d.name.clone()
+                if let Some(names) = &d.sensors.as_ref().unwrap().names {
+                    if idx >= names.len() {
+                        panic!(
+                            "name array is too short ({}) for sensor index ({})",
+                            names.len(),
+                            idx
+                        );
+                    } else {
+                        Some(names[idx].clone())
+                    }
+                } else {
+                    d.name.clone()
+                }
             };
 
             if let Some(bus) = &d.bus {

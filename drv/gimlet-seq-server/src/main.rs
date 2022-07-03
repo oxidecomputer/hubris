@@ -52,6 +52,7 @@ enum Trace {
     SetState(PowerState, PowerState),
     ClockConfigWrite,
     ClockConfigSuccess,
+    Status(u8, u8, u8),
     None,
 }
 
@@ -334,6 +335,30 @@ impl NotificationHandler for ServerImpl {
     }
 
     fn handle_notification(&mut self, _bits: u32) {
+        ringbuf_entry!(Trace::Status(
+            self.seq.read_byte(Addr::IER).unwrap(),
+            self.seq.read_byte(Addr::IFR).unwrap(),
+            self.seq.read_byte(Addr::AMD_STATUS).unwrap(),
+        ));
+
+        //
+        // The first order of business is to check if the sequencer hit a
+        // THERMTRIP.  If it did, we need to go to A0Thermtrip and clear
+        // the bit.
+        //
+        match self.state {
+            PowerState::A0 | PowerState::A0PlusHP => {
+                let thermtrip = Reg::IFR::THERMTRIP;
+                let ifr = self.seq.read_byte(Addr::IFR).unwrap();
+
+                if ifr & thermtrip != 0 {
+                    self.seq.clear_bytes(Addr::IFR, &[thermtrip]).unwrap();
+                    self.update_state_internal(PowerState::A0Thermtrip);
+                }
+            }
+            _ => {}
+        }
+
         match self.state {
             PowerState::A0 => {
                 let sys = sys_api::Sys::from(SYS.get_task_id());
@@ -346,23 +371,17 @@ impl NotificationHandler for ServerImpl {
                 let cld_rst = Reg::NIC_CTRL::CLD_RST;
 
                 if !pwren_l {
-                    //
-                    // We XXX
-                    //
-                    self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]);
+                    self.seq.clear_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
                     self.update_state_internal(PowerState::A0PlusHP);
-
-                    //
-                    // Deliberately return without re-arming the timer.
-                    //
-                    return;
                 }
             }
             _ => {}
         }
 
-        self.deadline += TIMER_INTERVAL;
-        sys_set_timer(Some(self.deadline), TIMER_MASK);
+        if let Some(interval) = self.poll_interval() {
+            self.deadline += interval;
+            sys_set_timer(Some(self.deadline), TIMER_MASK);
+        }
     }
 }
 
@@ -371,12 +390,25 @@ impl ServerImpl {
         self.state = state;
         self.jefe.set_state(state as u32);
     }
+
+    //
+    // Return the current timer interval, in milliseconds.  If we are in A0,
+    // we are polling for NIC_PWREN_L; if we are in A0PlusHP, we are polling
+    // for a thermtrip.  If we are in any other state, we don't need to poll.
+    //
+    fn poll_interval(&self) -> Option<u64> {
+        match self.state {
+            PowerState::A0 => Some(10),
+            PowerState::A0PlusHP => Some(100),
+            _ => None,
+        }
+    }
 }
 
 impl idl::InOrderSequencerImpl for ServerImpl {
     fn get_state(
         &mut self,
-        rm: &RecvMessage,
+        _: &RecvMessage,
     ) -> Result<PowerState, RequestError<SeqError>> {
         ringbuf_entry!(Trace::GetState);
         Ok(self.state)
@@ -455,7 +487,8 @@ impl idl::InOrderSequencerImpl for ServerImpl {
                 Ok(())
             }
 
-            (PowerState::A0, PowerState::A2) => {
+            (PowerState::A0, PowerState::A2)
+            | (PowerState::A0Thermtrip, PowerState::A2) => {
                 //
                 // Flip the UART mux back to disabled
                 //

@@ -19,4 +19,5 @@ pub enum PowerState {
     A1 = 4,
     A0 = 5,
     A0PlusHP = 6,
+    A0Thermtrip = 7,
 }

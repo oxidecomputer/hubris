@@ -81,7 +81,8 @@ impl BspT for Bsp {
                 }
                 PowerState::A2
                 | PowerState::A2PlusMono
-                | PowerState::A2PlusFans => POWER_STATE_A2,
+                | PowerState::A2PlusFans
+                | PowerState::A0Thermtrip => POWER_STATE_A2,
             },
             // If `get_state` failed, then enable all sensors.  One of them
             // will presumably fail and will drop us into failsafe

@@ -246,12 +246,18 @@ fn get_state() -> PowerState {
 
     let sequencer = seq_api::Sequencer::from(SEQUENCER.get_task_id());
 
-    match sequencer.get_state() {
-        Ok(seq_api::PowerState::A0) => PowerState::A0,
-        Ok(seq_api::PowerState::A2) => PowerState::A2,
-        _ => {
-            panic!("bad state");
-        }
+    //
+    // We deliberately enumerate all power states to force the addition of
+    // new ones to update this code.
+    //
+    match sequencer.get_state().unwrap() {
+        seq_api::PowerState::A0
+        | seq_api::PowerState::A0PlusHP
+        | seq_api::PowerState::A0Thermtrip => PowerState::A0,
+        seq_api::PowerState::A1
+        | seq_api::PowerState::A2
+        | seq_api::PowerState::A2PlusMono
+        | seq_api::PowerState::A2PlusFans => PowerState::A2,
     }
 }
 
