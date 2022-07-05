@@ -232,69 +232,58 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "FANTIMEOUT",
+                    "inst_name": "FANFAULT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Power Timeout"
+                    "desc": "Fan Fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "FANFAULT",
+                    "inst_name": "THERMTRIP",
                     "lsb": 1,
                     "msb": 1,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Power Fault"
+                    "desc": "Thermtrip"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A1TIMEOUT",
+                    "inst_name": "A1MAPO",
                     "lsb": 2,
                     "msb": 2,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A1 Power-up Timeout"
+                    "desc": "A1 MAPO"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A1FAULT",
+                    "inst_name": "A0MAPO",
                     "lsb": 3,
                     "msb": 3,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A1 Fault"
+                    "desc": "A0 MAPO"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A0TIMEOUT",
+                    "inst_name": "NICMAPO",
                     "lsb": 4,
                     "msb": 4,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A0 Power-up Timeout"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "A0FAULT",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "A0 Fault"
+                    "desc": "Nic MAPO"
                 }
             ]
         },
@@ -307,69 +296,58 @@
             "children": [
                 {
                     "type": "field",
-                    "inst_name": "FANTIMEOUT",
+                    "inst_name": "FANFAULT",
                     "lsb": 0,
                     "msb": 0,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Power Timeout"
+                    "desc": "Fan Fault"
                 },
                 {
                     "type": "field",
-                    "inst_name": "FANFAULT",
+                    "inst_name": "THERMTRIP",
                     "lsb": 1,
                     "msb": 1,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Fan Power Fault"
+                    "desc": "Thermtrip"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A1TIMEOUT",
+                    "inst_name": "A1MAPO",
                     "lsb": 2,
                     "msb": 2,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A1 Power-up Timeout"
+                    "desc": "A1 MAPO"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A1FAULT",
+                    "inst_name": "A0MAPO",
                     "lsb": 3,
                     "msb": 3,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A1 Fault"
+                    "desc": "A0 MAPO"
                 },
                 {
                     "type": "field",
-                    "inst_name": "A0TIMEOUT",
+                    "inst_name": "NICMAPO",
                     "lsb": 4,
                     "msb": 4,
                     "reset": null,
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A0 Power-up Timeout"
-                },
-                {
-                    "type": "field",
-                    "inst_name": "A0FAULT",
-                    "lsb": 5,
-                    "msb": 5,
-                    "reset": null,
-                    "sw_access": "rw",
-                    "se_onread": null,
-                    "se_onwrite": null,
-                    "desc": "A0 Fault"
+                    "desc": "Nic MAPO"
                 }
             ]
         },
@@ -492,7 +470,7 @@
         },
         {
             "type": "reg",
-            "inst_name": "PWRCTRL",
+            "inst_name": "PWR_CTRL",
             "addr_offset": 15,
             "regwidth": 8,
             "min_accesswidth": 8,
@@ -517,14 +495,34 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "A0 Group A power enable (starts state machine)"
+                    "desc": "A0 Group power enable (starts state machine)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "NIC_CTRL",
+            "addr_offset": 16,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "CLD_RST",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "NIC CLD_RST control. Controls CLD_RST_N (inverted). Defaults to reset asserted to be\ncleared by software when SP3 hotplug indicates enable"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "A1SMSTATUS",
-            "addr_offset": 16,
+            "addr_offset": 17,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -544,7 +542,7 @@
         {
             "type": "reg",
             "inst_name": "A0SMSTATUS",
-            "addr_offset": 17,
+            "addr_offset": 18,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -564,7 +562,7 @@
         {
             "type": "reg",
             "inst_name": "NICSMSTATUS",
-            "addr_offset": 18,
+            "addr_offset": 19,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -584,7 +582,7 @@
         {
             "type": "reg",
             "inst_name": "BOARD_REV",
-            "addr_offset": 19,
+            "addr_offset": 20,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -604,7 +602,7 @@
         {
             "type": "reg",
             "inst_name": "EARLY_RBKS",
-            "addr_offset": 20,
+            "addr_offset": 21,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -668,7 +666,7 @@
         {
             "type": "reg",
             "inst_name": "A1_READBACKS",
-            "addr_offset": 21,
+            "addr_offset": 22,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -721,7 +719,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_A0",
-            "addr_offset": 22,
+            "addr_offset": 23,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -774,7 +772,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPB_PG",
-            "addr_offset": 23,
+            "addr_offset": 24,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -871,7 +869,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPB_UNUSED",
-            "addr_offset": 24,
+            "addr_offset": 25,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -913,7 +911,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPBC_FLTS",
-            "addr_offset": 25,
+            "addr_offset": 26,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1010,7 +1008,7 @@
         {
             "type": "reg",
             "inst_name": "GROUPC_PG",
-            "addr_offset": 26,
+            "addr_offset": 27,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1041,7 +1039,7 @@
         {
             "type": "reg",
             "inst_name": "NIC_STATUS",
-            "addr_offset": 27,
+            "addr_offset": 28,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1127,7 +1125,7 @@
         {
             "type": "reg",
             "inst_name": "CLKGEN_STATUS",
-            "addr_offset": 28,
+            "addr_offset": 29,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1213,7 +1211,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_STATUS",
-            "addr_offset": 29,
+            "addr_offset": 30,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1255,7 +1253,7 @@
         {
             "type": "reg",
             "inst_name": "FANOUTSTATUS",
-            "addr_offset": 30,
+            "addr_offset": 31,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1286,7 +1284,7 @@
         {
             "type": "reg",
             "inst_name": "EARLY_PWR_STATUS",
-            "addr_offset": 31,
+            "addr_offset": 32,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1339,7 +1337,7 @@
         {
             "type": "reg",
             "inst_name": "A1_OUT_STATUS",
-            "addr_offset": 32,
+            "addr_offset": 33,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1403,7 +1401,7 @@
         {
             "type": "reg",
             "inst_name": "A0_OUT_STATUS_1",
-            "addr_offset": 33,
+            "addr_offset": 34,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1500,7 +1498,7 @@
         {
             "type": "reg",
             "inst_name": "A0_OUT_STATUS_2",
-            "addr_offset": 34,
+            "addr_offset": 35,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1586,7 +1584,7 @@
         {
             "type": "reg",
             "inst_name": "OUT_STATUS_NIC1",
-            "addr_offset": 35,
+            "addr_offset": 36,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1683,7 +1681,7 @@
         {
             "type": "reg",
             "inst_name": "OUT_STATUS_NIC2",
-            "addr_offset": 36,
+            "addr_offset": 37,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1758,7 +1756,7 @@
         {
             "type": "reg",
             "inst_name": "CLKGEN_OUT_STATUS",
-            "addr_offset": 37,
+            "addr_offset": 38,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1778,7 +1776,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_OUT_STATUS",
-            "addr_offset": 38,
+            "addr_offset": 39,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1798,7 +1796,7 @@
         {
             "type": "reg",
             "inst_name": "DBG_CTRL",
-            "addr_offset": 39,
+            "addr_offset": 40,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1833,7 +1831,7 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Nic debug control only. Seeting will force CLD_RST assert until cleared"
+                    "desc": "Nic debug control only. Seeting will force CLD_RST assert until cleared. When cleared,\nCLD_RST will normally be controlled by state machine and NIC Control register"
                 },
                 {
                     "type": "field",
@@ -1844,14 +1842,25 @@
                     "sw_access": "rw",
                     "se_onread": null,
                     "se_onwrite": null,
-                    "desc": "Nic debug control only. Setting will force Perst_L assert until cleared"
+                    "desc": "Nic debug control only. Setting will force Perst_L assert until cleared. When\ncleared, PERST will normally be controlled by SP3 I/O expander. Set next bit PERST_FORCE_SOLO to\nignore all SP3 control and have this register directly control I/O regardless of SP3's PERST state"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "NIC_PERST_SOLO",
+                    "lsb": 4,
+                    "msb": 4,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Nic debug control only. Make PERST ignore any SP3 I/O and drive directly from previous bit"
                 }
             ]
         },
         {
             "type": "reg",
             "inst_name": "A1_DBG_OUT",
-            "addr_offset": 40,
+            "addr_offset": 41,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -1915,7 +1924,7 @@
         {
             "type": "reg",
             "inst_name": "A0_DBG_OUT_1",
-            "addr_offset": 41,
+            "addr_offset": 42,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2012,7 +2021,7 @@
         {
             "type": "reg",
             "inst_name": "A0_DBG_OUT_2",
-            "addr_offset": 42,
+            "addr_offset": 43,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2098,7 +2107,7 @@
         {
             "type": "reg",
             "inst_name": "DBG_OUT_NIC1",
-            "addr_offset": 43,
+            "addr_offset": 44,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2195,7 +2204,7 @@
         {
             "type": "reg",
             "inst_name": "DBG_OUT_NIC2",
-            "addr_offset": 44,
+            "addr_offset": 45,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2270,7 +2279,7 @@
         {
             "type": "reg",
             "inst_name": "CLKGEN_DBG_OUT",
-            "addr_offset": 45,
+            "addr_offset": 46,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -2290,7 +2299,7 @@
         {
             "type": "reg",
             "inst_name": "AMD_DBG_OUT",
-            "addr_offset": 46,
+            "addr_offset": 47,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [

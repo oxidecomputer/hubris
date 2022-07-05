@@ -500,7 +500,9 @@ bus = "rear"
 address = 0x20
 device = "max31790"
 description = "Fan controller"
-sensors = { speed = 6 }
+sensors = { speed = 6, names = [
+    "Southeast", "Northeast", "South", "North", "Southwest", "Northwest"
+] }
 refdes = "U321"
 
 [[config.i2c.devices]]

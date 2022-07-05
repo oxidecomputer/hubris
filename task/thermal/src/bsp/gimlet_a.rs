@@ -76,10 +76,13 @@ impl BspT for Bsp {
     fn power_mode(&self) -> u32 {
         match self.seq.get_state() {
             Ok(p) => match p {
-                PowerState::A0 | PowerState::A1 => POWER_STATE_A0,
+                PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
+                    POWER_STATE_A0
+                }
                 PowerState::A2
                 | PowerState::A2PlusMono
-                | PowerState::A2PlusFans => POWER_STATE_A2,
+                | PowerState::A2PlusFans
+                | PowerState::A0Thermtrip => POWER_STATE_A2,
             },
             // If `get_state` failed, then enable all sensors.  One of them
             // will presumably fail and will drop us into failsafe
