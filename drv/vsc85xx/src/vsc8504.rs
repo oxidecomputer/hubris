@@ -93,62 +93,145 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             return Err(VscError::BadPhyRev);
         }
 
-        self.phy.check_base_port()?;
-        crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
+        let phy_port = self.phy.get_port()?;
+        let is_base_port = phy_port == 0;
 
-        // Configure to QSGMII mode
-        // (this is a global register, so we only need to write it once)
+        // `vtss_phy_pre_init_seq_tesla`, which calls
+        // `vtss_phy_pre_init_seq_tesla_rev_e` (since we check above for rev E)
+        if is_base_port {
+            crate::tesla::TeslaPhy { phy: &mut self.phy }.patch()?;
+        }
+
+        // This is a TESLA PHY.  Here, we roughly follow the SDK function
+        // `vtss_phy_reset_private`.  Please forgive the overlap with
+        // vsc8562.rs; I'm doing my best to split into PHY-specific functions
+        // instead of having MEGA-FUNCTIONS to handle every single PHY.
+
+        // "-- Step 2: Pre-reset setup of MAC and Media interface --"
+        // (There is no Step 1, apparently)
+        //
+        // We are now entering
+        //      phy_reset_private
+        //          vtss_phy_mac_media_if_tesla_setup
+
+        // "Setup MAC Configuration" (5760)
+        // (this is a global register, so we only need to write to it once, but
+        // the SDK writes to it for each PHY, so we'll do the same)
         self.phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
-            r.0 = (r.0 & !(0b11 << 14)) | (0b01 << 14)
+            r.0 = (r.0 & !0x6000) | 0x4000
         })?;
 
-        // Enable 4 port MAC QSGMII (line 5844)
-        self.phy.cmd(0x80E0)?;
+        // "Configure SerDes macros for QSGMII MAC interface (See TN1080)"
+        // (line 5836)
+        if is_base_port {
+            // The SDK does not suspend / resume the patch, but I'm skeptical
+            self.phy.cmd(0x80E0)?;
+        }
+        sleep_for(10); // (line 5928)
+
+        // We are running with fiber media, so
+        // "Setup media in micro program" (5946)
+        self.phy.cmd(0x80C1 | (0x0100 << phy_port))?;
         sleep_for(10);
 
-        // "Setup media in micro program"
-        self.phy.cmd(0x8FC1)?; // XXX (??)
-        sleep_for(10);
+        // "Setup Media interface" (5952)
+        self.phy
+            .modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
+                // SerDes fiber/SFP protocol transfer mode only
+                r.set_media_operating_mode(0b001);
+            })?;
 
         // "Set packet mode" (line 5961)
         // Skipping this for now.
 
-        // All of these bits are sticky
-        self.phy.broadcast(|phy| {
-            phy.modify(phy::STANDARD::EXTENDED_PHY_CONTROL(), |r| {
-                // SGMII MAC interface mode (default)
-                r.set_mac_interface_mode(0);
-                // SerDes fiber/SFP protocol transfer mode only
-                r.set_media_operating_mode(0b001);
-            })
+        // Congratulations!
+        // You are now exiting vtss_phy_mac_media_if_tesla_setup and returning
+        // to phy_reset_private:8313
+
+        // "-- Step 3: Reset PHY --" (line 8349)
+        // We are now entering
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_atom_patch_suspend(..., true)
+        crate::atom::atom_patch_suspend(&mut self.phy)?;
+
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //
+        // The soft reset for the TESLA PHY is different, for some reason!
+        // "Tesla PHY Only - Writing 0xc040, See Bug_9450" (919)
+        self.phy.write(phy::GPIO::MICRO_PAGE(), 0xC040.into())?;
+        sleep_for(1); // line 934
+
+        // We are now roughly at line 948, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_1g_set_private
+        // Nothing to do here (automatic master/slave config is fine)
+
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_set_private
+        // Nothing happens in the first conditional (8581), because we're
+        // in VTSS_PHY_MODE_FORCED and also doing passthrough mode (8739)
+
+        // We are now at line 8968 and entering
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_phy_soft_reset_port
+        //                  vtss_phy_conf_set_private
+        //                      vtss_phy_pass_through_speed_mode (7601)
+        //
+        // "Protocol Transfer mode Guide : Section 4.1.1 - Aneg must be enabled"
+        // (line 7614)
+        self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+            r.set_auto_neg_ena(1);
         })?;
 
-        self.phy.broadcast(|phy| {
-            phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-                r.set_auto_neg_ena(0);
-            })
-        })?;
+        // "Default clear "force advertise ability" bit as well" (7620)
+        self.phy
+            .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+                r.set_force_adv_ability(0);
+                r.set_aneg_ena(1);
+            })?;
 
-        // Now, we reset the PHY to put those settings into effect
-        // XXX: is it necessary to reset each of the four ports independently?
-        // (It _is_ necessary for the VSC8552 on the management network dev board)
-        for p in 0..4 {
-            Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
-        }
-
-        self.phy.broadcast(|phy| {
-            phy.modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
+        // "Protocol Transfer mode Guide : Section 4.1.3" (7625)
+        // We are trying to do forced speed protocol transfer mode, so this
+        // is the correct block.
+        self.phy
+            .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
                 r.set_force_adv_ability(1);
             })?;
-            phy.modify(
-                phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
-                |r| {
-                    *r = 0x8401.into(); // 100M
-                },
-            )?;
-            Ok(())
+        self.phy.write(
+            phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
+            // VTSS_SPEED_100M (line 7630)
+            0x8401.into(),
+        )?;
+
+        // Restart autonegotiation (line 7659)
+        self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+            r.set_auto_neg_ena(1);
+            r.set_restart_auto_neg(1);
         })?;
 
+        // We are now done with vtss_phy_pass_through_speed_mode.
+        // The rest of vtss_phy_conf_set_private doesn't do much (sets up
+        // SIGDET and fast link fail enable), so we'll skip it for now.
+
+        // Now, we're done with vtss_phy_soft_reset_port.
+        // We are now roughly at line 980, doing
+        //      phy_reset_private
+        //          port_reset
+        //              vtss_atom_patch_suspend(..., false)
+        // and then returning from port_reset back into phy_reset_private
+        crate::atom::atom_patch_resume(&mut self.phy)?;
+
+        // There are no significant startup scripts for TESLA
+        // (vtss_phy_100BaseT_long_linkup_workaround doesn't seem relevant,
+        // called at line 8499)
         Ok(())
     }
 }

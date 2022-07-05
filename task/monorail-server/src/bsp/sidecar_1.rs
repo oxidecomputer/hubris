@@ -270,6 +270,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // Initialize the PHY, then disable COMA_MODE
         let rw = &mut NetPhyRw(&mut self.net);
         self.vsc8504 = Vsc8504::init(4, rw)?;
+        for p in 5..8 {
+            Vsc8504::init(p, rw)?;
+        }
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.

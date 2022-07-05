@@ -9,6 +9,7 @@
 //! trait is an abstraction over reading and writing raw PHY registers.
 #![no_std]
 
+mod atom;
 mod led;
 mod tesla;
 mod util;
@@ -157,11 +158,11 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     where
         T: From<u16> + Clone,
         u16: From<T>,
-        F: Fn(T) -> bool,
+        F: Fn(T) -> Result<bool, VscError>,
     {
         for _ in 0..32 {
             let r = self.read(reg)?;
-            if f(r) {
+            if f(r)? {
                 return Ok(());
             }
             sleep_for(1)
@@ -182,6 +183,8 @@ enum Trace {
     Vsc8562InitQsgmii(u8),
     TeslaPatch(u8),
     ViperPatch(u8),
+    AtomPatchSuspend(bool),
+    AtomPatchResume(bool),
     PatchState { patch_ok: bool, skip_download: bool },
     GotCrc(u16),
 }
