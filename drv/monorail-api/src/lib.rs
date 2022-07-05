@@ -16,7 +16,7 @@ pub use vsc7448::{
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PortStatus {
     pub cfg: PortConfig,
-    pub link_up: bool,
+    pub link_up: LinkStatus,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

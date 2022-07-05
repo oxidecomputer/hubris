@@ -151,3 +151,10 @@ impl PortMap {
         })
     }
 }
+
+impl core::ops::Index<u8> for PortMap {
+    type Output = Option<PortMode>;
+    fn index(&self, i: u8) -> &Self::Output {
+        &self.0[i as usize]
+    }
+}

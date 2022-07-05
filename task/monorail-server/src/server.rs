@@ -9,7 +9,10 @@ use monorail_api::{
     PortDev, PortStatus, VscError,
 };
 use userlib::{sys_get_timer, sys_set_timer};
-use vsc7448::{config::PortMap, DevGeneric, Vsc7448, Vsc7448Rw};
+use vsc7448::{
+    config::{PortMap, PortMode},
+    DevGeneric, Vsc7448, Vsc7448Rw,
+};
 use vsc7448_pac::{types::PhyRegisterAddress, *};
 
 pub struct ServerImpl<'a, R> {
@@ -106,6 +109,23 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     != 0
             }
         };
+        // If this is a QSGMII port, also check the QSGMII status register
+        let link_up = if !link_up {
+            LinkStatus::Down
+        } else if matches!(self.map[port], Some(PortMode::Qsgmii(_))) {
+            let r = self
+                .vsc7448
+                .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(port / 4))
+                .map_err(MonorailError::from)?;
+            if r.sync() == 0 {
+                LinkStatus::Error
+            } else {
+                LinkStatus::Up
+            }
+        } else {
+            LinkStatus::Up
+        };
+
         Ok(PortStatus { cfg, link_up })
     }
 
