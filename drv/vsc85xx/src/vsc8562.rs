@@ -16,10 +16,12 @@ pub struct Vsc8562Phy<'a, 'b, P> {
 
 impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     /// Initializes a VSC8562 PHY using SGMII based on section 3.1.2.1 (2x SGMII
-    /// to 100BASE-FX SFP Fiber).  Same caveats as `init` apply.
-    pub fn init(&mut self) -> Result<(), VscError> {
+    /// to 100BASE-FX SFP Fiber).  Same caveats as `Vsc85x2Phy::init_sgmii`
+    /// apply: this must be called on the base port of the PHY and the caller
+    /// is responsible for handling reset and `COMA_MODE` pins.
+    pub fn init_sgmii(&mut self) -> Result<(), VscError> {
         // This is roughly based on `vtss_phy_reset_private`
-        ringbuf_entry!(Trace::Vsc8562Init(self.phy.port));
+        ringbuf_entry!(Trace::Vsc8562InitSgmii(self.phy.port));
         self.phy.check_base_port()?;
 
         // Apply the initial patch (more patches to SerDes happen later)
@@ -37,7 +39,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
 
         ////////////////////////////////////////////////////////////////////////
         if !self.sd6g_has_patch()? {
-            self.sd6g_patch()?;
+            self.sd6g_patch(false)?;
         }
 
         // 100BASE-FX on all PHYs
@@ -58,30 +60,60 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
         }
 
-        ////////////////////////////////////////////////////////////////////////
         // "Bug# 19146
-        //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity for 100FX"
-        // Based on `vtss_phy_sd1g_patch_private` in the SDK
-        for p in 0..2 {
-            // XXX The SDK just does self.port * 2 (including any offset); based on
-            // table 33 in the datasheet, I believe this is actually the correct
-            // behavior.
-            let slave_addr = p * 2;
+        //  Adjust the 1G SerDes SigDet Input Threshold and Signal Sensitivity
+        //  for 100FX"
+        self.sd1g_patch(true)?;
 
-            // "read 1G MCB into CSRs"
-            self.mcb_read(0x20, slave_addr)?;
+        // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
+        self.fix_bz21484()?;
 
-            // Various bits of configuration for 100FX mode
-            self.sd1g_ib_cfg_write(0)?;
-            self.sd1g_misc_cfg_write(1)?;
-            self.sd1g_des_cfg_write(14, 3)?;
+        // In the SDK, there's more configuration for 100BT, which we don't use
 
-            // "write back 1G MCB"
-            self.mcb_write(0x20, slave_addr)?;
+        Ok(())
+    }
+
+    pub fn init_qsgmii(&mut self) -> Result<(), VscError> {
+        // This is roughly based on `vtss_phy_reset_private`
+        ringbuf_entry!(Trace::Vsc8562InitQsgmii(self.phy.port));
+        self.phy.check_base_port()?;
+
+        // Apply the initial patch (more patches to SerDes happen later)
+        crate::viper::ViperPhy { phy: self.phy }.patch()?;
+
+        // Configure QSGMII MAC interface mode
+        self.phy.broadcast(|phy| {
+            phy.modify(phy::GPIO::MAC_MODE_AND_FAST_LINK(), |r| {
+                r.0 |= 0x4000; // QSGMII MAC interface mode
+            })
+        })?;
+
+        // Enable two MAC 1/2 QSGMII ports
+        self.phy.cmd(0x80E0)?;
+
+        if !self.sd6g_has_patch()? {
+            self.sd6g_patch(true)?;
         }
 
-        ////////////////////////////////////////////////////////////////////////
+        // Leave phy::STANDARD::EXTENDED_PHY_CONTROL in its default config
+
+        // Now, we reset the PHY to put those settings into effect.  For some
+        // reason, we can't do a broadcast reset, so we do it port-by-port.
+        for p in 0..2 {
+            Phy::new(self.phy.port + p, self.phy.rw).software_reset()?;
+        }
+
+        // The SDK calls `vtss_phy_sd1g_patch_private` here, but that doesn't
+        // work for me: the MCB-mediated access to SERDES registers times out.
+        // It's probably okay to skip it, though, because we're not using the
+        // 1G SERDES (which are for fiber / SGMII _media_ links).
+
         // "Fix for bz# 21484 ,TR.LinkDetectCtrl = 3"
+        self.fix_bz21484()?;
+        Ok(())
+    }
+
+    fn fix_bz21484(&mut self) -> Result<(), VscError> {
         self.phy.broadcast(|v| {
             v.write(phy::TR::TR_16(), 0xa7f8.into())?;
             v.modify(phy::TR::TR_17(), |r| {
@@ -97,10 +129,33 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
                 r.0 |= 25
             })?;
             v.write(phy::TR::TR_16(), 0x8fa4.into())
-        })?;
+        })
+    }
 
-        // In the SDK, there's more configuration for 100BT, which we don't use
+    // Based on `vtss_phy_sd1g_patch_private` in the SDK
+    fn sd1g_patch(&mut self, is_100fx: bool) -> Result<(), VscError> {
+        for p in 0..2 {
+            // XXX The SDK just does self.port * 2 (including any offset); based on
+            // table 33 in the datasheet, I believe this is actually the correct
+            // behavior.
+            let slave_addr = p * 2;
 
+            // "read 1G MCB into CSRs"
+            self.mcb_read(0x20, slave_addr)?;
+
+            if is_100fx {
+                self.sd1g_ib_cfg_write(0)?;
+                self.sd1g_misc_cfg_write(1)?;
+                self.sd1g_des_cfg_write(14, 3)?;
+            } else {
+                self.sd1g_ib_cfg_write(1)?;
+                self.sd1g_misc_cfg_write(0)?;
+                self.sd1g_des_cfg_write(6, 2)?;
+            }
+
+            // "write back 1G MCB"
+            self.mcb_write(0x20, slave_addr)?;
+        }
         Ok(())
     }
 
@@ -134,7 +189,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     /// Based on `vtss_phy_sd6g_patch_private`.
     ///
     /// `v` must be the base port of this PHY, otherwise this will return an error
-    fn sd6g_patch(&mut self) -> Result<(), VscError> {
+    fn sd6g_patch(&mut self, qsgmii: bool) -> Result<(), VscError> {
         self.phy.check_base_port()?;
 
         let ib_sig_det_clk_sel_cal = 0; // "0 for during IBCAL for all"
@@ -142,10 +197,11 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         let ib_tsdet_cal = 16;
         let ib_tsdet_mm = 5;
 
-        let pll_fsm_ctrl_data = 60;
-        let qrate = 1;
-        let if_mode = 1;
-        let des_bw_ana_val = 3;
+        let (pll_fsm_ctrl_data, qrate, if_mode, des_bw_ana_val) = if qsgmii {
+            (120, 0, 3, 5)
+        } else {
+            (60, 1, 1, 3)
+        };
 
         // `detune_pll5g`
         self.macsec_csr_modify(7, 0x8, |r| {
@@ -274,12 +330,12 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.mcb_write(0x3f, 0)?;
 
         // "b. Configure sd6g for desired operating mode"
-        // Settings for SGMII
-        let pll_fsm_ctrl_data = 60;
-        let qrate = 1;
-        let if_mode = 1;
-        let des_bw_ana_val = 3;
-        self.phy.cmd(0x80F0)?; // XXX: why do we need to do this again here?
+        // XXX Not sure if we _actually_ need to do this again here
+        if qsgmii {
+            self.phy.cmd(0x80E0)?;
+        } else {
+            self.phy.cmd(0x80F0)?;
+        }
 
         self.mcb_read(0x11, 0)?; // "read LCPLL MCB into CSRs"
         self.mcb_read(0x3f, 0)?; // "read 6G MCB into CSRs"

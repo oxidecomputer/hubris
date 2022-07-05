@@ -2,17 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_sidecar_seq_api::Sequencer;
-use drv_stm32xx_sys_api::{self as sys_api, Sys};
+use drv_sidecar_front_io::phy_smi::PhySmi;
+use drv_sidecar_seq_api::{SeqError, Sequencer};
+use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
-use vsc85xx::{vsc8504::Vsc8504, PhyRw};
+use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
 task_slot!(NET, net);
 task_slot!(SEQ, seq);
+task_slot!(FRONT_IO, ecp5_front_io);
 
 const MAC_SEEN_COUNT: usize = 64;
 
@@ -34,8 +36,20 @@ ringbuf!(Trace, 16, Trace::None);
 
 pub struct Bsp<'a, R> {
     vsc7448: &'a Vsc7448<'a, R>,
+
+    /// PHY for the on-board PHY ("PHY4")
     vsc8504: Vsc8504,
+
+    /// API handle for the `Net` task, which is used for PHY control over RPC
     net: task_net_api::Net,
+
+    /// RPC handle for the front IO board's PHY, which is a VSC8562. This is
+    /// used for PHY control via a Rube Goldberg machine of
+    ///     Hubris RPC -> SPI -> FPGA -> MDIO -> PHY
+    ///
+    /// This is `None` if the front IO board isn't connected.
+    vsc8562: Option<PhySmi>,
+
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
     vsc8504_mode_status: [u16; 4],
     vsc8504_mac_status: [u16; 4],
@@ -53,64 +67,65 @@ mod map {
         Speed::*,
     };
     const SGMII: Option<PortMode> = Some(Sgmii(Speed100M));
-    const QSGMII: Option<PortMode> = Some(Qsgmii(Speed100M));
+    const QSGMII_100M: Option<PortMode> = Some(Qsgmii(Speed100M));
+    const QSGMII_1G: Option<PortMode> = Some(Qsgmii(Speed1G));
     const SFI: Option<PortMode> = Some(Sfi);
 
     // See RFD144 for a detailed look at the design
     pub const PORT_MAP: PortMap = PortMap::new([
-        SGMII,  // 0  | DEV1G_0   | SERDES1G_1  | Cubby 0
-        SGMII,  // 1  | DEV1G_1   | SERDES1G_2  | Cubby 1
-        SGMII,  // 2  | DEV1G_2   | SERDES1G_3  | Cubby 2
-        SGMII,  // 3  | DEV1G_3   | SERDES1G_4  | Cubby 3
-        SGMII,  // 4  | DEV1G_4   | SERDES1G_5  | Cubby 4
-        SGMII,  // 5  | DEV1G_5   | SERDES1G_6  | Cubby 5
-        SGMII,  // 6  | DEV1G_6   | SERDES1G_7  | Cubby 6
-        SGMII,  // 7  | DEV1G_7   | SERDES1G_8  | Cubby 7
-        SGMII,  // 8  | DEV2G5_0  | SERDES6G_0  | Cubby 8
-        SGMII,  // 9  | DEV2G5_1  | SERDES6G_1  | Cubby 9
-        SGMII,  // 10 | DEV2G5_2  | SERDES6G_2  | Cubby 10
-        SGMII,  // 11 | DEV2G5_3  | SERDES6G_3  | Cubby 11
-        SGMII,  // 12 | DEV2G5_4  | SERDES6G_4  | Cubby 12
-        SGMII,  // 13 | DEV2G5_5  | SERDES6G_5  | Cubby 13
-        SGMII,  // 14 | DEV2G5_6  | SERDES6G_6  | Cubby 14
-        SGMII,  // 15 | DEV2G5_7  | SERDES6G_7  | Cubby 15
-        SGMII,  // 16 | DEV2G5_8  | SERDES6G_8  | Cubby 16
-        SGMII,  // 17 | DEV2G5_9  | SERDES6G_9  | Cubby 17
-        SGMII,  // 18 | DEV2G5_10 | SERDES6G_10 | Cubby 18
-        SGMII,  // 19 | DEV2G5_11 | SERDES6G_11 | Cubby 19
-        SGMII,  // 20 | DEV2G5_12 | SERDES6G_12 | Cubby 20
-        SGMII,  // 21 | DEV2G5_13 | SERDES6G_13 | Cubby 21
-        None,   // 22
-        None,   // 23
-        SGMII,  // 24 | DEV2G5_16 | SERDES6G_16 | Cubby 22
-        SGMII,  // 25 | DEV2G5_17 | SERDES6G_17 | Cubby 23
-        SGMII,  // 26 | DEV2G5_18 | SERDES6G_18 | Cubby 24
-        SGMII,  // 27 | DEV2G5_19 | SERDES6G_19 | Cubby 25
-        SGMII,  // 28 | DEV2G5_20 | SERDES6G_20 | Cubby 26
-        SGMII,  // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 27
-        SGMII,  // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 28
-        SGMII,  // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 29
-        None,   // 32
-        None,   // 33
-        None,   // 34
-        None,   // 35
-        None,   // 36
-        None,   // 37
-        None,   // 38
-        None,   // 39
-        QSGMII, // 40 | DEV1G_16  | SERDES6G_14 | Peer SP
-        QSGMII, // 41 | DEV1G_17  | SERDES6G_14 | PSC0
-        QSGMII, // 42 | DEV1G_18  | SERDES6G_14 | PSC1
-        QSGMII, // 43 | Unused
-        QSGMII, // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
-        QSGMII, // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
-        QSGMII, // 46 | Unused
-        QSGMII, // 47 | Unused
-        SGMII,  // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
-        SFI,    // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
-        None,   // 50 | Unused
-        SGMII,  // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
-        SGMII,  // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
+        SGMII,       // 0  | DEV1G_0   | SERDES1G_1  | Cubby 0
+        SGMII,       // 1  | DEV1G_1   | SERDES1G_2  | Cubby 1
+        SGMII,       // 2  | DEV1G_2   | SERDES1G_3  | Cubby 2
+        SGMII,       // 3  | DEV1G_3   | SERDES1G_4  | Cubby 3
+        SGMII,       // 4  | DEV1G_4   | SERDES1G_5  | Cubby 4
+        SGMII,       // 5  | DEV1G_5   | SERDES1G_6  | Cubby 5
+        SGMII,       // 6  | DEV1G_6   | SERDES1G_7  | Cubby 6
+        SGMII,       // 7  | DEV1G_7   | SERDES1G_8  | Cubby 7
+        SGMII,       // 8  | DEV2G5_0  | SERDES6G_0  | Cubby 8
+        SGMII,       // 9  | DEV2G5_1  | SERDES6G_1  | Cubby 9
+        SGMII,       // 10 | DEV2G5_2  | SERDES6G_2  | Cubby 10
+        SGMII,       // 11 | DEV2G5_3  | SERDES6G_3  | Cubby 11
+        SGMII,       // 12 | DEV2G5_4  | SERDES6G_4  | Cubby 12
+        SGMII,       // 13 | DEV2G5_5  | SERDES6G_5  | Cubby 13
+        SGMII,       // 14 | DEV2G5_6  | SERDES6G_6  | Cubby 14
+        SGMII,       // 15 | DEV2G5_7  | SERDES6G_7  | Cubby 15
+        SGMII,       // 16 | DEV2G5_8  | SERDES6G_8  | Cubby 16
+        SGMII,       // 17 | DEV2G5_9  | SERDES6G_9  | Cubby 17
+        SGMII,       // 18 | DEV2G5_10 | SERDES6G_10 | Cubby 18
+        SGMII,       // 19 | DEV2G5_11 | SERDES6G_11 | Cubby 19
+        SGMII,       // 20 | DEV2G5_12 | SERDES6G_12 | Cubby 20
+        SGMII,       // 21 | DEV2G5_13 | SERDES6G_13 | Cubby 21
+        None,        // 22
+        None,        // 23
+        SGMII,       // 24 | DEV2G5_16 | SERDES6G_16 | Cubby 22
+        SGMII,       // 25 | DEV2G5_17 | SERDES6G_17 | Cubby 23
+        SGMII,       // 26 | DEV2G5_18 | SERDES6G_18 | Cubby 24
+        SGMII,       // 27 | DEV2G5_19 | SERDES6G_19 | Cubby 25
+        SGMII,       // 28 | DEV2G5_20 | SERDES6G_20 | Cubby 26
+        SGMII,       // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 27
+        SGMII,       // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 28
+        SGMII,       // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 29
+        None,        // 32
+        None,        // 33
+        None,        // 34
+        None,        // 35
+        None,        // 36
+        None,        // 37
+        None,        // 38
+        None,        // 39
+        QSGMII_100M, // 40 | DEV1G_16  | SERDES6G_14 | Peer SP
+        QSGMII_100M, // 41 | DEV1G_17  | SERDES6G_14 | PSC0
+        QSGMII_100M, // 42 | DEV1G_18  | SERDES6G_14 | PSC1
+        QSGMII_100M, // 43 | Unused
+        QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
+        QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
+        QSGMII_1G,   // 46 | Unused
+        QSGMII_1G,   // 47 | Unused
+        SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
+        SFI,         // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
+        None,        // 50 | Unused
+        SGMII, // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
+        SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
     ]);
 }
 pub use map::PORT_MAP;
@@ -155,15 +170,35 @@ pub fn preinit() {
     while !seq.is_clock_config_loaded().unwrap_or(false) {
         sleep_for(10);
     }
+    // Wait for the front IO board to be configured (or for the board to
+    // be reported as missing).
+    loop {
+        let ready = seq.front_io_phy_ready();
+        match ready {
+            Ok(true) | Err(SeqError::NoFrontIOBoard) => break,
+            _ => sleep_for(10),
+        }
+    }
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     /// Constructs and initializes a new BSP handle
     pub fn new(vsc7448: &'a Vsc7448<'a, R>) -> Result<Self, VscError> {
         let net = task_net_api::Net::from(NET.get_task_id());
+        let seq = Sequencer::from(SEQ.get_task_id());
+        let has_front_io = match seq.front_io_phy_ready() {
+            Ok(true) => true,
+            Err(SeqError::NoFrontIOBoard) => false,
+            _ => panic!("front IO board went away after preinit()"),
+        };
         let mut out = Bsp {
             vsc7448,
             vsc8504: Vsc8504::empty(),
+            vsc8562: if has_front_io {
+                Some(PhySmi::new(FRONT_IO.get_task_id()))
+            } else {
+                None
+            },
             net,
             known_macs: [None; MAC_SEEN_COUNT],
             vsc8504_mode_status: [0; 4],
@@ -174,17 +209,19 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     fn init(&mut self) -> Result<(), VscError> {
-        // Get a handle to modify GPIOs
-        let sys = SYS.get_task_id();
-        let sys = Sys::from(sys);
-
-        self.phy_init(&sys)?;
+        self.phy_vsc8504_init()?;
+        self.phy_vsc8562_init()?;
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
 
         Ok(())
     }
 
-    fn phy_init(&mut self, sys: &Sys) -> Result<(), VscError> {
+    /// Configures the local PHY ("PHY4"), which is an on-board VSC8504
+    fn phy_vsc8504_init(&mut self) -> Result<(), VscError> {
+        // Get a handle to modify GPIOs
+        let sys = SYS.get_task_id();
+        let sys = Sys::from(sys);
+
         // Let's configure the on-board PHY first
         // Relevant pins are
         // - MIIM_SP_TO_PHY_MDC_2V5 (PC1)
@@ -240,6 +277,33 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 
         sys.gpio_reset(coma_mode).unwrap();
 
+        Ok(())
+    }
+
+    pub fn phy_vsc8562_init(&mut self) -> Result<(), VscError> {
+        if let Some(phy_rw) = &mut self.vsc8562 {
+            // Do a hard power cycle of the PHY; the fine details of sequencing
+            // are handled by the FPGA
+            phy_rw
+                .set_phy_power_enabled(false)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+            sleep_for(10);
+            phy_rw
+                .set_phy_power_enabled(true)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+            while !phy_rw
+                .phy_powered_up_and_ready()
+                .map_err(|e| VscError::ProxyError(e.into()))?
+            {
+                sleep_for(20);
+            }
+            let mut phy = vsc85xx::Phy::new(0, phy_rw);
+            let mut v = Vsc8562Phy { phy: &mut phy };
+            v.init_qsgmii()?;
+            phy_rw
+                .set_phy_coma_mode(false)
+                .map_err(|e| VscError::ProxyError(e.into()))?;
+        }
         Ok(())
     }
 
@@ -330,9 +394,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 (phy_rw, phy_port)
             }
             44..=47 => {
-                // TODO: add a `PhyRw` handle that talks over SPI to the QSFP
-                // FPGA to do MDIO
-                return None;
+                if let Some(phy_rw) = &self.vsc8562 {
+                    (GenericPhyRw::FrontIo(phy_rw), 0)
+                } else {
+                    return None;
+                }
             }
             _ => return None,
         };
@@ -344,6 +410,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
 /// Simple enum that contains all possible `PhyRw` handle types
 pub enum GenericPhyRw<'a> {
     Net(NetPhyRw<'a>),
+    FrontIo(&'a PhySmi),
 }
 
 impl<'a> PhyRw for GenericPhyRw<'a> {
@@ -355,6 +422,7 @@ impl<'a> PhyRw for GenericPhyRw<'a> {
     ) -> Result<T, VscError> {
         match self {
             GenericPhyRw::Net(n) => n.read_raw(port, reg),
+            GenericPhyRw::FrontIo(n) => n.read_raw(port, reg),
         }
     }
     #[inline(always)]
@@ -370,6 +438,7 @@ impl<'a> PhyRw for GenericPhyRw<'a> {
     {
         match self {
             GenericPhyRw::Net(n) => n.write_raw(port, reg, value),
+            GenericPhyRw::FrontIo(n) => n.write_raw(port, reg, value),
         }
     }
 }

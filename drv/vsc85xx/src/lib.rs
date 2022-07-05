@@ -14,11 +14,11 @@ mod tesla;
 mod util;
 mod viper;
 mod vsc8552;
-mod vsc8562;
 
 // User-facing handles to various PHY types
 pub mod vsc8504;
 pub mod vsc8522;
+pub mod vsc8562;
 pub mod vsc85x2;
 
 use core::cell::Cell;
@@ -178,7 +178,8 @@ enum Trace {
     Vsc8504Init(u8),
     Vsc8522Init(u8),
     Vsc8552Init(u8),
-    Vsc8562Init(u8),
+    Vsc8562InitSgmii(u8),
+    Vsc8562InitQsgmii(u8),
     TeslaPatch(u8),
     ViperPatch(u8),
     PatchState { patch_ok: bool, skip_download: bool },
