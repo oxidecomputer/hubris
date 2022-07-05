@@ -652,13 +652,7 @@ cfg_if::cfg_if! {
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
 
-        const NIC_PWREN_L_PORT: sys_api::Port = sys_api::Port::F;
-        const NIC_PWREN_L_MASK: u16 = 1 << 4;
-
-        const NIC_PWREN_L_PINS: sys_api::PinSet = sys_api::PinSet {
-            port: NIC_PWREN_L_PORT,
-            pin_mask: NIC_PWREN_L_MASK,
-        };
+        const NIC_PWREN_L_PINS: sys_api::PinSet = sys_api::Port::F.pin(4);
 
         // Externally pulled to V3P3_SYS_A0
         const NIC_PWREN_L_PULL: sys_api::Pull = sys_api::Pull::None;
