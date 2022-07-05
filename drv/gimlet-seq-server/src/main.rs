@@ -65,6 +65,17 @@ fn main() -> ! {
     let jefe = Jefe::from(JEFE.get_task_id());
     let hf = hf_api::HostFlash::from(HF.get_task_id());
 
+    // Turn off the chassis LED, in case this is a task restart (and not a
+    // full chip restart, which would leave the GPIO unconfigured).
+    sys.gpio_configure_output(
+        CHASSIS_LED,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    )
+    .unwrap();
+    sys.gpio_set(CHASSIS_LED).unwrap();
+
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
     // off,_ only on. This means if it was _already_ on, the outputs should not
@@ -305,13 +316,6 @@ fn main() -> ! {
     ringbuf_entry!(Trace::A2);
 
     // Turn on the chassis LED once we reach A2
-    sys.gpio_configure_output(
-        CHASSIS_LED,
-        sys_api::OutputType::PushPull,
-        sys_api::Speed::Low,
-        sys_api::Pull::None,
-    )
-    .unwrap();
     sys.gpio_set(CHASSIS_LED).unwrap();
 
     let mut buffer = [0; idl::INCOMING_SIZE];
