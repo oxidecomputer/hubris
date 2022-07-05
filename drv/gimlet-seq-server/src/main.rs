@@ -362,9 +362,7 @@ impl NotificationHandler for ServerImpl {
         match self.state {
             PowerState::A0 => {
                 let sys = sys_api::Sys::from(SYS.get_task_id());
-                let pwren_l = sys.gpio_read_input(NIC_PWREN_L_PORT).unwrap()
-                    & NIC_PWREN_L_MASK
-                    != 0;
+                let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS).unwrap() != 0;
 
                 ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
 
