@@ -304,6 +304,16 @@ fn main() -> ! {
     ringbuf_entry!(Trace::ClockConfigSuccess);
     ringbuf_entry!(Trace::A2);
 
+    // Turn on the chassis LED once we reach A2
+    sys.gpio_configure_output(
+        CHASSIS_LED,
+        sys_api::OutputType::PushPull,
+        sys_api::Speed::Low,
+        sys_api::Pull::None,
+    )
+    .unwrap();
+    sys.gpio_set(CHASSIS_LED).unwrap();
+
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         state: PowerState::A2,
@@ -646,6 +656,9 @@ cfg_if::cfg_if! {
             port: PGS_PORT,
             pin_mask: PG_V1P2_MASK | PG_V3P3_MASK
         };
+
+        // SP_STATUS_LED
+        const CHASSIS_LED: sys_api::PinSet = sys_api::Port::A.pin(3);
 
         // Gimlet provides external pullups.
         const PGS_PULL: sys_api::Pull = sys_api::Pull::None;
