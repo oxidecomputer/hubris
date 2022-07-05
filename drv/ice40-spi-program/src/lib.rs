@@ -166,7 +166,7 @@ pub fn finish_bitstream_load(
     // If we've sent the bitstream successfully, we expect the iCE40 to release
     // CDONE. This is supposed to happen fairly quickly. Give it a bit and
     // check.
-    if sys.gpio_read(config.cdone.port).unwrap() == 0 {
+    if sys.gpio_read(config.cdone).unwrap() == 0 {
         // aw shucks
         return Err(Ice40Error::ConfigDidNotComplete);
     }
