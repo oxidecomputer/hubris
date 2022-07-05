@@ -74,7 +74,7 @@ fn main() -> ! {
         sys_api::Pull::None,
     )
     .unwrap();
-    sys.gpio_set(CHASSIS_LED).unwrap();
+    sys.gpio_reset(CHASSIS_LED).unwrap();
 
     // To allow for the possibility that we are restarting, rather than
     // starting, we take care during early sequencing to _not turn anything
