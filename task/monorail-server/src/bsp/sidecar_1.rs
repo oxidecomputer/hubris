@@ -300,9 +300,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             {
                 sleep_for(20);
             }
-            let mut phy = vsc85xx::Phy::new(0, phy_rw);
-            let mut v = Vsc8562Phy { phy: &mut phy };
-            v.init_qsgmii()?;
+            for p in 0..2 {
+                let mut phy = vsc85xx::Phy::new(p, phy_rw);
+                let mut v = Vsc8562Phy { phy: &mut phy };
+                v.init_qsgmii()?;
+            }
             phy_rw
                 .set_phy_coma_mode(false)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
