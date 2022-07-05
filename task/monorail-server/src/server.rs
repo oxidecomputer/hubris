@@ -5,8 +5,8 @@
 use crate::bsp::{self, Bsp};
 use idol_runtime::{NotificationHandler, RequestError};
 use monorail_api::{
-    MonorailError, PacketCount, PhyStatus, PhyType, PortCounters, PortDev,
-    PortStatus, VscError,
+    LinkStatus, MonorailError, PacketCount, PhyStatus, PhyType, PortCounters,
+    PortDev, PortStatus, VscError,
 };
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{config::PortMap, DevGeneric, Vsc7448, Vsc7448Rw};
@@ -325,11 +325,29 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
             let media_link_up = (status.0 & (1 << 2)) != 0;
             let status = phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
-            let mac_link_up = status.mac_link_status() != 0;
+            let mac_link_up = if status.mac_link_status() == 0 {
+                LinkStatus::Down
+            } else {
+                // Check QSGMII sync status (bit 13 in reg 3:20)
+                let mac_serdes =
+                    phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
+                if status.mac_sync_fail() != 0
+                    || status.mac_cgbad() != 0
+                    || (mac_serdes.0 & (1 << 13)) == 0
+                {
+                    LinkStatus::Error
+                } else {
+                    LinkStatus::Up
+                }
+            };
             Ok(PhyStatus {
                 ty,
                 mac_link_up,
-                media_link_up,
+                media_link_up: if media_link_up {
+                    LinkStatus::Up
+                } else {
+                    LinkStatus::Down
+                },
             })
         }) {
             None => Err(MonorailError::NoPhy.into()),

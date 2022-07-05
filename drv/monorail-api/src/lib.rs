@@ -161,8 +161,16 @@ pub enum PhyType {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum LinkStatus {
+    /// MAC_SYNC_FAIL or MAC_CGBAD is set
+    Error,
+    Down,
+    Up,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PhyStatus {
     pub ty: PhyType,
-    pub mac_link_up: bool,
-    pub media_link_up: bool,
+    pub mac_link_up: LinkStatus,
+    pub media_link_up: LinkStatus,
 }
