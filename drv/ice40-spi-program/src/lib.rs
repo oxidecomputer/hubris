@@ -123,9 +123,7 @@ pub fn begin_bitstream_load(
     // At this point, the iCE40 is _supposed_ to be chilling in programming mode
     // listening for a bitstream. If this is the case it will be asserting
     // (holding low) CDONE. Let's check!
-    if sys.gpio_read_input(config.cdone.port).unwrap() & config.cdone.pin_mask
-        != 0
-    {
+    if sys.gpio_read(config.cdone).unwrap() != 0 {
         // Welp, that sure didn't work.
         return Err(Ice40Error::ChipNotListening);
     }
@@ -168,9 +166,7 @@ pub fn finish_bitstream_load(
     // If we've sent the bitstream successfully, we expect the iCE40 to release
     // CDONE. This is supposed to happen fairly quickly. Give it a bit and
     // check.
-    if sys.gpio_read_input(config.cdone.port).unwrap() & config.cdone.pin_mask
-        == 0
-    {
+    if sys.gpio_read(config.cdone).unwrap() == 0 {
         // aw shucks
         return Err(Ice40Error::ConfigDidNotComplete);
     }
