@@ -248,22 +248,20 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
     }
 
     fn fix_bz21484(&mut self) -> Result<(), VscError> {
-        self.phy.broadcast(|v| {
-            v.write(phy::TR::TR_16(), 0xa7f8.into())?;
-            v.modify(phy::TR::TR_17(), |r| {
-                r.0 &= 0xffe7;
-                r.0 |= 3 << 3;
-            })?;
-            v.write(phy::TR::TR_16(), 0x87f8.into())?;
+        self.phy.write(phy::TR::TR_16(), 0xa7f8.into())?;
+        self.phy.modify(phy::TR::TR_17(), |r| {
+            r.0 &= 0xffe7;
+            r.0 |= 3 << 3;
+        })?;
+        self.phy.write(phy::TR::TR_16(), 0x87f8.into())?;
 
-            // "Fix for bz# 21485 ,VgaThresh100=25"
-            v.write(phy::TR::TR_16(), 0xafa4.into())?;
-            v.modify(phy::TR::TR_18(), |r| {
-                r.0 &= 0xff80;
-                r.0 |= 25
-            })?;
-            v.write(phy::TR::TR_16(), 0x8fa4.into())
-        })
+        // "Fix for bz# 21485 ,VgaThresh100=25"
+        self.phy.write(phy::TR::TR_16(), 0xafa4.into())?;
+        self.phy.modify(phy::TR::TR_18(), |r| {
+            r.0 &= 0xff80;
+            r.0 |= 25
+        })?;
+        self.phy.write(phy::TR::TR_16(), 0x8fa4.into())
     }
 
     // Based on `vtss_phy_sd1g_patch_private` in the SDK
