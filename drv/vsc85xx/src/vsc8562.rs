@@ -183,10 +183,6 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
                 // XXX: Should I set the force_adv_ability bit here?
                 // That requires setting up register 18E3
             })?;
-        self.phy.write(
-            phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
-            0x8801.into(),
-        )?;
         // "Setup Reg23E3" (line 9002)
         // Nothing to do here, since we're not using the media SERDES?
 
