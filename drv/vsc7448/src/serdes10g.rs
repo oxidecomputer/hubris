@@ -716,7 +716,8 @@ impl Config {
 /// Equivalent to `vtss_sd10g65_preset_t`
 #[derive(Copy, Clone, PartialEq)]
 enum SerdesPresetType {
-    DacHw,
+    DacHw, // VTSS_SD10G65_DAC_HW
+    KrHw,  // VTSS_SD10G65_KR_HW, i.e. 10GBASE-KR
 }
 
 /// Equivalent to `vtss_sd10g65_preset_struct_t`
@@ -753,6 +754,23 @@ impl SerdesRxPreset {
                 ib_eq_ld1_offset: 20,
                 ib_eqz_l_mode: 0,
                 ib_eqz_c_mode: 0,
+                ib_dfe_gain_adj: 63,
+                ib_rib_adj: 8,
+                ib_tc_eq: 0,
+                ib_tc_dfe: 0,
+                ib_ena_400_inp: 1,
+                ib_eqz_c_adj: 0,
+                synth_dv_ctrl_i1e: 0,
+            },
+            SerdesPresetType::KrHw => Self {
+                synth_phase_data: 54,
+                ib_main_thres_offs: 0,
+                ib_vscope_hl_offs: 10,
+                ib_bias_adj: 31,
+                ib_sam_offs_adj: 16,
+                ib_eq_ld1_offset: 20,
+                ib_eqz_l_mode: 3,
+                ib_eqz_c_mode: 1,
                 ib_dfe_gain_adj: 63,
                 ib_rib_adj: 8,
                 ib_tc_eq: 0,
@@ -806,6 +824,23 @@ impl SerdesApcPreset {
                 agc_min: 0,
                 agc_max: 216,
                 agc_ini: 168,
+            },
+            SerdesPresetType::KrHw => Self {
+                ld_lev_ini: 8,
+                range_sel: 20,
+                dfe1_min: 0,
+                dfe1_max: 127,
+                c_min: 0,
+                c_max: 31,
+                c_ini: 11,
+                c_rs_offs: 3,
+                l_min: 0,
+                l_max: 124,
+                l_ini: 44,
+                l_rs_offs: 1,
+                agc_min: 0,
+                agc_max: 248,
+                agc_ini: 88,
             },
         }
     }
