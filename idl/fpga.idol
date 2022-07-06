@@ -154,6 +154,33 @@ Interface(
                 err: CLike("FpgaError"),
             )
         ),
+        "user_design_read_reg": (
+            doc: "Read 1 byte from the user design, at the given address",
+            args: {
+                "device_index": "u8",
+                "addr": "u16",
+            },
+            reply: Result(
+                ok: "u8",
+                err: CLike("FpgaError"),
+            )
+        ),
+        "user_design_write_reg": (
+            doc: "Write 1 byte to the user design, at the given address",
+            args: {
+                "device_index": "u8",
+                "op": (
+                    type: "WriteOp",
+                    recv: FromPrimitive("u8"),
+                ),
+                "addr": "u16",
+                "value": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("FpgaError"),
+            )
+        ),
         "lock": (
             doc: "Take exclusive control of this FPGA or the user design.",
             args: {
