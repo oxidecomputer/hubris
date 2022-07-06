@@ -490,6 +490,56 @@ impl<'a, Device: Fpga<'a> + FpgaUserDesign> idl::InOrderFpgaImpl
 
         Ok(())
     }
+
+    fn user_design_read_reg(
+        &mut self,
+        msg: &RecvMessage,
+        device_index: u8,
+        addr: u16,
+    ) -> Result<u8, RequestError> {
+        let header = UserDesignRequestHeader {
+            cmd: 0x1,
+            addr: U16::new(addr),
+        };
+
+        // Released on function exit.
+        let lock = self.lock_user_design(msg.sender, device_index)?;
+
+        lock.0
+            .user_design_write(header.as_bytes())
+            .map_err(FpgaError::from)?;
+        lock.0
+            .user_design_read(&mut self.buffer[..1])
+            .map_err(FpgaError::from)?;
+
+        Ok(self.buffer[0])
+    }
+
+    fn user_design_write_reg(
+        &mut self,
+        msg: &RecvMessage,
+        device_index: u8,
+        op: WriteOp,
+        addr: u16,
+        value: u8,
+    ) -> Result<(), RequestError> {
+        let header = UserDesignRequestHeader {
+            cmd: u8::from(op),
+            addr: U16::new(addr),
+        };
+
+        // Released on function exit.
+        let lock = self.lock_user_design(msg.sender, device_index)?;
+
+        lock.0
+            .user_design_write(header.as_bytes())
+            .map_err(FpgaError::from)?;
+        lock.0
+            .user_design_write(value.as_bytes())
+            .map_err(FpgaError::from)?;
+
+        Ok(())
+    }
 }
 
 #[derive(AsBytes, Unaligned)]
