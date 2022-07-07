@@ -500,6 +500,7 @@ impl idl::InOrderSequencerImpl for ServerImpl {
             }
 
             (PowerState::A0, PowerState::A2)
+            | (PowerState::A0PlusHP, PowerState::A2)
             | (PowerState::A0Thermtrip, PowerState::A2) => {
                 //
                 // Flip the UART mux back to disabled
