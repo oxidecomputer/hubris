@@ -60,9 +60,21 @@ enum Trace {
     ClearingTofinoSequencerFault(TofinoSeqError),
     FrontIOBoardPresent,
     NoFrontIOBoardPresent,
-    LoadingFrontIOControllerBitstream { fpga_id: usize },
-    SkipLoadingFrontIOControllerBitstream { fpga_id: usize },
-    FrontIOControllerIdent { fpga_id: usize, ident: u32 },
+    LoadingFrontIOControllerBitstream {
+        fpga_id: usize,
+    },
+    SkipLoadingFrontIOControllerBitstream {
+        fpga_id: usize,
+    },
+    FrontIOControllerIdent {
+        fpga_id: usize,
+        ident: u32,
+    },
+    FrontIOControllerChecksum {
+        fpga_id: usize,
+        checksum: u32,
+        expected: u32,
+    },
     FrontIOVsc8562Ready,
 }
 ringbuf!(Trace, 32, Trace::None);

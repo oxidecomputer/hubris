@@ -4,7 +4,10 @@
 
 use crate::*;
 use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
-use drv_sidecar_front_io::{controller::FrontIOController, phy_smi::PhySmi};
+use drv_sidecar_front_io::{
+    controller::FrontIOController, phy_smi::PhySmi,
+    SIDECAR_IO_BITSTREAM_CHECKSUM,
+};
 
 #[allow(dead_code)]
 pub(crate) struct FrontIOBoard {
@@ -42,6 +45,8 @@ impl FrontIOBoard {
             let state = controller.await_fpga_ready(25)?;
             let mut ident;
             let mut ident_valid = false;
+            let mut checksum;
+            let mut checksum_valid = false;
 
             if state == DeviceState::RunningUserDesign {
                 (ident, ident_valid) = controller.ident_valid()?;
@@ -50,14 +55,21 @@ impl FrontIOBoard {
                     ident
                 });
 
-                if !ident_valid {
+                (checksum, checksum_valid) = controller.checksum_valid()?;
+                ringbuf_entry!(Trace::FrontIOControllerChecksum {
+                    fpga_id: i,
+                    checksum,
+                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                });
+
+                if !ident_valid || !checksum_valid {
                     // Attempt to correct the invalid IDENT by reloading the
                     // bitstream.
                     controller.fpga_reset()?;
                 }
             }
 
-            if ident_valid {
+            if ident_valid && checksum_valid {
                 ringbuf_entry!(Trace::SkipLoadingFrontIOControllerBitstream {
                     fpga_id: i
                 });
@@ -78,9 +90,17 @@ impl FrontIOBoard {
                     fpga_id: i,
                     ident
                 });
+
+                controller.write_checksum()?;
+                (checksum, checksum_valid) = controller.checksum_valid()?;
+                ringbuf_entry!(Trace::FrontIOControllerChecksum {
+                    fpga_id: i,
+                    checksum,
+                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                });
             }
 
-            controllers_ready &= ident_valid;
+            controllers_ready &= ident_valid & checksum_valid;
         }
 
         Ok(controllers_ready)

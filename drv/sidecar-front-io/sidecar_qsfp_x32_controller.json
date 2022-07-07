@@ -85,8 +85,88 @@
         },
         {
             "type": "reg",
-            "inst_name": "SCRATCHPAD",
+            "inst_name": "CHECKSUM_SCRATCHPAD0",
             "addr_offset": 4,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[31..24]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CHECKSUM_SCRATCHPAD1",
+            "addr_offset": 5,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[23..16]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CHECKSUM_SCRATCHPAD2",
+            "addr_offset": 6,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[15..8]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "CHECKSUM_SCRATCHPAD3",
+            "addr_offset": 7,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "DATA",
+                    "lsb": 0,
+                    "msb": 7,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "checksum[7..0]"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "SCRATCHPAD",
+            "addr_offset": 8,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -106,7 +186,7 @@
         {
             "type": "reg",
             "inst_name": "FPGA_ID",
-            "addr_offset": 5,
+            "addr_offset": 9,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -125,8 +205,39 @@
         },
         {
             "type": "reg",
+            "inst_name": "LED_CTRL",
+            "addr_offset": 10,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "RESET",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Control of RESET_L (inverted at pin)"
+                },
+                {
+                    "type": "field",
+                    "inst_name": "OE",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Control of OE_L (inverted at pin)"
+                }
+            ]
+        },
+        {
+            "type": "reg",
             "inst_name": "PHY_STATUS",
-            "addr_offset": 6,
+            "addr_offset": 11,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -212,7 +323,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_CTRL",
-            "addr_offset": 7,
+            "addr_offset": 12,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -243,7 +354,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_STATUS",
-            "addr_offset": 8,
+            "addr_offset": 13,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -263,7 +374,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_RDATA_H",
-            "addr_offset": 9,
+            "addr_offset": 14,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -283,7 +394,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_RDATA_L",
-            "addr_offset": 10,
+            "addr_offset": 15,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -303,7 +414,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_WDATA_H",
-            "addr_offset": 11,
+            "addr_offset": 16,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -323,7 +434,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_WDATA_L",
-            "addr_offset": 12,
+            "addr_offset": 17,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -343,7 +454,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_PHY_ADDR",
-            "addr_offset": 13,
+            "addr_offset": 18,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -363,7 +474,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_REG_ADDR",
-            "addr_offset": 14,
+            "addr_offset": 19,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -383,7 +494,7 @@
         {
             "type": "reg",
             "inst_name": "PHY_SMI_CTRL",
-            "addr_offset": 15,
+            "addr_offset": 20,
             "regwidth": 8,
             "min_accesswidth": 8,
             "children": [
@@ -408,6 +519,196 @@
                     "se_onread": null,
                     "se_onwrite": null,
                     "desc": "Write a 1 here to begin a transaction"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "QSFP_CTRL_0",
+            "addr_offset": 21,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for the HSC for the port."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESET",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "ResetL signal for the module, logic inverted at the pin."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LPMODE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LPMode/TxDis signal for the module"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "QSFP_STATUS_0",
+            "addr_offset": 22,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power Good for the HSC for the port."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMEOUT",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Hot swap controller power good timeout."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "ModPrsL signal for the module, logic inverted at the pin."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "IRQ",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "IntL/RxLOS signal for the module, logic inverted at the pin."
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "QSFP_CTRL_1",
+            "addr_offset": 23,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "EN",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Enable for the HSC for the port."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "RESET",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 1,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "ResetL signal for the module, logic inverted at the pin."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "LPMODE",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "rw",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "LPMode/TxDis signal for the module"
+                }
+            ]
+        },
+        {
+            "type": "reg",
+            "inst_name": "QSFP_STATUS_1",
+            "addr_offset": 24,
+            "regwidth": 8,
+            "min_accesswidth": 8,
+            "children": [
+                {
+                    "type": "field",
+                    "inst_name": "PG",
+                    "lsb": 0,
+                    "msb": 0,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Power Good for the HSC for the port."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PG_TIMEOUT",
+                    "lsb": 1,
+                    "msb": 1,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "Hot swap controller power good timeout."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "PRESENT",
+                    "lsb": 2,
+                    "msb": 2,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "ModPrsL signal for the module, logic inverted at the pin."
+                },
+                {
+                    "type": "field",
+                    "inst_name": "IRQ",
+                    "lsb": 3,
+                    "msb": 3,
+                    "reset": 0,
+                    "sw_access": "r",
+                    "se_onread": null,
+                    "se_onwrite": null,
+                    "desc": "IntL/RxLOS signal for the module, logic inverted at the pin."
                 }
             ]
         }
