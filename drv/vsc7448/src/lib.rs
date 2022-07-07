@@ -7,13 +7,13 @@
 pub mod config;
 pub mod mac;
 pub mod miim_phy;
+pub mod serdes6g;
 pub mod spi;
 
 mod dev;
 mod port;
 mod serdes10g;
 mod serdes1g;
-mod serdes6g;
 
 use crate::config::{PortConfig, PortDev, PortMap, PortMode, PortSerdes};
 use userlib::hl::sleep_for;

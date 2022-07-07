@@ -8,7 +8,7 @@ use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc7448_pac::{phy, types::PhyRegisterAddress, HSIO};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -212,7 +212,34 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
         self.phy_vsc8562_init()?;
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
+        self.vsc7448_postconfig()?;
 
+        Ok(())
+    }
+
+    fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
+        // The SERDES6G going to the front IO board needs to be tuned from
+        // its default settings, otherwise the signal quality is bad.
+        const FRONT_IO_SERDES6G: u8 = 15;
+        vsc7448::serdes6g::serdes6g_read(self.vsc7448, FRONT_IO_SERDES6G)?;
+
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG 0x24441001
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG1 0x10
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
+            |r| {
+                r.set_ob_post0(0);
+                r.set_ob_prec(0x11); // -1, since MSB is sign
+                r.set_ob_post1(0x2);
+            },
+        )?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
+            |r| {
+                r.set_ob_lev(0x10);
+            },
+        )?;
+        vsc7448::serdes6g::serdes6g_write(self.vsc7448, FRONT_IO_SERDES6G)?;
         Ok(())
     }
 
