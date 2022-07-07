@@ -20,3 +20,4 @@ phy_smi = ["vsc85xx", "vsc7448-pac"]
 build-fpga-regmap = {path = "../../build/fpga-regmap"}
 build-util = {path = "../../build/util"}
 gnarle = {path = "../../lib/gnarle"}
+sha2 = { version = "0.9", default-features = false }
