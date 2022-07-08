@@ -179,9 +179,6 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
                 // Enable "MAC interface autonegotiation parallel detect",
                 //    else data flow is stopped for the CU ports if PHY has MAC ANEG enabled and the switch is connected to isn't"
                 r.set_mac_if_pd_ena(1);
-                r.set_force_adv_ability(1);
-                // XXX: Should I set the force_adv_ability bit here?
-                // That requires setting up register 18E3
             })?;
         // "Setup Reg23E3" (line 9002)
         // Nothing to do here, since we're not using the media SERDES?

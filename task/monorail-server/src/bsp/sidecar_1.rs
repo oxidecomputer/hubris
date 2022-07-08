@@ -228,7 +228,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.vsc7448.modify(
             HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
             |r| {
-                r.set_ob_post0(0);
+                r.set_ob_post0(8);
                 r.set_ob_prec(0x11); // -1, since MSB is sign
                 r.set_ob_post1(0x2);
             },
