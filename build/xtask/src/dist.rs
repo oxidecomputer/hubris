@@ -185,7 +185,7 @@ pub fn package(
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
-) -> Result<Allocations> {
+) -> Result<BTreeMap<String, Allocations>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -259,128 +259,138 @@ pub fn package(
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
 
-    // Build all relevant tasks, collecting entry points into a HashMap.  If
-    // we're doing a partial build, then assign a dummy entry point into
-    // the HashMap, because the kernel kconfig will still need it.
-    let entry_points: HashMap<_, _> = cfg
-        .toml
-        .tasks
-        .keys()
-        .map(|name| {
-            let ep = if tasks_to_build.contains(name.as_str()) {
-                // Link tasks regardless of whether they have changed, because
-                // we don't want to track changes in the other linker input
-                // (task-link.x, memory.x, table.ld, etc)
-                link_task(&cfg, name, &allocs)?;
-                task_entry_point(&cfg, name, &mut all_output_sections)
-            } else {
-                // Dummy entry point
-                Ok(allocs.tasks[name]["flash"].start)
-            };
-            ep.map(|ep| (name.clone(), ep))
-        })
-        .collect::<Result<_, _>>()?;
+    for image_name in &cfg.toml.image_names {
+        // Build all relevant tasks, collecting entry points into a HashMap.  If
+        // we're doing a partial build, then assign a dummy entry point into
+        // the HashMap, because the kernel kconfig will still need it.
+        let entry_points: HashMap<_, _> = cfg
+            .toml
+            .tasks
+            .keys()
+            .map(|name| {
+                let ep = if tasks_to_build.contains(name.as_str()) {
+                    // Link tasks regardless of whether they have changed, because
+                    // we don't want to track changes in the other linker input
+                    // (task-link.x, memory.x, table.ld, etc)
+                    link_task(&cfg, name, &allocs.get(image_name).unwrap())?;
+                    task_entry_point(&cfg, name, &mut all_output_sections)
+                } else {
+                    // Dummy entry point
+                    Ok(allocs.get(image_name).unwrap().tasks[name]["flash"].start)
+                };
+                ep.map(|ep| (name.clone(), ep))
+            })
+            .collect::<Result<_, _>>()?;
 
-    // Build the kernel!
-    let kern_build = if tasks_to_build.contains("kernel") {
-        Some(build_kernel(
-            &cfg,
-            &allocs,
-            &mut all_output_sections,
-            &entry_points,
-        )?)
-    } else {
-        None
-    };
+        // Build the kernel!
+        let kern_build = if tasks_to_build.contains("kernel") {
+            Some(build_kernel(
+                &cfg,
+                &allocs.get(image_name).unwrap(),
+                &mut all_output_sections,
+                &entry_points,
+            )?)
+        } else {
+            None
+        };
 
-    // If we've done a partial build (which may have included the kernel), bail
-    // out here before linking stuff.
-    if partial_build {
-        return Ok(allocs);
-    }
-
-    // Print stats on memory usage
-    let starting_memories = cfg.toml.memories()?;
-    for (name, range) in &starting_memories {
-        println!("{:<5} = {:#010x}..{:#010x}", name, range.start, range.end);
-    }
-    println!("Used:");
-    for (name, new_range) in &memories {
-        let orig_range = &starting_memories[name];
-        let size = new_range.start - orig_range.start;
-        let percent = size * 100 / (orig_range.end - orig_range.start);
-        println!("  {:<6} {:#x} ({}%)", format!("{}:", name), size, percent);
-    }
-
-    // Generate combined SREC, which is our source of truth for combined images.
-    let (kentry, ksymbol_table) = kern_build.unwrap();
-    write_srec(
-        &all_output_sections,
-        kentry,
-        &cfg.dist_file("combined.srec"),
-    )?;
-
-    translate_srec_to_other_formats(&cfg.dist_dir, "combined")?;
-
-    if let Some(signing) = cfg.toml.signing.get("combined") {
-        if ksymbol_table.get("HEADER").is_none() {
-            bail!("Didn't find header symbol -- does the image need a placeholder?");
+        // If we've done a partial build (which may have included the kernel), bail
+        // out here before linking stuff.
+        if partial_build {
+            return Ok(allocs);
         }
 
-        do_sign_file(
-            &cfg,
-            signing,
-            "combined",
-            *ksymbol_table.get("__header_start").unwrap(),
-        )?;
-    }
-
-    // Okay we now have signed hubris image and signed bootloader
-    // Time to combine the two!
-    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-        let file_image = std::fs::read(&cfg.dist_file(&bootloader.name))?;
-        let elf = goblin::elf::Elf::parse(&file_image)?;
-
-        let bootloader_entry = elf.header.e_entry as u32;
-
-        let bootloader_fname =
-            if let Some(signing) = cfg.toml.signing.get("bootloader") {
-                format!("bootloader_{}.bin", signing.method)
-            } else {
-                "bootloader.bin".into()
-            };
-
-        let hubris_fname =
-            if let Some(signing) = cfg.toml.signing.get("combined") {
-                format!("combined_{}.bin", signing.method)
-            } else {
-                "combined.bin".into()
-            };
-
-        let bootloader =
-            cfg.toml.outputs.get("bootloader_flash").unwrap().address;
-        let flash = cfg.toml.outputs.get("flash").unwrap().address;
-        smash_bootloader(
-            &cfg.dist_file(bootloader_fname),
-            bootloader,
-            &cfg.dist_file(hubris_fname),
-            flash,
-            bootloader_entry,
-            &cfg.dist_file("final.srec"),
-        )?;
-        translate_srec_to_other_formats(&cfg.dist_dir, "final")?;
-    } else {
-        // If there's no bootloader, the "combined" and "final" images are
-        // identical, so we copy from one to the other
-        for ext in ["srec", "elf", "ihex", "bin"] {
-            let src = format!("combined.{}", ext);
-            let dst = format!("final.{}", ext);
-            std::fs::copy(cfg.dist_file(src), cfg.dist_file(dst))?;
+        // Print stats on memory usage
+        let starting_memories = cfg.toml.memories(&image_name)?;
+        for (name, range) in &starting_memories {
+            println!(
+                "{:<5} = {:#010x}..{:#010x}",
+                name, range.start, range.end
+            );
         }
-    }
+        println!("Used:");
+        for (name, new_range) in memories.get(image_name).unwrap() {
+            let orig_range = &starting_memories[name];
+            let size = new_range.start - orig_range.start;
+            let percent = size * 100 / (orig_range.end - orig_range.start);
+            println!(
+                "  {:<6} {:#x} ({}%)",
+                format!("{}:", name),
+                size,
+                percent
+            );
+        }
 
-    write_gdb_script(&cfg)?;
-    build_archive(&cfg)?;
+        // Generate combined SREC, which is our source of truth for combined images.
+        let (kentry, ksymbol_table) = kern_build.unwrap();
+        write_srec(
+            &all_output_sections,
+            kentry,
+            &cfg.dist_file("combined.srec"),
+        )?;
+
+        translate_srec_to_other_formats(&cfg.dist_dir, "combined")?;
+
+        if let Some(signing) = cfg.toml.signing.get("combined") {
+            if ksymbol_table.get("HEADER").is_none() {
+                bail!("Didn't find header symbol -- does the image need a placeholder?");
+            }
+
+            do_sign_file(
+                &cfg,
+                signing,
+                "combined",
+                *ksymbol_table.get("__header_start").unwrap(),
+            )?;
+        }
+
+        // Okay we now have signed hubris image and signed bootloader
+        // Time to combine the two!
+        if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
+            let file_image = std::fs::read(&cfg.dist_file(&bootloader.name))?;
+            let elf = goblin::elf::Elf::parse(&file_image)?;
+
+            let bootloader_entry = elf.header.e_entry as u32;
+
+            let bootloader_fname =
+                if let Some(signing) = cfg.toml.signing.get("bootloader") {
+                    format!("bootloader_{}.bin", signing.method)
+                } else {
+                    "bootloader.bin".into()
+                };
+
+            let hubris_fname =
+                if let Some(signing) = cfg.toml.signing.get("combined") {
+                    format!("combined_{}.bin", signing.method)
+                } else {
+                    "combined.bin".into()
+                };
+
+            let bootloader =
+                cfg.toml.outputs.get("bootloader_flash").unwrap()[0].address;
+            let flash = cfg.toml.outputs.get("flash").unwrap()[0].address;
+            smash_bootloader(
+                &cfg.dist_file(bootloader_fname),
+                bootloader,
+                &cfg.dist_file(hubris_fname),
+                flash,
+                bootloader_entry,
+                &cfg.dist_file("final.srec"),
+            )?;
+            translate_srec_to_other_formats(&cfg.dist_dir, "final")?;
+        } else {
+            // If there's no bootloader, the "combined" and "final" images are
+            // identical, so we copy from one to the other
+            for ext in ["srec", "elf", "ihex", "bin"] {
+                let src = format!("combined.{}", ext);
+                let dst = format!("final.{}", ext);
+                std::fs::copy(cfg.dist_file(src), cfg.dist_file(dst))?;
+            }
+        }
+
+        write_gdb_script(&cfg)?;
+        build_archive(&cfg)?;
+    }
     Ok(allocs)
 }
 
@@ -609,7 +619,7 @@ fn build_bootloader(
     bootloader: &Bootloader,
     mut linkscr: File,
 ) -> Result<()> {
-    let memories = cfg.toml.memories()?;
+    let memories = cfg.toml.memories(&"bungus".to_string())?;
     let flash = memories.get("bootloader_flash").unwrap();
     let ram = memories.get("bootloader_ram").unwrap();
     let sram = memories.get("bootloader_sram").unwrap();
@@ -728,7 +738,7 @@ fn link_task(
 /// Link a specific task using a dummy linker script that
 fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
-    let memories = cfg.toml.memories()?.into_iter().collect();
+    let memories = cfg.toml.memories(&cfg.toml.image_names[0])?.into_iter().collect();
     generate_task_linker_script(
         "memory.x",
         &memories, // ALL THE SPACE
@@ -980,7 +990,7 @@ fn do_sign_file(
                 &cfg.dist_file("combined.bin"),
                 &cfg.dist_file("combined_ecc.bin"),
                 header_start,
-                &cfg.toml.memories()?,
+                &cfg.toml.memories(&"bungus".to_string())?,
             )
         }
     }
@@ -1347,7 +1357,10 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
-) -> Result<(Allocations, IndexMap<String, Range<u32>>)> {
+) -> Result<(
+    BTreeMap<String, Allocations>,
+    BTreeMap<String, IndexMap<String, Range<u32>>>,
+)> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1359,111 +1372,120 @@ pub fn allocate_all(
     // The kernel map is: memory name -> allocation size
     let kernel = &toml.kernel;
     let tasks = &toml.tasks;
-    let mut free = toml.memories()?;
-    let kernel_requests = &kernel.requires;
-
-    let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
+    let mut final_free: BTreeMap<String, IndexMap<String, Range<u32>>> =
         BTreeMap::new();
+    let mut final_allocs: BTreeMap<String, Allocations> = BTreeMap::new();
 
-    for name in tasks.keys() {
-        for (mem, amt) in task_sizes[name.as_str()].iter() {
-            let bytes = toml.suggest_memory_region_size(name, *amt);
-            if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
-                if bytes > *r as u64 {
-                    bail!(
+    for image_name in &toml.image_names {
+        let mut allocs = Allocations::default();
+        let mut free = toml.memories(&image_name)?;
+        let kernel_requests = &kernel.requires;
+
+        let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
+            BTreeMap::new();
+
+        for name in tasks.keys() {
+            for (mem, amt) in task_sizes[name.as_str()].iter() {
+                let bytes = toml.suggest_memory_region_size(name, *amt);
+                if let Some(r) = tasks[name].max_sizes.get(&mem.to_string()) {
+                    if bytes > *r as u64 {
+                        bail!(
                         "task {}: needs {} bytes of {} but max-sizes limits it to {}",
                         name, bytes, mem, r);
+                    }
                 }
+                task_requests
+                    .entry(mem)
+                    .or_default()
+                    .entry(bytes.try_into().unwrap())
+                    .or_default()
+                    .push_back(name.as_str());
             }
-            task_requests
-                .entry(mem)
-                .or_default()
-                .entry(bytes.try_into().unwrap())
-                .or_default()
-                .push_back(name.as_str());
-        }
-    }
-
-    // Okay! Do memory types one by one, fitting kernel first.
-    let mut allocs = Allocations::default();
-    for (region, avail) in &mut free {
-        let mut k_req = kernel_requests.get(region.as_str());
-        let mut t_reqs = task_requests.get_mut(region.as_str());
-
-        fn reqs_map_not_empty(
-            om: &Option<&mut BTreeMap<u32, VecDeque<&str>>>,
-        ) -> bool {
-            om.iter()
-                .flat_map(|map| map.values())
-                .any(|q| !q.is_empty())
         }
 
-        'fitloop: while k_req.is_some() || reqs_map_not_empty(&t_reqs) {
-            let align = if avail.start == 0 {
-                // Lie to keep the masks in range. This could be avoided by
-                // tracking log2 of masks rather than masks.
-                1 << 31
-            } else {
-                1 << avail.start.trailing_zeros()
-            };
+        // Okay! Do memory types one by one, fitting kernel first.
+        for (region, avail) in &mut free {
+            let mut k_req = kernel_requests.get(region.as_str());
+            let mut t_reqs = task_requests.get_mut(region.as_str());
 
-            // Search order is:
-            // - Kernel.
-            // - Task requests equal to or smaller than this alignment, in
-            //   descending order of size.
-            // - Task requests larger than this alignment, in ascending order of
-            //   size.
-
-            if let Some(&sz) = k_req.take() {
-                // The kernel wants in on this.
-                allocs
-                    .kernel
-                    .insert(region.to_string(), allocate_k(region, sz, avail)?);
-                continue 'fitloop;
+            fn reqs_map_not_empty(
+                om: &Option<&mut BTreeMap<u32, VecDeque<&str>>>,
+            ) -> bool {
+                om.iter()
+                    .flat_map(|map| map.values())
+                    .any(|q| !q.is_empty())
             }
 
-            if let Some(t_reqs) = t_reqs.as_mut() {
-                for (&sz, q) in t_reqs.range_mut(..=align).rev() {
-                    if let Some(task) = q.pop_front() {
-                        // We can pack an equal or smaller one in.
-                        let align = toml.task_memory_alignment(sz);
-                        allocs
-                            .tasks
-                            .entry(task.to_string())
-                            .or_default()
-                            .insert(
-                                region.to_string(),
-                                allocate_one(region, sz, align, avail)?,
-                            );
-                        continue 'fitloop;
+            'fitloop: while k_req.is_some() || reqs_map_not_empty(&t_reqs) {
+                let align = if avail.start == 0 {
+                    // Lie to keep the masks in range. This could be avoided by
+                    // tracking log2 of masks rather than masks.
+                    1 << 31
+                } else {
+                    1 << avail.start.trailing_zeros()
+                };
+
+                // Search order is:
+                // - Kernel.
+                // - Task requests equal to or smaller than this alignment, in
+                //   descending order of size.
+                // - Task requests larger than this alignment, in ascending order of
+                //   size.
+
+                if let Some(&sz) = k_req.take() {
+                    // The kernel wants in on this.
+                    allocs.kernel.insert(
+                        region.to_string(),
+                        allocate_k(region, sz, avail)?,
+                    );
+                    continue 'fitloop;
+                }
+
+                if let Some(t_reqs) = t_reqs.as_mut() {
+                    for (&sz, q) in t_reqs.range_mut(..=align).rev() {
+                        if let Some(task) = q.pop_front() {
+                            // We can pack an equal or smaller one in.
+                            let align = toml.task_memory_alignment(sz);
+                            allocs
+                                .tasks
+                                .entry(task.to_string())
+                                .or_default()
+                                .insert(
+                                    region.to_string(),
+                                    allocate_one(region, sz, align, avail)?,
+                                );
+                            continue 'fitloop;
+                        }
+                    }
+
+                    for (&sz, q) in t_reqs.range_mut(align + 1..) {
+                        if let Some(task) = q.pop_front() {
+                            // We've gotta use a larger one.
+                            let align = toml.task_memory_alignment(sz);
+                            allocs
+                                .tasks
+                                .entry(task.to_string())
+                                .or_default()
+                                .insert(
+                                    region.to_string(),
+                                    allocate_one(region, sz, align, avail)?,
+                                );
+                            continue 'fitloop;
+                        }
                     }
                 }
 
-                for (&sz, q) in t_reqs.range_mut(align + 1..) {
-                    if let Some(task) = q.pop_front() {
-                        // We've gotta use a larger one.
-                        let align = toml.task_memory_alignment(sz);
-                        allocs
-                            .tasks
-                            .entry(task.to_string())
-                            .or_default()
-                            .insert(
-                                region.to_string(),
-                                allocate_one(region, sz, align, avail)?,
-                            );
-                        continue 'fitloop;
-                    }
-                }
+                // If we reach this point, it means our loop condition is wrong,
+                // because one of the above things should really have happened.
+                // Panic here because otherwise it's a hang.
+                panic!("loop iteration without progess made!");
             }
-
-            // If we reach this point, it means our loop condition is wrong,
-            // because one of the above things should really have happened.
-            // Panic here because otherwise it's a hang.
-            panic!("loop iteration without progess made!");
         }
-    }
 
-    Ok((allocs, free))
+        final_free.insert(image_name.to_string(), free);
+        final_allocs.insert(image_name.to_string(), allocs);
+    }
+    Ok((final_allocs, final_free))
 }
 
 fn allocate_k(
@@ -1634,7 +1656,7 @@ pub fn make_kconfig(
         // task's region table.
         let allocs = &task_allocations[name];
         for (ri, (output_name, range)) in allocs.iter().enumerate() {
-            let out = &toml.outputs[output_name];
+            let out = &toml.outputs[output_name][0];
             let mut attributes = abi::RegionAttributes::empty();
             if out.read {
                 attributes |= abi::RegionAttributes::READ;

@@ -58,15 +58,22 @@ pub fn run(
                 .collect();
 
             let (allocs, _) = crate::dist::allocate_all(&toml, &task_sizes)?;
+
+            let first: Vec<&crate::dist::Allocations> =
+                allocs.values().collect();
+
             // Pick dummy entry points for each task
-            let entry_points = allocs
+            let entry_points = first[0]
                 .tasks
                 .iter()
                 .map(|(k, v)| (k.clone(), v["flash"].start))
                 .collect();
 
-            let kconfig =
-                crate::dist::make_kconfig(&toml, &allocs.tasks, &entry_points)?;
+            let kconfig = crate::dist::make_kconfig(
+                &toml,
+                &first[0].tasks,
+                &entry_points,
+            )?;
             let kconfig = ron::ser::to_string(&kconfig)?;
 
             toml.kernel_build_config(

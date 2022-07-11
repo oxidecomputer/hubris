@@ -22,12 +22,14 @@ struct RawConfig {
     board: String,
     chip: String,
     #[serde(default)]
+    image_names: Vec<String>,
+    #[serde(default)]
     signing: IndexMap<String, Signing>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
     bootloader: Option<Bootloader>,
     kernel: Kernel,
-    outputs: IndexMap<String, Output>,
+    outputs: IndexMap<String, Vec<Output>>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
@@ -41,12 +43,13 @@ pub struct Config {
     pub target: String,
     pub board: String,
     pub chip: String,
+    pub image_names: Vec<String>,
     pub signing: IndexMap<String, Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
     pub bootloader: Option<Bootloader>,
     pub kernel: Kernel,
-    pub outputs: IndexMap<String, Output>,
+    pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
     pub peripherals: IndexMap<String, Peripheral>,
     pub extratext: IndexMap<String, Peripheral>,
@@ -79,10 +82,17 @@ impl Config {
 
         let buildhash = hasher.finish();
 
+        let img_names = if toml.image_names.is_empty() {
+            vec!["default".to_string()]
+        } else {
+            toml.image_names
+        };
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
             board: toml.board,
+            image_names: img_names,
             chip: toml.chip,
             signing: toml.signing,
             secure_separation: toml.secure_separation,
@@ -272,32 +282,44 @@ impl Config {
     /// Returns a map of memory name -> range
     ///
     /// This is useful when allocating memory for tasks
-    pub fn memories(&self) -> Result<IndexMap<String, Range<u32>>> {
+    pub fn memories(
+        &self,
+        image_name: &String,
+    ) -> Result<IndexMap<String, Range<u32>>> {
         self.outputs
             .iter()
             .map(|(name, out)| {
-                out.address
-                    .checked_add(out.size)
+                println!("{:x?} {}", out, image_name);
+                let region : Vec<&Output>= out.iter().filter(|o| o.name == *image_name).collect();
+                if region.len() > 1 {
+                    bail!("Multiple regions defined for image {}", image_name);
+                }
+
+                let r = region[0];
+
+                r.address
+                    .checked_add(r.size)
                     .ok_or_else(|| {
                         anyhow!(
                             "output {}: address {:08x} size {:x} would overflow",
                             name,
-                            out.address,
-                            out.size
+                            r.address,
+                            r.size
                         )
                     })
-                    .map(|end| (name.clone(), out.address..end))
+                    .map(|end| (name.clone(), r.address..end))
             })
             .collect()
     }
 
     /// Calculates the output region which contains the given address
+    /// XXX FIXME
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
         let vaddr = u32::try_from(vaddr).ok()?;
         self.outputs
             .iter()
             .find(|(_name, out)| {
-                vaddr >= out.address && vaddr < out.address + out.size
+                vaddr >= out[0].address && vaddr < out[0].address + out[0].size
             })
             .map(|(name, _out)| name.as_str())
     }
@@ -420,9 +442,15 @@ pub struct Kernel {
     pub features: Vec<String>,
 }
 
+fn default_name() -> String {
+    "default".to_string()
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Output {
+    #[serde(default = "default_name")]
+    pub name: String,
     pub address: u32,
     pub size: u32,
     #[serde(default)]

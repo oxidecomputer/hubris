@@ -10,26 +10,27 @@ name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
 
-[outputs.bootloader_sram]
+
+[[outputs.bootloader_sram]]
 address = 0x14000000
 size = 0x8000
 
-[outputs.bootloader_flash]
+[[outputs.bootloader_flash]]
 address = 0x00000000
 size = 0x7000
 
-[outputs.bootloader_ram]
+[[outputs.bootloader_ram]]
 address = 0x20000000
 size = 0x4000
 
 # We reserve the last sector (0x8000) for flash testing
-[outputs.flash]
+[[outputs.flash]]
 address = 0x00008000
 size = 0x88000
 read = true
 execute = true
 
-[outputs.ram]
+[[outputs.ram]]
 address = 0x20004000
 size = 0x18000
 read = true
