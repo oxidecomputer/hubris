@@ -124,7 +124,6 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         // "Configure SerDes macros for QSGMII MAC interface (See TN1080)"
         // (line 5836)
         if is_base_port {
-            // The SDK does not suspend / resume the patch, but I'm skeptical
             self.phy.cmd(0x80E0)?;
         }
         sleep_for(10); // (line 5928)
