@@ -138,7 +138,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 4320
+stacksize = 4800
 priority = 3
 features = ["h753", "h7-vlan", "gimletlet-nic"]
 max-sizes = {flash = 65536, ram = 16384, sram1 = 16384}
@@ -154,6 +154,16 @@ priority = 4
 max-sizes = {flash = 8192, ram = 8192}
 stacksize = 4096
 start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.mgmt_gateway]
+name = "task-mgmt-gateway"
+priority = 4
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+uses = ["system_flash"] # TODO also used by `net`, both to read the stm32 uid
 task-slots = ["net"]
 features = ["vlan"]
 
@@ -260,5 +270,12 @@ vlan = { start = 0x301, count = 2 }
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.mgmt_gateway]
+kind = "udp"
+owner = {name = "mgmt_gateway", notification = 1}
+port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

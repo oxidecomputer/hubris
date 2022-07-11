@@ -1,0 +1,19 @@
+[package]
+name = "task-mgmt-gateway"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
+num-traits = {version = "0.2", default-features = false}
+
+drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
+ringbuf = {path = "../../lib/ringbuf"}
+task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "be389d8f9d3e7677c49ac7d3b50d2e1117a6b40d"}
+
+[features]
+vlan = ["task-net-api/vlan"]

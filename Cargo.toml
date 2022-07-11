@@ -46,6 +46,7 @@ members = [
     "task/pong",
     "task/hiffy",
     "task/idle",
+    "task/mgmt-gateway",
     "task/monorail-server",
     "task/net",
     "task/net-api",
