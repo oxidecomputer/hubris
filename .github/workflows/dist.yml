@@ -55,10 +55,6 @@ jobs:
             app_name: gemini-bu-rot
             app_toml: app/gemini-bu-rot/app.toml
             target: thumbv8m.main-none-eabihf
-          - build: gimlet-a
-            app_name: gimlet-a
-            app_toml: app/gimlet/rev-a.toml
-            target: thumbv7em-none-eabihf
           - build: gimlet-b
             app_name: gimlet-b
             app_toml: app/gimlet/rev-b.toml
