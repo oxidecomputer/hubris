@@ -122,6 +122,14 @@ impl PackageConfig {
         })
     }
 
+    fn img_dir(&self, img_name: &str) -> PathBuf {
+        self.dist_dir.join(img_name)
+    }
+
+    fn img_file(&self, name: impl AsRef<Path>, img_name: &str) -> PathBuf {
+        self.img_dir(img_name).join(name)
+    }
+
     fn dist_file(&self, name: impl AsRef<Path>) -> PathBuf {
         self.dist_dir.join(name)
     }
@@ -218,9 +226,6 @@ pub fn package(
         // if there is no bootloader.
         let linkscr = File::create("target/table.ld")
             .context("Could not create table.ld")?;
-        if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-            build_bootloader(&cfg, bootloader, linkscr)?;
-        }
     }
 
     // Build all tasks (which are relocatable executables, so they are not
@@ -260,6 +265,7 @@ pub fn package(
     let mut all_output_sections = BTreeMap::default();
 
     for image_name in &cfg.toml.image_names {
+        std::fs::create_dir_all(&cfg.img_dir(image_name))?;
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
@@ -272,11 +278,22 @@ pub fn package(
                     // Link tasks regardless of whether they have changed, because
                     // we don't want to track changes in the other linker input
                     // (task-link.x, memory.x, table.ld, etc)
-                    link_task(&cfg, name, &allocs.get(image_name).unwrap())?;
-                    task_entry_point(&cfg, name, &mut all_output_sections)
+                    link_task(
+                        &cfg,
+                        name,
+                        image_name,
+                        &allocs.get(image_name).unwrap(),
+                    )?;
+                    task_entry_point(
+                        &cfg,
+                        name,
+                        image_name,
+                        &mut all_output_sections,
+                    )
                 } else {
                     // Dummy entry point
-                    Ok(allocs.get(image_name).unwrap().tasks[name]["flash"].start)
+                    Ok(allocs.get(image_name).unwrap().tasks[name]["flash"]
+                        .start)
                 };
                 ep.map(|ep| (name.clone(), ep))
             })
@@ -288,7 +305,9 @@ pub fn package(
                 &cfg,
                 &allocs.get(image_name).unwrap(),
                 &mut all_output_sections,
+                &cfg.toml.memories(image_name)?,
                 &entry_points,
+                image_name,
             )?)
         } else {
             None
@@ -326,10 +345,10 @@ pub fn package(
         write_srec(
             &all_output_sections,
             kentry,
-            &cfg.dist_file("combined.srec"),
+            &cfg.img_file("combined.srec", image_name),
         )?;
 
-        translate_srec_to_other_formats(&cfg.dist_dir, "combined")?;
+        translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
 
         if let Some(signing) = cfg.toml.signing.get("combined") {
             if ksymbol_table.get("HEADER").is_none() {
@@ -341,55 +360,22 @@ pub fn package(
                 signing,
                 "combined",
                 *ksymbol_table.get("__header_start").unwrap(),
+                image_name,
             )?;
         }
 
-        // Okay we now have signed hubris image and signed bootloader
-        // Time to combine the two!
-        if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-            let file_image = std::fs::read(&cfg.dist_file(&bootloader.name))?;
-            let elf = goblin::elf::Elf::parse(&file_image)?;
-
-            let bootloader_entry = elf.header.e_entry as u32;
-
-            let bootloader_fname =
-                if let Some(signing) = cfg.toml.signing.get("bootloader") {
-                    format!("bootloader_{}.bin", signing.method)
-                } else {
-                    "bootloader.bin".into()
-                };
-
-            let hubris_fname =
-                if let Some(signing) = cfg.toml.signing.get("combined") {
-                    format!("combined_{}.bin", signing.method)
-                } else {
-                    "combined.bin".into()
-                };
-
-            let bootloader =
-                cfg.toml.outputs.get("bootloader_flash").unwrap()[0].address;
-            let flash = cfg.toml.outputs.get("flash").unwrap()[0].address;
-            smash_bootloader(
-                &cfg.dist_file(bootloader_fname),
-                bootloader,
-                &cfg.dist_file(hubris_fname),
-                flash,
-                bootloader_entry,
-                &cfg.dist_file("final.srec"),
+        // If there's no bootloader, the "combined" and "final" images are
+        // identical, so we copy from one to the other
+        for ext in ["srec", "elf", "ihex", "bin"] {
+            let src = format!("combined.{}", ext);
+            let dst = format!("final.{}", ext);
+            std::fs::copy(
+                cfg.img_file(src, image_name),
+                cfg.img_file(dst, image_name),
             )?;
-            translate_srec_to_other_formats(&cfg.dist_dir, "final")?;
-        } else {
-            // If there's no bootloader, the "combined" and "final" images are
-            // identical, so we copy from one to the other
-            for ext in ["srec", "elf", "ihex", "bin"] {
-                let src = format!("combined.{}", ext);
-                let dst = format!("final.{}", ext);
-                std::fs::copy(cfg.dist_file(src), cfg.dist_file(dst))?;
-            }
         }
-
-        write_gdb_script(&cfg)?;
-        build_archive(&cfg)?;
+        write_gdb_script(&cfg, image_name)?;
+        build_archive(&cfg, image_name)?;
     }
     Ok(allocs)
 }
@@ -412,25 +398,27 @@ fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_gdb_script(cfg: &PackageConfig) -> Result<()> {
-    let mut gdb_script = File::create(cfg.dist_file("script.gdb"))?;
+fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
+    let mut gdb_script = File::create(cfg.img_file("script.gdb", image_name))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
-        cfg.dist_file("kernel").to_slash().unwrap()
+        cfg.img_file("kernel", image_name).to_slash().unwrap()
     )?;
     for name in cfg.toml.tasks.keys() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            cfg.dist_file(name).to_slash().unwrap()
+            cfg.img_file(name, image_name).to_slash().unwrap()
         )?;
     }
     if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            cfg.dist_file(&bootloader.name).to_slash().unwrap()
+            cfg.img_file(&bootloader.name, image_name)
+                .to_slash()
+                .unwrap()
         )?;
     }
     for (path, remap) in &cfg.remap_paths {
@@ -449,10 +437,11 @@ fn write_gdb_script(cfg: &PackageConfig) -> Result<()> {
     Ok(())
 }
 
-fn build_archive(cfg: &PackageConfig) -> Result<()> {
+fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     // Bundle everything up into an archive.
-    let mut archive =
-        Archive::new(cfg.dist_file(format!("build-{}.zip", cfg.toml.name)))?;
+    let mut archive = Archive::new(
+        cfg.img_file(format!("build-{}.zip", cfg.toml.name), image_name),
+    )?;
 
     archive.text(
         "README.TXT",
@@ -482,28 +471,23 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
     let elf_dir = PathBuf::from("elf");
     let tasks_dir = elf_dir.join("task");
     for name in cfg.toml.tasks.keys() {
-        archive.copy(cfg.dist_file(name), tasks_dir.join(name))?;
+        archive.copy(cfg.img_file(name, image_name), tasks_dir.join(name))?;
     }
-    archive.copy(cfg.dist_file("kernel"), elf_dir.join("kernel"))?;
+    archive.copy(cfg.img_file("kernel", image_name), elf_dir.join("kernel"))?;
 
     let img_dir = PathBuf::from("img");
 
-    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-        archive.copy(
-            cfg.dist_file(&bootloader.name),
-            img_dir.join(&bootloader.name),
-        )?;
-    }
-    for s in cfg.toml.signing.keys() {
-        let name =
-            format!("{}_{}.bin", s, cfg.toml.signing.get(s).unwrap().method);
-        archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
-    }
+    //for s in cfg.toml.signing.keys() {
+    //    let name =
+    //        format!("{}_{}.bin", s, cfg.toml.signing.get(s).unwrap().method);
+    //    archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
+    //}
 
     for f in ["combined", "final"] {
         for ext in ["srec", "elf", "ihex", "bin"] {
             let name = format!("{}.{}", f, ext);
-            archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
+            archive
+                .copy(cfg.img_file(&name, image_name), img_dir.join(&name))?;
         }
     }
 
@@ -527,7 +511,10 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
     }
 
     let debug_dir = PathBuf::from("debug");
-    archive.copy(cfg.dist_file("script.gdb"), debug_dir.join("script.gdb"))?;
+    archive.copy(
+        cfg.img_file("script.gdb", image_name),
+        debug_dir.join("script.gdb"),
+    )?;
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
     // the LPC55 boards.
@@ -614,85 +601,6 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     Ok(())
 }
 
-fn build_bootloader(
-    cfg: &PackageConfig,
-    bootloader: &Bootloader,
-    mut linkscr: File,
-) -> Result<()> {
-    let memories = cfg.toml.memories(&"bungus".to_string())?;
-    let flash = memories.get("bootloader_flash").unwrap();
-    let ram = memories.get("bootloader_ram").unwrap();
-    let sram = memories.get("bootloader_sram").unwrap();
-
-    let image_flash = if let Some(end) = bootloader
-        .imagea_flash_start
-        .checked_add(bootloader.imagea_flash_size)
-    {
-        bootloader.imagea_flash_start..end
-    } else {
-        bail!("image flash size is incorrect");
-    };
-    let image_ram = if let Some(end) = bootloader
-        .imagea_ram_start
-        .checked_add(bootloader.imagea_ram_size)
-    {
-        bootloader.imagea_ram_start..end
-    } else {
-        bail!("image ram size is incorrect");
-    };
-
-    let mut bootloader_memory = IndexMap::new();
-    bootloader_memory.insert(String::from("FLASH"), flash.clone());
-    bootloader_memory.insert(String::from("RAM"), ram.clone());
-    bootloader_memory.insert(String::from("SRAM"), sram.clone());
-    bootloader_memory.insert(String::from("IMAGEA_FLASH"), image_flash);
-    bootloader_memory.insert(String::from("IMAGEA_RAM"), image_ram);
-
-    generate_bootloader_linker_script(
-        "memory.x",
-        &bootloader_memory,
-        Some(&bootloader.sections),
-    );
-
-    fs::copy("build/kernel-link.x", "target/link.x")?;
-
-    let build_config = cfg
-        .toml
-        .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
-        .unwrap();
-    build(cfg, &bootloader.name, build_config, false)?;
-
-    // Need a bootloader binary for signing
-    objcopy_translate_format(
-        "elf32-littlearm",
-        &cfg.dist_file(&bootloader.name),
-        "binary",
-        &cfg.dist_file("bootloader.bin"),
-    )?;
-
-    if let Some(signing) = cfg.toml.signing.get("bootloader") {
-        do_sign_file(cfg, signing, "bootloader", 0)?;
-    }
-
-    // We need to get the absolute symbols for the non-secure application
-    // to call into the secure application. The easiest approach right now
-    // is to generate the table in a separate section, objcopy just that
-    // section and then re-insert those bits into the application section
-    // via linker.
-
-    objcopy_grab_binary(
-        "elf32-littlearm",
-        &cfg.dist_file(&bootloader.name),
-        &cfg.dist_file("addr_blob.bin"),
-    )?;
-
-    let bytes = std::fs::read(&cfg.dist_file("addr_blob.bin"))?;
-    for b in bytes {
-        writeln!(linkscr, "BYTE({:#x})", b)?;
-    }
-    Ok(())
-}
-
 #[derive(Debug, Hash)]
 struct LoadSegment {
     source_file: PathBuf,
@@ -716,6 +624,7 @@ fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
 fn link_task(
     cfg: &PackageConfig,
     name: &str,
+    image_name: &str,
     allocs: &Allocations,
 ) -> Result<()> {
     println!("linking task '{}'", name);
@@ -732,13 +641,21 @@ fn link_task(
     fs::copy("build/task-link.x", "target/link.x")?;
 
     // Link the static archive
-    link(cfg, &format!("{}.elf", name), name)
+    link(
+        cfg,
+        &format!("{}.elf", name),
+        &format!("{}/{}", image_name, name),
+    )
 }
 
 /// Link a specific task using a dummy linker script that
 fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
-    let memories = cfg.toml.memories(&cfg.toml.image_names[0])?.into_iter().collect();
+    let memories = cfg
+        .toml
+        .memories(&cfg.toml.image_names[0])?
+        .into_iter()
+        .collect();
     generate_task_linker_script(
         "memory.x",
         &memories, // ALL THE SPACE
@@ -768,14 +685,18 @@ fn task_size<'a, 'b>(
 fn task_entry_point(
     cfg: &PackageConfig,
     name: &str,
+    image_name: &str,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
 ) -> Result<u32> {
     let task_toml = &cfg.toml.tasks[name];
-    resolve_task_slots(cfg, name)?;
+    resolve_task_slots(cfg, name, image_name)?;
 
     let mut symbol_table = BTreeMap::default();
-    let (ep, flash) =
-        load_elf(&cfg.dist_file(name), all_output_sections, &mut symbol_table)?;
+    let (ep, flash) = load_elf(
+        &cfg.img_file(name, image_name),
+        all_output_sections,
+        &mut symbol_table,
+    )?;
 
     if let Some(required) = task_toml.max_sizes.get("flash") {
         if flash > *required as usize {
@@ -794,7 +715,9 @@ fn build_kernel(
     cfg: &PackageConfig,
     allocs: &Allocations,
     all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+    all_memories: &IndexMap<String, Range<u32>>,
     entry_points: &HashMap<String, u32>,
+    image_name: &str,
 ) -> Result<(u32, BTreeMap<String, u32>)> {
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
@@ -826,14 +749,106 @@ fn build_kernel(
         Some(&cfg.sysroot),
     );
     build(cfg, "kernel", build_config, false)?;
+    if update_elf(
+        &cfg.dist_file("kernel"),
+        &cfg.img_file("kernel.modified", image_name),
+        //&cfg.toml.memories()?,
+        all_memories,
+        all_output_sections,
+    )? {
+        std::fs::copy(
+            &cfg.dist_file("kernel"),
+            cfg.img_file("kernel.orig", image_name),
+        )?;
+        std::fs::copy(
+            &cfg.img_file("kernel.modified", image_name),
+            cfg.img_file("kernel", image_name),
+        )?;
+    }
 
     let mut ksymbol_table = BTreeMap::default();
     let (kentry, _) = load_elf(
-        &cfg.dist_file("kernel"),
+        &cfg.img_file("kernel", image_name),
         all_output_sections,
         &mut ksymbol_table,
     )?;
     Ok((kentry, ksymbol_table))
+}
+
+fn update_elf(
+    input: &Path,
+    output: &Path,
+    map: &IndexMap<String, Range<u32>>,
+    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+) -> Result<bool> {
+    use goblin::container::Container;
+    use zerocopy::AsBytes;
+
+    let mut file_image = std::fs::read(input)?;
+    let elf = goblin::elf::Elf::parse(&file_image)?;
+
+    if elf.header.container()? != Container::Little {
+        bail!("where did you get a big-endian image?");
+    }
+    if elf.header.e_machine != goblin::elf::header::EM_ARM {
+        bail!("this is not an ARM file");
+    }
+
+    // Good enough.
+    for sec in &elf.section_headers {
+        if let Some(name) = elf.shdr_strtab.get_at(sec.sh_name) {
+            if name == ".header"
+                && (sec.sh_size as usize)
+                    >= core::mem::size_of::<abi::ImageHeader>()
+            {
+                let flash = map.get("flash").unwrap();
+
+                // Compute the total image size by finding the highest address
+                // from all the tasks built. Because this is the kernel all
+                // tasks must be built
+                let mut end = 0;
+
+                for (addr, sec) in all_output_sections {
+                    if (*addr as u32) > flash.start
+                        && (*addr as u32) < flash.end
+                    {
+                        if (*addr as u32) > end {
+                            end = addr + (sec.data.len() as u32);
+                        }
+                    }
+                }
+
+                let len = end - flash.start;
+
+                let mut header = abi::ImageHeader {
+                    magic: abi::HEADER_MAGIC,
+                    total_image_len: len as u32,
+                    ..Default::default()
+                };
+
+                for (i, (_, range)) in map.iter().enumerate() {
+                    header.sau_entries[i].rbar = range.start;
+                    header.sau_entries[i].rlar = (range.end - 1) & !0x1f | 1;
+                }
+
+                let last = map.len();
+
+                // TODO need a better place to put this...
+                header.sau_entries[last].rbar = 0x4000_0000;
+                header.sau_entries[last].rlar = 0x4fff_ffe0 | 1;
+
+                header
+                    .write_to_prefix(
+                        &mut file_image[(sec.sh_offset as usize)..],
+                    )
+                    .unwrap();
+                std::fs::write(output, &file_image)?;
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(false)
 }
 
 /// Prints warning messages about priority inversions
@@ -966,33 +981,23 @@ fn do_sign_file(
     sign: &Signing,
     fname: &str,
     header_start: u32,
+    image_name: &str,
 ) -> Result<()> {
     match sign.method {
-        SigningMethod::Crc => crc_image::update_crc(
-            &cfg.dist_file(format!("{}.bin", fname)),
-            &cfg.dist_file(format!("{}_crc.bin", fname)),
-        ),
+        SigningMethod::Crc => Ok(()),
         SigningMethod::Rsa => {
             let priv_key = sign.priv_key.as_ref().unwrap();
             let root_cert = sign.root_cert.as_ref().unwrap();
             signed_image::sign_image(
                 false, // TODO add an option to enable DICE
-                &cfg.dist_file(format!("{}.bin", fname)),
+                &cfg.img_file(format!("{}.bin", fname), image_name),
                 &cfg.app_src_dir.join(&priv_key),
                 &cfg.app_src_dir.join(&root_cert),
-                &cfg.dist_file(format!("{}_rsa.bin", fname)),
-                &cfg.dist_file("CMPA.bin"),
+                &cfg.img_file(format!("{}_rsa.bin", fname), image_name),
+                &cfg.img_file("CMPA.bin", image_name),
             )
         }
-        SigningMethod::Ecc => {
-            // Right now we just generate the header
-            generate_header(
-                &cfg.dist_file("combined.bin"),
-                &cfg.dist_file("combined_ecc.bin"),
-                header_start,
-                &cfg.toml.memories(&"bungus".to_string())?,
-            )
-        }
+        SigningMethod::Ecc => Ok(()),
     }
 }
 
@@ -2121,12 +2126,16 @@ fn cargo_clean(names: &[&str], target: &str) -> Result<()> {
     Ok(())
 }
 
-fn resolve_task_slots(cfg: &PackageConfig, task_name: &str) -> Result<()> {
+fn resolve_task_slots(
+    cfg: &PackageConfig,
+    task_name: &str,
+    image_name: &str,
+) -> Result<()> {
     use scroll::{Pread, Pwrite};
 
     let task_toml = &cfg.toml.tasks[task_name];
 
-    let task_bin = cfg.dist_file(&task_name);
+    let task_bin = cfg.img_file(&task_name, image_name);
     let in_task_bin = std::fs::read(&task_bin)?;
     let elf = goblin::elf::Elf::parse(&in_task_bin)?;
 
