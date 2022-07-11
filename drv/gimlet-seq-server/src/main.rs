@@ -227,11 +227,9 @@ fn main() -> ! {
     // serve up a recognizable ident code.
     let seq = seq_spi::SequencerFpga::new(spi.device(SEQ_SPI_DEVICE));
 
-    // TODO: the ident is not sufficient for distinguishing the various Gimlet
-    // FPGA images that are floating around, so, we need to always reprogram it.
-    //
-    //let reprogram = !seq.valid_ident();
-    let reprogram = true;
+    // If the image announces the correct identifier and has a matching
+    // bitstream checksum, then we can skip reprogramming;
+    let reprogram = !(seq.valid_ident() && seq.valid_checksum());
 
     ringbuf_entry!(Trace::Reprogram(reprogram));
 
@@ -267,6 +265,13 @@ fn main() -> ! {
             // active low.
             sys.gpio_set(pin).unwrap();
         }
+
+        // Store our bitstream checksum in the FPGA's checksum registers
+        // (which are initialized to zero).  This value is read back before
+        // programming the FPGA image (e.g. if this task restarts or the SP
+        // itself is reflashed), and used to decide whether FPGA programming
+        // is required.
+        seq.write_checksum().unwrap();
     }
 
     ringbuf_entry!(Trace::Programmed);

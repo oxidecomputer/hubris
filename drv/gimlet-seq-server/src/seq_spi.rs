@@ -40,10 +40,35 @@ impl SequencerFpga {
     }
 
     /// Check for a valid identifier, deliberately eating any SPI errors.
-    #[allow(dead_code)]
     pub fn valid_ident(&self) -> bool {
         if let Ok(ident) = self.read_ident() {
             ident == EXPECTED_IDENT
+        } else {
+            false
+        }
+    }
+
+    /// Reads the 32-bit checksum register, which should match
+    /// `GIMLET_BITSTREAM_CHECKSUM` if the image is loaded and hasn't changed.
+    pub fn read_checksum(&self) -> Result<u32, spi_api::SpiError> {
+        let mut checksum = 0;
+        self.read_bytes(Addr::CS0, checksum.as_bytes_mut())?;
+        Ok(checksum)
+    }
+
+    /// Writes the 32-bit checksum to match `GIMLET_BITSTREAM_CHECKSUM`.
+    ///
+    /// This should be done after the image is loaded, to record the image's
+    /// identity; if the Hubris image is power-cycled, this lets us detect
+    /// whether the FPGA should be reloaded.
+    pub fn write_checksum(&self) -> Result<(), spi_api::SpiError> {
+        self.write_bytes(Addr::ID0, GIMLET_BITSTREAM_CHECKSUM.as_bytes())
+    }
+
+    /// Check for a valid checksum, deliberately eating any SPI errors.
+    pub fn valid_checksum(&self) -> bool {
+        if let Ok(checksum) = self.read_checksum() {
+            checksum == GIMLET_BITSTREAM_CHECKSUM
         } else {
             false
         }

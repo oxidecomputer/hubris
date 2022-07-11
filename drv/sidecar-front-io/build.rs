@@ -35,7 +35,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut hasher = sha2::Sha512::new();
     hasher.update(&compressed_fpga_bitstream);
     let result = hasher.finalize();
-    println!("Got result {:?}", result);
     writeln!(
         &mut file,
         "\npub const SIDECAR_IO_BITSTREAM_CHECKSUM: u32 = {:#x};",

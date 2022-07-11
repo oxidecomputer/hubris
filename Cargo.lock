@@ -751,6 +751,7 @@ dependencies = [
 name = "drv-gimlet-seq-server"
 version = "0.1.0"
 dependencies = [
+ "build-fpga-regmap",
  "build-i2c",
  "build-util",
  "byteorder",
@@ -771,6 +772,7 @@ dependencies = [
  "ringbuf",
  "serde",
  "serde_json",
+ "sha2",
  "task-jefe-api",
  "userlib",
  "zerocopy",
