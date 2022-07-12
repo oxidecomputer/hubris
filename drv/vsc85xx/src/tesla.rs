@@ -6,6 +6,8 @@ use crate::util::detype;
 use crate::Trace;
 use crate::{Phy, PhyRw};
 
+use zerocopy::AsBytes;
+
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc_err::VscError;
@@ -115,6 +117,69 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
 
         Ok(())
     }
+    pub fn read_patch_settings(
+        &mut self,
+    ) -> Result<TeslaSerdes6gPatch, VscError> {
+        // Based on vtss_phy_tesla_patch_setttings_get_private
+        // This is not a place of honor.
+
+        let mut cfg = [0; 38];
+        let mcb_bus = 1; // "only 6G macros used for QSGMII MACs"
+        let slave_num = 0;
+
+        // "Read MCB macro into PRAM" (line 3994)
+        self.phy.cmd(0x8003 | (slave_num << 8) | (mcb_bus << 4))?;
+
+        self.phy.cmd(0xd7c7)?; // Line 3998
+
+        for i in 0..38 {
+            // "read the value of cfg_buf[idx] w/ post-incr."
+            self.phy.cmd(0x9007)?;
+            let r = self.phy.read(phy::GPIO::MICRO_PAGE())?;
+
+            // "get bits 11:4 from return value"
+            cfg[i] = (u16::from(r) >> 4) as u8;
+        }
+        Ok(TeslaSerdes6gPatch { cfg })
+    }
+    pub fn tune_serdes6g_ob(
+        &mut self,
+        ob_post0: u8,
+        ob_post1: u8,
+        ob_prec: u8,
+    ) -> Result<(), VscError> {
+        if ob_post0 > 63 || ob_post1 > 31 || ob_prec > 31 {
+            return Err(VscError::OutOfRange);
+        }
+
+        let mcb_bus = 1; // "only 6G macros used for QSGMII MACs"
+        let slave_num = 0;
+
+        // Line 4967
+        self.phy.cmd(0x8003 | (slave_num << 8) | (mcb_bus << 4))?;
+        self.phy.cmd(0xd7c7)?; // "VTSS_TESLA_MCB_CFG_BUF_START_ADDR"
+
+        self.write_patch_value(77..=82, ob_post0)?;
+        self.write_patch_value(72..=76, ob_post1)?;
+        self.write_patch_value(67..=71, ob_prec)?;
+
+        self.phy.cmd(0x9c40)?;
+        Ok(())
+    }
+    fn write_patch_value(
+        &mut self,
+        bits: core::ops::RangeInclusive<u32>,
+        value: u8,
+    ) -> Result<(), VscError> {
+        todo!()
+    }
+}
+
+#[derive(Copy, Clone, AsBytes)]
+#[repr(C)]
+pub struct TeslaSerdes6gPatch {
+    cfg: [u8; 38],
+    // There's also a status buf, but we'll skip that for now
 }
 
 const TESLA_TR_CONFIG: [((u16, u8), u16); 181] = [

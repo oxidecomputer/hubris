@@ -83,6 +83,7 @@ pub enum MonorailError {
     MiimReadErr,
     MiimIdleTimeout,
     MiimReadTimeout,
+    OutOfRange,
 
     // ----------- Custom errors that aren't pulled from VscError -------------
     /// The given port is outside the valid port range
@@ -150,6 +151,7 @@ impl From<VscError> for MonorailError {
             VscError::MiimReadErr { .. } => Self::MiimReadErr,
             VscError::MiimIdleTimeout => Self::MiimIdleTimeout,
             VscError::MiimReadTimeout => Self::MiimReadTimeout,
+            VscError::OutOfRange => Self::OutOfRange,
         }
     }
 }
@@ -160,6 +162,21 @@ pub enum PhyType {
     Vsc8522,
     Vsc8552,
     Vsc8562,
+}
+
+impl PhyType {
+    /// Returns a mask of bits which must be set in register 20E3 for QSGMII
+    /// to be considered okay
+    pub fn qsgmii_okay_mask(&self) -> u16 {
+        match self {
+            // QSGMII sync, MAC comma detect
+            PhyType::Vsc8504 | PhyType::Vsc8552 => 0b11 << 13,
+            // SerDes signal detect
+            PhyType::Vsc8522 => 1 << 14,
+            // QSGMII sync, MAC comma detect, SerDes signal detect
+            PhyType::Vsc8562 => 0b111 << 13,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

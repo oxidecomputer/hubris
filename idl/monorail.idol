@@ -93,5 +93,12 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
+        "read_vsc8504_sd6g_patch": (
+            doc: "Reads the undocumented VSC8504 SERDES6G patch area",
+            reply: Result(
+                ok: "TeslaSerdes6gPatch",
+                err: CLike("MonorailError"),
+            ),
+        ),
     },
 )

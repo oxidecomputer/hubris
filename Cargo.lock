@@ -3708,6 +3708,7 @@ dependencies = [
  "userlib",
  "vsc-err",
  "vsc7448-pac",
+ "zerocopy",
 ]
 
 [[package]]

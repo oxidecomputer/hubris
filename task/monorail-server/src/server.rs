@@ -344,22 +344,44 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             };
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
             let media_link_up = (status.0 & (1 << 2)) != 0;
+
+            // The VSC8504 is running in forced-speed protocol transfer mode.
+            // Experimentally, packets get through without MAC_LINK_STATUS
+            // set, and despite what "ENT-AN1175" says, I don't see anything
+            // in register 24G.  As such, we'll be optimistic: if there's a
+            // valid QSGMII link and MAC_PCS_SIG_DETECT, then let's call it
+            // good.
             let status = phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())?;
-            let mac_link_up = if status.mac_link_status() == 0 {
-                LinkStatus::Down
-            } else {
-                // Check QSGMII sync status (bit 13 in reg 3:20)
-                let mac_serdes =
-                    phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
-                if status.mac_sync_fail() != 0
-                    || status.mac_cgbad() != 0
-                    || (mac_serdes.0 & (1 << 13)) == 0
-                {
-                    LinkStatus::Error
-                } else {
-                    LinkStatus::Up
+            let mac_serdes = phy.read(phy::EXTENDED_3::MAC_SERDES_STATUS())?;
+            let qsgmii_mask = ty.qsgmii_okay_mask();
+            let mac_link_up = match ty {
+                PhyType::Vsc8504 => {
+                    if status.mac_pcs_sig_detect() == 0 {
+                        LinkStatus::Down
+                    } else if status.mac_sync_fail() != 0
+                        || status.mac_cgbad() != 0
+                        || (mac_serdes.0 & qsgmii_mask) == qsgmii_mask
+                    {
+                        LinkStatus::Error
+                    } else {
+                        LinkStatus::Up
+                    }
+                }
+                PhyType::Vsc8522 | PhyType::Vsc8552 | PhyType::Vsc8562 => {
+                    if status.mac_link_status() == 0 {
+                        LinkStatus::Down
+                    } else if status.mac_sync_fail() != 0
+                        || status.mac_cgbad() != 0
+                        || status.mac_pcs_sig_detect() == 0
+                        || (mac_serdes.0 & qsgmii_mask) == qsgmii_mask
+                    {
+                        LinkStatus::Error
+                    } else {
+                        LinkStatus::Up
+                    }
                 }
             };
+
             Ok(PhyStatus {
                 ty,
                 mac_link_up,
@@ -407,6 +429,27 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
     }
+
+    fn read_vsc8504_sd6g_patch(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<vsc85xx::tesla::TeslaSerdes6gPatch, RequestError<MonorailError>>
+    {
+        const VSC8504_BASE_PORT: u8 = 40;
+        self.bsp
+            .phy_fn(VSC8504_BASE_PORT, |mut phy| {
+                let id = phy.read_id()?;
+                if id == vsc85xx::vsc8504::VSC8504_ID {
+                    vsc85xx::tesla::TeslaPhy { phy: &mut phy }
+                        .read_patch_settings()
+                } else {
+                    Err(VscError::BadPhyId(id))
+                }
+            })
+            .unwrap()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
@@ -422,5 +465,6 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 
 mod idl {
     use super::{MonorailError, PhyStatus, PortCounters, PortStatus};
+    use vsc85xx::tesla::TeslaSerdes6gPatch;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

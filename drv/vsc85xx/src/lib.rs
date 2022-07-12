@@ -11,12 +11,12 @@
 
 mod atom;
 mod led;
-mod tesla;
 mod util;
 mod viper;
 mod vsc8552;
 
 // User-facing handles to various PHY types
+pub mod tesla;
 pub mod vsc8504;
 pub mod vsc8522;
 pub mod vsc8562;

@@ -96,6 +96,9 @@ pub enum VscError {
     },
     MiimIdleTimeout,
     MiimReadTimeout,
+
+    /// Provided an invalid argument
+    OutOfRange,
 }
 
 impl From<SpiError> for VscError {
