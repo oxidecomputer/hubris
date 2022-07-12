@@ -9,7 +9,7 @@ use vsc7448_pac::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
-    Lan10g,
+    Lan10g(SerdesPresetType),
     Sgmii,
 }
 
@@ -39,7 +39,7 @@ impl Config {
     pub fn new(mode: Mode) -> Result<Self, VscError> {
         let mut f_pll = FrequencySetup::new(mode);
         let if_width = match mode {
-            Mode::Lan10g => 32,
+            Mode::Lan10g(..) => 32,
             Mode::Sgmii => 10,
         };
 
@@ -99,7 +99,10 @@ impl Config {
 
         ////////////////////////////////////////////////////////////////////////
         // `vtss_calc_sd10g65_setup_rx`
-        let preset_type = SerdesPresetType::DacHw;
+        let preset_type = match mode {
+            Mode::Lan10g(t) => t,
+            Mode::Sgmii => SerdesPresetType::DacHw,
+        };
         let rx_preset = SerdesRxPreset::new(preset_type);
         let apc_preset = SerdesApcPreset::new(preset_type, optimize_for_1g);
 
@@ -133,7 +136,7 @@ impl Config {
         v.modify(XGXFI(index).XFI_CONTROL().XFI_MODE(), |r| {
             r.set_port_sel(match self.mode {
                 Mode::Sgmii => 1,
-                Mode::Lan10g => 0,
+                Mode::Lan10g(..) => 0,
             })
         })?;
         // Unclear if these all need to be in separate messages, but let's
@@ -714,8 +717,8 @@ impl Config {
 }
 
 /// Equivalent to `vtss_sd10g65_preset_t`
-#[derive(Copy, Clone, PartialEq)]
-enum SerdesPresetType {
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum SerdesPresetType {
     DacHw, // VTSS_SD10G65_DAC_HW
     KrHw,  // VTSS_SD10G65_KR_HW, i.e. 10GBASE-KR
 }
@@ -900,7 +903,7 @@ pub struct FrequencySetup {
 impl FrequencySetup {
     pub fn new(mode: Mode) -> Self {
         match mode {
-            Mode::Lan10g => FrequencySetup {
+            Mode::Lan10g(..) => FrequencySetup {
                 // 10.3125Gbps
                 f_pll_khz: 10_000_000,
                 ratio_num: 66,

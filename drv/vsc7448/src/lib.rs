@@ -171,6 +171,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 }
             }
             PortMode::Sfi => self.init_sfi(p, cfg),
+            PortMode::BaseKr => {
+                self.init_sfi(p, cfg)?;
+                Dev10g::new(cfg.dev.1)?.init_10gbase_kr(self.rw)?;
+                Ok(())
+            }
         }
     }
 
@@ -179,7 +184,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// This will configure the appropriate DEV10G and SERDES10G.
     fn init_sfi(&self, p: u8, cfg: PortConfig) -> Result<(), VscError> {
-        assert_eq!(cfg.mode, PortMode::Sfi);
+        assert!(matches!(cfg.mode, PortMode::Sfi | PortMode::BaseKr));
         assert_eq!(cfg.dev.0, PortDev::Dev10g);
 
         let dev = Dev10g::new(cfg.dev.1)?;
@@ -196,7 +201,12 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         })?;
 
         assert_eq!(cfg.serdes.0, PortSerdes::Serdes10g);
-        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
+        let serdes_cfg =
+            serdes10g::Config::new(serdes10g::Mode::Lan10g(match cfg.mode {
+                PortMode::Sfi => serdes10g::SerdesPresetType::DacHw,
+                PortMode::BaseKr => serdes10g::SerdesPresetType::KrHw,
+                _ => unreachable!(), // checked above
+            }))?;
         serdes_cfg.apply(cfg.serdes.1, self.rw)?;
 
         self.set_calendar_bandwidth(p, Bandwidth::Bw10G)?;
