@@ -240,6 +240,29 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
         )?;
         vsc7448::serdes6g::serdes6g_write(self.vsc7448, FRONT_IO_SERDES6G)?;
+
+        // Same for the on-board QSGMII link to the VSC8504, with different
+        // settings.
+        // h monorail write SERDES6G_OB_CFG 0x26000131
+        // h monorail write SERDES6G_OB_CFG1 0x20
+        const VSC8504_SERDES6G: u8 = 14;
+        vsc7448::serdes6g::serdes6g_read(self.vsc7448, VSC8504_SERDES6G)?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
+            |r| {
+                // Leave all other values as default
+                r.set_ob_post0(0xc);
+                r.set_ob_sr(3);
+            },
+        )?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
+            |r| {
+                r.set_ob_lev(0x20);
+            },
+        )?;
+        vsc7448::serdes6g::serdes6g_write(self.vsc7448, VSC8504_SERDES6G)?;
+
         Ok(())
     }
 
