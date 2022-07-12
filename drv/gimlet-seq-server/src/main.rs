@@ -34,6 +34,8 @@ mod payload;
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     Ice40Rails(bool, bool),
+    IdentValid(bool),
+    ChecksumValid(bool),
     Reprogram(bool),
     Programmed,
     Programming,
@@ -229,8 +231,13 @@ fn main() -> ! {
 
     // If the image announces the correct identifier and has a matching
     // bitstream checksum, then we can skip reprogramming;
-    let reprogram = !(seq.valid_ident() && seq.valid_checksum());
+    let ident_valid = seq.valid_ident();
+    ringbuf_entry!(Trace::IdentValid(ident_valid));
 
+    let checksum_valid = seq.valid_checksum();
+    ringbuf_entry!(Trace::ChecksumValid(checksum_valid));
+
+    let reprogram = !ident_valid || !checksum_valid;
     ringbuf_entry!(Trace::Reprogram(reprogram));
 
     // We only want to reset and reprogram the FPGA when absolutely required.
