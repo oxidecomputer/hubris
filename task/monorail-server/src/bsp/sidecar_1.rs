@@ -69,7 +69,7 @@ mod map {
     const SGMII: Option<PortMode> = Some(Sgmii(Speed100M));
     const QSGMII_100M: Option<PortMode> = Some(Qsgmii(Speed100M));
     const QSGMII_1G: Option<PortMode> = Some(Qsgmii(Speed1G));
-    const SFI: Option<PortMode> = Some(Sfi);
+    const BASE_KR: Option<PortMode> = Some(BaseKr);
 
     // See RFD144 for a detailed look at the design
     pub const PORT_MAP: PortMap = PortMap::new([
@@ -122,7 +122,7 @@ mod map {
         QSGMII_1G,   // 46 | Unused
         QSGMII_1G,   // 47 | Unused
         SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
-        SFI,         // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
+        BASE_KR,     // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
         None,        // 50 | Unused
         SGMII, // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
         SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
