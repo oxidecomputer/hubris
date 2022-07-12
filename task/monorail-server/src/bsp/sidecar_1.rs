@@ -252,6 +252,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             |r| {
                 // Leave all other values as default
                 r.set_ob_post0(0xc);
+                r.set_ob_sr_h(1);
                 r.set_ob_sr(3);
             },
         )?;

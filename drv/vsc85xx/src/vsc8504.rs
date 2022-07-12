@@ -160,7 +160,8 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         //
         // The soft reset for the TESLA PHY is different, for some reason!
         // "Tesla PHY Only - Writing 0xc040, See Bug_9450" (919)
-        self.phy.write(phy::GPIO::MICRO_PAGE(), 0xC040.into())?;
+        self.phy
+            .write(phy::STANDARD::MODE_CONTROL(), 0xC040.into())?;
         sleep_for(1); // line 934
 
         // We are now roughly at line 948, doing
