@@ -350,17 +350,24 @@ pub fn package(
 
         translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
 
-        if let Some(signing) = cfg.toml.signing.get("combined") {
-            if ksymbol_table.get("HEADER").is_none() {
-                bail!("Didn't find header symbol -- does the image need a placeholder?");
-            }
-
-            do_sign_file(
-                &cfg,
-                signing,
-                "combined",
-                *ksymbol_table.get("__header_start").unwrap(),
-                image_name,
+        if let Some(signing) = &cfg.toml.signing {
+            let priv_key = &signing.priv_key;
+            let root_cert = &signing.root_cert;
+            lpc55_sign::signed_image::sign_image(
+                false, // TODO add an option to enable DICE
+                &cfg.dist_file("combined.bin"),
+                &cfg.app_src_dir.join(&priv_key),
+                &cfg.app_src_dir.join(&root_cert),
+                &cfg.dist_file("combined_rsa.bin"),
+                &cfg.dist_file("CMPA.bin"),
+            )?;
+            std::fs::copy(
+                cfg.dist_file("combined.bin"),
+                cfg.dist_file("combined_original.bin"),
+            )?;
+            std::fs::copy(
+                cfg.dist_file("combined_rsa.bin"),
+                cfg.dist_file("combined.bin"),
             )?;
         }
 
@@ -976,84 +983,6 @@ fn smash_bootloader(
     Ok(())
 }
 
-fn do_sign_file(
-    cfg: &PackageConfig,
-    sign: &Signing,
-    fname: &str,
-    header_start: u32,
-    image_name: &str,
-) -> Result<()> {
-    match sign.method {
-        SigningMethod::Crc => Ok(()),
-        SigningMethod::Rsa => {
-            let priv_key = sign.priv_key.as_ref().unwrap();
-            let root_cert = sign.root_cert.as_ref().unwrap();
-            signed_image::sign_image(
-                false, // TODO add an option to enable DICE
-                &cfg.img_file(format!("{}.bin", fname), image_name),
-                &cfg.app_src_dir.join(&priv_key),
-                &cfg.app_src_dir.join(&root_cert),
-                &cfg.img_file(format!("{}_rsa.bin", fname), image_name),
-                &cfg.img_file("CMPA.bin", image_name),
-            )
-        }
-        SigningMethod::Ecc => Ok(()),
-    }
-}
-
-fn generate_bootloader_linker_script(
-    name: &str,
-    map: &IndexMap<String, Range<u32>>,
-    sections: Option<&IndexMap<String, String>>,
-) {
-    // Put the linker script somewhere the linker can find it
-    let mut linkscr =
-        File::create(Path::new(&format!("target/{}", name))).unwrap();
-
-    writeln!(linkscr, "MEMORY\n{{").unwrap();
-    for (name, range) in map {
-        let start = range.start;
-        let end = range.end;
-        let name = name.to_ascii_uppercase();
-        writeln!(
-            linkscr,
-            "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-            name,
-            start,
-            end - start
-        )
-        .unwrap();
-    }
-    writeln!(linkscr, "}}").unwrap();
-
-    // Mappings for the secure entry. This needs to live in flash and be
-    // aligned to 32 bytes.
-    if let Some(map) = sections {
-        writeln!(linkscr, "SECTIONS {{").unwrap();
-
-        for (section, memory) in map {
-            writeln!(linkscr, "  .{} : ALIGN(32) {{", section).unwrap();
-            writeln!(linkscr, "    __start_{} = .;", section).unwrap();
-            writeln!(linkscr, "    KEEP(*(.{} .{}.*));", section, section)
-                .unwrap();
-            writeln!(linkscr, "     . = ALIGN(32);").unwrap();
-            writeln!(linkscr, "    __end_{} = .;", section).unwrap();
-            writeln!(linkscr, "    PROVIDE(address_of_start_{} = .);", section)
-                .unwrap();
-            writeln!(linkscr, "    LONG(__start_{});", section).unwrap();
-            writeln!(linkscr, "    PROVIDE(address_of_end_{} = .);", section)
-                .unwrap();
-            writeln!(linkscr, "    LONG(__end_{});", section).unwrap();
-
-            writeln!(linkscr, "  }} > {}", memory.to_ascii_uppercase())
-                .unwrap();
-        }
-        writeln!(linkscr, "}} INSERT BEFORE .bss").unwrap();
-    }
-
-    writeln!(linkscr, "IMAGEA = ORIGIN(IMAGEA_FLASH);").unwrap();
-}
-
 fn generate_task_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
@@ -1117,6 +1046,7 @@ fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
+    images: &IndexMap<String, crate::config::Output>
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1160,6 +1090,18 @@ fn generate_kernel_linker_script(
             name,
             start,
             end - start
+        )
+        .unwrap();
+    }
+
+
+    for (name, out) in images {
+        writeln!(
+            linkscr,
+            "IMAGE{}_FLASH (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
+            name.to_uppercase(),
+            out.address,
+            out.size
         )
         .unwrap();
     }

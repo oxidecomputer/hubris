@@ -24,7 +24,7 @@ struct RawConfig {
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
-    signing: IndexMap<String, Signing>,
+    signing: Option<Signing>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
     bootloader: Option<Bootloader>,
@@ -44,7 +44,7 @@ pub struct Config {
     pub board: String,
     pub chip: String,
     pub image_names: Vec<String>,
-    pub signing: IndexMap<String, Signing>,
+    pub signing: Option<Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
     pub bootloader: Option<Bootloader>,
@@ -289,7 +289,6 @@ impl Config {
         self.outputs
             .iter()
             .map(|(name, out)| {
-                println!("{:x?} {}", out, image_name);
                 let region : Vec<&Output>= out.iter().filter(|o| o.name == *image_name).collect();
                 if region.len() > 1 {
                     bail!("Multiple regions defined for image {}", image_name);
@@ -412,9 +411,8 @@ impl std::fmt::Display for SigningMethod {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Signing {
-    pub method: SigningMethod,
-    pub priv_key: Option<PathBuf>,
-    pub root_cert: Option<PathBuf>,
+    pub priv_key: PathBuf,
+    pub root_cert: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize)]
