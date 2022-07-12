@@ -62,7 +62,7 @@ impl SequencerFpga {
     /// identity; if the Hubris image is power-cycled, this lets us detect
     /// whether the FPGA should be reloaded.
     pub fn write_checksum(&self) -> Result<(), spi_api::SpiError> {
-        self.write_bytes(Addr::ID0, GIMLET_BITSTREAM_CHECKSUM.as_bytes())
+        self.write_bytes(Addr::CS0, GIMLET_BITSTREAM_CHECKSUM.as_bytes())
     }
 
     /// Check for a valid checksum, deliberately eating any SPI errors.
