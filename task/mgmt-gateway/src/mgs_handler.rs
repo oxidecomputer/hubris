@@ -4,6 +4,7 @@
 
 use crate::Log;
 use crate::MgsMessage;
+use crate::UsartHandler;
 use crate::__RINGBUF;
 use gateway_messages::sp_impl::SocketAddrV6;
 use gateway_messages::sp_impl::SpHandler;
@@ -17,9 +18,17 @@ use gateway_messages::SpPort;
 use gateway_messages::SpState;
 use ringbuf::ringbuf_entry;
 
-pub(crate) struct MgsHandler;
+pub(crate) struct MgsHandler<'a> {
+    usart: &'a mut UsartHandler,
+}
 
-impl SpHandler for MgsHandler {
+impl<'a> MgsHandler<'a> {
+    pub(crate) fn new(usart: &'a mut UsartHandler) -> Self {
+        Self { usart }
+    }
+}
+
+impl SpHandler for MgsHandler<'_> {
     fn discover(
         &mut self,
         _sender: SocketAddrV6,
@@ -93,6 +102,15 @@ impl SpHandler for MgsHandler {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             length: packet.len
         }));
-        Err(ResponseError::RequestUnsupportedForSp)
+
+        // TODO check packet.component and/or packet.offset?
+
+        let data = &packet.data[..usize::from(packet.len)];
+        if self.usart.tx_buffer_remaining_capacity() >= data.len() {
+            self.usart.tx_buffer_append(data);
+            Ok(())
+        } else {
+            Err(ResponseError::Busy)
+        }
     }
 }

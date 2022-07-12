@@ -163,9 +163,13 @@ priority = 4
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
-uses = ["system_flash"] # TODO also used by `net`, both to read the stm32 uid
-task-slots = ["net"]
-features = ["vlan"]
+uses = [
+    "usart1",
+    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+]
+task-slots = ["net", "sys"]
+features = ["usart1", "vlan"]
+interrupts = {"usart1.irq" = 2}
 
 [tasks.validate]
 name = "task-validate"

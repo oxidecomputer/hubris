@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cfg-if = "1"
+num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
-num-traits = {version = "0.2", default-features = false}
+tinyvec = "1.6"
 
+drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", features = ["h753"]}
 drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
 ringbuf = {path = "../../lib/ringbuf"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
@@ -17,3 +20,5 @@ gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "be3
 
 [features]
 vlan = ["task-net-api/vlan"]
+usart1 = []
+usart2 = []

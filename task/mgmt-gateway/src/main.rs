@@ -5,10 +5,12 @@
 #![no_std]
 #![no_main]
 
+use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl;
 use gateway_messages::sp_impl::Error as MgsDispatchError;
 use gateway_messages::IgnitionCommand;
 use gateway_messages::Request;
+use gateway_messages::SerialConsole;
 use gateway_messages::SerializedSize;
 use gateway_messages::SpMessage;
 use gateway_messages::SpPort;
@@ -18,6 +20,8 @@ use task_net_api::Net;
 use task_net_api::NetError;
 use task_net_api::SocketName;
 use task_net_api::UdpMetadata;
+use tinyvec::ArrayVec;
+use userlib::sys_irq_control;
 use userlib::sys_recv_closed;
 use userlib::task_slot;
 use userlib::TaskId;
@@ -28,6 +32,7 @@ mod mgs_handler;
 use self::mgs_handler::MgsHandler;
 
 task_slot!(NET, net);
+task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
@@ -36,6 +41,10 @@ enum Log {
     DispatchError(MgsDispatchError),
     SendError(NetError),
     MgsMessage(MgsMessage),
+    UsartTx { num_bytes: usize },
+    UsartTxFull { remaining: usize },
+    UsartRx { num_bytes: usize },
+    UsartRxOverrun,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,22 +68,96 @@ ringbuf!(Log, 16, Log::Empty);
 
 // Must match app.toml!
 const NET_IRQ: u32 = 1;
+const USART_IRQ: u32 = 2;
 
 const SOCKET: SocketName = SocketName::mgmt_gateway;
 
 #[export_name = "main"]
 fn main() {
+    let mut usart_handler = UsartHandler::new(configure_usart());
     let mut net_handler = NetHandler::default();
-    let mut note = NET_IRQ;
 
+    // Enbale USART interrupts.
+    sys_irq_control(USART_IRQ, true);
+
+    let mut note = NET_IRQ;
     loop {
         if (note & NET_IRQ) != 0 {
-            net_handler.run_until_blocked();
+            net_handler.run_until_blocked(&mut usart_handler);
         }
 
-        note = sys_recv_closed(&mut [], NET_IRQ, TaskId::KERNEL)
+        if (note & USART_IRQ) != 0 {
+            usart_handler.run_until_blocked();
+            sys_irq_control(USART_IRQ, true);
+        }
+
+        note = sys_recv_closed(&mut [], NET_IRQ | USART_IRQ, TaskId::KERNEL)
             .unwrap_lite()
             .operation;
+    }
+}
+
+struct UsartHandler {
+    usart: Usart,
+    to_tx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
+}
+
+impl UsartHandler {
+    fn new(usart: Usart) -> Self {
+        Self {
+            usart,
+            to_tx: ArrayVec::default(),
+        }
+    }
+
+    fn tx_buffer_remaining_capacity(&self) -> usize {
+        self.to_tx.capacity() - self.to_tx.len()
+    }
+
+    fn tx_buffer_append(&mut self, data: &[u8]) {
+        if self.to_tx.is_empty() {
+            self.usart.enable_tx_fifo_empty_interrupt();
+        }
+        self.to_tx.extend_from_slice(data);
+    }
+
+    fn run_until_blocked(&mut self) {
+        // Transmit as much as we have and can.
+        let mut n = 0;
+        for &b in &self.to_tx {
+            if self.usart.try_tx_push(b) {
+                n += 1;
+            } else {
+                break;
+            }
+        }
+
+        // Clean up / ringbuf debug log after transmitting.
+        if n > 0 {
+            ringbuf_entry!(Log::UsartTx { num_bytes: n });
+            self.to_tx.drain(..n);
+        }
+        if self.to_tx.is_empty() {
+            self.usart.disable_tx_fifo_empty_interrupt();
+        } else {
+            ringbuf_entry!(Log::UsartTxFull {
+                remaining: self.to_tx.len()
+            });
+        }
+
+        // Recv as much as we can.
+        if self.usart.check_and_clear_rx_overrun() {
+            ringbuf_entry!(Log::UsartRxOverrun);
+        }
+
+        // TODO buffer this data up and send it to MGS instead of discarding it
+        let mut n = 0;
+        while let Some(_) = self.usart.try_rx_pop() {
+            n += 1;
+        }
+        if n > 0 {
+            ringbuf_entry!(Log::UsartRx { num_bytes: n });
+        }
     }
 }
 
@@ -97,7 +180,7 @@ impl Default for NetHandler {
 }
 
 impl NetHandler {
-    fn run_until_blocked(&mut self) {
+    fn run_until_blocked(&mut self, usart: &mut UsartHandler) {
         loop {
             // Try to send first.
             if let Some(meta) = self.packet_to_send.take() {
@@ -127,7 +210,7 @@ impl NetHandler {
             // packet.
             match self.net.recv_packet(SOCKET, &mut self.rx_buf) {
                 Ok(meta) => {
-                    self.handle_received_packet(meta);
+                    self.handle_received_packet(meta, usart);
                 }
                 Err(NetError::QueueEmpty) => {
                     return;
@@ -138,7 +221,11 @@ impl NetHandler {
         }
     }
 
-    fn handle_received_packet(&mut self, mut meta: UdpMetadata) {
+    fn handle_received_packet(
+        &mut self,
+        mut meta: UdpMetadata,
+        usart: &mut UsartHandler,
+    ) {
         ringbuf_entry!(Log::Rx(meta));
 
         let addr = match meta.addr {
@@ -156,7 +243,7 @@ impl NetHandler {
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
-            &mut MgsHandler,
+            &mut MgsHandler::new(usart),
             &mut self.tx_buf,
         ) {
             Ok(n) => {
@@ -179,4 +266,54 @@ fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
         1 => SpPort::Two,
         _ => unreachable!(),
     }
+}
+
+fn configure_usart() -> Usart {
+    use drv_stm32h7_usart::device;
+    use drv_stm32h7_usart::drv_stm32xx_sys_api::*;
+
+    // TODO: this module should _not_ know our clock rate. That's a hack.
+    const CLOCK_HZ: u32 = 100_000_000;
+
+    const BAUD_RATE: u32 = 115_200;
+
+    let usart;
+    let peripheral;
+    let pins;
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "usart1")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::B.pin(6).and_pin(7), Alternate::AF7),
+            ];
+
+            // From thin air, pluck a pointer to the USART register block.
+            //
+            // Safety: this is needlessly unsafe in the API. The USART is
+            // essentially a static, and we access it through a & reference so
+            // aliasing is not a concern. Were it literally a static, we could
+            // just reference it.
+            usart = unsafe { &*device::USART1::ptr() };
+            peripheral = Peripheral::Usart1;
+            pins = PINS;
+        } else if #[cfg(feature = "usart2")] {
+            const PINS: &[(PinSet, Alternate)] = &[
+                (Port::D.pin(5).and_pin(6), Alternate::AF7),
+            ];
+            usart = unsafe { &*device::USART2::ptr() };
+            peripheral = Peripheral::Usart2;
+            pins = PINS;
+        } else {
+            compile_error!("no usartX feature specified");
+        }
+    }
+
+    Usart::turn_on(
+        &Sys::from(SYS.get_task_id()),
+        usart,
+        peripheral,
+        pins,
+        CLOCK_HZ,
+        BAUD_RATE,
+    )
 }
