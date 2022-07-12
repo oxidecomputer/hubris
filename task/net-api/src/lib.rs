@@ -16,6 +16,8 @@ pub enum NetError {
     QueueEmpty = 1,
     NotYours = 2,
     InvalidVLan = 3,
+    QueueFull = 4,
+    Other = 5,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

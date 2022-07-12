@@ -118,6 +118,7 @@ pub struct ServerImpl<'a> {
     eth: &'a eth::Ethernet,
 
     socket_handles: [[SocketHandle; SOCKET_COUNT]; VLAN_COUNT],
+    client_waiting_to_send: [bool; SOCKET_COUNT],
     ifaces: [Interface<'a, VLanEthernet<'a>>; VLAN_COUNT],
     bsp: crate::bsp::Bsp,
 }
@@ -205,6 +206,7 @@ impl<'a> ServerImpl<'a> {
         let ifaces = ifaces.map(|e| e.unwrap());
         Self {
             eth: &storage.eth,
+            client_waiting_to_send: [false; SOCKET_COUNT],
             socket_handles,
             ifaces,
             bsp,
@@ -225,9 +227,11 @@ impl<'a> ServerImpl<'a> {
     /// we don't know which VLAN it will write to.
     pub fn wake_sockets(&mut self) {
         for i in 0..SOCKET_COUNT {
-            if (0..VLAN_COUNT)
-                .any(|v| self.get_socket_mut(i, v).unwrap().can_recv())
-            {
+            if (0..VLAN_COUNT).any(|v| {
+                let want_to_send = self.client_waiting_to_send[i];
+                let socket = self.get_socket_mut(i, v).unwrap();
+                socket.can_recv() || (want_to_send && socket.can_send())
+            }) {
                 let (task_id, notification) = generated::SOCKET_OWNERS[i];
                 let task_id = sys_refresh_task_id(task_id);
                 sys_post(task_id, notification);
@@ -352,16 +356,16 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
                 payload
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
+                self.client_waiting_to_send[socket_index] = false;
                 Ok(())
             }
             Err(smoltcp::Error::Exhausted) => {
-                // TODO this is not quite right
-                Err(NetError::QueueEmpty.into())
+                self.client_waiting_to_send[socket_index] = true;
+                Err(NetError::QueueFull.into())
             }
             Err(_e) => {
                 // uhhhh TODO
-                // TODO this is not quite right
-                Err(NetError::QueueEmpty.into())
+                Err(NetError::Other.into())
             }
         }
     }

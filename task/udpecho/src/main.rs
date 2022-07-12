@@ -37,6 +37,8 @@ fn main() -> ! {
             }
             Err(NetError::NotYours) => panic!(),
             Err(NetError::InvalidVLan) => panic!(),
+            Err(NetError::QueueFull) => panic!(),
+            Err(NetError::Other) => panic!(),
         }
 
         // Try again.
