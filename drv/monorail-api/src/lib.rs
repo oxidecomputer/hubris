@@ -179,7 +179,7 @@ impl PhyType {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum LinkStatus {
     /// MAC_SYNC_FAIL or MAC_CGBAD is set
     Error,

@@ -235,7 +235,7 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             ob_ena1v_mode: ((v >> 30) & 1) as u8,
             ob_pol: ((v >> 29) & 1) as u8,
             ob_post0: ((v >> 23) & 63) as u8,
-            ob_post1: ((v >> 18) & 5) as u8,
+            ob_post1: ((v >> 18) & 31) as u8,
             ob_sr_h: ((v >> 8) & 1) as u8,
             ob_resistor_ctr: ((v >> 4) & 15) as u8,
             ob_sr: (v & 15) as u8,

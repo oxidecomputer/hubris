@@ -214,14 +214,12 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
             .checked_shl(bit_size as u32)
             .unwrap_or(0)
             .wrapping_sub(1);
-        assert_eq!(mask.count_ones(), bit_size as u32);
 
         // Shift the mask and value into a u16, to handle cases where we
         // straddle a boundary between bytes.
         let bit_start = bits.start() % 8;
         let mut mask = u16::from(mask) << bit_start;
         let mut value = u16::from(value) << bit_start;
-        assert_eq!(mask.count_ones(), bit_size as u32);
 
         // Set the start address
         let addr = MCB_CFG_BUF_START_ADDR + bits.start() / 8;

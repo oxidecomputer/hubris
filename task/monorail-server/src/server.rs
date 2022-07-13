@@ -105,7 +105,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             None => return Err(MonorailError::UnconfiguredPort.into()),
             Some(cfg) => cfg,
         };
-        let link_up = match cfg.dev.0 {
+        let mut link_up = match cfg.dev.0 {
             // These devices use the same register layout, so we can
             // consolidate into a single branch ere.
             PortDev::Dev1g | PortDev::Dev2g5 => {
@@ -119,34 +119,41 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     .vsc7448
                     .read(dev.regs().PCS1G_CFG_STATUS().PCS1G_LINK_STATUS())
                     .map_err(MonorailError::from)?;
-                (reg.link_status() != 0) && (reg.signal_detect() != 0)
+
+                if reg.link_status() == 0 {
+                    LinkStatus::Down
+                } else if reg.signal_detect() == 0 || reg.sync_status() == 0 {
+                    LinkStatus::Error
+                } else {
+                    LinkStatus::Up
+                }
             }
             PortDev::Dev10g => {
                 // Section of 3.8.2.2 describes how to monitor link status for
                 // DEV10G, which isn't as simple as the DEV1G/2G5.
-                self.vsc7448
+                if self
+                    .vsc7448
                     .read(PCS10G_BR(cfg.dev.1).PCS_10GBR_STATUS().PCS_STATUS())
                     .map_err(MonorailError::from)?
                     .rx_block_lock()
                     != 0
+                {
+                    LinkStatus::Up
+                } else {
+                    LinkStatus::Down
+                }
             }
         };
         // If this is a QSGMII port, also check the QSGMII status register
-        let link_up = if !link_up {
-            LinkStatus::Down
-        } else if matches!(self.map[port], Some(PortMode::Qsgmii(_))) {
+        if matches!(self.map[port], Some(PortMode::Qsgmii(_))) {
             let r = self
                 .vsc7448
                 .read(HSIO().HW_CFGSTAT().HW_QSGMII_STAT(port / 4))
                 .map_err(MonorailError::from)?;
-            if r.sync() == 0 {
-                LinkStatus::Error
-            } else {
-                LinkStatus::Up
+            if r.sync() == 0 && link_up == LinkStatus::Up {
+                link_up = LinkStatus::Error;
             }
-        } else {
-            LinkStatus::Up
-        };
+        }
 
         Ok(PortStatus { cfg, link_up })
     }
