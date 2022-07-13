@@ -450,6 +450,55 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
     }
+    fn read_vsc8504_sd6g_ob_config(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<
+        vsc85xx::tesla::TeslaSerdes6gObConfig,
+        RequestError<MonorailError>,
+    > {
+        const VSC8504_BASE_PORT: u8 = 40;
+        self.bsp
+            .phy_fn(VSC8504_BASE_PORT, |mut phy| {
+                let id = phy.read_id()?;
+                if id == vsc85xx::vsc8504::VSC8504_ID {
+                    vsc85xx::tesla::TeslaPhy { phy: &mut phy }
+                        .read_serdes6g_ob()
+                } else {
+                    Err(VscError::BadPhyId(id))
+                }
+            })
+            .unwrap()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+
+    /// Exposes internal details of the VSC8504's SERDES6G for tuning
+    fn tune_vsc8504_sd6g_ob_config(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        ob_post0: u8,
+        ob_post1: u8,
+        ob_prec: u8,
+        ob_sr_h: bool,
+        ob_sr: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        const VSC8504_BASE_PORT: u8 = 40;
+        self.bsp
+            .phy_fn(VSC8504_BASE_PORT, |mut phy| {
+                let id = phy.read_id()?;
+                if id == vsc85xx::vsc8504::VSC8504_ID {
+                    vsc85xx::tesla::TeslaPhy { phy: &mut phy }.tune_serdes6g_ob(
+                        ob_post0, ob_post1, ob_prec, ob_sr_h, ob_sr,
+                    )
+                } else {
+                    Err(VscError::BadPhyId(id))
+                }
+            })
+            .unwrap()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
@@ -465,6 +514,6 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 
 mod idl {
     use super::{MonorailError, PhyStatus, PortCounters, PortStatus};
-    use vsc85xx::tesla::TeslaSerdes6gPatch;
+    use vsc85xx::tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

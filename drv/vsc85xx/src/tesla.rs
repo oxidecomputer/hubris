@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::convert::TryInto;
+
 use crate::util::detype;
 use crate::Trace;
 use crate::{Phy, PhyRw};
@@ -117,6 +119,7 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
 
         Ok(())
     }
+
     pub fn read_patch_settings(
         &mut self,
     ) -> Result<TeslaSerdes6gPatch, VscError> {
@@ -142,36 +145,132 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
         }
         Ok(TeslaSerdes6gPatch { cfg })
     }
+
     pub fn tune_serdes6g_ob(
         &mut self,
         ob_post0: u8,
         ob_post1: u8,
         ob_prec: u8,
+        ob_sr_h: bool,
+        ob_sr: u8,
     ) -> Result<(), VscError> {
-        if ob_post0 > 63 || ob_post1 > 31 || ob_prec > 31 {
+        if ob_post0 > 63 || ob_post1 > 31 || ob_prec > 31 || ob_sr > 15 {
             return Err(VscError::OutOfRange);
         }
+        let ob_sr_h = u8::from(ob_sr_h);
 
         let mcb_bus = 1; // "only 6G macros used for QSGMII MACs"
         let slave_num = 0;
 
         // Line 4967
         self.phy.cmd(0x8003 | (slave_num << 8) | (mcb_bus << 4))?;
+
+        // XXX: I don't think this is needed, because we write the address
+        // in write_patch_value below
         self.phy.cmd(0xd7c7)?; // "VTSS_TESLA_MCB_CFG_BUF_START_ADDR"
 
         self.write_patch_value(77..=82, ob_post0)?;
         self.write_patch_value(72..=76, ob_post1)?;
         self.write_patch_value(67..=71, ob_prec)?;
+        self.write_patch_value(62..=62, ob_sr_h)?;
+        self.write_patch_value(54..=57, ob_sr)?;
 
+        // "Write MCB for 6G macro 0 from PRAM" (line 4982)
         self.phy.cmd(0x9c40)?;
         Ok(())
     }
+
+    pub fn read_serdes6g_ob(
+        &mut self,
+    ) -> Result<TeslaSerdes6gObConfig, VscError> {
+        let mcb_bus = 1; // "only 6G macros used for QSGMII MACs"
+        let slave_num = 0;
+        self.phy.cmd(0x8003 | (slave_num << 8) | (mcb_bus << 4))?;
+
+        let ob_post0 = self.read_patch_value(77..=82)?;
+        let ob_post1 = self.read_patch_value(72..=76)?;
+        let ob_prec = self.read_patch_value(67..=71)?;
+        let ob_sr_h = self.read_patch_value(62..=62)?;
+        let ob_sr = self.read_patch_value(54..=57)?;
+
+        Ok(TeslaSerdes6gObConfig {
+            ob_post0,
+            ob_post1,
+            ob_prec,
+            ob_sr_h,
+            ob_sr,
+        })
+    }
+
+    /// Writes a single value to the TESLA patch region config array
+    ///
+    /// Loosely based on `patch_array_set_value`, but not _terrible_.
     fn write_patch_value(
         &mut self,
         bits: core::ops::RangeInclusive<u32>,
         value: u8,
     ) -> Result<(), VscError> {
-        todo!()
+        // Set the start address
+        let addr = 0xd7c7 + bits.start() / 8;
+        self.phy.cmd(addr.try_into().unwrap())?;
+
+        let bit_start = bits.start() % 8;
+        let bit_size: u32 = bits.end() - bits.start() + 1;
+        assert!(bit_size <= 8);
+
+        // Build a right-aligned mask, e.g. 0b0011111 or 0b00000001
+        //
+        // This uses wrapping_sub to correctly handle the case where
+        // bit_size == 8, which shifts the 1 out then underflows to 0b11111111
+        let mask: u8 = (1u8 << bit_size).wrapping_sub(1);
+
+        // Shift the mask and value into a u16, to handle cases where we
+        // straddle a boundary between bytes.
+        let mut mask = u16::from(mask) << bit_start;
+        let mut value = u16::from(value) << bit_start;
+
+        for _b in (bits.start() / 8)..=(bits.end() / 8) {
+            self.phy.cmd(0x8007)?; // Read cfg_buffer[byte], no post-increment
+
+            // Read the actual byte from the config vuffer
+            let r = self.phy.read(phy::GPIO::MICRO_PAGE())?;
+            let mut r = (u16::from(r) >> 4) as u8;
+
+            // Modify the byte, then prepare to handle the next byte
+            r = (r & !(mask as u8)) | (value as u8);
+            mask >>= 8;
+            value >>= 8;
+
+            // Write the data back, with post-increment
+            self.phy.cmd(0x9006 | (u16::from(r) << 4))?;
+        }
+        assert_eq!(mask, 0);
+        Ok(())
+    }
+
+    /// Reads a single value from the TESLA patch region config array
+    fn read_patch_value(
+        &mut self,
+        bits: core::ops::RangeInclusive<u32>,
+    ) -> Result<u8, VscError> {
+        // Set the start address
+        let addr = 0xd7c7 + bits.start() / 8;
+        self.phy.cmd(addr.try_into().unwrap())?;
+
+        let mut value: u16 = 0;
+        for b in (bits.start() / 8)..=(bits.end() / 8) {
+            self.phy.cmd(0x9007)?; // Read with post-increment
+
+            // Read the actual byte from the config vuffer
+            let r = self.phy.read(phy::GPIO::MICRO_PAGE())?;
+            let r = (u16::from(r) >> 4) as u8;
+
+            // Accumulate into a u16
+            value |= u16::from(r) << (b * 8);
+        }
+        let bit_size: u32 = bits.end() - bits.start() + 1;
+        let mask: u8 = (1u8 << bit_size).wrapping_sub(1);
+        Ok((value >> bits.start()) as u8 & mask)
     }
 }
 
@@ -180,6 +279,16 @@ impl<'a, 'b, P: PhyRw> TeslaPhy<'a, 'b, P> {
 pub struct TeslaSerdes6gPatch {
     cfg: [u8; 38],
     // There's also a status buf, but we'll skip that for now
+}
+
+#[derive(Copy, Clone, AsBytes)]
+#[repr(C)]
+pub struct TeslaSerdes6gObConfig {
+    ob_post0: u8,
+    ob_post1: u8,
+    ob_prec: u8,
+    ob_sr_h: u8,
+    ob_sr: u8,
 }
 
 const TESLA_TR_CONFIG: [((u16, u8), u16); 181] = [
