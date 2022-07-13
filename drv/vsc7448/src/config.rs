@@ -16,6 +16,7 @@ pub enum Speed {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PortMode {
     Sfi,
+    BaseKr,
     Sgmii(Speed),
     Qsgmii(Speed),
 }
@@ -23,7 +24,7 @@ pub enum PortMode {
 impl PortMode {
     pub fn speed(&self) -> Speed {
         match self {
-            PortMode::Sfi => Speed::Speed10G,
+            PortMode::Sfi | PortMode::BaseKr => Speed::Speed10G,
             PortMode::Sgmii(s) | PortMode::Qsgmii(s) => *s,
         }
     }
@@ -84,7 +85,7 @@ impl PortMap {
     pub fn port_config(&self, p: u8) -> Option<PortConfig> {
         self.0[p as usize].map(|mode| {
             match mode {
-                PortMode::Sfi => {
+                PortMode::Sfi | PortMode::BaseKr => {
                     let dev_num = match p {
                         49..=52 => p - 49,
                         _ => panic!("Invalid SFI port {}", p),
@@ -149,5 +150,12 @@ impl PortMap {
                 }
             }
         })
+    }
+}
+
+impl core::ops::Index<u8> for PortMap {
+    type Output = Option<PortMode>;
+    fn index(&self, i: u8) -> &Self::Output {
+        &self.0[i as usize]
     }
 }

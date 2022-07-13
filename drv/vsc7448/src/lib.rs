@@ -7,13 +7,13 @@
 pub mod config;
 pub mod mac;
 pub mod miim_phy;
+pub mod serdes6g;
 pub mod spi;
 
 mod dev;
 mod port;
 mod serdes10g;
 mod serdes1g;
-mod serdes6g;
 
 use crate::config::{PortConfig, PortDev, PortMap, PortMode, PortSerdes};
 use userlib::hl::sleep_for;
@@ -171,6 +171,11 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
                 }
             }
             PortMode::Sfi => self.init_sfi(p, cfg),
+            PortMode::BaseKr => {
+                self.init_sfi(p, cfg)?;
+                Dev10g::new(cfg.dev.1)?.init_10gbase_kr(self.rw)?;
+                Ok(())
+            }
         }
     }
 
@@ -179,7 +184,7 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// This will configure the appropriate DEV10G and SERDES10G.
     fn init_sfi(&self, p: u8, cfg: PortConfig) -> Result<(), VscError> {
-        assert_eq!(cfg.mode, PortMode::Sfi);
+        assert!(matches!(cfg.mode, PortMode::Sfi | PortMode::BaseKr));
         assert_eq!(cfg.dev.0, PortDev::Dev10g);
 
         let dev = Dev10g::new(cfg.dev.1)?;
@@ -196,7 +201,12 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         })?;
 
         assert_eq!(cfg.serdes.0, PortSerdes::Serdes10g);
-        let serdes_cfg = serdes10g::Config::new(serdes10g::Mode::Lan10g)?;
+        let serdes_cfg =
+            serdes10g::Config::new(serdes10g::Mode::Lan10g(match cfg.mode {
+                PortMode::Sfi => serdes10g::SerdesPresetType::DacHw,
+                PortMode::BaseKr => serdes10g::SerdesPresetType::KrHw,
+                _ => unreachable!(), // checked above
+            }))?;
         serdes_cfg.apply(cfg.serdes.1, self.rw)?;
 
         self.set_calendar_bandwidth(p, Bandwidth::Bw10G)?;
@@ -275,7 +285,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         qsgmii_cfg.apply(cfg.serdes.1, self.rw)?;
 
         for dev in cfg.dev.1..(cfg.dev.1 + 4) {
-            dev_type(dev)?.init_sgmii(self.rw, cfg.mode.speed())?;
+            let dev = dev_type(dev)?;
+            dev.init_sgmii(self.rw, cfg.mode.speed())?;
         }
         for port in p..p + 4 {
             // Min bandwidth is 1G, so we'll use it here

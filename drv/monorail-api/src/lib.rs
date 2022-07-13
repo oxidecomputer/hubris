@@ -16,7 +16,7 @@ pub use vsc7448::{
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PortStatus {
     pub cfg: PortConfig,
-    pub link_up: bool,
+    pub link_up: LinkStatus,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -66,6 +66,7 @@ pub enum MonorailError {
     RamInitFailed,
     TooMuchBandwidth,
     BadPhyId,
+    PhyCommandError,
     BadPhyRev,
     BadPhyPatchPort,
     PhyPatchFailedCrc,
@@ -82,6 +83,7 @@ pub enum MonorailError {
     MiimReadErr,
     MiimIdleTimeout,
     MiimReadTimeout,
+    OutOfRange,
 
     // ----------- Custom errors that aren't pulled from VscError -------------
     /// The given port is outside the valid port range
@@ -127,6 +129,7 @@ impl From<VscError> for MonorailError {
             VscError::RamInitFailed => Self::RamInitFailed,
             VscError::TooMuchBandwidth(..) => Self::TooMuchBandwidth,
             VscError::BadPhyId(..) => Self::BadPhyId,
+            VscError::PhyCommandError(..) => Self::PhyCommandError,
             VscError::BadPhyRev => Self::BadPhyRev,
             VscError::BadPhyPatchPort(..) => Self::BadPhyPatchPort,
             VscError::PhyPatchFailedCrc => Self::PhyPatchFailedCrc,
@@ -148,11 +151,12 @@ impl From<VscError> for MonorailError {
             VscError::MiimReadErr { .. } => Self::MiimReadErr,
             VscError::MiimIdleTimeout => Self::MiimIdleTimeout,
             VscError::MiimReadTimeout => Self::MiimReadTimeout,
+            VscError::OutOfRange => Self::OutOfRange,
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum PhyType {
     Vsc8504,
     Vsc8522,
@@ -160,9 +164,32 @@ pub enum PhyType {
     Vsc8562,
 }
 
+impl PhyType {
+    /// Returns a mask of bits which must be set in register 20E3 for QSGMII
+    /// to be considered okay
+    pub fn qsgmii_okay_mask(&self) -> u16 {
+        match self {
+            // QSGMII sync, MAC comma detect
+            PhyType::Vsc8504 | PhyType::Vsc8552 => 0b11 << 13,
+            // SerDes signal detect
+            PhyType::Vsc8522 => 1 << 14,
+            // QSGMII sync, MAC comma detect, SerDes signal detect
+            PhyType::Vsc8562 => 0b111 << 12,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub enum LinkStatus {
+    /// MAC_SYNC_FAIL or MAC_CGBAD is set
+    Error,
+    Down,
+    Up,
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PhyStatus {
     pub ty: PhyType,
-    pub mac_link_up: bool,
-    pub media_link_up: bool,
+    pub mac_link_up: LinkStatus,
+    pub media_link_up: LinkStatus,
 }

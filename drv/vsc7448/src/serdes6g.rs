@@ -16,8 +16,6 @@ pub struct Config {
     ob_ena1v_mode: u32,
     ob_ena_cas: u32,
     ob_lev: u32,
-    ob_sr_h: u32,
-    ob_sr: u32,
     pll_fsm_ctrl_data: u32,
     qrate: u32,
     if_mode: u32,
@@ -32,7 +30,7 @@ const SERDES6G_RW_POLL_COUNT: usize = 32;
 /// Reads from a specific SERDES6G instance, which is done by writing its
 /// value (as a bitmask) to a particular register with a read flag set,
 /// then waiting for the flag to autoclear.
-fn serdes6g_read(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
+pub fn serdes6g_read(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
     let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
     v.write_with(addr, |r| {
         r.set_serdes6g_rd_one_shot(1);
@@ -51,7 +49,10 @@ fn serdes6g_read(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
 /// Writes to a specific SERDES6G instance, which is done by writing its
 /// value (as a bitmask) to a particular register with a read flag set,
 /// then waiting for the flag to autoclear.
-fn serdes6g_write(v: &impl Vsc7448Rw, instance: u8) -> Result<(), VscError> {
+pub fn serdes6g_write(
+    v: &impl Vsc7448Rw,
+    instance: u8,
+) -> Result<(), VscError> {
     let addr = HSIO().MCB_SERDES6G_CFG().MCB_SERDES6G_ADDR_CFG();
     v.write_with(addr, |r| {
         r.set_serdes6g_wr_one_shot(1);
@@ -78,12 +79,6 @@ impl Config {
                 qrate: 0,
                 if_mode: 3,
                 des_bw_ana: 5,
-
-                // This output buffer config isn't part of `jr2_sd6g_cfg`, but
-                // checking experimentally on the scope, it makes the QSGMII
-                // edges look much better.
-                ob_sr_h: 0,
-                ob_sr: 0,
             },
             Mode::Sgmii => Self {
                 ob_ena1v_mode: 1,
@@ -93,8 +88,6 @@ impl Config {
                 qrate: 1,
                 if_mode: 1,
                 des_bw_ana: 3,
-                ob_sr_h: 1,
-                ob_sr: 7,
             },
         }
     }
@@ -117,8 +110,6 @@ impl Config {
 
         v.modify(ana_cfg.SERDES6G_OB_CFG(), |r| {
             r.set_ob_ena1v_mode(self.ob_ena1v_mode);
-            r.set_ob_sr_h(self.ob_sr_h);
-            r.set_ob_sr(self.ob_sr);
         })?;
         v.modify(ana_cfg.SERDES6G_OB_CFG1(), |r| {
             r.set_ob_ena_cas(self.ob_ena_cas);
