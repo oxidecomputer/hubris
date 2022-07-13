@@ -8,14 +8,19 @@
 use drv_stm32h7_usart::Usart;
 use gateway_messages::sp_impl;
 use gateway_messages::sp_impl::Error as MgsDispatchError;
+use gateway_messages::sp_impl::SerialConsolePacketizer;
+use gateway_messages::sp_impl::SocketAddrV6;
 use gateway_messages::IgnitionCommand;
 use gateway_messages::Request;
 use gateway_messages::SerialConsole;
 use gateway_messages::SerializedSize;
+use gateway_messages::SpComponent;
 use gateway_messages::SpMessage;
+use gateway_messages::SpMessageKind;
 use gateway_messages::SpPort;
 use ringbuf::ringbuf;
 use ringbuf::ringbuf_entry;
+use task_net_api::Address;
 use task_net_api::Net;
 use task_net_api::NetError;
 use task_net_api::SocketName;
@@ -45,6 +50,7 @@ enum Log {
     UsartTxFull { remaining: usize },
     UsartRx { num_bytes: usize },
     UsartRxOverrun,
+    SerialConsoleSend { len: u16 },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -82,13 +88,13 @@ fn main() {
 
     let mut note = NET_IRQ;
     loop {
-        if (note & NET_IRQ) != 0 {
-            net_handler.run_until_blocked(&mut usart_handler);
-        }
-
         if (note & USART_IRQ) != 0 {
             usart_handler.run_until_blocked();
             sys_irq_control(USART_IRQ, true);
+        }
+
+        if (note & NET_IRQ) != 0 || usart_handler.should_flush_to_mgs() {
+            net_handler.run_until_blocked(&mut usart_handler);
         }
 
         note = sys_recv_closed(&mut [], NET_IRQ | USART_IRQ, TaskId::KERNEL)
@@ -100,6 +106,7 @@ fn main() {
 struct UsartHandler {
     usart: Usart,
     to_tx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
+    from_rx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
 }
 
 impl UsartHandler {
@@ -107,6 +114,7 @@ impl UsartHandler {
         Self {
             usart,
             to_tx: ArrayVec::default(),
+            from_rx: ArrayVec::default(),
         }
     }
 
@@ -119,6 +127,11 @@ impl UsartHandler {
             self.usart.enable_tx_fifo_empty_interrupt();
         }
         self.to_tx.extend_from_slice(data);
+    }
+
+    fn should_flush_to_mgs(&self) -> bool {
+        // TODO also add time check
+        self.from_rx.len() > 10
     }
 
     fn run_until_blocked(&mut self) {
@@ -145,16 +158,27 @@ impl UsartHandler {
             });
         }
 
-        // Recv as much as we can.
+        // Clear any errors.
         if self.usart.check_and_clear_rx_overrun() {
             ringbuf_entry!(Log::UsartRxOverrun);
         }
 
-        // TODO buffer this data up and send it to MGS instead of discarding it
+        // Recv as much as we have space for.
         let mut n = 0;
-        while let Some(_) = self.usart.try_rx_pop() {
-            n += 1;
+        let mut available_rx_space =
+            self.from_rx.capacity() - self.from_rx.len();
+
+        while available_rx_space > 0 {
+            match self.usart.try_rx_pop() {
+                Some(b) => {
+                    self.from_rx.push(b);
+                    n += 1;
+                    available_rx_space -= 1;
+                }
+                None => break,
+            }
         }
+
         if n > 0 {
             ringbuf_entry!(Log::UsartRx { num_bytes: n });
         }
@@ -165,6 +189,8 @@ struct NetHandler {
     net: Net,
     rx_buf: [u8; Request::MAX_SIZE],
     tx_buf: [u8; SpMessage::MAX_SIZE],
+    serial_console_packetizer: SerialConsolePacketizer,
+    attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     packet_to_send: Option<UdpMetadata>,
 }
 
@@ -174,6 +200,13 @@ impl Default for NetHandler {
             net: Net::from(NET.get_task_id()),
             rx_buf: [0; Request::MAX_SIZE],
             tx_buf: [0; SpMessage::MAX_SIZE],
+            serial_console_packetizer: SerialConsolePacketizer::new(
+                // TODO should we remove the "component" from the serial console
+                // MGS API? Any chance we ever want to support multiple "serial
+                // console"s?
+                SpComponent::try_from("sp3").unwrap_lite(),
+            ),
+            attached_serial_console_mgs: None,
             packet_to_send: None,
         }
     }
@@ -205,9 +238,40 @@ impl NetHandler {
                 }
             }
 
-            // We have nothing to send (possibly because we just successfully
-            // sent a message we previously enqueued), so check for an incoming
-            // packet.
+            // Does our USART have data buffered that we should send?
+            if usart.should_flush_to_mgs() {
+                if let Some((mgs_addr, sp_port)) =
+                    self.attached_serial_console_mgs
+                {
+                    let (serial_console_packet, leftover) = self
+                        .serial_console_packetizer
+                        .first_packet(&usart.from_rx);
+
+                    // Based on the size of `usart.from_rx`, we should never have
+                    // any leftover data (it holds at most one packet worth).
+                    assert!(leftover.is_empty());
+                    usart.from_rx.clear();
+
+                    ringbuf_entry!(Log::SerialConsoleSend {
+                        len: serial_console_packet.len
+                    });
+                    let meta = self.build_serial_console_packet(
+                        serial_console_packet,
+                        mgs_addr,
+                        sp_port,
+                    );
+                    self.packet_to_send = Some(meta);
+
+                    // Loop back to send.
+                    continue;
+                } else {
+                    // We have no attached MGS instance; discard serial port
+                    // data.
+                    usart.from_rx.clear();
+                }
+            }
+
+            // All sending is complete; check for an incoming packet.
             match self.net.recv_packet(SOCKET, &mut self.rx_buf) {
                 Ok(meta) => {
                     self.handle_received_packet(meta, usart);
@@ -215,9 +279,37 @@ impl NetHandler {
                 Err(NetError::QueueEmpty) => {
                     return;
                 }
-                Err(NetError::NotYours) => panic!(),
-                Err(NetError::InvalidVLan) => panic!(),
+                Err(
+                    NetError::NotYours
+                    | NetError::InvalidVLan
+                    | NetError::QueueFull
+                    | NetError::Other,
+                ) => panic!(),
             }
+        }
+    }
+
+    fn build_serial_console_packet(
+        &mut self,
+        packet: SerialConsole,
+        mgs_addr: SocketAddrV6,
+        sp_port: SpPort,
+    ) -> UdpMetadata {
+        let message = SpMessage {
+            version: gateway_messages::version::V1,
+            kind: SpMessageKind::SerialConsole(packet),
+        };
+
+        // We know `self.tx_buf` is large enough for any `SpMessage`, so we can
+        // unwrap this `serialize()`.
+        let n = gateway_messages::serialize(&mut self.tx_buf, &message)
+            .unwrap_lite();
+
+        UdpMetadata {
+            addr: Address::Ipv6(mgs_addr.ip.into()),
+            port: mgs_addr.port,
+            size: n as u32,
+            vid: vlan_id_from_sp_port(sp_port),
         }
     }
 
@@ -239,17 +331,21 @@ impl NetHandler {
         // Hand off to `sp_impl` to handle deserialization, calling our
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
+        let mut mgs_handler = MgsHandler::new(usart);
         match sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
-            &mut MgsHandler::new(usart),
+            &mut mgs_handler,
             &mut self.tx_buf,
         ) {
             Ok(n) => {
                 meta.size = n as u32;
                 assert!(self.packet_to_send.is_none());
                 self.packet_to_send = Some(meta);
+                if let Some(mgs) = mgs_handler.attached_serial_console_mgs() {
+                    self.attached_serial_console_mgs = Some(mgs);
+                }
             }
             Err(err) => ringbuf_entry!(Log::DispatchError(err)),
         }
@@ -265,6 +361,16 @@ fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
         0 => SpPort::One,
         1 => SpPort::Two,
         _ => unreachable!(),
+    }
+}
+
+fn vlan_id_from_sp_port(port: SpPort) -> u16 {
+    use task_net_api::VLAN_RANGE;
+    assert_eq!(VLAN_RANGE.len(), 2);
+
+    match port {
+        SpPort::One => VLAN_RANGE.start,
+        SpPort::Two => VLAN_RANGE.start + 1,
     }
 }
 

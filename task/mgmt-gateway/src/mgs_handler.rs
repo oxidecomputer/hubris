@@ -20,11 +20,21 @@ use ringbuf::ringbuf_entry;
 
 pub(crate) struct MgsHandler<'a> {
     usart: &'a mut UsartHandler,
+    attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
 }
 
 impl<'a> MgsHandler<'a> {
     pub(crate) fn new(usart: &'a mut UsartHandler) -> Self {
-        Self { usart }
+        Self {
+            usart,
+            attached_serial_console_mgs: None,
+        }
+    }
+
+    pub(crate) fn attached_serial_console_mgs(
+        &self,
+    ) -> Option<(SocketAddrV6, SpPort)> {
+        self.attached_serial_console_mgs
     }
 }
 
@@ -95,8 +105,8 @@ impl SpHandler for MgsHandler<'_> {
 
     fn serial_console_write(
         &mut self,
-        _sender: SocketAddrV6,
-        _port: SpPort,
+        sender: SocketAddrV6,
+        port: SpPort,
         packet: SerialConsole,
     ) -> Result<(), ResponseError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
@@ -104,6 +114,10 @@ impl SpHandler for MgsHandler<'_> {
         }));
 
         // TODO check packet.component and/or packet.offset?
+
+        // TODO serial console access should require auth; for now, receiving
+        // serial console data implicitly attaches us
+        self.attached_serial_console_mgs = Some((sender, port));
 
         let data = &packet.data[..usize::from(packet.len)];
         if self.usart.tx_buffer_remaining_capacity() >= data.len() {
