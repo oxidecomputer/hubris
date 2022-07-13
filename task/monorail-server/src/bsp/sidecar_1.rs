@@ -264,6 +264,23 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         )?;
         vsc7448::serdes6g::serdes6g_write(self.vsc7448, VSC8504_SERDES6G)?;
 
+        // Write to the base port on the VSC8504, patching the SERDES6G
+        // config to improve signal integrity.  This is based on benchtop
+        // scoping of the QSGMII signals going from the VSC8504 to the VSC7448.
+        use vsc85xx::tesla::{TeslaPhy, TeslaSerdes6gObConfig};
+        let rw = &mut NetPhyRw(&mut self.net);
+        let mut vsc8504 = self.vsc8504.phy(0, rw);
+        let mut tesla = TeslaPhy {
+            phy: &mut vsc8504.phy,
+        };
+        tesla.tune_serdes6g_ob(TeslaSerdes6gObConfig {
+            ob_post0: 0xc,
+            ob_post1: 0,
+            ob_prec: 0,
+            ob_sr_h: 1, // half rate
+            ob_sr: 3,
+        })?;
+
         Ok(())
     }
 

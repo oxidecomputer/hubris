@@ -107,7 +107,7 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
-        "tune_vsc8504_sd6g_ob_config": (
+        "write_vsc8504_sd6g_ob_config": (
             doc: "Writes to the VSC8504 SERDES6G output config",
             args: {
                 "ob_post0": "u8",

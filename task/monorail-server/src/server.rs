@@ -474,7 +474,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     }
 
     /// Exposes internal details of the VSC8504's SERDES6G for tuning
-    fn tune_vsc8504_sd6g_ob_config(
+    fn write_vsc8504_sd6g_ob_config(
         &mut self,
         _msg: &userlib::RecvMessage,
         ob_post0: u8,
@@ -488,8 +488,15 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
                 let id = phy.read_id()?;
                 if id == vsc85xx::vsc8504::VSC8504_ID {
-                    vsc85xx::tesla::TeslaPhy { phy: &mut phy }.tune_serdes6g_ob(
-                        ob_post0, ob_post1, ob_prec, ob_sr_h, ob_sr,
+                    let mut tesla = vsc85xx::tesla::TeslaPhy { phy: &mut phy };
+                    tesla.tune_serdes6g_ob(
+                        vsc85xx::tesla::TeslaSerdes6gObConfig {
+                            ob_post0,
+                            ob_post1,
+                            ob_prec,
+                            ob_sr_h: u8::from(ob_sr_h),
+                            ob_sr,
+                        },
                     )
                 } else {
                     Err(VscError::BadPhyId(id))
