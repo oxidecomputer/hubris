@@ -174,7 +174,7 @@ impl PhyType {
             // SerDes signal detect
             PhyType::Vsc8522 => 1 << 14,
             // QSGMII sync, MAC comma detect, SerDes signal detect
-            PhyType::Vsc8562 => 0b111 << 13,
+            PhyType::Vsc8562 => 0b111 << 12,
         }
     }
 }
