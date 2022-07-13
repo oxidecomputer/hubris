@@ -4,6 +4,8 @@
 
 use core::convert::TryInto;
 
+use zerocopy::AsBytes;
+
 use crate::{Phy, PhyRw, Trace};
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use userlib::hl::sleep_for;
@@ -237,6 +239,35 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             self.sd6g_ob_cfg1_write(ob_ena_cas, ob_lev)?;
             self.mcb_write(0x3f, 0)?;
         }
+        Ok(())
+    }
+
+    /// Modifies the SERDES6G CFG register
+    pub fn tune_sd6g_ob_cfg(&mut self, cfg: Sd6gObCfg) -> Result<(), VscError> {
+        cfg.check_range()?;
+        self.mcb_read(0x3f, 0)?;
+        self.sd6g_ob_cfg_write(
+            cfg.ob_ena1v_mode,
+            cfg.ob_pol,
+            cfg.ob_post0,
+            cfg.ob_post1,
+            cfg.ob_sr_h,
+            cfg.ob_resistor_ctr,
+            cfg.ob_sr,
+        )?;
+        self.mcb_write(0x3f, 0)?;
+        Ok(())
+    }
+
+    /// Modifies the SERDES6G CFG1 register
+    pub fn tune_sd6g_ob_cfg1(
+        &mut self,
+        cfg: Sd6gObCfg1,
+    ) -> Result<(), VscError> {
+        cfg.check_range()?;
+        self.mcb_read(0x3f, 0)?;
+        self.sd6g_ob_cfg1_write(cfg.ob_ena_cas, cfg.ob_lev)?;
+        self.mcb_write(0x3f, 0)?;
         Ok(())
     }
 
@@ -958,5 +989,51 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
             | (u32::from(qrate) << 6)
             | (u32::from(if_mode) << 4);
         self.macsec_csr_write(7, 0x2c, reg_val)
+    }
+}
+
+#[derive(Copy, Clone, AsBytes)]
+#[repr(C)]
+pub struct Sd6gObCfg {
+    pub ob_ena1v_mode: u8,
+    pub ob_pol: u8,
+    pub ob_post0: u8,
+    pub ob_post1: u8,
+    pub ob_sr_h: u8,
+    pub ob_resistor_ctr: u8,
+    pub ob_sr: u8,
+}
+
+impl Sd6gObCfg {
+    fn check_range(&self) -> Result<(), VscError> {
+        if self.ob_ena1v_mode > 1
+            || self.ob_pol > 1
+            || self.ob_post0 > 64
+            || self.ob_post1 > 5
+            || self.ob_sr_h > 1
+            || self.ob_resistor_ctr > 15
+            || self.ob_sr > 15
+        {
+            Err(VscError::OutOfRange)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Copy, Clone, AsBytes)]
+#[repr(C)]
+pub struct Sd6gObCfg1 {
+    pub ob_ena_cas: u8,
+    pub ob_lev: u8,
+}
+
+impl Sd6gObCfg1 {
+    fn check_range(&self) -> Result<(), VscError> {
+        if self.ob_ena_cas > 0b111 || self.ob_lev > 0b111111 {
+            Err(VscError::OutOfRange)
+        } else {
+            Ok(())
+        }
     }
 }

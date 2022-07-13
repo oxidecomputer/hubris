@@ -156,7 +156,7 @@ impl From<VscError> for MonorailError {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum PhyType {
     Vsc8504,
     Vsc8522,

@@ -68,6 +68,28 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
             Ok(())
         }
     }
+
+    fn decode_phy_id<P: vsc85xx::PhyRw>(
+        phy: &vsc85xx::Phy<P>,
+    ) -> Result<(u32, PhyType), VscError> {
+        let id = phy.read_id()?;
+        let ty = match id {
+            vsc85xx::vsc85x2::VSC8552_ID => PhyType::Vsc8552,
+            vsc85xx::vsc85x2::VSC8562_ID => {
+                // See discussion in vsc85x2.rs
+                let rev = phy.read(phy::GPIO::EXTENDED_REVISION())?;
+                if u16::from(rev) & 0x4000 == 0 {
+                    PhyType::Vsc8562
+                } else {
+                    return Err(VscError::UnknownPhyId(id));
+                }
+            }
+            vsc85xx::vsc8504::VSC8504_ID => PhyType::Vsc8504,
+            vsc85xx::vsc8522::VSC8522_ID => PhyType::Vsc8522,
+            _ => return Err(VscError::UnknownPhyId(id)),
+        };
+        Ok((id, ty))
+    }
 }
 
 impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
@@ -326,22 +348,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         port: u8,
     ) -> Result<PhyStatus, RequestError<MonorailError>> {
         self.check_port(port)?;
-        match self.bsp.phy_fn(port, |phy| {
-            let ty = match phy.read_id()? {
-                vsc85xx::vsc85x2::VSC8552_ID => PhyType::Vsc8552,
-                vsc85xx::vsc85x2::VSC8562_ID => {
-                    // See discussion in vsc85x2.rs
-                    let rev = phy.read(phy::GPIO::EXTENDED_REVISION())?;
-                    if u16::from(rev) & 0x4000 == 0 {
-                        PhyType::Vsc8562
-                    } else {
-                        return Err(MonorailError::UnknownPhyId);
-                    }
-                }
-                vsc85xx::vsc8504::VSC8504_ID => PhyType::Vsc8504,
-                vsc85xx::vsc8522::VSC8522_ID => PhyType::Vsc8522,
-                _ => return Err(MonorailError::UnknownPhyId),
-            };
+        match self.bsp.phy_fn(port, |phy| -> Result<PhyStatus, VscError> {
+            let (_id, ty) = Self::decode_phy_id(&phy)?;
             let status = phy.read(phy::STANDARD::MODE_STATUS())?;
             let media_link_up = (status.0 & (1 << 2)) != 0;
 
@@ -438,8 +446,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let id = phy.read_id()?;
-                if id == vsc85xx::vsc8504::VSC8504_ID {
+                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                if ty == PhyType::Vsc8504 {
                     vsc85xx::tesla::TeslaPhy { phy: &mut phy }
                         .read_patch_settings()
                 } else {
@@ -450,6 +458,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
     }
+
     fn read_vsc8504_sd6g_ob_config(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -460,8 +469,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let id = phy.read_id()?;
-                if id == vsc85xx::vsc8504::VSC8504_ID {
+                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                if ty == PhyType::Vsc8504 {
                     vsc85xx::tesla::TeslaPhy { phy: &mut phy }
                         .read_serdes6g_ob()
                 } else {
@@ -474,6 +483,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
     }
 
     /// Exposes internal details of the VSC8504's SERDES6G for tuning
+    ///
+    /// This can only be called on Sidecar proper, not the VSC7448 dev kit.
     fn write_vsc8504_sd6g_ob_config(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -486,8 +497,8 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         const VSC8504_BASE_PORT: u8 = 40;
         self.bsp
             .phy_fn(VSC8504_BASE_PORT, |mut phy| {
-                let id = phy.read_id()?;
-                if id == vsc85xx::vsc8504::VSC8504_ID {
+                let (id, ty) = Self::decode_phy_id(&mut phy)?;
+                if ty == PhyType::Vsc8504 {
                     let mut tesla = vsc85xx::tesla::TeslaPhy { phy: &mut phy };
                     tesla.tune_serdes6g_ob(
                         vsc85xx::tesla::TeslaSerdes6gObConfig {
@@ -505,6 +516,75 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .unwrap()
             .map_err(MonorailError::from)
             .map_err(RequestError::from)
+    }
+
+    /// Exposes internal details of the VSC8562's SERDES6G for tuning
+    ///
+    /// This can only be called on Sidecar proper, not the VSC7448 dev kit.
+    fn write_vsc8562_sd6g_ob_cfg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        ob_ena1v_mode: u8,
+        ob_pol: u8,
+        ob_post0: u8,
+        ob_post1: u8,
+        ob_sr_h: u8,
+        ob_resistor_ctr: u8,
+        ob_sr: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        const VSC8564_BASE_PORT: u8 = 44;
+        let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
+            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            if ty == PhyType::Vsc8562 {
+                use vsc85xx::vsc8562::{Sd6gObCfg, Vsc8562Phy};
+                let mut v = Vsc8562Phy { phy: &mut phy };
+                v.tune_sd6g_ob_cfg(Sd6gObCfg {
+                    ob_ena1v_mode,
+                    ob_pol,
+                    ob_post0,
+                    ob_post1,
+                    ob_sr_h,
+                    ob_resistor_ctr,
+                    ob_sr,
+                })
+            } else {
+                Err(VscError::BadPhyId(id).into())
+            }
+        });
+        match r {
+            None => Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
+    }
+
+    /// Exposes internal details of the VSC8562's SERDES6G for tuning
+    ///
+    /// This can only be called on Sidecar proper, not the VSC7448 dev kit.
+    fn write_vsc8562_sd6g_ob_cfg1(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        ob_ena_cas: u8,
+        ob_lev: u8,
+    ) -> Result<(), RequestError<MonorailError>> {
+        const VSC8564_BASE_PORT: u8 = 44;
+        let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
+            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            if ty == PhyType::Vsc8562 {
+                use vsc85xx::vsc8562::{Sd6gObCfg1, Vsc8562Phy};
+                let mut v = Vsc8562Phy { phy: &mut phy };
+                v.tune_sd6g_ob_cfg1(Sd6gObCfg1 { ob_ena_cas, ob_lev })
+            } else {
+                Err(VscError::BadPhyId(id).into())
+            }
+        });
+        match r {
+            None => Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
     }
 }
 

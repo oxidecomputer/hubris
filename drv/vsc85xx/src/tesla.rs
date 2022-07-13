@@ -296,6 +296,7 @@ impl TeslaSerdes6gObConfig {
             || self.ob_post1 > 31
             || self.ob_prec > 31
             || self.ob_sr > 15
+            || self.ob_sr_h > 1
         {
             Err(VscError::OutOfRange)
         } else {
