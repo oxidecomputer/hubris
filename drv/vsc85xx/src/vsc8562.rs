@@ -259,6 +259,20 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         Ok(())
     }
 
+    pub fn read_sd6g_ob_cfg(&mut self) -> Result<Sd6gObCfg, VscError> {
+        self.mcb_read(0x3f, 0)?;
+        let v = self.macsec_csr_read(7, 0x28)?;
+        Ok(Sd6gObCfg {
+            ob_ena1v_mode: ((v >> 30) & 1) as u8,
+            ob_pol: ((v >> 29) & 1) as u8,
+            ob_post0: ((v >> 23) & 63) as u8,
+            ob_post1: ((v >> 18) & 5) as u8,
+            ob_sr_h: ((v >> 8) & 1) as u8,
+            ob_resistor_ctr: ((v >> 4) & 15) as u8,
+            ob_sr: (v & 15) as u8,
+        })
+    }
+
     /// Modifies the SERDES6G CFG1 register
     pub fn tune_sd6g_ob_cfg1(
         &mut self,
@@ -269,6 +283,15 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
         self.sd6g_ob_cfg1_write(cfg.ob_ena_cas, cfg.ob_lev)?;
         self.mcb_write(0x3f, 0)?;
         Ok(())
+    }
+
+    pub fn read_sd6g_ob_cfg1(&mut self) -> Result<Sd6gObCfg1, VscError> {
+        self.mcb_read(0x3f, 0)?;
+        let v = self.macsec_csr_read(7, 0x29)?;
+        Ok(Sd6gObCfg1 {
+            ob_ena_cas: ((v >> 6) & 7) as u8,
+            ob_lev: (v & 63) as u8,
+        })
     }
 
     fn fix_bz21484(&mut self) -> Result<(), VscError> {
@@ -1008,7 +1031,7 @@ impl Sd6gObCfg {
     fn check_range(&self) -> Result<(), VscError> {
         if self.ob_ena1v_mode > 1
             || self.ob_pol > 1
-            || self.ob_post0 > 64
+            || self.ob_post0 > 63
             || self.ob_post1 > 5
             || self.ob_sr_h > 1
             || self.ob_resistor_ctr > 15
@@ -1030,7 +1053,7 @@ pub struct Sd6gObCfg1 {
 
 impl Sd6gObCfg1 {
     fn check_range(&self) -> Result<(), VscError> {
-        if self.ob_ena_cas > 0b111 || self.ob_lev > 0b111111 {
+        if self.ob_ena_cas > 7 || self.ob_lev > 63 {
             Err(VscError::OutOfRange)
         } else {
             Ok(())

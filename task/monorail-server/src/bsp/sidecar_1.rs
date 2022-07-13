@@ -223,20 +223,22 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         const FRONT_IO_SERDES6G: u8 = 15;
         vsc7448::serdes6g::serdes6g_read(self.vsc7448, FRONT_IO_SERDES6G)?;
 
-        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG 0x24441001
-        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG1 0x10
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG 0x28441001
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG1 0x3F
         self.vsc7448.modify(
             HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
             |r| {
-                r.set_ob_post0(8);
+                r.set_ob_post0(0x10);
                 r.set_ob_prec(0x11); // -1, since MSB is sign
                 r.set_ob_post1(0x2);
+                r.set_ob_sr_h(0); // Full-rate mode
+                r.set_ob_sr(0); // Very fast edges (30 ps)
             },
         )?;
         self.vsc7448.modify(
             HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
             |r| {
-                r.set_ob_lev(0x10);
+                r.set_ob_lev(0x3F);
             },
         )?;
         vsc7448::serdes6g::serdes6g_write(self.vsc7448, FRONT_IO_SERDES6G)?;
@@ -252,8 +254,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             |r| {
                 // Leave all other values as default
                 r.set_ob_post0(0xc);
-                r.set_ob_sr_h(1);
-                r.set_ob_sr(3);
+                r.set_ob_sr_h(1); // half-rate mode
+                r.set_ob_sr(3); // medium speed edges (about 105 ps)
             },
         )?;
         self.vsc7448.modify(
@@ -280,6 +282,27 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             ob_sr_h: 1, // half rate
             ob_sr: 3,
         })?;
+
+        // Tune QSGMII link from the front IO board's PHY
+        // These values are captured empirically with an oscilloscope
+        if let Some(phy) = self.vsc8562.as_mut() {
+            use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1, Vsc8562Phy};
+            let mut p = vsc85xx::Phy::new(0, phy); // port 0
+            let mut v = Vsc8562Phy { phy: &mut p };
+            v.tune_sd6g_ob_cfg(Sd6gObCfg {
+                ob_ena1v_mode: 1,
+                ob_pol: 1,
+                ob_post0: 20,
+                ob_post1: 0,
+                ob_sr_h: 0,
+                ob_resistor_ctr: 1,
+                ob_sr: 15,
+            })?;
+            v.tune_sd6g_ob_cfg1(Sd6gObCfg1 {
+                ob_ena_cas: 0,
+                ob_lev: 48,
+            })?;
+        }
 
         Ok(())
     }

@@ -368,7 +368,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                         LinkStatus::Down
                     } else if status.mac_sync_fail() != 0
                         || status.mac_cgbad() != 0
-                        || (mac_serdes.0 & qsgmii_mask) == qsgmii_mask
+                        || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
                     {
                         LinkStatus::Error
                     } else {
@@ -381,7 +381,7 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
                     } else if status.mac_sync_fail() != 0
                         || status.mac_cgbad() != 0
                         || status.mac_pcs_sig_detect() == 0
-                        || (mac_serdes.0 & qsgmii_mask) == qsgmii_mask
+                        || (mac_serdes.0 & qsgmii_mask) != qsgmii_mask
                     {
                         LinkStatus::Error
                     } else {
@@ -586,6 +586,56 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             }
         }
     }
+
+    /// Exposes internal details of the VSC8562's SERDES6G for tuning
+    ///
+    /// This can only be called on Sidecar proper, not the VSC7448 dev kit.
+    fn read_vsc8562_sd6g_ob_cfg1(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<vsc85xx::vsc8562::Sd6gObCfg1, RequestError<MonorailError>> {
+        const VSC8564_BASE_PORT: u8 = 44;
+        let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
+            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            if ty == PhyType::Vsc8562 {
+                let mut v = vsc85xx::vsc8562::Vsc8562Phy { phy: &mut phy };
+                v.read_sd6g_ob_cfg1()
+            } else {
+                Err(VscError::BadPhyId(id).into())
+            }
+        });
+        match r {
+            None => Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
+    }
+
+    /// Exposes internal details of the VSC8562's SERDES6G for tuning
+    ///
+    /// This can only be called on Sidecar proper, not the VSC7448 dev kit.
+    fn read_vsc8562_sd6g_ob_cfg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<vsc85xx::vsc8562::Sd6gObCfg, RequestError<MonorailError>> {
+        const VSC8564_BASE_PORT: u8 = 44;
+        let r = self.bsp.phy_fn(VSC8564_BASE_PORT, |mut phy| {
+            let (id, ty) = Self::decode_phy_id(&mut phy)?;
+            if ty == PhyType::Vsc8562 {
+                let mut v = vsc85xx::vsc8562::Vsc8562Phy { phy: &mut phy };
+                v.read_sd6g_ob_cfg()
+            } else {
+                Err(VscError::BadPhyId(id).into())
+            }
+        });
+        match r {
+            None => Err(MonorailError::NoPhy.into()),
+            Some(r) => {
+                r.map_err(MonorailError::from).map_err(RequestError::from)
+            }
+        }
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
@@ -602,5 +652,6 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 mod idl {
     use super::{MonorailError, PhyStatus, PortCounters, PortStatus};
     use vsc85xx::tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch};
+    use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

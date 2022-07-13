@@ -121,6 +121,13 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
+        "read_vsc8562_sd6g_ob_cfg": (
+            doc: "Reads from the VSC8504 SERDES6G output config",
+            reply: Result(
+                ok: "Sd6gObCfg",
+                err: CLike("MonorailError"),
+            ),
+        ),
         "write_vsc8562_sd6g_ob_cfg": (
             doc: "Writes to the VSC8504 SERDES6G output config",
             args: {
@@ -134,6 +141,13 @@ Interface(
             },
             reply: Result(
                 ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc8562_sd6g_ob_cfg1": (
+            doc: "Reads from the VSC8504 SERDES6G output config",
+            reply: Result(
+                ok: "Sd6gObCfg1",
                 err: CLike("MonorailError"),
             ),
         ),
