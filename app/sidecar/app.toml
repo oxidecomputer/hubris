@@ -117,7 +117,7 @@ global_config = "spi5"
 
 [tasks.net]
 name = "task-net"
-stacksize = 3800
+stacksize = 5400
 priority = 5
 features = ["mgmt", "h753", "sidecar"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
