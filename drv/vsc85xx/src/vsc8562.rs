@@ -206,39 +206,8 @@ impl<'a, 'b, P: PhyRw> Vsc8562Phy<'a, 'b, P> {
 
         // ...and we're done with phy_reset_private!
 
-        // Now, we'll do `vtss_phy_sd6g_ob_post_wr_private`, which tweaks
-        // the SERDES6G configuration
-        if is_base_port {
-            self.mcb_read(0x3f, 0)?;
-            let ob_ena1v_mode = 1;
-            let ob_pol = 1;
-            let ob_resistor_ctr = 1;
-            let ob_sr_h = 0;
-            let ob_sr = 0;
-            let ob_post0 = 0;
-            let ob_post1 = 0;
-            self.sd6g_ob_cfg_write(
-                ob_ena1v_mode,
-                ob_pol,
-                ob_post0,
-                ob_post1,
-                ob_sr_h,
-                ob_resistor_ctr,
-                ob_sr,
-            )?;
-            self.mcb_write(0x3f, 0)?;
-
-            // ...and `vtss_phy_sd6g_ob_lev_wr_private`
-            self.mcb_read(0x3f, 0)?;
-            let ob_ena_cas = 0; // QSGMII
-
-            // ob_lev isn't specified in the SDK, but it seems like this
-            // SERDES6G is using the same macro as the VSC7448 itself, and we
-            // use 24 for QSGMII operation (see `serdes6g.rs` for details)
-            let ob_lev = 24;
-            self.sd6g_ob_cfg1_write(ob_ena_cas, ob_lev)?;
-            self.mcb_write(0x3f, 0)?;
-        }
+        // Note that the Sidecar BSP performs additional SERDES tuning
+        // in `vsc7448_postconfig`, based on empirical testing.
         Ok(())
     }
 
