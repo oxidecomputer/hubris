@@ -26,8 +26,10 @@ use task_net_api::NetError;
 use task_net_api::SocketName;
 use task_net_api::UdpMetadata;
 use tinyvec::ArrayVec;
+use userlib::sys_get_timer;
 use userlib::sys_irq_control;
 use userlib::sys_recv_closed;
+use userlib::sys_set_timer;
 use userlib::task_slot;
 use userlib::TaskId;
 use userlib::UnwrapLite;
@@ -42,6 +44,7 @@ task_slot!(SYS, sys);
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
+    Wake(u32),
     Rx(UdpMetadata),
     DispatchError(MgsDispatchError),
     SendError(NetError),
@@ -76,6 +79,13 @@ ringbuf!(Log, 16, Log::Empty);
 const NET_IRQ: u32 = 1;
 const USART_IRQ: u32 = 2;
 
+// Must not conflict with IRQs above!
+const TIMER_IRQ: u32 = 4;
+
+// Send any buffered serial console data to MGS when our oldest buffered byte is
+// this old, even if our buffer isn't full yet.
+const SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS: u64 = 500;
+
 const SOCKET: SocketName = SocketName::mgmt_gateway;
 
 #[export_name = "main"]
@@ -97,9 +107,14 @@ fn main() {
             net_handler.run_until_blocked(&mut usart_handler);
         }
 
-        note = sys_recv_closed(&mut [], NET_IRQ | USART_IRQ, TaskId::KERNEL)
-            .unwrap_lite()
-            .operation;
+        note = sys_recv_closed(
+            &mut [],
+            NET_IRQ | USART_IRQ | TIMER_IRQ,
+            TaskId::KERNEL,
+        )
+        .unwrap_lite()
+        .operation;
+        ringbuf_entry!(Log::Wake(note));
     }
 }
 
@@ -107,6 +122,7 @@ struct UsartHandler {
     usart: Usart,
     to_tx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
     from_rx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
+    from_rx_flush_deadline: Option<u64>,
 }
 
 impl UsartHandler {
@@ -115,6 +131,7 @@ impl UsartHandler {
             usart,
             to_tx: ArrayVec::default(),
             from_rx: ArrayVec::default(),
+            from_rx_flush_deadline: None,
         }
     }
 
@@ -130,8 +147,24 @@ impl UsartHandler {
     }
 
     fn should_flush_to_mgs(&self) -> bool {
-        // TODO also add time check
-        self.from_rx.len() > 10
+        // Bail out early if our buffer is empty or full.
+        let len = self.from_rx.len();
+        if len == 0 {
+            return false;
+        } else if len == self.from_rx.capacity() {
+            return true;
+        }
+
+        // Otherwise, only flush if we're past our deadline.
+        self.from_rx_flush_deadline
+            .map(|deadline| sys_get_timer().now >= deadline)
+            .unwrap_or(false)
+    }
+
+    fn clear_rx_data(&mut self) {
+        self.from_rx.clear();
+        self.from_rx_flush_deadline = None;
+        sys_set_timer(None, TIMER_IRQ);
     }
 
     fn run_until_blocked(&mut self) {
@@ -181,6 +214,13 @@ impl UsartHandler {
 
         if n > 0 {
             ringbuf_entry!(Log::UsartRx { num_bytes: n });
+
+            if self.from_rx_flush_deadline.is_none() {
+                let deadline =
+                    sys_get_timer().now + SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS;
+                self.from_rx_flush_deadline = Some(deadline);
+                sys_set_timer(Some(deadline), TIMER_IRQ);
+            }
         }
     }
 }
@@ -250,7 +290,7 @@ impl NetHandler {
                     // Based on the size of `usart.from_rx`, we should never have
                     // any leftover data (it holds at most one packet worth).
                     assert!(leftover.is_empty());
-                    usart.from_rx.clear();
+                    usart.clear_rx_data();
 
                     ringbuf_entry!(Log::SerialConsoleSend {
                         len: serial_console_packet.len
@@ -267,7 +307,7 @@ impl NetHandler {
                 } else {
                     // We have no attached MGS instance; discard serial port
                     // data.
-                    usart.from_rx.clear();
+                    usart.clear_rx_data();
                 }
             }
 
