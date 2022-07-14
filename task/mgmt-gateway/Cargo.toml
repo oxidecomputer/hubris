@@ -16,7 +16,7 @@ ringbuf = {path = "../../lib/ringbuf"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "b5ae5b643dd68e8c0825de262c12c5f612668463"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "5951498bbd60306bf8e73a382e6b5aaed67a7616"}
 
 [features]
 vlan = ["task-net-api/vlan"]
