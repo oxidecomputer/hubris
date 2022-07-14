@@ -263,17 +263,18 @@ impl NetHandler {
                     &self.tx_buf[..meta.size as usize],
                 ) {
                     Ok(()) => (),
-                    Err(err) => {
+                    Err(err @ NetError::QueueFull) => {
                         ringbuf_entry!(Log::SendError(err));
 
-                        // Re-enqueue packet and return; we'll wait to be awoken
-                        // by the net task when it has room for us to send.
-                        //
-                        // TODO Should we drop packets for non-"out of space"
-                        // errors? Need to fix net task returning QueueEmpty for
-                        // arbitrary errors.
+                        // "Re-enqueue" packet and return; we'll wait until
+                        // `net` wakes us again to retry.
                         self.packet_to_send = Some(meta);
                         return;
+                    }
+                    Err(err) => {
+                        // Some other (fatal?) error occurred; should we panic?
+                        // For now, just discard the packet we wanted to send.
+                        ringbuf_entry!(Log::SendError(err));
                     }
                 }
             }
