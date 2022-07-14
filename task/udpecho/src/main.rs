@@ -29,7 +29,21 @@ fn main() -> ! {
                 // Now we know how many bytes to return.
                 let tx_bytes = &rx_data_buf[..meta.size as usize];
 
-                net.send_packet(SOCKET, meta, tx_bytes).unwrap();
+                loop {
+                    match net.send_packet(SOCKET, meta, tx_bytes) {
+                        Ok(()) => break,
+                        Err(NetError::QueueFull) => {
+                            // Our outgoing queue is full; wait for space.
+                            sys_recv_closed(&mut [], 1, TaskId::KERNEL)
+                                .unwrap();
+                        }
+                        Err(NetError::NotYours) => panic!(),
+                        Err(NetError::InvalidVLan) => panic!(),
+                        Err(NetError::Other) => panic!(),
+                        // `send_packet()` can't return QueueEmpty
+                        Err(NetError::QueueEmpty) => unreachable!(),
+                    }
+                }
             }
             Err(NetError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
@@ -37,8 +51,9 @@ fn main() -> ! {
             }
             Err(NetError::NotYours) => panic!(),
             Err(NetError::InvalidVLan) => panic!(),
-            Err(NetError::QueueFull) => panic!(),
             Err(NetError::Other) => panic!(),
+            // `recv_packet()` can't return QueueFull
+            Err(NetError::QueueFull) => unreachable!(),
         }
 
         // Try again.
