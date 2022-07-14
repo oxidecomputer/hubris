@@ -19,7 +19,9 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         self.modify(phy::STANDARD::MODE_CONTROL(), |r| {
             r.set_sw_reset(1);
         })?;
-        self.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| r.sw_reset() != 1)
+        self.wait_timeout(phy::STANDARD::MODE_CONTROL(), |r| {
+            Ok(r.sw_reset() != 1)
+        })
     }
 
     /// The VSC85xx family supports sending commands to the system by writing to
@@ -28,19 +30,30 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     /// [VscError] if communication to the PHY doesn't work)
     pub(crate) fn cmd(&self, command: u16) -> Result<(), VscError> {
         self.write(phy::GPIO::MICRO_PAGE(), command.into())?;
-        self.wait_timeout(phy::GPIO::MICRO_PAGE(), |r| r.0 & 0x8000 == 0)?;
+        self.wait_timeout(phy::GPIO::MICRO_PAGE(), |r| {
+            if r.0 & 0x4000 != 0 {
+                Err(VscError::PhyCommandError(command))
+            } else {
+                Ok(r.0 & 0x8000 == 0)
+            }
+        })?;
         Ok(())
     }
 
     /// Checks whether `v` is the base port of the PHY, returning an error if
     /// that's not the case.
     pub(crate) fn check_base_port(&self) -> Result<(), VscError> {
-        let phy_port =
-            self.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11;
-        if phy_port != 0 {
-            return Err(VscError::BadPhyPatchPort(phy_port));
+        let phy_port = self.get_port()?;
+        if phy_port == 0 {
+            Ok(())
+        } else {
+            Err(VscError::BadPhyPatchPort(phy_port))
         }
-        Ok(())
+    }
+
+    /// Returns the (internal) PHY's port number, starting from 0
+    pub(crate) fn get_port(&self) -> Result<u16, VscError> {
+        Ok(self.read(phy::EXTENDED::EXTENDED_PHY_CONTROL_4())?.0 >> 11)
     }
 
     /// Calls a function with broadcast writes enabled, then unsets the flag

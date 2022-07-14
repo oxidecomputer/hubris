@@ -245,4 +245,41 @@ impl Dev10g {
 
         Ok(())
     }
+    pub fn init_10gbase_kr(&self, v: &impl Vsc7448Rw) -> Result<(), VscError> {
+        // Based on `jr2_port_kr_conf_set` in the SDK
+        let dev7 = XGKR1(self.index()); // ANEG
+        let dev1 = XGKR0(self.index()); // Training
+        let xfi = XGXFI(self.index()); // KR-Control/Stickies
+
+        // "Adjust the timers for JR2 core clock (frequency of 250Mhz)
+        v.write(dev7.LFLONG_TMR().LFLONG_MSW(), 322.into())?;
+        v.write(dev7.TR_TMR().TR_MSW(), 322.into())?;
+        v.modify(dev1.TR_CFG0().TR_CFG0(), |r| r.set_tmr_dvdr(6))?;
+        v.write(dev1.WT_TMR().WT_TMR(), 1712.into())?;
+        v.write(dev1.MW_TMR().MW_TMR_LSW(), 58521.into())?;
+        v.write(dev1.MW_TMR().MW_TMR_MSW(), 204.into())?;
+
+        // "Clear the KR_CONTROL stickies"
+        v.write(xfi.XFI_CONTROL().KR_CONTROL(), 0x7FF.into())?;
+
+        // Skip autonegotiation configuration for now
+        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_tr_disable(1))?;
+
+        // "KR Autoneg" (line 1626)
+        // For now, operate under the assumption that we're not doing aneg
+        // "Disable clock gating"
+        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_clkg_disable(0))?;
+        // "Clear aneg history"
+        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_an_sm_hist_clr(1))?;
+        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_an_sm_hist_clr(0))?;
+        // "Disable / Enable Auto-neg"
+        v.modify(dev7.KR_7X0000().KR_7X0000(), |r| r.set_an_enable(0))?;
+        // "Release the break link timer"
+        v.modify(dev1.TR_CFG1().TR_CFG1(), |r| {
+            let mut tmr_hold = r.tmr_hold();
+            tmr_hold &= !(1 << 10);
+            r.set_tmr_hold(tmr_hold);
+        })?;
+        Ok(())
+    }
 }

@@ -93,5 +93,74 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
+        "read_vsc8504_sd6g_patch": (
+            doc: "Reads the undocumented VSC8504 SERDES6G patch area",
+            reply: Result(
+                ok: "TeslaSerdes6gPatch",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc8504_sd6g_ob_config": (
+            doc: "Reads the VSC8504 SERDES6G output config",
+            reply: Result(
+                ok: "TeslaSerdes6gObConfig",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_vsc8504_sd6g_ob_config": (
+            doc: "Writes to the VSC8504 SERDES6G output config",
+            args: {
+                "ob_post0": "u8",
+                "ob_post1": "u8",
+                "ob_prec": "u8",
+                "ob_sr_h": "bool",
+                "ob_sr": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc8562_sd6g_ob_cfg": (
+            doc: "Reads from the VSC8504 SERDES6G output config",
+            reply: Result(
+                ok: "Sd6gObCfg",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_vsc8562_sd6g_ob_cfg": (
+            doc: "Writes to the VSC8504 SERDES6G output config",
+            args: {
+                "ob_ena1v_mode": "u8",
+                "ob_pol": "u8",
+                "ob_post0": "u8",
+                "ob_post1": "u8",
+                "ob_sr_h": "u8",
+                "ob_resistor_ctr": "u8",
+                "ob_sr": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc8562_sd6g_ob_cfg1": (
+            doc: "Reads from the VSC8504 SERDES6G output config",
+            reply: Result(
+                ok: "Sd6gObCfg1",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "write_vsc8562_sd6g_ob_cfg1": (
+            doc: "Writes to the VSC8504 SERDES6G output config",
+            args: {
+                "ob_ena_cas": "u8",
+                "ob_lev": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("MonorailError"),
+            ),
+        ),
     },
 )

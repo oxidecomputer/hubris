@@ -26,12 +26,14 @@ gnarle = {path = "../../lib/gnarle"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 
 [build-dependencies]
-build-util = {path = "../../build/util"}
+build-fpga-regmap = {path = "../../build/fpga-regmap"}
 build-i2c = {path = "../../build/i2c"}
+build-util = {path = "../../build/util"}
 gnarle = {path = "../../lib/gnarle"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 serde = { version = "1.0.114", features = ["derive"] }
 serde_json = "1.0"
-idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+sha2 = { version = "0.9", default-features = false }
 
 [features]
 h753 = ["drv-stm32h7-spi/h753", "drv-stm32xx-sys-api/h753"]

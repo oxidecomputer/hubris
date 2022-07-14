@@ -67,6 +67,8 @@ pub enum VscError {
     /// an unexpected CRC.
     PhyPatchFailedCrc,
     PhyInitTimeout,
+    /// An error was returned when executing a Phy command
+    PhyCommandError(u16),
     /// Returned by functions that support both the VSC8552 and VSC8562, when
     /// the PHY id doesn't match either.
     UnknownPhyId(u32),
@@ -94,6 +96,9 @@ pub enum VscError {
     },
     MiimIdleTimeout,
     MiimReadTimeout,
+
+    /// Provided an invalid argument
+    OutOfRange,
 }
 
 impl From<SpiError> for VscError {

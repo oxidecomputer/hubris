@@ -227,7 +227,7 @@ impl Bsp {
             };
             match phy.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
                 Ok(status) => {
-                    s.vsc85x2_sgmii_link_up[i] = (status.0 & (1 << 2)) != 0
+                    s.vsc85x2_sgmii_link_up[i] = status.mac_link_status() != 0
                 }
                 Err(err) => {
                     ringbuf_entry!(Trace::Vsc85x2Err { port, err })

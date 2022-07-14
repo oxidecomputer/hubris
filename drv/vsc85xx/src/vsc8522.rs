@@ -68,6 +68,7 @@ impl<'a, P: PhyRw> Vsc8522Phy<'a, P> {
 
         // Configure the PHY in QSGMII + 12 port mode
         self.phy.cmd(0x80A0)?;
+
         Ok(())
     }
 }

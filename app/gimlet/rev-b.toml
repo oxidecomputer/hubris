@@ -171,7 +171,7 @@ task-slots = ["sys", "i2c_driver", {spi_driver = "spi2_driver"}, "hf", "jefe"]
 
 [tasks.gimlet_seq.config]
 fpga_image = "fpga-b.bin"
-register_defs = "gimlet_regs.json"
+register_defs = "gimlet-regs-b.json"
 
 [tasks.hash_driver]
 name = "drv-stm32h7-hash-server"

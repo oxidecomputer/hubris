@@ -8,7 +8,7 @@ use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
-use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc7448_pac::{phy, types::PhyRegisterAddress, HSIO};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -69,7 +69,7 @@ mod map {
     const SGMII: Option<PortMode> = Some(Sgmii(Speed100M));
     const QSGMII_100M: Option<PortMode> = Some(Qsgmii(Speed100M));
     const QSGMII_1G: Option<PortMode> = Some(Qsgmii(Speed1G));
-    const SFI: Option<PortMode> = Some(Sfi);
+    const BASE_KR: Option<PortMode> = Some(BaseKr);
 
     // See RFD144 for a detailed look at the design
     pub const PORT_MAP: PortMap = PortMap::new([
@@ -122,7 +122,7 @@ mod map {
         QSGMII_1G,   // 46 | Unused
         QSGMII_1G,   // 47 | Unused
         SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
-        SFI,         // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
+        BASE_KR,     // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
         None,        // 50 | Unused
         SGMII, // 51 | DEV2G5_27 | SERDES10G_2 | Cubby 30 (shadows DEV10G_2)
         SGMII, // 52 | DEV2G5_28 | SERDES10G_3 | Cubby 31 (shadows DEV10G_3)
@@ -212,6 +212,97 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         self.phy_vsc8504_init()?;
         self.phy_vsc8562_init()?;
         self.vsc7448.configure_ports_from_map(&PORT_MAP)?;
+        self.vsc7448_postconfig()?;
+
+        Ok(())
+    }
+
+    fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
+        // The SERDES6G going to the front IO board needs to be tuned from
+        // its default settings, otherwise the signal quality is bad.
+        const FRONT_IO_SERDES6G: u8 = 15;
+        vsc7448::serdes6g::serdes6g_read(self.vsc7448, FRONT_IO_SERDES6G)?;
+
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG 0x28441001
+        // h monorail write HSIO:SERDES6G_ANA_CFG:SERDES6G_OB_CFG1 0x3F
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
+            |r| {
+                r.set_ob_post0(0x10);
+                r.set_ob_prec(0x11); // -1, since MSB is sign
+                r.set_ob_post1(0x2);
+                r.set_ob_sr_h(0); // Full-rate mode
+                r.set_ob_sr(0); // Very fast edges (30 ps)
+            },
+        )?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
+            |r| {
+                r.set_ob_lev(0x3F);
+            },
+        )?;
+        vsc7448::serdes6g::serdes6g_write(self.vsc7448, FRONT_IO_SERDES6G)?;
+
+        // Same for the on-board QSGMII link to the VSC8504, with different
+        // settings.
+        // h monorail write SERDES6G_OB_CFG 0x26000131
+        // h monorail write SERDES6G_OB_CFG1 0x20
+        const VSC8504_SERDES6G: u8 = 14;
+        vsc7448::serdes6g::serdes6g_read(self.vsc7448, VSC8504_SERDES6G)?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG(),
+            |r| {
+                // Leave all other values as default
+                r.set_ob_post0(0xc);
+                r.set_ob_sr_h(1); // half-rate mode
+                r.set_ob_sr(3); // medium speed edges (about 105 ps)
+            },
+        )?;
+        self.vsc7448.modify(
+            HSIO().SERDES6G_ANA_CFG().SERDES6G_OB_CFG1(),
+            |r| {
+                r.set_ob_lev(0x20);
+            },
+        )?;
+        vsc7448::serdes6g::serdes6g_write(self.vsc7448, VSC8504_SERDES6G)?;
+
+        // Write to the base port on the VSC8504, patching the SERDES6G
+        // config to improve signal integrity.  This is based on benchtop
+        // scoping of the QSGMII signals going from the VSC8504 to the VSC7448.
+        use vsc85xx::tesla::{TeslaPhy, TeslaSerdes6gObConfig};
+        let rw = &mut NetPhyRw(&mut self.net);
+        let mut vsc8504 = self.vsc8504.phy(0, rw);
+        let mut tesla = TeslaPhy {
+            phy: &mut vsc8504.phy,
+        };
+        tesla.tune_serdes6g_ob(TeslaSerdes6gObConfig {
+            ob_post0: 0xc,
+            ob_post1: 0,
+            ob_prec: 0,
+            ob_sr_h: 1, // half rate
+            ob_sr: 3,
+        })?;
+
+        // Tune QSGMII link from the front IO board's PHY
+        // These values are captured empirically with an oscilloscope
+        if let Some(phy) = self.vsc8562.as_mut() {
+            use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1, Vsc8562Phy};
+            let mut p = vsc85xx::Phy::new(0, phy); // port 0
+            let mut v = Vsc8562Phy { phy: &mut p };
+            v.tune_sd6g_ob_cfg(Sd6gObCfg {
+                ob_ena1v_mode: 1,
+                ob_pol: 1,
+                ob_post0: 20,
+                ob_post1: 0,
+                ob_sr_h: 0,
+                ob_resistor_ctr: 1,
+                ob_sr: 15,
+            })?;
+            v.tune_sd6g_ob_cfg1(Sd6gObCfg1 {
+                ob_ena_cas: 0,
+                ob_lev: 48,
+            })?;
+        }
 
         Ok(())
     }
@@ -270,6 +361,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         // Initialize the PHY, then disable COMA_MODE
         let rw = &mut NetPhyRw(&mut self.net);
         self.vsc8504 = Vsc8504::init(4, rw)?;
+        for p in 5..8 {
+            Vsc8504::init(p, rw)?;
+        }
 
         // The VSC8504 on the sidecar has its SIGDET GPIOs pulled down,
         // for some reason.
@@ -297,9 +391,11 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             {
                 sleep_for(20);
             }
-            let mut phy = vsc85xx::Phy::new(0, phy_rw);
-            let mut v = Vsc8562Phy { phy: &mut phy };
-            v.init_qsgmii()?;
+            for p in 0..2 {
+                let mut phy = vsc85xx::Phy::new(p, phy_rw);
+                let mut v = Vsc8562Phy { phy: &mut phy };
+                v.init_qsgmii()?;
+            }
             phy_rw
                 .set_phy_coma_mode(false)
                 .map_err(|e| VscError::ProxyError(e.into()))?;
@@ -393,9 +489,9 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 let phy_port = port - 40 + 4;
                 (phy_rw, phy_port)
             }
-            44..=47 => {
+            44..=45 => {
                 if let Some(phy_rw) = &self.vsc8562 {
-                    (GenericPhyRw::FrontIo(phy_rw), 0)
+                    (GenericPhyRw::FrontIo(phy_rw), port - 44)
                 } else {
                     return None;
                 }
