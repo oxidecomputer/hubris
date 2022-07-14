@@ -46,6 +46,7 @@ impl<'a> ServerStorage<'a> {
 /// State for the running network server.
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; SOCKET_COUNT],
+    client_waiting_to_send: [bool; SOCKET_COUNT],
     iface: Interface<'a, &'a eth::Ethernet>,
     bsp: crate::bsp::Bsp,
 }
@@ -92,6 +93,7 @@ impl<'a> ServerImpl<'a> {
 
         Self {
             socket_handles,
+            client_waiting_to_send: [false; SOCKET_COUNT],
             iface,
             bsp,
         }
@@ -109,7 +111,9 @@ impl<'a> ServerImpl<'a> {
         // TODO making every packet O(n) in the number of sockets is super
         // lame; provide a Waker to fix this.
         for i in 0..SOCKET_COUNT {
-            if self.get_socket_mut(i).unwrap().can_recv() {
+            let want_to_send = self.client_waiting_to_send[i];
+            let socket = self.get_socket_mut(i).unwrap();
+            if socket.can_recv() || (want_to_send && socket.can_send()) {
                 // Make sure the owner knows about this. This can
                 // technically cause spurious wakeups if the owner is
                 // already waiting in our incoming queue to recv. Maybe we
@@ -224,16 +228,16 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
                 payload
                     .read_range(0..payload.len(), buf)
                     .map_err(|_| RequestError::went_away())?;
+                self.client_waiting_to_send[socket_index] = false;
                 Ok(())
             }
             Err(smoltcp::Error::Exhausted) => {
-                // TODO this is not quite right
-                Err(NetError::QueueEmpty.into())
+                self.client_waiting_to_send[socket_index] = true;
+                Err(NetError::QueueFull.into())
             }
             Err(_e) => {
                 // uhhhh TODO
-                // TODO this is not quite right
-                Err(NetError::QueueEmpty.into())
+                Err(NetError::Other.into())
             }
         }
     }
