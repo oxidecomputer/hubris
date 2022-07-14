@@ -11,58 +11,6 @@ name = "lpc55xpresso"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
 
-# We reserve the last sector (0x8000) for flash testing
-[[outputs.flash]]
-name = "a"
-address = 0x00008000
-size = 0x48000
-read = true
-execute = true
-
-[[outputs.flash]]
-name = "b"
-address = 0x00048000
-size = 0x48000
-read = true
-execute = true
-
-
-[[outputs.ram]]
-name = "a"
-address = 0x20004000
-size = 0x18000
-read = true
-write = true
-execute = true
-
-[[outputs.ram]]
-name = "b"
-address = 0x20004000
-size = 0x18000
-read = true
-write = true
-execute = true
-
-[signing.combined]
-method = "ecc"
-priv-key = "../../support/fake_certs/p256-private-key.der"
-
-[signing.bootloader]
-method = "rsa"
-priv-key = "../../support/fake_certs/fake_private_key.pem"
-root-cert = "../../support/fake_certs/fake_certificate.der.crt"
-
-[bootloader]
-name = "stage0"
-# Currently we have the first 0x8000 of flash and first 0x4000 of RAM
-# dedicated for the stage0 bootloader and the rest for Hubris. Once we have
-# multiple images this will need to be adjusted
-imagea-flash-start = 0x8000
-imagea-flash-size = 0x88000
-imagea-ram-start = 0x20004000
-imagea-ram-size = 0x18000
-features = ["tz_support"]
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0

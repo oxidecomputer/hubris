@@ -353,6 +353,9 @@ pub fn load_task_size<'a>(
         }
     };
     for phdr in &elf.program_headers {
+        if phdr.p_type != goblin::elf::program_header::PT_LOAD {
+            continue;
+        }
         record_size(phdr.p_vaddr, phdr.p_memsz);
 
         // If the VirtAddr disagrees with the PhysAddr, then this is a

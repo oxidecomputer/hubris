@@ -17,7 +17,7 @@ use path_slash::PathBufExt;
 use serde::Serialize;
 
 use crate::{
-    config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
+    config::{BuildConfig, Config, Signing, SigningMethod},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -298,7 +298,7 @@ pub fn package(
                 ep.map(|ep| (name.clone(), ep))
             })
             .collect::<Result<_, _>>()?;
-
+        
         // Build the kernel!
         let kern_build = if tasks_to_build.contains("kernel") {
             Some(build_kernel(
@@ -355,19 +355,19 @@ pub fn package(
             let root_cert = &signing.root_cert;
             lpc55_sign::signed_image::sign_image(
                 false, // TODO add an option to enable DICE
-                &cfg.dist_file("combined.bin"),
+                &cfg.img_file("combined.bin", image_name),
                 &cfg.app_src_dir.join(&priv_key),
                 &cfg.app_src_dir.join(&root_cert),
-                &cfg.dist_file("combined_rsa.bin"),
-                &cfg.dist_file("CMPA.bin"),
+                &cfg.img_file("combined_rsa.bin", image_name),
+                &cfg.img_file("CMPA.bin", image_name),
             )?;
             std::fs::copy(
-                cfg.dist_file("combined.bin"),
-                cfg.dist_file("combined_original.bin"),
+                cfg.img_file("combined.bin", image_name),
+                cfg.img_file("combined_original.bin", image_name),
             )?;
             std::fs::copy(
-                cfg.dist_file("combined_rsa.bin"),
-                cfg.dist_file("combined.bin"),
+                cfg.img_file("combined_rsa.bin", image_name),
+                cfg.img_file("combined.bin", image_name),
             )?;
         }
 
@@ -417,15 +417,6 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
             gdb_script,
             "add-symbol-file {}",
             cfg.img_file(name, image_name).to_slash().unwrap()
-        )?;
-    }
-    if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-        writeln!(
-            gdb_script,
-            "add-symbol-file {}",
-            cfg.img_file(&bootloader.name, image_name)
-                .to_slash()
-                .unwrap()
         )?;
     }
     for (path, remap) in &cfg.remap_paths {
@@ -583,9 +574,6 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
         let mut names = vec![toml.kernel.name.as_str()];
-        if let Some(bootloader) = toml.bootloader.as_ref() {
-            names.push(bootloader.name.as_str());
-        }
         for name in toml.tasks.keys() {
             // This may feel redundant: don't we already have the name?
             // Well, consider our supervisor:
@@ -658,11 +646,13 @@ fn link_task(
 /// Link a specific task using a dummy linker script that
 fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
+
     let memories = cfg
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
         .collect();
+
     generate_task_linker_script(
         "memory.x",
         &memories, // ALL THE SPACE
@@ -740,6 +730,7 @@ fn build_kernel(
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        &cfg.toml.image_memories("flash".to_string())?
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -771,6 +762,8 @@ fn build_kernel(
             &cfg.img_file("kernel.modified", image_name),
             cfg.img_file("kernel", image_name),
         )?;
+    } else {
+        std::fs::copy(&cfg.dist_file("kernel"), cfg.img_file("kernel", image_name))?;
     }
 
     let mut ksymbol_table = BTreeMap::default();
@@ -1046,7 +1039,7 @@ fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
-    images: &IndexMap<String, crate::config::Output>
+    images: &IndexMap<String, Range<u32>>
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1100,8 +1093,8 @@ fn generate_kernel_linker_script(
             linkscr,
             "IMAGE{}_FLASH (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
             name.to_uppercase(),
-            out.address,
-            out.size
+            out.start,
+            out.end - out.start
         )
         .unwrap();
     }
@@ -1111,6 +1104,15 @@ fn generate_kernel_linker_script(
     writeln!(linkscr, "_stack_start = {:#010x};", stack_start.unwrap())
         .unwrap();
 
+    for (name, _) in images {
+        writeln!(
+            linkscr,
+            "IMAGE{} = ORIGIN(IMAGE{}_FLASH);",
+            name.to_uppercase(),
+            name.to_uppercase(),
+        )
+        .unwrap();
+    }
     Ok(())
 }
 
@@ -1352,6 +1354,7 @@ pub fn allocate_all(
 
         // Okay! Do memory types one by one, fitting kernel first.
         for (region, avail) in &mut free {
+
             let mut k_req = kernel_requests.get(region.as_str());
             let mut t_reqs = task_requests.get_mut(region.as_str());
 

@@ -1,0 +1,45 @@
+[[flash]]
+name = "a"
+address = 0x00008000
+size = 0x48000
+read = true
+execute = true
+
+[[flash]]
+name = "b"
+address = 0x00048000
+size = 0x48000
+read = true
+execute = true
+
+[[flash]]
+name = "stage0"
+address = 0x00000000
+size = 0x8000
+read = true
+execute = true
+
+[[ram]]
+name = "a"
+address = 0x20004000
+size = 0x18000
+read = true
+write = true
+execute = true
+
+[[ram]]
+name = "b"
+address = 0x20004000
+size = 0x18000
+read = true
+write = true
+execute = true
+
+[[ram]]
+name = "stage0"
+address = 0x20000000
+size = 0x4000
+read = true
+write = true
+execute = true
+

@@ -24,12 +24,13 @@ struct RawConfig {
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
+    external_images: Vec<String>,
+    #[serde(default)]
     signing: Option<Signing>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
-    bootloader: Option<Bootloader>,
     kernel: Kernel,
-    outputs: IndexMap<String, Vec<Output>>,
+    //outputs: IndexMap<String, Vec<Output>>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
@@ -44,10 +45,10 @@ pub struct Config {
     pub board: String,
     pub chip: String,
     pub image_names: Vec<String>,
+    pub external_images: Vec<String>,
     pub signing: Option<Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
-    pub bootloader: Option<Bootloader>,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
@@ -80,6 +81,14 @@ impl Config {
             toml::from_slice(&chip_contents)?
         };
 
+        let outputs : IndexMap<String, Vec<Output>> = {
+            let chip_file =
+                cfg.parent().unwrap().join(&toml.chip).join("memory.toml");
+            let chip_contents = std::fs::read(chip_file)?;
+            hasher.write(&chip_contents);
+            toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?
+        };
+
         let buildhash = hasher.finish();
 
         let img_names = if toml.image_names.is_empty() {
@@ -93,13 +102,14 @@ impl Config {
             target: toml.target,
             board: toml.board,
             image_names: img_names,
+            external_images: toml.external_images,
             chip: toml.chip,
             signing: toml.signing,
             secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
-            bootloader: toml.bootloader,
             kernel: toml.kernel,
-            outputs: toml.outputs,
+            //outputs: toml.outputs,
+            outputs,
             tasks: toml.tasks,
             peripherals,
             extratext: toml.extratext,
@@ -228,21 +238,6 @@ impl Config {
         out
     }
 
-    pub fn bootloader_build_config<'a>(
-        &self,
-        verbose: bool,
-        sysroot: Option<&'a Path>,
-    ) -> Option<BuildConfig<'a>> {
-        self.bootloader.as_ref().map(|bootloader| {
-            self.common_build_config(
-                verbose,
-                &bootloader.name,
-                &bootloader.features,
-                sysroot,
-            )
-        })
-    }
-
     pub fn task_build_config<'a>(
         &self,
         task_name: &str,
@@ -279,7 +274,7 @@ impl Config {
         Ok(out)
     }
 
-    /// Returns a map of memory name -> range
+    /// Returns a map of memory name -> range for a specific image name
     ///
     /// This is useful when allocating memory for tasks
     pub fn memories(
@@ -311,14 +306,33 @@ impl Config {
             .collect()
     }
 
+    pub fn image_memories(&self, region : String) -> Result<IndexMap<String, Range<u32>>> {
+       // self.image_names.iter().fold(|a| self.memories(a)? ).collect()
+        let mut memories : IndexMap<String, Range<u32>> = IndexMap::new();
+        for a in &self.external_images {
+            if let Some(r) = self.memories(&a)?.get(&region) {
+                memories.insert(a.clone(), r.start..r.end);
+            }
+        }
+
+        Ok(memories)
+    }
+
     /// Calculates the output region which contains the given address
     /// XXX FIXME
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
         let vaddr = u32::try_from(vaddr).ok()?;
+        /// LAURA WE"RE ITERATING OVER THE WRONG FUCKING THING HERE
+        /// THIS IS 
         self.outputs
             .iter()
             .find(|(_name, out)| {
-                vaddr >= out[0].address && vaddr < out[0].address + out[0].size
+                //println!("f {:x} {} {:x?}", vaddr, name, out);
+                let mut stat = false;
+                for o in out.iter() {
+                    stat = stat || vaddr >= o.address && vaddr < o.address + o.size;
+                }
+                stat
             })
             .map(|(name, _out)| name.as_str())
     }
@@ -413,21 +427,6 @@ impl std::fmt::Display for SigningMethod {
 pub struct Signing {
     pub priv_key: PathBuf,
     pub root_cert: PathBuf,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Bootloader {
-    pub name: String,
-    #[serde(default)]
-    pub features: Vec<String>,
-    #[serde(default)]
-    pub sections: IndexMap<String, String>,
-    #[serde(default)]
-    pub imagea_flash_start: u32,
-    pub imagea_flash_size: u32,
-    pub imagea_ram_start: u32,
-    pub imagea_ram_size: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
