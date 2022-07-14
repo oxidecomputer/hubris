@@ -319,15 +319,11 @@ impl Config {
     }
 
     /// Calculates the output region which contains the given address
-    /// XXX FIXME
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
         let vaddr = u32::try_from(vaddr).ok()?;
-        /// LAURA WE"RE ITERATING OVER THE WRONG FUCKING THING HERE
-        /// THIS IS 
         self.outputs
             .iter()
             .find(|(_name, out)| {
-                //println!("f {:x} {} {:x?}", vaddr, name, out);
                 let mut stat = false;
                 for o in out.iter() {
                     stat = stat || vaddr >= o.address && vaddr < o.address + o.size;

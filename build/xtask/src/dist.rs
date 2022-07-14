@@ -17,13 +17,11 @@ use path_slash::PathBufExt;
 use serde::Serialize;
 
 use crate::{
-    config::{BuildConfig, Config, Signing, SigningMethod},
+    config::{BuildConfig, Config},
     elf,
     sizes::load_task_size,
     task_slot,
 };
-
-use lpc55_sign::{crc_image, signed_image};
 
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
@@ -219,15 +217,6 @@ pub fn package(
     std::fs::create_dir_all(&cfg.dist_dir)?;
     check_rebuild(&cfg.toml)?;
 
-    // If there is a bootloader, build it first as there may be dependencies
-    // for applications
-    {
-        // Create a file for the linker script table, which is left empty
-        // if there is no bootloader.
-        let linkscr = File::create("target/table.ld")
-            .context("Could not create table.ld")?;
-    }
-
     // Build all tasks (which are relocatable executables, so they are not
     // statically linked yet). For now, we build them one by one and ignore the
     // return value, because we're going to link them regardless of whether the
@@ -341,7 +330,7 @@ pub fn package(
         }
 
         // Generate combined SREC, which is our source of truth for combined images.
-        let (kentry, ksymbol_table) = kern_build.unwrap();
+        let (kentry, _ksymbol_table) = kern_build.unwrap();
         write_srec(
             &all_output_sections,
             kentry,
@@ -880,99 +869,6 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-fn generate_header(
-    in_binary: &Path,
-    out_binary: &Path,
-    header_start: u32,
-    memories: &IndexMap<String, Range<u32>>,
-) -> Result<()> {
-    use zerocopy::AsBytes;
-
-    let mut bytes = std::fs::read(in_binary)?;
-    let image_len = bytes.len();
-
-    let flash = memories.get("flash").unwrap();
-    let ram = memories.get("ram").unwrap();
-
-    let header_byte_offset = (header_start - flash.start) as usize;
-
-    let mut header = abi::ImageHeader {
-        magic: abi::HEADER_MAGIC,
-        total_image_len: image_len as u32,
-        ..Default::default()
-    };
-
-    header.sau_entries[0].rbar = flash.start;
-    header.sau_entries[0].rlar = (flash.end - 1) & !0x1f | 1;
-
-    header.sau_entries[1].rbar = ram.start;
-    header.sau_entries[1].rlar = (ram.end - 1) & !0x1f | 1;
-
-    // Our peripherals
-    header.sau_entries[2].rbar = 0x4000_0000;
-    header.sau_entries[2].rlar = 0x4fff_ffe0 | 1;
-
-    header
-        .write_to_prefix(&mut bytes[header_byte_offset..])
-        .unwrap();
-
-    std::fs::write(out_binary, &bytes)?;
-
-    Ok(())
-}
-
-fn smash_bootloader(
-    bootloader: &Path,
-    bootloader_addr: u32,
-    hubris: &Path,
-    hubris_addr: u32,
-    entry: u32,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("hubris+bootloader".to_string())];
-
-    let bootloader = std::fs::read(bootloader)?;
-
-    let mut addr = bootloader_addr;
-    for chunk in bootloader.chunks(255 - 5) {
-        srec_out.push(srec::Record::S3(srec::Data {
-            address: srec::Address32(addr),
-            data: chunk.to_vec(),
-        }));
-        addr += chunk.len() as u32;
-    }
-
-    drop(bootloader);
-
-    let hubris = std::fs::read(hubris)?;
-
-    let mut addr = hubris_addr;
-    for chunk in hubris.chunks(255 - 5) {
-        srec_out.push(srec::Record::S3(srec::Data {
-            address: srec::Address32(addr),
-            data: chunk.to_vec(),
-        }));
-        addr += chunk.len() as u32;
-    }
-
-    drop(hubris);
-
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(entry)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
     Ok(())
 }
 
@@ -2007,23 +1903,6 @@ fn write_srec(
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
-fn objcopy_grab_binary(in_format: &str, src: &Path, dest: &Path) -> Result<()> {
-    let mut cmd = Command::new("arm-none-eabi-objcopy");
-    cmd.arg("-I")
-        .arg(in_format)
-        .arg("-O")
-        .arg("binary")
-        .arg("--only-section=.fake_output")
-        .arg(src)
-        .arg(dest);
-
-    let status = cmd.status()?;
-    if !status.success() {
-        bail!("objcopy failed, see output for details");
-    }
     Ok(())
 }
 
