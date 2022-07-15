@@ -15,6 +15,7 @@ pub fn run(
     precmd: &[&str],
     cmd: Option<&str>,
     interactive: bool,
+    image_name: &String
 ) -> anyhow::Result<()> {
     if interactive {
         ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");
@@ -24,6 +25,7 @@ pub fn run(
     let archive = Path::new("target")
         .join(&toml.name)
         .join("dist")
+        .join(image_name)
         .join(format!("build-{}.zip", &toml.name));
 
     let humility_path = match env::var("HUBRIS_HUMILITY_PATH") {

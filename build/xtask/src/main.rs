@@ -135,6 +135,10 @@ pub struct HumilityArgs {
     /// Path to the image configuration file, in TOML.
     cfg: PathBuf,
 
+    /// Image name to flash
+    #[clap(long, default_value = "default")]
+    image_name: String,
+
     /// Request verbosity from tools we shell out to.
     #[clap(short, long)]
     verbose: bool,
@@ -193,7 +197,9 @@ fn run(xtask: Xtask) -> Result<()> {
             let toml = Config::from_file(&args.cfg)?;
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
             args.extra_options.push("--force".to_string());
-            humility::run(&args, &chip, Some("flash"), false)?;
+            //for img in toml.image_names {
+                humility::run(&args, &chip, Some("flash"), false, &args.image_name)?;
+            //}
         }
         Xtask::Sizes {
             verbose,
@@ -207,7 +213,7 @@ fn run(xtask: Xtask) -> Result<()> {
             }
         }
         Xtask::Humility { args } => {
-            humility::run(&args, &[], None, true)?;
+            humility::run(&args, &[], None, true, &args.image_name)?;
         }
         Xtask::Gdb { noflash, mut args } => {
             if !noflash {
@@ -216,13 +222,13 @@ fn run(xtask: Xtask) -> Result<()> {
                 // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
             }
-            humility::run(&args, &[], Some("gdb"), true)?;
+            humility::run(&args, &[], Some("gdb"), true, &args.image_name)?;
         }
         Xtask::Test { args, noflash } => {
             if !noflash {
                 run(Xtask::Flash { args: args.clone() })?;
             }
-            humility::run(&args, &[], Some("test"), false)?;
+            humility::run(&args, &[], Some("test"), false, &args.image_name)?;
         }
         Xtask::Clippy {
             verbose,
