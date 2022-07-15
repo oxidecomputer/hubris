@@ -21,6 +21,7 @@ struct RawConfig {
     target: String,
     board: String,
     chip: String,
+    memory: Option<String>,
     #[serde(default)]
     image_names: Vec<String>,
     #[serde(default)]
@@ -82,8 +83,13 @@ impl Config {
         };
 
         let outputs : IndexMap<String, Vec<Output>> = {
+            let fname = if let Some(n) = toml.memory {
+                n
+            } else {
+                "memory.toml".to_string()
+            };
             let chip_file =
-                cfg.parent().unwrap().join(&toml.chip).join("memory.toml");
+                cfg.parent().unwrap().join(&toml.chip).join(fname);
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?

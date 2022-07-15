@@ -1,6 +1,7 @@
 name = "demo-stm32g031-nucleo"
 target = "thumbv6m-none-eabi"
 chip = "../../chips/stm32g0"
+memory = "memory-g031.toml"
 board = "stm32g031"
 
 [kernel]
@@ -8,19 +9,6 @@ name = "demo-stm32g0-nucleo"
 requires = {flash = 11702, ram = 1536}
 features = ["g031", "panic-halt"]
 stacksize = 640
-
-[outputs.flash]
-address = 0x08000000
-size = 65536
-read = true
-execute = true
-
-[outputs.ram]
-address = 0x20000000
-size = 8192
-read = true
-write = true
-execute = false  # let's assume XN until proven otherwise
 
 [tasks.jefe]
 name = "task-jefe"
