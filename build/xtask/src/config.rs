@@ -82,14 +82,13 @@ impl Config {
             toml::from_slice(&chip_contents)?
         };
 
-        let outputs : IndexMap<String, Vec<Output>> = {
+        let outputs: IndexMap<String, Vec<Output>> = {
             let fname = if let Some(n) = toml.memory {
                 n
             } else {
                 "memory.toml".to_string()
             };
-            let chip_file =
-                cfg.parent().unwrap().join(&toml.chip).join(fname);
+            let chip_file = cfg.parent().unwrap().join(&toml.chip).join(fname);
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?
@@ -312,9 +311,12 @@ impl Config {
             .collect()
     }
 
-    pub fn image_memories(&self, region : String) -> Result<IndexMap<String, Range<u32>>> {
-       // self.image_names.iter().fold(|a| self.memories(a)? ).collect()
-        let mut memories : IndexMap<String, Range<u32>> = IndexMap::new();
+    pub fn image_memories(
+        &self,
+        region: String,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        // self.image_names.iter().fold(|a| self.memories(a)? ).collect()
+        let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
         for a in &self.external_images {
             if let Some(r) = self.memories(&a)?.get(&region) {
                 memories.insert(a.clone(), r.start..r.end);
@@ -332,7 +334,8 @@ impl Config {
             .find(|(_name, out)| {
                 let mut stat = false;
                 for o in out.iter() {
-                    stat = stat || vaddr >= o.address && vaddr < o.address + o.size;
+                    stat = stat
+                        || vaddr >= o.address && vaddr < o.address + o.size;
                 }
                 stat
             })

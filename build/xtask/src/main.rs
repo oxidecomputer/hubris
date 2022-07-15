@@ -198,7 +198,13 @@ fn run(xtask: Xtask) -> Result<()> {
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
             args.extra_options.push("--force".to_string());
             //for img in toml.image_names {
-                humility::run(&args, &chip, Some("flash"), false, &args.image_name)?;
+            humility::run(
+                &args,
+                &chip,
+                Some("flash"),
+                false,
+                &args.image_name,
+            )?;
             //}
         }
         Xtask::Sizes {

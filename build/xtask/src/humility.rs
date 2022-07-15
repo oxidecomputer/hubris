@@ -15,7 +15,7 @@ pub fn run(
     precmd: &[&str],
     cmd: Option<&str>,
     interactive: bool,
-    image_name: &String
+    image_name: &String,
 ) -> anyhow::Result<()> {
     if interactive {
         ctrlc::set_handler(|| {}).expect("Error setting Ctrl-C handler");

@@ -287,7 +287,7 @@ pub fn package(
                 ep.map(|ep| (name.clone(), ep))
             })
             .collect::<Result<_, _>>()?;
-        
+
         // Build the kernel!
         let kern_build = if tasks_to_build.contains("kernel") {
             Some(build_kernel(
@@ -719,7 +719,7 @@ fn build_kernel(
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
-        &cfg.toml.image_memories("flash".to_string())?
+        &cfg.toml.image_memories("flash".to_string())?,
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -752,7 +752,10 @@ fn build_kernel(
             cfg.img_file("kernel", image_name),
         )?;
     } else {
-        std::fs::copy(&cfg.dist_file("kernel"), cfg.img_file("kernel", image_name))?;
+        std::fs::copy(
+            &cfg.dist_file("kernel"),
+            cfg.img_file("kernel", image_name),
+        )?;
     }
 
     let mut ksymbol_table = BTreeMap::default();
@@ -935,7 +938,7 @@ fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
-    images: &IndexMap<String, Range<u32>>
+    images: &IndexMap<String, Range<u32>>,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -982,7 +985,6 @@ fn generate_kernel_linker_script(
         )
         .unwrap();
     }
-
 
     for (name, out) in images {
         writeln!(
@@ -1250,7 +1252,6 @@ pub fn allocate_all(
 
         // Okay! Do memory types one by one, fitting kernel first.
         for (region, avail) in &mut free {
-
             let mut k_req = kernel_requests.get(region.as_str());
             let mut t_reqs = task_requests.get_mut(region.as_str());
 
