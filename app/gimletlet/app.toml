@@ -127,7 +127,7 @@ task-slots = ["hf", "sys", "i2c_driver", "user_leds", "rng_driver", "update_serv
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753"]
+features = ["h753", "micron"]
 priority = 3
 max-sizes = {flash = 16384, ram = 2048}
 stacksize = 1920

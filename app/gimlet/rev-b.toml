@@ -186,7 +186,7 @@ task-slots = ["sys"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753", "hash", "micron"]
 priority = 3
 max-sizes = {flash = 16384, ram = 2048 }
 stacksize = 1920
