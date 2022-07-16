@@ -125,7 +125,7 @@ task-slots = ["user_leds"]
 
 [tasks.hf]
 name = "drv-gimlet-hf-server"
-features = ["h753", "hash"]
+features = ["h753", "hash", "hash_fast_qspi_read", "winbond"]
 priority = 4
 max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 2048

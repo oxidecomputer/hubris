@@ -10,7 +10,10 @@ stm32h7 = { version = "0.14", default-features = false }
 vcell = "0.1.2"
 zerocopy = "0.6.1"
 userlib = {path = "../../sys/userlib"}
+cfg-if = "1"
 
 [features]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
+micron = []
+winbond = []

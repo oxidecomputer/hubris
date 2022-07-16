@@ -39,6 +39,18 @@ task_slot!(HASH, hash_driver);
 
 const QSPI_IRQ: u32 = 1;
 
+/*
+ * We want to use Fast Read Quad Output
+ * Winbond W25Q128JV section 8.1.3 Instruction Set Table 2 (Dual/Quad SPI Instructions)
+| Data Input Output | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 | Byte 8 | Byte 9 |
+| Number of Clock(1-1-4) | 8 | 8 | 8 | 8 | 2 | 2 | 2 | 2 | 2 |
+| Fast Read Quad Output | 6Bh | A23-A16 | A15-A8 | A7-A0 | Dummy | Dummy | Dummy | Dummy | (D7-D0)(10) |
+
+
+*/
+// const FAST_READ_DUAL_IO: u8 = 0xBB;
+// const FAST_READ_QUAD_IO: u8 = 0x6B;
+
 struct Config {
     pub sp_host_mux_select: sys_api::PinSet,
     pub reset: sys_api::PinSet,
@@ -296,7 +308,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 len: u32,
             ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
                 let hash_driver = hash_api::Hash::from(HASH.get_task_id());
-                if let Err(_) = hash_driver.init_sha256() {
+                if hash_driver.init_sha256().is_err() {
                     return Err(HfError::HashError.into());
                 }
                 let begin = addr as usize;
@@ -324,9 +336,12 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                     } else {
                         end - addr
                     };
+                    #[cfg(feature = "hash_fast_qspi_read")]
+                    self.qspi.fast_read_memory(addr as u32, &mut self.block[..size]);
+                    #[cfg(not(feature = "hash_fast_qspi_read"))]
                     self.qspi.read_memory(addr as u32, &mut self.block[..size]);
-                    if let Err(_) = hash_driver.update(
-                        size as u32, &self.block[..size]) {
+                    if hash_driver.update(
+                        size as u32, &self.block[..size]).is_err() {
                         return Err(HfError::HashError.into());
                     }
                 }

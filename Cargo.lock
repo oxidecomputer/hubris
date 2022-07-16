@@ -1253,6 +1253,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "stm32h7",
  "userlib",
  "vcell",
