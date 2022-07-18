@@ -3077,17 +3077,21 @@ name = "stage0"
 version = "0.1.0"
 dependencies = [
  "abi",
- "cfg-if",
  "cortex-m",
  "cortex-m-rt",
+ "dice",
+ "digest 0.10.3",
  "ecdsa",
  "hmac 0.10.1",
  "lpc55-pac",
  "lpc55_romapi",
+ "nb 1.0.0",
  "p256",
  "panic-halt",
  "panic-semihosting",
- "sha2",
+ "salty",
+ "sha3",
+ "unwrap-lite",
  "zerocopy",
 ]
 

@@ -2,15 +2,15 @@ name = "lpc55xpresso"
 target = "thumbv8m.main-none-eabihf"
 board = "lpcxpresso55s69"
 chip = "../../chips/lpc55"
-stacksize = 1024
 secure-separation = true
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
 [kernel]
 name = "stage0"
-requires = {flash = 0x4000, ram = 4096}
-features = ["tz_support"]
+requires = {flash = 0x7000, ram = 8192}
+features = ["tz_support", "dice"]
+stacksize = 8000
 
 [tasks.idle]
 name = "task-idle"
