@@ -25,7 +25,7 @@ address = 0x20004000
 size = 0x18000
 read = true
 write = true
-execute = true
+execute = false
 
 [[ram]]
 name = "b"
@@ -33,7 +33,7 @@ address = 0x20004000
 size = 0x18000
 read = true
 write = true
-execute = true
+execute = false
 
 [[ram]]
 name = "stage0"
@@ -41,5 +41,5 @@ address = 0x20000000
 size = 0x4000
 read = true
 write = true
-execute = true
+execute = false
 

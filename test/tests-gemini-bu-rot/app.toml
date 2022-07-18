@@ -9,52 +9,6 @@ name = "gemini-bu-rot"
 requires = {flash = 32768, ram = 4096}
 features = ["itm"]
 
-[outputs.bootloader_sram]
-address = 0x14000000
-size = 0x8000
-
-[outputs.bootloader_flash]
-address = 0x00000000
-size = 0x8000
-
-[outputs.bootloader_ram]
-address = 0x20000000
-size = 0x4000
-
-# We reserve the last sector (0x8000) for flash testing
-[outputs.flash]
-address = 0x00008000
-size = 0x70000
-read = true
-execute = true
-
-[outputs.ram]
-address = 0x20004000
-size = 0x3C000
-read = true
-write = true
-execute = false
-
-[signing.combined]
-method = "ecc"
-priv-key = "../../support/fake_certs/p256-private-key.der"
-
-[signing.bootloader]
-method = "rsa"
-priv-key = "../../support/fake_certs/fake_private_key.pem"
-root-cert = "../../support/fake_certs/fake_certificate.der.crt"
-
-
-[bootloader]
-name = "stage0"
-# Currently we have the first 0x8000 of flash and first 0x4000 of RAM
-# dedicated for the stage0 bootloader and the rest for Hubris. Once we have
-# multiple images this will need to be adjusted
-imagea-flash-start = 0x8000
-imagea-flash-size = 0x70000
-imagea-ram-start = 0x20004000
-imagea-ram-size = 0x3C000
-
 [tasks.runner]
 name = "test-runner"
 priority = 0
