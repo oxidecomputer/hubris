@@ -1124,7 +1124,7 @@ fn link(
     // We expect the caller to set up our linker scripts, but copy them into
     // our working directory here
     let working_dir = &cfg.dist_dir;
-    for f in ["link.x", "memory.x", "table.ld"] {
+    for f in ["link.x", "memory.x"] {
         std::fs::copy(format!("target/{}", f), working_dir.join(f))
             .context(format!("Could not copy {} to link dir", f))?;
     }
