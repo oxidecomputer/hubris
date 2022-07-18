@@ -4,7 +4,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(asm)]
 
 #[cfg(any(feature = "stm32h743", feature = "stm32h753"))]
 use drv_stm32h7_usart as drv_usart;

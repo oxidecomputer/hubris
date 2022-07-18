@@ -6,7 +6,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(destructuring_assignment)]
 
 use crate::clock_generator::ClockGenerator;
 use crate::front_io::FrontIOBoard;

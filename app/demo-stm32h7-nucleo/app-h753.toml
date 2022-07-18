@@ -153,7 +153,7 @@ task-slots = ["sys", "hash_driver"]
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 3
-max-sizes = {flash = 8192, ram=4096 }
+max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
 uses = ["hash"]

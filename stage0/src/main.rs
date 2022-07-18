@@ -3,11 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![feature(cmse_nonsecure_entry)]
-#![feature(asm)]
 #![feature(naked_functions)]
 #![feature(array_methods)]
 #![no_main]
 #![no_std]
+
+use core::arch;
 
 extern crate lpc55_pac;
 extern crate panic_halt;
@@ -98,7 +99,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
     let stack = image.get_sp();
 
     // and branch
-    asm!("
+    arch::asm!("
             msr MSP_NS, {stack}
             bxns {entry}",
         stack = in(reg) stack,
@@ -125,7 +126,7 @@ unsafe fn branch_to_image(image: Image) -> ! {
     let stack = image.get_sp();
 
     // and branch
-    asm!("
+    arch::asm!("
             msr MSP, {stack}
             bx {entry}",
         stack = in(reg) stack,

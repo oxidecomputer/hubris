@@ -10,7 +10,7 @@ hubris-num-tasks = {path = "../../sys/num-tasks"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 test-api = {path = "../test-api"}
-cortex-m-semihosting = { version = "0.3.7", features = ["inline-asm"], optional = true }
+cortex-m-semihosting = { version = "0.5.0", optional = true }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

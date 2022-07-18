@@ -1287,6 +1287,7 @@ fn link(
     cmd.arg("-m").arg(m);
     cmd.arg("-z").arg("common-page-size=0x20");
     cmd.arg("-z").arg("max-page-size=0x20");
+    cmd.arg("-rustc-lld-flavor=ld");
 
     cmd.current_dir(working_dir);
 
