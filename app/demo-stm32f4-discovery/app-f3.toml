@@ -19,19 +19,6 @@ requires = {flash = 20000, ram = 3072}
 #
 features = ["itm", "stm32f3"]
 
-[outputs.flash]
-address = 0x08000000
-size = 262144
-read = true
-execute = true
-
-[outputs.ram]
-address = 0x20000000
-size = 40960
-read = true
-write = true
-execute = true
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
