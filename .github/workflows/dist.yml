@@ -27,30 +27,37 @@ jobs:
             app_name: demo-stm32g070-nucleo
             app_toml: app/demo-stm32g0-nucleo/app-g070.toml
             target: thumbv6m-none-eabi
+            image: default
           - build: stm32f3
             app_name: demo-stm32f3-discovery
             app_toml: app/demo-stm32f4-discovery/app-f3.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: stm32f4
             app_name: demo-stm32f4-discovery
             app_toml: app/demo-stm32f4-discovery/app.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: lpc55
             app_name: lpc55xpresso
             app_toml: app/lpc55xpresso/app.toml
             target: thumbv8m.main-none-eabihf
+            image: a
           - build: stm32h743
             app_name: demo-stm32h743-nucleo
             app_toml: app/demo-stm32h7-nucleo/app-h743.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: stm32h753
             app_name: demo-stm32h753-nucleo
             app_toml: app/demo-stm32h7-nucleo/app-h753.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: gemini
             app_name: gemini-bu
             app_toml: app/gemini-bu/app.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: gemini-rot
             app_name: gemini-bu-rot
             app_toml: app/gemini-bu-rot/app.toml
@@ -59,14 +66,17 @@ jobs:
             app_name: gimlet-b
             app_toml: app/gimlet/rev-b.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: sidecar
             app_name: sidecar
             app_toml: app/sidecar/app.toml
             target: thumbv7em-none-eabihf
+            image: default
           - build: gimlet-rot
             app_name: gimlet-rot
             app_toml: app/gimlet-rot/app.toml
             target: thumbv8m.main-none-eabihf
+            image: a
 
           - os: ubuntu-latest
             deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
@@ -125,11 +135,11 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
           sudo chmod +x target/release/humility
-          target/release/humility -a target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}.zip manifest
+          target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
 
       # upload the output of our build
       - name: Upload build archive
         uses: actions/upload-artifact@v1
         with:
           name: dist-${{ matrix.os }}-${{ matrix.build }}
-          path: target/${{ matrix.app_name }}/dist/build-${{ matrix.app_name }}.zip
+          path: target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip
