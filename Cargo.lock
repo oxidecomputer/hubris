@@ -291,8 +291,11 @@ version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
 dependencies = [
+ "libc",
  "num-integer",
  "num-traits",
+ "time",
+ "winapi",
 ]
 
 [[package]]
@@ -668,6 +671,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "dice"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "hkdf",
+ "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lpc55-pac",
+ "salty",
+ "serde",
+ "serde-big-array",
+ "sha3",
+ "unwrap-lite",
+ "zeroize",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -684,6 +703,7 @@ checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
 dependencies = [
  "block-buffer 0.10.2",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -1488,6 +1508,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ed25519"
+version = "1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e9c280362032ea4203659fc489832d0204ef09f247a0506f170dafcac08c369"
+dependencies = [
+ "signature",
+]
+
+[[package]]
 name = "elliptic-curve"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1575,7 +1604,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/omicron?rev=f2e6237e57a36873fc748b6ecd9e42b8ef208c88#f2e6237e57a36873fc748b6ecd9e42b8ef208c88"
 dependencies = [
  "bitflags",
- "hubpack",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -1768,6 +1797,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hkdf"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+dependencies = [
+ "hmac 0.12.1",
+]
+
+[[package]]
 name = "hmac"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,12 +1826,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest 0.10.3",
+]
+
+[[package]]
+name = "hubpack"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70e0e5e2a94d97b34fa215ea1311937ab0880f86ee575ca4acd2ff66fa22b88c"
+dependencies = [
+ "hubpack_derive 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+]
+
+[[package]]
 name = "hubpack"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
- "hubpack_derive",
+ "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
  "serde",
+]
+
+[[package]]
+name = "hubpack_derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35bd74819b334bf50982a40ec2a44cdf4e197ebbc74c02624897ecb66dbf828c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2712,6 +2780,17 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
+
+[[package]]
+name = "salty"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
+dependencies = [
+ "ed25519",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "same-file"
@@ -4019,6 +4098,21 @@ name = "zeroize"
 version = "1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f8f187641dad4f680d25c4bfc4225b418165984179f26ca76ec4fb6441d3a17"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
+]
 
 [[package]]
 name = "zip"
