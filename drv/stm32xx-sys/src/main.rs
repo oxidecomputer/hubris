@@ -6,6 +6,7 @@
 
 #![no_std]
 #![no_main]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "family-stm32g0")] {

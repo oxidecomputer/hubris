@@ -177,7 +177,7 @@ register_defs = "gimlet-regs-b.json"
 name = "drv-stm32h7-hash-server"
 features = ["h753"]
 priority = 2
-max-sizes = {flash = 8192, ram=4096 }
+max-sizes = {flash = 16384, ram=4096 }
 stacksize = 2048
 start = true
 uses = ["hash"]
@@ -224,7 +224,7 @@ features = ["vlan"]
 [tasks.validate]
 name = "task-validate"
 priority = 5
-max-sizes = {flash = 8192, ram = 4096 }
+max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000 
 start = true
 task-slots = ["i2c_driver"]

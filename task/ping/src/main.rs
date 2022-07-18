@@ -4,7 +4,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(asm)]
 
 use userlib::*;
 
@@ -29,7 +28,7 @@ fn divzero() {
         let p: u32 = 123;
         let q: u32 = 0;
         let _res: u32;
-        asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
+        core::arch::asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
     }
 }
 

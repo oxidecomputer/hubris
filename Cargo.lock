@@ -363,9 +363,9 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "cortex-m"
-version = "0.7.3"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ac919ef424449ec8c08d515590ce15d9262c0ca5f0da5b0c901e971a3b783b3"
+checksum = "cd20d4ac4aa86f4f75f239d59e542ef67de87cce2c282818dc6e84155d3ea126"
 dependencies = [
  "bare-metal 0.2.5",
  "bitfield",
@@ -399,6 +399,15 @@ name = "cortex-m-semihosting"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bffa6c1454368a6aa4811ae60964c38e6996d397ff8095a8b9211b1c1f749bc"
+dependencies = [
+ "cortex-m",
+]
+
+[[package]]
+name = "cortex-m-semihosting"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c23234600452033cc77e4b761e740e02d2c4168e11dbf36ab14a0f58973592b0"
 dependencies = [
  "cortex-m",
 ]
@@ -1167,7 +1176,7 @@ name = "drv-stm32g0-usart"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "cortex-m-semihosting",
+ "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
  "num-traits",
  "stm32g0",
@@ -2243,7 +2252,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d55dedd501dfd02514646e0af4d7016ce36bc12ae177ef52056989966a1eec"
 dependencies = [
  "cortex-m",
- "cortex-m-semihosting",
+ "cortex-m-semihosting 0.3.7",
 ]
 
 [[package]]
@@ -3083,7 +3092,7 @@ dependencies = [
  "armv6m-atomic-hack",
  "build-util",
  "cortex-m",
- "cortex-m-semihosting",
+ "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "idol",
  "idol-runtime",
@@ -3425,7 +3434,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
- "cortex-m-semihosting",
+ "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
  "test-api",
@@ -3468,7 +3477,7 @@ dependencies = [
  "build-util",
  "cfg-if",
  "cortex-m",
- "cortex-m-semihosting",
+ "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
  "test-api",

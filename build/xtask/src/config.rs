@@ -551,15 +551,14 @@ impl BuildConfig<'_> {
             None => PathBuf::from("cargo"),
         });
 
-        // nightly features that we use: asm_sym,named-profiles,naked_functions
-        // cmse_nonsecure_entry,array_methods,destructuring_assignment
-        // nightly features that our dependencies use: proc_macro_span,backtrace
-        // asm,llvm_asm
+        // nightly features that we use: asm_sym,asm_const,
+        // named-profiles,naked_functions,cmse_nonsecure_entry,array_methods
+        //
+        // nightly features that our dependencies use: backtrace,proc_macro_span
 
         cmd.arg(
-            "-Zallow-features=asm,asm_sym,named-profiles,naked_functions,\
-cmse_nonsecure_entry,array_methods,destructuring_assignment,proc_macro_span,\
-backtrace,llvm_asm",
+            "-Zallow-features=asm_sym,asm_const,named-profiles,naked_functions,\
+cmse_nonsecure_entry,array_methods,backtrace,proc_macro_span",
         );
 
         cmd.arg(subcommand);

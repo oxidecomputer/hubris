@@ -244,7 +244,7 @@ task-slots = ["i2c_driver", "sensor", "sequencer"]
 [tasks.validate]
 name = "task-validate"
 priority = 5
-max-sizes = {flash = 8192, ram = 4096 }
+max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000
 start = true
 task-slots = ["i2c_driver"]

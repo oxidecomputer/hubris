@@ -44,7 +44,7 @@ stacksize = 1536
 name = "drv-stm32fx-rcc"
 features = ["f3"]
 priority = 1
-max-sizes = {flash = 4096, ram = 1024}
+max-sizes = {flash = 8192, ram = 1024}
 uses = ["rcc"]
 start = true
 
@@ -96,4 +96,3 @@ priority = 5
 max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
-

@@ -111,7 +111,7 @@ features = ["stm32h753", "usart2"]
 uses = ["usart2"]
 interrupts = {"usart2.irq" = 0b01}
 priority = 3
-max-sizes = {flash = 8192, ram = 4096}
+max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 task-slots = ["sys"]
@@ -199,7 +199,7 @@ task-slots = ["sys", "user_leds"]
 [tasks.update_server]
 name = "stm32h7-update-server"
 priority = 3
-max-sizes = {flash = 8192, ram = 4096}
+max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
