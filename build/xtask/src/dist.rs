@@ -464,12 +464,6 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
 
     let img_dir = PathBuf::from("img");
 
-    //for s in cfg.toml.signing.keys() {
-    //    let name =
-    //        format!("{}_{}.bin", s, cfg.toml.signing.get(s).unwrap().method);
-    //    archive.copy(cfg.dist_file(&name), img_dir.join(&name))?;
-    //}
-
     for f in ["combined", "final"] {
         for ext in ["srec", "elf", "ihex", "bin"] {
             let name = format!("{}.{}", f, ext);
@@ -709,7 +703,8 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_kconfig(&cfg.toml, &allocs.tasks, entry_points)?;
+    let kconfig =
+        make_kconfig(&cfg.toml, &allocs.tasks, entry_points, image_name)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -739,7 +734,6 @@ fn build_kernel(
     if update_elf(
         &cfg.dist_file("kernel"),
         &cfg.img_file("kernel.modified", image_name),
-        //&cfg.toml.memories()?,
         all_memories,
         all_output_sections,
     )? {
@@ -1410,6 +1404,7 @@ pub fn make_kconfig(
     toml: &Config,
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
     entry_points: &HashMap<String, u32>,
+    image_name: &str,
 ) -> Result<KernelConfig> {
     // Generate the three record sections concurrently.
     let mut regions = vec![];
@@ -1503,7 +1498,17 @@ pub fn make_kconfig(
         // task's region table.
         let allocs = &task_allocations[name];
         for (ri, (output_name, range)) in allocs.iter().enumerate() {
-            let out = &toml.outputs[output_name][0];
+            let region: Vec<&crate::config::Output> = toml.outputs[output_name]
+                .iter()
+                .filter(|o| o.name == *image_name)
+                .collect();
+
+            if region.len() > 1 {
+                bail!("Multiple regions defined for image {}", image_name);
+            }
+
+            let out = region[0];
+
             let mut attributes = abi::RegionAttributes::empty();
             if out.read {
                 attributes |= abi::RegionAttributes::READ;
