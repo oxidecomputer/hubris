@@ -31,7 +31,6 @@ struct RawConfig {
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
     kernel: Kernel,
-    //outputs: IndexMap<String, Vec<Output>>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
@@ -113,7 +112,6 @@ impl Config {
             secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
             kernel: toml.kernel,
-            //outputs: toml.outputs,
             outputs,
             tasks: toml.tasks,
             peripherals,

@@ -358,17 +358,32 @@ pub fn package(
                 cfg.img_file("combined_rsa.bin", image_name),
                 cfg.img_file("combined.bin", image_name),
             )?;
-        }
 
-        // If there's no bootloader, the "combined" and "final" images are
-        // identical, so we copy from one to the other
-        for ext in ["srec", "elf", "ihex", "bin"] {
-            let src = format!("combined.{}", ext);
-            let dst = format!("final.{}", ext);
-            std::fs::copy(
-                cfg.img_file(src, image_name),
-                cfg.img_file(dst, image_name),
+            // We have to cheat a little for (re) generating the
+            // srec after signing. The assumption is the binary starts
+            // at the beginning of flash.
+            binary_to_srec(
+                &cfg.img_file("combined.bin", image_name),
+                cfg.toml
+                    .memories(image_name)?
+                    .get(&"flash".to_string())
+                    .ok_or(anyhow!("failed to get flash region"))?
+                    .start,
+                kentry,
+                &cfg.img_file("final.srec", image_name),
             )?;
+            translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
+        } else {
+            // If there's no bootloader, the "combined" and "final" images are
+            // identical, so we copy from one to the other
+            for ext in ["srec", "elf", "ihex", "bin"] {
+                let src = format!("combined.{}", ext);
+                let dst = format!("final.{}", ext);
+                std::fs::copy(
+                    cfg.img_file(src, image_name),
+                    cfg.img_file(dst, image_name),
+                )?;
+            }
         }
         write_gdb_script(&cfg, image_name)?;
         build_archive(&cfg, image_name)?;
@@ -1875,6 +1890,41 @@ fn get_git_status() -> Result<(String, bool)> {
         .context(format!("failed to get git status ({:?})", cmd))?;
 
     Ok((rev, !status.success()))
+}
+
+fn binary_to_srec(
+    binary: &Path,
+    bin_addr: u32,
+    entry: u32,
+    out: &Path,
+) -> Result<()> {
+    let mut srec_out = vec![srec::Record::S0("signed".to_string())];
+
+    let binary = std::fs::read(binary)?;
+
+    let mut addr = bin_addr;
+    for chunk in binary.chunks(255 - 5) {
+        srec_out.push(srec::Record::S3(srec::Data {
+            address: srec::Address32(addr),
+            data: chunk.to_vec(),
+        }));
+        addr += chunk.len() as u32;
+    }
+
+    let out_sec_count = srec_out.len() - 1; // header
+    if out_sec_count < 0x1_00_00 {
+        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
+    } else if out_sec_count < 0x1_00_00_00 {
+        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
+    } else {
+        panic!("SREC limit of 2^24 output sections exceeded");
+    }
+
+    srec_out.push(srec::Record::S7(srec::Address32(entry)));
+
+    let srec_image = srec::writer::generate_srec_file(&srec_out);
+    std::fs::write(out, srec_image)?;
+    Ok(())
 }
 
 fn write_srec(
