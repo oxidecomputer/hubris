@@ -410,17 +410,21 @@ fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
 }
 
 fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
+    // Humility doesn't know about images right now. The gdb symbol file
+    // paths all assume a flat layout with everything in dist. For now,
+    // match what humility expects. If a build file ever contains multiple
+    // images this will need to be fixed!
     let mut gdb_script = File::create(cfg.img_file("script.gdb", image_name))?;
     writeln!(
         gdb_script,
         "add-symbol-file {}",
-        cfg.img_file("kernel", image_name).to_slash().unwrap()
+        cfg.dist_file("kernel").to_slash().unwrap()
     )?;
     for name in cfg.toml.tasks.keys() {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            cfg.img_file(name, image_name).to_slash().unwrap()
+            cfg.dist_file(name).to_slash().unwrap()
         )?;
     }
     for (path, remap) in &cfg.remap_paths {

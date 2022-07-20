@@ -313,7 +313,6 @@ impl Config {
         &self,
         region: String,
     ) -> Result<IndexMap<String, Range<u32>>> {
-        // self.image_names.iter().fold(|a| self.memories(a)? ).collect()
         let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
         for a in &self.external_images {
             if let Some(r) = self.memories(&a)?.get(&region) {
