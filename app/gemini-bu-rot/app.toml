@@ -25,6 +25,14 @@ max-sizes = {flash = 128, ram = 256}
 stacksize = 256
 start = true
 
+[tasks.update_server]
+name = "lpc55-update-server"
+priority = 6
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["rom", "secure_syscon", "flash"]
+
 [tasks.syscon_driver]
 name = "drv-lpc55-syscon"
 priority = 2
@@ -146,11 +154,11 @@ task-slots = ["user_leds"]
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 5
-features = ["lpc55", "gpio", "spi", "spctrl"]
+features = ["lpc55", "gpio", "spi", "spctrl", "update"]
 max-sizes = {flash = 32768, ram = 16384 }
 stacksize = 2048
 start = true
-task-slots = ["gpio_driver", "swd"]
+task-slots = ["gpio_driver", "swd", "update_server"]
 
 [tasks.sp_measure]
 name = "task-sp-measure"
@@ -161,3 +169,9 @@ stacksize = 2048
 
 [tasks.sp_measure.config]
 binary_path = "../../target/gemini-bu/dist/final.bin"
+
+[extratext.rom]
+address = 0x13000000
+size = 0x20000
+
+

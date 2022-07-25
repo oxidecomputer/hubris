@@ -1,0 +1,13 @@
+[package]
+name = "lpc55_flash"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+abi = {path = "../../sys/abi"}
+lpc55_romapi = { path = "../../drv/lpc55-romapi" }
+drv-update-api = { path = "../../drv/update-api" }
+
+[lib]
+test = false
+bench = false

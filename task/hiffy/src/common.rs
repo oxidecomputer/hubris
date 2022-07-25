@@ -4,7 +4,7 @@
 
 use hif::{Failure, Fault};
 use hubris_num_tasks::NUM_TASKS;
-#[cfg(any(feature = "qspi", feature = "hash", feature = "rng"))]
+#[allow(unused_imports)]
 use userlib::task_slot;
 use userlib::{sys_refresh_task_id, sys_send, Generation, TaskId};
 
