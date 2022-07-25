@@ -36,6 +36,8 @@ struct RawConfig {
     extratext: IndexMap<String, Peripheral>,
     #[serde(default)]
     config: Option<ordered_toml::Value>,
+    #[serde(default)]
+    secure_task: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +59,7 @@ pub struct Config {
     pub config: Option<ordered_toml::Value>,
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
+    pub secure_task: Option<String>,
 }
 
 impl Config {
@@ -122,6 +125,7 @@ impl Config {
             config: toml.config,
             buildhash,
             app_toml_path: cfg.to_owned(),
+            secure_task: toml.secure_task,
         })
     }
 
@@ -312,6 +316,23 @@ impl Config {
             .collect()
     }
 
+    pub fn all_regions(
+        &self,
+        region: String,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        let outputs: &Vec<Output> = self
+            .outputs
+            .get(&region)
+            .ok_or(anyhow!("couldn't find region {}", region))?;
+        let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
+
+        for o in outputs {
+            memories.insert(o.name.clone(), o.address..o.address + o.size);
+        }
+
+        Ok(memories)
+    }
+
     pub fn image_memories(
         &self,
         region: String,
@@ -376,6 +397,11 @@ impl Config {
 
     pub fn check_image_name(&self, name: &String) -> bool {
         self.image_names.contains(name)
+    }
+
+    pub fn need_tz_linker(&self, name: &str) -> bool {
+        self.tasks[name].uses_secure_entry
+            || self.secure_task.as_ref().map_or(false, |n| n == name)
     }
 }
 
@@ -495,6 +521,8 @@ pub struct Task {
     pub task_slots: IndexMap<String, String>,
     #[serde(default)]
     pub config: Option<ordered_toml::Value>,
+    #[serde(default)]
+    pub uses_secure_entry: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

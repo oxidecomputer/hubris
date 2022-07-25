@@ -1,0 +1,25 @@
+[package]
+name = "lpc55-update-server"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+drv-update-api = { path = "../update-api/" }
+ringbuf = {path = "../../lib/ringbuf"}
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+num-traits = { version = "0.2.12", default-features = false }
+zerocopy = "0.6.1"
+hypocalls = {path = "../../lib/hypocalls"}
+cfg-if = "1"
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "lpc55-update-server"
+test = false
+bench = false

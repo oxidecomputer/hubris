@@ -12,7 +12,6 @@ num-traits = { version = "0.2.12", default-features = false }
 test-api = {path = "../test-api"}
 test-idol-api = {path = "../test-idol-api"}
 task-config = { path = "../../lib/task-config" }
-hypocalls = {path = "../../lib/hypocalls", default-features = false, optional = true }
 cfg-if = "1"
 
 # Some tests require talking to I2C devices on the target board

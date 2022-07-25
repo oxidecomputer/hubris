@@ -9,7 +9,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[repr(u32)]
-#[derive(Debug, FromPrimitive, PartialEq, Eq)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Clone, Copy)]
 pub enum FlashStatus {
     Success = 0,
     InvalidArg = 4,
