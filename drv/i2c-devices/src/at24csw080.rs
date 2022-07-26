@@ -16,7 +16,7 @@ const EEPROM_SIZE: u16 = 1024;
 /// Wait time after performing a write
 const WRITE_TIME_MS: u64 = 5;
 
-/// The AT23CSW080/4 is an I2C EEPROM used as the FRU ID. It includes 8-Kbit of
+/// The AT24CSW080/4 is an I2C EEPROM used as the FRU ID. It includes 8-Kbit of
 /// memory (arranged as 1024 x 8), software write protection, a 256-bit
 /// Security Register, and various other useful features.
 ///
@@ -397,8 +397,8 @@ mod handle {
     /// based on EEPROM address and EEPROM vs registers.
     ///
     /// The address stored in the inner `I2cDevice` should have all those bits
-    /// cleared, i.e. it must be 1010_000 for the AT23CSW080 or 1010_100
-    /// for the AT23CSW084.
+    /// cleared, i.e. it must be 1010_000 for the AT24CSW080 or 1010_100
+    /// for the AT24CSW084.
     pub(super) struct DeviceHandle(I2cDevice);
     impl DeviceHandle {
         pub(super) fn new(dev: I2cDevice) -> Self {
