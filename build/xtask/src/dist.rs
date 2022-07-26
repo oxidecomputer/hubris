@@ -1694,88 +1694,51 @@ pub fn make_kconfig(
         });
 
         // Interrupts.
-        for (irq_str, &notification) in &task.interrupts.0 {
-            // The irq_str can be either a base-ten number, or a reference to a
-            // peripheral. Distinguish them based on whether it parses as an
-            // integer.
-            match irq_str.parse::<u32>() {
-                Ok(irq_num) => {
-                    // While it's possible to conceive of a world in which one
-                    // might want to have a single interrupt set multiple
-                    // notification bits, it's much easier to conceive of a
-                    // world in which one has misunderstood that the second
-                    // number in the interrupt tuple is in fact a mask, not an
-                    // index.
-                    if notification.count_ones() != 1 {
-                        bail!(
-                            "task {}: IRQ {}: notification mask (0b{:b}) \
-                             has {} bits set (expected exactly one)",
-                            name,
-                            irq_str,
-                            notification,
-                            notification.count_ones()
-                        );
-                    }
-
-                    irqs.push(abi::Interrupt {
-                        irq: abi::InterruptNum(irq_num),
-                        owner: abi::InterruptOwner {
-                            task: i as u32,
-                            notification,
-                        },
-                    });
-                }
-                Err(_) => {
-                    // This might be an error, or might be a peripheral
-                    // reference.
-                    //
-                    // Peripheral references are of the form "P.I", where P is
-                    // the peripheral name and I is the name of one of the
-                    // peripheral's defined interrupts.
-                    if let Some(dot_pos) =
-                        irq_str.bytes().position(|b| b == b'.')
-                    {
-                        let (pname, iname) = irq_str.split_at(dot_pos);
-                        let iname = &iname[1..];
-                        let periph =
-                            toml.peripherals.get(pname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references peripheral {}, \
-                                 which does not exist.",
-                                    name,
-                                    irq_str,
-                                    pname,
-                                )
-                            })?;
-                        let irq_num =
-                            periph.interrupts.get(iname).ok_or_else(|| {
-                                anyhow!(
-                                    "task {} IRQ {} references interrupt {} \
-                                 on peripheral {}, but that interrupt name \
-                                 is not defined for that peripheral.",
-                                    name,
-                                    irq_str,
-                                    iname,
-                                    pname,
-                                )
-                            })?;
-                        irqs.push(abi::Interrupt {
-                            irq: abi::InterruptNum(*irq_num),
-                            owner: abi::InterruptOwner {
-                                task: i as u32,
-                                notification,
-                            },
-                        });
-                    } else {
-                        bail!(
-                            "task {}: IRQ name {} does not match any \
-                             known peripheral interrupt, and is not an \
-                             integer.",
-                            name,
-                            irq_str,
-                        );
-                    }
-                }
+        for irq in &task.notify.irqs {
+            // Peripheral references are of the form "P.I", where P is
+            // the peripheral name and I is the name of one of the
+            // peripheral's defined interrupts.
+            if let Some(dot_pos) =
+                irq.name.bytes().position(|b| b == b'.')
+            {
+                let (pname, iname) = irq.name.split_at(dot_pos);
+                let iname = &iname[1..];
+                let periph =
+                    toml.peripherals.get(pname).ok_or_else(|| {
+                        anyhow!(
+                            "task {} IRQ {} references peripheral {}, \
+                             which does not exist.",
+                             name,
+                             irq.name,
+                             pname,
+                        )
+                    })?;
+                let irq_num =
+                    periph.interrupts.get(iname).ok_or_else(|| {
+                        anyhow!(
+                            "task {} IRQ {} references interrupt {} \
+                             on peripheral {}, but that interrupt name \
+                             is not defined for that peripheral.",
+                             name,
+                             irq.name,
+                             iname,
+                             pname,
+                        )
+                    })?;
+                irqs.push(abi::Interrupt {
+                    irq: abi::InterruptNum(*irq_num),
+                    owner: abi::InterruptOwner {
+                        task: i as u32,
+                        notification: irq.mask,
+                    },
+                });
+            } else {
+                bail!(
+                    "task {}: IRQ name {} does not match any \
+                     known peripheral interrupt.",
+                     name,
+                     irq.name,
+                );
             }
         }
     }

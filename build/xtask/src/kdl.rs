@@ -72,7 +72,7 @@ pub struct TaskSection {
     #[knuffel(child, default)]
     pub task_slots: TaskSlots,
     #[knuffel(child, default)]
-    pub interrupts: Interrupts,
+    pub notify: Notify,
     #[knuffel(child, default, unwrap(properties))]
     pub sections: IndexMap<String, String>,
 
@@ -122,7 +122,18 @@ pub struct BootloaderSection {
 }
 
 #[derive(Clone, Debug, Default, knuffel::Decode)]
-pub struct Interrupts(#[knuffel(properties)] pub BTreeMap<String, u32>);
+pub struct Notify {
+    #[knuffel(children(name = "irq"))]
+    pub irqs: Vec<Interrupt>,
+}
+
+#[derive(Clone, Debug, Default, knuffel::Decode)]
+pub struct Interrupt {
+    #[knuffel(argument)]
+    pub name: String,
+    #[knuffel(property)]
+    pub mask: u32,
+}
 
 #[derive(Clone, Debug, Default, knuffel::Decode)]
 pub struct TaskSlots {

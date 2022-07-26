@@ -54,7 +54,14 @@ task "i2c_driver" {
     uses "i2c2" "i2c3" "i2c4"
     start
     task-slots "sys"
-    interrupts i2c2.event=0b10 i2c2.error=0b10 i2c3.event=0b100 i2c3.error=0b100 i2c4.event=0b1000 i2c4.error=0b1000
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
 }
 
 task "spi_driver" {
@@ -64,7 +71,9 @@ task "spi_driver" {
     features "spi4" "h753"
     uses "spi4"
     start
-    interrupts spi4.irq=0b1
+    notify {
+        irq "spi4.irq" mask=0b1
+    }
     stack-size 880
     task-slots "sys"
     config {
@@ -95,7 +104,9 @@ task "uartecho" {
     crate-name "task-uartecho"
     features "stm32h753" "usart2"
     uses "usart2"
-    interrupts usart2.irq=0b1
+    notify {
+        irq "usart2.irq" mask=0b1
+    }
     priority 3
     max-sizes flash=8192 ram=4096
     stack-size 2048
@@ -121,7 +132,9 @@ task "hf" {
     stack-size 1920
     start
     uses "quadspi"
-    interrupts quadspi.irq=0b1
+    notify {
+        irq "quadspi.irq" mask=0b1
+    }
     task-slots "sys"
 }
 
@@ -134,7 +147,9 @@ task "net" {
     sections eth_bulk="sram1"
     uses "eth" "eth_dma" "system_flash"
     start
-    interrupts eth.irq=0b1
+    notify {
+        irq "eth.irq" mask=0b1
+    }
     task-slots "sys" "spi_driver"
 }
 
