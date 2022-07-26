@@ -1,0 +1,133 @@
+app-name "tests-psc"
+target "thumbv7em-none-eabihf"
+chip "../../chips/stm32h7"
+board "psc-1"
+stack-size 896
+kernel {
+    crate-name "psc"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+
+task "runner" {
+    crate-name "test-runner"
+    priority 0
+    max-sizes flash=16384 ram=2048
+    start
+    features "itm"
+}
+
+task "suite" {
+    crate-name "test-suite"
+    priority 2
+    max-sizes flash=65536 ram=4096
+    start
+    stack-size 2048
+    features "itm" "fru-id-eeprom"
+    task-slots "assist" "idol" "suite" "runner" "i2c_driver"
+    config {
+        foo "\"Hello, world\""
+        bar 42
+        baz {
+            - 1
+            - 2
+            - 3
+            - 4
+        }
+        tup {
+            - {
+                - 1
+                - true
+            }
+            - {
+                - 2
+                - true
+            }
+            - {
+                - 3
+                - false
+            }
+        }
+    }
+}
+
+task "assist" {
+    crate-name "test-assist"
+    priority 1
+    max-sizes flash=16384 ram=1024
+    start
+    features "itm"
+}
+
+task "idol" {
+    crate-name "test-idol-server"
+    priority 1
+    max-sizes flash=4096 ram=1024
+    stack-size 1024
+    start
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c2" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 3
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 2 {
+            port "F" {
+                name "local"
+                description "Local bus"
+                pins 0 1 af=4
+            }
+        }
+        device {
+            bus "local"
+            address 0b1010000
+            device "at24csw080"
+            description "FRU ID EEPROM"
+        }
+    }
+}
+

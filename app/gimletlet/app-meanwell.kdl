@@ -1,0 +1,77 @@
+app-name "gimletlet"
+target "thumbv7em-none-eabihf"
+board "gimletlet-2"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "gimletlet"
+    requires flash=32768 ram=8192
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32h7"
+    priority 2
+    max-sizes flash=2048 ram=1024
+    start
+    task-slots "sys"
+}
+
+task "meanwell" {
+    crate-name "drv-meanwell"
+    features "stm32h7"
+    priority 3
+    max-sizes flash=2048 ram=1024
+    start
+    task-slots "sys" "user_leds"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "gpio"
+    priority 4
+    max-sizes flash=32768 ram=32768
+    stack-size 2048
+    start
+    task-slots "sys" "user_leds"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+

@@ -1,0 +1,101 @@
+app-name "demo-stm32g070-nucleo"
+target "thumbv6m-none-eabi"
+chip "../../chips/stm32g0"
+board "stm32g070"
+stack-size 944
+kernel {
+    crate-name "demo-stm32g0-nucleo"
+    requires flash=12000 ram=2000
+    features "g070" "panic-halt"
+    stacksize 640
+}
+output "flash" {
+    address 0x8000000
+    size 0x20000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x9000
+    read
+    write
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=4096 ram=512
+    start
+    features "log-null"
+    stack-size 352
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "g070"
+    priority 1
+    max-sizes flash=2048 ram=256
+    uses "rcc" "gpio"
+    start
+    stack-size 256
+}
+
+task "usart_driver" {
+    crate-name "drv-stm32g0-usart"
+    features "g070"
+    priority 2
+    max-sizes flash=4096 ram=256
+    uses "usart1"
+    start
+    notify {
+        irq "usart1.irq" mask=0b1
+    }
+    task-slots "sys"
+    stack-size 256
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32g0"
+    priority 2
+    max-sizes flash=2048 ram=256
+    start
+    task-slots "sys"
+    stack-size 256
+}
+
+task "pong" {
+    crate-name "task-pong"
+    priority 3
+    max-sizes flash=1024 ram=256
+    start
+    task-slots "user_leds"
+    stack-size 256
+}
+
+task "ping" {
+    crate-name "task-ping"
+    features "uart"
+    priority 4
+    max-sizes flash=8192 ram=512
+    stack-size 256
+    start
+    task-slots peer="pong" "usart_driver"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    priority 3
+    max-sizes flash=8192 ram=8192
+    start
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=64
+    stack-size 64
+    start
+}
+

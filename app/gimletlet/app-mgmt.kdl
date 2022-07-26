@@ -1,0 +1,141 @@
+app-name "gimletlet-mgmt"
+target "thumbv7em-none-eabihf"
+board "gimletlet-1"
+chip "../../chips/stm32h7"
+stack-size 1024
+kernel {
+    crate-name "gimletlet"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "spi2_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=4096
+    features "spi2" "h753"
+    uses "spi2"
+    start
+    notify {
+        irq "spi2.irq" mask=0b1
+    }
+    stack-size 1000
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi2"
+        }
+    }
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32h7"
+    priority 2
+    max-sizes flash=2048 ram=1024
+    start
+    task-slots "sys"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "gpio" "spi"
+    priority 3
+    max-sizes flash=16384 ram=16384
+    stack-size 2048
+    start
+    task-slots "sys" "user_leds"
+}
+
+task "net" {
+    crate-name "task-net"
+    stack-size 3800
+    priority 3
+    features "mgmt" "h753"
+    max-sizes flash=131072 ram=16384 sram1=16384
+    sections eth_bulk="sram1"
+    uses "eth" "eth_dma" "system_flash"
+    start
+    notify {
+        irq "eth.irq" mask=0b1
+    }
+    task-slots "sys" "user_leds" spi_driver="spi2_driver"
+}
+
+task "udpecho" {
+    crate-name "task-udpecho"
+    priority 4
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    spi {
+        controller "spi2" 2 {
+            mux-option "port_i" {
+                output "i" 1 3 af=5
+                input "i" 2 af=5
+            }
+            device "spi2_header" {
+                mux "port_i"
+                cs "i" 0
+            }
+        }
+    }
+    net {
+        socket "echo" {
+            kind "udp"
+            owner "udpecho" mask=0b1
+            port 7
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+    }
+}
+

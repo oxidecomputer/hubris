@@ -1,0 +1,775 @@
+app-name "sidecar"
+target "thumbv7em-none-eabihf"
+board "sidecar-1"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "sidecar"
+    requires flash=32768 ram=8192
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "spi1_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "h753" "spi1"
+    uses "spi1"
+    start
+    notify {
+        irq "spi1.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi1"
+        }
+    }
+}
+
+task "spi2_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "h753" "spi2"
+    uses "spi2"
+    start
+    notify {
+        irq "spi2.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi2"
+        }
+    }
+}
+
+task "spi3_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=4096
+    features "h753" "spi3"
+    uses "spi3"
+    start
+    notify {
+        irq "spi3.irq" mask=0b1
+    }
+    stack-size 1000
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi3"
+        }
+    }
+}
+
+task "spi5_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "h753" "spi5"
+    uses "spi5"
+    start
+    notify {
+        irq "spi5.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi5"
+        }
+    }
+}
+
+task "net" {
+    crate-name "task-net"
+    stack-size 5400
+    priority 5
+    features "mgmt" "h753" "sidecar"
+    max-sizes flash=131072 ram=16384 sram1=16384
+    sections eth_bulk="sram1"
+    uses "eth" "eth_dma" "system_flash"
+    start
+    notify {
+        irq "eth.irq" mask=0b1
+    }
+    task-slots "sys" spi_driver="spi3_driver" seq="sequencer"
+}
+
+task "udpecho" {
+    crate-name "task-udpecho"
+    priority 6
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "udpbroadcast" {
+    crate-name "task-udpbroadcast"
+    priority 6
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "monorail" {
+    crate-name "task-monorail-server"
+    priority 6
+    max-sizes flash=262144 ram=8192
+    features "mgmt" "sidecar"
+    stack-size 4096
+    start
+    task-slots "sys" "net" "ecp5_front_io" spi_driver="spi2_driver" seq="sequencer"
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c1" "i2c2" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c1.event" mask=0b1
+        irq "i2c1.error" mask=0b1
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "spi" "stm32h7" "itm" "i2c" "gpio"
+    priority 5
+    max-sizes flash=32768 ram=16384
+    stack-size 1024
+    start
+    task-slots "sys" "i2c_driver"
+}
+
+task "sensor" {
+    crate-name "task-sensor"
+    features "itm"
+    priority 4
+    max-sizes flash=8192 ram=2048
+    stack-size 1920
+    start
+}
+
+task "ecp5_mainboard" {
+    crate-name "drv-fpga-server"
+    features "mainboard"
+    priority 3
+    max-sizes flash=32768 ram=4096
+    stack-size 2048
+    start
+    task-slots "sys" spi_driver="spi5_driver"
+}
+
+task "ecp5_front_io" {
+    crate-name "drv-fpga-server"
+    features "front_io"
+    priority 3
+    max-sizes flash=32768 ram=4096
+    stack-size 2048
+    start
+    task-slots "sys" "i2c_driver" spi_driver="spi1_driver"
+}
+
+task "sequencer" {
+    crate-name "drv-sidecar-seq-server"
+    features
+    priority 4
+    max-sizes flash=262144 ram=2048
+    stack-size 1024
+    start
+    task-slots "sys" "i2c_driver" mainboard="ecp5_mainboard" front_io="ecp5_front_io"
+}
+
+task "thermal" {
+    crate-name "task-thermal"
+    features "itm" "sidecar"
+    priority 5
+    max-sizes flash=32768 ram=8192
+    stack-size 4504
+    start
+    task-slots "i2c_driver" "sensor" "sequencer"
+}
+
+task "power" {
+    crate-name "task-power"
+    features "itm" "sidecar"
+    priority 6
+    max-sizes flash=16384 ram=4096
+    stack-size 2048
+    start
+    task-slots "i2c_driver" "sensor" "sequencer"
+}
+
+task "validate" {
+    crate-name "task-validate"
+    priority 5
+    max-sizes flash=8192 ram=4096
+    stack-size 1000
+    start
+    task-slots "i2c_driver"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 7
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 1 {
+            port "B1" {
+                name "northeast0"
+                description "Northeast Corridor 0"
+                pins port="B" 6 7 af=4
+                mux {
+                    driver "pca9548"
+                    address 0b1110000
+                }
+            }
+            port "B2" {
+                name "northeast1"
+                description "Northeast Corridor 1"
+                pins port="B" 8 9 af=4
+            }
+        }
+        controller 2 {
+            port "F" {
+                name "front_io"
+                description "Front I/O Board"
+                pins 0 1 af=4
+            }
+            port "H" {
+                name "frontgps"
+                description "Front I/O GPS"
+                pins 4 5 af=4
+            }
+        }
+        controller 3 {
+            port "C" {
+                name "northwest0"
+                description "Northwest Corridor 0"
+                pins port="A" 8 af=4
+                pins port="C" 9 af=4
+            }
+            port "H" {
+                name "northwest1"
+                description "Northwest Corridor 1"
+                pins 7 8 af=4
+                mux {
+                    driver "pca9548"
+                    address 0b1110000
+                }
+            }
+        }
+        controller 4 {
+            port "F" {
+                name "south0"
+                description "South Bend 0"
+                pins 14 15 af=4
+            }
+            port "H" {
+                name "south1"
+                description "South Bend 1"
+                pins 11 12 af=4
+            }
+            port "D" {
+                name "south2"
+                description "South Bend 2"
+                pins 12 13 af=4
+            }
+        }
+        device {
+            bus "northeast0"
+            address 0b10000
+            device "adm1272"
+            description "Fan 1 hot swap controller"
+            pmbus {
+                rails "V54_FAN1"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U6"
+        }
+        device {
+            bus "northeast0"
+            address 0b100011
+            device "max31790"
+            name "East"
+            description "Fan 0/1 controller"
+            sensors {
+                speed 4
+            }
+            refdes "U66"
+        }
+        device {
+            bus "northeast0"
+            address 0b1001001
+            device "tmp117"
+            name "NNE"
+            description "North-northeast temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J69"
+            removable
+        }
+        device {
+            bus "northeast0"
+            address 0b1100011
+            device "raa229618"
+            description "TF2 VDD rail"
+            pmbus {
+                rails "V0P8_TF2_VDD_CORE"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U31"
+        }
+        device {
+            bus "northeast0"
+            address 0b1110000
+            device "pca9545"
+            description "Northeast fan mux"
+            refdes "U92"
+        }
+        device {
+            bus "northeast1"
+            address 0b10011
+            device "adm1272"
+            description "Fan 0 hot swap controller"
+            pmbus {
+                rails "V54_FAN0"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U4"
+        }
+        device {
+            bus "northeast1"
+            address 0b11010
+            device "tps546b24a"
+            description "V3P3_SYS rail"
+            pmbus {
+                rails "V3P3_SYS"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U19"
+        }
+        device {
+            bus "northeast1"
+            address 0b1001000
+            device "tmp117"
+            name "Northeast"
+            description "Northeast temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J70"
+            removable
+        }
+        device {
+            bus "northwest0"
+            address 0b10110
+            device "adm1272"
+            description "54V hot swap controller"
+            pmbus {
+                rails "V54_HSC"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U2"
+        }
+        device {
+            bus "northwest0"
+            address 0b11001
+            device "tps546b24a"
+            description "V5P0_SYS rail"
+            pmbus {
+                rails "V5P0_SYS"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U18"
+        }
+        device {
+            bus "northwest0"
+            address 0b1001000
+            device "tmp117"
+            name "NNW"
+            description "North-northwest temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J68"
+            removable
+        }
+        device {
+            bus "northwest0"
+            address 0b1001100
+            device "tmp451"
+            name "tf2"
+            description "TF2 temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "U64"
+        }
+        device {
+            bus "northwest0"
+            address 0b1100000
+            device "raa229618"
+            description "TF2 VDDA rail"
+            pmbus {
+                rails "V1P5_TF2_VDDA" "V0P9_TF2_VDDT"
+            }
+            sensors {
+                temperature 2
+                voltage 2
+                current 2
+            }
+            refdes "U32"
+        }
+        device {
+            bus "northwest0"
+            address 0b1100111
+            device "bmr491"
+            name "IBC"
+            description "Intermediate bus converter"
+            pmbus {
+                rails "V12P0_SYS"
+            }
+            sensors {
+                temperature 1
+                power 1
+                voltage 1
+                current 1
+            }
+            refdes "U12"
+        }
+        device {
+            bus "northwest1"
+            address 0b10011
+            device "adm1272"
+            description "Fan 2 hot swap controller"
+            pmbus {
+                rails "V54_FAN2"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U8"
+        }
+        device {
+            bus "northwest1"
+            address 0b10000
+            device "adm1272"
+            description "Fan 3 hot swap controller"
+            pmbus {
+                rails "V54_FAN3"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U10"
+        }
+        device {
+            bus "northwest1"
+            address 0b1001001
+            device "tmp117"
+            name "Northwest"
+            description "Northwest temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J67"
+            removable
+        }
+        device {
+            bus "northwest1"
+            address 0b100000
+            device "max31790"
+            name "West"
+            description "Fan 2/3 controller"
+            sensors {
+                speed 4
+            }
+            refdes "U78"
+        }
+        device {
+            bus "northwest1"
+            address 0b1110000
+            device "pca9545"
+            description "Northwest fan mux"
+            refdes "U90"
+        }
+        device {
+            bus "south0"
+            address 0b1100010
+            device "isl68224"
+            description "VDD[A]18 rail"
+            pmbus {
+                rails "V1P8_TF2_VDDA" "V1P8_TF2_VDD"
+            }
+            sensors {
+                temperature 2
+                voltage 2
+                current 2
+            }
+            refdes "U33"
+        }
+        device {
+            bus "south0"
+            address 0b1011000
+            device "idt8a34001"
+            description "Clock generator"
+            refdes "U38"
+        }
+        device {
+            bus "south0"
+            address 0b1001010
+            device "tmp117"
+            name "South"
+            description "South temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J71"
+            removable
+        }
+        device {
+            bus "south0"
+            address 0b1001000
+            device "tmp117"
+            name "Southeast"
+            description "Southeast temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J73"
+            removable
+        }
+        device {
+            bus "south0"
+            address 0b1001001
+            device "tmp117"
+            name "Southwest"
+            description "Southwest temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "J72"
+            removable
+        }
+        device {
+            bus "south1"
+            address 0b11011
+            device "tps546b24a"
+            description "V1P0_SYS rail"
+            pmbus {
+                rails "V1P0_MGMT"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U21"
+        }
+        device {
+            bus "south1"
+            address 0b11100
+            device "tps546b24a"
+            description "V1P8_SYS rail"
+            pmbus {
+                rails "V1P8_SYS"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U20"
+        }
+        device {
+            bus "south1"
+            address 0b1001100
+            device "tmp451"
+            name "vsc7448"
+            description "VSC7448 temperature sensor"
+            sensors {
+                temperature 1
+            }
+            refdes "U65"
+        }
+        device {
+            bus "south2"
+            address 0b1010000
+            device "at24csw080"
+            description "Mainboard FRUID"
+            refdes "U91"
+        }
+        device {
+            bus "front_io"
+            address 0b1010000
+            device "at24csw080"
+            description "Front IO board FRUID"
+            removable
+        }
+        device {
+            bus "front_io"
+            address 0b1110011
+            device "pca9538"
+            description "Front IO GPIO expander"
+            removable
+        }
+    }
+    spi {
+        controller "spi1" 1 {
+            mux-option "port_adg" {
+                output "a" 5 af=5
+                output "d" 7 af=5
+                input "g" 9 af=5
+            }
+            device "ecp5_front_io_fpga" {
+                mux "port_adg"
+                cs "g" 10
+            }
+            device "ecp5_front_io_user_design" {
+                mux "port_adg"
+                cs "a" 15
+            }
+        }
+        controller "spi2" 2 {
+            mux-option "port_i" {
+                output "i" 1 3 af=5
+                input "i" 2 af=5
+            }
+            device "vsc7448" {
+                mux "port_i"
+                cs "i" 0
+            }
+        }
+        controller "spi3" 3 {
+            mux-option "port_c" {
+                output "c" 10 12 af=6
+                input "c" 11 af=6
+            }
+            device "ksz8463" {
+                mux "port_c"
+                cs "a" 4
+                cs "b" 13
+            }
+        }
+        controller "spi5" 5 {
+            mux-option "port_jk" {
+                output "j" 10 af=5
+                output "k" 0 af=5
+                input "j" 11 af=5
+            }
+            device "ecp5_mainboard_fpga" {
+                mux "port_jk"
+                cs "k" 1
+            }
+            device "ecp5_mainboard_user_design" {
+                mux "port_jk"
+                cs "j" 6
+            }
+        }
+    }
+    net {
+        socket "echo" {
+            kind "udp"
+            owner "udpecho" mask=0b1
+            port 7
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+        socket "broadcast" {
+            kind "udp"
+            owner "udpbroadcast" mask=0b1
+            port 997
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+    }
+}
+

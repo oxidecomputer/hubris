@@ -1,0 +1,91 @@
+app-name "tests-stm32g070"
+target "thumbv6m-none-eabi"
+board "stm32g070"
+chip "../../chips/stm32g0"
+kernel {
+    crate-name "demo-stm32g0-nucleo"
+    requires flash=17148 ram=2808
+    features "g070" "panic-semihosting"
+    stacksize 2048
+}
+output "flash" {
+    address 0x8000000
+    size 0x20000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x9000
+    read
+    write
+}
+
+task "runner" {
+    crate-name "test-runner"
+    priority 0
+    max-sizes flash=16384 ram=2048
+    start
+    features "semihosting"
+    stack-size 1904
+}
+
+task "suite" {
+    crate-name "test-suite"
+    priority 2
+    max-sizes flash=65536 ram=2048
+    start
+    features "semihosting"
+    task-slots "assist" "idol" "suite" "runner"
+    stack-size 1504
+    config {
+        foo "\"Hello, world\""
+        bar 42
+        baz {
+            - 1
+            - 2
+            - 3
+            - 4
+        }
+        tup {
+            - {
+                - 1
+                - true
+            }
+            - {
+                - 2
+                - true
+            }
+            - {
+                - 3
+                - false
+            }
+        }
+    }
+}
+
+task "assist" {
+    crate-name "test-assist"
+    priority 1
+    max-sizes flash=16384 ram=2048
+    start
+    features "semihosting"
+    stack-size 1504
+}
+
+task "idol" {
+    crate-name "test-idol-server"
+    priority 1
+    max-sizes flash=4096 ram=1024
+    stack-size 1024
+    start
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 3
+    max-sizes flash=128 ram=64
+    stack-size 64
+    start
+}
+

@@ -1,0 +1,240 @@
+app-name "gimletlet-sidecar-emulator"
+target "thumbv7em-none-eabihf"
+board "gimletlet-2"
+chip "../../chips/stm32h7.toml"
+stack-size 896
+kernel {
+    path "."
+    crate-name "gimletlet"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+supervisor {
+    notification 1
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    path "../../task/jefe"
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    path "../../drv/stm32xx-sys"
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=8192 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "i2c_driver" {
+    path "../../drv/stm32h7-i2c-server"
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "spi_driver" {
+    path "../../drv/stm32h7-spi-server"
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "spi4" "h753"
+    uses "spi4"
+    start
+    notify {
+        irq "spi4.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi4"
+        }
+    }
+}
+
+task "user_leds" {
+    path "../../drv/user-leds"
+    crate-name "drv-user-leds"
+    features "stm32h7"
+    priority 2
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots "sys"
+}
+
+task "pong" {
+    path "../../task/pong"
+    crate-name "task-pong"
+    priority 3
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots "user_leds"
+}
+
+task "hiffy" {
+    path "../../task/hiffy"
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "i2c" "gpio" "spi"
+    priority 3
+    max-sizes flash=32768 ram=32768
+    stack-size 2048
+    start
+    task-slots "sys" "i2c_driver" "user_leds"
+}
+
+task "fpga" {
+    path "../../drv/fpga-server"
+    crate-name "drv-fpga-server"
+    priority 3
+    max-sizes flash=32768 ram=4096
+    stack-size 2048
+    start
+    task-slots "sys" "spi_driver"
+}
+
+task "i2c_emulator" {
+    path "../../drv/sidecar-mainboard-i2c-emulator"
+    crate-name "drv-sidecar-mainboard-i2c-emulator"
+    priority 2
+    max-sizes flash=8192 ram=2048
+    start
+}
+
+task "sequencer" {
+    path "../../drv/sidecar-seq-server"
+    crate-name "drv-sidecar-seq-server"
+    features
+    priority 4
+    max-sizes flash=262144 ram=2048
+    stack-size 1024
+    start
+    task-slots "sys" i2c_driver="i2c_emulator" "fpga" "spi_driver"
+}
+
+task "idle" {
+    path "../../task/idle"
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 2 {
+            target
+            port "F" {
+                name "i2c2"
+                description "I2C Port 2"
+                pins 0 1 af=4
+            }
+        }
+        controller 3 {
+            port "C" {
+                pins port="A" 8 af=4
+                pins port="C" 9 af=4
+            }
+        }
+        controller 4 {
+            port "F" {
+                pins 14 15 af=4
+            }
+        }
+        device {
+            bus "i2c2"
+            address 0b1100011
+            device "raa229618"
+            description "TF2 VDD rail"
+            pmbus {
+                rails "V0P8_TF2_VDD_CORE"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U31"
+        }
+        device {
+            bus "i2c2"
+            address 0b1011000
+            device "idt8a34001"
+            description "Clock generator"
+            refdes "U38"
+        }
+    }
+    spi {
+        controller "spi3" 3 {
+            mux-option "port_c" {
+                output "c" 10 12 af=6
+                input "c" 11 af=6
+            }
+            device "spi3_header" {
+                mux "port_c"
+                cs "a" 15
+            }
+        }
+        controller "spi4" 4 {
+            mux-option "port_e" {
+                output "e" 12 14 af=5
+                input "e" 13 af=5
+            }
+            device "spi4_header" {
+                mux "port_e"
+                cs "e" 11
+            }
+            device "mainboard_controller" {
+                mux "port_e"
+                cs "e" 11
+            }
+        }
+        controller "spi6" 6 {
+            mux-option "port_g" {
+                output "g" 13 14 af=5
+                input "g" 12 af=5
+            }
+            device "spi6_header" {
+                mux "port_g"
+                cs "g" 8
+            }
+        }
+    }
+}
+

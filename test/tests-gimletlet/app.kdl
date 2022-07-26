@@ -1,0 +1,88 @@
+app-name "tests-gimletlet"
+target "thumbv7em-none-eabihf"
+board "gimletlet-2"
+chip "../../chips/stm32h7"
+stack-size 2048
+kernel {
+    crate-name "gimletlet"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+
+task "runner" {
+    crate-name "test-runner"
+    priority 0
+    max-sizes flash=16384 ram=4096
+    start
+    features "itm"
+}
+
+task "suite" {
+    crate-name "test-suite"
+    priority 2
+    max-sizes flash=65536 ram=4096
+    start
+    features "itm"
+    task-slots "assist" "idol" "suite" "runner"
+    config {
+        foo "\"Hello, world\""
+        bar 42
+        baz {
+            - 1
+            - 2
+            - 3
+            - 4
+        }
+        tup {
+            - {
+                - 1
+                - true
+            }
+            - {
+                - 2
+                - true
+            }
+            - {
+                - 3
+                - false
+            }
+        }
+    }
+}
+
+task "assist" {
+    crate-name "test-assist"
+    priority 1
+    max-sizes flash=16384 ram=4096
+    start
+    features "itm"
+}
+
+task "idol" {
+    crate-name "test-idol-server"
+    priority 1
+    max-sizes flash=4096 ram=1024
+    stack-size 1024
+    start
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 3
+    max-sizes flash=256 ram=256
+    stack-size 256
+    start
+}
+

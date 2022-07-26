@@ -1,0 +1,342 @@
+app-name "psc"
+target "thumbv7em-none-eabihf"
+board "psc-1"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "psc"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "spi4_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "spi4" "h753"
+    uses "spi4"
+    start
+    notify {
+        irq "spi4.irq" mask=0b1
+    }
+    stack-size 872
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi4"
+        }
+    }
+}
+
+task "spi2_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "spi2" "h753"
+    uses "spi2"
+    start
+    notify {
+        irq "spi2.irq" mask=0b1
+    }
+    stack-size 872
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi2"
+        }
+    }
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c2" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "i2c" "gpio" "spi"
+    priority 3
+    max-sizes flash=32768 ram=16384
+    stack-size 1024
+    start
+    task-slots "sys" "i2c_driver"
+}
+
+task "net" {
+    crate-name "task-net"
+    stack-size 3800
+    priority 3
+    features "mgmt" "h753"
+    max-sizes flash=131072 ram=16384 sram1=16384
+    sections eth_bulk="sram1"
+    uses "eth" "eth_dma" "system_flash"
+    start
+    notify {
+        irq "eth.irq" mask=0b1
+    }
+    task-slots "sys" spi_driver="spi2_driver"
+}
+
+task "udpecho" {
+    crate-name "task-udpecho"
+    priority 4
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "udpbroadcast" {
+    crate-name "task-udpbroadcast"
+    priority 4
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "eeprom" {
+    crate-name "drv-eeprom"
+    priority 3
+    max-sizes flash=2048 ram=256
+    stack-size 256
+    start
+    task-slots "i2c_driver"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 2 {
+            port "F" {
+                name "local"
+                description "Local bus"
+                pins 0 1 af=4
+            }
+        }
+        controller 3 {
+            port "H" {
+                name "backplane"
+                description "Backplane bus"
+                pins 7 8 af=4
+            }
+        }
+        controller 4 {
+            port "B" {
+                name "status"
+                description "Status bus"
+                pins 8 9 af=6
+            }
+        }
+        device {
+            bus "local"
+            address 0b1000001
+            device "ina226"
+            description "Current sensor"
+        }
+        device {
+            bus "local"
+            address 0b1001000
+            device "tmp116"
+            description "Temperature sensor"
+        }
+        device {
+            bus "local"
+            address 0b1010000
+            device "at24csw080"
+            description "FRU ID EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu1eeprom"
+            address 0b1010000
+            device "psueeprom"
+            description "PSU 1 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu1mcu"
+            address 0b1011000
+            device "psumcu"
+            description "PSU 1 MCU"
+        }
+        device {
+            bus "backplane"
+            name "psu2eeprom"
+            address 0b1010001
+            device "psueeprom"
+            description "PSU 2 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu2mcu"
+            address 0b1011001
+            device "psumcu"
+            description "PSU 2 MCU"
+        }
+        device {
+            bus "backplane"
+            name "psu3eeprom"
+            address 0b1010010
+            device "psueeprom"
+            description "PSU 3 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu3mcu"
+            address 0b1011010
+            device "psumcu"
+            description "PSU 3 MCU"
+        }
+        device {
+            bus "backplane"
+            name "psu4eeprom"
+            address 0b1010011
+            device "psueeprom"
+            description "PSU 4 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu4mcu"
+            address 0b1011011
+            device "psumcu"
+            description "PSU 4 MCU"
+        }
+        device {
+            bus "backplane"
+            name "psu5eeprom"
+            address 0b1010100
+            device "psueeprom"
+            description "PSU 5 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu5mcu"
+            address 0b1011100
+            device "psumcu"
+            description "PSU 5 MCU"
+        }
+        device {
+            bus "backplane"
+            name "psu6eeprom"
+            address 0b1010101
+            device "psueeprom"
+            description "PSU 6 EEPROM"
+        }
+        device {
+            bus "backplane"
+            name "psu6mcu"
+            address 0b1011101
+            device "psumcu"
+            description "PSU 6 MCU"
+        }
+        device {
+            bus "status"
+            address 0b100000
+            device "max7311"
+            description "I2C expander"
+        }
+        device {
+            bus "status"
+            address 0b100100
+            device "max7311"
+            description "I2C expander"
+        }
+    }
+    spi {
+        controller "spi2" 2 {
+            mux-option "port_i" {
+                output "i" 1 3 af=5
+                input "i" 2 af=5
+            }
+            device "ksz8463" {
+                mux "port_i"
+                cs "i" 0
+            }
+        }
+        controller "spi4" 4 {
+            mux-option "rot" {
+                output "e" 2 6 af=5
+                input "e" 5 af=5
+            }
+            device "rot" {
+                mux "rot"
+                cs "e" 4
+                clock-divider "div16"
+            }
+        }
+    }
+    net {
+        socket "echo" {
+            kind "udp"
+            owner "udpecho" mask=0b1
+            port 7
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+        socket "broadcast" {
+            kind "udp"
+            owner "udpbroadcast" mask=0b1
+            port 997
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+    }
+}
+

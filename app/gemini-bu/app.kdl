@@ -1,0 +1,315 @@
+app-name "gemini-bu"
+target "thumbv7em-none-eabihf"
+board "gemini-bu-1"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "gemini-bu"
+    requires flash=32768 ram=4096
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c1" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c1.event" mask=0b1
+        irq "i2c1.error" mask=0b1
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "spd" {
+    crate-name "task-spd"
+    features "h753" "itm"
+    priority 3
+    max-sizes flash=16384 ram=16384
+    uses "i2c2"
+    start
+    task-slots "sys" "i2c_driver"
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+    }
+}
+
+task "spi2_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "h753" "spi2"
+    uses "spi2"
+    start
+    notify {
+        irq "spi2.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi2"
+        }
+    }
+}
+
+task "spi4_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "h753" "spi4"
+    uses "spi4"
+    start
+    notify {
+        irq "spi4.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi4"
+        }
+    }
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32h7"
+    priority 2
+    max-sizes flash=2048 ram=1024
+    start
+    task-slots "sys"
+}
+
+task "pong" {
+    crate-name "task-pong"
+    priority 3
+    max-sizes flash=1024 ram=1024
+    start
+    task-slots "user_leds"
+}
+
+task "hf" {
+    crate-name "drv-gimlet-hf-server"
+    features "h753" "hash"
+    priority 4
+    max-sizes flash=16384 ram=4096
+    stack-size 2048
+    start
+    uses "quadspi"
+    notify {
+        irq "quadspi.irq" mask=0b1
+    }
+    task-slots "sys" "hash_driver"
+}
+
+task "hash_driver" {
+    crate-name "drv-stm32h7-hash-server"
+    features "h753"
+    priority 3
+    max-sizes flash=8192 ram=4096
+    stack-size 2048
+    start
+    uses "hash"
+    notify {
+        irq "hash.irq" mask=0b1
+    }
+    task-slots "sys"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "i2c" "gpio" "spi" "qspi" "hash"
+    priority 5
+    max-sizes flash=32768 ram=16384
+    stack-size 2048
+    start
+    task-slots "sys" "i2c_driver" "hf" "hash_driver"
+}
+
+task "validate" {
+    crate-name "task-validate"
+    priority 3
+    max-sizes flash=8192 ram=4096
+    stack-size 1000
+    start
+    task-slots "i2c_driver"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 6
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 1 {
+            port "B" {
+                name "onboard"
+                pins 8 9 af=4
+            }
+        }
+        controller 2 {
+            target
+            port "F" {
+                pins 0 1 af=4
+            }
+        }
+        controller 3 {
+            port "H" {
+                pins 7 8 af=4
+            }
+        }
+        controller 4 {
+            port "D" {
+                pins 12 13 af=4
+            }
+            port "F" {
+                pins 14 15 af=4
+                mux {
+                    driver "ltc4306"
+                    address 0b1000100
+                    enable {
+                        gpio_port "G"
+                        pins {
+                            - 0
+                        }
+                        af 0
+                    }
+                }
+            }
+            port "H" {
+                pins 11 12 af=4
+            }
+        }
+        device {
+            device "max31790"
+            bus "onboard"
+            address 0b100000
+            description "Fan controller"
+        }
+        device {
+            device "pca9555"
+            bus "onboard"
+            address 0b100001
+            description "GPIO expander"
+        }
+        device {
+            device "ina219"
+            bus "onboard"
+            address 0b1000000
+            description "Current sensor"
+        }
+        device {
+            device "ina219"
+            bus "onboard"
+            address 0b1000001
+            description "Current sensor"
+        }
+        device {
+            device "ltc4306"
+            controller 4
+            port "F"
+            address 0b1000100
+            description "Multiplexer"
+        }
+        device {
+            device "adm1272"
+            controller 4
+            port "F"
+            mux 1
+            segment 1
+            address 0b10000
+            description "ADM1272 evaluation board"
+            pmbus {
+                rails "ADM_EVL_VOUT"
+            }
+        }
+        device {
+            device "isl68224"
+            controller 4
+            port "F"
+            mux 1
+            segment 3
+            address 0b1100000
+            description "ISL68224 evaluation board"
+            pmbus {
+                rails "ISL_EVL_VOUT0" "ISL_EVL_VOUT1" "ISL_EVL_VOUT2"
+            }
+        }
+        device {
+            device "tps546b24a"
+            controller 4
+            port "F"
+            mux 1
+            segment 4
+            address 0b100100
+            description "TPS546B24A evaluation board"
+            pmbus {
+                rails "TPS_EVL_VOUT"
+            }
+        }
+    }
+    spi {
+        controller "spi2" 2 {
+            mux-option "port_i" {
+                output "i" 1 3 af=5
+                input "i" 2 af=5
+            }
+            device "header" {
+                mux "port_i"
+                cs "i" 0
+            }
+        }
+        controller "spi4" 4 {
+            mux-option "port_e" {
+                output "e" 2 6 af=5
+                input "e" 5 af=5
+            }
+            device "rot" {
+                mux "port_e"
+                cs "e" 4
+            }
+        }
+    }
+}
+

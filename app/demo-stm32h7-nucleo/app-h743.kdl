@@ -1,0 +1,212 @@
+app-name "demo-stm32h743-nucleo"
+target "thumbv7em-none-eabihf"
+board "nucleo-h743zi2"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "demo-stm32h7-nucleo"
+    requires flash=22000 ram=4096
+    features "h743" "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+    config {
+        on-state-change {
+            notify "net" bit-number=3
+        }
+    }
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h743"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h743"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    uses "i2c1" "i2c2" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+    }
+}
+
+task "spi_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 2
+    max-sizes flash=16384 ram=2048
+    features "spi1" "h743"
+    uses "spi1"
+    start
+    notify {
+        irq "spi1.irq" mask=0b1
+    }
+    stack-size 880
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi1"
+        }
+    }
+}
+
+task "net" {
+    crate-name "task-net"
+    stack-size 3800
+    priority 2
+    max-sizes flash=65536 ram=8192 sram1=32768
+    features "h743"
+    sections eth_bulk="sram1"
+    uses "eth" "eth_dma" "system_flash"
+    start
+    notify {
+        irq "eth.irq" mask=0b1
+    }
+    task-slots "sys"
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32h7"
+    priority 2
+    max-sizes flash=2048 ram=1024
+    start
+    task-slots "sys"
+}
+
+task "ping" {
+    crate-name "task-ping"
+    features
+    priority 5
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots peer="pong"
+}
+
+task "pong" {
+    crate-name "task-pong"
+    priority 3
+    max-sizes flash=1024 ram=1024
+    start
+    task-slots "user_leds"
+}
+
+task "uartecho" {
+    crate-name "task-uartecho"
+    features "stm32h743" "usart3"
+    uses "usart3"
+    notify {
+        irq "usart3.irq" mask=0b1
+    }
+    priority 3
+    max-sizes flash=16384 ram=4096
+    stack-size 2048
+    start
+    task-slots "sys"
+}
+
+task "udpecho" {
+    crate-name "task-udpecho"
+    priority 3
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h743" "stm32h7" "itm" "i2c" "gpio" "spi" "rng"
+    priority 4
+    max-sizes flash=32768 ram=32768
+    stack-size 2048
+    start
+    task-slots "sys" "i2c_driver" "rng_driver"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 6
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+
+task "rng_driver" {
+    features "h743"
+    priority 3
+    crate-name "drv-stm32h7-rng"
+    max-sizes flash=8192 ram=512
+    stack-size 256
+    start
+    task-slots "sys" "user_leds"
+    uses "rng"
+}
+config {
+    i2c {
+        controller 2 {
+            port "F" {
+                pins 0 1 af=4
+            }
+        }
+    }
+    spi {
+        controller "spi1" 1 {
+            fifo_depth 16
+            mux-option "cn7_arduino" {
+                output "a" 5 af=5
+                output "b" 5 af=5
+                input "a" 6 af=5
+            }
+            device "pins" {
+                mux "cn7_arduino"
+                cs "d" 14
+                clock-divider "div16"
+            }
+        }
+    }
+    net {
+        socket "echo" {
+            kind "udp"
+            owner "udpecho" mask=0b1
+            port 7
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+    }
+}
+

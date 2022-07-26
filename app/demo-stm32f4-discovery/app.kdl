@@ -1,0 +1,99 @@
+app-name "demo-stm32f4-discovery"
+target "thumbv7em-none-eabihf"
+board "stm32f4-discovery"
+chip "../../chips/stm32f4"
+stack-size 896
+kernel {
+    crate-name "demo-stm32f4-discovery"
+    requires flash=20000 ram=3072
+    features "itm" "stm32f4"
+}
+output "flash" {
+    address 0x8000000
+    size 0x40000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x1c000
+    read
+    write
+    execute
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "rcc_driver" {
+    crate-name "drv-stm32fx-rcc"
+    features "f4"
+    priority 1
+    max-sizes flash=4096 ram=1024
+    uses "rcc"
+    start
+}
+
+task "usart_driver" {
+    crate-name "drv-stm32fx-usart"
+    features "stm32f4"
+    priority 2
+    max-sizes flash=8192 ram=1024
+    uses "usart2" "gpioa"
+    start
+    notify {
+        irq "usart2.irq" mask=0b1
+    }
+    task-slots "rcc_driver"
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "stm32f4"
+    priority 2
+    max-sizes flash=8192 ram=1024
+    uses "gpiod"
+    start
+    task-slots "rcc_driver"
+}
+
+task "ping" {
+    crate-name "task-ping"
+    features "uart"
+    priority 4
+    max-sizes flash=8192 ram=1024
+    stack-size 512
+    start
+    task-slots peer="pong" "usart_driver"
+}
+
+task "pong" {
+    crate-name "task-pong"
+    priority 3
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots "user_leds"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    priority 3
+    max-sizes flash=16384 ram=16384
+    stack-size 2048
+    start
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 5
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+

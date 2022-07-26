@@ -1,0 +1,276 @@
+app-name "gemini-bu-rot"
+target "thumbv8m.main-none-eabihf"
+board "gemini-bu-rot-1"
+chip "../../chips/lpc55"
+stack-size 1024
+kernel {
+    crate-name "gemini-bu-rot"
+    requires flash=21504 ram=4096
+    features "itm"
+}
+signing {
+    combined {
+        method "ecc"
+        priv-key "../../support/fake_certs/p256-private-key.der"
+    }
+    bootloader {
+        method "rsa"
+        priv-key "../../support/fake_certs/fake_private_key.pem"
+        root-cert "../../support/fake_certs/fake_certificate.der.crt"
+    }
+}
+bootloader {
+    name "stage0"
+    imagea-flash-start 32768
+    imagea-flash-size 612352
+    imagea-ram-start 536887296
+    imagea-ram-size 245760
+}
+output "bootloader_sram" {
+    address 0x14000000
+    size 0x8000
+}
+output "bootloader_flash" {
+    address 0x0
+    size 0x7000
+}
+output "bootloader_ram" {
+    address 0x20000000
+    size 0x4000
+}
+output "flash" {
+    address 0x8000
+    size 0x78000
+    read
+    execute
+}
+output "ram" {
+    address 0x20004000
+    size 0x3c000
+    read
+    write
+    execute
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 7
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+
+task "syscon_driver" {
+    crate-name "drv-lpc55-syscon"
+    priority 2
+    max-sizes flash=8192 ram=2048
+    uses "syscon" "anactrl" "pmc"
+    start
+}
+
+task "gpio_driver" {
+    crate-name "drv-lpc55-gpio"
+    priority 3
+    max-sizes flash=8192 ram=2048
+    uses "gpio" "iocon"
+    start
+    task-slots "syscon_driver"
+}
+
+task "user_leds" {
+    crate-name "drv-user-leds"
+    features "lpc55"
+    priority 4
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots "gpio_driver"
+}
+
+task "usart_driver" {
+    crate-name "drv-lpc55-usart"
+    priority 4
+    max-sizes flash=8192 ram=2048
+    uses "flexcomm0"
+    start
+    notify {
+        irq "flexcomm0.irq" mask=0b1
+    }
+    task-slots "gpio_driver" "syscon_driver"
+    config {
+        pins {
+            - {
+                pin {
+                    port 0
+                    pin 29
+                }
+                alt 1
+            }
+            - {
+                pin {
+                    port 0
+                    pin 30
+                }
+                alt 1
+            }
+        }
+    }
+}
+
+task "rng_driver" {
+    crate-name "drv-lpc55-rng"
+    priority 3
+    max-sizes flash=16384 ram=4096
+    uses "rng" "pmc"
+    start
+    stack-size 2200
+    task-slots "syscon_driver"
+}
+
+task "spi0_driver" {
+    crate-name "drv-lpc55-spi-server"
+    priority 4
+    max-sizes flash=16384 ram=2048
+    features "spi0"
+    uses "flexcomm3" "flexcomm8"
+    start
+    notify {
+        irq "flexcomm8.hs_spi" mask=0b1
+    }
+    stack-size 1000
+    task-slots "gpio_driver" "syscon_driver"
+    config {
+        pins {
+            - {
+                pin {
+                    port 0
+                    pin 26
+                }
+                alt 9
+            }
+            - {
+                pin {
+                    port 1
+                    pin 3
+                }
+                alt 6
+            }
+            - {
+                pin {
+                    port 1
+                    pin 2
+                }
+                alt 6
+            }
+            - {
+                pin {
+                    port 1
+                    pin 1
+                }
+                alt 5
+            }
+        }
+    }
+}
+
+task "swd" {
+    crate-name "drv-lpc55-swd"
+    priority 4
+    max-sizes flash=16384 ram=4096
+    uses "flexcomm3"
+    start
+    stack-size 1000
+    task-slots "gpio_driver" "syscon_driver"
+    notify {
+        irq "flexcomm3.irq" mask=0b1
+    }
+    config {
+        out_cfg {
+            - {
+                pin {
+                    port 0
+                    pin 3
+                }
+                alt 1
+            }
+            - {
+                pin {
+                    port 0
+                    pin 2
+                }
+                alt 0
+                mode "PullDown"
+            }
+        }
+        in_cfg {
+            - {
+                pin {
+                    port 0
+                    pin 2
+                }
+                alt 1
+            }
+            - {
+                pin {
+                    port 0
+                    pin 3
+                }
+                alt 0
+                mode "PullDown"
+            }
+        }
+        pins {
+            - {
+                pin {
+                    port 0
+                    pin 6
+                }
+                alt 1
+            }
+            - {
+                pin {
+                    port 0
+                    pin 20
+                }
+                alt 1
+            }
+        }
+        spi_num 3
+    }
+}
+
+task "ping" {
+    crate-name "task-ping"
+    features "uart"
+    priority 6
+    max-sizes flash=8192 ram=2048
+    start
+    task-slots peer="pong" "usart_driver"
+}
+
+task "pong" {
+    crate-name "task-pong"
+    priority 5
+    max-sizes flash=8192 ram=1024
+    start
+    task-slots "user_leds"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    priority 5
+    features "lpc55" "gpio" "spi" "spctrl"
+    max-sizes flash=32768 ram=16384
+    stack-size 2048
+    start
+    task-slots "gpio_driver" "swd"
+}
+
