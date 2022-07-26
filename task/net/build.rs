@@ -44,11 +44,11 @@ fn generate_net_config(
     #[cfg(feature = "vlan")]
     build_net::generate_vlan_consts(&config, &mut out)?;
 
-    for (name, socket) in &config.sockets {
+    for socket in &config.sockets {
         writeln!(
             out,
             "{}",
-            generate_socket_state(name, socket, config.vlan.map(|v| v.count))?
+            generate_socket_state(socket, config.vlan.map(|v| v.count))?
         )?;
     }
     writeln!(out, "{}", generate_state_struct(config)?)?;
@@ -68,7 +68,7 @@ fn generate_net_config(
 fn generate_port_table(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
-    let consts = config.sockets.values().map(|socket| {
+    let consts = config.sockets.iter().map(|socket| {
         let port = socket.port;
         quote::quote! { #port }
     });
@@ -85,7 +85,7 @@ fn generate_port_table(
 fn generate_owner_info(
     config: &NetConfig,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
-    let consts = config.sockets.values().map(|socket| {
+    let consts = config.sockets.iter().map(|socket| {
         let task: syn::Ident = syn::parse_str(&socket.owner.name).unwrap();
         let note = socket.owner.notification;
         quote::quote! {
@@ -109,7 +109,6 @@ fn generate_owner_info(
 }
 
 fn generate_socket_state(
-    name: &str,
     config: &SocketConfig,
     vlan_count: Option<usize>,
 ) -> Result<TokenStream, Box<dyn std::error::Error>> {
@@ -117,8 +116,8 @@ fn generate_socket_state(
         return Err("unsupported socket kind".into());
     }
 
-    let tx = generate_buffers(name, "TX", &config.tx, vlan_count)?;
-    let rx = generate_buffers(name, "RX", &config.rx, vlan_count)?;
+    let tx = generate_buffers(&config.name, "TX", &config.tx, vlan_count)?;
+    let rx = generate_buffers(&config.name, "RX", &config.rx, vlan_count)?;
     Ok(quote::quote! {
         #tx
         #rx
@@ -216,8 +215,8 @@ fn generate_constructor(
             .map(|i| {
                 let s = config
                     .sockets
-                    .keys()
-                    .map(|n| name_to_sockets(n, Some(i)))
+                    .iter()
+                    .map(|s| name_to_sockets(&s.name, Some(i)))
                     .collect::<Vec<_>>();
                 quote::quote! {
                     [
@@ -229,8 +228,8 @@ fn generate_constructor(
     } else {
         config
             .sockets
-            .keys()
-            .map(|n| name_to_sockets(n, None))
+            .iter()
+            .map(|s| name_to_sockets(&s.name, None))
             .collect::<Vec<_>>()
     };
     Ok(quote::quote! {

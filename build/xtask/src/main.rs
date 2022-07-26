@@ -15,6 +15,7 @@ mod dist;
 mod elf;
 mod flash;
 mod humility;
+mod kdl;
 mod sizes;
 mod task_slot;
 

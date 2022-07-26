@@ -17,11 +17,13 @@ use path_slash::PathBufExt;
 use serde::Serialize;
 
 use crate::{
-    config::{Bootloader, BuildConfig, Config, Signing, SigningMethod},
+    config::{Bootloader, BuildConfig, Config, Signing},
     elf,
     sizes::load_task_size,
     task_slot,
 };
+
+use crate::kdl::SigningMethod;
 
 use lpc55_sign::{crc_image, signed_image};
 
@@ -173,9 +175,9 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
         .max()
         .unwrap_or(1);
     println!("  {:<pad$}  CRATE", "TASK", pad = pad);
-    println!("  {:<pad$}  {}", "kernel", toml.kernel.name, pad = pad);
+    println!("  {:<pad$}  {}", "kernel", toml.kernel.crate_name, pad = pad);
     for (name, task) in toml.tasks {
-        println!("  {:<pad$}  {}", name, task.name, pad = pad);
+        println!("  {:<pad$}  {}", name, task.crate_name, pad = pad);
     }
     Ok(())
 }
@@ -338,7 +340,7 @@ pub fn package(
     // Okay we now have signed hubris image and signed bootloader
     // Time to combine the two!
     if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
-        let file_image = std::fs::read(&cfg.dist_file(&bootloader.name))?;
+        let file_image = std::fs::read(&cfg.dist_file(&bootloader.crate_name))?;
         let elf = goblin::elf::Elf::parse(&file_image)?;
 
         let bootloader_entry = elf.header.e_entry as u32;
@@ -420,7 +422,7 @@ fn write_gdb_script(cfg: &PackageConfig) -> Result<()> {
         writeln!(
             gdb_script,
             "add-symbol-file {}",
-            cfg.dist_file(&bootloader.name).to_slash().unwrap()
+            cfg.dist_file(&bootloader.crate_name).to_slash().unwrap()
         )?;
     }
     for (path, remap) in &cfg.remap_paths {
@@ -480,8 +482,8 @@ fn build_archive(cfg: &PackageConfig) -> Result<()> {
 
     if let Some(bootloader) = cfg.toml.bootloader.as_ref() {
         archive.copy(
-            cfg.dist_file(&bootloader.name),
-            img_dir.join(&bootloader.name),
+            cfg.dist_file(&bootloader.crate_name),
+            img_dir.join(&bootloader.crate_name),
         )?;
     }
     for s in cfg.toml.signing.keys() {
@@ -578,9 +580,9 @@ fn check_rebuild(toml: &Config) -> Result<()> {
     // if we need to rebuild, we should clean everything before we start building
     if rebuild {
         println!("app.toml has changed; rebuilding all tasks");
-        let mut names = vec![toml.kernel.name.as_str()];
+        let mut names = vec![toml.kernel.crate_name.as_str()];
         if let Some(bootloader) = toml.bootloader.as_ref() {
-            names.push(bootloader.name.as_str());
+            names.push(bootloader.crate_name.as_str());
         }
         for name in toml.tasks.keys() {
             // This may feel redundant: don't we already have the name?
@@ -592,7 +594,7 @@ fn check_rebuild(toml: &Config) -> Result<()> {
             // The "name" in the key is `jefe`, but the package (crate)
             // name is in `tasks.jefe.name`, and that's what we need to
             // give to `cargo`.
-            names.push(toml.tasks[name].name.as_str());
+            names.push(toml.tasks[name].crate_name.as_str());
         }
         cargo_clean(&names, &toml.target)?;
     }
@@ -606,7 +608,7 @@ fn check_rebuild(toml: &Config) -> Result<()> {
 
 fn build_bootloader(
     cfg: &PackageConfig,
-    bootloader: &Bootloader,
+    bootloader: &crate::kdl::BootloaderSection,
     mut linkscr: File,
 ) -> Result<()> {
     let memories = cfg.toml.memories()?;
@@ -650,12 +652,12 @@ fn build_bootloader(
         .toml
         .bootloader_build_config(cfg.verbose, Some(&cfg.sysroot))
         .unwrap();
-    build(cfg, &bootloader.name, build_config, false)?;
+    build(cfg, &bootloader.crate_name, build_config, false)?;
 
     // Need a bootloader binary for signing
     objcopy_translate_format(
         "elf32-littlearm",
-        &cfg.dist_file(&bootloader.name),
+        &cfg.dist_file(&bootloader.crate_name),
         "binary",
         &cfg.dist_file("bootloader.bin"),
     )?;
@@ -672,7 +674,7 @@ fn build_bootloader(
 
     objcopy_grab_binary(
         "elf32-littlearm",
-        &cfg.dist_file(&bootloader.name),
+        &cfg.dist_file(&bootloader.crate_name),
         &cfg.dist_file("addr_blob.bin"),
     )?;
 
@@ -714,7 +716,7 @@ fn link_task(
         "memory.x",
         &allocs.tasks[name],
         Some(&task_toml.sections),
-        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+        task_toml.stack_size.or(cfg.toml.stack_size).ok_or_else(|| {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
     )
@@ -733,7 +735,7 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         "memory.x",
         &memories, // ALL THE SPACE
         Some(&task_toml.sections),
-        task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
+        task_toml.stack_size.or(cfg.toml.stack_size).ok_or_else(|| {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
     )
@@ -749,8 +751,8 @@ fn task_size<'a, 'b>(
     name: &'b str,
 ) -> Result<IndexMap<&'a str, u64>> {
     let task = &cfg.toml.tasks[name];
-    let stacksize = task.stacksize.or(cfg.toml.stacksize).unwrap();
-    load_task_size(&cfg.toml, name, stacksize)
+    let stack_size = task.stack_size.or(cfg.toml.stack_size).unwrap();
+    load_task_size(&cfg.toml, name, stack_size)
 }
 
 /// Loads a given task's ELF file, populating `all_output_sections` and
@@ -770,8 +772,9 @@ fn task_entry_point(
     if let Some(required) = task_toml.max_sizes.get("flash") {
         if flash > *required as usize {
             bail!(
-                "{} has insufficient flash: specified {} bytes, needs {}",
-                task_toml.name,
+                "{} ({}) has insufficient flash: specified {} bytes, needs {}",
+                name,
+                task_toml.crate_name,
                 required,
                 flash
             );
@@ -799,7 +802,7 @@ fn build_kernel(
     generate_kernel_linker_script(
         "memory.x",
         &allocs.kernel,
-        cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        cfg.toml.kernel.stack_size.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
 
     fs::copy("build/kernel-link.x", "target/link.x")?;
@@ -830,7 +833,7 @@ fn build_kernel(
 fn check_task_priorities(toml: &Config) -> Result<()> {
     let idle_priority = toml.tasks["idle"].priority;
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
-        for callee in task.task_slots.values() {
+        for callee in task.task_slots.callees() {
             let p = toml
                 .tasks
                 .get(callee)
@@ -953,7 +956,7 @@ fn smash_bootloader(
 
 fn do_sign_file(
     cfg: &PackageConfig,
-    sign: &Signing,
+    sign: &crate::kdl::SigningSection,
     fname: &str,
     header_start: u32,
 ) -> Result<()> {
@@ -1043,7 +1046,7 @@ fn generate_task_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
-    stacksize: u32,
+    stack_size: u32,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
@@ -1065,15 +1068,15 @@ fn generate_task_linker_script(
 
         // Our stack comes out of RAM
         if name == "RAM" {
-            if stacksize & 0x7 != 0 {
+            if stack_size & 0x7 != 0 {
                 // If we are not 8-byte aligned, the kernel will not be
                 // pleased -- and can't be blamed for a little rudeness;
                 // check this here and fail explicitly if it's unaligned.
                 bail!("specified stack size is not 8-byte aligned");
             }
 
-            emit(&mut linkscr, "STACK", start, stacksize)?;
-            start += stacksize;
+            emit(&mut linkscr, "STACK", start, stack_size)?;
+            start += stack_size;
 
             if start > end {
                 bail!("specified stack size is greater than RAM size");
@@ -1101,7 +1104,7 @@ fn generate_task_linker_script(
 fn generate_kernel_linker_script(
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
-    stacksize: u32,
+    stack_size: u32,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1118,7 +1121,7 @@ fn generate_kernel_linker_script(
 
         // Our stack comes out of RAM
         if name == "RAM" {
-            if stacksize & 0x7 != 0 {
+            if stack_size & 0x7 != 0 {
                 // If we are not 8-byte aligned, the kernel will not be
                 // pleased -- and can't be blamed for a little rudeness;
                 // check this here and fail explicitly if it's unaligned.
@@ -1129,9 +1132,9 @@ fn generate_kernel_linker_script(
             writeln!(
                 linkscr,
                 "STACK (rw) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
-                start, stacksize,
+                start, stack_size,
             )?;
-            start += stacksize;
+            start += stack_size;
             stack_start = Some(start);
 
             if start > end {
@@ -1592,6 +1595,7 @@ pub fn make_kconfig(
         });
     }
 
+    /*
     for (name, p) in toml.extratext.iter() {
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for extratext '{}' is required to be a power of two, but has size {}", name, p.size);
@@ -1609,6 +1613,7 @@ pub fn make_kconfig(
             attributes,
         });
     }
+    */
 
     // The remaining regions are allocated to tasks on a first-come first-serve
     // basis. We don't check power-of-two requirements in task_allocations
@@ -1682,14 +1687,14 @@ pub fn make_kconfig(
             regions: task_regions,
             entry_point: entry_points[name],
             initial_stack: task_allocations[name]["ram"].start
-                + task.stacksize.or(toml.stacksize).unwrap(),
+                + task.stack_size.or(toml.stack_size).unwrap(),
             priority: task.priority,
             flags,
             index: u16::try_from(i).expect("more than 2**16 tasks?"),
         });
 
         // Interrupts.
-        for (irq_str, &notification) in &task.interrupts {
+        for (irq_str, &notification) in &task.interrupts.0 {
             // The irq_str can be either a base-ten number, or a reference to a
             // peripheral. Distinguish them based on whether it parses as an
             // integer.

@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
     let task_config = build_util::task_config::<TaskConfig>()?;
-    let global_config = build_util::config::<GlobalConfig>()?;
+    let global_config = build_util::config_key::<GlobalConfig>("spi")?;
     check_spi_config(&global_config.spi, &task_config.spi)?;
     generate_spi_config(&global_config.spi, &task_config.spi)?;
 
@@ -37,45 +37,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 //
 // Global starts at `GlobalConfig`.
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct TaskConfig {
+    #[knuffel(child)]
     spi: SpiTaskConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct SpiTaskConfig {
+    #[knuffel(child, unwrap(argument))]
     global_config: String,
 }
 
 /// This represents our _subset_ of global config and _must not_ be marked with
 /// `deny_unknown_fields`!
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case")]
 struct GlobalConfig {
-    spi: BTreeMap<String, SpiConfig>,
+    #[knuffel(child, unwrap(children(name = "controller")))]
+    spi: Vec<SpiConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct SpiConfig {
+    #[knuffel(argument)]
+    name: String,
+    #[knuffel(argument)]
     controller: usize,
+    #[knuffel(child, unwrap(argument))]
     fifo_depth: Option<usize>,
-    mux_options: BTreeMap<String, SpiMuxOptionConfig>,
-    devices: IndexMap<String, DeviceDescriptorConfig>,
+    #[knuffel(children(name = "mux-option"))]
+    mux_options: Vec<SpiMuxOptionConfig>,
+    #[knuffel(children(name = "device"))]
+    devices: Vec<DeviceDescriptorConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct SpiMuxOptionConfig {
+    #[knuffel(argument)]
+    name: String,
+    #[knuffel(children(name = "output"))]
     outputs: Vec<AfPinSetConfig>,
+    #[knuffel(child)]
     input: AfPinConfig,
     #[serde(default)]
+    #[knuffel(child)]
     swap_data: bool,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, knuffel::DecodeScalar)]
 enum ConfigPort {
     A,
     B,
@@ -90,26 +104,40 @@ enum ConfigPort {
     K,
 }
 
-#[derive(Deserialize)]
+impl Default for ConfigPort {
+    fn default() -> Self {
+        Self::A
+    }
+}
+
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct AfPinSetConfig {
+    #[knuffel(argument)]
     port: ConfigPort,
+    #[knuffel(arguments)]
     pins: Vec<usize>,
-    af: Af,
+    #[knuffel(property)]
+    af: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct AfPinConfig {
-    #[serde(flatten)]
-    pc: GpioPinConfig,
-    af: Af,
+    #[knuffel(argument)]
+    port: ConfigPort,
+    #[knuffel(argument)]
+    pin: usize,
+    #[knuffel(property)]
+    af: usize,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode, Default)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct GpioPinConfig {
+    #[knuffel(argument)]
     port: ConfigPort,
+    #[knuffel(argument)]
     pin: usize,
 }
 
@@ -117,16 +145,21 @@ struct GpioPinConfig {
 #[serde(transparent)]
 struct Af(usize);
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct DeviceDescriptorConfig {
+    #[knuffel(argument)]
+    name: String,
+    #[knuffel(child, unwrap(argument))]
     mux: String,
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     clock_divider: ClockDivider,
+    #[knuffel(children)]
     cs: Vec<GpioPinConfig>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, knuffel::DecodeScalar)]
 enum ClockDivider {
     DIV2,
     DIV4,
@@ -159,10 +192,10 @@ impl Default for ClockDivider {
 // `generate_spi_config` routine is just a wrapper.
 
 fn generate_spi_config(
-    config: &BTreeMap<String, SpiConfig>,
+    config: &[SpiConfig],
     task_config: &SpiTaskConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let config = config.get(&task_config.global_config).ok_or_else(|| {
+    let config = config.iter().find(|c| c.name == task_config.global_config).ok_or_else(|| {
         format!(
             "reference to undefined spi config {}",
             task_config.global_config
@@ -189,7 +222,8 @@ impl ToTokens for SpiConfig {
         // the mux names used in devices.
         let mux_indices: BTreeMap<_, usize> = self
             .mux_options
-            .keys()
+            .iter()
+            .map(|mo| &mo.name)
             .enumerate()
             .map(|(i, k)| (k, i))
             .collect();
@@ -204,7 +238,7 @@ impl ToTokens for SpiConfig {
         // We don't derive ToTokens for DeviceDescriptorConfig because it needs
         // extra knowledge (the mux_indices map) to do the conversion. Instead,
         // convert it here:
-        let device_code = self.devices.values().map(|dev| {
+        let device_code = self.devices.iter().map(|dev| {
             let mux_index = mux_indices[&dev.mux];
             let cs = &dev.cs;
             let div: syn::Ident =
@@ -220,7 +254,7 @@ impl ToTokens for SpiConfig {
             }
         });
 
-        let muxes = self.mux_options.values();
+        let muxes = self.mux_options.iter();
 
         // If the user does not specify a fifo depth, we default to the
         // _minimum_ on any SPI block on the STM32H7, which is 8.
@@ -270,7 +304,7 @@ impl ToTokens for AfPinSetConfig {
                 (1 << #pin)
             }
         });
-        let af = &self.af;
+        let af = Af(self.af);
         tokens.append_all(quote::quote! {
             (
                 PinSet {
@@ -285,11 +319,15 @@ impl ToTokens for AfPinSetConfig {
 
 impl ToTokens for AfPinConfig {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let pc = &self.pc;
-        let af = &self.af;
+        let port = &self.port;
+        let pin = self.pin;
+        let af = Af(self.af);
         tokens.append_all(quote::quote! {
             (
-                #pc,
+                PinSet {
+                    port: #port,
+                    pin_mask: 1 << #pin,
+                },
                 #af,
             )
         });
@@ -323,12 +361,12 @@ impl ToTokens for Af {
 // Check routines.
 
 fn check_spi_config(
-    config: &BTreeMap<String, SpiConfig>,
+    config: &[SpiConfig],
     task_config: &SpiTaskConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // We only want to look at the subset of global configuration relevant to
     // this task, so that error reporting is more focused.
-    let config = config.get(&task_config.global_config).ok_or_else(|| {
+    let config = config.iter().find(|r| r.name == task_config.global_config).ok_or_else(|| {
         format!(
             "reference to undefined spi config {}",
             task_config.global_config
@@ -343,18 +381,18 @@ fn check_spi_config(
         .into());
     }
 
-    for mux in config.mux_options.values() {
+    for mux in &config.mux_options {
         for out in &mux.outputs {
             check_afpinset(out)?;
         }
         check_afpin(&mux.input)?;
     }
 
-    for (devname, dev) in &config.devices {
-        if !config.mux_options.contains_key(&dev.mux) {
+    for dev in &config.devices {
+        if !config.mux_options.iter().find(|r| r.name == dev.mux).is_some() {
             return Err(format!(
                 "device {} names undefined mux {}",
-                devname, dev.mux
+                dev.name, dev.mux
             )
             .into());
         }
@@ -379,7 +417,7 @@ fn check_afpinset(
             .into());
         }
     }
-    if config.af.0 > 15 {
+    if config.af > 15 {
         return Err(format!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af
@@ -390,8 +428,8 @@ fn check_afpinset(
 }
 
 fn check_afpin(config: &AfPinConfig) -> Result<(), Box<dyn std::error::Error>> {
-    check_gpiopin(&config.pc)?;
-    if config.af.0 > 15 {
+    check_gpiopin(&GpioPinConfig { port: config.port, pin: config.pin })?;
+    if config.af > 15 {
         return Err(format!(
             "af {:?} is invalid, functions are numbered 0-15",
             config.af

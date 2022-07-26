@@ -9,3 +9,4 @@ vlan = []
 [dependencies]
 build-util = {path = "../util"}
 serde = { version = "1.0.114", features = ["derive"] }
+knuffel = "2.0"

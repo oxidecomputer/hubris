@@ -11,67 +11,49 @@ use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
-/// A `RawConfig` represents an `app.toml` file that has been deserialized,
-/// but may not be ready for use.  In particular, we use the `chip` field
-/// to load a second file containing peripheral register addresses.
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct RawConfig {
-    name: String,
-    target: String,
-    board: String,
-    chip: String,
-    #[serde(default)]
-    signing: IndexMap<String, Signing>,
-    secure_separation: Option<bool>,
-    stacksize: Option<u32>,
-    bootloader: Option<Bootloader>,
-    kernel: Kernel,
-    outputs: IndexMap<String, Output>,
-    tasks: IndexMap<String, Task>,
-    #[serde(default)]
-    extratext: IndexMap<String, Peripheral>,
-    #[serde(default)]
-    config: Option<ordered_toml::Value>,
-}
-
 #[derive(Clone, Debug)]
 pub struct Config {
     pub name: String,
     pub target: String,
     pub board: String,
-    pub chip: String,
-    pub signing: IndexMap<String, Signing>,
-    pub secure_separation: Option<bool>,
-    pub stacksize: Option<u32>,
-    pub bootloader: Option<Bootloader>,
-    pub kernel: Kernel,
-    pub outputs: IndexMap<String, Output>,
-    pub tasks: IndexMap<String, Task>,
+    pub chip: PathBuf,
+    pub signing: IndexMap<String, crate::kdl::SigningSection>,
+    pub secure_separation: bool,
+    pub stack_size: Option<u32>,
+    pub bootloader: Option<crate::kdl::BootloaderSection>,
+    pub kernel: crate::kdl::KernelSection,
+    pub outputs: IndexMap<String, crate::kdl::Output>,
+    pub tasks: IndexMap<String, crate::kdl::TaskSection>,
     pub peripherals: IndexMap<String, Peripheral>,
-    pub extratext: IndexMap<String, Peripheral>,
-    pub config: Option<ordered_toml::Value>,
+    pub config: Option<kdl::KdlDocument>,
     pub buildhash: u64,
-    pub app_toml_path: PathBuf,
+    pub app_def_path: PathBuf,
 }
 
 impl Config {
     pub fn from_file(cfg: &Path) -> Result<Self> {
-        let cfg_contents = std::fs::read(&cfg)?;
-        let toml: RawConfig = toml::from_slice(&cfg_contents)?;
-        if toml.tasks.contains_key("kernel") {
+        let cfg_contents = std::fs::read_to_string(&cfg)?;
+        let kdl: crate::kdl::AppDef = match knuffel::parse(&cfg.display().to_string(), &cfg_contents) {
+            Ok(x) => x,
+            Err(e) => {
+                println!("{:?}", miette::Report::new(e));
+                bail!("parse failed");
+            }
+        };
+
+        // Perform some basic checks on the raw representation.
+        if kdl.tasks.iter().any(|task| task.name == "kernel") {
             bail!("'kernel' is reserved and cannot be used as a task name");
         }
 
         let mut hasher = DefaultHasher::new();
-        hasher.write(&cfg_contents);
+        hasher.write(cfg_contents.as_bytes());
 
-        // The app.toml must include a `chip` key, which defines the peripheral
-        // register map in a separate file.  We load it then accumulate that
-        // file in the buildhash.
+        // Load the register map specified by the `app.chip` property and
+        // include it in the buildhash.
         let peripherals = {
             let chip_file =
-                cfg.parent().unwrap().join(&toml.chip).join("chip.toml");
+                cfg.parent().unwrap().join(&kdl.chip).join("chip.toml");
             let chip_contents = std::fs::read(chip_file)?;
             hasher.write(&chip_contents);
             toml::from_slice(&chip_contents)?
@@ -80,22 +62,30 @@ impl Config {
         let buildhash = hasher.finish();
 
         Ok(Config {
-            name: toml.name,
-            target: toml.target,
-            board: toml.board,
-            chip: toml.chip,
-            signing: toml.signing,
-            secure_separation: toml.secure_separation,
-            stacksize: toml.stacksize,
-            bootloader: toml.bootloader,
-            kernel: toml.kernel,
-            outputs: toml.outputs,
-            tasks: toml.tasks,
+            name: kdl.app_name,
+            target: kdl.target,
+            board: kdl.board,
+            chip: kdl.chip,
+            stack_size: kdl.stack_size,
+            kernel: kdl.kernel,
+            outputs: kdl.outputs.into_iter()
+                .map(|o| (o.name.clone(), o))
+                .collect(),
+
+            signing: kdl.signing.into_iter()
+                .map(|o| (o.name.clone(), o))
+                .collect(),
+
+            secure_separation: kdl.secure_separation,
+            bootloader: kdl.bootloader,
+            tasks: kdl.tasks.into_iter()
+                .map(|o| (o.name.clone(), o))
+                .collect(),
             peripherals,
-            extratext: toml.extratext,
-            config: toml.config,
+            //extratext: kdl.extratext,
+            config: kdl.config.into_doc(),
             buildhash,
-            app_toml_path: cfg.to_owned(),
+            app_def_path: cfg.to_owned(),
         })
     }
 
@@ -152,18 +142,18 @@ impl Config {
         //
         // This doesn't matter now, because we rebuild _everything_ on app.toml
         // changes, but once #240 is closed, this will be important.
-        let app_toml_path = self
-            .app_toml_path
+        let app_def_path = self
+            .app_def_path
             .canonicalize()
-            .expect("Could not canonicalize path to app TOML file");
+            .expect("Could not canonicalize path to app def file");
 
         let task_names =
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
         env.insert(
-            "HUBRIS_APP_TOML".to_string(),
-            app_toml_path.to_str().unwrap().to_string(),
+            "HUBRIS_APP_DEF".to_string(),
+            app_def_path.to_str().unwrap().to_string(),
         );
 
         // secure_separation indicates that we have TrustZone enabled.
@@ -171,19 +161,15 @@ impl Config {
         // not secure.
         // When TrustZone is not enabled, both the bootloader and Hubris are
         // secure.
-        if let Some(s) = self.secure_separation {
-            if s {
-                env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
-            } else {
-                env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
-            }
+        if self.secure_separation {
+            // TODO TODO
+            env.insert("HUBRIS_SECURE".to_string(), "0".to_string());
         } else {
             env.insert("HUBRIS_SECURE".to_string(), "1".to_string());
         }
 
         if let Some(app_config) = &self.config {
-            let app_config = toml::to_string(&app_config).unwrap();
-            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config);
+            env.insert("HUBRIS_APP_CONFIG".to_string(), app_config.to_string());
         }
 
         let out_path = Path::new("")
@@ -208,7 +194,7 @@ impl Config {
     ) -> BuildConfig<'a> {
         let mut out = self.common_build_config(
             verbose,
-            &self.kernel.name,
+            &self.kernel.crate_name,
             &self.kernel.features,
             sysroot,
         );
@@ -226,7 +212,7 @@ impl Config {
         self.bootloader.as_ref().map(|bootloader| {
             self.common_build_config(
                 verbose,
-                &bootloader.name,
+                &bootloader.crate_name,
                 &bootloader.features,
                 sysroot,
             )
@@ -239,14 +225,14 @@ impl Config {
         verbose: bool,
         sysroot: Option<&'a Path>,
     ) -> Result<BuildConfig<'a>, String> {
-        let task_toml = self
+        let task_section = self
             .tasks
             .get(task_name)
             .ok_or_else(|| self.task_name_suggestion(task_name))?;
         let mut out = self.common_build_config(
             verbose,
-            &task_toml.name,
-            &task_toml.features,
+            &task_section.crate_name,
+            &task_section.features,
             sysroot,
         );
 
@@ -255,10 +241,9 @@ impl Config {
         // via environment variables to build.rs scripts that may choose to
         // incorporate configuration into compilation.
         //
-        if let Some(config) = &task_toml.config {
-            let task_config = toml::to_string(&config).unwrap();
+        if let Some(config) = task_section.config.clone().into_doc() {
             out.env
-                .insert("HUBRIS_TASK_CONFIG".to_string(), task_config);
+                .insert("HUBRIS_TASK_CONFIG".to_string(), config.to_string());
         }
 
         // Expose the current task's name to allow for better error messages if
@@ -420,43 +405,19 @@ pub struct Kernel {
     pub features: Vec<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Output {
-    pub address: u32,
-    pub size: u32,
-    #[serde(default)]
-    pub read: bool,
-    #[serde(default)]
-    pub write: bool,
-    #[serde(default)]
-    pub execute: bool,
-    #[serde(default)]
-    pub dma: bool,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub struct Task {
     pub name: String,
-    #[serde(default)]
     pub max_sizes: IndexMap<String, u32>,
     pub priority: u8,
     pub stacksize: Option<u32>,
-    #[serde(default)]
     pub uses: Vec<String>,
-    #[serde(default)]
     pub start: bool,
-    #[serde(default)]
     pub features: Vec<String>,
-    #[serde(default)]
     pub interrupts: IndexMap<String, u32>,
-    #[serde(default)]
     pub sections: IndexMap<String, String>,
-    #[serde(default, deserialize_with = "deserialize_task_slot")]
     pub task_slots: IndexMap<String, String>,
-    #[serde(default)]
-    pub config: Option<ordered_toml::Value>,
+    pub config: Option<kdl::KdlDocument>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

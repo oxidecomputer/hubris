@@ -18,9 +18,9 @@ task-jefe-api = {path = "../jefe-api"}
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
-serde = {version = "1", features = ["derive"]}
 anyhow = "1"
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+knuffel = "2.0"
 
 [features]
 itm = [ "userlib/log-itm" ]

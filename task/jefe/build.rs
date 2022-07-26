@@ -3,8 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{Context, Result};
-use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::io::Write;
 
 fn main() -> Result<()> {
@@ -31,8 +29,8 @@ fn main() -> Result<()> {
         "pub(crate) const MAILING_LIST: [({}, u32); {}] = [",
         task, count
     )?;
-    for (name, rec) in cfg.on_state_change {
-        writeln!(out, "    ({}::{}, 1 << {})", task, name, rec.bit_number)?;
+    for record in cfg.on_state_change {
+        writeln!(out, "    ({}::{}, 1 << {})", task, record.task_name, record.bit_number)?;
     }
     writeln!(out, "];")?;
 
@@ -47,22 +45,24 @@ fn main() -> Result<()> {
 }
 
 /// Jefe task-level configuration.
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[derive(Default, knuffel::Decode)]
 struct Config {
     /// Task requests to be notified on state change, as a map from task name to
     /// `StateChange` record.
-    on_state_change: BTreeMap<String, StateChange>,
+    #[knuffel(child, unwrap(children))]
+    on_state_change: Vec<OnStateChange>,
     /// Name of task responsible for state changes. If provided, a state change
     /// request from any other task will result in that task being faulted.
-    #[serde(default)]
+    #[knuffel(child, unwrap(argument))]
     state_owner: Option<String>,
 }
 
 /// Description of something a task wants done on state change.
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-struct StateChange {
+#[derive(knuffel::Decode)]
+struct OnStateChange {
+    #[knuffel(argument)]
+    task_name: String,
+    #[knuffel(property)]
     /// Number of notification bit to signal (_not_ mask).
     bit_number: u8,
 }

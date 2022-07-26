@@ -161,6 +161,7 @@ pub fn task_config(tokens: TokenStream) -> TokenStream {
 
     let app_toml_path = std::env::var("HUBRIS_APP_TOML")
         .expect("Could not find 'HUBRIS_APP_TOML' environment variable");
+    panic!("fixme");
     let fields = input.items.iter();
 
     // Once `proc_macro::tracked_env::var` is stable, we won't need to use

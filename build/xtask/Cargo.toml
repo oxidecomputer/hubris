@@ -34,6 +34,9 @@ scroll = "0.10"
 walkdir = "2.0.0"
 fnv = "1.0.7"
 zerocopy = "0.6.1"
+knuffel = "2.0"
+miette = {version = "4.7", features = ["fancy"]}
+kdl = "4.3"
 
 # For NXP signing
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support" }

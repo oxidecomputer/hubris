@@ -12,6 +12,7 @@ cfg-if = "1"
 multimap = "0.8.3"
 convert_case = "0.4"
 cargo_metadata = "0.12.0"
+knuffel = "2.0"
 
 [features]
 h743 = []

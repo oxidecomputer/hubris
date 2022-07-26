@@ -17,16 +17,19 @@ use std::path::Path;
 // Our definition of the `Config` type.  We share this type with all other
 // build-specific types; we must not set `deny_unknown_fields` here.
 //
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case")]
 struct Config {
+    #[knuffel(child)]
     i2c: I2cConfig,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode, Default)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cConfig {
+    #[knuffel(children(name = "controller"))]
     controllers: Vec<I2cController>,
+    #[knuffel(child, unwrap(children))]
     devices: Option<Vec<I2cDevice>>,
 }
 
@@ -44,12 +47,15 @@ struct I2cConfig {
 // `IndexMap` for tables), we must be sure to impose our own (absolute)
 // ordering.
 //
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cController {
+    #[knuffel(argument)]
     controller: u8,
-    ports: BTreeMap<String, I2cPort>,
+    #[knuffel(children(name = "port"))]
+    ports: Vec<I2cPort>,
     #[serde(default)]
+    #[knuffel(child)]
     target: bool,
 }
 
@@ -63,7 +69,7 @@ struct I2cController {
 // a controller *and* a named bus), so the validation code should go to
 // additional lengths to assure that these mistakes are caught in compilation.
 //
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cDevice {
@@ -108,30 +114,41 @@ struct I2cDevice {
     removable: bool,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPort {
+    #[knuffel(argument)]
+    port_name: String,
+    #[knuffel(child, unwrap(argument))]
     name: Option<String>,
     #[allow(dead_code)]
     description: Option<String>,
+    #[knuffel(children(name = "pins"))]
     pins: Vec<I2cPinSet>,
     #[serde(default)]
+    #[knuffel(children(name = "mux"))]
     muxes: Vec<I2cMux>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct I2cPinSet {
+    #[knuffel(property(name = "port"))]
     gpio_port: Option<String>,
+    #[knuffel(arguments)]
     pins: Vec<u8>,
+    #[knuffel(property)]
     af: u8,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cMux {
+    #[knuffel(child, unwrap(argument))]
     driver: String,
+    #[knuffel(child, unwrap(argument))]
     address: u8,
+    #[knuffel(child)]
     enable: Option<I2cPinSet>,
 }
 
@@ -232,7 +249,7 @@ struct ConfigGenerator {
 
 impl ConfigGenerator {
     fn new(disposition: Disposition) -> Self {
-        let i2c = match build_util::config::<Config>() {
+        let i2c = match build_util::config_key::<Config>("i2c") {
             Ok(config) => config.i2c,
             Err(err) => {
                 panic!("malformed config.i2c: {:?}", err);
@@ -250,7 +267,7 @@ impl ConfigGenerator {
             // match our dispostion) to assure that devices can always find
             // their bus.
             //
-            for (index, (p, port)) in c.ports.iter().enumerate() {
+            for (index, port) in c.ports.iter().enumerate() {
                 if let Some(name) = &port.name {
                     if buses
                         .insert(name.clone(), (c.controller, index))
@@ -264,7 +281,7 @@ impl ConfigGenerator {
                     singletons.insert(c.controller, index);
                 }
 
-                ports.insert((c.controller, p.clone()), index);
+                ports.insert((c.controller, port.port_name.clone()), index);
             }
 
             if c.target != (disposition == Disposition::Target) {
@@ -409,7 +426,7 @@ impl ConfigGenerator {
         }
 
         for c in &self.controllers {
-            for port in c.ports.values() {
+            for port in &c.ports {
                 len += port.pins.len();
             }
         }
@@ -439,7 +456,7 @@ impl ConfigGenerator {
         )?;
 
         for c in &self.controllers {
-            for (index, (p, port)) in c.ports.iter().enumerate() {
+            for (index, port) in c.ports.iter().enumerate() {
                 for pin in &port.pins {
                     let mut pinstr = String::new();
                     write!(&mut pinstr, "pin({})", pin.pins[0])?;
@@ -461,7 +478,7 @@ impl ConfigGenerator {
                         i2c_port = index,
                         gpio_port = match pin.gpio_port {
                             Some(ref port) => port,
-                            None => p,
+                            None => &port.port_name,
                         },
                         pinstr = pinstr,
                         af = pin.af
@@ -489,7 +506,7 @@ impl ConfigGenerator {
         let mut len = 0;
 
         for c in &self.controllers {
-            for port in c.ports.values() {
+            for port in &c.ports {
                 len += port.muxes.len();
             }
         }
@@ -521,7 +538,7 @@ impl ConfigGenerator {
         )?;
 
         for c in &self.controllers {
-            for (index, (p, port)) in c.ports.iter().enumerate() {
+            for (index,  port) in c.ports.iter().enumerate() {
                 for (mindex, mux) in port.muxes.iter().enumerate() {
                     let enablestr = if let Some(enable) = &mux.enable {
                         let mut enablestr = String::new();
@@ -541,7 +558,7 @@ impl ConfigGenerator {
                                     "missing pin port on mux enable \
                                     on I2C{}, port {}, mux {}",
                                     c.controller,
-                                    p,
+                                    port.port_name,
                                     mindex + 1
                                 ),
                             },

@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use serde::Deserialize;
-use std::collections::BTreeMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Network config schema definition.
@@ -11,62 +10,78 @@ use std::collections::BTreeMap;
 
 /// This represents our _subset_ of global config and _must not_ be marked with
 /// `deny_unknown_fields`!
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case")]
 pub struct GlobalConfig {
+    #[knuffel(child)]
     pub net: NetConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct NetConfig {
-    /// Sockets known to the system, indexed by name.
-    pub sockets: BTreeMap<String, SocketConfig>,
+    /// Sockets known to the system.
+    #[knuffel(children(name = "socket"))]
+    pub sockets: Vec<SocketConfig>,
 
     /// VLAN configuration, or None. This is checked against enabled features
     /// during the `net` build, so it must be present iff the `vlan` feature
     /// is turned on.
+    #[knuffel(child)]
     pub vlan: Option<VLanConfig>,
 }
 
 /// TODO: this type really wants to be an enum, but the toml crate's enum
 /// handling is really, really fragile, and currently it would be an enum with a
 /// single variant anyway.
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct SocketConfig {
+    #[knuffel(argument)]
+    pub name: String,
+    #[knuffel(child, unwrap(argument))]
     pub kind: String,
+    #[knuffel(child)]
     pub owner: TaskNote,
+    #[knuffel(child, unwrap(argument))]
     pub port: u16,
+    #[knuffel(child)]
     pub tx: BufSize,
+    #[knuffel(child)]
     pub rx: BufSize,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize)]
+#[derive(Copy, Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct VLanConfig {
     /// Address of the 0-index VLAN
+    #[knuffel(property)]
     pub start: usize,
     /// Number of VLANs
+    #[knuffel(property)]
     pub count: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct BufSize {
+    #[knuffel(property)]
     pub packets: usize,
+    #[knuffel(property)]
     pub bytes: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct TaskNote {
+    #[knuffel(argument)]
     pub name: String,
+    #[knuffel(property(name = "mask"))]
     pub notification: u32,
 }
 
 pub fn load_net_config() -> Result<NetConfig, Box<dyn std::error::Error>> {
-    let cfg = build_util::config::<GlobalConfig>()?.net;
+    let cfg = build_util::config_key::<GlobalConfig>("net")?.net;
 
     match (cfg!(feature = "vlan"), cfg.vlan.is_some()) {
         (true, false) => {
@@ -112,8 +127,8 @@ pub fn generate_socket_enum(
     )?;
     writeln!(out, "#[derive(serde::Serialize, serde::Deserialize)]")?;
     writeln!(out, "pub enum SocketName {{")?;
-    for (i, name) in config.sockets.keys().enumerate() {
-        writeln!(out, "    {} = {},", name, i)?;
+    for (i, s) in config.sockets.iter().enumerate() {
+        writeln!(out, "    {} = {},", s.name, i)?;
     }
     writeln!(out, "}}")?;
     Ok(())

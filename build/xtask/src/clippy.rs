@@ -34,8 +34,8 @@ pub fn run(
         let crate_name = if name == "kernel" {
             "kernel"
         } else {
-            let task_toml = &toml.tasks[name];
-            task_toml.name.as_str()
+            let task_section = &toml.tasks[name];
+            task_section.crate_name.as_str()
         };
         if tasks.len() > 1 {
             if i > 0 {

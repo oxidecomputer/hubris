@@ -318,7 +318,7 @@ fn print_memory_map(
 pub fn load_task_size<'a>(
     toml: &'a Config,
     name: &str,
-    stacksize: u32,
+    stack_size: u32,
 ) -> Result<IndexMap<&'a str, u64>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel
@@ -374,8 +374,8 @@ pub fn load_task_size<'a>(
     // The stack is 8-byte aligned (checked elsewhere in the build and
     // rechecked here) Everything else in RAM is ALIGN(4), so we don't need to
     // worry about padding here.
-    assert!(stacksize.trailing_zeros() >= 3);
-    *memory_sizes.entry("ram").or_default() += stacksize as u64;
+    assert!(stack_size.trailing_zeros() >= 3);
+    *memory_sizes.entry("ram").or_default() += stack_size as u64;
 
     Ok(memory_sizes)
 }
@@ -386,13 +386,13 @@ fn create_sizes(toml: &Config) -> Result<TaskSizes> {
     let kernel_sizes = load_task_size(
         &toml,
         "kernel",
-        toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
+        toml.kernel.stack_size.unwrap_or(DEFAULT_KERNEL_STACK),
     )?;
     sizes.insert("kernel", kernel_sizes);
 
     for (name, task) in &toml.tasks {
-        let stacksize = task.stacksize.or(toml.stacksize).unwrap();
-        let task_sizes = load_task_size(&toml, &name, stacksize)?;
+        let stack_size = task.stack_size.or(toml.stack_size).unwrap();
+        let task_sizes = load_task_size(&toml, &name, stack_size)?;
 
         sizes.insert(name, task_sizes);
     }

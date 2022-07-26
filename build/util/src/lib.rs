@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::{anyhow, Context, Result};
-use serde::de::DeserializeOwned;
 use std::env;
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
@@ -47,19 +46,25 @@ pub fn expose_target_board() {
 /// this type contains.)  If the configuration field is optional, `T` should
 /// reflect that by having its member (or members) be an `Option` type.
 ///
-pub fn config<T: DeserializeOwned>() -> Result<T> {
-    toml_from_env("HUBRIS_APP_CONFIG")?.ok_or_else(|| {
-        anyhow!("app.toml missing global config section [config]")
+pub fn config<T: knuffel::DecodeChildren<knuffel::span::Span>>() -> Result<T> {
+    kdl_from_env("HUBRIS_APP_CONFIG")?.ok_or_else(|| {
+        anyhow!("app.kdl missing global config section [config]")
+    })
+}
+
+pub fn config_key<T: knuffel::DecodeChildren<knuffel::span::Span>>(key: &str) -> Result<T> {
+    sub_kdl_from_env("HUBRIS_APP_CONFIG", key)?.ok_or_else(|| {
+        anyhow!("app.kdl missing global config section [config.{}]", key)
     })
 }
 
 /// Pulls the task configuration. See `config` for more details.
-pub fn task_config<T: DeserializeOwned>() -> Result<T> {
+pub fn task_config<T: knuffel::DecodeChildren<knuffel::span::Span>>() -> Result<T> {
     let task_name =
         env::var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
     task_maybe_config()?.ok_or_else(|| {
         anyhow!(
-            "app.toml missing task config section [tasks.{}.config]",
+            "app.kdl missing task config section [tasks.{}.config]",
             task_name
         )
     })
@@ -67,11 +72,11 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
 
 /// Pulls the task configuration, or `None` if the configuration is not
 /// provided.
-pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
-    toml_from_env("HUBRIS_TASK_CONFIG")
+pub fn task_maybe_config<T: knuffel::DecodeChildren<knuffel::span::Span>>() -> Result<Option<T>> {
+    kdl_from_env("HUBRIS_TASK_CONFIG")
 }
 
-/// Parse the contents of an environment variable as toml.
+/// Parse the contents of an environment variable as KDL.
 ///
 /// Returns:
 ///
@@ -80,7 +85,7 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
 /// - `Ok(None)` if the environment variable is not defined.
 /// - `Err(e)` if deserialization failed or the environment variable did not
 ///   contain UTF-8.
-fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
+fn kdl_from_env<T: knuffel::DecodeChildren<knuffel::span::Span>>(var: &str) -> Result<Option<T>> {
     let config = match env::var(var) {
         Err(env::VarError::NotPresent) => return Ok(None),
         Err(e) => {
@@ -91,10 +96,42 @@ fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
         Ok(c) => c,
     };
 
-    println!("--- toml for ${} ---", var);
+    println!("--- kdl for ${} ---", var);
     println!("{}", config);
-    let rval = toml::from_slice(config.as_bytes())
-        .context("deserializing configuration")?;
+    let rval = match knuffel::parse(var, &config) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{:?}", miette::Report::new(e));
+            anyhow::bail!("error parsing KDL");
+        }
+    };
     println!("cargo:rerun-if-env-changed={}", var);
     Ok(Some(rval))
 }
+
+fn sub_kdl_from_env<T: knuffel::DecodeChildren<knuffel::span::Span>>(var: &str, key: &str) -> Result<Option<T>> {
+    let config = match env::var(var) {
+        Err(env::VarError::NotPresent) => return Ok(None),
+        Err(e) => {
+            return Err(e).with_context(|| {
+                format!("accessing environment variable {}", var)
+            })
+        }
+        Ok(c) => c,
+    };
+
+    println!("--- kdl for ${} ---", var);
+    println!("{}", config);
+    let doc: kdl::KdlDocument = config.parse()?;
+    let node = doc.get(key).ok_or_else(|| anyhow!("config key {} missing", key))?;
+    let rval = match knuffel::parse(var, &node.to_string()) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("{:?}", miette::Report::new(e));
+            anyhow::bail!("error parsing KDL");
+        }
+    };
+    println!("cargo:rerun-if-env-changed={}", var);
+    Ok(Some(rval))
+}
+
