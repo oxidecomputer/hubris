@@ -803,6 +803,7 @@ dependencies = [
  "gnarle",
  "idol",
  "idol-runtime",
+ "knuffel",
  "num-traits",
  "ringbuf",
  "serde",

@@ -7,10 +7,12 @@ use serde::Deserialize;
 use sha2::Digest;
 use std::{convert::TryInto, env, fs, io::Write, path::PathBuf};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, knuffel::Decode)]
 #[serde(deny_unknown_fields)]
 struct Config {
+    #[knuffel(child, unwrap(argument))]
     fpga_image: String,
+    #[knuffel(child, unwrap(argument))]
     register_defs: String,
 }
 

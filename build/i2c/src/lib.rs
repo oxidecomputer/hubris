@@ -29,8 +29,8 @@ struct Config {
 struct I2cConfig {
     #[knuffel(children(name = "controller"))]
     controllers: Vec<I2cController>,
-    #[knuffel(child, unwrap(children))]
-    devices: Option<Vec<I2cDevice>>,
+    #[knuffel(children(name = "device"))]
+    devices: Vec<I2cDevice>,
 }
 
 //
@@ -74,43 +74,55 @@ struct I2cController {
 #[allow(dead_code)]
 struct I2cDevice {
     /// device part name
+    #[knuffel(child, unwrap(argument))]
     device: String,
 
     /// device name
+    #[knuffel(child, unwrap(argument))]
     name: Option<String>,
 
     /// I2C controller, if bus not named
+    #[knuffel(child, unwrap(argument))]
     controller: Option<u8>,
 
     /// I2C bus name, if controller not specified
+    #[knuffel(child, unwrap(argument))]
     bus: Option<String>,
 
     /// I2C port, if required
+    #[knuffel(child, unwrap(argument))]
     port: Option<String>,
 
     /// I2C address
+    #[knuffel(child, unwrap(argument))]
     address: u8,
 
     /// I2C mux, if any
+    #[knuffel(child, unwrap(argument))]
     mux: Option<u8>,
 
     /// I2C segment, if any
+    #[knuffel(child, unwrap(argument))]
     segment: Option<u8>,
 
     /// description of device
+    #[knuffel(child, unwrap(argument))]
     description: String,
 
     /// reference designator, if any
+    #[knuffel(child, unwrap(argument))]
     refdes: Option<String>,
 
     /// PMBus information, if any
+    #[knuffel(child)]
     pmbus: Option<I2cPmbus>,
 
     /// sensor information, if any
+    #[knuffel(child)]
     sensors: Option<I2cSensors>,
 
     /// device is removable
-    #[serde(default)]
+    #[knuffel(child)]
     removable: bool,
 }
 
@@ -122,6 +134,7 @@ struct I2cPort {
     #[knuffel(child, unwrap(argument))]
     name: Option<String>,
     #[allow(dead_code)]
+    #[knuffel(child, unwrap(argument))]
     description: Option<String>,
     #[knuffel(children(name = "pins"))]
     pins: Vec<I2cPinSet>,
@@ -152,32 +165,39 @@ struct I2cMux {
     enable: Option<I2cPinSet>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[allow(dead_code)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 struct I2cPmbus {
+    #[knuffel(child, unwrap(arguments))]
     rails: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, knuffel::Decode)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[allow(dead_code)]
 struct I2cSensors {
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     temperature: usize,
 
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     power: usize,
 
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     current: usize,
 
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     voltage: usize,
 
     #[serde(default)]
+    #[knuffel(child, unwrap(argument), default)]
     speed: usize,
 
+    #[knuffel(child, unwrap(arguments))]
     names: Option<Vec<String>>,
 }
 
@@ -291,38 +311,36 @@ impl ConfigGenerator {
             controllers.push(c);
         }
 
-        if let Some(devices) = &i2c.devices {
-            for d in devices {
-                match (d.controller, d.bus.as_ref()) {
-                    (None, None) => {
-                        panic!(
-                            "device {} at address {:#x} must have \
-                            a bus or controller",
-                            d.device, d.address
-                        );
-                    }
-                    (Some(_), Some(_)) => {
-                        panic!(
-                            "device {} at address {:#x} has both \
-                            a bus and a controller",
-                            d.device, d.address
-                        );
-                    }
-                    (_, Some(bus)) if buses.get(bus).is_none() => {
-                        panic!(
-                            "device {} at address {:#x} specifies \
-                            unknown bus \"{}\"",
-                            d.device, d.address, bus
-                        );
-                    }
-                    (_, _) => {}
+        for d in &i2c.devices {
+            match (d.controller, d.bus.as_ref()) {
+                (None, None) => {
+                    panic!(
+                        "device {} at address {:#x} must have \
+                        a bus or controller",
+                        d.device, d.address
+                    );
                 }
+                (Some(_), Some(_)) => {
+                    panic!(
+                        "device {} at address {:#x} has both \
+                        a bus and a controller",
+                        d.device, d.address
+                    );
+                }
+                (_, Some(bus)) if buses.get(bus).is_none() => {
+                    panic!(
+                        "device {} at address {:#x} specifies \
+                        unknown bus \"{}\"",
+                        d.device, d.address, bus
+                    );
+                }
+                (_, _) => {}
             }
         }
 
         Self {
             output: String::new(),
-            devices: i2c.devices.unwrap_or_default(),
+            devices: i2c.devices,
             disposition,
             controllers,
             buses,

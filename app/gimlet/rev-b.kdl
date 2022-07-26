@@ -1,0 +1,874 @@
+app-name "gimlet-b"
+target "thumbv7em-none-eabihf"
+board "gimlet-b"
+chip "../../chips/stm32h7"
+stack-size 896
+kernel {
+    crate-name "gimlet"
+    requires flash=32768 ram=8192
+    features "itm"
+}
+output "flash" {
+    address 0x8000000
+    size 0x100000
+    read
+    execute
+}
+output "ram" {
+    address 0x20000000
+    size 0x20000
+    read
+    write
+}
+output "sram1" {
+    address 0x30000000
+    size 0x20000
+    read
+    write
+    dma
+}
+
+task "jefe" {
+    crate-name "task-jefe"
+    priority 0
+    max-sizes flash=8192 ram=2048
+    start
+    features "itm"
+    stack-size 1536
+    config {
+        state-owner "gimlet_seq"
+        on-state-change {
+            notify "net" bit-number=3
+        }
+    }
+}
+
+task "net" {
+    crate-name "task-net"
+    stack-size 5400
+    priority 5
+    features "mgmt" "h753" "gimlet" "h7-vlan"
+    max-sizes flash=131072 ram=16384 sram1=16384
+    sections eth_bulk="sram1"
+    uses "eth" "eth_dma" "system_flash"
+    start
+    notify {
+        irq "eth.irq" mask=0b1
+    }
+    task-slots "sys" spi_driver="spi2_driver" "jefe"
+}
+
+task "sys" {
+    crate-name "drv-stm32xx-sys"
+    features "h753"
+    priority 1
+    max-sizes flash=2048 ram=1024
+    uses "rcc" "gpios1" "gpios2" "gpios3"
+    start
+}
+
+task "spi4_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 3
+    max-sizes flash=16384 ram=2048
+    features "spi4" "h753"
+    uses "spi4"
+    start
+    notify {
+        irq "spi4.irq" mask=0b1
+    }
+    stack-size 872
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi4"
+        }
+    }
+}
+
+task "spi2_driver" {
+    crate-name "drv-stm32h7-spi-server"
+    priority 3
+    max-sizes flash=16384 ram=2048
+    features "spi2" "h753"
+    uses "spi2"
+    start
+    notify {
+        irq "spi2.irq" mask=0b1
+    }
+    stack-size 872
+    task-slots "sys"
+    config {
+        spi {
+            global-config "spi2"
+        }
+    }
+}
+
+task "i2c_driver" {
+    crate-name "drv-stm32h7-i2c-server"
+    features "h753" "itm"
+    priority 3
+    max-sizes flash=16384 ram=2048
+    uses "i2c2" "i2c3" "i2c4"
+    start
+    task-slots "sys"
+    notify {
+        irq "i2c2.event" mask=0b10
+        irq "i2c2.error" mask=0b10
+        irq "i2c3.event" mask=0b100
+        irq "i2c3.error" mask=0b100
+        irq "i2c4.event" mask=0b1000
+        irq "i2c4.error" mask=0b1000
+    }
+}
+
+task "spd" {
+    crate-name "task-spd"
+    features "h753" "itm"
+    priority 2
+    max-sizes flash=16384 ram=16384
+    uses "i2c1"
+    start
+    task-slots "sys" "i2c_driver"
+    notify {
+        irq "i2c1.event" mask=0b1
+        irq "i2c1.error" mask=0b1
+    }
+}
+
+task "thermal" {
+    crate-name "task-thermal"
+    features "itm" "gimlet"
+    priority 5
+    max-sizes flash=32768 ram=8192
+    stack-size 4504
+    start
+    task-slots "i2c_driver" "sensor" "gimlet_seq" "jefe"
+}
+
+task "power" {
+    crate-name "task-power"
+    features "itm" "gimlet"
+    priority 6
+    max-sizes flash=16384 ram=4096
+    stack-size 2048
+    start
+    task-slots "i2c_driver" "sensor" "gimlet_seq"
+}
+
+task "hiffy" {
+    crate-name "task-hiffy"
+    features "h753" "stm32h7" "itm" "i2c" "gpio" "spi" "qspi" "hash"
+    priority 5
+    max-sizes flash=32768 ram=32768
+    stack-size 1024
+    start
+    task-slots "sys" "hf" "i2c_driver" "hash_driver"
+}
+
+task "gimlet_seq" {
+    crate-name "drv-gimlet-seq-server"
+    features "h753"
+    priority 4
+    max-sizes flash=65536 ram=4096
+    stack-size 1600
+    start
+    task-slots "sys" "i2c_driver" spi_driver="spi2_driver" "hf" "jefe"
+    config {
+        fpga-image "fpga-b.bin"
+        register-defs "gimlet-regs-b.json"
+    }
+}
+
+task "hash_driver" {
+    crate-name "drv-stm32h7-hash-server"
+    features "h753"
+    priority 2
+    max-sizes flash=8192 ram=4096
+    stack-size 2048
+    start
+    uses "hash"
+    notify {
+        irq "hash.irq" mask=0b1
+    }
+    task-slots "sys"
+}
+
+task "hf" {
+    crate-name "drv-gimlet-hf-server"
+    features "h753" "hash"
+    priority 3
+    max-sizes flash=16384 ram=2048
+    stack-size 1920
+    start
+    uses "quadspi"
+    notify {
+        irq "quadspi.irq" mask=0b1
+    }
+    task-slots "sys" "hash_driver"
+}
+
+task "sensor" {
+    crate-name "task-sensor"
+    features "itm"
+    priority 4
+    max-sizes flash=8192 ram=2048
+    stack-size 1920
+    start
+}
+
+task "udpecho" {
+    crate-name "task-udpecho"
+    priority 6
+    max-sizes flash=16384 ram=8192
+    stack-size 4096
+    start
+    task-slots "net"
+    features "vlan"
+}
+
+task "udpbroadcast" {
+    crate-name "task-udpbroadcast"
+    priority 6
+    max-sizes flash=16384 ram=8192
+    stack-size 2048
+    start
+    task-slots "net"
+    features "vlan"
+}
+
+task "validate" {
+    crate-name "task-validate"
+    priority 5
+    max-sizes flash=8192 ram=4096
+    stack-size 1000
+    start
+    task-slots "i2c_driver"
+}
+
+task "idle" {
+    crate-name "task-idle"
+    priority 7
+    max-sizes flash=128 ram=256
+    stack-size 256
+    start
+}
+config {
+    i2c {
+        controller 1 {
+            target
+            port "B" {
+                name "spd"
+                description "SPD proxy"
+                pins 6 7 af=4
+            }
+        }
+        controller 2 {
+            port "B" {
+                name "m2"
+                description "M.2 bus"
+                pins 10 11 af=4
+                mux {
+                    driver "pca9548"
+                    address 0b1110011
+                }
+            }
+            port "F" {
+                name "front"
+                description "Front bus"
+                pins 0 1 af=4
+                mux {
+                    driver "pca9548"
+                    address 0b1110000
+                }
+                mux {
+                    driver "pca9548"
+                    address 0b1110001
+                }
+                mux {
+                    driver "pca9548"
+                    address 0b1110010
+                }
+            }
+        }
+        controller 3 {
+            port "H" {
+                name "mid"
+                description "Mid bus"
+                pins 7 8 af=4
+            }
+        }
+        controller 4 {
+            port "F" {
+                name "rear"
+                description "Rear bus"
+                pins 14 15 af=4
+            }
+        }
+        device {
+            bus "front"
+            address 0b1001000
+            device "tmp117"
+            name "Southwest"
+            description "Southwest temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J194"
+        }
+        device {
+            bus "front"
+            address 0b1001001
+            device "tmp117"
+            name "South"
+            description "South temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J195"
+        }
+        device {
+            bus "front"
+            address 0b1001010
+            device "tmp117"
+            name "Southeast"
+            description "Southeast temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J196"
+        }
+        device {
+            bus "front"
+            address 0b1110000
+            device "pca9545"
+            description "U.2 ABCD mux"
+            refdes "U336"
+        }
+        device {
+            bus "front"
+            address 0b1110001
+            device "pca9545"
+            description "U.2 EFGH mux"
+            refdes "U339"
+        }
+        device {
+            bus "front"
+            address 0b1110010
+            device "pca9545"
+            description "U.2 IJ/FRUID mux"
+            refdes "U337"
+        }
+        device {
+            bus "m2"
+            address 0b1110011
+            device "pca9545"
+            description "M.2 mux"
+            refdes "U422"
+        }
+        device {
+            bus "m2"
+            mux 1
+            segment 4
+            address 0b1001100
+            device "tmp451"
+            sensors {
+                temperature 1
+            }
+            description "T6 temperature sensor"
+            refdes "U491"
+        }
+        device {
+            bus "mid"
+            address 0b100100
+            device "tps546b24a"
+            description "A2 3.3V rail"
+            pmbus {
+                rails "V3P3_SP_A2"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U522"
+        }
+        device {
+            bus "mid"
+            address 0b100110
+            device "tps546b24a"
+            description "A0 3.3V rail"
+            pmbus {
+                rails "V3P3_SYS_A0"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U560"
+        }
+        device {
+            bus "mid"
+            address 0b100111
+            device "tps546b24a"
+            description "A2 5V rail"
+            pmbus {
+                rails "V5_SYS_A2"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U524"
+        }
+        device {
+            bus "mid"
+            address 0b101001
+            device "tps546b24a"
+            description "A2 1.8V rail"
+            pmbus {
+                rails "V1P8_SYS_A2"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U561"
+        }
+        device {
+            bus "mid"
+            address 0b111010
+            device "max5970"
+            description "M.2 hot plug controller"
+            refdes "U275"
+        }
+        device {
+            bus "mid"
+            address 0b1001100
+            device "sbtsi"
+            name "CPU"
+            description "CPU temperature sensor"
+            sensors {
+                temperature 1
+            }
+        }
+        device {
+            bus "mid"
+            address 0b1011000
+            device "idt8a34003"
+            description "Clock generator"
+            refdes "U446"
+        }
+        device {
+            bus "mid"
+            address 0b1011010
+            device "raa229618"
+            description "CPU power controller"
+            pmbus {
+                rails "VDD_VCORE" "VDD_MEM_ABCD"
+            }
+            sensors {
+                temperature 2
+                power 2
+                voltage 2
+                current 2
+            }
+            refdes "U350"
+        }
+        device {
+            bus "mid"
+            address 0b1011011
+            device "raa229618"
+            description "SoC power controller"
+            pmbus {
+                rails "VDDCR_SOC" "VDD_MEM_EFGH"
+            }
+            sensors {
+                temperature 2
+                power 2
+                voltage 2
+                current 2
+            }
+            refdes "U351"
+        }
+        device {
+            bus "mid"
+            address 0b1011100
+            device "isl68224"
+            description "DIMM/SP3 1.8V A0 power controller"
+            pmbus {
+                rails "VPP_ABCD" "VPP_EFGH" "V1P8_SP3"
+            }
+            sensors {
+                voltage 3
+                current 3
+            }
+            refdes "U352"
+        }
+        device {
+            bus "rear"
+            address 0b10000
+            device "adm1272"
+            description "Fan hot swap controller"
+            pmbus {
+                rails "V54_FAN"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U419"
+        }
+        device {
+            bus "rear"
+            address 0b10100
+            device "adm1272"
+            description "Sled hot swap controller"
+            pmbus {
+                rails "V54_HS_OUTPUT"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U452"
+        }
+        device {
+            bus "rear"
+            address 0b100000
+            device "max31790"
+            description "Fan controller"
+            sensors {
+                speed 6
+                names "Southeast" "Northeast" "South" "North" "Southwest" "Northwest"
+            }
+            refdes "U321"
+        }
+        device {
+            bus "rear"
+            address 0b100101
+            device "tps546b24a"
+            description "T6 power controller"
+            pmbus {
+                rails "V0P96_NIC_VDD_A0HP"
+            }
+            sensors {
+                temperature 1
+                voltage 1
+                current 1
+            }
+            refdes "U565"
+        }
+        device {
+            bus "rear"
+            address 0b1001000
+            device "tmp117"
+            name "Northeast"
+            description "Northeast temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J197"
+        }
+        device {
+            bus "rear"
+            address 0b1001001
+            device "tmp117"
+            name "North"
+            description "North temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J198"
+        }
+        device {
+            bus "rear"
+            address 0b1001010
+            device "tmp117"
+            name "Northwest"
+            description "Northwest temperature sensor"
+            sensors {
+                temperature 1
+            }
+            removable
+            refdes "J199"
+        }
+        device {
+            bus "rear"
+            address 0b1100111
+            device "bmr491"
+            name "IBC"
+            description "Intermediate bus converter"
+            pmbus {
+                rails "V12_SYS_A2"
+            }
+            sensors {
+                temperature 1
+                power 1
+                voltage 1
+                current 1
+            }
+            refdes "U431"
+        }
+        device {
+            bus "mid"
+            address 0b11000
+            device "tse2004av"
+            name "DIMM_A0"
+            description "DIMM A0"
+            sensors {
+                temperature 1
+            }
+            refdes "M0"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11001
+            device "tse2004av"
+            name "DIMM_A1"
+            description "DIMM A1"
+            sensors {
+                temperature 1
+            }
+            refdes "M8"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11010
+            device "tse2004av"
+            name "DIMM_B0"
+            description "DIMM B0"
+            sensors {
+                temperature 1
+            }
+            refdes "M1"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11011
+            device "tse2004av"
+            name "DIMM_B1"
+            description "DIMM B1"
+            sensors {
+                temperature 1
+            }
+            refdes "M9"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11100
+            device "tse2004av"
+            name "DIMM_C0"
+            description "DIMM C0"
+            sensors {
+                temperature 1
+            }
+            refdes "M2"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11101
+            device "tse2004av"
+            name "DIMM_C1"
+            description "DIMM C1"
+            sensors {
+                temperature 1
+            }
+            refdes "M10"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11110
+            device "tse2004av"
+            name "DIMM_D0"
+            description "DIMM D0"
+            sensors {
+                temperature 1
+            }
+            refdes "M3"
+            removable
+        }
+        device {
+            bus "mid"
+            address 0b11111
+            device "tse2004av"
+            name "DIMM_D1"
+            description "DIMM D1"
+            sensors {
+                temperature 1
+            }
+            refdes "M11"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11000
+            device "tse2004av"
+            name "DIMM_E0"
+            description "DIMM E0"
+            sensors {
+                temperature 1
+            }
+            refdes "M4"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11001
+            device "tse2004av"
+            name "DIMM_E1"
+            description "DIMM E1"
+            sensors {
+                temperature 1
+            }
+            refdes "M12"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11010
+            device "tse2004av"
+            name "DIMM_F0"
+            description "DIMM F0"
+            sensors {
+                temperature 1
+            }
+            refdes "M5"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11011
+            device "tse2004av"
+            name "DIMM_F1"
+            description "DIMM F1"
+            sensors {
+                temperature 1
+            }
+            refdes "M13"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11100
+            device "tse2004av"
+            name "DIMM_G0"
+            description "DIMM G0"
+            sensors {
+                temperature 1
+            }
+            refdes "M6"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11101
+            device "tse2004av"
+            name "DIMM_G1"
+            description "DIMM G1"
+            sensors {
+                temperature 1
+            }
+            refdes "M14"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11110
+            device "tse2004av"
+            name "DIMM_H0"
+            description "DIMM H0"
+            sensors {
+                temperature 1
+            }
+            refdes "M7"
+            removable
+        }
+        device {
+            bus "rear"
+            address 0b11111
+            device "tse2004av"
+            name "DIMM_H1"
+            description "DIMM H1"
+            sensors {
+                temperature 1
+            }
+            refdes "M15"
+            removable
+        }
+    }
+    spi {
+        controller "spi2" 2 {
+            mux-option "port_i" {
+                output "i" 1 3 af=5
+                input "i" 2 af=5
+            }
+            mux-option "port_b" {
+                output "b" 13 15 af=5
+                input "b" 14 af=5
+            }
+            device "sequencer" {
+                mux "port_b"
+                cs "b" 5
+            }
+            device "ice40" {
+                mux "port_b"
+                cs "b" 5
+            }
+            device "ksz8463" {
+                mux "port_i"
+                cs "i" 0
+            }
+            device "local_flash" {
+                mux "port_b"
+                cs "b" 12
+            }
+        }
+        controller "spi4" 4 {
+            mux-option "rot" {
+                output "e" 2 6 af=5
+                input "e" 5 af=5
+            }
+            device "rot" {
+                mux "rot"
+                cs "e" 4
+                clock-divider "div16"
+            }
+        }
+    }
+    net {
+        vlan start=0x301 count=2
+        socket "echo" {
+            kind "udp"
+            owner "udpecho" mask=0b1
+            port 7
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+        socket "broadcast" {
+            kind "udp"
+            owner "udpbroadcast" mask=0b1
+            port 997
+            tx packets=3 bytes=1024
+            rx packets=3 bytes=1024
+        }
+    }
+}
+
