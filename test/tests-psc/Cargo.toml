@@ -1,0 +1,11 @@
+[package]
+edition = "2018"
+name = "tests-psc"
+version = "0.1.0"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "tests-psc"
+path = "../../app/psc/src/main.rs"
+test = false
+bench = false

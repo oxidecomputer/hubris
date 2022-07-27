@@ -3526,6 +3526,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-gimletlet"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32h7",
+]
+
+[[package]]
 name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
@@ -3538,6 +3553,10 @@ dependencies = [
  "panic-itm",
  "panic-semihosting",
 ]
+
+[[package]]
+name = "tests-psc"
+version = "0.1.0"
 
 [[package]]
 name = "tests-stm32f4"

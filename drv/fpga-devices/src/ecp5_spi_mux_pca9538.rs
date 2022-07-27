@@ -279,6 +279,9 @@ impl<'a> Ecp5Driver for DeviceInstance<'a> {
 
     fn configuration_lock(&self) -> Result<(), Self::Error> {
         self.driver
+            .select_device(self.device_id)
+            .map_err(Self::Error::from)?;
+        self.driver
             .config
             .configuration_port
             .lock(spi_api::CsState::Asserted)
@@ -343,6 +346,9 @@ impl<'a> FpgaUserDesign for DeviceInstance<'a> {
     }
 
     fn user_design_lock(&self) -> Result<(), FpgaError> {
+        self.driver
+            .select_device(self.device_id)
+            .map_err(Error::from)?;
         self.driver
             .config
             .user_design
