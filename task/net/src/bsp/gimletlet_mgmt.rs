@@ -260,13 +260,22 @@ impl Bsp {
         }
     }
 
-    /// Calls a function on a `Phy` associated with the given port.
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+    pub fn phy_read(
         &mut self,
         port: u8,
-        callback: F,
-        eth: &eth::Ethernet,
+        reg: PhyRegisterAddress<u16>,
+        eth: &Ethernet,
     ) -> Result<T, NetError> {
-        self.mgmt.phy_fn(port, callback, eth)
+        self.mgmt.phy_read(port, reg, eth)
+    }
+
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &Ethernet,
+    ) -> Result<T, NetError> {
+        self.mgmt.phy_write(port, reg, eth, value)
     }
 }

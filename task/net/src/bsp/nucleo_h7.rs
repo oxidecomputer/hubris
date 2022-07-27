@@ -7,7 +7,8 @@ use crate::pins;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_net_api::NetError;
-use vsc7448_pac::phy;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc85xx::PhyRw;
 
 /// Address used on the MDIO link by our Ethernet PHY. Different
 /// vendors have different defaults for this, it will likely need to
@@ -66,13 +67,33 @@ impl Bsp {
         panic!("Wake should never be called, because WAKE_INTERVAL is None");
     }
 
-    /// Calls a function on a `Phy` associated with the given port.
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+    pub fn phy_read(
         &mut self,
-        _port: u8,
-        _callback: F,
-        _eth: &eth::Ethernet,
-    ) -> Result<T, NetError> {
-        Err(NetError::NotImplemented)
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        eth: &eth::Ethernet,
+    ) -> Result<u16, NetError> {
+        if port != 0 {
+            return Err(NetError::InvalidPort);
+        }
+        let phy = MiimBridge::new(eth);
+        let out = phy.read_raw(PHYADDR, reg).map_err(|_| NetError::Other)?;
+        Ok(out)
+    }
+
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &eth::Ethernet,
+    ) -> Result<(), NetError> {
+        if port != 0 {
+            return Err(NetError::InvalidPort);
+        }
+        let phy = MiimBridge::new(eth);
+        phy.write_raw(PHYADDR, reg, value)
+            .map_err(|_| NetError::Other)?;
+        Ok(())
     }
 }

@@ -83,9 +83,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
-        let out = bsp
-            .phy_fn(port, |phy| phy.read(addr), eth)?
-            .map_err(|_| NetError::Other)?;
+        let out = bsp.phy_read(port, addr, eth)?;
         Ok(out)
     }
 
@@ -100,8 +98,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
-        bsp.phy_fn(port, |phy| phy.write(addr, value), eth)?
-            .map_err(|_| NetError::Other)?;
+        bsp.phy_write(port, addr, value, eth)?;
         Ok(())
     }
 }

@@ -11,7 +11,9 @@ use ksz8463::{
     Register as KszRegister,
 };
 use ringbuf::*;
+use task_net_api::NetError;
 use userlib::{hl::sleep_for, task_slot};
+use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 
@@ -112,12 +114,23 @@ impl Bsp {
     }
 
     /// Calls a function on a `Phy` associated with the given port.
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+    pub fn phy_read(
         &mut self,
-        port: u8,
-        callback: F,
-        eth: &eth::Ethernet,
-    ) -> Result<T, NetError> {
+        _port: u8,
+        _reg: PhyRegisterAddress<u16>,
+        _eth: &eth::Ethernet,
+    ) -> Result<u16, NetError> {
+        Err(NetError::NotImplemented)
+    }
+
+    /// Calls a function on a `Phy` associated with the given port.
+    pub fn phy_write(
+        &mut self,
+        _port: u8,
+        _reg: PhyRegisterAddress<u16>,
+        _value: u16,
+        _eth: &eth::Ethernet,
+    ) -> Result<u16, NetError> {
         Err(NetError::NotImplemented)
     }
 }

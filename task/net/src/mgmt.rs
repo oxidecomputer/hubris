@@ -10,7 +10,7 @@ use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
 use ringbuf::*;
 use task_net_api::NetError;
 use userlib::hl::sleep_for;
-use vsc7448_pac::phy;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
 
 /// On some boards, the KSZ8463 reset line is tied to an RC + diode network
@@ -182,18 +182,42 @@ pub struct Bsp {
 }
 
 impl Bsp {
-    /// Calls a function on a `Phy` associated with the given port.
-    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+    /// Reads a register from the PHY on the given port
+    pub fn phy_read(
         &mut self,
         port: u8,
-        callback: F,
+        reg: PhyRegisterAddress<u16>,
         eth: &Ethernet,
-    ) -> Result<T, NetError> {
+    ) -> Result<u16, NetError> {
         if port >= 2 {
             Err(NetError::InvalidPort.into())
         } else {
             let rw = &mut MiimBridge::new(eth);
-            Ok(callback(self.vsc85x2.phy(port, rw).phy))
+            self.vsc85x2
+                .phy(port, rw)
+                .phy
+                .read(reg)
+                .map_err(|_| NetError::Other)
+        }
+    }
+
+    /// Reads a register from the PHY on the given port
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &Ethernet,
+    ) -> Result<(), NetError> {
+        if port >= 2 {
+            Err(NetError::InvalidPort.into())
+        } else {
+            let rw = &mut MiimBridge::new(eth);
+            self.vsc85x2
+                .phy(port, rw)
+                .phy
+                .write(reg, value)
+                .map_err(|_| NetError::Other)
         }
     }
 
