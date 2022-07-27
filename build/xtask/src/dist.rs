@@ -191,7 +191,7 @@ pub fn package(
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
-) -> Result<BTreeMap<String, Allocations>> {
+) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -248,13 +248,16 @@ pub fn package(
         .collect::<Result<_, _>>()?;
 
     // Allocate memories.
-    let (allocs, memories) = allocate_all(&cfg.toml, &task_sizes)?;
+    let allocated = allocate_all(&cfg.toml, &task_sizes)?;
 
     // Build each task.
     let mut all_output_sections = BTreeMap::default();
 
     for image_name in &cfg.toml.image_names {
         std::fs::create_dir_all(&cfg.img_dir(image_name))?;
+        let (allocs, memories) = allocated
+            .get(image_name)
+            .ok_or(anyhow!("failed to get imag name"))?;
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
@@ -267,12 +270,7 @@ pub fn package(
                     // Link tasks regardless of whether they have changed, because
                     // we don't want to track changes in the other linker input
                     // (task-link.x, memory.x, table.ld, etc)
-                    link_task(
-                        &cfg,
-                        name,
-                        image_name,
-                        &allocs.get(image_name).unwrap(),
-                    )?;
+                    link_task(&cfg, name, image_name, &allocs)?;
                     task_entry_point(
                         &cfg,
                         name,
@@ -281,8 +279,7 @@ pub fn package(
                     )
                 } else {
                     // Dummy entry point
-                    Ok(allocs.get(image_name).unwrap().tasks[name]["flash"]
-                        .start)
+                    Ok(allocs.tasks[name]["flash"].start)
                 };
                 ep.map(|ep| (name.clone(), ep))
             })
@@ -292,7 +289,7 @@ pub fn package(
         let kern_build = if tasks_to_build.contains("kernel") {
             Some(build_kernel(
                 &cfg,
-                &allocs.get(image_name).unwrap(),
+                &allocs,
                 &mut all_output_sections,
                 &cfg.toml.memories(image_name)?,
                 &entry_points,
@@ -305,7 +302,7 @@ pub fn package(
         // If we've done a partial build (which may have included the kernel), bail
         // out here before linking stuff.
         if partial_build {
-            return Ok(allocs);
+            return Ok(allocated);
         }
 
         // Print stats on memory usage
@@ -317,7 +314,7 @@ pub fn package(
             );
         }
         println!("Used:");
-        for (name, new_range) in memories.get(image_name).unwrap() {
+        for (name, new_range) in memories {
             let orig_range = &starting_memories[name];
             let size = new_range.start - orig_range.start;
             let percent = size * 100 / (orig_range.end - orig_range.start);
@@ -388,7 +385,7 @@ pub fn package(
         write_gdb_script(&cfg, image_name)?;
         build_archive(&cfg, image_name)?;
     }
-    Ok(allocs)
+    Ok(allocated)
 }
 
 /// Convert SREC to other formats for convenience.
@@ -1217,10 +1214,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
-) -> Result<(
-    BTreeMap<String, Allocations>,
-    BTreeMap<String, IndexMap<String, Range<u32>>>,
-)> {
+) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1232,9 +1226,10 @@ pub fn allocate_all(
     // The kernel map is: memory name -> allocation size
     let kernel = &toml.kernel;
     let tasks = &toml.tasks;
-    let mut final_free: BTreeMap<String, IndexMap<String, Range<u32>>> =
-        BTreeMap::new();
-    let mut final_allocs: BTreeMap<String, Allocations> = BTreeMap::new();
+    let mut result: BTreeMap<
+        String,
+        (Allocations, IndexMap<String, Range<u32>>),
+    > = BTreeMap::new();
 
     for image_name in &toml.image_names {
         let mut allocs = Allocations::default();
@@ -1342,10 +1337,9 @@ pub fn allocate_all(
             }
         }
 
-        final_free.insert(image_name.to_string(), free);
-        final_allocs.insert(image_name.to_string(), allocs);
+        result.insert(image_name.to_string(), (allocs, free));
     }
-    Ok((final_allocs, final_free))
+    Ok(result)
 }
 
 fn allocate_k(

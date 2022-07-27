@@ -175,7 +175,7 @@ fn run(xtask: Xtask) -> Result<()> {
             cfg,
         } => {
             let allocs = dist::package(verbose, edges, &cfg, None)?;
-            for (_, a) in allocs {
+            for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, true, false, false)?;
             }
         }
@@ -212,7 +212,7 @@ fn run(xtask: Xtask) -> Result<()> {
             save,
         } => {
             let allocs = dist::package(verbose, false, &cfg, None)?;
-            for (_, a) in allocs {
+            for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, false, compare, save)?;
             }
         }
