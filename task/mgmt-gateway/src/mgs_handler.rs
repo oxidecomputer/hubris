@@ -4,33 +4,66 @@
 
 use crate::{Log, MgsMessage, UsartHandler, __RINGBUF};
 use gateway_messages::{
-    sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
-    DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
-    SerialConsole, SpPort, SpState,
+    sp_impl::SocketAddrV6,
+    sp_impl::{SerialConsolePacketizer, SpHandler},
+    BulkIgnitionState, DiscoverResponse, IgnitionCommand, IgnitionState,
+    ResponseError, SerialConsole, SpComponent, SpPort, SpState,
 };
 use ringbuf::ringbuf_entry;
+use userlib::UnwrapLite;
 
-pub(crate) struct MgsHandler<'a> {
-    usart: &'a mut UsartHandler,
+pub(crate) struct MgsHandler {
+    pub(crate) usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
+    serial_console_packetizer: SerialConsolePacketizer,
 }
 
-impl<'a> MgsHandler<'a> {
-    pub(crate) fn new(usart: &'a mut UsartHandler) -> Self {
+impl MgsHandler {
+    pub(crate) fn new(usart: UsartHandler) -> Self {
         Self {
             usart,
             attached_serial_console_mgs: None,
+            serial_console_packetizer: SerialConsolePacketizer::new(
+                // TODO should we remove the "component" from the serial console
+                // MGS API? Any chance we ever want to support multiple "serial
+                // console"s?
+                SpComponent::try_from("sp3").unwrap_lite(),
+            ),
         }
     }
 
-    pub(crate) fn attached_serial_console_mgs(
-        &self,
-    ) -> Option<(SocketAddrV6, SpPort)> {
-        self.attached_serial_console_mgs
+    pub(crate) fn needs_usart_flush_to_mgs(&self) -> bool {
+        self.usart.should_flush_to_mgs()
+    }
+
+    pub(crate) fn flush_usart_to_mgs(
+        &mut self,
+    ) -> Option<(SerialConsole, SocketAddrV6, SpPort)> {
+        // Bail if we don't have any data to flush.
+        if !self.needs_usart_flush_to_mgs() {
+            return None;
+        }
+
+        if let Some((mgs_addr, sp_port)) = self.attached_serial_console_mgs {
+            let (serial_console_packet, leftover) = self
+                .serial_console_packetizer
+                .first_packet(&self.usart.from_rx);
+
+            // Based on the size of `usart.from_rx`, we should never have
+            // any leftover data (it holds at most one packet worth).
+            assert!(leftover.is_empty());
+            self.usart.clear_rx_data();
+
+            Some((serial_console_packet, mgs_addr, sp_port))
+        } else {
+            // We have data to flush but no attached MGS instance; discard it.
+            self.usart.clear_rx_data();
+            None
+        }
     }
 }
 
-impl SpHandler for MgsHandler<'_> {
+impl SpHandler for MgsHandler {
     fn discover(
         &mut self,
         _sender: SocketAddrV6,

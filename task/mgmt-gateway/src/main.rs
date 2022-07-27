@@ -7,9 +7,8 @@
 
 use drv_stm32h7_usart::Usart;
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError,
-    sp_impl::SerialConsolePacketizer, sp_impl::SocketAddrV6, IgnitionCommand,
-    Request, SerialConsole, SerializedSize, SpComponent, SpMessage,
+    sp_impl, sp_impl::Error as MgsDispatchError, sp_impl::SocketAddrV6,
+    IgnitionCommand, Request, SerialConsole, SerializedSize, SpMessage,
     SpMessageKind, SpPort,
 };
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -76,7 +75,8 @@ const SOCKET: SocketName = SocketName::mgmt_gateway;
 
 #[export_name = "main"]
 fn main() {
-    let mut usart_handler = UsartHandler::new(configure_usart());
+    let usart = UsartHandler::new(configure_usart());
+    let mut mgs_handler = MgsHandler::new(usart);
     let mut net_handler = NetHandler::default();
 
     // Enbale USART interrupts.
@@ -93,12 +93,12 @@ fn main() {
         ringbuf_entry!(Log::Wake(note));
 
         if (note & USART_IRQ) != 0 {
-            usart_handler.run_until_blocked();
+            mgs_handler.usart.run_until_blocked();
             sys_irq_control(USART_IRQ, true);
         }
 
-        if (note & NET_IRQ) != 0 || usart_handler.should_flush_to_mgs() {
-            net_handler.run_until_blocked(&mut usart_handler);
+        if (note & NET_IRQ) != 0 || mgs_handler.needs_usart_flush_to_mgs() {
+            net_handler.run_until_blocked(&mut mgs_handler);
         }
     }
 }
@@ -214,8 +214,6 @@ struct NetHandler {
     net: Net,
     rx_buf: [u8; Request::MAX_SIZE],
     tx_buf: [u8; SpMessage::MAX_SIZE],
-    serial_console_packetizer: SerialConsolePacketizer,
-    attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
     packet_to_send: Option<UdpMetadata>,
 }
 
@@ -225,20 +223,13 @@ impl Default for NetHandler {
             net: Net::from(NET.get_task_id()),
             rx_buf: [0; Request::MAX_SIZE],
             tx_buf: [0; SpMessage::MAX_SIZE],
-            serial_console_packetizer: SerialConsolePacketizer::new(
-                // TODO should we remove the "component" from the serial console
-                // MGS API? Any chance we ever want to support multiple "serial
-                // console"s?
-                SpComponent::try_from("sp3").unwrap_lite(),
-            ),
-            attached_serial_console_mgs: None,
             packet_to_send: None,
         }
     }
 }
 
 impl NetHandler {
-    fn run_until_blocked(&mut self, usart: &mut UsartHandler) {
+    fn run_until_blocked(&mut self, mgs_handler: &mut MgsHandler) {
         loop {
             // Try to send first.
             if let Some(meta) = self.packet_to_send.take() {
@@ -264,43 +255,28 @@ impl NetHandler {
                 }
             }
 
-            // Does our USART have data buffered that we should send?
-            if usart.should_flush_to_mgs() {
-                if let Some((mgs_addr, sp_port)) =
-                    self.attached_serial_console_mgs
-                {
-                    let (serial_console_packet, leftover) = self
-                        .serial_console_packetizer
-                        .first_packet(&usart.from_rx);
+            // Do we need to send usart data to MGS?
+            if let Some((serial_console_packet, mgs_addr, sp_port)) =
+                mgs_handler.flush_usart_to_mgs()
+            {
+                ringbuf_entry!(Log::SerialConsoleSend {
+                    len: serial_console_packet.len
+                });
+                let meta = self.build_serial_console_packet(
+                    serial_console_packet,
+                    mgs_addr,
+                    sp_port,
+                );
+                self.packet_to_send = Some(meta);
 
-                    // Based on the size of `usart.from_rx`, we should never have
-                    // any leftover data (it holds at most one packet worth).
-                    assert!(leftover.is_empty());
-                    usart.clear_rx_data();
-
-                    ringbuf_entry!(Log::SerialConsoleSend {
-                        len: serial_console_packet.len
-                    });
-                    let meta = self.build_serial_console_packet(
-                        serial_console_packet,
-                        mgs_addr,
-                        sp_port,
-                    );
-                    self.packet_to_send = Some(meta);
-
-                    // Loop back to send.
-                    continue;
-                } else {
-                    // We have no attached MGS instance; discard serial port
-                    // data.
-                    usart.clear_rx_data();
-                }
+                // Loop back to send.
+                continue;
             }
 
             // All sending is complete; check for an incoming packet.
             match self.net.recv_packet(SOCKET, &mut self.rx_buf) {
                 Ok(meta) => {
-                    self.handle_received_packet(meta, usart);
+                    self.handle_received_packet(meta, mgs_handler);
                 }
                 Err(NetError::QueueEmpty) => {
                     return;
@@ -342,7 +318,7 @@ impl NetHandler {
     fn handle_received_packet(
         &mut self,
         mut meta: UdpMetadata,
-        usart: &mut UsartHandler,
+        mgs_handler: &mut MgsHandler,
     ) {
         ringbuf_entry!(Log::Rx(meta));
 
@@ -355,21 +331,17 @@ impl NetHandler {
         // Hand off to `sp_impl` to handle deserialization, calling our
         // `MgsHandler` implementation, and serializing the response we should
         // send into `self.tx_buf`.
-        let mut mgs_handler = MgsHandler::new(usart);
         match sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
-            &mut mgs_handler,
+            mgs_handler,
             &mut self.tx_buf,
         ) {
             Ok(n) => {
                 meta.size = n as u32;
                 assert!(self.packet_to_send.is_none());
                 self.packet_to_send = Some(meta);
-                if let Some(mgs) = mgs_handler.attached_serial_console_mgs() {
-                    self.attached_serial_console_mgs = Some(mgs);
-                }
             }
             Err(err) => ringbuf_entry!(Log::DispatchError(err)),
         }
