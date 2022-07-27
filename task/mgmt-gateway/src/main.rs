@@ -96,8 +96,16 @@ fn main() {
     // Enbale USART interrupts.
     sys_irq_control(USART_IRQ, true);
 
-    let mut note = NET_IRQ;
     loop {
+        let note = sys_recv_closed(
+            &mut [],
+            NET_IRQ | USART_IRQ | TIMER_IRQ,
+            TaskId::KERNEL,
+        )
+        .unwrap_lite()
+        .operation;
+        ringbuf_entry!(Log::Wake(note));
+
         if (note & USART_IRQ) != 0 {
             usart_handler.run_until_blocked();
             sys_irq_control(USART_IRQ, true);
@@ -106,15 +114,6 @@ fn main() {
         if (note & NET_IRQ) != 0 || usart_handler.should_flush_to_mgs() {
             net_handler.run_until_blocked(&mut usart_handler);
         }
-
-        note = sys_recv_closed(
-            &mut [],
-            NET_IRQ | USART_IRQ | TIMER_IRQ,
-            TaskId::KERNEL,
-        )
-        .unwrap_lite()
-        .operation;
-        ringbuf_entry!(Log::Wake(note));
     }
 }
 
@@ -361,9 +360,7 @@ impl NetHandler {
     ) {
         ringbuf_entry!(Log::Rx(meta));
 
-        let addr = match meta.addr {
-            task_net_api::Address::Ipv6(addr) => addr,
-        };
+        let Address::Ipv6(addr) = meta.addr;
         let sender = gateway_messages::sp_impl::SocketAddrV6 {
             ip: addr.into(),
             port: meta.port,
