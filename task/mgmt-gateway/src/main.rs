@@ -6,33 +6,19 @@
 #![no_main]
 
 use drv_stm32h7_usart::Usart;
-use gateway_messages::sp_impl;
-use gateway_messages::sp_impl::Error as MgsDispatchError;
-use gateway_messages::sp_impl::SerialConsolePacketizer;
-use gateway_messages::sp_impl::SocketAddrV6;
-use gateway_messages::IgnitionCommand;
-use gateway_messages::Request;
-use gateway_messages::SerialConsole;
-use gateway_messages::SerializedSize;
-use gateway_messages::SpComponent;
-use gateway_messages::SpMessage;
-use gateway_messages::SpMessageKind;
-use gateway_messages::SpPort;
-use ringbuf::ringbuf;
-use ringbuf::ringbuf_entry;
-use task_net_api::Address;
-use task_net_api::Net;
-use task_net_api::NetError;
-use task_net_api::SocketName;
-use task_net_api::UdpMetadata;
+use gateway_messages::{
+    sp_impl, sp_impl::Error as MgsDispatchError,
+    sp_impl::SerialConsolePacketizer, sp_impl::SocketAddrV6, IgnitionCommand,
+    Request, SerialConsole, SerializedSize, SpComponent, SpMessage,
+    SpMessageKind, SpPort,
+};
+use ringbuf::{ringbuf, ringbuf_entry};
+use task_net_api::{Address, Net, NetError, SocketName, UdpMetadata};
 use tinyvec::ArrayVec;
-use userlib::sys_get_timer;
-use userlib::sys_irq_control;
-use userlib::sys_recv_closed;
-use userlib::sys_set_timer;
-use userlib::task_slot;
-use userlib::TaskId;
-use userlib::UnwrapLite;
+use userlib::{
+    sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer, task_slot,
+    TaskId, UnwrapLite,
+};
 
 mod mgs_handler;
 

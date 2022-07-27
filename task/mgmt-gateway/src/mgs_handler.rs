@@ -2,20 +2,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::Log;
-use crate::MgsMessage;
-use crate::UsartHandler;
-use crate::__RINGBUF;
-use gateway_messages::sp_impl::SocketAddrV6;
-use gateway_messages::sp_impl::SpHandler;
-use gateway_messages::BulkIgnitionState;
-use gateway_messages::DiscoverResponse;
-use gateway_messages::IgnitionCommand;
-use gateway_messages::IgnitionState;
-use gateway_messages::ResponseError;
-use gateway_messages::SerialConsole;
-use gateway_messages::SpPort;
-use gateway_messages::SpState;
+use crate::{Log, MgsMessage, UsartHandler, __RINGBUF};
+use gateway_messages::{
+    sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
+    DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
+    SerialConsole, SpPort, SpState,
+};
 use ringbuf::ringbuf_entry;
 
 pub(crate) struct MgsHandler<'a> {
