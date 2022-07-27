@@ -190,7 +190,7 @@ impl Bsp {
         eth: &Ethernet,
     ) -> Result<T, NetError> {
         if port >= 2 {
-            Err(NetError::InvalidPort.into());
+            Err(NetError::InvalidPort.into())
         } else {
             let rw = &mut MiimBridge::new(eth);
             Ok(callback(self.vsc85x2.phy(port, rw).phy))
