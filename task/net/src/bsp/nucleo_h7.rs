@@ -12,7 +12,7 @@ use vsc7448_pac::phy;
 /// Address used on the MDIO link by our Ethernet PHY. Different
 /// vendors have different defaults for this, it will likely need to
 /// become configurable.
-const PHYADDR: u8 = 0x01;
+const PHYADDR: u8 = 0x0;
 
 // The Nucleo dev board doesn't do any periodic logging
 pub const WAKE_INTERVAL: Option<u64> = None;
@@ -55,12 +55,6 @@ impl Bsp {
             r.set_restart_auto_neg(1);
         })
         .unwrap();
-
-        // Wait for link-up
-        while phy.read(phy::STANDARD::MODE_STATUS()).unwrap().0 & (1 << 2) == 0
-        {
-            userlib::hl::sleep_for(1);
-        }
 
         Self {}
     }
