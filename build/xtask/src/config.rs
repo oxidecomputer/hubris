@@ -370,6 +370,10 @@ impl Config {
     pub fn task_memory_alignment(&self, size: u32) -> u32 {
         self.mpu_alignment().memory_region_alignment(size)
     }
+
+    pub fn check_image_name(&self, name: &String) -> bool {
+        self.image_names.contains(name)
+    }
 }
 
 /// Represents an MPU's desired alignment strategy

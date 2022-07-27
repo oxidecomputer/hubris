@@ -136,8 +136,8 @@ pub struct HumilityArgs {
     cfg: PathBuf,
 
     /// Image name to flash
-    #[clap(long, default_value = "default")]
-    image_name: String,
+    #[clap(long)]
+    image_name: Option<String>,
 
     /// Request verbosity from tools we shell out to.
     #[clap(short, long)]
@@ -197,13 +197,17 @@ fn run(xtask: Xtask) -> Result<()> {
             let toml = Config::from_file(&args.cfg)?;
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
             args.extra_options.push("--force".to_string());
-            humility::run(
-                &args,
-                &chip,
-                Some("flash"),
-                false,
-                &args.image_name,
-            )?;
+
+            let image_name = if let Some(ref name) = args.image_name {
+                if !toml.check_image_name(&name) {
+                    bail!("Image name {} not declared in TOML", name);
+                }
+                &name
+            } else {
+                &toml.image_names[0]
+            };
+
+            humility::run(&args, &chip, Some("flash"), false, &image_name)?;
         }
         Xtask::Sizes {
             verbose,
@@ -217,22 +221,49 @@ fn run(xtask: Xtask) -> Result<()> {
             }
         }
         Xtask::Humility { args } => {
-            humility::run(&args, &[], None, true, &args.image_name)?;
+            let toml = Config::from_file(&args.cfg)?;
+            let image_name = if let Some(ref name) = args.image_name {
+                if !toml.check_image_name(&name) {
+                    bail!("Image name {} not declared in TOML", name);
+                }
+                &name
+            } else {
+                &toml.image_names[0]
+            };
+            humility::run(&args, &[], None, true, &image_name)?;
         }
         Xtask::Gdb { noflash, mut args } => {
+            let toml = Config::from_file(&args.cfg)?;
+            let image_name = if let Some(ref name) = args.image_name {
+                if !toml.check_image_name(&name) {
+                    bail!("Image name {} not declared in TOML", name);
+                }
+                &name
+            } else {
+                &toml.image_names[0]
+            };
             if !noflash {
                 dist::package(args.verbose, false, &args.cfg, None)?;
                 // Delegate flashing to `humility gdb`, which also modifies
                 // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
             }
-            humility::run(&args, &[], Some("gdb"), true, &args.image_name)?;
+            humility::run(&args, &[], Some("gdb"), true, &image_name)?;
         }
         Xtask::Test { args, noflash } => {
+            let toml = Config::from_file(&args.cfg)?;
+            let image_name = if let Some(ref name) = args.image_name {
+                if !toml.check_image_name(&name) {
+                    bail!("Image name {} not declared in TOML", name);
+                }
+                &name
+            } else {
+                &toml.image_names[0]
+            };
             if !noflash {
                 run(Xtask::Flash { args: args.clone() })?;
             }
-            humility::run(&args, &[], Some("test"), false, &args.image_name)?;
+            humility::run(&args, &[], Some("test"), false, &image_name)?;
         }
         Xtask::Clippy {
             verbose,
