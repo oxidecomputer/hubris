@@ -80,9 +80,6 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         page: u16,
         reg: u8,
     ) -> Result<u16, RequestError<NetError>> {
-        if port >= 2 {
-            return Err(NetError::InvalidPort.into());
-        }
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
@@ -100,9 +97,6 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         reg: u8,
         value: u16,
     ) -> Result<(), RequestError<NetError>> {
-        if port > 2 {
-            return Err(NetError::InvalidPort.into());
-        }
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();

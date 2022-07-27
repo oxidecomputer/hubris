@@ -189,9 +189,12 @@ impl Bsp {
         callback: F,
         eth: &Ethernet,
     ) -> Result<T, NetError> {
-        // Build handle for the VSC85x2 PHY, then initialize it
-        let rw = &mut MiimBridge::new(eth);
-        Ok(callback(self.vsc85x2.phy(port, rw).phy))
+        if port >= 2 {
+            Err(NetError::InvalidPort.into());
+        } else {
+            let rw = &mut MiimBridge::new(eth);
+            Ok(callback(self.vsc85x2.phy(port, rw).phy))
+        }
     }
 
     pub fn wake(&self, eth: &Ethernet) {

@@ -21,6 +21,9 @@ pub enum NetError {
 
     /// The selected port is not valid
     InvalidPort = 6,
+
+    /// This functionality isn't implemented
+    NotImplemented = 7,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

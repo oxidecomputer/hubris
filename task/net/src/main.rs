@@ -7,6 +7,7 @@
 
 mod bsp;
 mod buf;
+mod miim_bridge;
 mod server;
 
 pub mod pins;
@@ -23,7 +24,6 @@ cfg_if::cfg_if! {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "mgmt")] {
-        mod miim_bridge;
         pub(crate) mod mgmt;
     }
 }
