@@ -109,7 +109,7 @@ task-slots = ["user_leds"]
 name = "task-uartecho"
 features = ["stm32h753", "usart2"]
 uses = ["usart2"]
-interrupts = {"usart2.irq" = 1}
+interrupts = {"usart2.irq" = 0b01}
 priority = 3
 max-sizes = {flash = 8192, ram = 4096}
 stacksize = 2048
@@ -169,7 +169,7 @@ uses = [
 ]
 task-slots = ["net", "sys"]
 features = ["usart1", "vlan"]
-interrupts = {"usart1.irq" = 2}
+interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]
 name = "task-validate"
@@ -279,7 +279,7 @@ rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.mgmt_gateway]
 kind = "udp"
-owner = {name = "mgmt_gateway", notification = 1}
+owner = {name = "mgmt_gateway", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
