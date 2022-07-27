@@ -46,15 +46,18 @@ pub fn preinit() {
 pub struct Bsp;
 impl Bsp {
     pub fn new(eth: &eth::Ethernet, _sys: &Sys) -> Self {
-        let mut bridge = MiimBridge::new(eth);
-        let phy = vsc85xx::Phy::new(PHYADDR, &mut bridge);
-
-        // Set up the PHY.
-        phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-            r.set_auto_neg_ena(1);
-            r.set_restart_auto_neg(1);
-        })
-        .unwrap();
+        // Unlike most Microchip PHYs, the LAN8742A-CZ-TR does not use register
+        // 31 to switch between register pages (since it only uses page 0).
+        // This means that we use the _raw read and write functions, since the
+        // higher-level funtions assume page switching.
+        let phy = MiimBridge::new(eth);
+        let mut r = phy
+            .read_raw(PHYADDR, phy::STANDARD::MODE_CONTROL())
+            .unwrap();
+        r.set_auto_neg_ena(1);
+        r.set_restart_auto_neg(1);
+        phy.write_raw(PHYADDR, phy::STANDARD::MODE_CONTROL(), r)
+            .unwrap();
 
         Self {}
     }
@@ -66,15 +69,10 @@ impl Bsp {
     /// Calls a function on a `Phy` associated with the given port.
     pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
         &mut self,
-        port: u8,
-        callback: F,
-        eth: &eth::Ethernet,
+        _port: u8,
+        _callback: F,
+        _eth: &eth::Ethernet,
     ) -> Result<T, NetError> {
-        if port > 0 {
-            return Err(NetError::InvalidPort);
-        }
-        let mut bridge = MiimBridge::new(eth);
-        let phy = vsc85xx::Phy::new(PHYADDR, &mut bridge);
-        Ok(callback(phy))
+        Err(NetError::NotImplemented)
     }
 }
