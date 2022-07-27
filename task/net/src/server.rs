@@ -80,7 +80,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         page: u16,
         reg: u8,
     ) -> Result<u16, RequestError<NetError>> {
-        if port > 2 {
+        if port >= 2 {
             return Err(NetError::InvalidPort.into());
         }
         use vsc7448_pac::types::PhyRegisterAddress;
