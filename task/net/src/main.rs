@@ -7,16 +7,17 @@
 
 mod bsp;
 mod buf;
+mod server;
 
 pub mod pins;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "vlan")] {
-        mod vlan;
-        use vlan::{ServerImpl, ServerStorage};
+        mod server_vlan;
+        use server_vlan::{ServerImpl, ServerStorage};
     } else {
-        mod server;
-        use server::{ServerImpl, ServerStorage};
+        mod server_basic;
+        use server_basic::{ServerImpl, ServerStorage};
     }
 }
 

@@ -414,6 +414,34 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
         }
     }
 
+    fn bounce_vsc7448(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp
+            .bounce_vsc7448()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+    fn bounce_vsc8504(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp
+            .bounce_vsc8504()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+    fn bounce_vsc8562(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), RequestError<MonorailError>> {
+        self.bsp
+            .bounce_vsc8562()
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+
     fn read_vsc7448_reg(
         &mut self,
         _msg: &userlib::RecvMessage,

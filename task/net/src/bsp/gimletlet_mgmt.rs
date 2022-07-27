@@ -259,4 +259,14 @@ impl Bsp {
             self.leds.led_off(2).unwrap();
         }
     }
+
+    /// Calls a function on a `Phy` associated with the given port.
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+        eth: &eth::Ethernet,
+    ) -> Result<T, NetError> {
+        self.mgmt.phy_fn(port, callback, eth)
+    }
 }

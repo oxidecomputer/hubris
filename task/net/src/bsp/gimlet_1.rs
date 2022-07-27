@@ -2,12 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{mgmt, pins};
+use crate::{mgmt, miim_bridge::MiimBridge, pins};
 use drv_gimlet_seq_api::PowerState;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_jefe_api::Jefe;
+use task_net_api::NetError;
 use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
 
 task_slot!(SPI, spi_driver);
@@ -104,5 +105,15 @@ impl Bsp {
 
     pub fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
+    }
+
+    /// Calls a function on a `Phy` associated with the given port.
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+        eth: &eth::Ethernet,
+    ) -> Result<T, NetError> {
+        self.0.phy_fn(port, callback, eth)
     }
 }

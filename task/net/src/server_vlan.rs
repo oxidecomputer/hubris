@@ -4,10 +4,8 @@
 
 //! Network IPC server implementation with VLAN support
 //!
-//! This module implements a server which listens on a single IPv6 address
-//! and supports some number of VLANs
-//!
-//! TODO: one IPv6 address per VLAN?
+//! This module implements a server which listens on multiple (incrementing)
+//! IPv6 addresses and supports some number of VLANs.
 
 use drv_stm32h7_eth as eth;
 
@@ -21,6 +19,7 @@ use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
+use crate::server::NetServer;
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
@@ -275,14 +274,14 @@ impl<'a> ServerImpl<'a> {
 }
 
 /// Implementation of the Net Idol interface.
-impl idl::InOrderNetImpl for ServerImpl<'_> {
+impl NetServer for ServerImpl<'_> {
     /// Requests that a packet waiting in the rx queue of `socket` be delivered
     /// into loaned memory at `payload`.
     ///
     /// If a packet is available and fits, copies it into `payload` and returns
     /// its `UdpMetadata`. Otherwise, leaves `payload` untouched and returns an
     /// error.
-    fn recv_packet(
+    fn net_recv_packet(
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
@@ -330,7 +329,7 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
 
     /// Requests to copy a packet into the tx queue of socket `socket`,
     /// described by `metadata` and containing the bytes loaned in `payload`.
-    fn send_packet(
+    fn net_send_packet(
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
@@ -370,26 +369,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         }
     }
 
-    fn smi_read(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        phy: u8,
-        register: u8,
-    ) -> Result<u16, idol_runtime::RequestError<core::convert::Infallible>>
-    {
-        // TODO: this should not be open to all callers!
-        Ok(self.eth.smi_read(phy, register))
-    }
-
-    fn smi_write(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        phy: u8,
-        register: u8,
-        value: u16,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        // TODO: this should not be open to all callers!
-        Ok(self.eth.smi_write(phy, register, value))
+    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
+        (self.eth, &mut self.bsp)
     }
 }
 

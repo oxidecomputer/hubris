@@ -8,6 +8,7 @@ use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
 use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
 use ringbuf::*;
+use task_net_api::NetError;
 use userlib::hl::sleep_for;
 use vsc7448_pac::phy;
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
@@ -181,6 +182,18 @@ pub struct Bsp {
 }
 
 impl Bsp {
+    /// Calls a function on a `Phy` associated with the given port.
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+        eth: &Ethernet,
+    ) -> Result<T, NetError> {
+        // Build handle for the VSC85x2 PHY, then initialize it
+        let rw = &mut MiimBridge::new(eth);
+        Ok(callback(self.vsc85x2.phy(port, rw).phy))
+    }
+
     pub fn wake(&self, eth: &Ethernet) {
         let mut s = Status::default();
         let rw = &mut MiimBridge::new(eth);

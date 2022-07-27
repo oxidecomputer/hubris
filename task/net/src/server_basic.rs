@@ -18,6 +18,7 @@ use task_net_api::{NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
+use crate::server::NetServer;
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 /// Storage required to run a single [ServerImpl]. This should be allocated
@@ -159,15 +160,14 @@ impl<'a> ServerImpl<'a> {
     }
 }
 
-/// Implementation of the Net Idol interface.
-impl idl::InOrderNetImpl for ServerImpl<'_> {
+impl NetServer for ServerImpl<'_> {
     /// Requests that a packet waiting in the rx queue of `socket` be delivered
     /// into loaned memory at `payload`.
     ///
     /// If a packet is available and fits, copies it into `payload` and returns
     /// its `UdpMetadata`. Otherwise, leaves `payload` untouched and returns an
     /// error.
-    fn recv_packet(
+    fn net_recv_packet(
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
@@ -208,7 +208,7 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
 
     /// Requests to copy a packet into the tx queue of socket `socket`,
     /// described by `metadata` and containing the bytes loaned in `payload`.
-    fn send_packet(
+    fn net_send_packet(
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
@@ -242,27 +242,8 @@ impl idl::InOrderNetImpl for ServerImpl<'_> {
         }
     }
 
-    fn smi_read(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        phy: u8,
-        register: u8,
-    ) -> Result<u16, idol_runtime::RequestError<core::convert::Infallible>>
-    {
-        // TODO: this should not be open to all callers!
-        Ok(self.iface.device().smi_read(phy, register))
-    }
-
-    fn smi_write(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-        phy: u8,
-        register: u8,
-        value: u16,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
-        // TODO: this should not be open to all callers!
-        self.iface.device().smi_write(phy, register, value);
-        Ok(())
+    fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
+        (self.iface.device(), &mut self.bsp)
     }
 }
 

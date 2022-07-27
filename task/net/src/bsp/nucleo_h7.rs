@@ -5,6 +5,7 @@
 use crate::pins;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
+use task_net_api::NetError;
 
 /// Address used on the MDIO link by our Ethernet PHY. Different
 /// vendors have different defaults for this, it will likely need to
@@ -68,5 +69,15 @@ impl Bsp {
 
     pub fn wake(&self, _eth: &eth::Ethernet) {
         panic!("Wake should never be called, because WAKE_INTERVAL is None");
+    }
+
+    /// Calls a function on a `Phy` associated with the given port.
+    pub fn phy_fn<T, F: Fn(vsc85xx::Phy<MiimBridge>) -> T>(
+        &mut self,
+        port: u8,
+        callback: F,
+        eth: &eth::Ethernet,
+    ) -> Result<T, NetError> {
+        Err(NetError::NotImplemented)
     }
 }
