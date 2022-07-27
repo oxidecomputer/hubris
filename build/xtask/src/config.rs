@@ -329,12 +329,8 @@ impl Config {
         self.outputs
             .iter()
             .find(|(_name, out)| {
-                let mut stat = false;
-                for o in out.iter() {
-                    stat = stat
-                        || vaddr >= o.address && vaddr < o.address + o.size;
-                }
-                stat
+                out.iter()
+                    .any(|o| vaddr >= o.address && vaddr < o.address + o.size)
             })
             .map(|(name, _out)| name.as_str())
     }
