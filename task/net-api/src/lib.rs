@@ -10,7 +10,7 @@ use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive, IdolError)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
 pub enum NetError {
     QueueEmpty = 1,
@@ -20,7 +20,7 @@ pub enum NetError {
     Other = 5,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UdpMetadata {
     pub addr: Address,
     pub port: u16,
@@ -42,7 +42,7 @@ impl From<UdpMetadata> for smoltcp::wire::IpEndpoint {
 
 // This must be repr(C); otherwise Rust cleverly optimizes out the enum tag,
 // which breaks ssmarshal's assumptions about struct sizes.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(C)]
 pub enum Address {
     Ipv6(Ipv6Address),
@@ -74,7 +74,7 @@ impl TryFrom<smoltcp::wire::IpAddress> for Address {
 #[cfg(feature = "use-smoltcp")]
 pub struct AddressUnspecified;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct Ipv6Address(pub [u8; 16]);
 
