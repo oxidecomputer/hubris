@@ -747,7 +747,7 @@ fn build_kernel(
         Some(&cfg.sysroot),
     );
     build(cfg, "kernel", build_config, false)?;
-    if update_elf(
+    if update_image_header(
         &cfg.dist_file("kernel"),
         &cfg.img_file("kernel.modified", image_name),
         all_memories,
@@ -777,7 +777,10 @@ fn build_kernel(
     Ok((kentry, ksymbol_table))
 }
 
-fn update_elf(
+/// Adjusts the hubris image header in the ELF file.
+/// Returns true if the header was found and updated,
+/// false otherwise.
+fn update_image_header(
     input: &Path,
     output: &Path,
     map: &IndexMap<String, Range<u32>>,
