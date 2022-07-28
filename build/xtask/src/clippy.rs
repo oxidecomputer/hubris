@@ -57,7 +57,12 @@ pub fn run(
                 .map(|name| (name.as_str(), fake_sizes.clone()))
                 .collect();
 
-            let (allocs, _) = crate::dist::allocate_all(&toml, &task_sizes)?;
+            let allocated = crate::dist::allocate_all(&toml, &task_sizes)?;
+
+            let (allocs, _) = allocated
+                .get(&toml.image_names[0])
+                .ok_or(anyhow::anyhow!("Failed to get image name"))?;
+
             // Pick dummy entry points for each task
             let entry_points = allocs
                 .tasks
@@ -65,8 +70,12 @@ pub fn run(
                 .map(|(k, v)| (k.clone(), v["flash"].start))
                 .collect();
 
-            let kconfig =
-                crate::dist::make_kconfig(&toml, &allocs.tasks, &entry_points)?;
+            let kconfig = crate::dist::make_kconfig(
+                &toml,
+                &allocs.tasks,
+                &entry_points,
+                &toml.image_names[0],
+            )?;
             let kconfig = ron::ser::to_string(&kconfig)?;
 
             toml.kernel_build_config(

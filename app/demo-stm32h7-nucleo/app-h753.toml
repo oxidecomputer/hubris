@@ -19,30 +19,6 @@ requires = {flash = 22000, ram = 5120}
 #
 features = ["h753", "itm"]
 
-# Flash sections are mapped into flash bank 1 (of 2).
-[outputs.flash]
-address = 0x08000000
-size = 1048576
-read = true
-execute = true
-
-# RAM sections are currently mapped into DTCM, a small but fast SRAM.
-[outputs.ram]
-address = 0x20000000
-size = 131072
-read = true
-write = true
-execute = false  # let's assume XN until proven otherwise
-
-# Network buffers are placed in sram1, which is directly accessible by the
-# Ethernet MAC.
-[outputs.sram1]
-address = 0x30000000
-size = 0x20000
-read = true
-write = true
-dma = true
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0

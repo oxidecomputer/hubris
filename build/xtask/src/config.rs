@@ -21,13 +21,16 @@ struct RawConfig {
     target: String,
     board: String,
     chip: String,
+    memory: Option<String>,
     #[serde(default)]
-    signing: IndexMap<String, Signing>,
+    image_names: Vec<String>,
+    #[serde(default)]
+    external_images: Vec<String>,
+    #[serde(default)]
+    signing: Option<Signing>,
     secure_separation: Option<bool>,
     stacksize: Option<u32>,
-    bootloader: Option<Bootloader>,
     kernel: Kernel,
-    outputs: IndexMap<String, Output>,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
     extratext: IndexMap<String, Peripheral>,
@@ -41,12 +44,13 @@ pub struct Config {
     pub target: String,
     pub board: String,
     pub chip: String,
-    pub signing: IndexMap<String, Signing>,
+    pub image_names: Vec<String>,
+    pub external_images: Vec<String>,
+    pub signing: Option<Signing>,
     pub secure_separation: Option<bool>,
     pub stacksize: Option<u32>,
-    pub bootloader: Option<Bootloader>,
     pub kernel: Kernel,
-    pub outputs: IndexMap<String, Output>,
+    pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
     pub peripherals: IndexMap<String, Peripheral>,
     pub extratext: IndexMap<String, Peripheral>,
@@ -77,19 +81,38 @@ impl Config {
             toml::from_slice(&chip_contents)?
         };
 
+        let outputs: IndexMap<String, Vec<Output>> = {
+            let fname = if let Some(n) = toml.memory {
+                n
+            } else {
+                "memory.toml".to_string()
+            };
+            let chip_file = cfg.parent().unwrap().join(&toml.chip).join(fname);
+            let chip_contents = std::fs::read(chip_file)?;
+            hasher.write(&chip_contents);
+            toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?
+        };
+
         let buildhash = hasher.finish();
+
+        let img_names = if toml.image_names.is_empty() {
+            vec!["default".to_string()]
+        } else {
+            toml.image_names
+        };
 
         Ok(Config {
             name: toml.name,
             target: toml.target,
             board: toml.board,
+            image_names: img_names,
+            external_images: toml.external_images,
             chip: toml.chip,
             signing: toml.signing,
             secure_separation: toml.secure_separation,
             stacksize: toml.stacksize,
-            bootloader: toml.bootloader,
             kernel: toml.kernel,
-            outputs: toml.outputs,
+            outputs,
             tasks: toml.tasks,
             peripherals,
             extratext: toml.extratext,
@@ -218,21 +241,6 @@ impl Config {
         out
     }
 
-    pub fn bootloader_build_config<'a>(
-        &self,
-        verbose: bool,
-        sysroot: Option<&'a Path>,
-    ) -> Option<BuildConfig<'a>> {
-        self.bootloader.as_ref().map(|bootloader| {
-            self.common_build_config(
-                verbose,
-                &bootloader.name,
-                &bootloader.features,
-                sysroot,
-            )
-        })
-    }
-
     pub fn task_build_config<'a>(
         &self,
         task_name: &str,
@@ -269,26 +277,50 @@ impl Config {
         Ok(out)
     }
 
-    /// Returns a map of memory name -> range
+    /// Returns a map of memory name -> range for a specific image name
     ///
     /// This is useful when allocating memory for tasks
-    pub fn memories(&self) -> Result<IndexMap<String, Range<u32>>> {
+    pub fn memories(
+        &self,
+        image_name: &String,
+    ) -> Result<IndexMap<String, Range<u32>>> {
         self.outputs
             .iter()
             .map(|(name, out)| {
-                out.address
-                    .checked_add(out.size)
+                let region : Vec<&Output>= out.iter().filter(|o| o.name == *image_name).collect();
+                if region.len() > 1 {
+                    bail!("Multiple regions defined for image {}", image_name);
+                }
+
+                let r = region[0];
+
+                r.address
+                    .checked_add(r.size)
                     .ok_or_else(|| {
                         anyhow!(
                             "output {}: address {:08x} size {:x} would overflow",
                             name,
-                            out.address,
-                            out.size
+                            r.address,
+                            r.size
                         )
                     })
-                    .map(|end| (name.clone(), out.address..end))
+                    .map(|end| (name.clone(), r.address..end))
             })
             .collect()
+    }
+
+    pub fn image_memories(
+        &self,
+        region: String,
+    ) -> Result<IndexMap<String, Range<u32>>> {
+        let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
+        for a in &self.external_images {
+            if let Some(r) = self.memories(&a)?.get(&region) {
+                memories.insert(a.clone(), r.start..r.end);
+            }
+        }
+
+        Ok(memories)
     }
 
     /// Calculates the output region which contains the given address
@@ -297,7 +329,8 @@ impl Config {
         self.outputs
             .iter()
             .find(|(_name, out)| {
-                vaddr >= out.address && vaddr < out.address + out.size
+                out.iter()
+                    .any(|o| vaddr >= o.address && vaddr < o.address + o.size)
             })
             .map(|(name, _out)| name.as_str())
     }
@@ -336,6 +369,10 @@ impl Config {
     /// dependent on the processor's MMU.
     pub fn task_memory_alignment(&self, size: u32) -> u32 {
         self.mpu_alignment().memory_region_alignment(size)
+    }
+
+    pub fn check_image_name(&self, name: &String) -> bool {
+        self.image_names.contains(name)
     }
 }
 
@@ -390,24 +427,8 @@ impl std::fmt::Display for SigningMethod {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Signing {
-    pub method: SigningMethod,
-    pub priv_key: Option<PathBuf>,
-    pub root_cert: Option<PathBuf>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-pub struct Bootloader {
-    pub name: String,
-    #[serde(default)]
-    pub features: Vec<String>,
-    #[serde(default)]
-    pub sections: IndexMap<String, String>,
-    #[serde(default)]
-    pub imagea_flash_start: u32,
-    pub imagea_flash_size: u32,
-    pub imagea_ram_start: u32,
-    pub imagea_ram_size: u32,
+    pub priv_key: PathBuf,
+    pub root_cert: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -420,9 +441,15 @@ pub struct Kernel {
     pub features: Vec<String>,
 }
 
+fn default_name() -> String {
+    "default".to_string()
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Output {
+    #[serde(default = "default_name")]
+    pub name: String,
     pub address: u32,
     pub size: u32,
     #[serde(default)]

@@ -3,29 +3,12 @@ target = "thumbv8m.main-none-eabihf"
 board = "gimlet-rot-1"
 chip = "../../chips/lpc55"
 stacksize = 1024
+image-names = ["a", "b"]
 
 [kernel]
 name = "gimlet-rot"
 requires = {flash = 32768, ram = 3072}
 features = ["itm"]
-
-[signing.combined]
-method = "rsa"
-priv-key = "../../support/fake_certs/fake_private_key.pem"
-root-cert = "../../support/fake_certs/fake_certificate.der.crt"
-
-[outputs.flash]
-address = 0x00000000
-size = 645120
-read = true
-execute = true
-
-[outputs.ram]
-address = 0x20000000
-size = 114688
-read = true
-write = true
-execute = true
 
 [tasks.jefe]
 name = "task-jefe"

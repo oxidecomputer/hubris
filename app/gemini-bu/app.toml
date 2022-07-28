@@ -19,21 +19,6 @@ requires = {flash = 32768, ram = 4096}
 #
 features = ["itm"]
 
-# Flash sections are mapped into flash bank 1 (of 2).
-[outputs.flash]
-address = 0x08000000
-size = 1048576
-read = true
-execute = true
-
-# RAM sections are currently mapped into DTCM, a small but fast SRAM.
-[outputs.ram]
-address = 0x20000000
-size = 131072
-read = true
-write = true
-execute = false  # let's assume XN until proven otherwise
-
 [tasks.jefe]
 name = "task-jefe"
 priority = 0
