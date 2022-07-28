@@ -82,11 +82,17 @@ enum Trace {
 
 ringbuf!(Trace, 4, Trace::None);
 
+#[no_mangle]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
 static JEFE_EXTERNAL_REQUEST: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
 static JEFE_EXTERNAL_TASKINDEX: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
 static JEFE_EXTERNAL_KICK: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
 static JEFE_EXTERNAL_REQUESTS: AtomicU32 = AtomicU32::new(0);
+#[no_mangle]
 static JEFE_EXTERNAL_ERRORS: AtomicU32 = AtomicU32::new(0);
 
 ///
