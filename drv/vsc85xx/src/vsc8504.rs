@@ -191,19 +191,13 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             r.set_auto_neg_ena(1);
         })?;
 
-        // "Default clear "force advertise ability" bit as well" (7620)
-        self.phy
-            .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.set_force_adv_ability(0);
-                r.set_aneg_ena(1);
-            })?;
-
         // "Protocol Transfer mode Guide : Section 4.1.3" (7625)
         // We are trying to do forced speed protocol transfer mode, so this
         // is the correct block.
         self.phy
             .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
                 r.set_force_adv_ability(1);
+                r.set_mac_if_pd_ena(1);
             })?;
         self.phy.write(
             phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
@@ -213,9 +207,16 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
 
         // Restart autonegotiation (line 7659)
         self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-            r.set_auto_neg_ena(1);
-            r.set_restart_auto_neg(1);
+            r.set_auto_neg_ena(0);
+            r.set_restart_auto_neg(0);
         })?;
+
+        self.phy
+            .modify(phy::EXTENDED::EXTENDED_MODE_CONTROL(), |r| {
+                let mut r_ = u16::from(*r);
+                r_ |= 1; // sigdet polarity = active low
+                *r = r_.into();
+            })?;
 
         // We are now done with vtss_phy_pass_through_speed_mode.
         // The rest of vtss_phy_conf_set_private doesn't do much (sets up
