@@ -105,10 +105,10 @@ mod map {
         SGMII,       // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 27
         SGMII,       // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 28
         SGMII,       // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 29
-        None,        // 32
-        None,        // 33
-        None,        // 34
-        None,        // 35
+        QSGMII_100M, // 32 | OH GOD WHY IS THIS NECESSARY
+        QSGMII_100M, // 33 | ^same
+        QSGMII_100M, // 34 | ^same
+        QSGMII_100M, // 35 | ^same
         None,        // 36
         None,        // 37
         None,        // 38
