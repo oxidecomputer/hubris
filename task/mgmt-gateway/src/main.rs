@@ -11,6 +11,7 @@ use gateway_messages::{
     IgnitionCommand, Request, SerialConsole, SerializedSize, SpMessage,
     SpMessageKind, SpPort,
 };
+use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
@@ -26,8 +27,10 @@ mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
 
+task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
+task_slot!(UPDATE_SERVER, update_server);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
@@ -42,6 +45,8 @@ enum Log {
     UsartRx { num_bytes: usize },
     UsartRxOverrun,
     SerialConsoleSend { len: u16 },
+    UpdatePartial { bytes_written: usize },
+    UpdateComplete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -59,6 +64,13 @@ enum MgsMessage {
     SerialConsoleWrite {
         length: u16,
     },
+    UpdateStart {
+        length: u32,
+    },
+    UpdateChunk {
+        offset: u32,
+    },
+    SysResetPrepare,
 }
 
 ringbuf!(Log, 16, Log::Empty);
@@ -81,6 +93,7 @@ fn main() {
     let usart = UsartHandler::new(configure_usart());
     let mut mgs_handler = MgsHandler::new(usart);
     let mut net_handler = NetHandler::default();
+    let rx_buf = claim_request_buf_static();
 
     // Enbale USART interrupts.
     sys_irq_control(USART_IRQ, true);
@@ -101,7 +114,7 @@ fn main() {
         }
 
         if (note & NET_IRQ) != 0 || mgs_handler.needs_usart_flush_to_mgs() {
-            net_handler.run_until_blocked(&mut mgs_handler);
+            net_handler.run_until_blocked(rx_buf, &mut mgs_handler);
         }
     }
 }
@@ -215,7 +228,6 @@ impl UsartHandler {
 
 struct NetHandler {
     net: Net,
-    rx_buf: [u8; Request::MAX_SIZE],
     tx_buf: [u8; SpMessage::MAX_SIZE],
     packet_to_send: Option<UdpMetadata>,
 }
@@ -224,7 +236,6 @@ impl Default for NetHandler {
     fn default() -> Self {
         Self {
             net: Net::from(NET.get_task_id()),
-            rx_buf: [0; Request::MAX_SIZE],
             tx_buf: [0; SpMessage::MAX_SIZE],
             packet_to_send: None,
         }
@@ -232,7 +243,11 @@ impl Default for NetHandler {
 }
 
 impl NetHandler {
-    fn run_until_blocked(&mut self, mgs_handler: &mut MgsHandler) {
+    fn run_until_blocked(
+        &mut self,
+        rx_buf: &mut [u8; Request::MAX_SIZE],
+        mgs_handler: &mut MgsHandler,
+    ) {
         loop {
             // Try to send first.
             if let Some(meta) = self.packet_to_send.take() {
@@ -280,10 +295,10 @@ impl NetHandler {
             match self.net.recv_packet(
                 SOCKET,
                 LargePayloadBehavior::Discard,
-                &mut self.rx_buf,
+                rx_buf,
             ) {
                 Ok(meta) => {
-                    self.handle_received_packet(meta, mgs_handler);
+                    self.handle_received_packet(meta, rx_buf, mgs_handler);
                 }
                 Err(RecvError::QueueEmpty) => {
                     return;
@@ -320,6 +335,7 @@ impl NetHandler {
     fn handle_received_packet(
         &mut self,
         mut meta: UdpMetadata,
+        rx_buf: &mut [u8],
         mgs_handler: &mut MgsHandler,
     ) {
         ringbuf_entry!(Log::Rx(meta));
@@ -336,7 +352,7 @@ impl NetHandler {
         match sp_impl::handle_message(
             sender,
             sp_port_from_udp_metadata(&meta),
-            &self.rx_buf[..meta.size as usize],
+            &rx_buf[..meta.size as usize],
             mgs_handler,
             &mut self.tx_buf,
         ) {
@@ -420,4 +436,12 @@ fn configure_usart() -> Usart {
         CLOCK_HZ,
         BAUD_RATE,
     )
+}
+
+/// Grabs reference to a static array sized to hold a `Request`. Can only be
+/// called once!
+fn claim_request_buf_static() -> &'static mut [u8; Request::MAX_SIZE] {
+    mutable_statics! {
+        static mut REQUEST_BUF: [u8; Request::MAX_SIZE] = [0; _];
+    }
 }
