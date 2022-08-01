@@ -12,7 +12,9 @@ use gateway_messages::{
     SpMessageKind, SpPort,
 };
 use ringbuf::{ringbuf, ringbuf_entry};
-use task_net_api::{Address, Net, NetError, SocketName, UdpMetadata};
+use task_net_api::{
+    Address, LargePayloadBehavior, Net, NetError, SocketName, UdpMetadata,
+};
 use tinyvec::ArrayVec;
 use userlib::{
     sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer, task_slot,
@@ -274,7 +276,11 @@ impl NetHandler {
             }
 
             // All sending is complete; check for an incoming packet.
-            match self.net.recv_packet(SOCKET, &mut self.rx_buf) {
+            match self.net.recv_packet(
+                SOCKET,
+                LargePayloadBehavior::Discard,
+                &mut self.rx_buf,
+            ) {
                 Ok(meta) => {
                     self.handle_received_packet(meta, mgs_handler);
                 }
@@ -285,6 +291,9 @@ impl NetHandler {
                     NetError::NotYours
                     | NetError::InvalidVLan
                     | NetError::QueueFull
+                    | NetError::PayloadTooLarge
+                    | NetError::InvalidPort
+                    | NetError::NotImplemented
                     | NetError::Other,
                 ) => panic!(),
             }

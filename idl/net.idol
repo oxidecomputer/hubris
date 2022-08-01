@@ -8,6 +8,7 @@ Interface(
             doc: "Unqueues an incoming packet from a socket.",
             args: {
                 "socket": "SocketName",
+                "large_payload_behavior": "LargePayloadBehavior",
             },
             leases: {
                 "payload": (type: "[u8]", write: true),

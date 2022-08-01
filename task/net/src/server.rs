@@ -6,7 +6,7 @@ use drv_stm32h7_eth as eth;
 
 use crate::idl;
 use idol_runtime::RequestError;
-use task_net_api::{NetError, SocketName, UdpMetadata};
+use task_net_api::{LargePayloadBehavior, NetError, SocketName, UdpMetadata};
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
 /// server implementations.
@@ -15,6 +15,7 @@ pub trait NetServer {
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
+        large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<UdpMetadata, RequestError<NetError>>;
 
@@ -35,9 +36,10 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
+        large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<UdpMetadata, RequestError<NetError>> {
-        self.net_recv_packet(msg, socket, payload)
+        self.net_recv_packet(msg, socket, large_payload_behavior, payload)
     }
 
     fn send_packet(

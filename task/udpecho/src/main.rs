@@ -20,7 +20,11 @@ fn main() -> ! {
     loop {
         // Tiiiiiny payload buffer
         let mut rx_data_buf = [0u8; 64];
-        match net.recv_packet(SOCKET, &mut rx_data_buf) {
+        match net.recv_packet(
+            SOCKET,
+            LargePayloadBehavior::Discard,
+            &mut rx_data_buf,
+        ) {
             Ok(meta) => {
                 // A packet! We want to turn it right around. Deserialize the
                 // packet header; unwrap because we trust the server.
@@ -44,6 +48,7 @@ fn main() -> ! {
                         Err(NetError::QueueEmpty) => unreachable!(),
                         Err(NetError::InvalidPort) => unreachable!(),
                         Err(NetError::NotImplemented) => unreachable!(),
+                        Err(NetError::PayloadTooLarge) => unreachable!(),
                     }
                 }
             }
@@ -58,6 +63,9 @@ fn main() -> ! {
             Err(NetError::QueueFull) => unreachable!(),
             Err(NetError::InvalidPort) => unreachable!(),
             Err(NetError::NotImplemented) => unreachable!(),
+            // We passed `LargePayloadBehavior::Discard`, so we should never get
+            // this error.
+            Err(NetError::PayloadTooLarge) => unreachable!(),
         }
 
         // Try again.
