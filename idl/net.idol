@@ -55,5 +55,30 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+        "read_phy_reg": (
+            doc: "Read a register from the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("NetError"),
+            ),
+        ),
+        "write_phy_reg": (
+            doc: "Writes a register in the PHY associated with a particular port",
+            args: {
+                "port": "u8",
+                "page": "u16",
+                "reg": "u8",
+                "value": "u16",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("NetError"),
+            ),
+        ),
     },
 )

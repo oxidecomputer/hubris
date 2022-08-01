@@ -463,38 +463,6 @@ impl Ethernet {
     }
 }
 
-/// Standard MDIO registers laid out in IEEE 802.3 standard clause 22. Vendors
-/// often add to this set in the 16+ range.
-///
-/// If you are using the VSC7448 / VSC85xx / KSZ8463, then your task includes
-/// the `vsc7448-pac` crate.  This crate defines a more complete set of
-/// registers, including various extended pages, and has bitfield definitions;
-/// you may consider using them instead!
-pub enum SmiClause22Register {
-    Control = 0,
-    Status = 1,
-    PhyIdent2 = 2,
-    PhyIdent3 = 3,
-    AutoNegAdvertisement = 4,
-    AutoNegPartnerAbility = 5,
-    AutoNegExpansion = 6,
-    AutoNegNextPageTransmit = 7,
-    AutoNegPartnerReceivedNextPage = 8,
-    MasterSlaveControl = 9,
-    MasterSlaveStatus = 10,
-    PseControl = 11,
-    PseStatus = 12,
-    MmdAccessControl = 13,
-    MmdAccessAddressData = 14,
-    ExtendedStatus = 15,
-}
-
-impl From<SmiClause22Register> for u8 {
-    fn from(x: SmiClause22Register) -> Self {
-        x as u8
-    }
-}
-
 #[cfg(all(not(feature = "vlan"), feature = "with-smoltcp"))]
 mod tokens {
     use super::Ethernet;

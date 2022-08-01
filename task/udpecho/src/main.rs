@@ -40,8 +40,10 @@ fn main() -> ! {
                         Err(NetError::NotYours) => panic!(),
                         Err(NetError::InvalidVLan) => panic!(),
                         Err(NetError::Other) => panic!(),
-                        // `send_packet()` can't return QueueEmpty
+                        // `send_packet()` can't return these errors
                         Err(NetError::QueueEmpty) => unreachable!(),
+                        Err(NetError::InvalidPort) => unreachable!(),
+                        Err(NetError::NotImplemented) => unreachable!(),
                     }
                 }
             }
@@ -52,8 +54,10 @@ fn main() -> ! {
             Err(NetError::NotYours) => panic!(),
             Err(NetError::InvalidVLan) => panic!(),
             Err(NetError::Other) => panic!(),
-            // `recv_packet()` can't return QueueFull
+            // `recv_packet()` can't return these errors
             Err(NetError::QueueFull) => unreachable!(),
+            Err(NetError::InvalidPort) => unreachable!(),
+            Err(NetError::NotImplemented) => unreachable!(),
         }
 
         // Try again.

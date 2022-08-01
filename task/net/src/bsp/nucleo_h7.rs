@@ -2,14 +2,18 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::miim_bridge::MiimBridge;
 use crate::pins;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
+use task_net_api::NetError;
+use vsc7448_pac::{phy, types::PhyRegisterAddress};
+use vsc85xx::PhyRw;
 
 /// Address used on the MDIO link by our Ethernet PHY. Different
 /// vendors have different defaults for this, it will likely need to
 /// become configurable.
-const PHYADDR: u8 = 0x01;
+const PHYADDR: u8 = 0x0;
 
 // The Nucleo dev board doesn't do any periodic logging
 pub const WAKE_INTERVAL: Option<u64> = None;
@@ -43,30 +47,53 @@ pub fn preinit() {
 pub struct Bsp;
 impl Bsp {
     pub fn new(eth: &eth::Ethernet, _sys: &Sys) -> Self {
-        // Set up the PHY.
-        let mii_basic_control =
-            eth.smi_read(PHYADDR, eth::SmiClause22Register::Control);
-        let mii_basic_control = mii_basic_control
-        | 1 << 12 // AN enable
-        | 1 << 9 // restart autoneg
-        ;
-        eth.smi_write(
-            PHYADDR,
-            eth::SmiClause22Register::Control,
-            mii_basic_control,
-        );
-
-        // Wait for link-up
-        while eth.smi_read(PHYADDR, eth::SmiClause22Register::Status) & (1 << 2)
-            == 0
-        {
-            userlib::hl::sleep_for(1);
-        }
+        // Unlike most Microchip PHYs, the LAN8742A-CZ-TR does not use register
+        // 31 to switch between register pages (since it only uses page 0).
+        // This means that we use the _raw read and write functions, since the
+        // higher-level funtions assume page switching.
+        let phy = MiimBridge::new(eth);
+        let mut r = phy
+            .read_raw(PHYADDR, phy::STANDARD::MODE_CONTROL())
+            .unwrap();
+        r.set_auto_neg_ena(1);
+        r.set_restart_auto_neg(1);
+        phy.write_raw(PHYADDR, phy::STANDARD::MODE_CONTROL(), r)
+            .unwrap();
 
         Self {}
     }
 
     pub fn wake(&self, _eth: &eth::Ethernet) {
         panic!("Wake should never be called, because WAKE_INTERVAL is None");
+    }
+
+    pub fn phy_read(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        eth: &eth::Ethernet,
+    ) -> Result<u16, NetError> {
+        if port != 0 {
+            return Err(NetError::InvalidPort);
+        }
+        let phy = MiimBridge::new(eth);
+        let out = phy.read_raw(PHYADDR, reg).map_err(|_| NetError::Other)?;
+        Ok(out)
+    }
+
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &eth::Ethernet,
+    ) -> Result<(), NetError> {
+        if port != 0 {
+            return Err(NetError::InvalidPort);
+        }
+        let phy = MiimBridge::new(eth);
+        phy.write_raw(PHYADDR, reg, value)
+            .map_err(|_| NetError::Other)?;
+        Ok(())
     }
 }

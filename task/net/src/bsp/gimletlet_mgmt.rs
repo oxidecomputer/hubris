@@ -259,4 +259,23 @@ impl Bsp {
             self.leds.led_off(2).unwrap();
         }
     }
+
+    pub fn phy_read(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        eth: &Ethernet,
+    ) -> Result<T, NetError> {
+        self.mgmt.phy_read(port, reg, eth)
+    }
+
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &Ethernet,
+    ) -> Result<T, NetError> {
+        self.mgmt.phy_write(port, reg, eth, value)
+    }
 }

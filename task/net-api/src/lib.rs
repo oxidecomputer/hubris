@@ -18,6 +18,12 @@ pub enum NetError {
     InvalidVLan = 3,
     QueueFull = 4,
     Other = 5,
+
+    /// The selected port is not valid
+    InvalidPort = 6,
+
+    /// This functionality isn't implemented
+    NotImplemented = 7,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

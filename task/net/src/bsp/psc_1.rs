@@ -6,7 +6,9 @@ use crate::{mgmt, pins};
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
+use task_net_api::NetError;
 use userlib::task_slot;
+use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 
@@ -75,5 +77,24 @@ impl Bsp {
 
     pub fn wake(&self, eth: &eth::Ethernet) {
         self.0.wake(eth);
+    }
+
+    pub fn phy_read(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        eth: &eth::Ethernet,
+    ) -> Result<u16, NetError> {
+        self.0.phy_read(port, reg, eth)
+    }
+
+    pub fn phy_write(
+        &mut self,
+        port: u8,
+        reg: PhyRegisterAddress<u16>,
+        value: u16,
+        eth: &eth::Ethernet,
+    ) -> Result<(), NetError> {
+        self.0.phy_write(port, reg, value, eth)
     }
 }
