@@ -24,6 +24,18 @@ pub enum NetError {
 
     /// This functionality isn't implemented
     NotImplemented = 7,
+
+    PayloadTooLarge = 8,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LargePayloadBehavior {
+    /// If we have a packet with a payload larger than the buffer provided to
+    /// `recv()`, discard it.
+    Discard,
+    /// If we have a packet with a payload larger than the buffer provided to
+    /// `recv()`, return `NetError::PayloadTooLarge`.
+    Fail,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

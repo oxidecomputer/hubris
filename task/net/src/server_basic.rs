@@ -14,7 +14,7 @@ use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, Ipv6Address, Ipv6Cidr,
 };
-use task_net_api::{NetError, SocketName, UdpMetadata};
+use task_net_api::{LargePayloadBehavior, NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
@@ -171,6 +171,7 @@ impl NetServer for ServerImpl<'_> {
         &mut self,
         msg: &userlib::RecvMessage,
         socket: SocketName,
+        large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
     ) -> Result<UdpMetadata, RequestError<NetError>> {
         let socket_index = socket as usize;
@@ -183,25 +184,34 @@ impl NetServer for ServerImpl<'_> {
         }
 
         let socket = self.get_socket_mut(socket_index)?;
-        match socket.recv() {
-            Ok((body, endp)) => {
-                if payload.len() < body.len() {
-                    return Err(RequestError::Fail(ClientError::BadLease));
-                }
-                payload
-                    .write_range(0..body.len(), body)
-                    .map_err(|_| RequestError::went_away())?;
+        loop {
+            match socket.recv() {
+                Ok((body, endp)) => {
+                    if payload.len() < body.len() {
+                        match large_payload_behavior {
+                            LargePayloadBehavior::Discard => continue,
+                            LargePayloadBehavior::Fail => {
+                                return Err(NetError::PayloadTooLarge.into());
+                            }
+                        }
+                    }
+                    payload
+                        .write_range(0..body.len(), body)
+                        .map_err(|_| RequestError::went_away())?;
 
-                Ok(UdpMetadata {
-                    port: endp.port,
-                    size: body.len() as u32,
-                    addr: endp.addr.try_into().map_err(|_| ()).unwrap(),
-                })
-            }
-            Err(smoltcp::Error::Exhausted) => Err(NetError::QueueEmpty.into()),
-            Err(_) => {
-                // uhhhh TODO
-                Err(NetError::QueueEmpty.into())
+                    return Ok(UdpMetadata {
+                        port: endp.port,
+                        size: body.len() as u32,
+                        addr: endp.addr.try_into().map_err(|_| ()).unwrap(),
+                    });
+                }
+                Err(smoltcp::Error::Exhausted) => {
+                    return Err(NetError::QueueEmpty.into());
+                }
+                Err(_) => {
+                    // uhhhh TODO
+                    return Err(NetError::QueueEmpty.into());
+                }
             }
         }
     }
