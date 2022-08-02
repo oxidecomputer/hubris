@@ -14,7 +14,7 @@ use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, Ipv6Address, Ipv6Cidr,
 };
-use task_net_api::{NetError, SocketName, UdpMetadata};
+use task_net_api::{LargePayloadBehavior, NetError, SocketName, UdpMetadata};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
