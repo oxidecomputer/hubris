@@ -5,6 +5,7 @@
 use crate::{Vsc7448Rw, VscError};
 use drv_spi_api::SpiDevice;
 use ringbuf::*;
+use userlib::UnwrapLite;
 use vsc7448_pac::{types::RegisterAddress, *};
 
 #[derive(Copy, Clone, PartialEq)]
@@ -56,7 +57,8 @@ impl Vsc7448Rw for Vsc7448Spi {
         const SIZE: usize = 7 + SPI_NUM_PAD_BYTES as usize;
         let mut out = [0; SIZE];
         self.0.exchange(data, &mut out[..])?;
-        let value = u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap());
+        let value =
+            u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap_lite());
 
         ringbuf_entry!(Trace::Read {
             addr: reg.addr,
