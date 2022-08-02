@@ -13,13 +13,13 @@ pub enum Mode {
 
 // ob_ena_cas, ob_lev, qrate, des_ana_bw
 pub struct Config {
-    ob_ena1v_mode: u32,
-    ob_ena_cas: u32,
-    ob_lev: u32,
-    pll_fsm_ctrl_data: u32,
-    qrate: u32,
-    if_mode: u32,
-    des_bw_ana: u32,
+    pub ob_ena1v_mode: u32,
+    pub ob_ena_cas: u32,
+    pub ob_lev: u32,
+    pub pll_fsm_ctrl_data: u32,
+    pub qrate: u32,
+    pub if_mode: u32,
+    pub des_bw_ana: u32,
 }
 
 /// This controls how many times we poll the SERDES1 register after a
