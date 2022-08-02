@@ -105,10 +105,10 @@ mod map {
         SGMII,       // 29 | DEV2G5_21 | SERDES6G_21 | Cubby 27
         SGMII,       // 30 | DEV2G5_22 | SERDES6G_22 | Cubby 28
         SGMII,       // 31 | DEV2G5_23 | SERDES6G_23 | Cubby 29
-        QSGMII_100M, // 32 | OH GOD WHY IS THIS NECESSARY
-        QSGMII_100M, // 33 | ^same
-        QSGMII_100M, // 34 | ^same
-        QSGMII_100M, // 35 | ^same
+        None,        // 32
+        None,        // 33
+        None,        // 34
+        None,        // 35
         None,        // 36
         None,        // 37
         None,        // 38
@@ -198,6 +198,18 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
+        const CURSED_SERDES: u8 = 12;
+        let cfg = vsc7448::serdes6g::Config {
+            ob_ena1v_mode: 1,
+            ob_ena_cas: 2,
+            ob_lev: 48,
+            pll_fsm_ctrl_data: 60,
+            qrate: 0, // This has changed
+            if_mode: 1,
+            des_bw_ana: 3,
+        };
+        cfg.apply(CURSED_SERDES, self.vsc7448.rw)?;
+
         // The SERDES6G going to the front IO board needs to be tuned from
         // its default settings, otherwise the signal quality is bad.
         const FRONT_IO_SERDES6G: u8 = 15;
