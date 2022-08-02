@@ -135,32 +135,12 @@ pub use map::PORT_MAP;
 /// which owns the ethernet peripheral containing the MDIO block.
 pub struct NetPhyRw<'a>(&'a mut task_net_api::Net);
 impl<'a> PhyRw for NetPhyRw<'a> {
-    #[inline(always)]
-    fn read_raw<T: From<u16>>(
-        &self,
-        port: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        self.0
-            .smi_read(port, reg.addr)
-            .map(|r| r.into())
-            .map_err(|e| e.into())
+    fn read_raw(&self, port: u8, reg: u8) -> Result<u16, VscError> {
+        Ok(self.0.smi_read(port, reg)?)
     }
 
-    #[inline(always)]
-    fn write_raw<T>(
-        &self,
-        port: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
-        self.0
-            .smi_write(port, reg.addr, value.into())
-            .map_err(|e| e.into())
+    fn write_raw(&self, port: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        Ok(self.0.smi_write(port, reg, value)?)
     }
 }
 
@@ -511,27 +491,14 @@ pub enum GenericPhyRw<'a> {
 
 impl<'a> PhyRw for GenericPhyRw<'a> {
     #[inline(always)]
-    fn read_raw<T: From<u16>>(
-        &self,
-        port: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
+    fn read_raw(&self, port: u8, reg: u8) -> Result<u16, VscError> {
         match self {
             GenericPhyRw::Net(n) => n.read_raw(port, reg),
             GenericPhyRw::FrontIo(n) => n.read_raw(port, reg),
         }
     }
     #[inline(always)]
-    fn write_raw<T>(
-        &self,
-        port: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
+    fn write_raw(&self, port: u8, reg: u8, value: u16) -> Result<(), VscError> {
         match self {
             GenericPhyRw::Net(n) => n.write_raw(port, reg, value),
             GenericPhyRw::FrontIo(n) => n.write_raw(port, reg, value),

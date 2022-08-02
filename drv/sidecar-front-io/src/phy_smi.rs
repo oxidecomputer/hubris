@@ -4,7 +4,6 @@
 
 use crate::{Addr, Reg};
 use drv_fpga_api::{FpgaError, FpgaUserDesign, WriteOp};
-use vsc7448_pac::types::PhyRegisterAddress;
 use vsc85xx::{PhyRw, VscError};
 use zerocopy::{byteorder, AsBytes, FromBytes, Unaligned, U16};
 
@@ -84,16 +83,13 @@ impl PhySmi {
         Ok(())
     }
 
-    fn read_raw_inner<T: From<u16>>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, FpgaError> {
+    #[inline(never)]
+    fn read_raw_inner(&self, phy: u8, reg: u8) -> Result<u16, FpgaError> {
         let request = SmiRequest {
             rdata: U16::new(0),
             wdata: U16::new(0),
             phy,
-            reg: reg.addr,
+            reg,
             ctrl: Reg::PHY_SMI_CTRL::START,
         };
         self.await_not_busy()?;
@@ -103,24 +99,21 @@ impl PhySmi {
         self.await_not_busy()?;
         let v = u16::from_be(self.fpga.read(Addr::PHY_SMI_RDATA_H)?);
 
-        Ok(v.into())
+        Ok(v)
     }
 
-    fn write_raw_inner<T>(
+    #[inline(never)]
+    fn write_raw_inner(
         &self,
         phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), FpgaError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
+        reg: u8,
+        value: u16,
+    ) -> Result<(), FpgaError> {
         let request = SmiRequest {
             rdata: U16::new(0),
-            wdata: U16::new(value.into()),
+            wdata: U16::new(value),
             phy,
-            reg: reg.addr,
+            reg,
             ctrl: Reg::PHY_SMI_CTRL::RW | Reg::PHY_SMI_CTRL::START,
         };
         self.await_not_busy()?;
@@ -130,27 +123,14 @@ impl PhySmi {
 }
 
 impl PhyRw for PhySmi {
-    #[inline]
-    fn read_raw<T: From<u16>>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
+    #[inline(always)]
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
         self.read_raw_inner(phy, reg)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
 
-    #[inline]
-    fn write_raw<T>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
+    #[inline(always)]
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
         self.write_raw_inner(phy, reg, value)
             .map_err(|e| VscError::ProxyError(e.into()))
     }
