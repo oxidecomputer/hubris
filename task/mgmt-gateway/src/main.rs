@@ -288,11 +288,7 @@ impl NetHandler {
                 Err(RecvError::QueueEmpty) => {
                     return;
                 }
-                Err(
-                    RecvError::NotYours
-                    | RecvError::PayloadTooLarge
-                    | RecvError::Other,
-                ) => panic!(),
+                Err(RecvError::NotYours | RecvError::Other) => panic!(),
             }
         }
     }

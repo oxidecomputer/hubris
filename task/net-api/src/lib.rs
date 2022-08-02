@@ -34,11 +34,7 @@ pub enum RecvError {
     /// The incoming rx queue is empty
     QueueEmpty = 2,
 
-    /// The provided buffer was too small for the payload of the recieved
-    /// packet. Only returned if `LargePayloadBehavior::Fail` was passed.
-    PayloadTooLarge = 3,
-
-    Other = 4,
+    Other = 3,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
@@ -54,13 +50,18 @@ pub enum PhyError {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[repr(u32)]
 pub enum LargePayloadBehavior {
     /// If we have a packet with a payload larger than the buffer provided to
     /// `recv()`, discard it.
     Discard,
-    /// If we have a packet with a payload larger than the buffer provided to
-    /// `recv()`, return `RecvError::PayloadTooLarge`.
-    Fail,
+    // We could add a `Fail` case here allowing callers to retry with a
+    // larger payload buffer, but
+    //
+    // a) we have no callers that want to do this today, and
+    // b) it complicates the net implementation
+    //
+    // so we omit it for now.
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
