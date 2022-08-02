@@ -6,7 +6,10 @@ use drv_stm32h7_eth as eth;
 
 use crate::idl;
 use idol_runtime::RequestError;
-use task_net_api::{LargePayloadBehavior, NetError, SocketName, UdpMetadata};
+use task_net_api::{
+    LargePayloadBehavior, PhyError, RecvError, SendError, SocketName,
+    UdpMetadata,
+};
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
 /// server implementations.
@@ -17,7 +20,7 @@ pub trait NetServer {
         socket: SocketName,
         large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<UdpMetadata, RequestError<NetError>>;
+    ) -> Result<UdpMetadata, RequestError<RecvError>>;
 
     fn net_send_packet(
         &mut self,
@@ -25,7 +28,7 @@ pub trait NetServer {
         socket: SocketName,
         metadata: UdpMetadata,
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
-    ) -> Result<(), RequestError<NetError>>;
+    ) -> Result<(), RequestError<SendError>>;
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp);
 }
@@ -38,7 +41,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         socket: SocketName,
         large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<UdpMetadata, RequestError<NetError>> {
+    ) -> Result<UdpMetadata, RequestError<RecvError>> {
         self.net_recv_packet(msg, socket, large_payload_behavior, payload)
     }
 
@@ -48,7 +51,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         socket: SocketName,
         metadata: UdpMetadata,
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
-    ) -> Result<(), RequestError<NetError>> {
+    ) -> Result<(), RequestError<SendError>> {
         self.net_send_packet(msg, socket, metadata, payload)
     }
 
@@ -81,7 +84,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         port: u8,
         page: u16,
         reg: u8,
-    ) -> Result<u16, RequestError<NetError>> {
+    ) -> Result<u16, RequestError<PhyError>> {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
@@ -96,7 +99,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         page: u16,
         reg: u8,
         value: u16,
-    ) -> Result<(), RequestError<NetError>> {
+    ) -> Result<(), RequestError<PhyError>> {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();

@@ -6,7 +6,7 @@ use crate::miim_bridge::MiimBridge;
 use crate::pins;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use task_net_api::NetError;
+use task_net_api::PhyError;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::PhyRw;
 
@@ -72,12 +72,12 @@ impl Bsp {
         port: u8,
         reg: PhyRegisterAddress<u16>,
         eth: &eth::Ethernet,
-    ) -> Result<u16, NetError> {
+    ) -> Result<u16, PhyError> {
         if port != 0 {
-            return Err(NetError::InvalidPort);
+            return Err(PhyError::InvalidPort);
         }
         let phy = MiimBridge::new(eth);
-        let out = phy.read_raw(PHYADDR, reg).map_err(|_| NetError::Other)?;
+        let out = phy.read_raw(PHYADDR, reg).map_err(|_| PhyError::Other)?;
         Ok(out)
     }
 
@@ -87,13 +87,13 @@ impl Bsp {
         reg: PhyRegisterAddress<u16>,
         value: u16,
         eth: &eth::Ethernet,
-    ) -> Result<(), NetError> {
+    ) -> Result<(), PhyError> {
         if port != 0 {
-            return Err(NetError::InvalidPort);
+            return Err(PhyError::InvalidPort);
         }
         let phy = MiimBridge::new(eth);
         phy.write_raw(PHYADDR, reg, value)
-            .map_err(|_| NetError::Other)?;
+            .map_err(|_| PhyError::Other)?;
         Ok(())
     }
 }

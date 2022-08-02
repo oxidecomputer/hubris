@@ -11,6 +11,7 @@ use ksz8463::{
     Error as KszError, MIBCounter, MIBCounterValue, Register as KszRegister,
 };
 use ringbuf::*;
+use task_net_api::PhyError;
 use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
@@ -265,7 +266,7 @@ impl Bsp {
         port: u8,
         reg: PhyRegisterAddress<u16>,
         eth: &Ethernet,
-    ) -> Result<T, NetError> {
+    ) -> Result<T, PhyError> {
         self.mgmt.phy_read(port, reg, eth)
     }
 
@@ -275,7 +276,7 @@ impl Bsp {
         reg: PhyRegisterAddress<u16>,
         value: u16,
         eth: &Ethernet,
-    ) -> Result<T, NetError> {
+    ) -> Result<T, PhyError> {
         self.mgmt.phy_write(port, reg, eth, value)
     }
 }
