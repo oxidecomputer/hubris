@@ -16,7 +16,7 @@ mod serdes10g;
 mod serdes1g;
 
 use crate::config::{PortConfig, PortDev, PortMap, PortMode, PortSerdes};
-use userlib::hl::sleep_for;
+use userlib::{hl::sleep_for, UnwrapLite};
 use vsc7448_pac::{types::RegisterAddress, *};
 
 pub use config::Speed;
@@ -311,8 +311,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
 
         assert_eq!(cfg.dev.0, PortDev::Dev2g5);
-        let d2g5 = DevGeneric::new_2g5(cfg.dev.1).unwrap();
-        let d10g = Dev10g::new(p - 49).unwrap();
+        let d2g5 = DevGeneric::new_2g5(cfg.dev.1).unwrap_lite();
+        let d10g = Dev10g::new(p - 49).unwrap_lite();
         assert_eq!(d2g5.port(), d10g.port());
         assert_eq!(d2g5.port(), p);
 
