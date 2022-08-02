@@ -19,7 +19,7 @@ impl<T, E> UnwrapLite for Result<T, E> {
     type Output = T;
 
     #[track_caller]
-    #[inline]
+    #[inline(always)]
     fn unwrap_lite(self) -> Self::Output {
         match self {
             Ok(x) => x,
@@ -32,7 +32,7 @@ impl<T> UnwrapLite for Option<T> {
     type Output = T;
 
     #[track_caller]
-    #[inline]
+    #[inline(always)]
     fn unwrap_lite(self) -> Self::Output {
         match self {
             Some(x) => x,
