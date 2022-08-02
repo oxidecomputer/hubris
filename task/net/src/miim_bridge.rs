@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 //
 use drv_stm32h7_eth as eth;
-use vsc7448_pac::types::PhyRegisterAddress;
 use vsc85xx::{PhyRw, VscError};
 
 /// Helper struct to implement the `PhyRw` trait using direct access through
@@ -21,26 +20,13 @@ impl<'a> MiimBridge<'a> {
 
 impl PhyRw for MiimBridge<'_> {
     #[inline(always)]
-    fn read_raw<T: From<u16>>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        Ok(self.eth.smi_read(phy, reg.addr).into())
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
+        Ok(self.eth.smi_read(phy, reg))
     }
 
     #[inline(always)]
-    fn write_raw<T>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
-        self.eth.smi_write(phy, reg.addr, value.into());
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        self.eth.smi_write(phy, reg, value);
         Ok(())
     }
 }

@@ -31,23 +31,16 @@ impl Vsc7448Spi {
     pub fn new(spi: SpiDevice) -> Self {
         Self(spi)
     }
-}
 
-impl Vsc7448Rw for Vsc7448Spi {
-    /// Reads from a VSC7448 register.  The register must be in the switch
-    /// core register block, i.e. having an address in the range
-    /// 0x71000000-0x72000000; otherwise, this return an error.
-    fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
-    where
-        T: From<u32>,
-    {
-        if reg.addr < 0x71000000 || reg.addr >= 0x72000000 {
-            return Err(VscError::BadRegAddr(reg.addr));
+    #[inline(never)]
+    fn read_core(&self, orig_addr: u32) -> Result<u32, VscError> {
+        if orig_addr < 0x71000000 || orig_addr >= 0x72000000 {
+            return Err(VscError::BadRegAddr(orig_addr));
         }
 
         // Section 5.5.2 of the VSC7448 datasheet specifies how to convert
         // a register address to a request over SPI.
-        let addr = (reg.addr & 0x00FFFFFF) >> 2;
+        let addr = (orig_addr & 0x00FFFFFF) >> 2;
         let data: &[u8] = &addr.to_be_bytes()[1..];
 
         // We read back 7 + padding bytes in total:
@@ -61,7 +54,7 @@ impl Vsc7448Rw for Vsc7448Spi {
             u32::from_be_bytes(out[SIZE - 4..].try_into().unwrap_lite());
 
         ringbuf_entry!(Trace::Read {
-            addr: reg.addr,
+            addr: orig_addr,
             value
         });
         // The VSC7448 is configured to return 0x88888888 if a register is
@@ -88,7 +81,7 @@ impl Vsc7448Rw for Vsc7448Spi {
             // gone very deeply wrong.  This check also protects us from a
             // stack overflow.
             let if_cfgstat = DEVCPU_ORG().DEVCPU_ORG().IF_CFGSTAT();
-            if reg.addr == if_cfgstat.addr {
+            if orig_addr == if_cfgstat.addr {
                 panic!("Invalid nested read sentinel");
             }
             // This read should _never_ fail for timing reasons because the
@@ -96,10 +89,43 @@ impl Vsc7448Rw for Vsc7448Spi {
             // registers (section 5.3.2 of the datasheet).
             let v = self.read(if_cfgstat)?;
             if v.if_stat() == 1 {
-                return Err(VscError::InvalidRegisterRead(reg.addr));
+                return Err(VscError::InvalidRegisterRead(orig_addr));
             }
         }
-        Ok(value.into())
+        Ok(value)
+    }
+
+    #[inline(never)]
+    fn write_core(&self, reg_addr: u32, value: u32) -> Result<(), VscError> {
+        if reg_addr < 0x71000000 || reg_addr >= 0x72000000 {
+            return Err(VscError::BadRegAddr(reg_addr));
+        }
+
+        let addr = (reg_addr & 0x00FFFFFF) >> 2;
+        let mut data: [u8; 7] = [0; 7];
+        data[..3].copy_from_slice(&addr.to_be_bytes()[1..]);
+        data[3..].copy_from_slice(&value.to_be_bytes());
+        data[0] |= 0x80; // Indicates that this is a write
+
+        ringbuf_entry!(Trace::Write {
+            addr: reg_addr,
+            value,
+        });
+        self.0.write(&data[..])?;
+        Ok(())
+    }
+}
+
+impl Vsc7448Rw for Vsc7448Spi {
+    /// Reads from a VSC7448 register.  The register must be in the switch
+    /// core register block, i.e. having an address in the range
+    /// 0x71000000-0x72000000; otherwise, this return an error.
+    #[inline(always)]
+    fn read<T>(&self, reg: RegisterAddress<T>) -> Result<T, VscError>
+    where
+        T: From<u32>,
+    {
+        Ok(self.read_core(reg.addr)?.into())
     }
 
     /// Writes to a VSC7448 register.  This will overwrite the entire register;
@@ -108,6 +134,7 @@ impl Vsc7448Rw for Vsc7448Spi {
     /// The register must be in the switch core register block, i.e. having an
     /// address in the range 0x71000000-0x72000000; otherwise, this will
     /// return an error.
+    #[inline(always)]
     fn write<T>(
         &self,
         reg: RegisterAddress<T>,
@@ -116,22 +143,6 @@ impl Vsc7448Rw for Vsc7448Spi {
     where
         u32: From<T>,
     {
-        if reg.addr < 0x71000000 || reg.addr >= 0x72000000 {
-            return Err(VscError::BadRegAddr(reg.addr));
-        }
-
-        let addr = (reg.addr & 0x00FFFFFF) >> 2;
-        let value = u32::from(value);
-        let mut data: [u8; 7] = [0; 7];
-        data[..3].copy_from_slice(&addr.to_be_bytes()[1..]);
-        data[3..].copy_from_slice(&value.to_be_bytes());
-        data[0] |= 0x80; // Indicates that this is a write
-
-        ringbuf_entry!(Trace::Write {
-            addr: reg.addr,
-            value
-        });
-        self.0.write(&data[..])?;
-        Ok(())
+        self.write_core(reg.addr, u32::from(value))
     }
 }

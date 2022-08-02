@@ -18,6 +18,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
     /// Applies a patch to the 8051 microcode inside the PHY, based on
     /// `vtss_phy_pre_init_seq_viper` in the SDK, which calls
     /// `vtss_phy_pre_init_seq_viper_rev_b`
+    #[inline(never)]
     pub(crate) fn patch(&mut self) -> Result<(), VscError> {
         ringbuf_entry!(Trace::ViperPatch(self.phy.port));
 
