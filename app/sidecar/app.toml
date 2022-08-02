@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "sidecar"
-requires = {flash = 32768, ram = 8192}
+requires = {flash = 22776, ram = 5232}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
