@@ -34,6 +34,10 @@ enum Xtask {
         edges: bool,
         /// Path to the image configuration file, in TOML.
         cfg: PathBuf,
+        /// Allow operation in a dirty checkout, i.e. don't clean before
+        /// rebuilding even if it looks like we need to.
+        #[clap(long)]
+        dirty: bool,
     },
 
     /// Builds one or more cross-compiled binary as it would appear in the
@@ -55,12 +59,20 @@ enum Xtask {
         /// Name of task(s) to build.
         #[clap(min_values = 1, conflicts_with = "list")]
         tasks: Vec<String>,
+        /// Allow operation in a dirty checkout, i.e. don't clean before
+        /// rebuilding even if it looks like we need to.
+        #[clap(long)]
+        dirty: bool,
     },
 
     /// Runs `xtask dist` and flashes the image onto an attached target
     Flash {
         #[clap(flatten)]
         args: HumilityArgs,
+        /// Allow operation in a dirty checkout, i.e. don't clean before
+        /// rebuilding even if it looks like we need to.
+        #[clap(long)]
+        dirty: bool,
     },
 
     /// Runs `xtask dist`, `xtask flash` and then `humility gdb`
@@ -88,6 +100,10 @@ enum Xtask {
         /// Write JSON out to a file?
         #[clap(long)]
         save: bool,
+        /// Allow operation in a dirty checkout, i.e. don't clean before
+        /// rebuilding even if it looks like we need to.
+        #[clap(long)]
+        dirty: bool,
     },
 
     /// Runs `humility`, passing any arguments
@@ -173,8 +189,9 @@ fn run(xtask: Xtask) -> Result<()> {
             verbose,
             edges,
             cfg,
+            dirty,
         } => {
-            let allocs = dist::package(verbose, edges, &cfg, None)?;
+            let allocs = dist::package(verbose, edges, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, true, false, false)?;
             }
@@ -185,15 +202,16 @@ fn run(xtask: Xtask) -> Result<()> {
             list,
             cfg,
             tasks,
+            dirty,
         } => {
             if list {
                 dist::list_tasks(&cfg)?;
             } else {
-                dist::package(verbose, edges, &cfg, Some(tasks))?;
+                dist::package(verbose, edges, &cfg, Some(tasks), dirty)?;
             }
         }
-        Xtask::Flash { mut args } => {
-            dist::package(args.verbose, false, &args.cfg, None)?;
+        Xtask::Flash { dirty, mut args } => {
+            dist::package(args.verbose, false, &args.cfg, None, dirty)?;
             let toml = Config::from_file(&args.cfg)?;
             let chip = ["-c", crate::flash::chip_name(&toml.board)?];
             args.extra_options.push("--force".to_string());
@@ -214,8 +232,9 @@ fn run(xtask: Xtask) -> Result<()> {
             cfg,
             compare,
             save,
+            dirty,
         } => {
-            let allocs = dist::package(verbose, false, &cfg, None)?;
+            let allocs = dist::package(verbose, false, &cfg, None, dirty)?;
             for (_, (a, _)) in allocs {
                 sizes::run(&cfg, &a, false, compare, save)?;
             }
@@ -243,7 +262,7 @@ fn run(xtask: Xtask) -> Result<()> {
                 &toml.image_names[0]
             };
             if !noflash {
-                dist::package(args.verbose, false, &args.cfg, None)?;
+                dist::package(args.verbose, false, &args.cfg, None, false)?;
                 // Delegate flashing to `humility gdb`, which also modifies
                 // the GDB startup script slightly (adding `stepi`)
                 args.extra_options.push("--load".to_string());
@@ -261,7 +280,10 @@ fn run(xtask: Xtask) -> Result<()> {
                 &toml.image_names[0]
             };
             if !noflash {
-                run(Xtask::Flash { args: args.clone() })?;
+                run(Xtask::Flash {
+                    args: args.clone(),
+                    dirty: false,
+                })?;
             }
             humility::run(&args, &[], Some("test"), false, &image_name)?;
         }

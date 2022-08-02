@@ -191,6 +191,7 @@ pub fn package(
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
+    dirty_ok: bool,
 ) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
@@ -215,7 +216,11 @@ pub fn package(
         };
 
     std::fs::create_dir_all(&cfg.dist_dir)?;
-    check_rebuild(&cfg.toml)?;
+    if dirty_ok {
+        println!("note: not doing a clean build because you asked for it");
+    } else {
+        check_rebuild(&cfg.toml)?;
+    }
 
     // Build all tasks (which are relocatable executables, so they are not
     // statically linked yet). For now, we build them one by one and ignore the
