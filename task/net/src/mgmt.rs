@@ -8,7 +8,7 @@ use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
 use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
 use ringbuf::*;
-use task_net_api::NetError;
+use task_net_api::PhyError;
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
@@ -188,16 +188,16 @@ impl Bsp {
         port: u8,
         reg: PhyRegisterAddress<u16>,
         eth: &Ethernet,
-    ) -> Result<u16, NetError> {
+    ) -> Result<u16, PhyError> {
         if port >= 2 {
-            Err(NetError::InvalidPort.into())
+            Err(PhyError::InvalidPort.into())
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
                 .phy(port, rw)
                 .phy
                 .read(reg)
-                .map_err(|_| NetError::Other)
+                .map_err(|_| PhyError::Other)
         }
     }
 
@@ -208,16 +208,16 @@ impl Bsp {
         reg: PhyRegisterAddress<u16>,
         value: u16,
         eth: &Ethernet,
-    ) -> Result<(), NetError> {
+    ) -> Result<(), PhyError> {
         if port >= 2 {
-            Err(NetError::InvalidPort.into())
+            Err(PhyError::InvalidPort.into())
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
                 .phy(port, rw)
                 .phy
                 .write(reg, value)
-                .map_err(|_| NetError::Other)
+                .map_err(|_| PhyError::Other)
         }
     }
 

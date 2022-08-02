@@ -14,7 +14,9 @@ use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, Ipv6Address, Ipv6Cidr,
 };
-use task_net_api::{LargePayloadBehavior, NetError, SocketName, UdpMetadata};
+use task_net_api::{
+    LargePayloadBehavior, RecvError, SendError, SocketName, UdpMetadata,
+};
 use userlib::{sys_post, sys_refresh_task_id};
 
 use crate::generated::{self, SOCKET_COUNT};
@@ -132,14 +134,11 @@ impl<'a> ServerImpl<'a> {
     /// You often want `get_socket_mut` instead of this, but since it claims
     /// `self` mutably, it is sometimes useful to inline it by calling this
     /// followed by `eth.get_socket`.
-    fn get_handle(
-        &self,
-        index: usize,
-    ) -> Result<SocketHandle, RequestError<NetError>> {
+    fn get_handle(&self, index: usize) -> Result<SocketHandle, ClientError> {
         self.socket_handles
             .get(index)
             .cloned()
-            .ok_or(RequestError::Fail(ClientError::BadMessageContents))
+            .ok_or(ClientError::BadMessageContents)
     }
 
     /// Gets the socket `index`. If `index` is out of range, returns
@@ -149,7 +148,7 @@ impl<'a> ServerImpl<'a> {
     fn get_socket_mut(
         &mut self,
         index: usize,
-    ) -> Result<&mut UdpSocket<'a>, RequestError<NetError>> {
+    ) -> Result<&mut UdpSocket<'a>, ClientError> {
         Ok(self.iface.get_socket::<UdpSocket>(self.get_handle(index)?))
     }
 
@@ -173,17 +172,19 @@ impl NetServer for ServerImpl<'_> {
         socket: SocketName,
         large_payload_behavior: LargePayloadBehavior,
         payload: idol_runtime::Leased<idol_runtime::W, [u8]>,
-    ) -> Result<UdpMetadata, RequestError<NetError>> {
+    ) -> Result<UdpMetadata, RequestError<RecvError>> {
         let socket_index = socket as usize;
 
         // Check that the task owns the socket.
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
-            return Err(NetError::NotYours.into());
+            return Err(RecvError::NotYours.into());
         }
 
-        let socket = self.get_socket_mut(socket_index)?;
+        let socket = self
+            .get_socket_mut(socket_index)
+            .map_err(RequestError::Fail)?;
         loop {
             match socket.recv() {
                 Ok((body, endp)) => {
@@ -191,7 +192,7 @@ impl NetServer for ServerImpl<'_> {
                         match large_payload_behavior {
                             LargePayloadBehavior::Discard => continue,
                             LargePayloadBehavior::Fail => {
-                                return Err(NetError::PayloadTooLarge.into());
+                                return Err(RecvError::PayloadTooLarge.into());
                             }
                         }
                     }
@@ -206,11 +207,11 @@ impl NetServer for ServerImpl<'_> {
                     });
                 }
                 Err(smoltcp::Error::Exhausted) => {
-                    return Err(NetError::QueueEmpty.into());
+                    return Err(RecvError::QueueEmpty.into());
                 }
                 Err(_) => {
                     // uhhhh TODO
-                    return Err(NetError::QueueEmpty.into());
+                    return Err(RecvError::QueueEmpty.into());
                 }
             }
         }
@@ -224,15 +225,17 @@ impl NetServer for ServerImpl<'_> {
         socket: SocketName,
         metadata: UdpMetadata,
         payload: idol_runtime::Leased<idol_runtime::R, [u8]>,
-    ) -> Result<(), RequestError<NetError>> {
+    ) -> Result<(), RequestError<SendError>> {
         let socket_index = socket as usize;
         if generated::SOCKET_OWNERS[socket_index].0.index()
             != msg.sender.index()
         {
-            return Err(NetError::NotYours.into());
+            return Err(SendError::NotYours.into());
         }
 
-        let socket = self.get_socket_mut(socket_index)?;
+        let socket = self
+            .get_socket_mut(socket_index)
+            .map_err(RequestError::Fail)?;
         match socket.send(payload.len(), metadata.into()) {
             Ok(buf) => {
                 payload
@@ -243,11 +246,11 @@ impl NetServer for ServerImpl<'_> {
             }
             Err(smoltcp::Error::Exhausted) => {
                 self.client_waiting_to_send[socket_index] = true;
-                Err(NetError::QueueFull.into())
+                Err(SendError::QueueFull.into())
             }
             Err(_e) => {
                 // uhhhh TODO
-                Err(NetError::Other.into())
+                Err(SendError::Other.into())
             }
         }
     }

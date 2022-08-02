@@ -30,7 +30,8 @@ cfg_if::cfg_if! {
 
 mod idl {
     use task_net_api::{
-        LargePayloadBehavior, NetError, SocketName, UdpMetadata,
+        LargePayloadBehavior, PhyError, RecvError, SendError, SocketName,
+        UdpMetadata,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

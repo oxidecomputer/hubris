@@ -15,7 +15,7 @@ Interface(
             },
             reply: Result(
                 ok: "UdpMetadata",
-                err: CLike("NetError"),
+                err: CLike("RecvError"),
             ),
         ),
         "send_packet": (
@@ -30,7 +30,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("NetError"),
+                err: CLike("SendError"),
             ),
         ),
         "smi_read": (
@@ -65,7 +65,7 @@ Interface(
             },
             reply: Result(
                 ok: "u16",
-                err: CLike("NetError"),
+                err: CLike("PhyError"),
             ),
         ),
         "write_phy_reg": (
@@ -78,7 +78,7 @@ Interface(
             },
             reply: Result(
                 ok: "()",
-                err: CLike("NetError"),
+                err: CLike("PhyError"),
             ),
         ),
     },

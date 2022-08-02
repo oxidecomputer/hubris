@@ -13,7 +13,8 @@ use gateway_messages::{
 };
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_net_api::{
-    Address, LargePayloadBehavior, Net, NetError, SocketName, UdpMetadata,
+    Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
+    UdpMetadata,
 };
 use tinyvec::ArrayVec;
 use userlib::{
@@ -34,7 +35,7 @@ enum Log {
     Wake(u32),
     Rx(UdpMetadata),
     DispatchError(MgsDispatchError),
-    SendError(NetError),
+    SendError(SendError),
     MgsMessage(MgsMessage),
     UsartTx { num_bytes: usize },
     UsartTxFull { remaining: usize },
@@ -241,7 +242,7 @@ impl NetHandler {
                     &self.tx_buf[..meta.size as usize],
                 ) {
                     Ok(()) => (),
-                    Err(err @ NetError::QueueFull) => {
+                    Err(err @ SendError::QueueFull) => {
                         ringbuf_entry!(Log::SendError(err));
 
                         // "Re-enqueue" packet and return; we'll wait until
@@ -284,17 +285,13 @@ impl NetHandler {
                 Ok(meta) => {
                     self.handle_received_packet(meta, mgs_handler);
                 }
-                Err(NetError::QueueEmpty) => {
+                Err(RecvError::QueueEmpty) => {
                     return;
                 }
                 Err(
-                    NetError::NotYours
-                    | NetError::InvalidVLan
-                    | NetError::QueueFull
-                    | NetError::PayloadTooLarge
-                    | NetError::InvalidPort
-                    | NetError::NotImplemented
-                    | NetError::Other,
+                    RecvError::NotYours
+                    | RecvError::PayloadTooLarge
+                    | RecvError::Other,
                 ) => panic!(),
             }
         }

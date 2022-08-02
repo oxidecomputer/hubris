@@ -11,7 +11,7 @@ use ksz8463::{
     Register as KszRegister,
 };
 use ringbuf::*;
-use task_net_api::NetError;
+use task_net_api::PhyError;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::types::PhyRegisterAddress;
 
@@ -119,8 +119,8 @@ impl Bsp {
         _port: u8,
         _reg: PhyRegisterAddress<u16>,
         _eth: &eth::Ethernet,
-    ) -> Result<u16, NetError> {
-        Err(NetError::NotImplemented)
+    ) -> Result<u16, PhyError> {
+        Err(PhyError::NotImplemented)
     }
 
     /// Calls a function on a `Phy` associated with the given port.
@@ -130,7 +130,7 @@ impl Bsp {
         _reg: PhyRegisterAddress<u16>,
         _value: u16,
         _eth: &eth::Ethernet,
-    ) -> Result<u16, NetError> {
-        Err(NetError::NotImplemented)
+    ) -> Result<u16, PhyError> {
+        Err(PhyError::NotImplemented)
     }
 }

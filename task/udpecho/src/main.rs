@@ -36,36 +36,26 @@ fn main() -> ! {
                 loop {
                     match net.send_packet(SOCKET, meta, tx_bytes) {
                         Ok(()) => break,
-                        Err(NetError::QueueFull) => {
+                        Err(SendError::QueueFull) => {
                             // Our outgoing queue is full; wait for space.
                             sys_recv_closed(&mut [], 1, TaskId::KERNEL)
                                 .unwrap();
                         }
-                        Err(NetError::NotYours) => panic!(),
-                        Err(NetError::InvalidVLan) => panic!(),
-                        Err(NetError::Other) => panic!(),
-                        // `send_packet()` can't return these errors
-                        Err(NetError::QueueEmpty) => unreachable!(),
-                        Err(NetError::InvalidPort) => unreachable!(),
-                        Err(NetError::NotImplemented) => unreachable!(),
-                        Err(NetError::PayloadTooLarge) => unreachable!(),
+                        Err(SendError::NotYours) => panic!(),
+                        Err(SendError::InvalidVLan) => panic!(),
+                        Err(SendError::Other) => panic!(),
                     }
                 }
             }
-            Err(NetError::QueueEmpty) => {
+            Err(RecvError::QueueEmpty) => {
                 // Our incoming queue is empty. Wait for more packets.
                 sys_recv_closed(&mut [], 1, TaskId::KERNEL).unwrap();
             }
-            Err(NetError::NotYours) => panic!(),
-            Err(NetError::InvalidVLan) => panic!(),
-            Err(NetError::Other) => panic!(),
-            // `recv_packet()` can't return these errors
-            Err(NetError::QueueFull) => unreachable!(),
-            Err(NetError::InvalidPort) => unreachable!(),
-            Err(NetError::NotImplemented) => unreachable!(),
+            Err(RecvError::NotYours) => panic!(),
+            Err(RecvError::Other) => panic!(),
             // We passed `LargePayloadBehavior::Discard`, so we should never get
             // this error.
-            Err(NetError::PayloadTooLarge) => unreachable!(),
+            Err(RecvError::PayloadTooLarge) => unreachable!(),
         }
 
         // Try again.

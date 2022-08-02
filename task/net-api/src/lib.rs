@@ -12,20 +12,45 @@ use userlib::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
-pub enum NetError {
-    QueueEmpty = 1,
-    NotYours = 2,
-    InvalidVLan = 3,
-    QueueFull = 4,
-    Other = 5,
+pub enum SendError {
+    /// The selected socket is not owned by this task
+    NotYours = 1,
 
+    /// The specified VID is not in the configured range
+    InvalidVLan = 2,
+
+    /// The outgoing tx queue is full
+    QueueFull = 3,
+
+    Other = 4,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[repr(u32)]
+pub enum RecvError {
+    /// The selected socket is not owned by this task
+    NotYours = 1,
+
+    /// The incoming rx queue is empty
+    QueueEmpty = 2,
+
+    /// The provided buffer was too small for the payload of the recieved
+    /// packet. Only returned if `LargePayloadBehavior::Fail` was passed.
+    PayloadTooLarge = 3,
+
+    Other = 4,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[repr(u32)]
+pub enum PhyError {
     /// The selected port is not valid
-    InvalidPort = 6,
+    InvalidPort = 1,
 
     /// This functionality isn't implemented
-    NotImplemented = 7,
+    NotImplemented = 2,
 
-    PayloadTooLarge = 8,
+    Other = 3,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -34,7 +59,7 @@ pub enum LargePayloadBehavior {
     /// `recv()`, discard it.
     Discard,
     /// If we have a packet with a payload larger than the buffer provided to
-    /// `recv()`, return `NetError::PayloadTooLarge`.
+    /// `recv()`, return `RecvError::PayloadTooLarge`.
     Fail,
 }
 
