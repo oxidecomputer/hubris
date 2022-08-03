@@ -12,6 +12,9 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "family-stm32g0")] {
         use stm32g0 as pac;
 
+        #[cfg(feature = "g030")]
+        use stm32g0::stm32g030 as device;
+
         #[cfg(feature = "g031")]
         use stm32g0::stm32g031 as device;
 
