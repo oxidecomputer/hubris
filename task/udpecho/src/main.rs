@@ -53,9 +53,6 @@ fn main() -> ! {
             }
             Err(RecvError::NotYours) => panic!(),
             Err(RecvError::Other) => panic!(),
-            // We passed `LargePayloadBehavior::Discard`, so we should never get
-            // this error.
-            Err(RecvError::PayloadTooLarge) => unreachable!(),
         }
 
         // Try again.

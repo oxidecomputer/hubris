@@ -191,9 +191,9 @@ impl NetServer for ServerImpl<'_> {
                     if payload.len() < body.len() {
                         match large_payload_behavior {
                             LargePayloadBehavior::Discard => continue,
-                            LargePayloadBehavior::Fail => {
-                                return Err(RecvError::PayloadTooLarge.into());
-                            }
+                            // If we add a `::Fail` case, we will need to
+                            // allow for caller retries (possibly by peeking
+                            // on the socket instead of recving)
                         }
                     }
                     payload
