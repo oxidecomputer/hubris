@@ -245,6 +245,20 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    pub fn reinit_sgmii(&self, p: u8, cfg: PortConfig) -> Result<(), VscError> {
+        assert!(matches!(cfg.mode, PortMode::Sgmii(_)));
+
+        let dev = match cfg.dev.0 {
+            PortDev::Dev1g => DevGeneric::new_1g,
+            PortDev::Dev2g5 => DevGeneric::new_2g5,
+            _ => panic!("Invalid dev for SGMII"),
+        }(cfg.dev.1)?;
+        assert_eq!(dev.port(), p);
+
+        dev.init_sgmii(self.rw, cfg.mode.speed())?;
+        Ok(())
+    }
+
     /// Enables QSGMII mode for blocks of four ports beginning at `start_port`.
     /// This will configure the appropriate DEV1G or DEV2G5 devices, and the
     /// appropriate SERDES6G, based on Table 8 in the datasheet;

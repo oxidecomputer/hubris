@@ -7,8 +7,8 @@ use drv_sidecar_seq_api::{SeqError, Sequencer};
 use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
-use vsc7448::{Vsc7448, Vsc7448Rw, VscError};
-use vsc7448_pac::{phy, types::PhyRegisterAddress, HSIO};
+use vsc7448::{config::Speed, Vsc7448, Vsc7448Rw, VscError};
+use vsc7448_pac::{types::PhyRegisterAddress, HSIO};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -24,11 +24,14 @@ pub const WAKE_INTERVAL: Option<u64> = Some(500);
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    Vsc8504ModeStatus { port: u8, status: u16 },
-    Vsc8504MacStatus { port: u8, status: u16 },
     MacAddress(vsc7448::mac::MacTableEntry),
     Vsc7448Error(VscError),
-    Vsc8504Error(VscError),
+    FrontIoSpeedChange {
+        port: u8,
+        before: Speed,
+        after: Speed,
+    },
+    AnegCheckFailed(VscError),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -51,8 +54,14 @@ pub struct Bsp<'a, R> {
     vsc8562: Option<PhySmi>,
 
     known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
-    vsc8504_mode_status: [u16; 4],
-    vsc8504_mac_status: [u16; 4],
+
+    /// Configured speed of ports on the front IO board, from the perspective of
+    /// the VSC7448.
+    ///
+    /// They are initially configured to 1G, but the VSC8562 PHY may
+    /// autonegotiate to a different speed, in which case we have to reconfigure
+    /// the port on the VSC7448 to match.
+    front_io_speed: [Speed; 2],
 }
 
 pub const REFCLK_SEL: vsc7448::RefClockFreq =
@@ -119,8 +128,8 @@ mod map {
         QSGMII_100M, // 43 | Unused
         QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
         QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
-        QSGMII_1G,   // 46 | Unused
-        QSGMII_1G,   // 47 | Unused
+        None,        // 46 | Unused
+        None,        // 47 | Unused
         SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
         BASE_KR,     // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
         None,        // 50 | Unused
@@ -201,8 +210,7 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             },
             net,
             known_macs: [None; MAC_SEEN_COUNT],
-            vsc8504_mode_status: [0; 4],
-            vsc8504_mac_status: [0; 4],
+            front_io_speed: [Speed::Speed1G; 2],
         };
         out.init()?;
         Ok(out)
@@ -415,36 +423,57 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         Ok(())
     }
 
+    fn check_aneg_speed(
+        &mut self,
+        switch_port: u8,
+        phy_port: u8,
+    ) -> Result<(), VscError> {
+        if let Some(phy_rw) = &mut self.vsc8562 {
+            use vsc7448::config::PortMode;
+            use vsc7448_pac::phy::*;
+
+            let phy = vsc85xx::Phy::new(phy_port, phy_rw);
+            let status = phy.read(STANDARD::MODE_STATUS())?;
+
+            // If autonegotiation is complete, then decide on a speed
+            let target_speed = if status.0 & (1 << 5) != 0 {
+                let status = phy.read(STANDARD::REG_1000BASE_T_STATUS())?;
+                // Check "LP 1000BASE-T FDX capable" bit
+                if status.0 & (1 << 11) != 0 {
+                    Some(Speed::Speed1G)
+                } else {
+                    Some(Speed::Speed100M)
+                }
+                // TODO: 10M?
+            } else {
+                None
+            };
+            if let Some(target_speed) = target_speed {
+                let current_speed = self.front_io_speed[phy_port as usize];
+                if target_speed != current_speed {
+                    ringbuf_entry!(Trace::FrontIoSpeedChange {
+                        port: switch_port,
+                        before: current_speed,
+                        after: target_speed,
+                    });
+                    let mut cfg = PORT_MAP.port_config(switch_port).unwrap();
+                    cfg.mode = PortMode::Sgmii(target_speed);
+                    self.vsc7448.reinit_sgmii(switch_port, cfg)?;
+                    self.front_io_speed[phy_port as usize] = target_speed;
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn wake(&mut self) -> Result<(), VscError> {
-        for port in 0..4 {
-            let rw = &mut NetPhyRw(&mut self.net);
-            let vsc8504 = self.vsc8504.phy(port, rw);
-            match vsc8504.phy.read(phy::STANDARD::MODE_STATUS()) {
-                Ok(status) => {
-                    let status = u16::from(status);
-                    if status != self.vsc8504_mode_status[port as usize] {
-                        ringbuf_entry!(Trace::Vsc8504ModeStatus {
-                            port,
-                            status
-                        });
-                        self.vsc8504_mode_status[port as usize] = status;
-                    }
-                }
-                Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
-            };
-            match vsc8504.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
-                Ok(status) => {
-                    let status = u16::from(status);
-                    if status != self.vsc8504_mac_status[port as usize] {
-                        ringbuf_entry!(Trace::Vsc8504MacStatus {
-                            port,
-                            status
-                        });
-                        self.vsc8504_mac_status[port as usize] = status;
-                    }
-                }
-                Err(e) => ringbuf_entry!(Trace::Vsc8504Error(e)),
-            };
+        // Check for autonegotiation on the front IO board, then reconfigure
+        // on the switch side to change speeds.
+        for port in 44..=45 {
+            match self.check_aneg_speed(port, port - 44) {
+                Ok(()) => (),
+                Err(e) => ringbuf_entry!(Trace::AnegCheckFailed(e)),
+            }
         }
 
         // Dump the MAC tables
