@@ -1,13 +1,13 @@
-name = "demo-stm32g031-nucleo"
+name = "donglet-g030"
 target = "thumbv6m-none-eabi"
 chip = "../../chips/stm32g0"
-memory = "memory-g031x8.toml"
-board = "stm32g031-nucleo"
+memory = "memory-g030x6.toml"
+board = "donglet-g030"
 
 [kernel]
-name = "demo-stm32g0-nucleo"
+name = "app-donglet"
 requires = {flash = 11702, ram = 1536}
-features = ["g031", "panic-halt"]
+features = ["g030", "panic-halt"]
 stacksize = 640
 
 [tasks.jefe]
@@ -24,9 +24,8 @@ priority = 1
 max-sizes = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
-features = ["g031"]
+features = ["g030"]
 stacksize = 256
-task-slots = ["jefe"]
 
 [tasks.pong]
 name = "task-pong"
@@ -60,3 +59,4 @@ priority = 5
 max-sizes = {flash = 128, ram = 64}
 stacksize = 64
 start = true
+features = ["insomniac"]

@@ -17,6 +17,8 @@ cfg_if::cfg_if! {
         cfg_if::cfg_if! {
             if #[cfg(feature = "model-stm32g031")] {
                 use pac::stm32g031 as device;
+            } else if #[cfg(feature = "model-stm32g030")] {
+                use pac::stm32g030 as device;
             } else if #[cfg(feature = "model-stm32g070")] {
                 use pac::stm32g070 as device;
             } else if #[cfg(feature = "model-stm32g0b1")] {
