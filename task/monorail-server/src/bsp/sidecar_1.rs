@@ -128,8 +128,8 @@ mod map {
         QSGMII_100M, // 43 | Unused
         QSGMII_1G,   // 44 | DEV1G_20  | SERDES6G_15 | Technician 1
         QSGMII_1G,   // 45 | DEV1G_21  | SERDES6G_15 | Technician 2
-        None,        // 46 | Unused
-        None,        // 47 | Unused
+        None,        // 46 | Unused (configured in QSGMII mode by port 44)
+        None,        // 47 | Unused (configured in QSGMII mode by port 44)
         SGMII,       // 48 | DEV2G5_24 | SERDES1G_0 | Local SP
         BASE_KR,     // 49 | DEV10G_0  | SERDES10G_0 | Tofino 2
         None,        // 50 | Unused

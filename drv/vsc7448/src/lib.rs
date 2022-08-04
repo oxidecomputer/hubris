@@ -245,6 +245,10 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Reconfigures the given port.
+    ///
+    /// The SERDES is not changed; this function is mostly used to change port
+    /// speed after an attached PHY completes autonegotiation.
     pub fn reinit_sgmii(&self, p: u8, cfg: PortConfig) -> Result<(), VscError> {
         assert!(matches!(cfg.mode, PortMode::Sgmii(_)));
 
