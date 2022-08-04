@@ -44,6 +44,9 @@ const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
 // driver will process at a time.
 const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * 32;
 
+// Must match app.toml!
+const FLASH_IRQ: u32 = 1 << 0;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EraseStart,
@@ -108,6 +111,10 @@ impl<'a> ServerImpl<'a> {
             }
         }
 
+        self.bank2_status()
+    }
+
+    fn bank2_status(&self) -> Result<(), RequestError<UpdateError>> {
         let err = self.flash.bank2().sr.read();
 
         if err.dbeccerr().bit() {
@@ -172,7 +179,13 @@ impl<'a> ServerImpl<'a> {
             return Err(UpdateError::BadLength.into());
         }
 
-        self.flash.bank2().cr.write(|w| w.pg().set_bit());
+        self.flash.bank2().cr.write(|w| {
+            // SAFETY
+            // The `psize().bits(_)` function is marked unsafe in the stm32
+            // crate because it allows arbitrary bit patterns. `0b11`
+            // corresponds to 64-bit parallelism.
+            unsafe { w.psize().bits(0b11) }.pg().set_bit()
+        });
 
         for (i, c) in bytes.chunks_exact(4).enumerate() {
             let mut word: [u8; 4] = [0; 4];
@@ -221,12 +234,41 @@ impl<'a> ServerImpl<'a> {
 
     fn bank_erase(&mut self) -> Result<(), RequestError<UpdateError>> {
         ringbuf_entry!(Trace::EraseStart);
+
+        // Enable relevant interrupts for completion (or failure) of erasing
+        // bank2.
+        sys_irq_control(FLASH_IRQ, true);
+        self.flash.bank2().cr.modify(|_, w| {
+            w.eopie()
+                .set_bit()
+                .wrperrie()
+                .set_bit()
+                .pgserrie()
+                .set_bit()
+                .strberrie()
+                .set_bit()
+                .incerrie()
+                .set_bit()
+                .operrie()
+                .set_bit()
+        });
+
         self.flash
             .bank2()
             .cr
-            .write(|w| w.start().set_bit().ber().set_bit());
+            .modify(|_, w| w.start().set_bit().ber().set_bit());
 
-        let b = self.poll_flash_done();
+        // Wait for EOP notification via interrupt.
+        loop {
+            sys_recv_closed(&mut [], FLASH_IRQ, TaskId::KERNEL).unwrap_lite();
+            if self.flash.bank2().sr.read().eop().bit() {
+                break;
+            } else {
+                sys_irq_control(FLASH_IRQ, true);
+            }
+        }
+
+        let b = self.bank2_status();
         ringbuf_entry!(Trace::EraseEnd);
         b
     }

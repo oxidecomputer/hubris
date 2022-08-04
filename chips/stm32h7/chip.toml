@@ -134,6 +134,7 @@ size = 4096
 [flash_controller]
 address = 0x52002000
 size = 0x2000
+interrupts = { irq = 4 }
 
 [bank2]
 address = 0x08100000

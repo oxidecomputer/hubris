@@ -179,6 +179,7 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
 
 [config]
 [[config.i2c.controllers]]
