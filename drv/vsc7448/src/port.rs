@@ -35,8 +35,8 @@ pub fn port1g_flush(
     // 10: Reset the MAC clock domain
     //
     // Note that the SDK sets PCS Rx/Tx reset to 0 here, meaning they're not
-    // actually reset.  However, doing a proper reset appears to help with
-    // bizarre cryptic QSGMII issues.
+    // actually reset.  However, the manual suggests resetting them, and it
+    // doesn't seem to hurt.
     v.modify(dev1g.DEV_CFG_STATUS().DEV_RST_CTRL(), |r| {
         r.set_pcs_rx_rst(1);
         r.set_pcs_tx_rst(1);

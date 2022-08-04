@@ -322,7 +322,7 @@ impl Dev10g {
         })?;
 
         // "KR Autoneg" (line 1626)
-        // For now, operate under the assumption that weare doing aneg
+        // For now, operate under the assumption that we *are* doing aneg
 
         // "Disable clock gating"
         v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_clkg_disable(0))?;
