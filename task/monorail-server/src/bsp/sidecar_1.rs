@@ -8,7 +8,7 @@ use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{config::Speed, Vsc7448, Vsc7448Rw, VscError};
-use vsc7448_pac::{types::PhyRegisterAddress, HSIO};
+use vsc7448_pac::{types::PhyRegisterAddress, HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -206,17 +206,26 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
     }
 
     fn vsc7448_postconfig(&mut self) -> Result<(), VscError> {
-        const CURSED_SERDES: u8 = 12;
-        let cfg = vsc7448::serdes6g::Config {
-            ob_ena1v_mode: 1,
-            ob_ena_cas: 2,
-            ob_lev: 48,
-            pll_fsm_ctrl_data: 60,
-            qrate: 0, // This has changed
-            if_mode: 1,
-            des_bw_ana: 3,
-        };
-        cfg.apply(CURSED_SERDES, self.vsc7448.rw)?;
+        // By default, the SERDES6G are grouped into 4x chunks for XAUI,
+        // where a single DEV10G runs 4x SERDES6G at 2.5G.  This leads to very
+        // confusing behavior when only running a few SERDES6G: in particularly,
+        // we noticed that SERDES6G_14 seemed to depend on SERDES6G_12.
+        //
+        // We're never using this "lane sync" feature, so disable it everywhere.
+        for i in 0..=1 {
+            self.vsc7448.modify(
+                VAUI0().VAUI_CHANNEL_CFG().VAUI_CHANNEL_CFG(i),
+                |r| {
+                    r.set_lane_sync_ena(0);
+                },
+            )?;
+            self.vsc7448.modify(
+                VAUI1().VAUI_CHANNEL_CFG().VAUI_CHANNEL_CFG(i),
+                |r| {
+                    r.set_lane_sync_ena(0);
+                },
+            )?;
+        }
 
         // The SERDES6G going to the front IO board needs to be tuned from
         // its default settings, otherwise the signal quality is bad.
