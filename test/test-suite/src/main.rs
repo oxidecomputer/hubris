@@ -21,7 +21,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(asm)]
 
 use hubris_num_tasks::NUM_TASKS;
 use test_api::*;
@@ -1188,9 +1187,9 @@ fn test_timer_notify_past() {
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
         if !highregs {
-            asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+            core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
         } else {
-            asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+            core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
         }
     }
 
