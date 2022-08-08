@@ -103,3 +103,5 @@ pub fn claim_mac_address() -> &'static mut [u8; 6] {
         static mut MAC_ADDRESS: [u8; 6] = [0; _];
     }
 }
+
+pub(crate) use mutable_statics;
