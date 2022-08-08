@@ -8,7 +8,7 @@ use drv_stm32xx_sys_api as sys_api;
 use ringbuf::*;
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448::{config::Speed, Vsc7448, Vsc7448Rw, VscError};
-use vsc7448_pac::{types::PhyRegisterAddress, HSIO, VAUI0, VAUI1};
+use vsc7448_pac::{HSIO, VAUI0, VAUI1};
 use vsc85xx::{vsc8504::Vsc8504, vsc8562::Vsc8562Phy, PhyRw};
 
 task_slot!(SYS, sys);
@@ -418,7 +418,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
         phy_port: u8,
     ) -> Result<(), VscError> {
         if let Some(phy_rw) = &mut self.vsc8562 {
-            use vsc7448::config::PortMode;
             use vsc7448_pac::phy::*;
 
             let phy = vsc85xx::Phy::new(phy_port, phy_rw);
@@ -445,9 +444,8 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                         before: current_speed,
                         after: target_speed,
                     });
-                    let mut cfg = PORT_MAP.port_config(switch_port).unwrap();
-                    cfg.mode = PortMode::Sgmii(target_speed);
-                    self.vsc7448.reinit_sgmii(switch_port, cfg)?;
+                    let cfg = PORT_MAP.port_config(switch_port).unwrap();
+                    self.vsc7448.reinit_sgmii(cfg.dev, target_speed)?;
                     self.front_io_speed[phy_port as usize] = target_speed;
                 }
             }

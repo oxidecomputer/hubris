@@ -249,17 +249,18 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
     ///
     /// The SERDES is not changed; this function is mostly used to change port
     /// speed after an attached PHY completes autonegotiation.
-    pub fn reinit_sgmii(&self, p: u8, cfg: PortConfig) -> Result<(), VscError> {
-        assert!(matches!(cfg.mode, PortMode::Sgmii(_)));
-
-        let dev = match cfg.dev.0 {
+    pub fn reinit_sgmii(
+        &self,
+        dev: (PortDev, u8),
+        speed: Speed,
+    ) -> Result<(), VscError> {
+        let dev = match dev.0 {
             PortDev::Dev1g => DevGeneric::new_1g,
             PortDev::Dev2g5 => DevGeneric::new_2g5,
             _ => panic!("Invalid dev for SGMII"),
-        }(cfg.dev.1)?;
-        assert_eq!(dev.port(), p);
+        }(dev.1)?;
 
-        dev.init_sgmii(self.rw, cfg.mode.speed())?;
+        dev.init_sgmii(self.rw, speed)?;
         Ok(())
     }
 
