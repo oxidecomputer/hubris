@@ -108,13 +108,13 @@ cfg_if::cfg_if! {
         macro_rules! test_output {
             ($s:expr) => {
                 unsafe {
-                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    let stim = &mut (*cortex_m::peripheral::ITM::PTR).stim[8];
                     cortex_m::iprintln!(stim, $s);
                 }
             };
             ($s:expr, $($tt:tt)*) => {
                 unsafe {
-                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    let stim = &mut (*cortex_m::peripheral::ITM::PTR).stim[8];
                     cortex_m::iprintln!(stim, $s, $($tt)*);
                 }
             };
