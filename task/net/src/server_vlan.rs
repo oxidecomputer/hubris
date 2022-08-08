@@ -7,14 +7,10 @@
 //! This module implements a server which listens on multiple (incrementing)
 //! IPv6 addresses and supports some number of VLANs.
 
-use core::{
-    mem::MaybeUninit,
-    sync::atomic::{AtomicBool, Ordering},
-};
-
 use drv_stm32h7_eth as eth;
 
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
+use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
@@ -31,20 +27,13 @@ use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
-/// Storage required to run a single [ServerImpl]. This should be allocated
-/// on the stack and passed into the constructor for the [ServerImpl].
-pub struct ServerStorage {
-    pub eth: eth::Ethernet,
-}
-
-/// Grabs references to the static descriptor/buffer receive rings. Can only be
-/// called once.
+/// Grabs references to the server storage arrays.  Can only be called once!
 pub fn claim_server_storage_statics() -> (
     &'static mut [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
     &'static mut [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT],
     &'static mut [IpCidr; VLAN_COUNT],
 ) {
-    crate::buf::mutable_statics! {
+    mutable_statics! {
         static mut NEIGHBOR_CACHE_STORAGE:
             [[NeighborStorage; NEIGHBORS]; VLAN_COUNT] =
             [Default::default(); _];
@@ -53,12 +42,6 @@ pub fn claim_server_storage_statics() -> (
             [Default::default(); _];
         static mut IPV6_NET: [IpCidr; VLAN_COUNT] =
             [Ipv6Cidr::default().into(); _];
-    }
-}
-
-impl ServerStorage {
-    pub fn new(eth: eth::Ethernet) -> Self {
-        Self { eth }
     }
 }
 
@@ -146,7 +129,7 @@ impl<'a> ServerImpl<'a> {
 
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
-        storage: &'a mut ServerStorage,
+        eth: &'a eth::Ethernet,
         mut ipv6_addr: Ipv6Address,
         mut mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
@@ -154,8 +137,8 @@ impl<'a> ServerImpl<'a> {
         // Local storage; this will end up owned by the returned ServerImpl.
         let mut socket_handles = [[Default::default(); generated::SOCKET_COUNT];
             generated::VLAN_COUNT];
-        let mut ifaces: [Option<Interface<'static, VLanEthernet<'static>>>;
-            VLAN_COUNT] = Default::default();
+        let mut ifaces: [Option<Interface<'_, VLanEthernet<'_>>>; VLAN_COUNT] =
+            Default::default();
 
         let (n, s, i) = claim_server_storage_statics();
 
@@ -182,7 +165,7 @@ impl<'a> ServerImpl<'a> {
             let socket_storage = socket_storage_iter.next().unwrap();
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
-                    eth: &storage.eth,
+                    eth: &eth,
                     vid: vid_iter.next().unwrap(),
                 },
                 &mut socket_storage[..],
@@ -224,7 +207,7 @@ impl<'a> ServerImpl<'a> {
 
         let ifaces = ifaces.map(|e| e.unwrap());
         Self {
-            eth: &storage.eth,
+            eth,
             client_waiting_to_send: [false; SOCKET_COUNT],
             socket_handles,
             ifaces,
