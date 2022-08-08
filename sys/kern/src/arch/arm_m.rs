@@ -604,9 +604,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
             } else if #[cfg(any(armv7m, armv8m))] {
                 // How many IRQs have we got on ARMv7+? This information is
                 // stored in a separate area of the address space, away from the
-                // NVIC, and is (presumably due to an oversight) not present in
-                // the cortex_m API, so let's fake it.
-                let ictr = (0xe000_e004 as *const u32).read_volatile();
+                // NVIC
+                let icb = &*cortex_m::peripheral::ICB::PTR;
+                let ictr = icb.ictr.read();
                 // This gives interrupt count in blocks of 32, minus 1, so there
                 // are always at least 32 interrupts.
                 let irq_block_count = (ictr as usize & 0xF) + 1;
