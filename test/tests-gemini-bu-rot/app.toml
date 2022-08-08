@@ -3,6 +3,7 @@ target = "thumbv8m.main-none-eabihf"
 board = "gemini-bu-rot-1"
 chip = "../../chips/lpc55"
 stacksize = 1400
+image-names = ["a", "b"]
 
 [kernel]
 name = "gemini-bu-rot"
