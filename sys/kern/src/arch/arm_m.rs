@@ -422,8 +422,6 @@ pub fn apply_memory_protection(task: &task::Task) {
 
 #[cfg(armv8m)]
 pub fn apply_memory_protection(task: &task::Task) {
-    // Sigh cortex-m crate doesn't have armv8-m support
-    // Let's poke it manually to make sure we're doing this right..
     let mpu = unsafe {
         // At least by not taking a &mut we're confident we're not violating
         // aliasing....
@@ -488,22 +486,18 @@ pub fn apply_memory_protection(task: &task::Task) {
             | region.base;
 
         unsafe {
-            // RNR
-            core::ptr::write_volatile(0xe000_ed98 as *mut u32, rnr);
-            // MAIR
+            mpu.rnr.write(rnr);
             if rnr < 4 {
-                let mut mair0 = (0xe000_edc0 as *const u32).read_volatile();
+                let mut mair0 = mpu.mair[0].read();
                 mair0 |= (mair as u32) << (rnr * 8);
-                core::ptr::write_volatile(0xe000_edc0 as *mut u32, mair0);
+                mpu.mair[0].write(mair0);
             } else {
-                let mut mair1 = (0xe000_edc4 as *const u32).read_volatile();
+                let mut mair1 = mpu.mair[1].read();
                 mair1 |= (mair as u32) << ((rnr - 4) * 8);
-                core::ptr::write_volatile(0xe000_edc4 as *mut u32, mair1);
+                mpu.mair[1].write(mair1);
             }
-            // RBAR
-            core::ptr::write_volatile(0xe000_ed9c as *mut u32, rbar);
-            // RLAR
-            core::ptr::write_volatile(0xe000_eda0 as *mut u32, rlar);
+            mpu.rbar.write(rbar);
+            mpu.rlar.write(rlar);
         }
     }
 
