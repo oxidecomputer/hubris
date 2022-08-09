@@ -33,7 +33,7 @@ on-state-change = {net = {bit-number = 3}}
 
 [tasks.net]
 name = "task-net"
-stacksize = 4600
+stacksize = 4640
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
