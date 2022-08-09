@@ -97,10 +97,10 @@ cfg_if::cfg_if! {
         /// Helper macro for producing output by semihosting :-(
         macro_rules! test_output {
             ($s:expr) => {
-                cortex_m_semihosting::hprintln!($s).unwrap();
+                cortex_m_semihosting::hprintln!($s);
             };
             ($s:expr, $($tt:tt)*) => {
-                cortex_m_semihosting::hprintln!($s, $($tt)*).unwrap();
+                cortex_m_semihosting::hprintln!($s, $($tt)*);
             };
         }
     } else {
