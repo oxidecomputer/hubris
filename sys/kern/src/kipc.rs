@@ -39,7 +39,7 @@ fn deserialize_message<T>(
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
+    let (msg, _) = hubpack::deserialize(task.try_read(&message)?)
         .map_err(|_| UsageError::BadKernelMessage)?;
     Ok(msg)
 }
@@ -52,9 +52,9 @@ fn serialize_response<T>(
 where
     T: serde::Serialize,
 {
-    match ssmarshal::serialize(task.try_write(&mut buf)?, val) {
+    match hubpack::serialize(task.try_write(&mut buf)?, val) {
         Ok(size) => Ok(size),
-        Err(ssmarshal::Error::EndOfStream) => {
+        Err(hubpack::Error::Truncated) => {
             // The client provided a response buffer that is too small. We
             // actually tolerate this, and report back the size of a buffer that
             // *would have* worked. It's up to the caller to notice.

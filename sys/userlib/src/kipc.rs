@@ -16,14 +16,14 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     let (rc, len) =
         sys_send(TaskId::KERNEL, 1, task.as_bytes(), &mut response, &[]);
     assert_eq!(rc, 0);
-    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+    hubpack::deserialize(&response[..len]).unwrap_lite().0
 }
 
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
     let mut buf = [0; core::mem::size_of::<(u32, bool)>()];
-    ssmarshal::serialize(&mut buf, &msg).unwrap_lite();
+    hubpack::serialize(&mut buf, &msg).unwrap_lite();
     let (rc, _len) = sys_send(TaskId::KERNEL, 2, &buf, &mut [], &[]);
     assert_eq!(rc, 0);
 }
