@@ -101,7 +101,9 @@ SECTIONS
   {
     __srodata = .;
     *(.rodata .rodata.*);
-
+    /* We move this into a special section so we can ensure it is always
+       included in the build */
+    KEEP(*(.hubris_id));
     /* 4-byte align the end (VMA) of this section.
        This is required by LLD to ensure the LMA of the following .data
        section will have the correct alignment. */
