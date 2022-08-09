@@ -64,7 +64,7 @@ global_config = "spi1"
 
 [tasks.net]
 name = "task-net"
-stacksize = 3800
+stacksize = 3000
 priority = 2
 max-sizes = {flash = 131072, ram = 8192, sram1 = 32768}
 features = ["h753"]
