@@ -34,10 +34,10 @@ or has a very malformatted body, the kernel will deliver a fault to your task
 and move on to the next highest priority runnable code.
 
 Messages sent to the kernel, and responses sent back, are formatted using the
-`ssmarshal` crate via `serde`. Messages and responses are currently defined as
+`hubpack` crate via `serde`. Messages and responses are currently defined as
 Rust structs, simply because we haven't had a need to write a supervisor task in
 C so far. We may wish to formalize this later, but, this is expedient for now.
-Remember when reading the request/response types that it is the `ssmarshal`
+Remember when reading the request/response types that it is the `hubpack`
 serialized form, and not the in-memory layout of the struct, that is exchanged
 with the kernel.
 
