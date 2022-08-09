@@ -39,6 +39,7 @@ enum Trace {
         port: u8,
         counter: MIBCounterValue,
     },
+    Ksz8463EmptyMacTable,
     Ksz8463MacTable(ksz8463::MacTableEntry),
 
     Vsc8552Status {
@@ -180,7 +181,7 @@ impl Bsp {
         }
 
         // Read the MAC table for fun
-        ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
+        ringbuf_entry!(match self.mgmt.ksz8463.read_dynamic_mac_table(0) {
             Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
             Ok(None) => Trace::Ksz8463EmptyMacTable,
             Err(err) => Trace::KszErr { err },
@@ -190,7 +191,7 @@ impl Bsp {
         let mut any_link = false;
         let rw = &mut MiimBridge::new(eth);
         for i in [0, 1] {
-            let mut phy = self.mgmt.vsc85x2.phy(i, rw).phy;
+            let phy = self.mgmt.vsc85x2.phy(i, rw).phy;
             let port = phy.port;
 
             ringbuf_entry!(match phy.read(phy::STANDARD::MODE_STATUS()) {
@@ -227,8 +228,8 @@ impl Bsp {
                 .read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS())
             {
                 Ok(status) => {
-                    any_link |= (status.0 & (1 << 2)) != 0;
-                    any_comma |= (status.0 & (1 << 0)) != 0;
+                    any_link |= status.mac_link_status() != 0;
+                    any_comma |= status.mac_pcs_sig_detect() != 0;
                     Trace::Vsc8552MacPcsStatus { port, status }
                 }
                 Err(err) => Trace::Vsc8552Err { err },
@@ -265,8 +266,8 @@ impl Bsp {
         &mut self,
         port: u8,
         reg: PhyRegisterAddress<u16>,
-        eth: &Ethernet,
-    ) -> Result<T, PhyError> {
+        eth: &crate::eth::Ethernet,
+    ) -> Result<u16, PhyError> {
         self.mgmt.phy_read(port, reg, eth)
     }
 
@@ -275,8 +276,8 @@ impl Bsp {
         port: u8,
         reg: PhyRegisterAddress<u16>,
         value: u16,
-        eth: &Ethernet,
-    ) -> Result<T, PhyError> {
-        self.mgmt.phy_write(port, reg, eth, value)
+        eth: &crate::eth::Ethernet,
+    ) -> Result<(), PhyError> {
+        self.mgmt.phy_write(port, reg, value, eth)
     }
 }
