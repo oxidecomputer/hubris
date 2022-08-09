@@ -35,7 +35,7 @@ on-state-change = {net = {bit-number = 3}}
 name = "task-net"
 stacksize = 4600
 priority = 5
-features = ["mgmt", "h753", "gimlet", "h7-vlan"]
+features = ["mgmt", "h753", "gimlet", "vlan"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]

@@ -3,7 +3,7 @@ The `net` task implements a small netstack based on [_smoltcp_](https://github.c
 
 # VLAN support
 ## Configuration and build
-VLAN support is enabled through an `h7-vlan` feature in the `net` task, and
+VLAN support is enabled through an `vlan` feature in the `net` task, and
 `vlan` features in all dependent crates. This is checked in the `net-api` build
 system, which raises an error if it's not enabled for all relevant crates
 (e.g. if you enabled it for the `net` task but forgot to enable it for the

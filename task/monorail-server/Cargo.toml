@@ -29,6 +29,7 @@ vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448" }
 leds = ["drv-user-leds-api"]
 mgmt = ["task-net-api"]
 sidecar = ["drv-sidecar-seq-api", "drv-sidecar-front-io"]
+vlan = ["task-net-api?/vlan"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
