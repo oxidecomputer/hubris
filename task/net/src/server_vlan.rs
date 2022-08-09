@@ -10,6 +10,7 @@
 use drv_stm32h7_eth as eth;
 
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
+use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
@@ -26,23 +27,21 @@ use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
-/// Storage required to run a single [ServerImpl]. This should be allocated
-/// on the stack and passed into the constructor for the [ServerImpl].
-pub struct ServerStorage<'a> {
-    pub eth: eth::Ethernet,
-    neighbor_cache_storage: [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
-    socket_storage: [[SocketStorage<'a>; SOCKET_COUNT]; VLAN_COUNT],
-    ipv6_net: [IpCidr; VLAN_COUNT],
-}
-
-impl<'a> ServerStorage<'a> {
-    pub fn new(eth: eth::Ethernet) -> Self {
-        Self {
-            eth,
-            neighbor_cache_storage: Default::default(),
-            socket_storage: Default::default(),
-            ipv6_net: [Ipv6Cidr::default().into(); VLAN_COUNT],
-        }
+/// Grabs references to the server storage arrays.  Can only be called once!
+pub fn claim_server_storage_statics() -> (
+    &'static mut [[NeighborStorage; NEIGHBORS]; VLAN_COUNT],
+    &'static mut [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT],
+    &'static mut [IpCidr; VLAN_COUNT],
+) {
+    mutable_statics! {
+        static mut NEIGHBOR_CACHE_STORAGE:
+            [[NeighborStorage; NEIGHBORS]; VLAN_COUNT] =
+            [Default::default(); _];
+        static mut SOCKET_STORAGE:
+            [[SocketStorage<'static>; SOCKET_COUNT]; VLAN_COUNT] =
+            [Default::default(); _];
+        static mut IPV6_NET: [IpCidr; VLAN_COUNT] =
+            [Ipv6Cidr::default().into(); _];
     }
 }
 
@@ -120,7 +119,7 @@ pub struct ServerImpl<'a> {
 
     socket_handles: [[SocketHandle; SOCKET_COUNT]; VLAN_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
-    ifaces: [Interface<'a, VLanEthernet<'a>>; VLAN_COUNT],
+    ifaces: [Interface<'static, VLanEthernet<'a>>; VLAN_COUNT],
     bsp: crate::bsp::Bsp,
 }
 
@@ -130,7 +129,7 @@ impl<'a> ServerImpl<'a> {
 
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
-        storage: &'a mut ServerStorage<'a>,
+        eth: &'a eth::Ethernet,
         mut ipv6_addr: Ipv6Address,
         mut mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
@@ -138,18 +137,20 @@ impl<'a> ServerImpl<'a> {
         // Local storage; this will end up owned by the returned ServerImpl.
         let mut socket_handles = [[Default::default(); generated::SOCKET_COUNT];
             generated::VLAN_COUNT];
-        let mut ifaces: [Option<Interface<'a, VLanEthernet<'a>>>; VLAN_COUNT] =
+        let mut ifaces: [Option<Interface<'_, VLanEthernet<'_>>>; VLAN_COUNT] =
             Default::default();
+
+        let (n, s, i) = claim_server_storage_statics();
 
         // We're iterating over a bunch of things together.  The standard
         // library doesn't have a great multi-element zip, so we'll just
         // manually use mutable iterators.
-        let mut neighbor_cache_iter = storage.neighbor_cache_storage.iter_mut();
-        let mut socket_storage_iter = storage.socket_storage.iter_mut();
+        let mut neighbor_cache_iter = n.iter_mut();
+        let mut socket_storage_iter = s.iter_mut();
         let mut socket_handles_iter = socket_handles.iter_mut();
         let mut vid_iter = generated::VLAN_RANGE;
         let mut ifaces_iter = ifaces.iter_mut();
-        let mut ip_addr_iter = storage.ipv6_net.chunks_mut(1);
+        let mut ip_addr_iter = i.chunks_mut(1);
 
         // Create a VLAN_COUNT x SOCKET_COUNT nested array of sockets
         let sockets = generated::construct_sockets();
@@ -164,7 +165,7 @@ impl<'a> ServerImpl<'a> {
             let socket_storage = socket_storage_iter.next().unwrap();
             let builder = smoltcp::iface::InterfaceBuilder::new(
                 VLanEthernet {
-                    eth: &storage.eth,
+                    eth: &eth,
                     vid: vid_iter.next().unwrap(),
                 },
                 &mut socket_storage[..],
@@ -206,7 +207,7 @@ impl<'a> ServerImpl<'a> {
 
         let ifaces = ifaces.map(|e| e.unwrap());
         Self {
-            eth: &storage.eth,
+            eth,
             client_waiting_to_send: [false; SOCKET_COUNT],
             socket_handles,
             ifaces,
@@ -267,7 +268,7 @@ impl<'a> ServerImpl<'a> {
         &mut self,
         index: usize,
         vlan_index: usize,
-    ) -> Result<&mut UdpSocket<'a>, ClientError> {
+    ) -> Result<&mut UdpSocket<'static>, ClientError> {
         Ok(self.ifaces[vlan_index]
             .get_socket::<UdpSocket>(self.get_handle(index, vlan_index)?))
     }

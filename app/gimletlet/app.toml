@@ -114,7 +114,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 4800
+stacksize = 3800
 priority = 3
 features = ["h753", "h7-vlan", "gimletlet-nic"]
 max-sizes = {flash = 65536, ram = 16384, sram1 = 16384}
