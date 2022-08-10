@@ -16,7 +16,7 @@ mod serdes10g;
 mod serdes1g;
 
 use crate::config::{PortConfig, PortDev, PortMap, PortMode, PortSerdes};
-use userlib::hl::sleep_for;
+use userlib::{hl::sleep_for, UnwrapLite};
 use vsc7448_pac::{types::RegisterAddress, *};
 
 pub use config::Speed;
@@ -245,6 +245,25 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Reconfigures the given port.
+    ///
+    /// The SERDES is not changed; this function is mostly used to change port
+    /// speed after an attached PHY completes autonegotiation.
+    pub fn reinit_sgmii(
+        &self,
+        dev: (PortDev, u8),
+        speed: Speed,
+    ) -> Result<(), VscError> {
+        let dev = match dev.0 {
+            PortDev::Dev1g => DevGeneric::new_1g,
+            PortDev::Dev2g5 => DevGeneric::new_2g5,
+            _ => panic!("Invalid dev for SGMII"),
+        }(dev.1)?;
+
+        dev.init_sgmii(self.rw, speed)?;
+        Ok(())
+    }
+
     /// Enables QSGMII mode for blocks of four ports beginning at `start_port`.
     /// This will configure the appropriate DEV1G or DEV2G5 devices, and the
     /// appropriate SERDES6G, based on Table 8 in the datasheet;
@@ -311,8 +330,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
             serdes10g::Config::new(serdes10g::Mode::Sgmii)?;
 
         assert_eq!(cfg.dev.0, PortDev::Dev2g5);
-        let d2g5 = DevGeneric::new_2g5(cfg.dev.1).unwrap();
-        let d10g = Dev10g::new(p - 49).unwrap();
+        let d2g5 = DevGeneric::new_2g5(cfg.dev.1).unwrap_lite();
+        let d10g = Dev10g::new(p - 49).unwrap_lite();
         assert_eq!(d2g5.port(), d10g.port());
         assert_eq!(d2g5.port(), p);
 

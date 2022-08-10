@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Vsc7448Rw, VscError};
-use vsc7448_pac::{types::PhyRegisterAddress, *};
+use vsc7448_pac::*;
 use vsc85xx::PhyRw;
 
 /// This represents a PHY controlled through the VSC7448's built-in MIIM
@@ -64,12 +64,8 @@ impl<'a, R: Vsc7448Rw> Vsc7448MiimPhy<'a, R> {
 }
 
 impl<R: Vsc7448Rw> PhyRw for Vsc7448MiimPhy<'_, R> {
-    fn read_raw<T: From<u16>>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError> {
-        let mut v = Self::miim_cmd(phy, reg.addr);
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError> {
+        let mut v = Self::miim_cmd(phy, reg);
         v.set_miim_cmd_opr_field(0b10); // read
 
         self.miim_idle_wait()?;
@@ -82,27 +78,15 @@ impl<R: Vsc7448Rw> PhyRw for Vsc7448MiimPhy<'_, R> {
             return Err(VscError::MiimReadErr {
                 miim: self.miim,
                 phy,
-                page: reg.page,
-                addr: reg.addr,
+                addr: reg,
             });
         }
 
-        let value = out.miim_data_rddata() as u16;
-        Ok(value.into())
+        Ok(out.miim_data_rddata() as u16)
     }
 
-    fn write_raw<T>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone,
-    {
-        let value: u16 = value.into();
-        let mut v = Self::miim_cmd(phy, reg.addr);
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError> {
+        let mut v = Self::miim_cmd(phy, reg);
         v.set_miim_cmd_opr_field(0b01); // read
         v.set_miim_cmd_wrdata(value as u32);
 

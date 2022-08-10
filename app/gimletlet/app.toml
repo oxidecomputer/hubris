@@ -114,7 +114,7 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 4800
+stacksize = 3800
 priority = 3
 features = ["h753", "h7-vlan", "gimletlet-nic"]
 max-sizes = {flash = 65536, ram = 16384, sram1 = 16384}
@@ -179,6 +179,7 @@ max-sizes = {flash = 16384, ram = 4096}
 stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
 
 [config]
 [[config.i2c.controllers]]

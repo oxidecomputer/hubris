@@ -262,11 +262,68 @@ impl Dev10g {
         // "Clear the KR_CONTROL stickies"
         v.write(xfi.XFI_CONTROL().KR_CONTROL(), 0x7FF.into())?;
 
-        // Skip autonegotiation configuration for now
-        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_tr_disable(1))?;
+        // "AN Selector"
+        v.write(dev7.LD_ADV().KR_7X0010(), 0x0001.into())?;
+        v.modify(dev7.LD_ADV().KR_7X0011(), |r| {
+            r.set_adv1(1 << 7); // 10GBase-KR
+        })?;
+        v.modify(dev7.LD_ADV().KR_7X0012(), |r| {
+            r.set_adv2(1 << 14); // FEC ANEG, but not requested (?)
+        })?;
+        v.modify(dev1.TR_CFG1().TR_CFG1(), |r| {
+            r.set_tmr_hold(r.tmr_hold() | (1 << 10));
+        })?;
+
+        v.modify(dev7.AN_CFG0().AN_CFG0(), |r| {
+            r.set_tr_disable(0);
+        })?;
+
+        // For now, let's assume we're doing training
+        // "Clear training history" (1555)
+        v.modify(dev1.TR_CFG0().TR_CFG0(), |r| {
+            r.set_sm_hist_clr(0);
+        })?;
+
+        // "KR Training config according to UG1061 chapter 3.1" 1563
+        v.modify(dev1.TR_MTHD().TR_MTHD(), |r| {
+            r.set_mthd_cp(0);
+            r.set_mthd_c0(0);
+            r.set_mthd_cm(0);
+        })?;
+        v.modify(dev1.TR_CFG0().TR_CFG0(), |r| {
+            r.set_ld_pre_init(1);
+            r.set_lp_pre_init(1);
+        })?;
+        v.modify(dev1.TR_CFG2().TR_CFG2(), |r| {
+            r.set_vp_max(0x1f);
+            r.set_v2_min(1);
+        })?;
+        v.modify(dev1.TR_CFG3().TR_CFG3(), |r| {
+            r.set_cp_max(0x3f);
+            r.set_cp_min(0x35);
+        })?;
+        v.modify(dev1.TR_CFG4().TR_CFG4(), |r| {
+            r.set_c0_max(0x1f);
+            r.set_c0_min(0xc);
+        })?;
+        v.modify(dev1.TR_CFG5().TR_CFG5(), |r| {
+            r.set_cm_max(0);
+            r.set_cm_min(0x3a);
+        })?;
+        v.modify(dev1.TR_CFG6().TR_CFG6(), |r| {
+            r.set_cp_init(0x38);
+            r.set_c0_init(0x14);
+        })?;
+        v.modify(dev1.TR_CFG7().TR_CFG7(), |r| {
+            r.set_cm_init(0x3e);
+        })?;
+        v.modify(dev1.OBCFG_ADDR().OBCFG_ADDR(), |r| {
+            r.set_obcfg_addr(0x12);
+        })?;
 
         // "KR Autoneg" (line 1626)
-        // For now, operate under the assumption that we're not doing aneg
+        // For now, operate under the assumption that we *are* doing aneg
+
         // "Disable clock gating"
         v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_clkg_disable(0))?;
         // "Clear aneg history"
@@ -274,6 +331,8 @@ impl Dev10g {
         v.modify(dev7.AN_CFG0().AN_CFG0(), |r| r.set_an_sm_hist_clr(0))?;
         // "Disable / Enable Auto-neg"
         v.modify(dev7.KR_7X0000().KR_7X0000(), |r| r.set_an_enable(0))?;
+        v.modify(dev7.KR_7X0000().KR_7X0000(), |r| r.set_an_enable(1))?;
+
         // "Release the break link timer"
         v.modify(dev1.TR_CFG1().TR_CFG1(), |r| {
             let mut tmr_hold = r.tmr_hold();

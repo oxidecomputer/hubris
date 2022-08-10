@@ -52,12 +52,13 @@ impl Bsp {
         // This means that we use the _raw read and write functions, since the
         // higher-level funtions assume page switching.
         let phy = MiimBridge::new(eth);
-        let mut r = phy
-            .read_raw(PHYADDR, phy::STANDARD::MODE_CONTROL())
-            .unwrap();
+        let mut r = phy::standard::MODE_CONTROL::from(
+            phy.read_raw(PHYADDR, phy::STANDARD::MODE_CONTROL().addr)
+                .unwrap(),
+        );
         r.set_auto_neg_ena(1);
         r.set_restart_auto_neg(1);
-        phy.write_raw(PHYADDR, phy::STANDARD::MODE_CONTROL(), r)
+        phy.write_raw(PHYADDR, phy::STANDARD::MODE_CONTROL().addr, r.into())
             .unwrap();
 
         Self {}
@@ -77,7 +78,9 @@ impl Bsp {
             return Err(PhyError::InvalidPort);
         }
         let phy = MiimBridge::new(eth);
-        let out = phy.read_raw(PHYADDR, reg).map_err(|_| PhyError::Other)?;
+        let out = phy
+            .read_raw(PHYADDR, reg.addr)
+            .map_err(|_| PhyError::Other)?;
         Ok(out)
     }
 
@@ -92,7 +95,7 @@ impl Bsp {
             return Err(PhyError::InvalidPort);
         }
         let phy = MiimBridge::new(eth);
-        phy.write_raw(PHYADDR, reg, value)
+        phy.write_raw(PHYADDR, reg.addr, value)
             .map_err(|_| PhyError::Other)?;
         Ok(())
     }

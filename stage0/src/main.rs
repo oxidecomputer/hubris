@@ -182,3 +182,5 @@ fn main() -> ! {
         branch_to_image(imagea);
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/consts.rs"));

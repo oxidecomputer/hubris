@@ -18,6 +18,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
     /// Applies a patch to the 8051 microcode inside the PHY, based on
     /// `vtss_phy_pre_init_seq_viper` in the SDK, which calls
     /// `vtss_phy_pre_init_seq_viper_rev_b`
+    #[inline(never)]
     pub(crate) fn patch(&mut self) -> Result<(), VscError> {
         ringbuf_entry!(Trace::ViperPatch(self.phy.port));
 
@@ -47,7 +48,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
                 *r = (u16::from(*r) & !1).into();
             })?;
 
-        for ((page, addr), value) in VIPER_TR_CONFIG {
+        for &((page, addr), value) in &VIPER_TR_CONFIG {
             self.phy.write(
                 PhyRegisterAddress::from_page_and_addr_unchecked(page, addr),
                 value,
@@ -58,8 +59,8 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
         // `viper_revB_8051_patch` in the SDK
 
         const FIRMWARE_START_ADDR: u16 = 0xE800;
-        const PATCH_CRC_LEN: u16 = (VIPER_PATCH.len() + 1) as u16;
         const EXPECTED_CRC: u16 = 0xFB48;
+        let patch_crc_len = (VIPER_PATCH.len() + 1) as u16;
         // This patch can only be applied to Port 0 of the PHY, so we'll check
         // the address here.
         let phy_port =
@@ -68,7 +69,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
             return Err(VscError::BadPhyPatchPort(phy_port));
         }
 
-        let crc = self.phy.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+        let crc = self.phy.read_8051_crc(FIRMWARE_START_ADDR, patch_crc_len)?;
         if crc == EXPECTED_CRC {
             return Ok(());
         }
@@ -80,7 +81,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
         self.phy.write(phy::GPIO::GPIO_0(), 0xc018.into())?;
 
         // Reread the CRC to make sure the download succeeded
-        let crc = self.phy.read_8051_crc(FIRMWARE_START_ADDR, PATCH_CRC_LEN)?;
+        let crc = self.phy.read_8051_crc(FIRMWARE_START_ADDR, patch_crc_len)?;
         if crc != EXPECTED_CRC {
             return Err(VscError::PhyPatchFailedCrc);
         }
@@ -104,7 +105,7 @@ impl<'a, 'b, P: PhyRw> ViperPhy<'a, 'b, P> {
 }
 
 /// Raw patch for 8051 microcode, from `viper_revB_8051_patch` in the SDK
-const VIPER_PATCH: [u8; 92] = [
+static VIPER_PATCH: [u8; 92] = [
     0xe8, 0x59, 0x02, 0xe8, 0x12, 0x02, 0xe8, 0x42, 0x02, 0xe8, 0x5a, 0x02,
     0xe8, 0x5b, 0x02, 0xe8, 0x5c, 0xe5, 0x69, 0x54, 0x0f, 0x24, 0xf7, 0x60,
     0x27, 0x24, 0xfc, 0x60, 0x23, 0x24, 0x08, 0x70, 0x14, 0xe5, 0x69, 0xae,
@@ -115,7 +116,7 @@ const VIPER_PATCH: [u8; 92] = [
     0x04, 0x40, 0xed, 0x22, 0x22, 0x22, 0x22, 0x22,
 ];
 
-const VIPER_TR_CONFIG: [((u16, u8), u16); 77] = [
+static VIPER_TR_CONFIG: [((u16, u8), u16); 77] = [
     (detype(phy::TR::TR_16()), 0x8fa4),
     (detype(phy::TR::TR_18()), 0x0050),
     (detype(phy::TR::TR_17()), 0x100f),

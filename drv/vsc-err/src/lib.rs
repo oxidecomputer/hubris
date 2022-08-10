@@ -91,7 +91,6 @@ pub enum VscError {
     MiimReadErr {
         miim: u8,
         phy: u8,
-        page: u16,
         addr: u8,
     },
     MiimIdleTimeout,

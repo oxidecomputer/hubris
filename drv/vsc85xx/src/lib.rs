@@ -31,28 +31,25 @@ pub use vsc_err::VscError;
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Trait implementing communication with an ethernet PHY.
+///
+/// This trait deliberately contains no generic functions or use of `impl Trait`
+/// to help its implementations generate code _once_ in the output binary. Users
+/// typically interact with PHYs through higher-level APIs that use type-safe
+/// register names and stuff, which get inlined. See `Phy::read` for an example.
+///
+/// This means that an impl of this trait should probably apply
+/// `#[inline(never)]` to each function in the impl. We can't do that at the
+/// trait level; it has to be on the impl.
 pub trait PhyRw {
     /// Reads a register from the PHY without changing the page.  This should
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read`
-    fn read_raw<T: From<u16>>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-    ) -> Result<T, VscError>;
+    fn read_raw(&self, phy: u8, reg: u8) -> Result<u16, VscError>;
 
     /// Writes a register to the PHY without changing the page.  This should
     /// never be called directly, because the page could be incorrect, but
     /// it's a required building block for `read` and `write`
-    fn write_raw<T>(
-        &self,
-        phy: u8,
-        reg: PhyRegisterAddress<T>,
-        value: T,
-    ) -> Result<(), VscError>
-    where
-        u16: From<T>,
-        T: From<u16> + Clone;
+    fn write_raw(&self, phy: u8, reg: u8, value: u16) -> Result<(), VscError>;
 }
 
 /// Handle for interacting with a particular PHY port.  This handle assumes
@@ -78,14 +75,10 @@ impl<'a, P: PhyRw> Phy<'a, P> {
     /// Sets the PAGE register if it doesn't match.  This assumes that no one
     /// else is allowed to modify the PHY registers, which is mentioned in the
     /// `struct Phy` docstring.
-    #[inline(always)]
     fn set_page(&self, page: u16) -> Result<(), VscError> {
         if self.last_page.get().map(|p| p != page).unwrap_or(true) {
-            self.rw.write_raw::<phy::standard::PAGE>(
-                self.port,
-                phy::STANDARD::PAGE(),
-                page.into(),
-            )?;
+            let reg = phy::STANDARD::PAGE();
+            self.rw.write_raw(self.port, reg.addr, page)?;
             self.last_page.set(Some(page));
         }
         Ok(())
@@ -97,7 +90,11 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.set_page(reg.page)?;
+        Ok(self.read_inner(reg.page, reg.addr)?.into())
+    }
+
+    fn read_inner(&self, page: u16, reg: u8) -> Result<u16, VscError> {
+        self.set_page(page)?;
         self.rw.read_raw(self.port, reg)
     }
 
@@ -111,7 +108,16 @@ impl<'a, P: PhyRw> Phy<'a, P> {
         T: From<u16> + Clone,
         u16: From<T>,
     {
-        self.set_page(reg.page)?;
+        self.write_inner(reg.page, reg.addr, value.into())
+    }
+
+    pub fn write_inner(
+        &self,
+        page: u16,
+        reg: u8,
+        value: u16,
+    ) -> Result<(), VscError> {
+        self.set_page(page)?;
         self.rw.write_raw(self.port, reg, value)
     }
 

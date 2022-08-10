@@ -3,6 +3,10 @@ name = "task-idle"
 version = "0.1.0"
 edition = "2018"
 
+[features]
+default = []
+insomniac = []
+
 [dependencies]
 # The idle task cannot panic, so we deliberately don't request panic-messages
 # to keep the binary tiny.

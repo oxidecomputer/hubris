@@ -44,6 +44,9 @@ const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
 // driver will process at a time.
 const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * 32;
 
+// Must match app.toml!
+const FLASH_IRQ: u32 = 1 << 0;
+
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     EraseStart,
@@ -96,18 +99,26 @@ impl<'a> ServerImpl<'a> {
     }
 
     fn poll_flash_done(&mut self) -> Result<(), RequestError<UpdateError>> {
-        let mut seen = false;
-
+        // This method should implement step 5 of the Single Write Sequence from
+        // RM0433 Rev 7 section 4.3.9, which states
+        //
+        // > Check that QW1 (respectively QW2) has been raised and wait until it
+        // > is reset to 0.
+        //
+        // However, checking that QW2 has been raised is inherently racy: it's
+        // possible it was raised and lowered before we get to this method. We
+        // have observed this race in practice, so we omit the check that QW2
+        // has been raised and only wait until QW2 is reset to 0.
         loop {
-            if self.flash.bank2().sr.read().qw().bit() {
-                seen = true;
-            }
-
-            if seen && !self.flash.bank2().sr.read().qw().bit() {
+            if !self.flash.bank2().sr.read().qw().bit() {
                 break;
             }
         }
 
+        self.bank2_status()
+    }
+
+    fn bank2_status(&self) -> Result<(), RequestError<UpdateError>> {
         let err = self.flash.bank2().sr.read();
 
         if err.dbeccerr().bit() {
@@ -172,7 +183,13 @@ impl<'a> ServerImpl<'a> {
             return Err(UpdateError::BadLength.into());
         }
 
-        self.flash.bank2().cr.write(|w| w.pg().set_bit());
+        self.flash.bank2().cr.write(|w| {
+            // SAFETY
+            // The `psize().bits(_)` function is marked unsafe in the stm32
+            // crate because it allows arbitrary bit patterns. `0b11`
+            // corresponds to 64-bit parallelism.
+            unsafe { w.psize().bits(0b11) }.pg().set_bit()
+        });
 
         for (i, c) in bytes.chunks_exact(4).enumerate() {
             let mut word: [u8; 4] = [0; 4];
@@ -221,12 +238,41 @@ impl<'a> ServerImpl<'a> {
 
     fn bank_erase(&mut self) -> Result<(), RequestError<UpdateError>> {
         ringbuf_entry!(Trace::EraseStart);
+
+        // Enable relevant interrupts for completion (or failure) of erasing
+        // bank2.
+        sys_irq_control(FLASH_IRQ, true);
+        self.flash.bank2().cr.modify(|_, w| {
+            w.eopie()
+                .set_bit()
+                .wrperrie()
+                .set_bit()
+                .pgserrie()
+                .set_bit()
+                .strberrie()
+                .set_bit()
+                .incerrie()
+                .set_bit()
+                .operrie()
+                .set_bit()
+        });
+
         self.flash
             .bank2()
             .cr
-            .write(|w| w.start().set_bit().ber().set_bit());
+            .modify(|_, w| w.start().set_bit().ber().set_bit());
 
-        let b = self.poll_flash_done();
+        // Wait for EOP notification via interrupt.
+        loop {
+            sys_recv_closed(&mut [], FLASH_IRQ, TaskId::KERNEL).unwrap_lite();
+            if self.flash.bank2().sr.read().eop().bit() {
+                break;
+            } else {
+                sys_irq_control(FLASH_IRQ, true);
+            }
+        }
+
+        let b = self.bank2_status();
         ringbuf_entry!(Trace::EraseEnd);
         b
     }

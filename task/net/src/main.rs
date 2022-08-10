@@ -15,10 +15,10 @@ pub mod pins;
 cfg_if::cfg_if! {
     if #[cfg(feature = "vlan")] {
         mod server_vlan;
-        use server_vlan::{ServerImpl, ServerStorage};
+        use server_vlan::ServerImpl;
     } else {
         mod server_basic;
-        use server_basic::{ServerImpl, ServerStorage};
+        use server_basic::ServerImpl;
     }
 }
 
@@ -143,12 +143,11 @@ fn main() -> ! {
 
     // Configure the server and its local storage arrays (on the stack)
     let ipv6_addr = link_local_iface_addr(mac);
-    let mut storage = ServerStorage::new(eth);
 
     // Board-dependant initialization (e.g. bringing up the PHYs)
-    let bsp = bsp::Bsp::new(&storage.eth, &sys);
+    let bsp = bsp::Bsp::new(&eth, &sys);
 
-    let mut server = ServerImpl::new(&mut storage, ipv6_addr, mac, bsp);
+    let mut server = ServerImpl::new(&eth, ipv6_addr, mac, bsp);
 
     // Turn on our IRQ.
     userlib::sys_irq_control(ETH_IRQ, true);
