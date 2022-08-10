@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let fpga_image = fs::read(&fpga_image_path)?;
-    let compressed = compress(&fpga_image);
+    let compressed = gnarle::compress_to_vec(&fpga_image);
 
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let compressed_path = out.join(fpga_image_path.with_extension("bin.rle"));
@@ -73,14 +73,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     Ok(())
-}
-
-fn compress(input: &[u8]) -> Vec<u8> {
-    let mut output = vec![];
-    gnarle::compress(input, |chunk| {
-        output.extend_from_slice(chunk);
-        Ok::<_, std::convert::Infallible>(())
-    })
-    .ok();
-    output
 }
