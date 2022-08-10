@@ -9,7 +9,7 @@
 //! there don't appear to be any `no_std` lz4 crates out there, no matter what
 //! their READMEs claim.
 
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use core::convert::TryFrom;
 
@@ -58,6 +58,20 @@ pub fn compress<E>(
     }
 
     Ok(())
+}
+
+/// Compresses the given data, returning a `Vec`
+#[cfg(feature = "std")]
+pub fn compress_to_vec(input: &[u8]) -> Vec<u8> {
+    let mut output = vec![];
+
+    compress(input, |chunk| {
+        output.extend_from_slice(chunk);
+        Ok::<_, std::convert::Infallible>(())
+    })
+    .ok();
+
+    output
 }
 
 fn generate_run<E>(
