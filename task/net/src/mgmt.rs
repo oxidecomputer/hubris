@@ -47,7 +47,7 @@ enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
     Vsc85x2Err { port: u8, err: VscError },
-    Ksz8463MacTable(ksz8463::MacTableEntry),
+    Ksz8463MacTable(ksz8463::KszMacTableEntry),
     Ksz8463EmptyMacTable,
     Status(Status),
 }

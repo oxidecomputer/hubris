@@ -40,7 +40,7 @@ enum Trace {
         counter: MIBCounterValue,
     },
     Ksz8463EmptyMacTable,
-    Ksz8463MacTable(ksz8463::MacTableEntry),
+    Ksz8463MacTable(ksz8463::KszMacTableEntry),
 
     Vsc8552Status {
         port: u8,

@@ -84,7 +84,7 @@ pub enum SourcePort {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct MacTableEntry {
+pub struct KszMacTableEntry {
     /// Number of valid entries in the table
     count: u32,
 
@@ -222,7 +222,7 @@ impl Ksz8463 {
     pub fn read_dynamic_mac_table(
         &self,
         addr: u16,
-    ) -> Result<Option<MacTableEntry>, Error> {
+    ) -> Result<Option<KszMacTableEntry>, Error> {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
@@ -265,7 +265,7 @@ impl Ksz8463 {
             d_15_0 as u8,
         ];
 
-        Ok(Some(MacTableEntry {
+        Ok(Some(KszMacTableEntry {
             count: count + 1, // table is non-empty
             timestamp,
             source,
