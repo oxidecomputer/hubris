@@ -52,8 +52,7 @@ pub fn fault_task(task: usize) {
     assert_eq!(rc, 0);
 }
 
-pub fn system_restart() {
-    let (rc, _len) =
-        sys_send(TaskId::KERNEL, Kipcnum::Reset as u16, &[], &mut [], &[]);
-    assert_eq!(rc, 0);
+pub fn system_restart() -> ! {
+    let _ = sys_send(TaskId::KERNEL, Kipcnum::Reset as u16, &[], &mut [], &[]);
+    panic!();
 }

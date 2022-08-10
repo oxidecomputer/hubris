@@ -155,9 +155,6 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         // If we wanted to broadcast to other tasks that a restart is occuring
         // here is where we would do so!
         kipc::system_restart();
-
-        // If restart fails, something has gone very wrong.
-        panic!()
     }
 
     fn get_state(

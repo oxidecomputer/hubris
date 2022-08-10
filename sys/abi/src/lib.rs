@@ -599,8 +599,6 @@ impl core::convert::TryFrom<u32> for Sysnum {
 }
 
 /// Representation of kipc numbers
-/// These get passed as an operation which is passed as a u16
-#[repr(u16)]
 pub enum Kipcnum {
     ReadTaskStatus = 1,
     RestartTask = 2,
