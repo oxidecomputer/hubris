@@ -26,7 +26,7 @@ enum Trace {
     Ksz8463Status { port: u8, status: u16 },
     Ksz8463Control { port: u8, control: u16 },
     Ksz8463Counter { port: u8, counter: MIBCounterValue },
-    Ksz8463MacTable(ksz8463::MacTableEntry),
+    Ksz8463MacTable(ksz8463::KszMacTableEntry),
     Ksz8463EmptyMacTable,
 }
 ringbuf!(Trace, 32, Trace::None);

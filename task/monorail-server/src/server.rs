@@ -5,8 +5,8 @@
 use crate::bsp::{self, Bsp};
 use idol_runtime::{NotificationHandler, RequestError};
 use monorail_api::{
-    LinkStatus, MonorailError, PacketCount, PhyStatus, PhyType, PortCounters,
-    PortDev, PortStatus, VscError,
+    LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
+    PortCounters, PortDev, PortStatus, VscError,
 };
 use userlib::{sys_get_timer, sys_set_timer};
 use vsc7448::{
@@ -50,7 +50,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
                 let out = self.bsp.wake();
-                self.wake_target_time += wake_interval;
+                self.wake_target_time = now + wake_interval;
                 sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
                 return out;
             }
@@ -643,6 +643,40 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             }
         }
     }
+
+    fn read_vsc7448_mac_count(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<usize, RequestError<MonorailError>> {
+        vsc7448::mac::count_macs(self.vsc7448.rw)
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)
+    }
+
+    fn read_vsc7448_next_mac(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<MacTableEntry, RequestError<MonorailError>> {
+        let mac = vsc7448::mac::next_mac(self.vsc7448.rw)
+            .map_err(MonorailError::from)
+            .map_err(RequestError::from)?;
+        // Handle the case where there is no next MAC, e.g. because of a TOCTOU
+        // race with `read_vsc7448_mac_count`
+        //
+        // TODO: switch to an `Option<MacTableEntry>` once we stop using
+        // `ssmarshal` for Idol operations
+        let out = match mac {
+            Some(mac) => MacTableEntry {
+                port: mac.addr,
+                mac: mac.mac,
+            },
+            None => MacTableEntry {
+                port: u16::MAX,
+                mac: [0; 6],
+            },
+        };
+        Ok(out)
+    }
 }
 
 impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
@@ -657,7 +691,9 @@ impl<'a, R> NotificationHandler for ServerImpl<'a, R> {
 }
 
 mod idl {
-    use super::{MonorailError, PhyStatus, PortCounters, PortStatus};
+    use super::{
+        MacTableEntry, MonorailError, PhyStatus, PortCounters, PortStatus,
+    };
     use vsc85xx::tesla::{TeslaSerdes6gObConfig, TeslaSerdes6gPatch};
     use vsc85xx::vsc8562::{Sd6gObCfg, Sd6gObCfg1};
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
