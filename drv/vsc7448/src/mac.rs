@@ -11,7 +11,7 @@ use vsc7448_pac::*;
 pub struct MacTableEntry {
     pub mac: [u8; 6],
     src_kill_fwd: bool,
-    addr: u16,
+    pub addr: u16,
     addr_type: u8,
     nxt_lrn_all: bool,
     cpu_copy: bool,
@@ -21,6 +21,17 @@ pub struct MacTableEntry {
     mirror: bool,
     locked: bool,
     valid: bool,
+}
+
+pub fn count_macs(v: &impl Vsc7448Rw) -> Result<usize, VscError> {
+    // Reset MAC table reader, so FIND_SMALLEST starts from 0
+    v.write(LRN().COMMON().MAC_ACCESS_CFG_0(), 0.into())?;
+    v.write(LRN().COMMON().MAC_ACCESS_CFG_1(), 0.into())?;
+    let mut i = 0;
+    while next_mac(v)?.is_some() {
+        i += 1;
+    }
+    Ok(i)
 }
 
 pub fn next_mac(v: &impl Vsc7448Rw) -> Result<Option<MacTableEntry>, VscError> {

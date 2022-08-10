@@ -188,8 +188,16 @@ pub enum LinkStatus {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct PhyStatus {
     pub ty: PhyType,
     pub mac_link_up: LinkStatus,
     pub media_link_up: LinkStatus,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
+pub struct MacTableEntry {
+    pub mac: [u8; 6],
+    pub port: u16,
 }
