@@ -662,6 +662,9 @@ impl<'a, R: Vsc7448Rw> idl::InOrderMonorailImpl for ServerImpl<'a, R> {
             .map_err(RequestError::from)?;
         // Handle the case where there is no next MAC, e.g. because of a TOCTOU
         // race with `read_vsc7448_mac_count`
+        //
+        // TODO: switch to an `Option<MacTableEntry>` once we stop using
+        // `ssmarshal` for Idol operations
         let out = match mac {
             Some(mac) => MacTableEntry {
                 port: mac.addr,
