@@ -14,6 +14,10 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "request_reset": (
+            reply: Simple("()"),
+            idempotent: true,
+        ),
         "get_reset_reason": (
             encoding: Ssmarshal,
             doc: "Get the reason for the most recent reset",

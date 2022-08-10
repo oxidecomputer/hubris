@@ -1435,6 +1435,10 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
     });
 }
 
+pub fn reset() -> ! {
+    cortex_m::peripheral::SCB::sys_reset()
+}
+
 /// Common implementation of fault handling.
 ///
 /// # Safety
