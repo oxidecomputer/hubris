@@ -50,7 +50,7 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         if let Some(wake_interval) = bsp::WAKE_INTERVAL {
             if now >= self.wake_target_time {
                 let out = self.bsp.wake();
-                self.wake_target_time += wake_interval;
+                self.wake_target_time = now + wake_interval;
                 sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
                 return out;
             }
