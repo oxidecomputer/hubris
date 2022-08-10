@@ -148,6 +148,15 @@ struct ServerImpl<'s> {
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
+    fn request_reset(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
+        // If we wanted to broadcast to other tasks that a restart is occuring
+        // here is where we would do so!
+        kipc::system_restart();
+    }
+
     fn get_state(
         &mut self,
         _msg: &userlib::RecvMessage,

@@ -598,6 +598,30 @@ impl core::convert::TryFrom<u32> for Sysnum {
     }
 }
 
+/// Representation of kipc numbers
+pub enum Kipcnum {
+    ReadTaskStatus = 1,
+    RestartTask = 2,
+    FaultTask = 3,
+    ReadImageId = 4,
+    Reset = 5,
+}
+
+impl core::convert::TryFrom<u16> for Kipcnum {
+    type Error = ();
+
+    fn try_from(x: u16) -> Result<Self, Self::Error> {
+        match x {
+            1 => Ok(Self::ReadTaskStatus),
+            2 => Ok(Self::RestartTask),
+            3 => Ok(Self::FaultTask),
+            4 => Ok(Self::ReadImageId),
+            5 => Ok(Self::Reset),
+            _ => Err(()),
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
 pub struct SAUEntry {
