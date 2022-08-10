@@ -3,14 +3,14 @@ The `net` task implements a small netstack based on [_smoltcp_](https://github.c
 
 # VLAN support
 ## Configuration and build
-VLAN support is enabled through an `h7-vlan` feature in the `net` task, and
+VLAN support is enabled through the `vlan` feature in the `net` task, and
 `vlan` features in all dependent crates. This is checked in the `net-api` build
-system, which raises an error if it's not enabled for all relevant crates
+script, which raises an error if it's not enabled for all relevant crates
 (e.g. if you enabled it for the `net` task but forgot to enable it for the
 `udpecho` task, which uses `net-api`).
 
 When the feature is enabled, the build system reads a `vlan` dictionary from
-`config.net`, which specifies the start VLAN (as a VID) and the total number
+`[config.net]`, which specifies the start VLAN (as a VID) and the total number
 of VLANs. This information is used to generate **arrays of arrays** in the
 `net` build system; where we would previously make a single array of
 `SOCKET_COUNT` items, we're now building a nested array with
