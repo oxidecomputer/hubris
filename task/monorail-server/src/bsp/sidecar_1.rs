@@ -16,16 +16,12 @@ task_slot!(NET, net);
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
-const MAC_SEEN_COUNT: usize = 64;
-
 /// Interval at which `Bsp::wake()` is called by the main loop
 pub const WAKE_INTERVAL: Option<u64> = Some(500);
 
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,
-    MacAddress(vsc7448::mac::MacTableEntry),
-    Vsc7448Error(VscError),
     FrontIoSpeedChange {
         port: u8,
         before: Speed,
@@ -52,8 +48,6 @@ pub struct Bsp<'a, R> {
     ///
     /// This is `None` if the front IO board isn't connected.
     vsc8562: Option<PhySmi>,
-
-    known_macs: [Option<[u8; 6]>; MAC_SEEN_COUNT],
 
     /// Configured speed of ports on the front IO board, from the perspective of
     /// the VSC7448.
@@ -189,7 +183,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
                 None
             },
             net,
-            known_macs: [None; MAC_SEEN_COUNT],
             front_io_speed: [Speed::Speed1G; 2],
         };
         out.init()?;
@@ -463,40 +456,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             }
         }
 
-        // Dump the MAC tables
-        loop {
-            match vsc7448::mac::next_mac(self.vsc7448) {
-                Ok(Some(mac)) => {
-                    // Inefficient but easy way to avoid logging MAC addresses
-                    // repeatedly.  This will fail to scale for larger systems,
-                    // where we'd want some kind of LRU cache, but is nice
-                    // for debugging.
-                    let mut mac_is_new = true;
-                    for m in self.known_macs.iter_mut() {
-                        match m {
-                            Some(m) => {
-                                if *m == mac.mac {
-                                    mac_is_new = false;
-                                    break;
-                                }
-                            }
-                            None => {
-                                *m = Some(mac.mac);
-                                break;
-                            }
-                        }
-                    }
-                    if mac_is_new {
-                        ringbuf_entry!(Trace::MacAddress(mac));
-                    }
-                }
-                Ok(None) => break,
-                Err(e) => {
-                    ringbuf_entry!(Trace::Vsc7448Error(e));
-                    break;
-                }
-            }
-        }
         Ok(())
     }
 
