@@ -7,8 +7,8 @@ use drv_stm32h7_eth as eth;
 use crate::idl;
 use idol_runtime::RequestError;
 use task_net_api::{
-    LargePayloadBehavior, PhyError, RecvError, SendError, SocketName,
-    UdpMetadata,
+    KszError, KszMacTableEntry, LargePayloadBehavior, PhyError, RecvError,
+    SendError, SocketName, UdpMetadata,
 };
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
@@ -105,5 +105,40 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         let (eth, bsp) = self.eth_bsp();
         bsp.phy_write(port, addr, value, eth)?;
         Ok(())
+    }
+
+    fn read_ksz8463_mac_count(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<usize, RequestError<KszError>> {
+        let (_eth, bsp) = self.eth_bsp();
+        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let out = ksz8463
+            .read_dynamic_mac_table(0)
+            .map_err(KszError::from)?
+            .map(|mac| mac.count as usize)
+            .unwrap_or(0);
+        Ok(out)
+    }
+
+    fn read_ksz8463_mac(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        i: u16,
+    ) -> Result<KszMacTableEntry, RequestError<KszError>> {
+        if i >= 1024 {
+            return Err(KszError::BadMacIndex).map_err(RequestError::from);
+        }
+        let (_eth, bsp) = self.eth_bsp();
+        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let out = ksz8463
+            .read_dynamic_mac_table(i)
+            .map_err(KszError::from)?
+            .map(KszMacTableEntry::from)
+            .unwrap_or(KszMacTableEntry {
+                mac: [0; 6],
+                port: 0xFFFF,
+            });
+        Ok(out)
     }
 }

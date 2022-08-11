@@ -2010,6 +2010,7 @@ dependencies = [
  "serde",
  "userlib",
  "vsc7448",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3205,8 +3206,10 @@ version = "0.1.0"
 dependencies = [
  "build-net",
  "derive-idol-err",
+ "drv-spi-api",
  "idol",
  "idol-runtime",
+ "ksz8463",
  "num-traits",
  "serde",
  "smoltcp",

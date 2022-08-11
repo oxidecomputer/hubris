@@ -81,5 +81,22 @@ Interface(
                 err: CLike("PhyError"),
             ),
         ),
+        "read_ksz8463_mac_count": (
+            doc: "Returns the number of entries in the KSZ8463 dynamic MAC table",
+            reply: Result(
+                ok: "usize",
+                err: CLike("KszError"),
+            ),
+        ),
+        "read_ksz8463_mac": (
+            doc: "Reads a particular MAC address from the KSZ8463 dynamic MAC table",
+            args: {
+                "i": "u16",
+            },
+            reply: Result(
+                ok: "KszMacTableEntry",
+                err: CLike("KszError"),
+            ),
+        ),
     },
 )

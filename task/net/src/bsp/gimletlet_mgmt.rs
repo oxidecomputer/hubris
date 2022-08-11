@@ -39,8 +39,6 @@ enum Trace {
         port: u8,
         counter: MIBCounterValue,
     },
-    Ksz8463EmptyMacTable,
-    Ksz8463MacTable(ksz8463::KszMacTableEntry),
 
     Vsc8552Status {
         port: u8,
@@ -179,13 +177,6 @@ impl Bsp {
                 Err(err) => Trace::KszErr { err },
             });
         }
-
-        // Read the MAC table for fun
-        ringbuf_entry!(match self.mgmt.ksz8463.read_dynamic_mac_table(0) {
-            Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
-            Ok(None) => Trace::Ksz8463EmptyMacTable,
-            Err(err) => Trace::KszErr { err },
-        });
 
         let mut any_comma = false;
         let mut any_link = false;

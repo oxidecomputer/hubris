@@ -49,6 +49,64 @@ pub enum PhyError {
     Other = 3,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[repr(u32)]
+pub enum KszError {
+    /// This functionality is not available on the given board
+    NotAvailable,
+    /// The MAC table index is too large
+    BadMacIndex,
+
+    WrongChipId,
+
+    // Errors copied from SpiError
+    BadTransferSize,
+    ServerRestarted,
+    NothingToRelease,
+    BadDevice,
+    DataOverrun,
+}
+
+#[cfg(feature = "ksz8463")]
+impl From<ksz8463::Error> for KszError {
+    fn from(e: ksz8463::Error) -> Self {
+        use drv_spi_api::SpiError;
+        match e {
+            ksz8463::Error::SpiError(e) => match e {
+                SpiError::BadTransferSize => KszError::BadTransferSize,
+                SpiError::ServerRestarted => KszError::ServerRestarted,
+                SpiError::NothingToRelease => KszError::NothingToRelease,
+                SpiError::BadDevice => KszError::BadDevice,
+                SpiError::DataOverrun => KszError::DataOverrun,
+            },
+            ksz8463::Error::WrongChipId(..) => KszError::WrongChipId,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[repr(C)]
+pub struct KszMacTableEntry {
+    pub mac: [u8; 6],
+    pub port: u16,
+}
+
+#[cfg(feature = "ksz8463")]
+impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
+    fn from(e: ksz8463::KszRawMacTableEntry) -> Self {
+        Self {
+            mac: e.addr,
+            port: match e.source {
+                ksz8463::SourcePort::Port1 => 1,
+                ksz8463::SourcePort::Port2 => 2,
+                ksz8463::SourcePort::Port3 => 3,
+            },
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[repr(u32)]
 pub enum LargePayloadBehavior {

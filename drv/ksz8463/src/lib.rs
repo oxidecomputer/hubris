@@ -84,21 +84,21 @@ pub enum SourcePort {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct KszMacTableEntry {
+pub struct KszRawMacTableEntry {
     /// Number of valid entries in the table
-    count: u32,
+    pub count: u32,
 
     /// Two-bit counter for internal aging
     timestamp: u8,
 
     /// Source port where the FID + MAC is learned
-    source: SourcePort,
+    pub source: SourcePort,
 
     /// Filter ID
     fid: u8,
 
     /// MAC address from the table
-    addr: [u8; 6],
+    pub addr: [u8; 6],
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,7 +222,7 @@ impl Ksz8463 {
     pub fn read_dynamic_mac_table(
         &self,
         addr: u16,
-    ) -> Result<Option<KszMacTableEntry>, Error> {
+    ) -> Result<Option<KszRawMacTableEntry>, Error> {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
@@ -267,7 +267,7 @@ impl Ksz8463 {
             d_15_0 as u8,
         ];
 
-        Ok(Some(KszMacTableEntry {
+        Ok(Some(KszRawMacTableEntry {
             count: count + 1, // table is non-empty
             timestamp,
             source,
