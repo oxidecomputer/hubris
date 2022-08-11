@@ -1854,6 +1854,7 @@ name = "ksz8463"
 version = "0.1.0"
 dependencies = [
  "drv-spi-api",
+ "num-traits",
  "ringbuf",
  "userlib",
 ]

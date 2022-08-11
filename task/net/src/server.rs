@@ -2,14 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use drv_stm32h7_eth as eth;
-
 use crate::idl;
+use drv_stm32h7_eth as eth;
 use idol_runtime::RequestError;
+use smoltcp::wire::EthernetAddress;
 use task_net_api::{
-    KszError, KszMacTableEntry, LargePayloadBehavior, PhyError, RecvError,
-    SendError, SocketName, UdpMetadata,
+    KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress, PhyError,
+    RecvError, SendError, SocketName, UdpMetadata,
 };
+use userlib::FromPrimitive;
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
 /// server implementations.
@@ -31,6 +32,9 @@ pub trait NetServer {
     ) -> Result<(), RequestError<SendError>>;
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp);
+
+    /// Returns the MAC address for port 0
+    fn base_mac_address(&self) -> &EthernetAddress;
 }
 
 /// Implementation of the Net Idol interface.
@@ -140,5 +144,26 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
                 port: 0xFFFF,
             });
         Ok(out)
+    }
+
+    fn read_ksz8463_reg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        i: u16,
+    ) -> Result<u16, RequestError<KszError>> {
+        let (_eth, bsp) = self.eth_bsp();
+        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let reg =
+            ksz8463::Register::from_u16(i).ok_or(KszError::BadRegister)?;
+        let out = ksz8463.read(reg).map_err(KszError::from)?;
+        Ok(out)
+    }
+
+    fn get_mac_address(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<MacAddress, RequestError<core::convert::Infallible>> {
+        let out = self.base_mac_address();
+        Ok(MacAddress(out.0))
     }
 }

@@ -98,5 +98,22 @@ Interface(
                 err: CLike("KszError"),
             ),
         ),
+        "read_ksz8463_reg": (
+            doc: "Reads a register from the KSZ8463",
+            args: {
+                "reg": "u16",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("KszError"),
+            ),
+        ),
+        "get_mac_address": (
+            doc: "Reports the MAC address of port 0",
+            reply: Result(
+                ok: "MacAddress",
+                err: ServerDeath,
+            ),
+        ),
     },
 )

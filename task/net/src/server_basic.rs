@@ -49,6 +49,7 @@ pub struct ServerImpl<'a> {
     client_waiting_to_send: [bool; SOCKET_COUNT],
     iface: Interface<'static, &'a eth::Ethernet>,
     bsp: crate::bsp::Bsp,
+    mac: EthernetAddress,
 }
 
 impl<'a> ServerImpl<'a> {
@@ -95,6 +96,7 @@ impl<'a> ServerImpl<'a> {
             client_waiting_to_send: [false; SOCKET_COUNT],
             iface,
             bsp,
+            mac,
         }
     }
 
@@ -253,6 +255,10 @@ impl NetServer for ServerImpl<'_> {
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
         (self.iface.device(), &mut self.bsp)
+    }
+
+    fn base_mac_address(&self) -> &EthernetAddress {
+        &self.mac
     }
 }
 

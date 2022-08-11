@@ -56,6 +56,8 @@ pub enum KszError {
     NotAvailable,
     /// The MAC table index is too large
     BadMacIndex,
+    /// The given address is not a valid register
+    BadRegister,
 
     WrongChipId,
 
@@ -104,6 +106,10 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
         }
     }
 }
+
+#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[repr(C)]
+pub struct MacAddress(pub [u8; 6]);
 
 ////////////////////////////////////////////////////////////////////////////////
 

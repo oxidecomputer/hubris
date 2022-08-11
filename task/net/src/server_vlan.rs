@@ -121,6 +121,8 @@ pub struct ServerImpl<'a> {
     client_waiting_to_send: [bool; SOCKET_COUNT],
     ifaces: [Interface<'static, VLanEthernet<'a>>; VLAN_COUNT],
     bsp: crate::bsp::Bsp,
+
+    mac: EthernetAddress,
 }
 
 impl<'a> ServerImpl<'a> {
@@ -156,6 +158,7 @@ impl<'a> ServerImpl<'a> {
         let sockets = generated::construct_sockets();
         assert_eq!(sockets.0.len(), VLAN_COUNT);
 
+        let start_mac = mac.clone();
         for sockets in sockets.0.into_iter() {
             let neighbor_cache_storage = neighbor_cache_iter.next().unwrap();
             let neighbor_cache = smoltcp::iface::NeighborCache::new(
@@ -212,6 +215,7 @@ impl<'a> ServerImpl<'a> {
             socket_handles,
             ifaces,
             bsp,
+            mac: start_mac,
         }
     }
 
@@ -386,6 +390,10 @@ impl NetServer for ServerImpl<'_> {
 
     fn eth_bsp(&mut self) -> (&eth::Ethernet, &mut crate::bsp::Bsp) {
         (self.eth, &mut self.bsp)
+    }
+
+    fn base_mac_address(&self) -> &EthernetAddress {
+        &self.mac
     }
 }
 
