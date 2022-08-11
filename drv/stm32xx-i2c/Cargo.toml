@@ -1,5 +1,5 @@
 [package]
-name = "drv-stm32h7-i2c"
+name = "drv-stm32xx-i2c"
 version = "0.1.0"
 edition = "2018"
 
@@ -12,11 +12,13 @@ drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 drv-i2c-api = {path = "../i2c-api"}
 cfg-if = "1"
 bitfield = "0.13"
+stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false, optional = true }
 stm32h7 = { version = "0.14", default-features = false }
 
 [features]
 h743 = ["stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
+g031 = ["stm32g0/stm32g031", "drv-stm32xx-sys-api/g031"]
 amd_erratum_1394 = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

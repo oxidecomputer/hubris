@@ -52,6 +52,7 @@ pub enum FlashArgument {
 
 #[derive(Debug, Serialize)]
 pub struct FlashConfig {
+    chip: Option<String>,
     program: FlashProgram,
     args: Vec<FlashArgument>,
 }
@@ -65,6 +66,7 @@ impl FlashProgramConfig {
 impl FlashConfig {
     fn new(program: FlashProgram) -> Self {
         FlashConfig {
+            chip: None,
             program,
             args: vec![],
         }
@@ -75,6 +77,14 @@ impl FlashConfig {
     //
     fn arg<'a>(&'a mut self, val: &str) -> &'a mut Self {
         self.args.push(FlashArgument::Direct(val.to_string()));
+        self
+    }
+
+    //
+    // Set the chip
+    //
+    fn chip<'a>(&'a mut self, val: &str) -> &'a mut Self {
+        self.chip = Some(val.to_string());
         self
     }
 
@@ -133,7 +143,7 @@ pub fn config(
     board: &str,
     chip_dir: &Path,
 ) -> anyhow::Result<Option<FlashConfig>> {
-    match board {
+    let mut flash = match board {
         "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
             let chip = if board == "lpcxpresso55s69" {
                 "lpc55s69"
@@ -157,7 +167,7 @@ pub fn config(
                 .arg("hex")
                 .payload();
 
-            Ok(Some(flash))
+            flash
         }
 
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
@@ -177,13 +187,17 @@ pub fn config(
                 .arg("-c")
                 .arg("exit");
 
-            Ok(Some(flash))
+            flash
         }
         _ => {
             eprintln!("Warning: unrecognized board, won't know how to flash.");
-            Ok(None)
+            return Ok(None);
         }
-    }
+    };
+
+    flash.chip(chip_name(board)?);
+
+    Ok(Some(flash))
 }
 
 pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
@@ -199,8 +213,8 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "donglet-g030" => "STM32G030F6Px",
         "donglet-g031" => "STM32G031F8Px",
         "stm32g031-nucleo" => "STM32G031Y8Yx",
-         "stm32g070" => "STM32G070KBTx",
-         "stm32g0b1" => anyhow::bail!("This board is not yet supported by probe-rs, please use OpenOCD directly"),
+        "stm32g070" => "STM32G070KBTx",
+        "stm32g0b1" => anyhow::bail!("This board is not yet supported by probe-rs, please use OpenOCD directly"),
         _ => anyhow::bail!("unrecognized board {}", board),
 
     };

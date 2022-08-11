@@ -8,7 +8,7 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_stm32h7_i2c::*;
+use drv_stm32xx_i2c::*;
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
 use fixedmap::*;
@@ -131,7 +131,7 @@ fn reset_if_needed(
 
     // And now reset the mux, eating any errors.
     let _ = find_mux(controller, port, muxes, mux, |mux, _, _| {
-        ringbuf_entry!(None);
+        ringbuf_entry!(Option::<ResponseCode>::None);
         mux.driver.reset(mux, &sys)?;
         Ok(())
     });

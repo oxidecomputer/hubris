@@ -27,31 +27,27 @@ start = true
 features = ["g031"]
 stacksize = 256
 
-[tasks.pong]
-name = "task-pong"
-priority = 4
-max-sizes = {flash = 1024, ram = 256}
-start = true
-task-slots = ["user_leds"]
-stacksize = 256
-
-[tasks.user_leds]
-name = "drv-user-leds"
-features = ["stm32g0"]
-priority = 3
-max-sizes = {flash = 2048, ram = 256}
+[tasks.i2c_driver]
+name = "drv-stm32xx-i2c-server"
+features = ["g031"]
+priority = 2
+max-sizes = {flash = 16384, ram = 1024}
+uses = ["i2c1"]
 start = true
 task-slots = ["sys"]
-stacksize = 256
+stacksize = 896
+
+[tasks.i2c_driver.interrupts]
+"i2c1.irq" = 0b0000_0001
 
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 4
-max-sizes = {flash = 8192, ram = 2048}
+max-sizes = {flash = 16384, ram = 4096}
 start = true
-task-slots = ["sys"]
+task-slots = ["sys", "i2c_driver"]
 stacksize = 912
-features = ["stm32g0", "gpio", "micro"]
+features = ["stm32g0", "g031", "i2c", "gpio"]
 
 [tasks.idle]
 name = "task-idle"
@@ -60,3 +56,19 @@ max-sizes = {flash = 128, ram = 64}
 stacksize = 64
 start = true
 features = ["insomniac"]
+
+[config]
+[[config.i2c.controllers]]
+controller = 1
+
+[[config.i2c.controllers.ports.B.pins]]
+pins = [ 6, 9 ]
+af = 6
+
+#
+# This presumes that the VPD board is plugged into Donglet
+#
+[[config.i2c.controllers.ports.B.muxes]]
+driver = "pca9548"
+address = 0x73
+

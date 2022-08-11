@@ -51,6 +51,10 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
+    } else if #[cfg(target_board = "donglet-g031")] {
+        const HIFFY_DATA_SIZE: usize = 256;
+        const HIFFY_TEXT_SIZE: usize = 256;
+        const HIFFY_RSTACK_SIZE: usize = 2048;
     } else if #[cfg(feature = "micro")] {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;

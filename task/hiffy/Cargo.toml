@@ -10,7 +10,7 @@ ringbuf = {path = "../../lib/ringbuf" }
 drv-sp-ctrl-api = {path = "../../drv/sp-ctrl-api", optional = true}
 drv-i2c-api = {path = "../../drv/i2c-api"}
 drv-spi-api = {path = "../../drv/spi-api"}
-drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", default-features = false, optional = true }
+drv-stm32xx-i2c = {path = "../../drv/stm32xx-i2c", default-features = false, optional = true }
 drv-lpc55-gpio-api = {path = "../../drv/lpc55-gpio-api", optional = true}
 drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api", optional = true}
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false, optional = true}
@@ -43,8 +43,9 @@ lpc55 = ["drv-lpc55-gpio-api", "userlib/panic-messages"]
 stm32g0 = ["drv-stm32xx-sys-api/family-stm32g0"]
 qspi = ["drv-gimlet-hf-api"]
 hash = ["drv-hash-api"]
-h743 = ["stm32h7", "drv-stm32h7-i2c/h743", "build-i2c/h743"]
-h753 = ["stm32h7", "drv-stm32h7-i2c/h753", "build-i2c/h753"]
+h743 = ["stm32h7", "drv-stm32xx-i2c/h743", "build-i2c/h743"]
+h753 = ["stm32h7", "drv-stm32xx-i2c/h753", "build-i2c/h753"]
+g031 = ["stm32g0", "drv-stm32xx-i2c/g031", "build-i2c/g031"]
 micro = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
 rng = ["drv-rng-api"]
