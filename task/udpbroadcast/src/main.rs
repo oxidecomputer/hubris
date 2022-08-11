@@ -37,7 +37,7 @@ fn main() -> ! {
 
         hl::sleep_for(500);
         match net.send_packet(SOCKET, meta, &tx_bytes) {
-            Ok(_) => UDP_BROADCAST_COUNT
+            Ok(()) => UDP_BROADCAST_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
             Err(_) => UDP_ERROR_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
