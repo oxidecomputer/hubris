@@ -228,7 +228,8 @@ impl Ksz8463 {
         // Wait for the "not ready" bit to be cleared
         let d_71_64 = loop {
             let d = self.read(Register::IADR1)?;
-            if d & (1 << 15) == 0 {
+            // Check bit 71 to see if the register is ready
+            if d & (1 << 7) == 0 {
                 break d;
             }
         };
@@ -245,7 +246,8 @@ impl Ksz8463 {
         }
 
         // Awkwardly stradling the line between two words...
-        let count = (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xF0) >> 8;
+        let count =
+            (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xFF00) >> 8;
 
         let timestamp = (d_63_48 >> 6) as u8 & 0b11;
         let source = match (d_63_48 >> 4) & 0b11 {
