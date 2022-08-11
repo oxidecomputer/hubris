@@ -97,4 +97,8 @@ impl Bsp {
     ) -> Result<(), PhyError> {
         self.0.phy_write(port, reg, value, eth)
     }
+
+    pub fn ksz8463(&self) -> Option<&ksz8463::Ksz8463> {
+        Some(&self.0.ksz8463)
+    }
 }
