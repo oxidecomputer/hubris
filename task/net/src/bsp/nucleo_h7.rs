@@ -99,8 +99,4 @@ impl Bsp {
             .map_err(|_| PhyError::Other)?;
         Ok(())
     }
-
-    pub fn ksz8463(&self) -> Option<&ksz8463::Ksz8463> {
-        None
-    }
 }

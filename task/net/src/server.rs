@@ -10,7 +10,6 @@ use task_net_api::{
     KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress, PhyError,
     RecvError, SendError, SocketName, UdpMetadata,
 };
-use userlib::FromPrimitive;
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
 /// server implementations.
@@ -111,12 +110,51 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         Ok(())
     }
 
+    fn get_mac_address(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<MacAddress, RequestError<core::convert::Infallible>> {
+        let out = self.base_mac_address();
+        Ok(MacAddress(out.0))
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Stubs for KSZ8463 functions when it's not present
+    #[cfg(not(feature = "ksz8463"))]
+    fn read_ksz8463_mac_count(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<usize, RequestError<KszError>> {
+        Err(KszError::NotAvailable.into())
+    }
+
+    #[cfg(not(feature = "ksz8463"))]
+    fn read_ksz8463_mac(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _i: u16,
+    ) -> Result<KszMacTableEntry, RequestError<KszError>> {
+        Err(KszError::NotAvailable.into())
+    }
+
+    #[cfg(not(feature = "ksz8463"))]
+    fn read_ksz8463_reg(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        _i: u16,
+    ) -> Result<u16, RequestError<KszError>> {
+        Err(KszError::NotAvailable.into())
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Main KSZ8463 functions
+    #[cfg(feature = "ksz8463")]
     fn read_ksz8463_mac_count(
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<usize, RequestError<KszError>> {
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let ksz8463 = bsp.ksz8463();
         let out = ksz8463
             .read_dynamic_mac_table(0)
             .map_err(KszError::from)?
@@ -125,6 +163,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         Ok(out)
     }
 
+    #[cfg(feature = "ksz8463")]
     fn read_ksz8463_mac(
         &mut self,
         _msg: &userlib::RecvMessage,
@@ -134,7 +173,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
             return Err(KszError::BadMacIndex).map_err(RequestError::from);
         }
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let ksz8463 = bsp.ksz8463();
         let out = ksz8463
             .read_dynamic_mac_table(i)
             .map_err(KszError::from)?
@@ -146,24 +185,19 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         Ok(out)
     }
 
+    #[cfg(feature = "ksz8463")]
     fn read_ksz8463_reg(
         &mut self,
         _msg: &userlib::RecvMessage,
         i: u16,
     ) -> Result<u16, RequestError<KszError>> {
+        use userlib::FromPrimitive;
+
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463().ok_or(KszError::NotAvailable)?;
+        let ksz8463 = bsp.ksz8463();
         let reg =
             ksz8463::Register::from_u16(i).ok_or(KszError::BadRegister)?;
         let out = ksz8463.read(reg).map_err(KszError::from)?;
         Ok(out)
-    }
-
-    fn get_mac_address(
-        &mut self,
-        _msg: &userlib::RecvMessage,
-    ) -> Result<MacAddress, RequestError<core::convert::Infallible>> {
-        let out = self.base_mac_address();
-        Ok(MacAddress(out.0))
     }
 }

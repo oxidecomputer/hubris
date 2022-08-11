@@ -272,7 +272,7 @@ impl Bsp {
         self.mgmt.phy_write(port, reg, value, eth)
     }
 
-    pub fn ksz8463(&self) -> Option<&ksz8463::Ksz8463> {
-        Some(&self.mgmt.ksz8463)
+    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+        &self.mgmt.ksz8463
     }
 }

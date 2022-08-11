@@ -125,7 +125,7 @@ impl Bsp {
         Err(PhyError::NotImplemented)
     }
 
-    pub fn ksz8463(&self) -> Option<&Ksz8463> {
-        Some(&self.ksz8463)
+    pub fn ksz8463(&self) -> &Ksz8463 {
+        &self.ksz8463
     }
 }
