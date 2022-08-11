@@ -7,8 +7,9 @@ use drv_stm32h7_eth as eth;
 use idol_runtime::RequestError;
 use smoltcp::wire::EthernetAddress;
 use task_net_api::{
-    KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress, PhyError,
-    RecvError, SendError, SocketName, UdpMetadata,
+    KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
+    ManagementLinkStatus, MgmtError, PhyError, RecvError, SendError,
+    SocketName, UdpMetadata,
 };
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
@@ -199,5 +200,23 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
             ksz8463::Register::from_u16(i).ok_or(KszError::BadRegister)?;
         let out = ksz8463.read(reg).map_err(KszError::from)?;
         Ok(out)
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Management network functions, if it's not present
+    #[cfg(not(feature = "mgmt"))]
+    fn management_link_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
+        Err(MgmtError::NotAvailable.into())
+    }
+
+    #[cfg(feature = "mgmt")]
+    fn management_link_status(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
+        unimplemented!()
     }
 }

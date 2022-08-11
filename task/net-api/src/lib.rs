@@ -9,6 +9,7 @@
 use derive_idol_err::IdolError;
 use serde::{Deserialize, Serialize};
 use userlib::*;
+use zerocopy::{AsBytes, FromBytes};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
 #[repr(u32)]
@@ -86,7 +87,7 @@ impl From<ksz8463::Error> for KszError {
     }
 }
 
-#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[derive(Copy, Clone, Debug, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct KszMacTableEntry {
     pub mac: [u8; 6],
@@ -107,9 +108,22 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
     }
 }
 
-#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
+#[derive(Copy, Clone, Debug, AsBytes, FromBytes)]
 #[repr(C)]
 pub struct MacAddress(pub [u8; 6]);
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ManagementLinkStatus {
+    ksz8463_100base_fx_link_up: [bool; 2],
+    vsc85x2_100base_fx_link_up: [bool; 2],
+    vsc85x2_sgmii_link_up: [bool; 2],
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
+#[repr(u32)]
+pub enum MgmtError {
+    NotAvailable,
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 

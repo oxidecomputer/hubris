@@ -115,5 +115,13 @@ Interface(
                 err: ServerDeath,
             ),
         ),
+        "management_link_status": (
+            doc: "Checks the client side management network status",
+            reply: Result(
+                ok: "ManagementLinkStatus",
+                err: CLike("MgmtError")
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )
