@@ -45,7 +45,7 @@ fn main() -> ! {
     }
 }
 
-static UDP_ERROR_COUNT: core::sync::atomic::AtomicU32 =
-    core::sync::atomic::AtomicU32::new(0);
 static UDP_BROADCAST_COUNT: core::sync::atomic::AtomicU32 =
+    core::sync::atomic::AtomicU32::new(0);
+static UDP_ERROR_COUNT: core::sync::atomic::AtomicU32 =
     core::sync::atomic::AtomicU32::new(0);
