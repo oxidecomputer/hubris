@@ -902,6 +902,7 @@ pub unsafe extern "C" fn SVCall() {
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
     CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    crate::profiling::event_context_switch(task as *mut _ as usize);
 }
 
 /// Reads the tick counter.
