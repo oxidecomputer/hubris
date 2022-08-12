@@ -123,5 +123,13 @@ Interface(
             ),
             encoding: Ssmarshal,
         ),
+        "management_counters": (
+            doc: "Returns management network counters",
+            reply: Result(
+                ok: "ManagementCounters",
+                err: CLike("MgmtError")
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )

@@ -8,8 +8,8 @@ use idol_runtime::RequestError;
 use smoltcp::wire::EthernetAddress;
 use task_net_api::{
     KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
-    ManagementLinkStatus, MgmtError, PhyError, RecvError, SendError,
-    SocketName, UdpMetadata,
+    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError, RecvError,
+    SendError, SocketName, UdpMetadata,
 };
 
 /// Abstraction trait to reduce code duplication between VLAN and non-VLAN
@@ -212,6 +212,14 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         Err(MgmtError::NotAvailable.into())
     }
 
+    #[cfg(not(feature = "mgmt"))]
+    fn management_counters(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<ManagementCounters, RequestError<MgmtError>> {
+        Err(MgmtError::NotAvailable.into())
+    }
+
     #[cfg(feature = "mgmt")]
     fn management_link_status(
         &mut self,
@@ -219,6 +227,16 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
     ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
         let (eth, bsp) = self.eth_bsp();
         let out = bsp.management_link_status(eth).map_err(MgmtError::from)?;
+        Ok(out)
+    }
+
+    #[cfg(feature = "mgmt")]
+    fn management_counters(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<ManagementCounters, RequestError<MgmtError>> {
+        let (eth, bsp) = self.eth_bsp();
+        let out = bsp.management_counters(eth).map_err(MgmtError::from)?;
         Ok(out)
     }
 }

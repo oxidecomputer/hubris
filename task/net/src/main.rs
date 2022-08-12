@@ -31,8 +31,8 @@ cfg_if::cfg_if! {
 mod idl {
     use task_net_api::{
         KszError, KszMacTableEntry, LargePayloadBehavior, MacAddress,
-        ManagementLinkStatus, MgmtError, PhyError, RecvError, SendError,
-        SocketName, UdpMetadata,
+        ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+        RecvError, SendError, SocketName, UdpMetadata,
     };
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

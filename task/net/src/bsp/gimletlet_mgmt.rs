@@ -11,7 +11,9 @@ use ksz8463::{
     Error as KszError, MIBCounter, MIBCounterValue, Register as KszRegister,
 };
 use ringbuf::*;
-use task_net_api::{ManagementLinkStatus, MgmtError, PhyError};
+use task_net_api::{
+    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+};
 use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
@@ -281,5 +283,12 @@ impl Bsp {
         eth: &crate::eth::Ethernet,
     ) -> Result<ManagementLinkStatus, MgmtError> {
         self.mgmt.management_link_status(eth)
+    }
+
+    pub fn management_counters(
+        &self,
+        eth: &crate::eth::Ethernet,
+    ) -> Result<ManagementCounters, MgmtError> {
+        self.mgmt.management_counters(eth)
     }
 }

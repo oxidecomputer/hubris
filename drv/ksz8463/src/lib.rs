@@ -185,6 +185,7 @@ impl Ksz8463 {
         let b = match port {
             1 => 0x0,
             2 => 0x20,
+            3 => 0x40,
             _ => panic!("Invalid port {}", port),
         };
         // Request counter with given offset.

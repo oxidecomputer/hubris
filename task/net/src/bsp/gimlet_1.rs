@@ -8,7 +8,9 @@ use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_jefe_api::Jefe;
-use task_net_api::{ManagementLinkStatus, MgmtError, PhyError};
+use task_net_api::{
+    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+};
 use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
 use vsc7448_pac::types::PhyRegisterAddress;
 
@@ -136,5 +138,12 @@ impl Bsp {
         eth: &eth::Ethernet,
     ) -> Result<ManagementLinkStatus, MgmtError> {
         self.0.management_link_status(eth)
+    }
+
+    pub fn management_counters(
+        &self,
+        eth: &crate::eth::Ethernet,
+    ) -> Result<ManagementCounters, MgmtError> {
+        self.0.management_counters(eth)
     }
 }

@@ -113,10 +113,41 @@ impl From<ksz8463::KszRawMacTableEntry> for KszMacTableEntry {
 pub struct MacAddress(pub [u8; 6]);
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
 pub struct ManagementLinkStatus {
     pub ksz8463_100base_fx_link_up: [bool; 2],
     pub vsc85x2_100base_fx_link_up: [bool; 2],
     pub vsc85x2_sgmii_link_up: [bool; 2],
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
+pub struct ManagementCountersVsc85x2 {
+    pub mac_good: u16,
+    pub media_good: u16,
+    pub mac_bad: u16,
+    pub media_bad: u16,
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
+pub struct ManagementCountersKsz8463 {
+    pub multicast: u32,
+    pub unicast: u32,
+    pub broadcast: u32,
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[repr(C)]
+pub struct ManagementCounters {
+    pub vsc85x2_tx: [ManagementCountersVsc85x2; 2],
+    pub vsc85x2_rx: [ManagementCountersVsc85x2; 2],
+
+    pub ksz8463_tx: [ManagementCountersKsz8463; 3],
+    pub ksz8463_rx: [ManagementCountersKsz8463; 3],
+
+    /// The MAC counters are only valid on the VSC8562
+    pub vsc85x2_mac_valid: bool,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, IdolError)]
