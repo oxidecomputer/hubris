@@ -224,9 +224,9 @@ Humility can also be run _in situ_ by specifying the appropriate TOML, e.g.
 on a machine with an STM32F4 Discovery board directly attached:
 
 ```console
-$ cargo xtask humility app/demo-stm32f4-discovery/app.toml tasks
+$ cargo xtask humility app/demo-stm32f4-discovery/app.toml -- tasks
     Finished dev [optimized + debuginfo] target(s) in 0.17s
-     Running `target/debug/xtask humility demo/app.toml tasks`
+     Running `target/debug/xtask humility demo/app.toml -- tasks`
 humility: attached via ST-Link
 ID ADDR     TASK               GEN STATE    
  0 20000108 jefe                 0 Healthy(InRecv(None))     
