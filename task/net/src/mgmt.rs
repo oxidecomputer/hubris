@@ -205,7 +205,7 @@ impl Bsp {
         }
     }
 
-    pub fn wake(&self, eth: &Ethernet) {
+    pub fn wake(&self, _eth: &Ethernet) {
         // Nothing to do here
     }
 
