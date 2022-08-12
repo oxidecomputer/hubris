@@ -9,6 +9,7 @@
 #![no_std]
 #![no_main]
 
+use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
 use drv_update_api::UpdateError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
@@ -32,17 +33,6 @@ const BANK_END: u32 = 0x08200000;
 // BANK_ADDR + FLASH_WORD_BYTES is word 1 etc.
 const BANK_WORD_LIMIT: usize =
     (BANK_END - BANK_ADDR) as usize / FLASH_WORD_BYTES;
-
-// RM0433 Rev 7 section 4.3.9
-// Flash word is defined as 256 bits
-const FLASH_WORD_BITS: usize = 256;
-
-// Total length of a word in bytes (i.e. our array size)
-const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
-
-// Block is an abstract concept here. It represents the size of data the
-// driver will process at a time.
-const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * 32;
 
 // Must match app.toml!
 const FLASH_IRQ: u32 = 1 << 0;
