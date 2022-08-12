@@ -217,6 +217,8 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         &mut self,
         _msg: &userlib::RecvMessage,
     ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
-        unimplemented!()
+        let (eth, bsp) = self.eth_bsp();
+        let out = bsp.management_link_status(eth).map_err(MgmtError::from)?;
+        Ok(out)
     }
 }

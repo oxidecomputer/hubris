@@ -7,7 +7,7 @@ use drv_sidecar_seq_api::Sequencer;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use task_net_api::PhyError;
+use task_net_api::{ManagementLinkStatus, MgmtError, PhyError};
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::types::PhyRegisterAddress;
 
@@ -109,5 +109,12 @@ impl Bsp {
 
     pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
         &self.0.ksz8463
+    }
+
+    pub fn management_link_status(
+        &self,
+        eth: &eth::Ethernet,
+    ) -> Result<ManagementLinkStatus, MgmtError> {
+        self.0.management_link_status(eth)
     }
 }

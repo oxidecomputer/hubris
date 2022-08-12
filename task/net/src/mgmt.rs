@@ -8,7 +8,7 @@ use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
 use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
 use ringbuf::*;
-use task_net_api::PhyError;
+use task_net_api::{ManagementLinkStatus, MgmtError, PhyError};
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
@@ -27,12 +27,8 @@ pub enum Ksz8463ResetSpeed {
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Status {
-    ksz8463_100base_fx_link_up: [bool; 2],
     ksz8463_rx_bytes: [ksz8463::MIBCounterValue; 2],
     ksz8463_tx_bytes: [ksz8463::MIBCounterValue; 2],
-
-    vsc85x2_100base_fx_link_up: [bool; 2],
-    vsc85x2_sgmii_link_up: [bool; 2],
 
     // The VSC8562 includes MAC TX/RX counters as well, but these
     // aren't present on the VSC8552.
@@ -225,14 +221,6 @@ impl Bsp {
         for i in 0..2 {
             // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
             let port = i as u8 + 1;
-            match self.ksz8463.read(KszRegister::PxMBSR(port)) {
-                Ok(sr) => {
-                    s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
-                }
-            }
             match self
                 .ksz8463
                 .read_mib_counter(port, ksz8463::MIBCounter::RxLoPriorityByte)
@@ -255,22 +243,6 @@ impl Bsp {
             // The VSC85x2 numbers its ports starting at 0
             let port = i as u8;
             let mut phy = self.vsc85x2.phy(port, rw);
-            match phy.phy.read(phy::STANDARD::MODE_STATUS()) {
-                Ok(sr) => {
-                    s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
-                }
-            };
-            match phy.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
-                Ok(status) => {
-                    s.vsc85x2_sgmii_link_up[i] = status.mac_link_status() != 0
-                }
-                Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
-                }
-            };
 
             // Read media (100BASE-FX) and MAC counters, which are
             // chip-dependent (some aren't present on the VSC8552)
@@ -292,5 +264,50 @@ impl Bsp {
         }
 
         ringbuf_entry!(Trace::Status(s));
+    }
+
+    pub fn management_link_status(
+        &self,
+        eth: &Ethernet,
+    ) -> Result<ManagementLinkStatus, MgmtError> {
+        let mut s = ManagementLinkStatus::default();
+        let rw = &mut MiimBridge::new(eth);
+
+        for i in 0..2 {
+            // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
+            let port = i as u8 + 1;
+            match self.ksz8463.read(KszRegister::PxMBSR(port)) {
+                Ok(sr) => {
+                    s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return Err(MgmtError::KszError);
+                }
+            }
+
+            // The VSC85x2 numbers its ports starting at 0
+            let port = i as u8;
+            let phy = self.vsc85x2.phy(port, rw);
+            match phy.phy.read(phy::STANDARD::MODE_STATUS()) {
+                Ok(sr) => {
+                    s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return Err(MgmtError::VscError);
+                }
+            };
+            match phy.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
+                Ok(status) => {
+                    s.vsc85x2_sgmii_link_up[i] = status.mac_link_status() != 0
+                }
+                Err(err) => {
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return Err(MgmtError::VscError);
+                }
+            };
+        }
+        Ok(s)
     }
 }
