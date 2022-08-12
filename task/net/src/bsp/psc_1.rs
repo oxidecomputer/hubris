@@ -62,7 +62,7 @@ impl Bsp {
             ksz8463_spi: Spi::from(SPI.get_task_id()).device(0),
             ksz8463_nrst: Port::C.pin(2),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
 
             // SP_TO_MGMT_PHY_COMA_MODE
             vsc85x2_coma_mode: Some(Port::D.pin(7)),
