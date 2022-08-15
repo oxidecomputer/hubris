@@ -26,6 +26,7 @@ uses = ["rcc", "gpio"]
 start = true
 features = ["g030"]
 stacksize = 256
+task-slots = ["jefe"]
 
 [tasks.pong]
 name = "task-pong"

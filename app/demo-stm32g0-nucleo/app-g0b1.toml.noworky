@@ -38,6 +38,7 @@ requires = {flash = 2048, ram = 256}
 uses = ["rcc", "gpio"]
 start = true
 stacksize = 256
+task-slots = ["jefe"]
 
 [tasks.usart_driver]
 name = "drv-stm32g0-usart"
