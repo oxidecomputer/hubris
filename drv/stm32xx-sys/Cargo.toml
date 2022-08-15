@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bitflags = "1.2.1"
 userlib = {path = "../../sys/userlib"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
@@ -12,6 +13,7 @@ stm32h7 = {version = "0.14", default-features = false, optional = true}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api"}
 drv-stm32xx-gpio-common = {path = "../stm32xx-gpio-common", features = ["server-support"]}
+task-jefe-api = {path="../../task/jefe-api"}
 cfg-if = "1"
 
 [build-dependencies]

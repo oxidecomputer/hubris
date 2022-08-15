@@ -9,6 +9,8 @@ userlib = {path = "../../sys/userlib"}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 ringbuf = {path = "../../lib/ringbuf" }
 num-traits = { version = "0.2.12", default-features = false }
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
 zerocopy = "0.6.1"
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cortex-m-semihosting = { version = "0.5.0", optional = true }
