@@ -29,3 +29,9 @@ path = "sys/userlib"
 
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
+
+# TODO REMOVE!
+[patch."https://github.com/oxidecomputer/idolatry".idol]
+path = "../idolatry"
+[patch."https://github.com/oxidecomputer/idolatry".idol-runtime]
+path = "../idolatry/runtime"

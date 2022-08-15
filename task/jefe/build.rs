@@ -8,16 +8,18 @@ use std::collections::BTreeMap;
 use std::io::Write;
 
 fn main() -> Result<()> {
-    idol::server::build_server_support(
+    let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
+
+    idol::server::build_restricted_server_support(
         "../../idl/jefe.idol",
         "server_stub.rs",
         idol::server::ServerStyle::InOrder,
+        &cfg.allowed_callers,
     )
     .unwrap();
 
     build_util::expose_m_profile();
 
-    let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path = std::path::Path::new(&out_dir).join("jefe_config.rs");
     let mut out =
@@ -36,24 +38,6 @@ fn main() -> Result<()> {
     }
     writeln!(out, "];")?;
 
-    write!(out, "pub(crate) const STATE_OWNER: Option<{}> = ", task)?;
-    if let Some(owner) = cfg.state_owner {
-        writeln!(out, "Some({}::{});", task, owner)?;
-    } else {
-        writeln!(out, "None;")?;
-    }
-
-    write!(
-        out,
-        "pub(crate) const RESET_REASON_OWNER: Option<{}> = ",
-        task
-    )?;
-    if let Some(owner) = cfg.reset_reason_owner {
-        writeln!(out, "Some({}::{});", task, owner)?;
-    } else {
-        writeln!(out, "None;")?;
-    }
-
     Ok(())
 }
 
@@ -65,15 +49,9 @@ struct Config {
     /// `StateChange` record.
     #[serde(default)]
     on_state_change: BTreeMap<String, StateChange>,
-    /// Name of task responsible for state changes. If provided, a state change
-    /// request from any other task will result in that task being faulted.
+    /// Map of operation names to tasks allowed to call them.
     #[serde(default)]
-    state_owner: Option<String>,
-    /// Name of task responsible for setting the reset reason. If provided, a
-    /// request to set the reset reason from any other task will result in that
-    /// task being faulted.
-    #[serde(default)]
-    reset_reason_owner: Option<String>,
+    allowed_callers: BTreeMap<String, Vec<String>>,
 }
 
 /// Description of something a task wants done on state change.
