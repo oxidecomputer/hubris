@@ -35,7 +35,10 @@ cfg_if::cfg_if! {
 use drv_stm32xx_gpio_common::{server::get_gpio_regs, Port};
 use drv_stm32xx_sys_api::{GpioError, Group, RccError};
 use idol_runtime::RequestError;
+use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
+
+task_slot!(JEFE, jefe);
 
 trait FlagsRegister {
     /// Sets bit `index` in the register, preserving other bits.
@@ -123,6 +126,11 @@ fn main() -> ! {
                     .set_bit()
             });
         }
+    }
+
+    // Read RCC_RSR and inform Jefe why we reset.
+    if let Some(reason) = try_read_reset_reason(rcc) {
+        Jefe::from(JEFE.get_task_id()).set_reset_reason(reason);
     }
 
     // Field messages.
@@ -359,6 +367,93 @@ cfg_if::cfg_if! {
             }
         }
 
+        fn try_read_reset_reason(
+            rcc: &device::rcc::RegisterBlock,
+        ) -> Option<ResetReason> {
+            bitflags::bitflags! {
+                // See RM0433 section 8.7.39 (RCC_RSR).
+                #[repr(transparent)]
+                pub struct ResetFlags: u32 {
+                    const LPWR = 1 << 30;
+                    const WWDG1 = 1 << 28;
+                    const IWDG1 = 1 << 26;
+                    const SFT = 1 << 24;
+                    const POR = 1 << 23;
+                    const PIN = 1 << 22;
+                    const BOR = 1 << 21;
+                    const D2 = 1 << 20;
+                    const D1 = 1 << 19;
+                    const CPU = 1 << 17;
+                }
+            }
+
+            // See RM0433 section 8.4.4 table 55, which defines the collection
+            // of pins set for each of the following reset situations.
+            const POWER_ON_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits()
+                | ResetFlags::D1.bits()
+                | ResetFlags::D2.bits()
+                | ResetFlags::BOR.bits()
+                | ResetFlags::PIN.bits()
+                | ResetFlags::POR.bits()
+            );
+            const PIN_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits() | ResetFlags::PIN.bits()
+            );
+            const BROWNOUT_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits()
+                | ResetFlags::BOR.bits()
+                | ResetFlags::PIN.bits()
+            );
+            const SYSTEM_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits()
+                | ResetFlags::PIN.bits()
+                | ResetFlags::SFT.bits()
+            );
+            const WWDG1_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits()
+                | ResetFlags::PIN.bits()
+                | ResetFlags::WWDG1.bits()
+            );
+            const IWDG1_RESET: ResetFlags = ResetFlags::from_bits_truncate(
+                ResetFlags::CPU.bits()
+                | ResetFlags::PIN.bits()
+                | ResetFlags::IWDG1.bits()
+            );
+            const LOW_POWER_SECURITY_RESET: ResetFlags =
+                ResetFlags::from_bits_truncate(
+                    ResetFlags::CPU.bits()
+                    | ResetFlags::PIN.bits()
+                    | ResetFlags::LPWR.bits()
+                );
+
+            let rsr = rcc.rsr.read();
+            let bits = rsr.bits();
+            if bits == 0 {
+                // RSR has been cleared; maybe our task has restarted? No
+                // matter how we got here, we don't know why we most
+                // recently reset.
+                return None;
+            }
+
+            let flags = ResetFlags::from_bits_truncate(bits);
+            let reason = match flags {
+                POWER_ON_RESET => ResetReason::PowerOn,
+                PIN_RESET => ResetReason::Pin,
+                SYSTEM_RESET => ResetReason::SystemCall,
+                BROWNOUT_RESET => ResetReason::Brownout,
+                WWDG1_RESET => ResetReason::SystemWatchdog,
+                IWDG1_RESET => ResetReason::IndependentWatchdog,
+                LOW_POWER_SECURITY_RESET => ResetReason::LowPowerSecurity,
+                ResetFlags::D1 | ResetFlags::D2 => ResetReason::ExitStandby,
+                _ => ResetReason::Other(bits),
+            };
+
+            // Clear RSR.
+            rcc.rsr.modify(|_, w| w.rmvf().set_bit());
+
+            Some(reason)
+        }
     } else {
         compile_error!("unsupported SoC family");
     }

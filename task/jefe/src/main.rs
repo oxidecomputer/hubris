@@ -28,7 +28,10 @@
 
 mod external;
 
+use core::convert::Infallible;
+
 use hubris_num_tasks::NUM_TASKS;
+use task_jefe_api::ResetReason;
 use userlib::*;
 
 fn log_fault(t: usize, fault: &abi::FaultInfo) {
@@ -132,6 +135,7 @@ fn main() -> ! {
         deadline,
         disposition: &mut disposition,
         logged: &mut logged,
+        reset_reason: ResetReason::Unknown,
     };
     let mut buf = [0u8; idl::INCOMING_SIZE];
 
@@ -145,23 +149,40 @@ struct ServerImpl<'s> {
     disposition: &'s mut [Disposition; NUM_TASKS],
     logged: &'s mut [bool; NUM_TASKS],
     deadline: u64,
+    reset_reason: ResetReason,
 }
 
 impl idl::InOrderJefeImpl for ServerImpl<'_> {
     fn request_reset(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
+    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
         // If we wanted to broadcast to other tasks that a restart is occuring
         // here is where we would do so!
         kipc::system_restart();
     }
 
+    fn get_reset_reason(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+    ) -> Result<ResetReason, idol_runtime::RequestError<Infallible>> {
+        Ok(self.reset_reason)
+    }
+
+    fn set_reset_reason(
+        &mut self,
+        _msg: &userlib::RecvMessage,
+        reason: ResetReason,
+    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
+        // TODO check sender
+        self.reset_reason = reason;
+        Ok(())
+    }
+
     fn get_state(
         &mut self,
         _msg: &userlib::RecvMessage,
-    ) -> Result<u32, idol_runtime::RequestError<core::convert::Infallible>>
-    {
+    ) -> Result<u32, idol_runtime::RequestError<Infallible>> {
         Ok(self.state)
     }
 
@@ -169,7 +190,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
         &mut self,
         msg: &userlib::RecvMessage,
         state: u32,
-    ) -> Result<(), idol_runtime::RequestError<core::convert::Infallible>> {
+    ) -> Result<(), idol_runtime::RequestError<Infallible>> {
         // If a task is designated as state owner, ensure that this RPC came
         // from that task.
         if let Some(owner) = generated::STATE_OWNER {
@@ -252,5 +273,6 @@ mod generated {
 
 // And the Idol bits
 mod idl {
+    use task_jefe_api::ResetReason;
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
