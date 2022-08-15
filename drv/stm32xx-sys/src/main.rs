@@ -294,6 +294,13 @@ cfg_if::cfg_if! {
             }
         }
 
+        fn try_read_reset_reason(
+            rcc: &device::rcc::RegisterBlock,
+        ) -> Option<ResetReason> {
+            // TODO map to ResetReason cases
+            let bits = rcc.csr.read().bits();
+            Some(ResetReason::Other(bits))
+        }
     } else if #[cfg(feature = "family-stm32h7")] {
         fn enable_clock(
             rcc: &device::rcc::RegisterBlock,
