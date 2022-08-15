@@ -171,19 +171,9 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
     fn set_reset_reason(
         &mut self,
-        msg: &userlib::RecvMessage,
+        _msg: &userlib::RecvMessage,
         reason: ResetReason,
     ) -> Result<(), idol_runtime::RequestError<Infallible>> {
-        // If a task is designated as the reset reason owner, ensure that this
-        // RPC came from that task.
-        if let Some(owner) = generated::RESET_REASON_OWNER {
-            if msg.sender.index() != owner as usize {
-                // We'll pretend this operation doesn't exist.
-                // TODO this should be AccessViolation but that isn't exposed in
-                // the current version of idol.
-                return Err(idol_runtime::ClientError::UnknownOperation.fail());
-            }
-        }
         self.reset_reason = reason;
         Ok(())
     }
@@ -197,20 +187,9 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
     fn set_state(
         &mut self,
-        msg: &userlib::RecvMessage,
+        _msg: &userlib::RecvMessage,
         state: u32,
     ) -> Result<(), idol_runtime::RequestError<Infallible>> {
-        // If a task is designated as state owner, ensure that this RPC came
-        // from that task.
-        if let Some(owner) = generated::STATE_OWNER {
-            if msg.sender.index() != owner as usize {
-                // We'll pretend this operation doesn't exist.
-                // TODO this should be AccessViolation but that isn't exposed in
-                // the current version of idol.
-                return Err(idol_runtime::ClientError::UnknownOperation.fail());
-            }
-        }
-
         if self.state != state {
             self.state = state;
 
