@@ -30,6 +30,7 @@ stacksize = 1536
 [tasks.jefe.config]
 state-owner = "gimlet_seq"
 on-state-change = {net = {bit-number = 3}}
+reset-reason-owner = "sys"
 
 [tasks.net]
 name = "task-net"

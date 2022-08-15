@@ -32,6 +32,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+reset-reason-owner = "sys"
+
 [tasks.sys]
 path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"

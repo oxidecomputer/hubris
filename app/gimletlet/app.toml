@@ -27,6 +27,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+reset-reason-owner = "sys"
+
 [tasks.sys]
 name = "drv-stm32xx-sys"
 features = ["h753"]
