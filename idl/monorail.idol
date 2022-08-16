@@ -162,5 +162,20 @@ Interface(
                 err: CLike("MonorailError"),
             ),
         ),
+        "read_vsc7448_mac_count": (
+            doc: "Returns the number of entries in the VSC7448 MAC table",
+            reply: Result(
+                ok: "usize",
+                err: CLike("MonorailError"),
+            ),
+        ),
+        "read_vsc7448_next_mac": (
+            doc: "Reads the next MAC address from the VSC7448 MAC table",
+            reply: Result(
+                ok: "MacTableEntry",
+                err: CLike("MonorailError"),
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )

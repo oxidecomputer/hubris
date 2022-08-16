@@ -23,9 +23,10 @@ drv-user-leds-api = {path = "../../drv/user-leds-api", optional = true}
 hubris-num-tasks = {path = "../../sys/num-tasks", features = ["task-enum"]}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 ksz8463 = { path = "../../drv/ksz8463", optional = true }
+mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
-task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 task-jefe-api = {path = "../jefe-api"}
+task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448"}
 vsc85xx = { path = "../../drv/vsc85xx"}
@@ -46,8 +47,7 @@ gimlet = ["drv-gimlet-seq-api"]
 sidecar = ["drv-sidecar-seq-api"]
 h743 = ["drv-stm32h7-eth/h743", "stm32h7/stm32h743", "drv-stm32xx-sys-api/h743"]
 h753 = ["drv-stm32h7-eth/h753", "stm32h7/stm32h753", "drv-stm32xx-sys-api/h753"]
-h7-vlan = ["drv-stm32h7-eth/vlan", "vlan"]
-vlan = ["task-net-api/vlan", "build-net/vlan"]
+vlan = ["task-net-api/vlan", "build-net/vlan", "drv-stm32h7-eth/vlan"]
 gimletlet-nic = ["drv-spi-api", "ksz8463", "drv-user-leds-api"]
 
 [build-dependencies]

@@ -245,6 +245,25 @@ impl<'a, R: Vsc7448Rw> Vsc7448<'a, R> {
         Ok(())
     }
 
+    /// Reconfigures the given port.
+    ///
+    /// The SERDES is not changed; this function is mostly used to change port
+    /// speed after an attached PHY completes autonegotiation.
+    pub fn reinit_sgmii(
+        &self,
+        dev: (PortDev, u8),
+        speed: Speed,
+    ) -> Result<(), VscError> {
+        let dev = match dev.0 {
+            PortDev::Dev1g => DevGeneric::new_1g,
+            PortDev::Dev2g5 => DevGeneric::new_2g5,
+            _ => panic!("Invalid dev for SGMII"),
+        }(dev.1)?;
+
+        dev.init_sgmii(self.rw, speed)?;
+        Ok(())
+    }
+
     /// Enables QSGMII mode for blocks of four ports beginning at `start_port`.
     /// This will configure the appropriate DEV1G or DEV2G5 devices, and the
     /// appropriate SERDES6G, based on Table 8 in the datasheet;

@@ -21,7 +21,6 @@
 
 #![no_std]
 #![no_main]
-#![feature(asm)]
 
 use hubris_num_tasks::NUM_TASKS;
 use test_api::*;
@@ -592,7 +591,7 @@ mod at24csw080 {
     pub(super) fn test_at24csw080() {
         let i2c_task = I2C.get_task_id();
         let dev =
-            At24csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
+            At24Csw080::new(i2c_config::devices::at24csw080_local(i2c_task)[0]);
 
         // The FRU ID EEPROM is 1KByte.  Because we want to exercise the
         // ability to rewrite the EEPROM (and have that persist through power
@@ -653,7 +652,7 @@ mod at24csw080 {
         *i
     }
 
-    fn test_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
+    fn test_eeprom(dev: &At24Csw080, seed: u8) -> Result<(), Error> {
         assert!(seed != 0);
 
         // If the security register is (permanently) locked, then we won't be
@@ -787,7 +786,7 @@ mod at24csw080 {
         Ok(())
     }
 
-    fn validate_eeprom(dev: &At24csw080, seed: u8) -> Result<(), Error> {
+    fn validate_eeprom(dev: &At24Csw080, seed: u8) -> Result<(), Error> {
         // At this point, we have already overwritten byte 0 with 0xFF
         // to avoid getting stuck in a bad validation state.
 
@@ -1188,9 +1187,9 @@ fn test_timer_notify_past() {
 fn test_floating_point(highregs: bool) {
     unsafe fn read_regs(dest: &mut [u32; 16], highregs: bool) {
         if !highregs {
-            asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
+            core::arch::asm!("vstm {0}, {{s0-s15}}", in(reg) dest);
         } else {
-            asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
+            core::arch::asm!("vstm {0}, {{s16-s31}}", in(reg) dest);
         }
     }
 

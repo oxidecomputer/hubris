@@ -24,7 +24,6 @@ enum Trace {
     PhyScanError { miim: u8, phy: u8, err: VscError },
     PhyLinkChanged { port: u8, status: u16 },
     SgmiiError { dev: u8, err: VscError },
-    MacAddress(vsc7448::mac::MacTableEntry),
 }
 ringbuf!(Trace, 16, Trace::None);
 
@@ -102,7 +101,6 @@ pub struct Bsp<'a, R> {
     vsc8522: [Vsc8522; 4],
     leds: UserLeds,
     phy_link_up: [[bool; 24]; 2],
-    known_macs: [Option<[u8; 6]>; 16],
 }
 
 impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
@@ -114,7 +112,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             vsc8522: [Vsc8522::empty(); 4], // To be populated with phy_init()
             leds,
             phy_link_up: Default::default(),
-            known_macs: Default::default(),
         };
         out.init()?;
         Ok(out)
@@ -224,31 +221,6 @@ impl<'a, R: Vsc7448Rw> Bsp<'a, R> {
             self.leds.led_off(2).unwrap();
         }
 
-        // Dump the MAC tables
-        while let Some(mac) = vsc7448::mac::next_mac(self.vsc7448)? {
-            // Inefficient but easy way to avoid logging MAC addresses
-            // repeatedly.  This will fail to scale for larger systems,
-            // where we'd want some kind of LRU cache, but is nice
-            // for debugging.
-            let mut mac_is_new = true;
-            for m in self.known_macs.iter_mut() {
-                match m {
-                    Some(m) => {
-                        if *m == mac.mac {
-                            mac_is_new = false;
-                            break;
-                        }
-                    }
-                    None => {
-                        *m = Some(mac.mac);
-                        break;
-                    }
-                }
-            }
-            if mac_is_new {
-                ringbuf_entry!(Trace::MacAddress(mac));
-            }
-        }
         Ok(())
     }
 

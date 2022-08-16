@@ -8,10 +8,10 @@ use vsc7448_pac::*;
 
 /// Represents an entry in the VSC7448's MAC tables
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct MacTableEntry {
+pub struct Vsc7448MacTableEntry {
     pub mac: [u8; 6],
     src_kill_fwd: bool,
-    addr: u16,
+    pub addr: u16,
     addr_type: u8,
     nxt_lrn_all: bool,
     cpu_copy: bool,
@@ -23,7 +23,20 @@ pub struct MacTableEntry {
     valid: bool,
 }
 
-pub fn next_mac(v: &impl Vsc7448Rw) -> Result<Option<MacTableEntry>, VscError> {
+pub fn count_macs(v: &impl Vsc7448Rw) -> Result<usize, VscError> {
+    // Reset MAC table reader, so FIND_SMALLEST starts from 0
+    v.write(LRN().COMMON().MAC_ACCESS_CFG_0(), 0.into())?;
+    v.write(LRN().COMMON().MAC_ACCESS_CFG_1(), 0.into())?;
+    let mut i = 0;
+    while next_mac(v)?.is_some() {
+        i += 1;
+    }
+    Ok(i)
+}
+
+pub fn next_mac(
+    v: &impl Vsc7448Rw,
+) -> Result<Option<Vsc7448MacTableEntry>, VscError> {
     // Trigger a FIND_SMALLEST action then wait for it to finish
     let ctrl = LRN().COMMON().COMMON_ACCESS_CTRL();
     v.write_with(ctrl, |r| {
@@ -44,7 +57,7 @@ pub fn next_mac(v: &impl Vsc7448Rw) -> Result<Option<MacTableEntry>, VscError> {
     if msb == 0 && lsb == 0 {
         Ok(None)
     } else {
-        let mut out = MacTableEntry::default();
+        let mut out = Vsc7448MacTableEntry::default();
         out.mac[0..2].copy_from_slice(&msb.to_be_bytes()[2..]);
         out.mac[2..6].copy_from_slice(&lsb.to_be_bytes());
 

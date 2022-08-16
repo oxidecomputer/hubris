@@ -14,12 +14,14 @@ pub use vsc7448::{
 };
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct PortStatus {
     pub cfg: PortConfig,
     pub link_up: LinkStatus,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct PacketCount {
     pub multicast: u32,
     pub unicast: u32,
@@ -27,6 +29,7 @@ pub struct PacketCount {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct PortCounters {
     pub rx: PacketCount,
     pub tx: PacketCount,
@@ -36,6 +39,7 @@ pub struct PortCounters {
 #[derive(
     Copy, Clone, Debug, PartialEq, FromPrimitive, ToPrimitive, IdolError,
 )]
+#[repr(C)]
 pub enum MonorailError {
     SpiError,
     ServerDied,
@@ -157,6 +161,7 @@ impl From<VscError> for MonorailError {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[repr(C)]
 pub enum PhyType {
     Vsc8504,
     Vsc8522,
@@ -180,6 +185,7 @@ impl PhyType {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[repr(C)]
 pub enum LinkStatus {
     /// MAC_SYNC_FAIL or MAC_CGBAD is set
     Error,
@@ -188,8 +194,16 @@ pub enum LinkStatus {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct PhyStatus {
     pub ty: PhyType,
     pub mac_link_up: LinkStatus,
     pub media_link_up: LinkStatus,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[repr(C)]
+pub struct MacTableEntry {
+    pub mac: [u8; 6],
+    pub port: u16,
 }

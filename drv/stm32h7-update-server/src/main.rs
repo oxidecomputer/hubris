@@ -99,14 +99,18 @@ impl<'a> ServerImpl<'a> {
     }
 
     fn poll_flash_done(&mut self) -> Result<(), RequestError<UpdateError>> {
-        let mut seen = false;
-
+        // This method should implement step 5 of the Single Write Sequence from
+        // RM0433 Rev 7 section 4.3.9, which states
+        //
+        // > Check that QW1 (respectively QW2) has been raised and wait until it
+        // > is reset to 0.
+        //
+        // However, checking that QW2 has been raised is inherently racy: it's
+        // possible it was raised and lowered before we get to this method. We
+        // have observed this race in practice, so we omit the check that QW2
+        // has been raised and only wait until QW2 is reset to 0.
         loop {
-            if self.flash.bank2().sr.read().qw().bit() {
-                seen = true;
-            }
-
-            if seen && !self.flash.bank2().sr.read().qw().bit() {
+            if !self.flash.bank2().sr.read().qw().bit() {
                 break;
             }
         }

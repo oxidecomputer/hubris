@@ -36,10 +36,16 @@ fn main() -> ! {
         };
 
         hl::sleep_for(500);
-        net.send_packet(SOCKET, meta, &tx_bytes).unwrap();
-        UDP_BROADCAST_COUNT.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+        match net.send_packet(SOCKET, meta, &tx_bytes) {
+            Ok(()) => UDP_BROADCAST_COUNT
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
+            Err(_) => UDP_ERROR_COUNT
+                .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
+        };
     }
 }
 
 static UDP_BROADCAST_COUNT: core::sync::atomic::AtomicU32 =
+    core::sync::atomic::AtomicU32::new(0);
+static UDP_ERROR_COUNT: core::sync::atomic::AtomicU32 =
     core::sync::atomic::AtomicU32::new(0);

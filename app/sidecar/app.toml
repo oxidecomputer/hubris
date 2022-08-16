@@ -93,9 +93,9 @@ global_config = "spi5"
 
 [tasks.net]
 name = "task-net"
-stacksize = 5400
+stacksize = 4640
 priority = 5
-features = ["mgmt", "h753", "sidecar"]
+features = ["mgmt", "h753", "sidecar", "vlan"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
@@ -112,6 +112,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
@@ -120,12 +121,13 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.monorail]
 name = "task-monorail-server"
 priority = 6
 max-sizes = {flash = 262144, ram = 8192}
-features = ["mgmt", "sidecar"]
+features = ["mgmt", "sidecar", "vlan"]
 stacksize = 4096
 start = true
 task-slots = ["sys", "net", "ecp5_front_io",
@@ -707,6 +709,8 @@ mux = "port_jk"
 cs = [{port = "J", pin = 6}]
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}

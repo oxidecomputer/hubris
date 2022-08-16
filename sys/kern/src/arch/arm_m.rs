@@ -422,8 +422,6 @@ pub fn apply_memory_protection(task: &task::Task) {
 
 #[cfg(armv8m)]
 pub fn apply_memory_protection(task: &task::Task) {
-    // Sigh cortex-m crate doesn't have armv8-m support
-    // Let's poke it manually to make sure we're doing this right..
     let mpu = unsafe {
         // At least by not taking a &mut we're confident we're not violating
         // aliasing....
@@ -488,22 +486,18 @@ pub fn apply_memory_protection(task: &task::Task) {
             | region.base;
 
         unsafe {
-            // RNR
-            core::ptr::write_volatile(0xe000_ed98 as *mut u32, rnr);
-            // MAIR
+            mpu.rnr.write(rnr);
             if rnr < 4 {
-                let mut mair0 = (0xe000_edc0 as *const u32).read_volatile();
+                let mut mair0 = mpu.mair[0].read();
                 mair0 |= (mair as u32) << (rnr * 8);
-                core::ptr::write_volatile(0xe000_edc0 as *mut u32, mair0);
+                mpu.mair[0].write(mair0);
             } else {
-                let mut mair1 = (0xe000_edc4 as *const u32).read_volatile();
+                let mut mair1 = mpu.mair[1].read();
                 mair1 |= (mair as u32) << ((rnr - 4) * 8);
-                core::ptr::write_volatile(0xe000_edc4 as *mut u32, mair1);
+                mpu.mair[1].write(mair1);
             }
-            // RBAR
-            core::ptr::write_volatile(0xe000_ed9c as *mut u32, rbar);
-            // RLAR
-            core::ptr::write_volatile(0xe000_eda0 as *mut u32, rlar);
+            mpu.rbar.write(rbar);
+            mpu.rlar.write(rlar);
         }
     }
 
@@ -610,9 +604,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
             } else if #[cfg(any(armv7m, armv8m))] {
                 // How many IRQs have we got on ARMv7+? This information is
                 // stored in a separate area of the address space, away from the
-                // NVIC, and is (presumably due to an oversight) not present in
-                // the cortex_m API, so let's fake it.
-                let ictr = (0xe000_e004 as *const u32).read_volatile();
+                // NVIC
+                let icb = &*cortex_m::peripheral::ICB::PTR;
+                let ictr = icb.ictr.read();
                 // This gives interrupt count in blocks of 32, minus 1, so there
                 // are always at least 32 interrupts.
                 let irq_block_count = (ictr as usize & 0xF) + 1;
@@ -1433,6 +1427,10 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
             set_current_task(next);
         }
     });
+}
+
+pub fn reset() -> ! {
+    cortex_m::peripheral::SCB::sys_reset()
 }
 
 /// Common implementation of fault handling.

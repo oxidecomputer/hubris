@@ -185,18 +185,14 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         //                  vtss_phy_conf_set_private
         //                      vtss_phy_pass_through_speed_mode (7601)
         //
-        // "Protocol Transfer mode Guide : Section 4.1.1 - Aneg must be enabled"
-        // (line 7614)
-        self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-            r.set_auto_neg_ena(1);
-        })?;
+        // However, even their SDK seems to _kinda_ rely on autonegotiation,
+        // which we don't want: we control both ends of the system.  This is
+        // therefore edited somewhat from their code.
 
-        // "Default clear "force advertise ability" bit as well" (7620)
-        self.phy
-            .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
-                r.set_force_adv_ability(0);
-                r.set_aneg_ena(1);
-            })?;
+        // The SDK enables autonegotiation on line 7614, but we don't want it.
+        self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
+            r.set_auto_neg_ena(0);
+        })?;
 
         // "Protocol Transfer mode Guide : Section 4.1.3" (7625)
         // We are trying to do forced speed protocol transfer mode, so this
@@ -204,6 +200,11 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
         self.phy
             .modify(phy::EXTENDED_3::MAC_SERDES_PCS_CONTROL(), |r| {
                 r.set_force_adv_ability(1);
+
+                // This isn't in the SDK, but _maybe_ helps SGMII come up when
+                // autonegotiation is disabled?  Or at least, it's used to that
+                // effect elsewhere in the SDK.
+                r.set_mac_if_pd_ena(1);
             })?;
         self.phy.write(
             phy::EXTENDED_3::MAC_SERDES_CLAUSE_37_ADVERTISED_ABILITY(),
@@ -211,15 +212,20 @@ impl<'a, P: PhyRw> Vsc8504Phy<'a, P> {
             0x8401.into(),
         )?;
 
-        // Restart autonegotiation (line 7659)
-        self.phy.modify(phy::STANDARD::MODE_CONTROL(), |r| {
-            r.set_auto_neg_ena(1);
-            r.set_restart_auto_neg(1);
-        })?;
+        // Leave autonegotiation disabled (the SDK enables it on line 7659)
+
+        // Configure SIGDET polarity on the media side; our SIGDET lines are
+        // always pulled down.
+        self.phy
+            .modify(phy::EXTENDED::EXTENDED_MODE_CONTROL(), |r| {
+                let mut r_ = u16::from(*r);
+                r_ |= 1; // sigdet polarity = active low
+                *r = r_.into();
+            })?;
 
         // We are now done with vtss_phy_pass_through_speed_mode.
-        // The rest of vtss_phy_conf_set_private doesn't do much (sets up
-        // SIGDET and fast link fail enable), so we'll skip it for now.
+        // The rest of vtss_phy_conf_set_private doesn't do much (sets up fast
+        // link fail enable), so we'll skip it for now.
 
         // Now, we're done with vtss_phy_soft_reset_port.
         // We are now roughly at line 980, doing

@@ -97,10 +97,10 @@ cfg_if::cfg_if! {
         /// Helper macro for producing output by semihosting :-(
         macro_rules! test_output {
             ($s:expr) => {
-                cortex_m_semihosting::hprintln!($s).unwrap();
+                cortex_m_semihosting::hprintln!($s);
             };
             ($s:expr, $($tt:tt)*) => {
-                cortex_m_semihosting::hprintln!($s, $($tt)*).unwrap();
+                cortex_m_semihosting::hprintln!($s, $($tt)*);
             };
         }
     } else {
@@ -108,13 +108,13 @@ cfg_if::cfg_if! {
         macro_rules! test_output {
             ($s:expr) => {
                 unsafe {
-                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    let stim = &mut (*cortex_m::peripheral::ITM::PTR).stim[8];
                     cortex_m::iprintln!(stim, $s);
                 }
             };
             ($s:expr, $($tt:tt)*) => {
                 unsafe {
-                    let stim = &mut (*cortex_m::peripheral::ITM::ptr()).stim[8];
+                    let stim = &mut (*cortex_m::peripheral::ITM::PTR).stim[8];
                     cortex_m::iprintln!(stim, $s, $($tt)*);
                 }
             };
@@ -126,6 +126,7 @@ cfg_if::cfg_if! {
 /// (And the runner must be zero.)
 const TEST_TASK: usize = 1;
 
+#[no_mangle]
 static TEST_KICK: AtomicU32 = AtomicU32::new(0);
 static TEST_RUNS: AtomicU32 = AtomicU32::new(0);
 

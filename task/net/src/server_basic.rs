@@ -9,6 +9,7 @@
 use drv_stm32h7_eth as eth;
 
 use idol_runtime::{ClientError, NotificationHandler, RequestError};
+use mutable_statics::mutable_statics;
 use smoltcp::iface::{Interface, Neighbor, SocketHandle, SocketStorage};
 use smoltcp::socket::UdpSocket;
 use smoltcp::wire::{
@@ -23,24 +24,20 @@ use crate::generated::{self, SOCKET_COUNT};
 use crate::server::NetServer;
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
 
-/// Storage required to run a single [ServerImpl]. This should be allocated
-/// on the stack and passed into the constructor for the [ServerImpl].
-pub struct ServerStorage<'a> {
-    pub eth: eth::Ethernet,
+type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
-    neighbor_cache_storage: [Option<(IpAddress, Neighbor)>; NEIGHBORS],
-    socket_storage: [SocketStorage<'a>; SOCKET_COUNT],
-    ipv6_net: [IpCidr; 1],
-}
-
-impl<'a> ServerStorage<'a> {
-    pub fn new(eth: eth::Ethernet) -> Self {
-        Self {
-            eth,
-            neighbor_cache_storage: [None; NEIGHBORS],
-            socket_storage: Default::default(),
-            ipv6_net: [Ipv6Cidr::default().into()],
-        }
+/// Grabs references to the server storage arrays.  Can only be called once!
+pub fn claim_server_storage_statics() -> (
+    &'static mut [NeighborStorage; NEIGHBORS],
+    &'static mut [SocketStorage<'static>; SOCKET_COUNT],
+    &'static mut [IpCidr; 1],
+) {
+    mutable_statics! {
+        static mut NEIGHBOR_CACHE_STORAGE: [NeighborStorage; NEIGHBORS] =
+            [Default::default(); _];
+        static mut SOCKET_STORAGE: [SocketStorage<'static>; SOCKET_COUNT] =
+            [Default::default(); _];
+        static mut IPV6_NET: [IpCidr; 1] = [Ipv6Cidr::default().into(); _];
     }
 }
 
@@ -50,7 +47,7 @@ impl<'a> ServerStorage<'a> {
 pub struct ServerImpl<'a> {
     socket_handles: [SocketHandle; SOCKET_COUNT],
     client_waiting_to_send: [bool; SOCKET_COUNT],
-    iface: Interface<'a, &'a eth::Ethernet>,
+    iface: Interface<'static, &'a eth::Ethernet>,
     bsp: crate::bsp::Bsp,
 }
 
@@ -60,23 +57,22 @@ impl<'a> ServerImpl<'a> {
 
     /// Builds a new `ServerImpl`, using the provided storage space.
     pub fn new(
-        storage: &'a mut ServerStorage<'a>,
+        eth: &'a eth::Ethernet,
         ipv6_addr: Ipv6Address,
         mac: EthernetAddress,
         bsp: crate::bsp::Bsp,
     ) -> Self {
-        storage.ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
-        let neighbor_cache = smoltcp::iface::NeighborCache::new(
-            &mut storage.neighbor_cache_storage[..],
-        );
-        let mut iface = smoltcp::iface::InterfaceBuilder::new(
-            &storage.eth,
-            &mut storage.socket_storage[..],
-        )
-        .hardware_addr(mac.into())
-        .neighbor_cache(neighbor_cache)
-        .ip_addrs(&mut storage.ipv6_net[..])
-        .finalize();
+        let (neighbor_cache_storage, socket_storage, ipv6_net) =
+            claim_server_storage_statics();
+        ipv6_net[0] = Ipv6Cidr::new(ipv6_addr, 64).into();
+        let neighbor_cache =
+            smoltcp::iface::NeighborCache::new(&mut neighbor_cache_storage[..]);
+        let mut iface =
+            smoltcp::iface::InterfaceBuilder::new(eth, &mut socket_storage[..])
+                .hardware_addr(mac.into())
+                .neighbor_cache(neighbor_cache)
+                .ip_addrs(&mut ipv6_net[..])
+                .finalize();
 
         // Create sockets and associate them with the interface.
         let sockets = generated::construct_sockets();
@@ -148,7 +144,7 @@ impl<'a> ServerImpl<'a> {
     fn get_socket_mut(
         &mut self,
         index: usize,
-    ) -> Result<&mut UdpSocket<'a>, ClientError> {
+    ) -> Result<&mut UdpSocket<'static>, ClientError> {
         Ok(self.iface.get_socket::<UdpSocket>(self.get_handle(index)?))
     }
 

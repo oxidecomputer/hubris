@@ -91,9 +91,9 @@ task-slots = ["sys", "i2c_driver"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3800
+stacksize = 4640
 priority = 3
-features = ["mgmt", "h753"]
+features = ["mgmt", "h753", "vlan"]
 max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
@@ -108,6 +108,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.udpbroadcast]
 name = "task-udpbroadcast"
@@ -116,6 +117,7 @@ max-sizes = {flash = 16384, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.eeprom]
 name = "drv-eeprom"
@@ -321,6 +323,8 @@ clock_divider = "DIV16"
 
 
 [config.net]
+vlan = { start = 0x301, count = 2 }
+
 [config.net.sockets.echo]
 kind = "udp"
 owner = {name = "udpecho", notification = 1}

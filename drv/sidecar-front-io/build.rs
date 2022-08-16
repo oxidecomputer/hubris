@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     let fpga_bitstream = fs::read(ecp5_bitstream_name)?;
-    let compressed_fpga_bitstream = compress(&fpga_bitstream);
+    let compressed_fpga_bitstream = gnarle::compress_to_vec(&fpga_bitstream);
 
     fs::write(out_dir.join("ecp5.bin.rle"), &compressed_fpga_bitstream)?;
 
@@ -46,16 +46,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed={}", ecp5_bitstream_name);
 
     Ok(())
-}
-
-fn compress(input: &[u8]) -> Vec<u8> {
-    let mut output = vec![];
-
-    gnarle::compress(input, |chunk| {
-        output.extend_from_slice(chunk);
-        Ok::<_, std::convert::Infallible>(())
-    })
-    .ok();
-
-    output
 }
