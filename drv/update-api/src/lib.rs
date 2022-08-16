@@ -6,6 +6,21 @@
 
 use derive_idol_err::IdolError;
 use userlib::{sys_send, FromPrimitive};
+use zerocopy::AsBytes;
+
+#[repr(u8)]
+#[derive(FromPrimitive, AsBytes, PartialEq, Clone, Copy)]
+pub enum UpdateTarget {
+    // Represents targets where we only ever write to a single
+    // alternate flash location. This is typically used in
+    // conjunction with a bank swap feature.
+    Alternate = 1,
+    // Represents targets where we must write to a specific range
+    // of flash.
+    ImageA = 2,
+    ImageB = 3,
+    Bootloader = 4,
+}
 
 #[derive(FromPrimitive, IdolError)]
 #[repr(u32)]
@@ -24,6 +39,9 @@ pub enum UpdateError {
     StrobeErr = 11,
     ProgSeqErr = 12,
     WriteProtErr = 13,
+    BadImageType = 14,
+    UpdateAlreadyFinished = 15,
+    UpdateNotStarted = 16,
 }
 
 pub mod stm32h7 {

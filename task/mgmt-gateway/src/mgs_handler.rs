@@ -6,7 +6,7 @@ use core::convert::Infallible;
 
 use crate::{Log, MgsMessage, UsartHandler, __RINGBUF};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
-use drv_update_api::Update;
+use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
     sp_impl::SocketAddrV6,
     sp_impl::{SerialConsolePacketizer, SpHandler},
@@ -164,7 +164,7 @@ impl SpHandler for MgsHandler {
         }
 
         self.update_task
-            .prep_image_update()
+            .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
         // We can only call `claim_update_buffer_static` once; we bail out above
