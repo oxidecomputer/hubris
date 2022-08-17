@@ -119,8 +119,6 @@ const PARK_BIT: u8 = 0;
 const START_VAL: u8 = 1 << START_BIT;
 const PARK_VAL: u8 = 1 << PARK_BIT;
 
-const IRQ_MASK: u32 = 1;
-
 #[derive(Copy, Clone, PartialEq)]
 enum Port {
     DP = 0,
@@ -415,30 +413,25 @@ impl ServerImpl {
         }
     }
 
+    // We purposely poll on these functions instead of waiting for an interrupt
+    // because the overhead of the system calls is much higher than the number
+    // of cycles we expect to wait given the throughput.
+
     fn wait_to_tx(&mut self) {
         while !self.spi.can_tx() {
-            self.spi.enable_tx();
-            sys_irq_control(IRQ_MASK, true);
-            let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
-            self.spi.disable_tx();
+            cortex_m::asm::nop();
         }
     }
 
     fn wait_for_rx(&mut self) {
         while !self.spi.has_byte() {
-            self.spi.enable_rx();
-            sys_irq_control(IRQ_MASK, true);
-            let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
-            self.spi.disable_rx();
+            cortex_m::asm::nop();
         }
     }
 
     fn wait_for_mstidle(&mut self) {
         while !self.spi.mstidle() {
-            self.spi.mstidle_enable();
-            sys_irq_control(IRQ_MASK, true);
-            let _ = sys_recv_closed(&mut [], IRQ_MASK, TaskId::KERNEL);
-            self.spi.mstidle_disable();
+            cortex_m::asm::nop();
         }
     }
 
