@@ -38,4 +38,4 @@ zerocopy = "0.6.1"
 # For NXP signing
 [dependencies.lpc55_sign]
 git = "https://github.com/oxidecomputer/lpc55_support"
-rev = "e1890a705e4fba8c4223af9fe9edad8be9d3ed98"
+rev = "edbc00749b708d5bc48c5fe0f1df0d1ed6f054c2"
