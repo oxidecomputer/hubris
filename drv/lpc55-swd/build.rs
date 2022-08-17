@@ -29,22 +29,49 @@ fn generate_swd_functions(config: &TaskConfig) -> Result<()> {
 
     // The RoT -> SP SWD control requires setting the IO functions at runtime
     // as opposed to just startup.
+    //
+    // It turns out to be very expensive to call into the GPIO task for
+    // changing pin direction so these functions access the IOCON block
+    // directly.
     writeln!(
         &mut file,
         "{}",
         quote::quote! {
 
+        // SAFETY: we're relying on the enum value of the pin for correctness
+        // here. The LPC55 IOCON Rust API has individual functions for each
+        // pin which we aren't easy to use with a task based setup but
+        // could actually be used here. It's not clear how much benefit
+        // we'd actually get from that though.
+
         // io_out = MOSI on, MISO off
-        fn switch_io_out(task : TaskId) {
-            use drv_lpc55_gpio_api::*;
-            let iocon = Pins::from(task);
-            #(iocon.iocon_configure(#out_cfg).unwrap_lite();)*
+        fn switch_io_out() {
+            let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
+
+            #(
+            {
+                use drv_lpc55_gpio_api::*;
+
+                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#out_cfg);
+                let base = iocon_base + 4 * (pin as u32);
+                unsafe {
+                    core::ptr::write_volatile(base as *mut u32, conf);
+                }
+            })*
         }
         // io_in = MOSI off, MISO on
-        fn switch_io_in(task : TaskId) {
-            use drv_lpc55_gpio_api::*;
-            let iocon = Pins::from(task);
-            #(iocon.iocon_configure(#in_cfg).unwrap_lite();)*
+        fn switch_io_in() {
+            let iocon_base = lpc55_pac::IOCON::ptr() as *const u32 as u32;
+
+            #(
+            {
+                use drv_lpc55_gpio_api::*;
+                let (pin, conf) = drv_lpc55_gpio_api::Pins::iocon_conf_val(#in_cfg);
+                let base = iocon_base + 4 * (pin as u32);
+                unsafe {
+                    core::ptr::write_volatile(base as *mut u32, conf);
+                }
+            })*
         }
         fn setup_spi(task : TaskId) -> spi_core::Spi {
             let syscon = Syscon::from(task);
