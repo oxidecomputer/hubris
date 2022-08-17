@@ -377,12 +377,12 @@ impl idl::InOrderSpCtrlImpl for ServerImpl {
 impl ServerImpl {
     fn io_out(&mut self) {
         self.wait_for_mstidle();
-        switch_io_out(self.gpio);
+        switch_io_out();
     }
 
     fn io_in(&mut self) {
         self.wait_for_mstidle();
-        switch_io_in(self.gpio);
+        switch_io_in();
     }
 
     fn read_ack(&mut self) -> Result<(), Ack> {
