@@ -223,6 +223,6 @@ rx = { packets = 3, bytes = 1024 }
 [config.net.sockets.rpc]
 kind = "udp"
 owner = {name = "udprpc", notification = 1}
-port = 8
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

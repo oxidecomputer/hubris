@@ -86,7 +86,7 @@ fn main() -> ! {
                     meta.size = 1;
                 } else if expected_id != image_id {
                     tx_data_buf[0] = RpcReply::BadImageId as u8;
-                    rx_data_buf[1..9].copy_from_slice(&image_id.to_be_bytes());
+                    tx_data_buf[1..9].copy_from_slice(&image_id.to_be_bytes());
                     meta.size = 9;
                 } else if meta.size != 16 + nbytes as u32 {
                     tx_data_buf[0] = RpcReply::NBytesMismatch as u8;
@@ -102,10 +102,10 @@ fn main() -> ! {
                         TaskId(task),
                         op,
                         &rx_data_buf[16..(nbytes + 16)],
-                        &mut tx_data_buf[5..(nreply + 4)],
+                        &mut tx_data_buf[5..(nreply + 5)],
                         &[],
                     );
-                    if len != nreply {
+                    if rc == 0 && len != nreply {
                         tx_data_buf[0] = RpcReply::NReplyMismatch as u8;
                         meta.size = 1;
                     } else {
