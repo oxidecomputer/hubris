@@ -330,6 +330,10 @@ impl Bsp {
                 out.vsc85x2_rx[i].mac_bad = rx;
             }
         }
+
+        // Only the VSC8562 has valid MAC counters
+        out.vsc85x2_mac_valid = self.vsc85x2.has_mac_counters();
+
         Ok(out)
     }
 }
