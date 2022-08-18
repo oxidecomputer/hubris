@@ -14,10 +14,20 @@ task_slot!(NET, net);
 #[repr(u8)]
 enum RpcReply {
     Ok,
+    /// The RPC packet was too short to include the complete header
+    TooShort,
+    /// The RPC packet's image ID does not match ours
     BadImageId,
+    /// The size of the packet does not agree with the number of bytes specified
+    /// in the `nbytes` field of the packet
     NBytesMismatch,
+    /// The `nbytes` field of the packet imply that the packet overflows the
+    /// `rx_data_buf`
     NBytesOverflow,
+    /// The result of the function does not agree with the number of bytes
+    /// specified in the `nreply` field of the packet
     NReplyMismatch,
+    /// The output would overflow `tx_data_buf`
     NReplyOverflow,
 }
 
@@ -71,7 +81,10 @@ fn main() -> ! {
                     u16::from_be_bytes(rx_data_buf[14..16].try_into().unwrap())
                         as usize;
 
-                if expected_id != image_id {
+                if meta.size < 16 {
+                    tx_data_buf[0] = RpcReply::TooShort as u8;
+                    meta.size = 1;
+                } else if expected_id != image_id {
                     tx_data_buf[0] = RpcReply::BadImageId as u8;
                     rx_data_buf[1..9].copy_from_slice(&image_id.to_be_bytes());
                     meta.size = 9;
