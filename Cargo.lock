@@ -3331,6 +3331,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-udprpc"
+version = "0.1.0"
+dependencies = [
+ "task-net-api",
+ "userlib",
+]
+
+[[package]]
 name = "task-validate"
 version = "0.1.0"
 dependencies = [
