@@ -43,7 +43,11 @@ fn main() -> Result<()> {
         writeln!(out, "None;")?;
     }
 
-    write!(out, "pub(crate) const RESET_REASON_OWNER: Option<{}> = ", task)?;
+    write!(
+        out,
+        "pub(crate) const RESET_REASON_OWNER: Option<{}> = ",
+        task
+    )?;
     if let Some(owner) = cfg.reset_reason_owner {
         writeln!(out, "Some({}::{});", task, owner)?;
     } else {
