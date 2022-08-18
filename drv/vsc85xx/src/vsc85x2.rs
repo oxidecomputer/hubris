@@ -92,6 +92,13 @@ impl Vsc85x2 {
             })
         })
     }
+
+    pub fn has_mac_counters(&self) -> bool {
+        match self.phy_type {
+            Vsc85x2Type::Vsc8552 => false,
+            Vsc85x2Type::Vsc8562 => true,
+        }
+    }
 }
 
 /// Represents a single PHY within a VSC8552 or VSC8562 chip.  This is a
@@ -122,11 +129,26 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
         }
     }
 
-    pub fn mac_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
-        // Configure the PHY to read MAC side counters
-        if self.phy_type == Vsc85x2Type::Vsc8552 {
-            return Ok((Counter::Unavailable, Counter::Unavailable));
+    fn select_media_counters(&mut self) -> Result<(), VscError> {
+        // Configure the PHY to read fiber media SerDes counters
+        if self.phy_type == Vsc85x2Type::Vsc8562 {
+            self.phy.modify(
+                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
+                |r| r.set_tx_select(0),
+            )?;
+            self.phy.modify(
+                phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
+                |r| r.0 &= !(0b11 << 14),
+            )?;
         }
+        Ok(())
+    }
+
+    /// Configure the PHY to read MAC side counters.
+    ///
+    /// This may only be called on a VSC8562 PHY; it will panic otherwise.
+    fn select_mac_counters(&mut self) -> Result<(), VscError> {
+        assert_eq!(self.phy_type, Vsc85x2Type::Vsc8562);
 
         self.phy.modify(
             phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
@@ -139,22 +161,33 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
                 r.0 |= 0b01 << 14;
             },
         )?;
+        Ok(())
+    }
+
+    pub fn mac_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
+        if self.phy_type == Vsc85x2Type::Vsc8552 {
+            return Ok((Counter::Unavailable, Counter::Unavailable));
+        }
+        self.select_mac_counters()?;
         self.tx_rx_good()
     }
 
     pub fn media_tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
-        // Configure the PHY to read fiber media SerDes counters
-        if self.phy_type == Vsc85x2Type::Vsc8562 {
-            self.phy.modify(
-                phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER(),
-                |r| r.set_tx_select(0),
-            )?;
-            self.phy.modify(
-                phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER(),
-                |r| r.0 &= !(0b11 << 14),
-            )?;
-        }
+        self.select_media_counters()?;
         self.tx_rx_good()
+    }
+
+    pub fn mac_tx_rx_bad(&mut self) -> Result<(Counter, Counter), VscError> {
+        if self.phy_type == Vsc85x2Type::Vsc8552 {
+            return Ok((Counter::Unavailable, Counter::Unavailable));
+        }
+        self.select_mac_counters()?;
+        self.tx_rx_bad()
+    }
+
+    pub fn media_tx_rx_bad(&mut self) -> Result<(Counter, Counter), VscError> {
+        self.select_media_counters()?;
+        self.tx_rx_bad()
     }
 
     fn tx_rx_good(&mut self) -> Result<(Counter, Counter), VscError> {
@@ -170,6 +203,19 @@ impl<'a, P: PhyRw> Vsc85x2Phy<'a, P> {
             .phy
             .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_GOOD_COUNTER())?;
         let rx = Counter::Value(r.cnt());
+
+        Ok((tx, rx))
+    }
+
+    fn tx_rx_bad(&mut self) -> Result<(Counter, Counter), VscError> {
+        let r = self
+            .phy
+            .read(phy::EXTENDED_3::MEDIA_SERDES_TX_CRC_ERROR_COUNTER())?;
+        let tx = Counter::Value(r.cnt());
+        let r = self
+            .phy
+            .read(phy::EXTENDED_3::MEDIA_MAC_SERDES_RX_CRC_CRC_ERR_COUNTER())?;
+        let rx = Counter::Value(r.0 & 0xFF);
 
         Ok((tx, rx))
     }

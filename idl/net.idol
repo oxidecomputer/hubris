@@ -81,5 +81,55 @@ Interface(
                 err: CLike("PhyError"),
             ),
         ),
+        "read_ksz8463_mac_count": (
+            doc: "Returns the number of entries in the KSZ8463 dynamic MAC table",
+            reply: Result(
+                ok: "usize",
+                err: CLike("KszError"),
+            ),
+        ),
+        "read_ksz8463_mac": (
+            doc: "Reads a particular MAC address from the KSZ8463 dynamic MAC table",
+            args: {
+                "i": "u16",
+            },
+            reply: Result(
+                ok: "KszMacTableEntry",
+                err: CLike("KszError"),
+            ),
+        ),
+        "read_ksz8463_reg": (
+            doc: "Reads a register from the KSZ8463",
+            args: {
+                "reg": "u16",
+            },
+            reply: Result(
+                ok: "u16",
+                err: CLike("KszError"),
+            ),
+        ),
+        "get_mac_address": (
+            doc: "Reports the MAC address of port 0",
+            reply: Result(
+                ok: "MacAddress",
+                err: ServerDeath,
+            ),
+        ),
+        "management_link_status": (
+            doc: "Checks the client side management network status",
+            reply: Result(
+                ok: "ManagementLinkStatus",
+                err: CLike("MgmtError")
+            ),
+            encoding: Ssmarshal,
+        ),
+        "management_counters": (
+            doc: "Returns management network counters",
+            reply: Result(
+                ok: "ManagementCounters",
+                err: CLike("MgmtError")
+            ),
+            encoding: Ssmarshal,
+        ),
     },
 )

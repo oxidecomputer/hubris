@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use userlib::FromPrimitive;
+
 /// Offsets used to access MIB counters
 /// (see Table 4-200 in the datasheet for details)
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -103,7 +105,7 @@ pub enum MIBCounter {
     TxMultipleCollision = 0x1F,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
 #[allow(non_camel_case_types)]
 pub enum Register {
     // Table 4-2

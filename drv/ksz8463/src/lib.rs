@@ -84,21 +84,21 @@ pub enum SourcePort {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct KszMacTableEntry {
+pub struct KszRawMacTableEntry {
     /// Number of valid entries in the table
-    count: u32,
+    pub count: u32,
 
     /// Two-bit counter for internal aging
     timestamp: u8,
 
     /// Source port where the FID + MAC is learned
-    source: SourcePort,
+    pub source: SourcePort,
 
     /// Filter ID
     fid: u8,
 
     /// MAC address from the table
-    addr: [u8; 6],
+    pub addr: [u8; 6],
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -185,6 +185,7 @@ impl Ksz8463 {
         let b = match port {
             1 => 0x0,
             2 => 0x20,
+            3 => 0x40,
             _ => panic!("Invalid port {}", port),
         };
         // Request counter with given offset.
@@ -222,13 +223,21 @@ impl Ksz8463 {
     pub fn read_dynamic_mac_table(
         &self,
         addr: u16,
-    ) -> Result<Option<KszMacTableEntry>, Error> {
+    ) -> Result<Option<KszRawMacTableEntry>, Error> {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
+        //
+        // The IADR* registers together form a 72-bit value, which is packed
+        // into a set of u16 values; we use variables of the form `d_HI_LO`,
+        // where `HI` and `LO` are bit ranges in that value.
+        //
+        // Each `d_*` variable uses all 16 bits *except* `d_71_64`, which only
+        // uses the lower 8 bits.
         let d_71_64 = loop {
             let d = self.read(Register::IADR1)?;
-            if d & (1 << 15) == 0 {
+            // Check bit 71 to see if the register is ready
+            if d & (1 << 7) == 0 {
                 break d;
             }
         };
@@ -245,7 +254,8 @@ impl Ksz8463 {
         }
 
         // Awkwardly stradling the line between two words...
-        let count = (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xF0) >> 8;
+        let count =
+            (d_71_64 as u32 & 0b11) << 8 | (d_63_48 as u32 & 0xFF00) >> 8;
 
         let timestamp = (d_63_48 >> 6) as u8 & 0b11;
         let source = match (d_63_48 >> 4) & 0b11 {
@@ -265,7 +275,7 @@ impl Ksz8463 {
             d_15_0 as u8,
         ];
 
-        Ok(Some(KszMacTableEntry {
+        Ok(Some(KszRawMacTableEntry {
             count: count + 1, // table is non-empty
             timestamp,
             source,

@@ -201,7 +201,7 @@ pub struct PhyStatus {
     pub media_link_up: LinkStatus,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, zerocopy::AsBytes, zerocopy::FromBytes)]
 #[repr(C)]
 pub struct MacTableEntry {
     pub mac: [u8; 6],
