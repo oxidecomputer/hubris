@@ -227,6 +227,13 @@ impl Ksz8463 {
         assert!(addr < 1024);
         self.write(Register::IACR, 0x1800 | addr)?;
         // Wait for the "not ready" bit to be cleared
+        //
+        // The IADR* registers together form a 72-bit value, which is packed
+        // into a set of u16 values; we use variables of the form `d_HI_LO`,
+        // where `HI` and `LO` are bit ranges in that value.
+        //
+        // Each `d_*` variable uses all 16 bits *except* `d_71_64`, which only
+        // uses the lower 8 bits.
         let d_71_64 = loop {
             let d = self.read(Register::IADR1)?;
             // Check bit 71 to see if the register is ready
