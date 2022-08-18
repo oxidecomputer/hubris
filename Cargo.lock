@@ -1352,6 +1352,7 @@ dependencies = [
 name = "drv-stm32xx-sys"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "cfg-if",
  "drv-stm32xx-gpio-common",
  "drv-stm32xx-sys-api",
@@ -1360,6 +1361,7 @@ dependencies = [
  "num-traits",
  "stm32g0",
  "stm32h7",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
@@ -1795,7 +1797,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#994077e3ecff3ec6df15c082fc4f810cf27c97f2"
+source = "git+https://github.com/oxidecomputer/idolatry.git#285d92876b95f3f1c706e4a98aaa954d167b9de4"
 dependencies = [
  "indexmap",
  "quote",
@@ -1807,7 +1809,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#994077e3ecff3ec6df15c082fc4f810cf27c97f2"
+source = "git+https://github.com/oxidecomputer/idolatry.git#285d92876b95f3f1c706e4a98aaa954d167b9de4"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -3105,6 +3107,7 @@ dependencies = [
  "num-traits",
  "ringbuf",
  "serde",
+ "ssmarshal",
  "task-jefe-api",
  "userlib",
  "zerocopy",
@@ -3117,6 +3120,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]

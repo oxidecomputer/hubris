@@ -30,6 +30,7 @@ stacksize = 1536
 
 [tasks.jefe.config]
 on-state-change = {net = {bit-number = 3}}
+reset-reason-owner = "sys"
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -38,6 +39,7 @@ priority = 1
 max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
+task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32h7-i2c-server"
