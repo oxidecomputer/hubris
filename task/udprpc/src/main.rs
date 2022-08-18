@@ -81,39 +81,55 @@ fn main() -> ! {
                     u16::from_be_bytes(rx_data_buf[14..16].try_into().unwrap())
                         as usize;
 
-                if meta.size < 16 {
-                    tx_data_buf[0] = RpcReply::TooShort as u8;
-                    meta.size = 1;
+                // We deliberately assign to `r` here then manipulate it,
+                // because otherwise, the compiler won't include RpcReply in
+                // DWARF data.
+                let mut r = if meta.size < 16 {
+                    RpcReply::TooShort
                 } else if expected_id != image_id {
-                    tx_data_buf[0] = RpcReply::BadImageId as u8;
-                    tx_data_buf[1..9].copy_from_slice(&image_id.to_be_bytes());
-                    meta.size = 9;
+                    RpcReply::BadImageId
                 } else if meta.size != 16 + nbytes as u32 {
-                    tx_data_buf[0] = RpcReply::NBytesMismatch as u8;
-                    meta.size = 1;
+                    RpcReply::NBytesMismatch
                 } else if nbytes + 16 > rx_data_buf.len() {
-                    tx_data_buf[0] = RpcReply::NBytesOverflow as u8;
-                    meta.size = 1;
+                    RpcReply::NBytesOverflow
                 } else if nreply + 4 > tx_data_buf.len() {
-                    tx_data_buf[0] = RpcReply::NReplyOverflow as u8;
-                    meta.size = 1;
+                    RpcReply::NReplyOverflow
                 } else {
-                    let (rc, len) = sys_send(
-                        TaskId(task),
-                        op,
-                        &rx_data_buf[16..(nbytes + 16)],
-                        &mut tx_data_buf[5..(nreply + 5)],
-                        &[],
-                    );
-                    if rc == 0 && len != nreply {
-                        tx_data_buf[0] = RpcReply::NReplyMismatch as u8;
+                    RpcReply::Ok
+                };
+
+                match r {
+                    RpcReply::TooShort
+                    | RpcReply::NBytesMismatch
+                    | RpcReply::NReplyOverflow
+                    | RpcReply::NBytesOverflow => {
                         meta.size = 1;
-                    } else {
-                        tx_data_buf[0] = RpcReply::Ok as u8;
-                        tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
-                        meta.size = nreply as u32 + 5;
                     }
+                    RpcReply::BadImageId => {
+                        meta.size = 9;
+                        tx_data_buf[1..9]
+                            .copy_from_slice(&image_id.to_be_bytes());
+                    }
+                    RpcReply::Ok => {
+                        let (rc, len) = sys_send(
+                            TaskId(task),
+                            op,
+                            &rx_data_buf[16..(nbytes + 16)],
+                            &mut tx_data_buf[5..(nreply + 5)],
+                            &[],
+                        );
+                        if rc == 0 && len != nreply {
+                            r = RpcReply::NReplyMismatch;
+                            meta.size = 1;
+                        } else {
+                            tx_data_buf[1..5]
+                                .copy_from_slice(&rc.to_be_bytes());
+                            meta.size = nreply as u32 + 5;
+                        }
+                    }
+                    RpcReply::NReplyMismatch => unreachable!(),
                 }
+                tx_data_buf[0] = r as u8;
 
                 net.send_packet(
                     SOCKET,
