@@ -7,6 +7,7 @@
 
 use task_net_api::*;
 use userlib::*;
+use zerocopy::FromBytes;
 
 task_slot!(NET, net);
 
@@ -31,6 +32,19 @@ enum RpcReply {
     NReplyOverflow,
 }
 
+/// Header for an RPC request
+///
+/// `humility` must cooperate with this layout, which is mirrored in `doppel.rs`
+#[derive(Copy, Clone, Debug, FromBytes)]
+#[repr(C)]
+struct RpcHeader {
+    image_id: u64,
+    task: u16,
+    op: u16,
+    nreply: u16,
+    nbytes: u16,
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let net = NET.get_task_id();
@@ -39,15 +53,6 @@ fn main() -> ! {
     const SOCKET: SocketName = SocketName::rpc;
     let image_id = kipc::read_image_id();
 
-    // We expect request packets to be tightly packed in the order
-    //      image id: u64,
-    //      task: u16,
-    //      op: u16,
-    //      nreply: u16,
-    //      nbytes: u16,
-    //      data: nbytes
-    //
-    // `humility rpc` must cooperate with this layout!
     // We use the image id to make sure that we're compatible.
     //
     // The output format is dependent on status code.  The first byte is always
@@ -67,69 +72,62 @@ fn main() -> ! {
             &mut rx_data_buf,
         ) {
             Ok(mut meta) => {
-                // Hard-coded to match behavior in `humility rpc`
-                let expected_id =
-                    u64::from_be_bytes(rx_data_buf[0..8].try_into().unwrap());
-                let task =
-                    u16::from_be_bytes(rx_data_buf[8..10].try_into().unwrap());
-                let op =
-                    u16::from_be_bytes(rx_data_buf[10..12].try_into().unwrap());
-                let nreply =
-                    u16::from_be_bytes(rx_data_buf[12..14].try_into().unwrap())
-                        as usize;
-                let nbytes =
-                    u16::from_be_bytes(rx_data_buf[14..16].try_into().unwrap())
-                        as usize;
+                // We can always read the header, because it's raw data.  It may
+                // not be valid, though, if the packet is too short (checked
+                // in the conditional below).
+                const HEADER_SIZE: usize = core::mem::size_of::<RpcHeader>();
+                let header =
+                    RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE]).unwrap();
 
-                // We deliberately assign to `r` here then manipulate it,
-                // because otherwise, the compiler won't include RpcReply in
-                // DWARF data.
-                let mut r = if meta.size < 16 {
+                const REPLY_PREFIX_SIZE: usize = 5;
+
+                // We deliberately assign to `r` here then manipulate it;
+                // otherwise, the compiler won't include RpcReply in DWARF data.
+                let r = if (meta.size as usize) < HEADER_SIZE {
                     RpcReply::TooShort
-                } else if expected_id != image_id {
+                } else if image_id != header.image_id {
+                    tx_data_buf[1..9].copy_from_slice(&image_id.to_le_bytes());
                     RpcReply::BadImageId
-                } else if meta.size != 16 + nbytes as u32 {
+                } else if meta.size as usize
+                    != HEADER_SIZE + header.nbytes as usize
+                {
                     RpcReply::NBytesMismatch
-                } else if nbytes + 16 > rx_data_buf.len() {
+                } else if header.nbytes as usize + HEADER_SIZE
+                    > rx_data_buf.len()
+                {
                     RpcReply::NBytesOverflow
-                } else if nreply + 4 > tx_data_buf.len() {
+                } else if header.nreply as usize + 4 > tx_data_buf.len() {
                     RpcReply::NReplyOverflow
                 } else {
-                    RpcReply::Ok
+                    let rx_data =
+                        &rx_data_buf[HEADER_SIZE..][..header.nbytes as usize];
+                    let tx_data = &mut tx_data_buf[REPLY_PREFIX_SIZE..]
+                        [..header.nreply as usize];
+                    let (rc, len) = sys_send(
+                        TaskId(header.task),
+                        header.op,
+                        rx_data,
+                        tx_data,
+                        &[],
+                    );
+                    if rc == 0 && len != header.nreply as usize {
+                        RpcReply::NReplyMismatch
+                    } else {
+                        tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
+                        RpcReply::Ok
+                    }
                 };
 
-                match r {
+                tx_data_buf[0] = r as u8;
+                meta.size = match r {
                     RpcReply::TooShort
                     | RpcReply::NBytesMismatch
                     | RpcReply::NReplyOverflow
-                    | RpcReply::NBytesOverflow => {
-                        meta.size = 1;
-                    }
-                    RpcReply::BadImageId => {
-                        meta.size = 9;
-                        tx_data_buf[1..9]
-                            .copy_from_slice(&image_id.to_be_bytes());
-                    }
-                    RpcReply::Ok => {
-                        let (rc, len) = sys_send(
-                            TaskId(task),
-                            op,
-                            &rx_data_buf[16..(nbytes + 16)],
-                            &mut tx_data_buf[5..(nreply + 5)],
-                            &[],
-                        );
-                        if rc == 0 && len != nreply {
-                            r = RpcReply::NReplyMismatch;
-                            meta.size = 1;
-                        } else {
-                            tx_data_buf[1..5]
-                                .copy_from_slice(&rc.to_be_bytes());
-                            meta.size = nreply as u32 + 5;
-                        }
-                    }
-                    RpcReply::NReplyMismatch => unreachable!(),
-                }
-                tx_data_buf[0] = r as u8;
+                    | RpcReply::NBytesOverflow
+                    | RpcReply::NReplyMismatch => 1,
+                    RpcReply::BadImageId => 9,
+                    RpcReply::Ok => header.nreply as u32 + 5,
+                };
 
                 net.send_packet(
                     SOCKET,

@@ -3336,6 +3336,7 @@ version = "0.1.0"
 dependencies = [
  "task-net-api",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
