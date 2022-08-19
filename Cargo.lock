@@ -3728,6 +3728,7 @@ dependencies = [
  "bstringify",
  "build-util",
  "cfg-if",
+ "cortex-m",
  "num-derive",
  "num-traits",
  "paste",
