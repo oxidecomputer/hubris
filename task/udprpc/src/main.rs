@@ -86,7 +86,7 @@ fn main() -> ! {
                 let r = if (meta.size as usize) < HEADER_SIZE {
                     RpcReply::TooShort
                 } else if image_id != header.image_id {
-                    tx_data_buf[1..9].copy_from_slice(&image_id.as_bytes());
+                    tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
                     RpcReply::BadImageId
                 } else if meta.size as usize
                     != HEADER_SIZE + header.nbytes as usize

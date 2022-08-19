@@ -23,16 +23,16 @@ fn main() -> ! {
     #[cfg(feature = "vlan")]
     let mut vid_iter = VLAN_RANGE.cycle();
 
-    // We broadcast the HUBRIS_IMAGE_ID repeatedly, because we have to broadcast
-    // *something*, and this allows `humility rpc` to detect valid targets.
-    let image_id = kipc::read_image_id();
-
+    // We broadcast a 14-byte packet of (MAC_ADDRESS, HUBRIS_IMAGE_ID)
+    // repeatedly.  This both allows the network to discover our MAC and IP
+    // address (through normal L2/L3 mechanisms), *and* lets `humility rpc`
+    // detect valid targets.
     let mut out = [0u8; 14];
     match net.get_mac_address() {
         Ok(mac) => out[0..6].copy_from_slice(&mac.0),
         Err(_) => panic!(),
     }
-    out[6..].copy_from_slice(image_id.as_bytes());
+    out[6..].copy_from_slice(kipc::read_image_id().as_bytes());
 
     loop {
         let meta = UdpMetadata {
