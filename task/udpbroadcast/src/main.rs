@@ -27,6 +27,13 @@ fn main() -> ! {
     // *something*, and this allows `humility rpc` to detect valid targets.
     let image_id = kipc::read_image_id();
 
+    let mut out = [0u8; 14];
+    match net.get_mac_address() {
+        Ok(mac) => out[0..6].copy_from_slice(&mac.0),
+        Err(_) => panic!(),
+    }
+    out[6..].copy_from_slice(image_id.as_bytes());
+
     loop {
         let meta = UdpMetadata {
             // IPv6 multicast address for "all nodes"
@@ -34,13 +41,13 @@ fn main() -> ! {
                 0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
             ])),
             port: 8,
-            size: core::mem::size_of_val(&image_id) as u32,
+            size: out.len() as u32,
             #[cfg(feature = "vlan")]
             vid: vid_iter.next().unwrap(),
         };
 
         hl::sleep_for(500);
-        match net.send_packet(SOCKET, meta, &image_id.as_bytes()) {
+        match net.send_packet(SOCKET, meta, &out[..]) {
             Ok(()) => UDP_BROADCAST_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
             Err(_) => UDP_ERROR_COUNT
