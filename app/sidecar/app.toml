@@ -3,6 +3,7 @@ target = "thumbv7em-none-eabihf"
 board = "sidecar-1"
 chip = "../../chips/stm32h7-nonredundant"
 stacksize = 896
+memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"

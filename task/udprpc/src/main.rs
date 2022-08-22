@@ -7,7 +7,7 @@
 
 use task_net_api::*;
 use userlib::*;
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::{AsBytes, FromBytes, LittleEndian, U16, U64};
 
 task_slot!(NET, net);
 
@@ -38,11 +38,11 @@ enum RpcReply {
 #[derive(Copy, Clone, Debug, FromBytes)]
 #[repr(C)]
 struct RpcHeader {
-    image_id: u64,
-    task: u16,
-    op: u16,
-    nreply: u16,
-    nbytes: u16,
+    image_id: U64<LittleEndian>,
+    task: U16<LittleEndian>,
+    op: U16<LittleEndian>,
+    nreply: U16<LittleEndian>,
+    nbytes: U16<LittleEndian>,
 }
 
 #[export_name = "main"]
@@ -81,36 +81,34 @@ fn main() -> ! {
 
                 const REPLY_PREFIX_SIZE: usize = 5;
 
+                let nbytes = header.nbytes.get() as usize;
+                let nreply = header.nreply.get() as usize;
+
                 // We deliberately assign to `r` here then manipulate it;
                 // otherwise, the compiler won't include RpcReply in DWARF data.
                 let r = if (meta.size as usize) < HEADER_SIZE {
                     RpcReply::TooShort
-                } else if image_id != header.image_id {
+                } else if image_id != header.image_id.get() {
                     tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
                     RpcReply::BadImageId
-                } else if meta.size as usize
-                    != HEADER_SIZE + header.nbytes as usize
-                {
+                } else if meta.size as usize != HEADER_SIZE + nbytes {
                     RpcReply::NBytesMismatch
-                } else if header.nbytes as usize + HEADER_SIZE
-                    > rx_data_buf.len()
-                {
+                } else if nbytes + HEADER_SIZE > rx_data_buf.len() {
                     RpcReply::NBytesOverflow
-                } else if header.nreply as usize + 4 > tx_data_buf.len() {
+                } else if nreply + 4 > tx_data_buf.len() {
                     RpcReply::NReplyOverflow
                 } else {
-                    let rx_data =
-                        &rx_data_buf[HEADER_SIZE..][..header.nbytes as usize];
-                    let tx_data = &mut tx_data_buf[REPLY_PREFIX_SIZE..]
-                        [..header.nreply as usize];
+                    let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
+                    let tx_data =
+                        &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
                     let (rc, len) = sys_send(
-                        TaskId(header.task),
-                        header.op,
+                        TaskId(header.task.get()),
+                        header.op.get(),
                         rx_data,
                         tx_data,
                         &[],
                     );
-                    if rc == 0 && len != header.nreply as usize {
+                    if rc == 0 && len != nreply {
                         RpcReply::NReplyMismatch
                     } else {
                         tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
@@ -125,8 +123,10 @@ fn main() -> ! {
                     | RpcReply::NReplyOverflow
                     | RpcReply::NBytesOverflow
                     | RpcReply::NReplyMismatch => 1,
-                    RpcReply::BadImageId => 9,
-                    RpcReply::Ok => header.nreply as u32 + 5,
+                    RpcReply::BadImageId => {
+                        (1 + core::mem::size_of_val(&image_id)) as u32
+                    }
+                    RpcReply::Ok => (nreply + REPLY_PREFIX_SIZE) as u32,
                 };
 
                 net.send_packet(
