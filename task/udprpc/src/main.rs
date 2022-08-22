@@ -22,9 +22,6 @@ enum RpcReply {
     /// The size of the packet does not agree with the number of bytes specified
     /// in the `nbytes` field of the packet
     NBytesMismatch,
-    /// The `nbytes` field of the packet imply that the packet overflows the
-    /// `rx_data_buf`
-    NBytesOverflow,
     /// The result of the function does not agree with the number of bytes
     /// specified in the `nreply` field of the packet
     NReplyMismatch,
@@ -57,11 +54,11 @@ fn main() -> ! {
     //
     // The output format is dependent on status code.  The first byte is always
     // a member of `RpcReply` as a `u8`.
-    // - `NBytesMismatch`, `NBytesOverflow`, `NReplyMismatch`, `NReplyOverflow`
-    //   return nothing else (so the reply is 1 byte)
-    // - `BadImageId` is followed by the *actual* 64-bit image id as a big-endian
-    //   value
-    // - `Ok` is followed by the return code as a 32-bit, big-endian value,
+    // - `NBytesMismatch`, `NReplyMismatch`, `NReplyOverflow` return nothing
+    //   else (so the reply is 1 byte)
+    // - `BadImageId` is followed by the *actual* 64-bit image id as a
+    //   little-endian value
+    // - `Ok` is followed by the return code as a 32-bit, little-endian value,
     //   then by `nreply` bytes of reply.
     loop {
         let mut rx_data_buf = [0u8; 1024];
@@ -72,48 +69,57 @@ fn main() -> ! {
             &mut rx_data_buf,
         ) {
             Ok(mut meta) => {
-                // We can always read the header, because it's raw data.  It may
-                // not be valid, though, if the packet is too short (checked
-                // in the conditional below).
                 const HEADER_SIZE: usize = core::mem::size_of::<RpcHeader>();
-                let header =
-                    RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE]).unwrap();
-
                 const REPLY_PREFIX_SIZE: usize = 5;
 
-                let nbytes = header.nbytes.get() as usize;
-                let nreply = header.nreply.get() as usize;
-
                 // We deliberately assign to `r` here then manipulate it;
-                // otherwise, the compiler won't include RpcReply in DWARF data.
-                let r = if (meta.size as usize) < HEADER_SIZE {
-                    RpcReply::TooShort
-                } else if image_id != header.image_id.get() {
-                    tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
-                    RpcReply::BadImageId
-                } else if meta.size as usize != HEADER_SIZE + nbytes {
-                    RpcReply::NBytesMismatch
-                } else if nbytes + HEADER_SIZE > rx_data_buf.len() {
-                    RpcReply::NBytesOverflow
-                } else if nreply + REPLY_PREFIX_SIZE > tx_data_buf.len() {
-                    RpcReply::NReplyOverflow
+                // otherwise, the compiler won't include `RpcReply` in DWARF
+                // data.
+                let (r, nreply) = if (meta.size as usize) < HEADER_SIZE {
+                    (RpcReply::TooShort, 0)
                 } else {
-                    let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
-                    let tx_data =
-                        &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
-                    let (rc, len) = sys_send(
-                        TaskId(header.task.get()),
-                        header.op.get(),
-                        rx_data,
-                        tx_data,
-                        &[],
-                    );
-                    if rc == 0 && len != nreply {
-                        RpcReply::NReplyMismatch
+                    // We can always read the header, since it's raw data
+                    let header =
+                        RpcHeader::read_from(&rx_data_buf[..HEADER_SIZE])
+                            .unwrap();
+
+                    let nbytes = header.nbytes.get() as usize;
+                    let nreply = header.nreply.get() as usize;
+
+                    let r = if image_id != header.image_id.get() {
+                        tx_data_buf[1..9].copy_from_slice(image_id.as_bytes());
+                        RpcReply::BadImageId
+                    } else if meta.size as usize != HEADER_SIZE + nbytes {
+                        RpcReply::NBytesMismatch
+                    } else if nreply + REPLY_PREFIX_SIZE > tx_data_buf.len() {
+                        RpcReply::NReplyOverflow
                     } else {
-                        tx_data_buf[1..5].copy_from_slice(&rc.to_be_bytes());
-                        RpcReply::Ok
-                    }
+                        // This is the happy path: unpack the data and execute
+                        // the sys_send which actually calls the target.
+                        let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
+
+                        // The returned data is stored after the reply prefix,
+                        // which consists of a one-byte `RpcReply` then a
+                        // u32 return code from the `sys_send` call.
+                        let tx_data =
+                            &mut tx_data_buf[REPLY_PREFIX_SIZE..][..nreply];
+                        let (rc, len) = sys_send(
+                            TaskId(header.task.get()),
+                            header.op.get(),
+                            rx_data,
+                            tx_data,
+                            &[],
+                        );
+                        if rc == 0 && len != nreply {
+                            RpcReply::NReplyMismatch
+                        } else {
+                            // Store the return code
+                            tx_data_buf[1..5]
+                                .copy_from_slice(&rc.to_be_bytes());
+                            RpcReply::Ok
+                        }
+                    };
+                    (r, nreply)
                 };
 
                 tx_data_buf[0] = r as u8;
@@ -121,7 +127,6 @@ fn main() -> ! {
                     RpcReply::TooShort
                     | RpcReply::NBytesMismatch
                     | RpcReply::NReplyOverflow
-                    | RpcReply::NBytesOverflow
                     | RpcReply::NReplyMismatch => 1,
                     RpcReply::BadImageId => {
                         (1 + core::mem::size_of_val(&image_id)) as u32
