@@ -7,6 +7,7 @@
 
 use task_net_api::*;
 use userlib::*;
+use zerocopy::AsBytes;
 
 task_slot!(NET, net);
 
@@ -22,21 +23,31 @@ fn main() -> ! {
     #[cfg(feature = "vlan")]
     let mut vid_iter = VLAN_RANGE.cycle();
 
+    // We broadcast a 14-byte packet of (MAC_ADDRESS, HUBRIS_IMAGE_ID)
+    // repeatedly.  This both allows the network to discover our MAC and IP
+    // address (through normal L2/L3 mechanisms), *and* lets `humility rpc`
+    // detect valid targets.
+    let mut out = [0u8; 14];
+    match net.get_mac_address() {
+        Ok(mac) => out[0..6].copy_from_slice(&mac.0),
+        Err(_) => panic!(),
+    }
+    out[6..].copy_from_slice(kipc::read_image_id().as_bytes());
+
     loop {
-        let tx_bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
         let meta = UdpMetadata {
             // IPv6 multicast address for "all nodes"
             addr: Address::Ipv6(Ipv6Address([
                 0xff, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
             ])),
             port: 8,
-            size: tx_bytes.len() as u32,
+            size: out.len() as u32,
             #[cfg(feature = "vlan")]
             vid: vid_iter.next().unwrap(),
         };
 
         hl::sleep_for(500);
-        match net.send_packet(SOCKET, meta, &tx_bytes) {
+        match net.send_packet(SOCKET, meta, &out[..]) {
             Ok(()) => UDP_BROADCAST_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
             Err(_) => UDP_ERROR_COUNT

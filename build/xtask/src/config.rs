@@ -7,7 +7,7 @@ use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -88,7 +88,8 @@ impl Config {
                 "memory.toml".to_string()
             };
             let chip_file = cfg.parent().unwrap().join(&toml.chip).join(fname);
-            let chip_contents = std::fs::read(chip_file)?;
+            let chip_contents = std::fs::read(chip_file)
+                .context("Could not read memory file")?;
             hasher.write(&chip_contents);
             toml::from_slice::<IndexMap<String, Vec<Output>>>(&chip_contents)?
         };

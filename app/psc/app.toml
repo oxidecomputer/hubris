@@ -98,7 +98,7 @@ name = "task-net"
 stacksize = 4640
 priority = 3
 features = ["mgmt", "h753", "vlan"]
-max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -118,6 +118,15 @@ features = ["vlan"]
 name = "task-udpbroadcast"
 priority = 4
 max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 4
+max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
@@ -340,5 +349,12 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "udpbroadcast", notification = 1}
 port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }

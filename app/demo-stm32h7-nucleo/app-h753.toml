@@ -70,7 +70,7 @@ global_config = "spi1"
 name = "task-net"
 stacksize = 3000
 priority = 2
-max-sizes = {flash = 131072, ram = 8192, sram1 = 32768}
+max-sizes = {flash = 131072, ram = 16384, sram1 = 32768}
 features = ["h753"]
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
@@ -103,6 +103,22 @@ task-slots = ["user_leds"]
 
 [tasks.udpecho]
 name = "task-udpecho"
+priority = 3
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 3
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+
+[tasks.udprpc]
+name = "task-udprpc"
 priority = 3
 max-sizes = {flash = 32768, ram = 8192}
 stacksize = 4096
@@ -194,5 +210,19 @@ clock_divider = "DIV32"
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
