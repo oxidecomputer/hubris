@@ -291,10 +291,21 @@ impl UpdateBuffer {
             if self.current_block.len() == self.current_block.capacity()
                 || self.bytes_written == self.total_length
             {
-                update_task
+                let result = update_task
                     .write_one_block(current_block_index, &self.current_block)
-                    .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+                    .map_err(|err| ResponseError::UpdateFailed(err as u32));
+
+                // Unconditionally clear our block buffer after attempting to
+                // write the block.
+                let n = self.current_block.len();
                 self.current_block.clear();
+
+                // If writing this block failed, roll back our `bytes_written`
+                // counter to the beginning of the block we just tried to write.
+                if let Err(err) = result {
+                    self.bytes_written -= n;
+                    return Err(err);
+                }
             }
         }
 
