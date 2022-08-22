@@ -1507,7 +1507,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=5951498bbd60306bf8e73a382e6b5aaed67a7616#5951498bbd60306bf8e73a382e6b5aaed67a7616"
+source = "git+https://github.com/oxidecomputer/omicron?rev=45286415755d5ec7c0d3683addc9942832244eff#45286415755d5ec7c0d3683addc9942832244eff"
 dependencies = [
  "bitflags",
  "hubpack",
@@ -2684,18 +2684,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.139"
+version = "1.0.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0171ebb889e45aa68b44aee0859b3eede84c6f5f5c228e6f140c0b2a0a46cad6"
+checksum = "7af873f2c95b99fcb0bd0fe622a43e29514658873c8ceba88c4cb88833a22500"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.139"
+version = "1.0.141"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1d3230c1de7932af58ad8ffbe1d784bd55efd5a9d84ac24f69c72d83543dfb"
+checksum = "75743a150d003dd863b51dc809bcad0d73f2102c53632f1e954e738192a3413f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3070,11 +3070,14 @@ dependencies = [
  "cfg-if",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
+ "drv-update-api",
  "gateway-messages",
+ "mutable-statics",
  "num-traits",
  "ringbuf",
  "serde",
  "ssmarshal",
+ "task-jefe-api",
  "task-net-api",
  "tinyvec",
  "userlib",
