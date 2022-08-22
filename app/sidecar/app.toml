@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 5232}
+requires = {flash = 22776, ram = 5424}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
