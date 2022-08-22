@@ -227,6 +227,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), ResponseError> {
+        // TODO: Add some kind of auth check before performing a reset.
+        // https://github.com/oxidecomputer/hubris/issues/723
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SysResetPrepare));
         self.reset_requested = true;
         Ok(())
@@ -237,6 +239,8 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<Infallible, ResponseError> {
+        // TODO: Add some kind of auth check before performing a reset.
+        // https://github.com/oxidecomputer/hubris/issues/723
         if !self.reset_requested {
             return Err(ResponseError::SysResetTriggerWithoutPrepare);
         }
@@ -327,7 +331,12 @@ impl UpdateBuffer {
     }
 }
 
+/// Grabs reference to a static `UpdateBuffer`. Can only be called once!
 fn claim_update_buffer_static() -> &'static mut UpdateBuffer {
+    // TODO: `mutable_statics!` is currently limited in what inputs it accepts,
+    // and in particular only accepts static mut arrays. We only want a single
+    // `UpdateBuffer`, so we create an array of length 1 and grab its only
+    // element.
     let update_buffer_array = mutable_statics! {
         static mut BUF: [UpdateBuffer; 1] = [Default::default(); _];
     };
