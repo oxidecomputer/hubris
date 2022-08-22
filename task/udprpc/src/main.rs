@@ -48,10 +48,12 @@ fn main() -> ! {
     let net = Net::from(net);
 
     const SOCKET: SocketName = SocketName::rpc;
+
+    // We use the image id to make sure that we're compatible, since we're
+    // sending raw bytes using `sys_send`.  This isn't robust against malicious
+    // behavior, but prevents basic user error.
     let image_id = kipc::read_image_id();
 
-    // We use the image id to make sure that we're compatible.
-    //
     // The output format is dependent on status code.  The first byte is always
     // a member of `RpcReply` as a `u8`.
     // - `NBytesMismatch`, `NReplyMismatch`, `NReplyOverflow` return nothing
@@ -122,6 +124,7 @@ fn main() -> ! {
                     (r, nreply)
                 };
 
+                // Store the `RpcReply` return code and return size
                 tx_data_buf[0] = r as u8;
                 meta.size = match r {
                     RpcReply::TooShort
