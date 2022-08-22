@@ -2,6 +2,7 @@ name = "gimlet-b"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-b"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
