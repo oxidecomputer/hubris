@@ -242,10 +242,7 @@ impl NetHandler {
         }
     }
 
-    fn run_until_blocked(
-        &mut self,
-        mgs_handler: &mut MgsHandler,
-    ) {
+    fn run_until_blocked(&mut self, mgs_handler: &mut MgsHandler) {
         loop {
             // Try to send first.
             if let Some(meta) = self.packet_to_send.take() {
