@@ -95,7 +95,7 @@ fn main() -> ! {
                     RpcReply::NBytesMismatch
                 } else if nbytes + HEADER_SIZE > rx_data_buf.len() {
                     RpcReply::NBytesOverflow
-                } else if nreply + 4 > tx_data_buf.len() {
+                } else if nreply + REPLY_PREFIX_SIZE > tx_data_buf.len() {
                     RpcReply::NReplyOverflow
                 } else {
                     let rx_data = &rx_data_buf[HEADER_SIZE..][..nbytes];
