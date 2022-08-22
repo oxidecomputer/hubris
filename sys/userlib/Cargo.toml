@@ -45,7 +45,7 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 [target.thumbv6m-none-eabi.dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
-[target.thumbv8m.main-none-eabihf.dependencies]
+[target."thumbv8m.main-none-eabihf".dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 
 [build-dependencies]
