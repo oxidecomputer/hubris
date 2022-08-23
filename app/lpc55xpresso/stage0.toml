@@ -22,3 +22,7 @@ start = true
 [signing]
 priv-key = "../../support/fake_certs/fake_private_key.pem"
 root-cert = "../../support/fake_certs/fake_certificate.der.crt"
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
