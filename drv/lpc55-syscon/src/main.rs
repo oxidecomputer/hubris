@@ -113,7 +113,10 @@
 use drv_lpc55_syscon_api::*;
 use idol_runtime::RequestError;
 use lpc55_pac as device;
+use task_jefe_api::{Jefe, ResetReason};
 use userlib::*;
+
+task_slot!(JEFE, jefe);
 
 macro_rules! set_bit {
     ($reg:expr, $mask:expr) => {
@@ -216,12 +219,43 @@ fn main() -> ! {
     // turning on PLLs and such
     syscon.hslspiclksel.modify(|_, w| w.sel().enum_0x2());
 
+    set_reset_reason();
+
     let mut server = ServerImpl { syscon };
 
     let mut incoming = [0; idl::INCOMING_SIZE];
     loop {
         idol_runtime::dispatch(&mut incoming, &mut server);
     }
+}
+
+fn set_reset_reason() {
+    let pmc = unsafe { &*device::PMC::ptr() };
+
+    // The Reset Reason is stored in the AOREG1 register in the power
+    // management block. This crypticly named register is set based
+    // on another undocumented register in the power management space.
+    // Official documentation for these bits is is available in 13.4.13
+    // of v2.4 of UM11126
+
+    const POR: u32 = 1 << 4;
+    const PADRESET: u32 = 1 << 5;
+    const BODRESET: u32 = 1 << 6;
+    const SYSTEMRESET: u32 = 1 << 7;
+    const WDTRESET: u32 = 1 << 8;
+
+    let aoreg1 = pmc.aoreg1.read().bits();
+
+    let reason = match aoreg1 {
+        POR => ResetReason::PowerOn,
+        PADRESET => ResetReason::Pin,
+        BODRESET => ResetReason::Brownout,
+        SYSTEMRESET => ResetReason::SystemCall,
+        WDTRESET => ResetReason::SystemWatchdog,
+        _ => ResetReason::Other(aoreg1),
+    };
+
+    Jefe::from(JEFE.get_task_id()).set_reset_reason(reason);
 }
 
 mod idl {
