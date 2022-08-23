@@ -11,6 +11,7 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 num-traits = { version = "0.2.12", default-features = false }
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 drv-lpc55-syscon-api = {path = "../lpc55-syscon-api"}
+task-jefe-api = {path = "../../task/jefe-api"}
 
 [build-dependencies]
 idol = {git = "https://github.com/oxidecomputer/idolatry.git"}

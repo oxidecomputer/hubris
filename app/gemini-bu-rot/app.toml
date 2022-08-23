@@ -31,6 +31,7 @@ priority = 2
 max-sizes = {flash = 8192, ram = 2048}
 uses = ["syscon", "anactrl", "pmc"]
 start = true
+task-slots = ["jefe"]
 
 [tasks.gpio_driver]
 name = "drv-lpc55-gpio"
