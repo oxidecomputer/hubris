@@ -430,6 +430,14 @@ impl std::fmt::Display for SigningMethod {
 pub struct Signing {
     pub priv_key: PathBuf,
     pub root_cert: PathBuf,
+    #[serde(default)]
+    pub enable_dice: bool,
+    #[serde(default)]
+    pub dice_inc_nxp_cfg: bool,
+    #[serde(default)]
+    pub dice_cust_cfg: bool,
+    #[serde(default)]
+    pub dice_inc_sec_epoch: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
