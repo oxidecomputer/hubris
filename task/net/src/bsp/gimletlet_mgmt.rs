@@ -149,10 +149,6 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &eth::Ethernet) {
-        // Run the BSP wake function, which logs summarized data to a different
-        // ringbuf; we'll still do verbose logging of full registers below.
-        self.mgmt.wake(eth);
-
         for port in [1, 2] {
             ringbuf_entry!(match self
                 .mgmt

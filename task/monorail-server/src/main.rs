@@ -11,7 +11,7 @@ mod server;
 use crate::{bsp::Bsp, server::ServerImpl};
 use drv_spi_api::Spi;
 use ringbuf::*;
-use userlib::*;
+use userlib::{hl::sleep_for, *};
 use vsc7448::{spi::Vsc7448Spi, Vsc7448, VscError};
 
 task_slot!(SPI, spi_driver);
@@ -49,16 +49,18 @@ fn main() -> ! {
         }
     }
 
-    let t0 = sys_get_timer().now;
-    let bsp = match Bsp::new(&vsc7448) {
-        Ok(bsp) => {
-            let t1 = sys_get_timer().now;
-            ringbuf_entry!(Trace::BspInit(t1 - t0));
-            bsp
-        }
-        Err(e) => {
-            ringbuf_entry!(Trace::BspInitFailed(e));
-            panic!("Could not initialize BSP: {:?}", e);
+    let bsp = loop {
+        let t0 = sys_get_timer().now;
+        match Bsp::new(&vsc7448) {
+            Ok(bsp) => {
+                let t1 = sys_get_timer().now;
+                ringbuf_entry!(Trace::BspInit(t1 - t0));
+                break bsp;
+            }
+            Err(e) => {
+                ringbuf_entry!(Trace::BspInitFailed(e));
+                sleep_for(1000);
+            }
         }
     };
 

@@ -205,10 +205,6 @@ impl Bsp {
         }
     }
 
-    pub fn wake(&self, _eth: &Ethernet) {
-        // Nothing to do here
-    }
-
     pub fn management_link_status(
         &self,
         eth: &Ethernet,

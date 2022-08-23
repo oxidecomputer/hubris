@@ -14,8 +14,7 @@ use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 
-// This system wants to be woken periodically to do logging
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
+pub const WAKE_INTERVAL: Option<u64> = None;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -78,7 +77,7 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &eth::Ethernet) {
-        self.0.wake(eth);
+        panic!("wake should never be called, because WAKE_INTERVAL is None")
     }
 
     pub fn phy_read(
