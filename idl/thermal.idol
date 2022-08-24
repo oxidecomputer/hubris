@@ -13,13 +13,24 @@ Interface(
             ),
         ),
         "set_mode_auto": (
-            args: {
-                "initial_pwm": "u8",
-            },
             reply: Result(
                 ok: "()",
                 err: CLike("ThermalError"),
             ),
+        ),
+        "get_mode": (
+            reply: Result(
+                ok: "ThermalMode",
+                err: CLike("ThermalError"),
+            ),
+            encoding: Ssmarshal
+        ),
+        "get_auto_state": (
+            reply: Result(
+                ok: "ThermalAutoState",
+                err: CLike("ThermalError"),
+            ),
+            encoding: Ssmarshal
         ),
         "set_fan_pwm": (
             args: {

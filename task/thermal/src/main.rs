@@ -15,23 +15,18 @@
 mod bsp;
 mod control;
 
-use crate::{
-    bsp::{Bsp, BspT},
-    control::ThermalControl,
-};
+use crate::{bsp::Bsp, control::ThermalControl};
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
 use idol_runtime::{NotificationHandler, RequestError};
 use ringbuf::*;
-use task_thermal_api::{ThermalError, ThermalMode};
+use task_thermal_api::{ThermalAutoState, ThermalError, ThermalMode};
 use userlib::units::PWMDuty;
 use userlib::*;
 
-//
 // We define our own Fan type, as we may have more fans than any single
 // controller supports.
-//
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fan(u8);
 
@@ -60,9 +55,9 @@ ringbuf!(Trace, 32, Trace::None);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct ServerImpl<'a, B> {
+struct ServerImpl<'a> {
     mode: ThermalMode,
-    control: ThermalControl<'a, B>,
+    control: ThermalControl<'a>,
     deadline: u64,
     counter: u64,
 }
@@ -70,10 +65,7 @@ struct ServerImpl<'a, B> {
 const TIMER_MASK: u32 = 1 << 0;
 const TIMER_INTERVAL: u64 = 1000;
 
-/// How often to run the control loop, in multiples of TIMER_INTERVAL
-const CONTROL_RATE: u64 = 10;
-
-impl<'a, B: BspT> ServerImpl<'a, B> {
+impl<'a> ServerImpl<'a> {
     /// Configures the control loop to run in manual mode, loading the given
     /// PWM value immediately to all fans.
     ///
@@ -92,12 +84,14 @@ impl<'a, B: BspT> ServerImpl<'a, B> {
     /// The fans will not change speed until the next controller update tick.
     ///
     /// Returns an error if the given PWM value is invalid.
-    fn set_mode_auto(
-        &mut self,
-        initial_pwm: PWMDuty,
-    ) -> Result<(), ThermalError> {
-        self.set_mode(ThermalMode::Auto);
-        self.control.reset(initial_pwm)
+    fn set_mode_auto(&mut self) -> Result<(), ThermalError> {
+        if self.mode != ThermalMode::Auto {
+            self.set_mode(ThermalMode::Auto);
+            self.control.reset();
+            Ok(())
+        } else {
+            Err(ThermalError::AlreadyInAutoMode.into())
+        }
     }
 
     fn set_mode(&mut self, m: ThermalMode) {
@@ -112,7 +106,24 @@ impl<'a, B: BspT> ServerImpl<'a, B> {
     }
 }
 
-impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
+impl<'a> idl::InOrderThermalImpl for ServerImpl<'a> {
+    fn get_mode(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<ThermalMode, RequestError<ThermalError>> {
+        Ok(self.mode)
+    }
+
+    fn get_auto_state(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<ThermalAutoState, RequestError<ThermalError>> {
+        if self.mode != ThermalMode::Auto {
+            return Err(ThermalError::NotInAutoMode.into());
+        }
+        Ok(self.control.get_state())
+    }
+
     fn set_fan_pwm(
         &mut self,
         _: &RecvMessage,
@@ -142,25 +153,21 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
         // Delegate to inner function after doing type conversions
         let initial_pwm = PWMDuty::try_from(initial_pwm)
             .map_err(|_| ThermalError::InvalidPWM)?;
-        ServerImpl::<B>::set_mode_manual(self, initial_pwm).map_err(Into::into)
+        ServerImpl::set_mode_manual(self, initial_pwm).map_err(Into::into)
     }
 
     fn set_mode_auto(
         &mut self,
         _: &RecvMessage,
-        initial_pwm: u8,
     ) -> Result<(), RequestError<ThermalError>> {
-        // Delegate to inner function after doing type conversions
-        let initial_pwm = PWMDuty::try_from(initial_pwm)
-            .map_err(|_| ThermalError::InvalidPWM)?;
-        ServerImpl::<B>::set_mode_auto(self, initial_pwm).map_err(Into::into)
+        ServerImpl::set_mode_auto(self).map_err(Into::into)
     }
 
     fn disable_watchdog(
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<ThermalError>> {
-        ServerImpl::<B>::set_watchdog(self, I2cWatchdog::Disabled)
+        ServerImpl::set_watchdog(self, I2cWatchdog::Disabled)
             .map_err(Into::into)
     }
 
@@ -175,38 +182,33 @@ impl<'a, B: BspT> idl::InOrderThermalImpl for ServerImpl<'a, B> {
             30 => I2cWatchdog::ThirtySeconds,
             _ => return Err(ThermalError::InvalidWatchdogTime.into()),
         };
-        ServerImpl::<B>::set_watchdog(self, wd).map_err(Into::into)
+        ServerImpl::set_watchdog(self, wd).map_err(Into::into)
     }
 }
 
-impl<'a, B: BspT> NotificationHandler for ServerImpl<'a, B> {
+impl<'a> NotificationHandler for ServerImpl<'a> {
     fn current_notification_mask(&self) -> u32 {
         TIMER_MASK
     }
 
     fn handle_notification(&mut self, _bits: u32) {
-        self.deadline += TIMER_INTERVAL;
-        self.counter += 1;
-        sys_set_timer(Some(self.deadline), TIMER_MASK);
-
-        match self.mode {
-            ThermalMode::Auto => {
-                if self.counter % CONTROL_RATE == 0 {
-                    // TODO: what to do with errors here?
-                    let _ = self.control.run_control();
-                } else {
-                    let _ = self.control.read_sensors();
+        let now = sys_get_timer().now;
+        if self.deadline >= now {
+            match self.mode {
+                ThermalMode::Auto => {
+                    self.control.run_control();
+                }
+                ThermalMode::Manual => {
+                    // Read sensors and post them to the `sensors` task
+                    self.control.read_sensors();
+                }
+                ThermalMode::Off => {
+                    panic!("Mode must not be 'Off' when server is running")
                 }
             }
-            ThermalMode::Manual => {
-                // Ignore read errors, since the control loop isn't actually
-                // running in this mode.
-                let _ = self.control.read_sensors();
-            }
-            ThermalMode::Off => {
-                panic!("Mode must not be 'Off' when server is running")
-            }
+            self.deadline = now + TIMER_INTERVAL;
         }
+        sys_set_timer(Some(self.deadline), TIMER_MASK);
     }
 }
 
@@ -239,7 +241,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::ThermalError;
+    use super::{ThermalAutoState, ThermalError, ThermalMode};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

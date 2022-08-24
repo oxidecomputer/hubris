@@ -3,13 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! BSP for the Gimlet rev B hardware
-//!
-//! This is identical to the rev A BSP except for the TMP451, which is in
-//! a different power domain.
 
-use crate::{
-    bsp::BspT,
-    control::{Device, FanControl, InputChannel, TemperatureSensor},
+use crate::control::{
+    Device, FanControl, InputChannel, PidConfig, TemperatureSensor,
+    ThermalProperties,
 };
 use core::convert::TryInto;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
@@ -27,53 +24,52 @@ use i2c_config::sensors;
 
 task_slot!(SEQ, gimlet_seq);
 
+// We monitor the TMP117 air temperature sensors, but don't use them as part of
+// the control loop.
 const NUM_TEMPERATURE_SENSORS: usize = sensors::NUM_TMP117_TEMPERATURE_SENSORS;
-const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
+
+// The control loop is driven by CPU, NIC, and DIMM temperatures
+pub const NUM_TEMPERATURE_INPUTS: usize = sensors::NUM_SBTSI_TEMPERATURE_SENSORS
     + sensors::NUM_TMP451_TEMPERATURE_SENSORS
     + sensors::NUM_TSE2004AV_TEMPERATURE_SENSORS;
+
+// We've got 6 fans, driven from a single MAX31790 IC
 const NUM_FANS: usize = drv_i2c_devices::max31790::MAX_FANS as usize;
 
 pub(crate) struct Bsp {
     /// Controlled sensors
-    inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
+    pub inputs: [InputChannel; NUM_TEMPERATURE_INPUTS],
 
     /// Monitored sensors
-    misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
+    pub misc_sensors: [TemperatureSensor; NUM_TEMPERATURE_SENSORS],
 
     /// Fan RPM sensors
-    fans: [SensorId; NUM_FANS],
+    pub fans: [SensorId; NUM_FANS],
 
+    /// Fan control IC
     fctrl: Max31790,
 
+    /// Handle to the sequencer task, to query power state
     seq: Sequencer,
+
+    /// Tuning for the PID controller
+    pub pid_config: PidConfig,
 }
 
 // Use bitmasks to determine when sensors should be polled
 const POWER_STATE_A2: u32 = 0b001;
 const POWER_STATE_A0: u32 = 0b010;
 
-impl BspT for Bsp {
-    fn inputs(&self) -> &[InputChannel] {
-        &self.inputs
-    }
-
-    fn misc_sensors(&self) -> &[TemperatureSensor] {
-        &self.misc_sensors
-    }
-
-    fn fans(&self) -> &[SensorId] {
-        &self.fans
-    }
-
-    fn fan_control(&self, fan: crate::Fan) -> FanControl<'_> {
+impl Bsp {
+    pub fn fan_control(&self, fan: crate::Fan) -> FanControl {
         FanControl::Max31790(&self.fctrl, fan.0.try_into().unwrap())
     }
 
-    fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl<'_>)) {
+    pub fn for_each_fctrl(&self, mut fctrl: impl FnMut(FanControl)) {
         fctrl(self.fan_control(0.into()))
     }
 
-    fn power_mode(&self) -> u32 {
+    pub fn power_mode(&self) -> u32 {
         match self.seq.get_state() {
             Ok(p) => match p {
                 PowerState::A0PlusHP | PowerState::A0 | PowerState::A1 => {
@@ -90,14 +86,13 @@ impl BspT for Bsp {
         }
     }
 
-    fn new(i2c_task: TaskId) -> Self {
+    pub fn new(i2c_task: TaskId) -> Self {
         // Awkwardly build the fan array, because there's not a great way
         // to build a fixed-size array from a function
         let mut fans = [None; NUM_FANS];
         for (i, f) in fans.iter_mut().enumerate() {
             *f = Some(sensors::MAX31790_SPEED_SENSORS[i]);
         }
-
         let fans = fans.map(Option::unwrap);
 
         // Initializes and build a handle to the fan controller IC
@@ -107,14 +102,37 @@ impl BspT for Bsp {
         // Handle for the sequencer task, which we check for power state
         let seq = Sequencer::from(SEQ.get_task_id());
 
-        const MAX_DIMM_TEMP: Celsius = Celsius(60f32);
-        const MAX_CPU_TEMP: Celsius = Celsius(60f32);
-        const MAX_T6_TEMP: Celsius = Celsius(60f32);
+        // TODO these numbers are all made up
+        const DIMM_THERMALS: ThermalProperties = ThermalProperties {
+            target_temperature: Celsius(60f32),
+            critical_temperature: Celsius(70f32),
+            non_recoverable_temperature: Celsius(80f32),
+            temperature_slew_deg_per_sec: 0.5,
+        };
+        const CPU_THERMALS: ThermalProperties = ThermalProperties {
+            target_temperature: Celsius(60f32),
+            critical_temperature: Celsius(70f32),
+            non_recoverable_temperature: Celsius(80f32),
+            temperature_slew_deg_per_sec: 0.5,
+        };
+        const T6_THERMALS: ThermalProperties = ThermalProperties {
+            target_temperature: Celsius(60f32),
+            critical_temperature: Celsius(70f32),
+            non_recoverable_temperature: Celsius(80f32),
+            temperature_slew_deg_per_sec: 0.5,
+        };
 
         Self {
             seq,
             fans,
             fctrl,
+
+            // TODO this is all made up
+            pid_config: PidConfig {
+                gain_p: 0.1,
+                gain_i: 0.0,
+                gain_d: 0.0,
+            },
 
             inputs: [
                 InputChannel::new(
@@ -122,7 +140,7 @@ impl BspT for Bsp {
                         Device::CPU(Sbtsi::new(&devices::sbtsi(i2c_task)[0])),
                         sensors::SBTSI_TEMPERATURE_SENSOR,
                     ),
-                    MAX_CPU_TEMP,
+                    CPU_THERMALS,
                     POWER_STATE_A0,
                     false,
                 ),
@@ -134,8 +152,8 @@ impl BspT for Bsp {
                         )),
                         sensors::TMP451_TEMPERATURE_SENSOR,
                     ),
-                    MAX_T6_TEMP,
-                    POWER_STATE_A0, // <-- this is different from rev A
+                    T6_THERMALS,
+                    POWER_STATE_A0,
                     false,
                 ),
                 InputChannel::new(
@@ -145,7 +163,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[0],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -156,7 +174,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[1],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -167,7 +185,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[2],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -178,7 +196,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[3],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -189,7 +207,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[4],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -200,7 +218,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[5],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -211,7 +229,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[6],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -222,7 +240,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[7],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -233,7 +251,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[8],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -244,7 +262,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[9],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -255,7 +273,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[10],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -266,7 +284,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[11],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -277,7 +295,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[12],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -288,7 +306,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[13],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -299,7 +317,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[14],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),
@@ -310,7 +328,7 @@ impl BspT for Bsp {
                         )),
                         sensors::TSE2004AV_TEMPERATURE_SENSORS[15],
                     ),
-                    MAX_DIMM_TEMP,
+                    DIMM_THERMALS,
                     POWER_STATE_A0 | POWER_STATE_A2,
                     true,
                 ),

@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{bsp::BspT, Fan, ThermalError, Trace};
+use crate::{
+    bsp::{self, Bsp},
+    Fan, ThermalError, Trace,
+};
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::{I2cWatchdog, Max31790};
 use drv_i2c_devices::TempSensor;
@@ -11,7 +14,11 @@ use drv_i2c_devices::{
 };
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
-use userlib::units::{Celsius, PWMDuty, Rpm};
+use task_thermal_api::ThermalAutoState;
+use userlib::{
+    sys_get_timer,
+    units::{Celsius, PWMDuty, Rpm},
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -79,12 +86,14 @@ impl<'a> FanControl<'a> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/// An `InputChannel` represents a temperature sensor associated with a
+/// particular component in the system.
 pub(crate) struct InputChannel {
     /// Temperature sensor
     sensor: TemperatureSensor,
 
-    /// Maximum temperature for this part
-    max_temp: Celsius,
+    /// Thermal properties of the associated component
+    temps: ThermalProperties,
 
     /// Mask with bits set based on the Bsp's `power_mode` bits
     power_mode_mask: u32,
@@ -93,16 +102,34 @@ pub(crate) struct InputChannel {
     removable: bool,
 }
 
+/// Properties for a particular part in the system
+pub(crate) struct ThermalProperties {
+    /// Target temperature for this part
+    pub target_temperature: Celsius,
+
+    /// Temperature at which we should take dramatic action to cool the part
+    pub critical_temperature: Celsius,
+
+    /// Temperature at which the part may be damaged
+    pub non_recoverable_temperature: Celsius,
+
+    /// Maximum slew rate of temperature, measured in °C per second
+    ///
+    /// The slew rate is used to model worst-case temperature if we haven't
+    /// heard from a chip in a while (e.g. due to dropped samples)
+    pub temperature_slew_deg_per_sec: f32,
+}
+
 impl InputChannel {
     pub fn new(
         sensor: TemperatureSensor,
-        max_temp: Celsius,
+        temps: ThermalProperties,
         power_mode_mask: u32,
         removable: bool,
     ) -> Self {
         Self {
             sensor,
-            max_temp,
+            temps,
             power_mode_mask,
             removable,
         }
@@ -116,84 +143,127 @@ impl InputChannel {
 /// This object uses slices of sensors and fans, which must be owned
 /// elsewhere; the standard pattern is to create static arrays in a
 /// `struct Bsp` which is conditionally included based on board name.
-///
-/// ```
-///         |
-///   HOT   |   Fan speed increases quickly
-///         |
-///         0------ Component margin + target_margin --
-///         |
-///         |   Fan speed increases slowly
-///         |
-///         ------- slow_band -------------------------
-///         |
-///         |   Fan speed remains constant
-///         |
-///         ------- dead_band -------------------------
-///         |
-///   COLD  |   Fan speed decreases slowly
-///         |
-/// ```
-///
-pub(crate) struct ThermalControl<'a, B> {
+pub(crate) struct ThermalControl<'a> {
     /// Reference to board-specific parameters
-    bsp: &'a B,
+    bsp: &'a Bsp,
 
     /// Task to which we should post sensor data updates
     sensor_api: SensorApi,
 
-    /// Dead band between increasing and decreasing fan speed
-    dead_band: Celsius,
-
-    /// Band where fan speed increases slowly
-    slow_band: Celsius,
-
     /// Target temperature margin. This must be >= 0; as it increases, parts
-    /// are kept cooler than their max temperature ratings.
+    /// are kept cooler than their target temperature value.
     target_margin: Celsius,
 
-    /// Commanded PWM value (0-100) for every output channel
-    target_pwm: u8,
+    /// Controller state
+    state: ThermalControlState,
 
+    /// Number of sensor reads which failed
     read_failed_count: u32,
+
+    /// Number of sensor posts which failed
     post_failed_count: u32,
 }
 
-impl<'a, B: BspT> ThermalControl<'a, B> {
+/// Represents a temperature reading at the time at which it was taken
+///
+/// (using monotonic system time)
+#[derive(Copy, Clone, Debug)]
+struct TemperatureReading {
+    time_ms: u64,
+    value: Celsius,
+}
+
+/// Configuration for a PID controller
+pub struct PidConfig {
+    pub gain_p: f64,
+    pub gain_i: f64,
+    pub gain_d: f64,
+}
+
+struct PidState {
+    /// Previous (time, input) tuple, for derivative term
+    prev: Option<(u64, f64)>,
+
+    /// Accumulated integral term
+    integral: f64,
+}
+
+/// This corresponds to states shown in RFD 276
+enum ThermalControlState {
+    /// Wait for each sensor to report in at least once
+    Boot {
+        values: [Option<TemperatureReading>; bsp::NUM_TEMPERATURE_INPUTS],
+    },
+
+    /// Normal happy control loop
+    Running {
+        values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
+        pid: PidState,
+    },
+
+    /// In the overheated state, one or more components has entered their
+    /// critical temperature ranges.  We turn on fans and record the time at
+    /// which we entered this state; at a certain point, we will timeout and
+    /// drop into `Uncontrolled`.
+    Overheated {
+        values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
+        start_time: u64,
+    },
+
+    /// The system cannot control the temperature; power down and wait for
+    /// intervention from higher up the stack.
+    Uncontrollable,
+}
+
+impl ThermalControlState {
+    fn control(
+        &mut self,
+        target_margin: Celsius,
+        inputs: &[InputChannel],
+        pid_cfg: &PidConfig,
+    ) -> u8 {
+        unimplemented!()
+    }
+    fn write_temperature(&mut self, index: usize, time: u64, value: Celsius) {
+        unimplemented!()
+    }
+}
+
+impl<'a> ThermalControl<'a> {
     /// Constructs a new `ThermalControl` based on a `struct Bsp`. This
     /// requires that every BSP has the same internal structure,
-    pub fn new(bsp: &'a B, sensor_api: SensorApi) -> Self {
-        let dead_band = Celsius(2.0f32);
-        let slow_band = Celsius(1.0f32);
-        assert!(dead_band.0 > slow_band.0);
+    pub fn new(bsp: &'a Bsp, sensor_api: SensorApi) -> Self {
         Self {
             bsp,
             sensor_api,
-            dead_band,
-            slow_band,
-            target_margin: Celsius(2.0f32),
-            target_pwm: 100,
+            target_margin: Celsius(0.0f32),
+            state: ThermalControlState::Boot {
+                values: [None; bsp::NUM_TEMPERATURE_INPUTS],
+            },
             read_failed_count: 0,
             post_failed_count: 0,
         }
     }
 
+    /// Resets the control state
+    pub fn reset(&mut self) {
+        self.state = ThermalControlState::Boot {
+            values: [None; bsp::NUM_TEMPERATURE_INPUTS],
+        };
+        self.target_margin = Celsius(0.0f32);
+        self.read_failed_count = 0;
+        self.post_failed_count = 0;
+        // The fan speed will be applied on the next controller iteration
+    }
+
     /// Reads all temperature and fan RPM sensors, posting their results
-    /// to the sensors task API. Returns the worst margin; positive means
-    /// all parts are happily below their max temperatures, while negative
-    /// means someone is overheating.
+    /// to the sensors task API and recording them in `self.state`.
     ///
-    /// Records failed reads to non-controlled sensors and failed posts to the
-    /// sensors task in `self.read_failed_count` and `self.post_failed_count`
-    /// respectively.
-    ///
-    /// Returns an error if any of the *controlled* sensors fails to read.
-    /// Note that monitored sensors may fail to read and the sensor post
-    /// may fail without this returning an error; an error means that the
-    /// integrity of the control loop is threatened.
-    pub fn read_sensors(&mut self) -> Result<Option<f32>, ResponseCode> {
+    /// Records failed sensor reads and failed posts to the sensors task in
+    /// `self.read_failed_count` and `self.post_failed_count` respectively.
+    pub fn read_sensors(&mut self) {
         // Read fan data and log it to the sensors task
-        for (index, sensor_id) in self.bsp.fans().iter().enumerate() {
+        for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
             let post_result =
                 match self.bsp.fan_control(Fan::from(index)).fan_rpm() {
                     Ok(reading) => {
@@ -210,7 +280,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         }
 
         // Read miscellaneous temperature data and log it to the sensors task
-        for (i, s) in self.bsp.misc_sensors().iter().enumerate() {
+        for (i, s) in self.bsp.misc_sensors.iter().enumerate() {
             let post_result = match s.read_temp() {
                 Ok(v) => self.sensor_api.post(s.id, v.0),
                 Err(e) => {
@@ -227,18 +297,13 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
 
         // Remember, positive margin means that all parts are happily below
         // their max temperature; negative means someone is overheating.
-        let mut worst_margin = None;
-        let mut last_err = Ok(());
         let power_mode = self.bsp.power_mode();
-        for (i, s) in self.bsp.inputs().iter().enumerate() {
+        let now = sys_get_timer().now;
+        for (i, s) in self.bsp.inputs.iter().enumerate() {
             let post_result = match s.sensor.read_temp() {
                 Ok(v) => {
                     if (s.power_mode_mask & power_mode) != 0 {
-                        let margin = s.max_temp.0 - v.0;
-                        worst_margin = Some(match worst_margin {
-                            Some(m) => margin.min(m),
-                            None => margin,
-                        });
+                        self.state.write_temperature(i, now, v);
                     }
                     self.sensor_api.post(s.sensor.id, v.0)
                 }
@@ -249,7 +314,6 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
                     if (s.power_mode_mask & power_mode) != 0
                         && !(s.removable && e == ResponseCode::NoDevice)
                     {
-                        last_err = Err(e);
                         ringbuf_entry!(Trace::SensorReadFailed(i, e));
                     }
                     self.sensor_api.nodata(s.sensor.id, e.into())
@@ -259,12 +323,6 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
                 self.post_failed_count = self.post_failed_count.wrapping_add(1);
             }
         }
-
-        // Prioritize returning errors, because they indicate that something is
-        // wrong with the sensors that are critical to the control loop.
-        last_err?;
-
-        Ok(worst_margin)
     }
 
     /// An extremely simple thermal control loop.
@@ -273,37 +331,18 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
     pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        let mut r = self
-            .read_sensors()
-            .map_err(|_| ThermalError::DeviceError)?
-            .ok_or(ThermalError::NoReading)?;
+        self.read_sensors();
 
-        r -= self.target_margin.0;
-        if r < 0.0f32 {
-            self.target_pwm = (self.target_pwm + 5).min(100);
-        } else if r < self.slow_band.0 {
-            self.target_pwm = (self.target_pwm + 1).min(100);
-        } else if r < self.dead_band.0 {
-            // No change
-        } else {
-            self.target_pwm = self.target_pwm.saturating_sub(1);
-        }
+        let target_pwm = self.state.control(
+            self.target_margin,
+            &self.bsp.inputs,
+            &self.bsp.pid_config,
+        );
 
         // Send the new RPM to all of our fans
-        ringbuf_entry!(Trace::ControlPwm(self.target_pwm));
-        self.set_pwm(PWMDuty(self.target_pwm))?;
+        ringbuf_entry!(Trace::ControlPwm(target_pwm));
+        self.set_pwm(PWMDuty(target_pwm))?;
 
-        Ok(())
-    }
-
-    /// Resets internal controller state, using the new PWM as the current
-    /// output value. This does not actually send the new PWM to the fans;
-    /// that will occur on the next call to [run_control]
-    pub fn reset(&mut self, initial_pwm: PWMDuty) -> Result<(), ThermalError> {
-        if initial_pwm.0 > 100 {
-            return Err(ThermalError::InvalidPWM);
-        }
-        self.target_pwm = initial_pwm.0;
         Ok(())
     }
 
@@ -316,7 +355,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
             return Err(ThermalError::InvalidPWM);
         }
         let mut last_err = Ok(());
-        for (index, _sensor_id) in self.bsp.fans().iter().enumerate() {
+        for (index, _sensor_id) in self.bsp.fans.iter().enumerate() {
             if let Err(e) = self.bsp.fan_control(Fan::from(index)).set_pwm(pwm)
             {
                 last_err = Err(e);
@@ -335,7 +374,7 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
     }
 
     pub fn fan(&self, index: u8) -> Option<Fan> {
-        let f = self.bsp.fans();
+        let f = &self.bsp.fans;
 
         if (index as usize) < f.len() {
             Some(Fan(index))
@@ -354,5 +393,18 @@ impl<'a, B: BspT> ThermalControl<'a, B> {
         });
 
         result
+    }
+
+    pub fn get_state(&self) -> ThermalAutoState {
+        match self.state {
+            ThermalControlState::Boot { .. } => ThermalAutoState::Boot,
+            ThermalControlState::Running { .. } => ThermalAutoState::Running,
+            ThermalControlState::Overheated { .. } => {
+                ThermalAutoState::Overheated
+            }
+            ThermalControlState::Uncontrollable => {
+                ThermalAutoState::Uncontrollable
+            }
+        }
     }
 }

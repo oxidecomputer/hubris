@@ -5,6 +5,8 @@ edition = "2018"
 
 [dependencies]
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+serde = {version = "1", default-features = false, features = ["derive"]}
+ssmarshal = {version = "1", default-features = false}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-i2c-api = {path = "../../drv/i2c-api"}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
