@@ -90,6 +90,9 @@ const ETH_IRQ: u32 = 1;
 /// Notification mask for optional periodic logging
 const WAKE_IRQ: u32 = 2;
 
+/// Interval at which the system wakes up to execute miscellaneous tasks (ms)
+const WAKE_INTERVAL: u64 = 500;
+
 /// Number of entries to maintain in our neighbor cache (ARP/NDP).
 const NEIGHBORS: usize = 4;
 
@@ -172,14 +175,13 @@ fn main() -> ! {
         } else {
             // No work to do immediately. Wait for an ethernet IRQ or an
             // incoming message, or for a certain amount of time to pass.
-            if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-                let now = sys_get_timer().now;
-                if now >= wake_target_time {
-                    server.wake();
-                    wake_target_time = now + wake_interval;
-                }
-                sys_set_timer(Some(wake_target_time), WAKE_IRQ);
+            let now = sys_get_timer().now;
+            if now >= wake_target_time {
+                server.wake();
+                wake_target_time = now + WAKE_INTERVAL;
             }
+            sys_set_timer(Some(wake_target_time), WAKE_IRQ);
+
             let mut msgbuf = [0u8; ServerImpl::INCOMING_SIZE];
             idol_runtime::dispatch_n(&mut msgbuf, &mut server);
         }

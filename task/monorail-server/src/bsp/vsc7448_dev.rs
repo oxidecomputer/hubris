@@ -15,9 +15,6 @@ pub const REFCLK_SEL: vsc7448::RefClockFreq = vsc7448::RefClockFreq::Clk125MHz;
 pub const REFCLK2_SEL: Option<vsc7448::RefClockFreq> =
     Some(vsc7448::RefClockFreq::Clk25MHz);
 
-/// Interval at which `Bsp::wake()` is called by the main loop
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
-
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,

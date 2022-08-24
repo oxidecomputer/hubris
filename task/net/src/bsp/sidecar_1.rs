@@ -16,8 +16,6 @@ use vsc7448_pac::types::PhyRegisterAddress;
 task_slot!(SPI, spi_driver);
 task_slot!(SEQ, seq);
 
-pub const WAKE_INTERVAL: Option<u64> = None;
-
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Stateless function to configure ethernet pins before the Bsp struct
@@ -85,8 +83,8 @@ impl Bsp {
         Self(bsp)
     }
 
-    pub fn wake(&self, eth: &eth::Ethernet) {
-        panic!("wake should never be called, because WAKE_INTERVAL is None")
+    pub fn wake(&self, _eth: &eth::Ethernet) {
+        // Nothing to do here
     }
 
     pub fn phy_read(

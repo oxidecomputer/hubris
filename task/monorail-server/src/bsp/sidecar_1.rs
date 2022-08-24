@@ -16,9 +16,6 @@ task_slot!(NET, net);
 task_slot!(SEQ, seq);
 task_slot!(FRONT_IO, ecp5_front_io);
 
-/// Interval at which `Bsp::wake()` is called by the main loop
-pub const WAKE_INTERVAL: Option<u64> = Some(500);
-
 #[derive(Copy, Clone, PartialEq)]
 enum Trace {
     None,

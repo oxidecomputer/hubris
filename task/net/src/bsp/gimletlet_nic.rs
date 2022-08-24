@@ -29,9 +29,6 @@ enum Trace {
 }
 ringbuf!(Trace, 32, Trace::None);
 
-// This system wants to be woken periodically to do logging
-pub const WAKE_INTERVAL: Option<u64> = Some(5000);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn preinit() {

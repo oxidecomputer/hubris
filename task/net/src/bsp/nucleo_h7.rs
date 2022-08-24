@@ -15,9 +15,6 @@ use vsc85xx::PhyRw;
 /// become configurable.
 const PHYADDR: u8 = 0x0;
 
-// The Nucleo dev board doesn't do any periodic logging
-pub const WAKE_INTERVAL: Option<u64> = None;
-
 pub fn configure_ethernet_pins(sys: &Sys) {
     pins::RmiiPins {
         refclk: Port::A.pin(1),
@@ -65,7 +62,7 @@ impl Bsp {
     }
 
     pub fn wake(&self, _eth: &eth::Ethernet) {
-        panic!("Wake should never be called, because WAKE_INTERVAL is None");
+        // Nothing to do here
     }
 
     pub fn phy_read(

@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::bsp::{self, Bsp};
+use crate::{
+    bsp::{self, Bsp},
+    WAKE_IRQ,
+};
 use idol_runtime::{NotificationHandler, RequestError};
 use monorail_api::{
     LinkStatus, MacTableEntry, MonorailError, PacketCount, PhyStatus, PhyType,
@@ -19,11 +22,8 @@ pub struct ServerImpl<'a, R> {
     bsp: Bsp<'a, R>,
     vsc7448: &'a Vsc7448<'a, R>,
     map: &'a PortMap,
-    wake_target_time: u64,
 }
 
-/// Notification mask for optional periodic logging
-pub const WAKE_IRQ: u32 = 1;
 pub const INCOMING_SIZE: usize = idl::INCOMING_SIZE;
 
 impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
@@ -32,30 +32,11 @@ impl<'a, R: Vsc7448Rw> ServerImpl<'a, R> {
         vsc7448: &'a Vsc7448<'a, R>,
         map: &'a PortMap,
     ) -> Self {
-        // Some of the BSPs include a 'wake' function which allows for periodic
-        // logging.  We schedule a wake-up before entering the idol_runtime dispatch
-        // loop, to make sure that this gets called periodically.
-        let wake_target_time = sys_get_timer().now;
-        sys_set_timer(Some(0), WAKE_IRQ); // Trigger a wake IRQ right away
-        Self {
-            bsp,
-            wake_target_time,
-            map,
-            vsc7448,
-        }
+        Self { bsp, map, vsc7448 }
     }
 
     pub fn wake(&mut self) -> Result<(), VscError> {
-        let now = sys_get_timer().now;
-        if let Some(wake_interval) = bsp::WAKE_INTERVAL {
-            if now >= self.wake_target_time {
-                let out = self.bsp.wake();
-                self.wake_target_time = now + wake_interval;
-                sys_set_timer(Some(self.wake_target_time), WAKE_IRQ);
-                return out;
-            }
-        }
-        Ok(())
+        self.bsp.wake()
     }
 
     /// Helper function to return an error if a user-specified port is invalid
