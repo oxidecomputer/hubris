@@ -295,6 +295,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Return early if the dev select pin is missing
         let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
 
+        self.check_muxed_to_sp()?;
+
         let sys = sys_api::Sys::from(SYS.get_task_id());
         let rv = match state {
             HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
