@@ -50,7 +50,7 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 }
 
 pub struct Bsp {
-    ksz8463: Ksz8463,
+    pub ksz8463: Ksz8463,
 }
 
 impl Bsp {
@@ -120,9 +120,5 @@ impl Bsp {
         _eth: &eth::Ethernet,
     ) -> Result<u16, PhyError> {
         Err(PhyError::NotImplemented)
-    }
-
-    pub fn ksz8463(&self) -> &Ksz8463 {
-        &self.ksz8463
     }
 }

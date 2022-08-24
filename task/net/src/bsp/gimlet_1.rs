@@ -8,11 +8,7 @@ use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use task_jefe_api::Jefe;
-use task_net_api::{
-    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
-};
 use userlib::{sys_recv_closed, task_slot, FromPrimitive, TaskId};
-use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 task_slot!(JEFE, jefe);
@@ -42,7 +38,9 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     .configure(sys);
 }
 
-pub struct Bsp(mgmt::Bsp);
+pub struct Bsp {
+    pub mgmt: mgmt::Bsp,
+}
 
 pub fn preinit() {
     // Wait for the sequencer to turn on the clock. This requires that Jefe
@@ -75,72 +73,34 @@ pub fn preinit() {
 
 impl Bsp {
     pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
-        Self(
-            mgmt::Config {
-                // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
-                power_en: Some(Port::I.pin(10).and_pin(12)),
-                slow_power_en: false,
-                power_good: None, // TODO
-                pll_lock: None,   // TODO?
+        let mgmt = mgmt::Config {
+            // SP_TO_MGMT_V1P0_EN, SP_TO_MGMT_V2P5_EN
+            power_en: Some(Port::I.pin(10).and_pin(12)),
+            slow_power_en: false,
+            power_good: None, // TODO
+            pll_lock: None,   // TODO?
 
-                // Based on ordering in app.toml
-                ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
+            // Based on ordering in app.toml
+            ksz8463_spi: Spi::from(SPI.get_task_id()).device(2),
 
-                // SP_TO_MGMT_MUX_RESET_L
-                ksz8463_nrst: Port::C.pin(2),
-                ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-                ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
+            // SP_TO_MGMT_MUX_RESET_L
+            ksz8463_nrst: Port::C.pin(2),
+            ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
 
-                // SP_TO_MGMT_PHY_COMA_MODE
-                vsc85x2_coma_mode: Some(Port::D.pin(7)),
+            // SP_TO_MGMT_PHY_COMA_MODE
+            vsc85x2_coma_mode: Some(Port::D.pin(7)),
 
-                // SP_TO_MGMT_PHY_RESET
-                vsc85x2_nrst: Port::A.pin(8),
+            // SP_TO_MGMT_PHY_RESET
+            vsc85x2_nrst: Port::A.pin(8),
 
-                vsc85x2_base_port: 0b11110, // Based on resistor strapping
-            }
-            .build(sys, eth),
-        )
+            vsc85x2_base_port: 0b11110, // Based on resistor strapping
+        }
+        .build(sys, eth);
+        Self { mgmt }
     }
 
-    pub fn wake(&self, _eth: &eth::Ethernet) {
-        // Nothing to do here
-    }
-
-    pub fn phy_read(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        eth: &eth::Ethernet,
-    ) -> Result<u16, PhyError> {
-        self.0.phy_read(port, reg, eth)
-    }
-
-    pub fn phy_write(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        value: u16,
-        eth: &eth::Ethernet,
-    ) -> Result<(), PhyError> {
-        self.0.phy_write(port, reg, value, eth)
-    }
-
-    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
-        &self.0.ksz8463
-    }
-
-    pub fn management_link_status(
-        &self,
-        eth: &eth::Ethernet,
-    ) -> Result<ManagementLinkStatus, MgmtError> {
-        self.0.management_link_status(eth)
-    }
-
-    pub fn management_counters(
-        &self,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<ManagementCounters, MgmtError> {
-        self.0.management_counters(eth)
+    pub fn wake(&self, eth: &eth::Ethernet) {
+        self.mgmt.wake(eth)
     }
 }

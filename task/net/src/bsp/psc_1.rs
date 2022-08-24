@@ -6,11 +6,7 @@ use crate::{mgmt, pins};
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use task_net_api::{
-    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
-};
 use userlib::task_slot;
-use vsc7448_pac::types::PhyRegisterAddress;
 
 task_slot!(SPI, spi_driver);
 
@@ -39,7 +35,9 @@ pub fn configure_ethernet_pins(sys: &Sys) {
     .configure(sys);
 }
 
-pub struct Bsp(mgmt::Bsp);
+pub struct Bsp {
+    pub mgmt: mgmt::Bsp,
+}
 
 pub fn preinit() {
     // Nothing to do here
@@ -47,7 +45,7 @@ pub fn preinit() {
 
 impl Bsp {
     pub fn new(eth: &eth::Ethernet, sys: &Sys) -> Self {
-        let bsp = mgmt::Config {
+        let mgmt = mgmt::Config {
             // SP_TO_MGMT_V1P0_EN / SP_TO_MGMT_V2P5_EN
             // (note that the latter also enables the MGMT_PHY_REFCLK)
             power_en: Some(Port::I.pin(10).and_pin(12)),
@@ -71,47 +69,9 @@ impl Bsp {
         }
         .build(sys, eth);
 
-        Self(bsp)
+        Self { mgmt }
     }
-
-    pub fn wake(&self, _eth: &eth::Ethernet) {
-        // Nothing to do here
-    }
-
-    pub fn phy_read(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        eth: &eth::Ethernet,
-    ) -> Result<u16, PhyError> {
-        self.0.phy_read(port, reg, eth)
-    }
-
-    pub fn phy_write(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        value: u16,
-        eth: &eth::Ethernet,
-    ) -> Result<(), PhyError> {
-        self.0.phy_write(port, reg, value, eth)
-    }
-
-    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
-        &self.0.ksz8463
-    }
-
-    pub fn management_link_status(
-        &self,
-        eth: &eth::Ethernet,
-    ) -> Result<ManagementLinkStatus, MgmtError> {
-        self.0.management_link_status(eth)
-    }
-
-    pub fn management_counters(
-        &self,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<ManagementCounters, MgmtError> {
-        self.0.management_counters(eth)
+    pub fn wake(&self, eth: &eth::Ethernet) {
+        self.mgmt.wake(eth);
     }
 }

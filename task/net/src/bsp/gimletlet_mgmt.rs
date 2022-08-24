@@ -11,9 +11,6 @@ use ksz8463::{
     Error as KszError, MIBCounter, MIBCounterValue, Register as KszRegister,
 };
 use ringbuf::*;
-use task_net_api::{
-    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
-};
 use userlib::task_slot;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::VscError;
@@ -108,7 +105,7 @@ pub fn configure_ethernet_pins(sys: &Sys) {
 }
 
 pub struct Bsp {
-    mgmt: mgmt::Bsp,
+    pub mgmt: mgmt::Bsp,
     leds: UserLeds,
 }
 
@@ -146,6 +143,7 @@ impl Bsp {
     }
 
     pub fn wake(&self, eth: &eth::Ethernet) {
+        self.mgmt.wake(eth);
         for port in [1, 2] {
             ringbuf_entry!(match self
                 .mgmt
@@ -246,42 +244,5 @@ impl Bsp {
         } else {
             self.leds.led_off(2).unwrap();
         }
-    }
-
-    pub fn phy_read(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<u16, PhyError> {
-        self.mgmt.phy_read(port, reg, eth)
-    }
-
-    pub fn phy_write(
-        &mut self,
-        port: u8,
-        reg: PhyRegisterAddress<u16>,
-        value: u16,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<(), PhyError> {
-        self.mgmt.phy_write(port, reg, value, eth)
-    }
-
-    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
-        &self.mgmt.ksz8463
-    }
-
-    pub fn management_link_status(
-        &self,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<ManagementLinkStatus, MgmtError> {
-        self.mgmt.management_link_status(eth)
-    }
-
-    pub fn management_counters(
-        &self,
-        eth: &crate::eth::Ethernet,
-    ) -> Result<ManagementCounters, MgmtError> {
-        self.mgmt.management_counters(eth)
     }
 }

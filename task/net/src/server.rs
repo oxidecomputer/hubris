@@ -92,7 +92,12 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
+
+        #[cfg(feature = "mgmt")]
+        let out = bsp.mgmt.phy_read(port, addr, eth)?;
+        #[cfg(not(feature = "mgmt"))]
         let out = bsp.phy_read(port, addr, eth)?;
+
         Ok(out)
     }
 
@@ -107,7 +112,12 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         use vsc7448_pac::types::PhyRegisterAddress;
         let addr = PhyRegisterAddress::from_page_and_addr_unchecked(page, reg);
         let (eth, bsp) = self.eth_bsp();
+
+        #[cfg(feature = "mgmt")]
+        bsp.mgmt.phy_write(port, addr, value, eth)?;
+        #[cfg(not(feature = "mgmt"))]
         bsp.phy_write(port, addr, value, eth)?;
+
         Ok(())
     }
 
@@ -155,7 +165,12 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         _msg: &userlib::RecvMessage,
     ) -> Result<usize, RequestError<KszError>> {
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463();
+
+        #[cfg(feature = "mgmt")]
+        let ksz8463 = &bsp.mgmt.ksz8463;
+        #[cfg(not(feature = "mgmt"))]
+        let ksz8463 = &bsp.ksz8463;
+
         let out = ksz8463
             .read_dynamic_mac_table(0)
             .map_err(KszError::from)?
@@ -174,7 +189,12 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
             return Err(KszError::BadMacIndex).map_err(RequestError::from);
         }
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463();
+
+        #[cfg(feature = "mgmt")]
+        let ksz8463 = &bsp.mgmt.ksz8463;
+        #[cfg(not(feature = "mgmt"))]
+        let ksz8463 = &bsp.ksz8463;
+
         let out = ksz8463
             .read_dynamic_mac_table(i)
             .map_err(KszError::from)?
@@ -195,7 +215,12 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         use userlib::FromPrimitive;
 
         let (_eth, bsp) = self.eth_bsp();
-        let ksz8463 = bsp.ksz8463();
+
+        #[cfg(feature = "mgmt")]
+        let ksz8463 = &bsp.mgmt.ksz8463;
+        #[cfg(not(feature = "mgmt"))]
+        let ksz8463 = &bsp.ksz8463;
+
         let reg =
             ksz8463::Register::from_u16(i).ok_or(KszError::BadRegister)?;
         let out = ksz8463.read(reg).map_err(KszError::from)?;
@@ -226,7 +251,10 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         _msg: &userlib::RecvMessage,
     ) -> Result<ManagementLinkStatus, RequestError<MgmtError>> {
         let (eth, bsp) = self.eth_bsp();
-        let out = bsp.management_link_status(eth).map_err(MgmtError::from)?;
+        let out = bsp
+            .mgmt
+            .management_link_status(eth)
+            .map_err(MgmtError::from)?;
         Ok(out)
     }
 
@@ -236,7 +264,7 @@ impl<T: NetServer> idl::InOrderNetImpl for T {
         _msg: &userlib::RecvMessage,
     ) -> Result<ManagementCounters, RequestError<MgmtError>> {
         let (eth, bsp) = self.eth_bsp();
-        let out = bsp.management_counters(eth).map_err(MgmtError::from)?;
+        let out = bsp.mgmt.management_counters(eth).map_err(MgmtError::from)?;
         Ok(out)
     }
 }

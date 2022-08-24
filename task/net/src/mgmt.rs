@@ -332,4 +332,8 @@ impl Bsp {
 
         Ok(out)
     }
+
+    pub fn wake(&self, _eth: &Ethernet) {
+        // Nothing to do here
+    }
 }
