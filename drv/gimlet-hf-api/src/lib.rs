@@ -25,6 +25,7 @@ pub enum HfError {
     HashNotConfigured = 6,
     NoDevSelect = 7,
     DevSelectFailed = 8,
+    NotMuxedToSP = 9,
 }
 
 /// Controls whether the SP or host CPU has access to flash
