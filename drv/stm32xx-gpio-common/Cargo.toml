@@ -40,6 +40,7 @@ family-stm32g0 = [
     "has-gpiob-type",
     "has-port-gpiof",
 ]
+model-stm32g030 = ["family-stm32g0"]
 model-stm32g031 = ["family-stm32g0"]
 model-stm32g070 = ["family-stm32g0"]
 model-stm32g0b1 = ["family-stm32g0", "has-port-gpioe"]

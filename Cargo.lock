@@ -35,6 +35,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
+name = "app-donglet"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+ "stm32g0",
+]
+
+[[package]]
 name = "armv6m-atomic-hack"
 version = "0.1.0"
 dependencies = [

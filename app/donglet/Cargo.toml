@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 readme = "README.md"
-name = "demo-stm32g0-nucleo"
+name = "app-donglet"
 version = "0.1.0"
 
 [features]
@@ -9,8 +9,6 @@ itm = ["panic-itm"]
 semihosting = ["panic-semihosting"]
 g030 = ["stm32g0/stm32g030"]
 g031 = ["stm32g0/stm32g031"]
-g070 = ["stm32g0/stm32g070"]
-g0b1 = ["stm32g0/stm32g0b1"]
 
 [dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
@@ -30,6 +28,6 @@ build-util = {path = "../../build/util"}
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "demo-stm32g0-nucleo"
+name = "app-donglet"
 test = false
 bench = false
