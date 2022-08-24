@@ -103,11 +103,20 @@ fn main() -> ! {
     //
     // Using PC8:12 for this because it's available on even pins 2:12 of CN8,
     // labeled SDMMC.
+    //
+    // For task indices, we're using the SAI_A and top part of SAI_B on CN9.
+    // From top of SAI_A down through SAI_B the bit order is:
+    // - bit 0 (PE2)
+    // - bit 2 (PE4)
+    // - bit 3 (PE5)
+    // - bit 4 (PE6)
+    // - bit 1 (PE3)
     let rcc = unsafe { &*device::RCC::ptr() };
     #[rustfmt::skip]
     rcc.ahb4enr.modify(|_, w| {
         w.gpiocen().set_bit()
             .gpioden().set_bit()
+            .gpioeen().set_bit()
             .gpiogen().set_bit()
     });
     cortex_m::asm::dmb();
@@ -124,6 +133,15 @@ fn main() -> ! {
     #[rustfmt::skip]
     gpiod.moder.modify(|_, w| {
         w.moder2().output()
+    });
+    let gpioe = unsafe { &*device::GPIOE::ptr() };
+    #[rustfmt::skip]
+    gpioe.moder.modify(|_, w| {
+        w.moder2().output()
+            .moder3().output()
+            .moder4().output()
+            .moder5().output()
+            .moder6().output()
     });
     let gpiog = unsafe { &*device::GPIOG::ptr() };
     #[rustfmt::skip]
@@ -199,6 +217,39 @@ fn timer_isr_exit() {
     gpiog.bsrr.write(|w| w.br2().set_bit());
 }
 
+fn context_switch(addr: usize) {
+    let addr = addr >> 4;
+    let gpioe = unsafe { &*device::GPIOE::ptr() };
+    gpioe.bsrr.write(|w| {
+        if addr & 1 != 0 {
+            w.bs2().set_bit();
+        } else {
+            w.br2().set_bit();
+        }
+        if addr & 2 != 0 {
+            w.bs3().set_bit();
+        } else {
+            w.br3().set_bit();
+        }
+        if addr & 4 != 0 {
+            w.bs4().set_bit();
+        } else {
+            w.br4().set_bit();
+        }
+        if addr & 8 != 0 {
+            w.bs5().set_bit();
+        } else {
+            w.br5().set_bit();
+        }
+        if addr & 16 != 0 {
+            w.bs6().set_bit();
+        } else {
+            w.br6().set_bit();
+        }
+        w
+    });
+}
+
 static PROFILING: kern::profiling::EventsTable = kern::profiling::EventsTable {
     syscall_enter,
     syscall_exit,
@@ -208,4 +259,5 @@ static PROFILING: kern::profiling::EventsTable = kern::profiling::EventsTable {
     isr_exit,
     timer_isr_enter,
     timer_isr_exit,
+    context_switch,
 };
