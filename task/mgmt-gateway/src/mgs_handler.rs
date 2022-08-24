@@ -8,24 +8,27 @@ use crate::{Log, MgsMessage, UsartHandler, __RINGBUF};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
-    sp_impl::SocketAddrV6,
-    sp_impl::{SerialConsolePacketizer, SpHandler},
-    BulkIgnitionState, DiscoverResponse, IgnitionCommand, IgnitionState,
-    ResponseError, SerialConsole, SpComponent, SpPort, SpState, UpdateChunk,
-    UpdateStart,
+    sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
+    DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
+    SpComponent, SpPort, SpState, UpdateChunk, UpdateStart,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry;
 use tinyvec::ArrayVec;
-use userlib::UnwrapLite;
 
 // TODO How are we versioning SP images? This is a placeholder.
 const VERSION: u32 = 1;
 
+pub(crate) struct UsartFlush<'a> {
+    pub(crate) data:
+        &'a mut ArrayVec<[u8; gateway_messages::MAX_SERIALIZED_SIZE]>,
+    pub(crate) destination: SocketAddrV6,
+    pub(crate) port: SpPort,
+}
+
 pub(crate) struct MgsHandler {
     pub(crate) usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
-    serial_console_packetizer: SerialConsolePacketizer,
     update_task: Update,
     update_progress: Option<&'static mut UpdateBuffer>,
     reset_requested: bool,
@@ -36,12 +39,6 @@ impl MgsHandler {
         Self {
             usart,
             attached_serial_console_mgs: None,
-            serial_console_packetizer: SerialConsolePacketizer::new(
-                // TODO should we remove the "component" from the serial console
-                // MGS API? Any chance we ever want to support multiple "serial
-                // console"s?
-                SpComponent::try_from("sp3").unwrap_lite(),
-            ),
             update_task: Update::from(crate::UPDATE_SERVER.get_task_id()),
             update_progress: None,
             reset_requested: false,
@@ -52,25 +49,18 @@ impl MgsHandler {
         self.usart.should_flush_to_mgs()
     }
 
-    pub(crate) fn flush_usart_to_mgs(
-        &mut self,
-    ) -> Option<(SerialConsole, SocketAddrV6, SpPort)> {
+    pub(crate) fn flush_usart_to_mgs(&mut self) -> Option<UsartFlush<'_>> {
         // Bail if we don't have any data to flush.
         if !self.needs_usart_flush_to_mgs() {
             return None;
         }
 
         if let Some((mgs_addr, sp_port)) = self.attached_serial_console_mgs {
-            let (serial_console_packet, leftover) = self
-                .serial_console_packetizer
-                .first_packet(&self.usart.from_rx);
-
-            // Based on the size of `usart.from_rx`, we should never have
-            // any leftover data (it holds at most one packet worth).
-            assert!(leftover.is_empty());
-            self.usart.clear_rx_data();
-
-            Some((serial_console_packet, mgs_addr, sp_port))
+            Some(UsartFlush {
+                data: self.usart.from_rx,
+                destination: mgs_addr,
+                port: sp_port,
+            })
         } else {
             // We have data to flush but no attached MGS instance; discard it.
             self.usart.clear_rx_data();
@@ -182,6 +172,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
         chunk: UpdateChunk,
+        data: &[u8],
     ) -> Result<(), ResponseError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
             offset: chunk.offset,
@@ -192,7 +183,7 @@ impl SpHandler for MgsHandler {
             .as_mut()
             .ok_or(ResponseError::InvalidUpdateChunk)?;
 
-        update_progress.ingest_chunk(&self.update_task, &chunk)?;
+        update_progress.ingest_chunk(&self.update_task, chunk.offset, data)?;
 
         Ok(())
     }
@@ -201,19 +192,27 @@ impl SpHandler for MgsHandler {
         &mut self,
         sender: SocketAddrV6,
         port: SpPort,
-        packet: SerialConsole,
+        component: SpComponent,
+        data: &[u8],
     ) -> Result<(), ResponseError> {
         ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
-            length: packet.len
+            length: data.len() as u16
         }));
 
-        // TODO check packet.component and/or packet.offset?
+        // Including a component in the serial console messages is half-baked at
+        // the moment; we can at least check that it's the one component we
+        // expect (the host CPU).
+        if component != SpComponent::SP3_HOST_CPU {
+            return Err(ResponseError::RequestUnsupportedForComponent);
+        }
 
         // TODO serial console access should require auth; for now, receiving
         // serial console data implicitly attaches us
         self.attached_serial_console_mgs = Some((sender, port));
 
-        let data = &packet.data[..usize::from(packet.len)];
+        // TODO-cleanup This rejects the entire message if it doesn't all fit in
+        // our buffer; we could accept part of the data if some of it fits.
+        // Needs cooperation from MGS.
         if self.usart.tx_buffer_remaining_capacity() >= data.len() {
             self.usart.tx_buffer_append(data);
             Ok(())
@@ -222,7 +221,7 @@ impl SpHandler for MgsHandler {
         }
     }
 
-    fn sys_reset_prepare(
+    fn reset_prepare(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
@@ -234,7 +233,7 @@ impl SpHandler for MgsHandler {
         Ok(())
     }
 
-    fn sys_reset_trigger(
+    fn reset_trigger(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
@@ -264,22 +263,21 @@ impl UpdateBuffer {
     fn ingest_chunk(
         &mut self,
         update_task: &Update,
-        chunk: &UpdateChunk,
+        offset: u32,
+        mut data: &[u8],
     ) -> Result<(), ResponseError> {
         // Reject chunks that don't match our current progress.
-        if chunk.offset as usize != self.bytes_written {
+        if offset as usize != self.bytes_written {
             return Err(ResponseError::UpdateInProgress {
                 bytes_received: self.bytes_written as u32,
             });
         }
 
         // Reject chunks that would go past the total size we're expecting.
-        if self.bytes_written + chunk.chunk_length as usize > self.total_length
-        {
+        if self.bytes_written + data.len() > self.total_length {
             return Err(ResponseError::InvalidUpdateChunk);
         }
 
-        let mut data = &chunk.data[..chunk.chunk_length as usize];
         while !data.is_empty() {
             let cap = self.current_block.capacity() - self.current_block.len();
             assert!(cap > 0);

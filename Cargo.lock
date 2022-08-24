@@ -1554,13 +1554,15 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=45286415755d5ec7c0d3683addc9942832244eff#45286415755d5ec7c0d3683addc9942832244eff"
+source = "git+https://github.com/oxidecomputer/omicron?rev=631e6d76dcfc7316f795ef86c82c7f2712de3e8b#631e6d76dcfc7316f795ef86c82c7f2712de3e8b"
 dependencies = [
  "bitflags",
  "hubpack",
  "serde",
+ "serde-big-array",
  "serde_repr",
  "smoltcp",
+ "static_assertions",
 ]
 
 [[package]]
@@ -2747,18 +2749,27 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.141"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7af873f2c95b99fcb0bd0fe622a43e29514658873c8ceba88c4cb88833a22500"
+checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
-name = "serde_derive"
-version = "1.0.141"
+name = "serde-big-array"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75743a150d003dd863b51dc809bcad0d73f2102c53632f1e954e738192a3413f"
+checksum = "3323f09a748af288c3dc2474ea6803ee81f118321775bffa3ac8f7e65c5e90e7"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.144"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2949,6 +2960,12 @@ dependencies = [
  "sha2",
  "zerocopy",
 ]
+
+[[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stm32f3"

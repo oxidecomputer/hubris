@@ -142,7 +142,7 @@ features = ["vlan"]
 name = "task-mgmt-gateway"
 priority = 4
 max-sizes = {flash = 32768, ram = 8192}
-stacksize = 4096
+stacksize = 1536
 start = true
 uses = [
     "usart1",
