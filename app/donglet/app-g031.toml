@@ -40,14 +40,23 @@ stacksize = 896
 [tasks.i2c_driver.interrupts]
 "i2c1.irq" = 0b0000_0001
 
+[tasks.validate]
+name = "task-validate"
+priority = 4
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
+features = ["g031"]
+
 [tasks.hiffy]
 name = "task-hiffy"
 priority = 4
-max-sizes = {flash = 16384, ram = 4096}
+max-sizes = {flash = 8192, ram = 2048}
 start = true
-task-slots = ["sys", "i2c_driver"]
+task-slots = ["sys"]
 stacksize = 912
-features = ["stm32g0", "g031", "i2c", "gpio"]
+features = ["stm32g0", "g031", "gpio", "micro"]
 
 [tasks.idle]
 name = "task-idle"
@@ -71,4 +80,41 @@ af = 6
 [[config.i2c.controllers.ports.B.muxes]]
 driver = "pca9548"
 address = 0x73
+
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 1 
+address = 0b1010_000
+device = "at24csw080"
+description = "Sharkfin VPD"
+removable = true
+
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "Gimlet Fan VPD"
+removable = true
+
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "Sidecar Fan VPD"
+removable = true
+
+[[config.i2c.devices]]
+controller = 1
+mux = 1
+segment = 4
+address = 0x48
+device = "tmp117"
+description = "TempSense"
+sensors = { temperature = 1 }
+removable = true
 
