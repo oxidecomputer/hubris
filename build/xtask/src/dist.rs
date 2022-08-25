@@ -344,13 +344,11 @@ pub fn package(
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
             let root_cert = &signing.root_cert;
-            lpc55_sign::signed_image::sign_image(
-                false, // TODO add an option to enable DICE
+            let rkth = lpc55_sign::signed_image::sign_image(
                 &cfg.img_file("combined.bin", image_name),
                 &cfg.app_src_dir.join(&priv_key),
                 &cfg.app_src_dir.join(&root_cert),
                 &cfg.img_file("combined_rsa.bin", image_name),
-                &cfg.img_file("CMPA.bin", image_name),
             )?;
             std::fs::copy(
                 cfg.img_file("combined.bin", image_name),
@@ -375,6 +373,18 @@ pub fn package(
                 &cfg.img_file("final.srec", image_name),
             )?;
             translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
+
+            // The 'enable-dice' key causes the build to create a CMPA image
+            // with DICE enabled, however the CFPA & keystore must be setup too
+            // before the UDS can be created. See lpc55_support for details.
+            lpc55_sign::signed_image::create_cmpa(
+                signing.enable_dice,
+                signing.dice_inc_nxp_cfg,
+                signing.dice_cust_cfg,
+                signing.dice_inc_sec_epoch,
+                &rkth,
+                &cfg.img_file("CMPA.bin", image_name),
+            )?;
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
@@ -1979,6 +1989,8 @@ fn objcopy_translate_format(
         .arg(in_format)
         .arg("-O")
         .arg(out_format)
+        .arg("--gap-fill")
+        .arg("0xFF")
         .arg(src)
         .arg(dest);
 

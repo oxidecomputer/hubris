@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 use-smoltcp = ["smoltcp"]
 vlan = ["build-net/vlan"]
+mgmt = ["ksz8463"]
+ksz8463 = ["drv-spi-api", "dep:ksz8463"]
 
 [dependencies]
 derive-idol-err = {path = "../../lib/derive-idol-err" }
@@ -15,6 +17,9 @@ serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 num-traits = {version = "0.2", default-features = false}
 zerocopy = "0.6"
+
+ksz8463 = { path = "../../drv/ksz8463", optional = true }
+drv-spi-api = {path = "../../drv/spi-api", optional = true}
 
 [dependencies.smoltcp]
 version = "0.8.0"

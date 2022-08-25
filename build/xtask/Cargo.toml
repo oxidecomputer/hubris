@@ -36,4 +36,6 @@ fnv = "1.0.7"
 zerocopy = "0.6.1"
 
 # For NXP signing
-lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support" }
+[dependencies.lpc55_sign]
+git = "https://github.com/oxidecomputer/lpc55_support"
+rev = "edbc00749b708d5bc48c5fe0f1df0d1ed6f054c2"

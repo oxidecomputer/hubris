@@ -12,6 +12,7 @@ vsc7448 = {path = "../vsc7448"}
 
 num-traits = {version = "0.2", default-features = false}
 serde = { version = "1", features = ["derive"], default-features = false}
+zerocopy = "0.6.1"
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

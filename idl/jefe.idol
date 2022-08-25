@@ -18,5 +18,20 @@ Interface(
             reply: Simple("()"),
             idempotent: true,
         ),
+        "get_reset_reason": (
+            encoding: Ssmarshal,
+            doc: "Get the reason for the most recent reset",
+            reply: Simple("ResetReason"),
+            idempotent: true,
+        ),
+        "set_reset_reason": (
+            encoding: Ssmarshal,
+            doc: "Set the reason for the most recent reset",
+            args: {
+                "reason": "ResetReason",
+            },
+            reply: Simple("()"),
+            idempotent: true,
+        ),
     },
 )

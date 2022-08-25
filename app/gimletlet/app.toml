@@ -27,6 +27,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+reset-reason-owner = "sys"
+
 [tasks.sys]
 name = "drv-stm32xx-sys"
 features = ["h753"]
@@ -34,6 +37,7 @@ priority = 1
 max-sizes = {flash = 2048, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
+task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"
@@ -117,7 +121,7 @@ name = "task-net"
 stacksize = 3800
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic"]
-max-sizes = {flash = 65536, ram = 16384, sram1 = 16384}
+max-sizes = {flash = 65536, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -143,7 +147,7 @@ uses = [
     "usart1",
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
-task-slots = ["net", "sys"]
+task-slots = ["jefe", "net", "update_server", "sys"]
 features = ["usart1", "vlan"]
 interrupts = {"usart1.irq" = 0b10}
 
@@ -258,5 +262,5 @@ rx = { packets = 3, bytes = 1024 }
 kind = "udp"
 owner = {name = "mgmt_gateway", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
-tx = { packets = 3, bytes = 1024 }
-rx = { packets = 3, bytes = 1024 }
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }

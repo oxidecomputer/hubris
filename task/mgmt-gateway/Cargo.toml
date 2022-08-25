@@ -12,11 +12,14 @@ tinyvec = "1.6"
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", features = ["h753"]}
 drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
+drv-update-api = {path = "../../drv/update-api"}
+mutable-statics = {path = "../../lib/mutable-statics"}
 ringbuf = {path = "../../lib/ringbuf"}
+task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "5951498bbd60306bf8e73a382e6b5aaed67a7616"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "45286415755d5ec7c0d3683addc9942832244eff"}
 
 [features]
 vlan = ["task-net-api/vlan"]

@@ -32,6 +32,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
+[tasks.jefe.config]
+reset-reason-owner = "sys"
+
 [tasks.sys]
 path = "../../drv/stm32xx-sys"
 name = "drv-stm32xx-sys"
@@ -40,6 +43,7 @@ priority = 1
 max-sizes = {flash = 8192, ram = 1024}
 uses = ["rcc", "gpios1", "gpios2", "gpios3"]
 start = true
+task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 path = "../../drv/stm32xx-i2c-server"

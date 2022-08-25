@@ -6,9 +6,13 @@ use crate::miim_bridge::MiimBridge;
 use drv_spi_api::SpiDevice;
 use drv_stm32h7_eth::Ethernet;
 use drv_stm32xx_sys_api::{self as sys_api, OutputType, Pull, Speed, Sys};
-use ksz8463::{Error as KszError, Ksz8463, Register as KszRegister};
+use ksz8463::{
+    Error as KszError, Ksz8463, MIBCounterValue, Register as KszRegister,
+};
 use ringbuf::*;
-use task_net_api::PhyError;
+use task_net_api::{
+    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+};
 use userlib::hl::sleep_for;
 use vsc7448_pac::{phy, types::PhyRegisterAddress};
 use vsc85xx::{vsc85x2::Vsc85x2, Counter, VscError};
@@ -25,31 +29,11 @@ pub enum Ksz8463ResetSpeed {
     Normal,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct Status {
-    ksz8463_100base_fx_link_up: [bool; 2],
-    ksz8463_rx_bytes: [ksz8463::MIBCounterValue; 2],
-    ksz8463_tx_bytes: [ksz8463::MIBCounterValue; 2],
-
-    vsc85x2_100base_fx_link_up: [bool; 2],
-    vsc85x2_sgmii_link_up: [bool; 2],
-
-    // The VSC8562 includes MAC TX/RX counters as well, but these
-    // aren't present on the VSC8552.
-    vsc85x2_media_tx_good_count: [Counter; 2],
-    vsc85x2_mac_tx_good_count: [Counter; 2],
-    vsc85x2_media_rx_good_count: [Counter; 2],
-    vsc85x2_mac_rx_good_count: [Counter; 2],
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
     Vsc85x2Err { port: u8, err: VscError },
-    Ksz8463MacTable(ksz8463::KszMacTableEntry),
-    Ksz8463EmptyMacTable,
-    Status(Status),
 }
 
 ringbuf!(Trace, 16, Trace::None);
@@ -221,9 +205,17 @@ impl Bsp {
         }
     }
 
-    pub fn wake(&self, eth: &Ethernet) {
-        let mut s = Status::default();
+    pub fn wake(&self, _eth: &Ethernet) {
+        // Nothing to do here
+    }
+
+    pub fn management_link_status(
+        &self,
+        eth: &Ethernet,
+    ) -> Result<ManagementLinkStatus, MgmtError> {
+        let mut s = ManagementLinkStatus::default();
         let rw = &mut MiimBridge::new(eth);
+
         for i in 0..2 {
             // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
             let port = i as u8 + 1;
@@ -232,37 +224,21 @@ impl Bsp {
                     s.ksz8463_100base_fx_link_up[i] = (sr & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
-                }
-            }
-            match self
-                .ksz8463
-                .read_mib_counter(port, ksz8463::MIBCounter::RxLoPriorityByte)
-            {
-                Ok(c) => s.ksz8463_rx_bytes[i] = c,
-                Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
-                }
-            }
-            match self
-                .ksz8463
-                .read_mib_counter(port, ksz8463::MIBCounter::TxLoPriorityByte)
-            {
-                Ok(c) => s.ksz8463_tx_bytes[i] = c,
-                Err(err) => {
-                    ringbuf_entry!(Trace::Ksz8463Err { port, err })
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return Err(MgmtError::KszError);
                 }
             }
 
             // The VSC85x2 numbers its ports starting at 0
             let port = i as u8;
-            let mut phy = self.vsc85x2.phy(port, rw);
+            let phy = self.vsc85x2.phy(port, rw);
             match phy.phy.read(phy::STANDARD::MODE_STATUS()) {
                 Ok(sr) => {
                     s.vsc85x2_100base_fx_link_up[i] = (sr.0 & (1 << 2)) != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return Err(MgmtError::VscError);
                 }
             };
             match phy.phy.read(phy::EXTENDED_3::MAC_SERDES_PCS_STATUS()) {
@@ -270,36 +246,102 @@ impl Bsp {
                     s.vsc85x2_sgmii_link_up[i] = status.mac_link_status() != 0
                 }
                 Err(err) => {
-                    ringbuf_entry!(Trace::Vsc85x2Err { port, err })
+                    ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                    return Err(MgmtError::VscError);
                 }
             };
+        }
+        Ok(s)
+    }
+
+    pub fn management_counters(
+        &self,
+        eth: &Ethernet,
+    ) -> Result<ManagementCounters, MgmtError> {
+        let mut out = ManagementCounters::default();
+
+        // Helper function to decode a MIB counter
+        let decode_mib = |port, reg| {
+            let out = match self.ksz8463.read_mib_counter(port, reg) {
+                Ok(c) => c,
+                Err(err) => {
+                    ringbuf_entry!(Trace::Ksz8463Err { port, err });
+                    return Err(MgmtError::KszError);
+                }
+            };
+            Ok(match out {
+                MIBCounterValue::None => 0,
+                MIBCounterValue::Count(u)
+                | MIBCounterValue::CountOverflow(u) => u,
+            })
+        };
+        for i in 0..3 {
+            // The KSZ8463 numbers its ports starting at 1 (e.g. P1MBSR)
+            let port = i as u8 + 1;
+            out.ksz8463_tx[i].multicast =
+                decode_mib(port, ksz8463::MIBCounter::TxMulticastPkts)?;
+            out.ksz8463_tx[i].broadcast =
+                decode_mib(port, ksz8463::MIBCounter::TxBroadcastPkts)?;
+            out.ksz8463_tx[i].unicast =
+                decode_mib(port, ksz8463::MIBCounter::TxUnicastPkts)?;
+
+            out.ksz8463_rx[i].broadcast =
+                decode_mib(port, ksz8463::MIBCounter::RxBroadcast)?;
+            out.ksz8463_rx[i].multicast =
+                decode_mib(port, ksz8463::MIBCounter::RxMulticast)?;
+            out.ksz8463_rx[i].unicast =
+                decode_mib(port, ksz8463::MIBCounter::RxUnicast)?;
+        }
+
+        let decode_counter = |c| match c {
+            Counter::Unavailable => 0xFFFF,
+            Counter::Inactive => 0,
+            Counter::Value(v) => v,
+        };
+        let decode_tx_rx = |v, port| match v {
+            Ok((tx, rx)) => Ok((decode_counter(tx), decode_counter(rx))),
+            Err(err) => {
+                ringbuf_entry!(Trace::Vsc85x2Err { port, err });
+                return Err(MgmtError::VscError);
+            }
+        };
+        let rw = &mut MiimBridge::new(eth);
+        for i in 0..2 {
+            let port = i as u8;
+            let mut phy = self.vsc85x2.phy(port, rw);
 
             // Read media (100BASE-FX) and MAC counters, which are
             // chip-dependent (some aren't present on the VSC8552)
-            match phy.media_tx_rx_good() {
-                Ok((tx, rx)) => {
-                    s.vsc85x2_media_tx_good_count[i] = tx;
-                    s.vsc85x2_media_rx_good_count[i] = rx;
-                }
-                Err(err) => ringbuf_entry!(Trace::Vsc85x2Err { port, err }),
-            }
+            let (tx, rx) = decode_tx_rx(phy.media_tx_rx_good(), port)?;
+            out.vsc85x2_tx[i].media_good = tx;
+            out.vsc85x2_rx[i].media_good = rx;
 
-            match phy.mac_tx_rx_good() {
-                Ok((tx, rx)) => {
-                    s.vsc85x2_mac_tx_good_count[i] = tx;
-                    s.vsc85x2_mac_rx_good_count[i] = rx;
-                }
-                Err(err) => ringbuf_entry!(Trace::Vsc85x2Err { port, err }),
+            let (tx, rx) = decode_tx_rx(phy.media_tx_rx_bad(), port)?;
+            out.vsc85x2_tx[i].media_bad = tx;
+            out.vsc85x2_rx[i].media_bad = rx;
+
+            if self.vsc85x2.has_mac_counters() {
+                // The VSC8562 has "surprising" notions of Tx vs Rx.
+                // Specifically, on the MAC side, "Tx" is from the host MAC's
+                // perspective!  This means that the Tx lines are *inputs*
+                // to the VSC8562, i.e. what most people would expect to be
+                // "receive" signals.
+                //
+                // Here, we swap TX and RX in the returned struct, so that they
+                // match normal expectations.
+                let (tx, rx) = decode_tx_rx(phy.mac_tx_rx_good(), port)?;
+                out.vsc85x2_tx[i].mac_good = rx; // swap!
+                out.vsc85x2_rx[i].mac_good = tx; // swap!
+
+                let (tx, rx) = decode_tx_rx(phy.mac_tx_rx_bad(), port)?;
+                out.vsc85x2_tx[i].mac_bad = rx; // swap!
+                out.vsc85x2_rx[i].mac_bad = tx; // swap!
             }
         }
 
-        // Read the MAC table for fun
-        ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
-            Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
-            Ok(None) => Trace::Ksz8463EmptyMacTable,
-            Err(err) => Trace::Ksz8463Err { port: 0, err },
-        });
+        // Only the VSC8562 has valid MAC counters
+        out.vsc85x2_mac_valid = self.vsc85x2.has_mac_counters();
 
-        ringbuf_entry!(Trace::Status(s));
+        Ok(out)
     }
 }

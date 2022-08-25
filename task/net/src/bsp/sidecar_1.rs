@@ -7,7 +7,9 @@ use drv_sidecar_seq_api::Sequencer;
 use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
-use task_net_api::PhyError;
+use task_net_api::{
+    ManagementCounters, ManagementLinkStatus, MgmtError, PhyError,
+};
 use userlib::{hl::sleep_for, task_slot};
 use vsc7448_pac::types::PhyRegisterAddress;
 
@@ -66,7 +68,7 @@ impl Bsp {
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
-            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
+            ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
 
             // SP_TO_PHY2_COMA_MODE_3V3
             vsc85x2_coma_mode: Some(Port::I.pin(15)),
@@ -105,5 +107,23 @@ impl Bsp {
         eth: &eth::Ethernet,
     ) -> Result<(), PhyError> {
         self.0.phy_write(port, reg, value, eth)
+    }
+
+    pub fn ksz8463(&self) -> &ksz8463::Ksz8463 {
+        &self.0.ksz8463
+    }
+
+    pub fn management_link_status(
+        &self,
+        eth: &eth::Ethernet,
+    ) -> Result<ManagementLinkStatus, MgmtError> {
+        self.0.management_link_status(eth)
+    }
+
+    pub fn management_counters(
+        &self,
+        eth: &crate::eth::Ethernet,
+    ) -> Result<ManagementCounters, MgmtError> {
+        self.0.management_counters(eth)
     }
 }

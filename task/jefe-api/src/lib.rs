@@ -6,6 +6,23 @@
 
 #![no_std]
 
+use serde::{Deserialize, Serialize};
 use userlib::*;
+
+/// Platform-agnostic (but heavily influenced) reset status bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(C)]
+pub enum ResetReason {
+    PowerOn,
+    Pin,
+    SystemCall,
+    Brownout,
+    SystemWatchdog,
+    IndependentWatchdog,
+    LowPowerSecurity,
+    ExitStandby,
+    Other(u32),
+    Unknown, // TODO remove and use `Option<ResetReason>` once we switch to hubpack
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

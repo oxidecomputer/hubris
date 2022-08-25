@@ -7,7 +7,7 @@ use drv_spi_api::Spi;
 use drv_stm32h7_eth as eth;
 use drv_stm32xx_sys_api::{Alternate, Port, Sys};
 use ksz8463::{
-    Error as KszError, Ksz8463, MIBCounter, MIBCounterValue,
+    Error as RawKszError, Ksz8463, MIBCounter, MIBCounterValue,
     Register as KszRegister,
 };
 use ringbuf::*;
@@ -22,12 +22,10 @@ enum Trace {
     None,
     BspConfigured,
 
-    KszErr { err: KszError },
+    KszErr { err: RawKszError },
     Ksz8463Status { port: u8, status: u16 },
     Ksz8463Control { port: u8, control: u16 },
     Ksz8463Counter { port: u8, counter: MIBCounterValue },
-    Ksz8463MacTable(ksz8463::KszMacTableEntry),
-    Ksz8463EmptyMacTable,
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -103,13 +101,6 @@ impl Bsp {
                 Ok(counter) => Trace::Ksz8463Counter { port, counter },
                 Err(err) => Trace::KszErr { err },
             });
-
-            // Read the MAC table for fun
-            ringbuf_entry!(match self.ksz8463.read_dynamic_mac_table(0) {
-                Ok(Some(mac)) => Trace::Ksz8463MacTable(mac),
-                Ok(None) => Trace::Ksz8463EmptyMacTable,
-                Err(err) => Trace::KszErr { err },
-            });
         }
     }
 
@@ -132,5 +123,9 @@ impl Bsp {
         _eth: &eth::Ethernet,
     ) -> Result<u16, PhyError> {
         Err(PhyError::NotImplemented)
+    }
+
+    pub fn ksz8463(&self) -> &Ksz8463 {
+        &self.ksz8463
     }
 }

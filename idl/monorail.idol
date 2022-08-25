@@ -175,7 +175,6 @@ Interface(
                 ok: "MacTableEntry",
                 err: CLike("MonorailError"),
             ),
-            encoding: Ssmarshal,
         ),
     },
 )

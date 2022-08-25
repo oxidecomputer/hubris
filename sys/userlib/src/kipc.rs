@@ -56,3 +56,17 @@ pub fn system_restart() -> ! {
     let _ = sys_send(TaskId::KERNEL, Kipcnum::Reset as u16, &[], &mut [], &[]);
     panic!();
 }
+
+pub fn read_image_id() -> u64 {
+    let mut response = [0; core::mem::size_of::<u64>()];
+    let (rc, len) = sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ReadImageId as u16,
+        &[],
+        &mut response,
+        &[],
+    );
+    assert_eq!(rc, 0);
+    assert_eq!(len, 8); // we *really* expect this to be a u64
+    ssmarshal::deserialize(&response[..len]).unwrap_lite().0
+}

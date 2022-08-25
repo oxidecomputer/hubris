@@ -29,6 +29,25 @@ armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 #
 num-derive = { version = "0.3.0", features = [ "full-syntax" ] }
 
+[target.thumbv7em-none-eabihf.dependencies]
+# Note: we don't use cortex-m directly, this is here to ensure that the
+# feature is consistently specified in all tasks, to reduce overbuilding
+# of the PACs.
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+
+# We're repeating this a bazillion times because Cargo only gives us two
+# options: (1) define on the entire target triple, or (2) define on
+# target_arch, which Cargo rounds down to "arm". i.e. we can't detect
+# Cortex-Ms specifically. Thanks, Cargo.
+[target.thumbv7m-none-eabi.dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+[target.thumbv7em-none-eabi.dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+[target.thumbv6m-none-eabi.dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+[target."thumbv8m.main-none-eabihf".dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+
 [build-dependencies]
 build-util = {path = "../../build/util"}
 

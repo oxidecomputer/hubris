@@ -26,6 +26,7 @@ uses = ["rcc", "gpio"]
 start = true
 features = ["g031"]
 stacksize = 256
+task-slots = ["jefe"]
 
 [tasks.i2c_driver]
 name = "drv-stm32xx-i2c-server"

@@ -43,6 +43,17 @@ fn main() -> Result<()> {
         writeln!(out, "None;")?;
     }
 
+    write!(
+        out,
+        "pub(crate) const RESET_REASON_OWNER: Option<{}> = ",
+        task
+    )?;
+    if let Some(owner) = cfg.reset_reason_owner {
+        writeln!(out, "Some({}::{});", task, owner)?;
+    } else {
+        writeln!(out, "None;")?;
+    }
+
     Ok(())
 }
 
@@ -52,11 +63,17 @@ fn main() -> Result<()> {
 struct Config {
     /// Task requests to be notified on state change, as a map from task name to
     /// `StateChange` record.
+    #[serde(default)]
     on_state_change: BTreeMap<String, StateChange>,
     /// Name of task responsible for state changes. If provided, a state change
     /// request from any other task will result in that task being faulted.
     #[serde(default)]
     state_owner: Option<String>,
+    /// Name of task responsible for setting the reset reason. If provided, a
+    /// request to set the reset reason from any other task will result in that
+    /// task being faulted.
+    #[serde(default)]
+    reset_reason_owner: Option<String>,
 }
 
 /// Description of something a task wants done on state change.
