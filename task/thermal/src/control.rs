@@ -15,10 +15,7 @@ use drv_i2c_devices::{
 use ringbuf::ringbuf_entry_root as ringbuf_entry;
 use task_sensor_api::{Sensor as SensorApi, SensorId};
 use task_thermal_api::ThermalAutoState;
-use userlib::{
-    sys_get_timer,
-    units::{Celsius, PWMDuty, Rpm},
-};
+use userlib::units::{Celsius, PWMDuty, Rpm};
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -107,17 +104,19 @@ pub(crate) struct ThermalProperties {
     /// Target temperature for this part
     pub target_temperature: Celsius,
 
-    /// Temperature at which we should take dramatic action to cool the part
+    /// At the critical temperature, we should turn the fans up to 100% power in
+    /// an attempt to cool the part.
     pub critical_temperature: Celsius,
 
-    /// Temperature at which the part may be damaged
-    pub non_recoverable_temperature: Celsius,
+    /// Temperature at which we drop into the A2 power state.  This should be
+    /// below the part's nonrecoverable temperature.
+    pub power_down_temperature: Celsius,
 
-    /// Maximum slew rate of temperature, measured in °C per second
+    /// Maximum slew rate of temperature, measured in °C per millisecond
     ///
     /// The slew rate is used to model worst-case temperature if we haven't
     /// heard from a chip in a while (e.g. due to dropped samples)
-    pub temperature_slew_deg_per_sec: f32,
+    pub temperature_slew_deg_per_msec: f32,
 }
 
 impl InputChannel {
@@ -175,17 +174,64 @@ struct TemperatureReading {
 
 /// Configuration for a PID controller
 pub struct PidConfig {
-    pub gain_p: f64,
-    pub gain_i: f64,
-    pub gain_d: f64,
+    pub gain_p: f32,
+    pub gain_i: f32,
+    pub gain_d: f32,
 }
 
 struct PidState {
     /// Previous (time, input) tuple, for derivative term
-    prev: Option<(u64, f64)>,
+    prev_error: Option<f32>,
 
     /// Accumulated integral term
-    integral: f64,
+    integral: f32,
+}
+
+impl PidState {
+    /// Attempts to drive the error to zero.
+    ///
+    /// The error and output are expected to have the same signs, i.e. a large
+    /// positive error will produce a large positive output.
+    fn run(
+        &mut self,
+        cfg: &PidConfig,
+        error: f32,
+        limit: core::ops::Range<f32>,
+    ) -> f32 {
+        let p_contribution = cfg.gain_p * error;
+
+        // Only accumulate the integral term if we're not saturated, to prevent
+        // integral wind-up.
+        if limit.contains(&p_contribution) {
+            self.integral += error;
+        }
+        let i_contribution = cfg.gain_i * self.integral;
+
+        let d_contribution = if let Some(prev_error) = self.prev_error {
+            (error - prev_error) * cfg.gain_d
+        } else {
+            0.0
+        };
+        self.prev_error = Some(error);
+
+        let out = p_contribution + i_contribution + d_contribution;
+        if out > limit.end {
+            limit.end
+        } else if out < limit.start {
+            limit.start
+        } else {
+            out
+        }
+    }
+}
+
+impl Default for PidState {
+    fn default() -> Self {
+        Self {
+            prev_error: None,
+            integral: 0.0,
+        }
+    }
 }
 
 /// This corresponds to states shown in RFD 276
@@ -202,9 +248,9 @@ enum ThermalControlState {
     },
 
     /// In the overheated state, one or more components has entered their
-    /// critical temperature ranges.  We turn on fans and record the time at
-    /// which we entered this state; at a certain point, we will timeout and
-    /// drop into `Uncontrolled`.
+    /// critical temperature ranges.  We turn on fans at high power and record
+    /// the time at which we entered this state; at a certain point, we will
+    /// timeout and drop into `Uncontrolled` if components do not recover.
     Overheated {
         values: [TemperatureReading; bsp::NUM_TEMPERATURE_INPUTS],
         start_time: u64,
@@ -215,14 +261,169 @@ enum ThermalControlState {
     Uncontrollable,
 }
 
+enum ControlResult {
+    Pwm(PWMDuty),
+    PowerDown,
+}
+
 impl ThermalControlState {
     fn control(
         &mut self,
         target_margin: Celsius,
         inputs: &[InputChannel],
         pid_cfg: &PidConfig,
-    ) -> u8 {
-        unimplemented!()
+        now_ms: u64,
+    ) -> ControlResult {
+        match self {
+            ThermalControlState::Boot { values } => {
+                let mut all_some = true;
+                let mut any_power_down = false;
+                let mut worst_margin = f32::MAX;
+                for (v, i) in values.iter().zip(inputs) {
+                    if let Some(v) = v {
+                        // Model the current temperature based on the last
+                        // reading and the worst-case slew rate.  This only
+                        // matters when samples are dropped; if we received a
+                        // reading on this control cycle, then time_ms ==
+                        // now_ms, so this becomes v.value (i.e. the most recent
+                        // reading).
+                        let temperature = v.value.0
+                            + (v.time_ms - now_ms) as f32
+                                * i.temps.temperature_slew_deg_per_msec;
+                        any_power_down |=
+                            temperature >= i.temps.power_down_temperature.0;
+                        worst_margin = worst_margin
+                            .min(i.temps.target_temperature.0 - temperature);
+                    } else {
+                        all_some = false;
+                    }
+                }
+                if any_power_down {
+                    *self = ThermalControlState::Uncontrollable;
+                    ControlResult::PowerDown
+                } else if all_some {
+                    // Transition to the Running state and run a single
+                    // iteration of the PID control loop.
+                    let mut pid = PidState::default();
+                    let output_limits = 0.0..100.0;
+                    let pwm = pid.run(
+                        pid_cfg,
+                        target_margin.0 - worst_margin,
+                        output_limits,
+                    );
+                    *self = ThermalControlState::Running {
+                        values: values.map(|i| i.unwrap()),
+                        pid,
+                    };
+                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                } else {
+                    ControlResult::Pwm(PWMDuty(100))
+                }
+            }
+            ThermalControlState::Running { values, pid } => {
+                let mut any_power_down = false;
+                let mut any_critical = false;
+                let mut worst_margin = f32::MAX;
+                // Remember, positive margin means that all parts are happily
+                // below their max temperature; negative means someone is
+                // overheating.  We want to pick the _smallest_ margin, since
+                // that's the part which is most overheated.
+                for (v, i) in values.iter().zip(inputs) {
+                    // Model the current temperature based on the last reading
+                    // and the worst-case slew rate.  This only matters when
+                    // samples are dropped; if we received a reading on this
+                    // control cycle, then time_ms == now_ms, so this becomes
+                    // v.value (i.e. the most recent reading).
+                    let temperature = v.value.0
+                        + (v.time_ms - now_ms) as f32
+                            * i.temps.temperature_slew_deg_per_msec;
+                    any_power_down |=
+                        temperature >= i.temps.power_down_temperature.0;
+                    any_critical |=
+                        temperature >= i.temps.critical_temperature.0;
+
+                    worst_margin = worst_margin
+                        .min(i.temps.target_temperature.0 - temperature);
+                }
+
+                if any_power_down {
+                    *self = ThermalControlState::Uncontrollable;
+                    ControlResult::PowerDown
+                } else if any_critical {
+                    *self = ThermalControlState::Overheated {
+                        values: *values,
+                        start_time: now_ms,
+                    };
+                    ControlResult::Pwm(PWMDuty(100))
+                } else {
+                    // We adjust the worst component margin by our target
+                    // margin, which must be > 0.  This effectively tells the
+                    // control loop to overcool the system.
+                    //
+                    // `PidControl::run` expects the sign of the input and
+                    // output to match, so we negate things here: if the worst
+                    // margin is negative (i.e. the system is overheating), then
+                    // the input to `run` is positive, because we want a
+                    // positive fan speed.
+                    let output_limits = 0.0..100.0;
+                    let pwm = pid.run(
+                        pid_cfg,
+                        target_margin.0 - worst_margin,
+                        output_limits,
+                    );
+                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                }
+            }
+            ThermalControlState::Overheated { values, start_time } => {
+                let mut all_subcritical = true;
+                let mut any_power_down = false;
+                let mut worst_margin = f32::MAX;
+
+                for (v, i) in values.iter().zip(inputs) {
+                    let temperature = v.value.0
+                        + (v.time_ms - now_ms) as f32
+                            * i.temps.temperature_slew_deg_per_msec;
+
+                    // TODO: parameterize hysteresis
+                    all_subcritical &=
+                        temperature < i.temps.critical_temperature.0 - 1.0;
+                    any_power_down |=
+                        temperature >= i.temps.power_down_temperature.0;
+                    worst_margin = worst_margin
+                        .min(i.temps.target_temperature.0 - temperature);
+                }
+
+                if any_power_down {
+                    *self = ThermalControlState::Uncontrollable;
+                    ControlResult::PowerDown
+                } else if all_subcritical {
+                    // Transition to the Running state and run a single
+                    // iteration of the PID control loop.
+                    let mut pid = PidState::default();
+                    let output_limits = 0.0..100.0;
+                    let pwm = pid.run(
+                        pid_cfg,
+                        target_margin.0 - worst_margin,
+                        output_limits,
+                    );
+                    *self = ThermalControlState::Running {
+                        values: *values,
+                        pid,
+                    };
+                    ControlResult::Pwm(PWMDuty(pwm as u8))
+                } else if now_ms > *start_time + 60_000 {
+                    // If blasting the fans hasn't cooled us down in 60 seconds,
+                    // then something is terribly wrong - abort!
+                    // TODO parameterize timeout
+                    *self = ThermalControlState::Uncontrollable;
+                    ControlResult::PowerDown
+                    // TODO: cut power somehow
+                } else {
+                    ControlResult::Pwm(PWMDuty(100))
+                }
+            }
+            ThermalControlState::Uncontrollable => ControlResult::PowerDown,
+        }
     }
     fn write_temperature(
         &mut self,
@@ -275,7 +476,7 @@ impl<'a> ThermalControl<'a> {
     ///
     /// Records failed sensor reads and failed posts to the sensors task in
     /// `self.read_failed_count` and `self.post_failed_count` respectively.
-    pub fn read_sensors(&mut self) {
+    pub fn read_sensors(&mut self, now_ms: u64) {
         // Read fan data and log it to the sensors task
         for (index, sensor_id) in self.bsp.fans.iter().enumerate() {
             let post_result =
@@ -309,15 +510,12 @@ impl<'a> ThermalControl<'a> {
             }
         }
 
-        // Remember, positive margin means that all parts are happily below
-        // their max temperature; negative means someone is overheating.
         let power_mode = self.bsp.power_mode();
-        let now = sys_get_timer().now;
         for (i, s) in self.bsp.inputs.iter().enumerate() {
             let post_result = match s.sensor.read_temp() {
                 Ok(v) => {
                     if (s.power_mode_mask & power_mode) != 0 {
-                        self.state.write_temperature(i, now, v);
+                        self.state.write_temperature(i, now_ms, v);
                     }
                     self.sensor_api.post(s.sensor.id, v.0)
                 }
@@ -344,18 +542,29 @@ impl<'a> ThermalControl<'a> {
     /// Returns an error if the control loop failed to read critical sensors;
     /// the caller should set us to some kind of fail-safe mode if this
     /// occurs.
-    pub fn run_control(&mut self) -> Result<(), ThermalError> {
-        self.read_sensors();
+    pub fn run_control(&mut self, now_ms: u64) -> Result<(), ThermalError> {
+        self.read_sensors(now_ms);
 
-        let target_pwm = self.state.control(
+        let control_result = self.state.control(
             self.target_margin,
             &self.bsp.inputs,
             &self.bsp.pid_config,
+            now_ms,
         );
 
-        // Send the new RPM to all of our fans
-        ringbuf_entry!(Trace::ControlPwm(target_pwm));
-        self.set_pwm(PWMDuty(target_pwm))?;
+        match control_result {
+            ControlResult::Pwm(target_pwm) => {
+                // Send the new RPM to all of our fans
+                ringbuf_entry!(Trace::ControlPwm(target_pwm.0));
+                self.set_pwm(target_pwm)?;
+            }
+            ControlResult::PowerDown => {
+                if let Err(e) = self.bsp.power_down() {
+                    ringbuf_entry!(Trace::PowerDownFailed(e));
+                }
+                self.set_pwm(PWMDuty(0))?;
+            }
+        }
 
         Ok(())
     }

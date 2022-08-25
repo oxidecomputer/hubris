@@ -15,7 +15,10 @@
 mod bsp;
 mod control;
 
-use crate::{bsp::Bsp, control::ThermalControl};
+use crate::{
+    bsp::{Bsp, SeqError},
+    control::ThermalControl,
+};
 use core::convert::TryFrom;
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::max31790::I2cWatchdog;
@@ -50,6 +53,7 @@ enum Trace {
     MiscReadFailed(usize, ResponseCode),
     SensorReadFailed(usize, ResponseCode),
     ControlPwm(u8),
+    PowerDownFailed(SeqError),
 }
 ringbuf!(Trace, 32, Trace::None);
 
@@ -59,7 +63,6 @@ struct ServerImpl<'a> {
     mode: ThermalMode,
     control: ThermalControl<'a>,
     deadline: u64,
-    counter: u64,
 }
 
 const TIMER_MASK: u32 = 1 << 0;
@@ -196,11 +199,11 @@ impl<'a> NotificationHandler for ServerImpl<'a> {
         if self.deadline >= now {
             match self.mode {
                 ThermalMode::Auto => {
-                    self.control.run_control();
+                    self.control.run_control(now);
                 }
                 ThermalMode::Manual => {
                     // Read sensors and post them to the `sensors` task
-                    self.control.read_sensors();
+                    self.control.read_sensors(now);
                 }
                 ThermalMode::Off => {
                     panic!("Mode must not be 'Off' when server is running")
@@ -230,7 +233,6 @@ fn main() -> ! {
         mode: ThermalMode::Off,
         control,
         deadline,
-        counter: 0,
     };
     server.set_mode_manual(PWMDuty(0)).unwrap();
 

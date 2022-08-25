@@ -9,6 +9,7 @@ use crate::control::{
     ThermalProperties,
 };
 use core::convert::TryInto;
+pub use drv_gimlet_seq_api::SeqError;
 use drv_gimlet_seq_api::{PowerState, Sequencer};
 use drv_i2c_devices::max31790::*;
 use drv_i2c_devices::sbtsi::*;
@@ -69,6 +70,10 @@ impl Bsp {
         fctrl(self.fan_control(0.into()))
     }
 
+    pub fn power_down(&self) -> Result<(), SeqError> {
+        self.seq.set_state(PowerState::A2)
+    }
+
     pub fn power_mode(&self) -> u32 {
         match self.seq.get_state() {
             Ok(p) => match p {
@@ -106,20 +111,20 @@ impl Bsp {
         const DIMM_THERMALS: ThermalProperties = ThermalProperties {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
-            non_recoverable_temperature: Celsius(80f32),
-            temperature_slew_deg_per_sec: 0.5,
+            power_down_temperature: Celsius(80f32),
+            temperature_slew_deg_per_msec: 0.5 / 1000.0,
         };
         const CPU_THERMALS: ThermalProperties = ThermalProperties {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
-            non_recoverable_temperature: Celsius(80f32),
-            temperature_slew_deg_per_sec: 0.5,
+            power_down_temperature: Celsius(80f32),
+            temperature_slew_deg_per_msec: 0.5 / 1000.0,
         };
         const T6_THERMALS: ThermalProperties = ThermalProperties {
             target_temperature: Celsius(60f32),
             critical_temperature: Celsius(70f32),
-            non_recoverable_temperature: Celsius(80f32),
-            temperature_slew_deg_per_sec: 0.5,
+            power_down_temperature: Celsius(80f32),
+            temperature_slew_deg_per_msec: 0.5 / 1000.0,
         };
 
         Self {
