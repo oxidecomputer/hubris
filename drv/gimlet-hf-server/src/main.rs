@@ -159,11 +159,29 @@ struct ServerImpl {
     dev_select_pin: Option<sys_api::PinSet>,
 }
 
+impl ServerImpl {
+    ///
+    /// For operations to host flash from the SP, we need to have the flash
+    /// muxed to the SP; to assure that we fail cleanly (and do not attempt
+    /// to interact with a device that in fact cannot see us), we call this
+    /// convenience routine to fail explicitly should a host flash operation be
+    /// attempted while in the wrong mux state.
+    ///
+    fn check_muxed_to_sp(&self) -> Result<(), HfError> {
+        match self.mux_state {
+            HfMuxState::SP => Ok(()),
+            HfMuxState::HostCPU => Err(HfError::NotMuxedToSP),
+        }
+    }
+}
+
 impl idl::InOrderHostFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
     ) -> Result<[u8; 20], RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
+
         let mut idbuf = [0; 20];
         self.qspi.read_id(&mut idbuf);
         Ok(idbuf)
@@ -173,6 +191,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u8, RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
         Ok(self.qspi.read_status())
     }
 
@@ -180,6 +199,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.bulk_erase();
         poll_for_write_complete(&self.qspi);
@@ -192,6 +212,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         data: LenLimit<Leased<R, [u8]>, 256>,
     ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
         // Read the entire data block into our address space.
         data.read_range(0..data.len(), &mut self.block[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
@@ -210,6 +231,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         addr: u32,
         dest: LenLimit<Leased<W, [u8]>, 256>,
     ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
         self.qspi.read_memory(addr, &mut self.block[..dest.len()]);
 
         dest.write_range(0..dest.len(), &self.block[..dest.len()])
@@ -223,6 +245,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         _: &RecvMessage,
         addr: u32,
     ) -> Result<(), RequestError<HfError>> {
+        self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.sector_erase(addr);
         poll_for_write_complete(&self.qspi);
@@ -272,6 +295,8 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         // Return early if the dev select pin is missing
         let dev_select_pin = self.dev_select_pin.ok_or(HfError::NoDevSelect)?;
 
+        self.check_muxed_to_sp()?;
+
         let sys = sys_api::Sys::from(SYS.get_task_id());
         let rv = match state {
             HfDevSelect::Flash0 => sys.gpio_reset(dev_select_pin),
@@ -295,6 +320,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
                 addr: u32,
                 len: u32,
             ) -> Result<[u8; SHA256_SZ], RequestError<HfError>> {
+                self.check_muxed_to_sp()?;
                 let hash_driver = hash_api::Hash::from(HASH.get_task_id());
                 if let Err(_) = hash_driver.init_sha256() {
                     return Err(HfError::HashError.into());
