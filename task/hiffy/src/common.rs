@@ -626,12 +626,33 @@ pub(crate) fn write_block(
 
 #[cfg(feature = "update")]
 pub(crate) fn start_update(
-    _stack: &[Option<u32>],
+    stack: &[Option<u32>],
     _data: &[u8],
     _rval: &mut [u8],
 ) -> Result<usize, Failure> {
+    use userlib::FromPrimitive;
+
+    if stack.len() < 1 {
+        return Err(Failure::Fault(Fault::MissingParameters));
+    }
+
+    let fp = stack.len() - 1;
+
+    let target = match stack[fp + 0] {
+        Some(target) => target as usize,
+        None => {
+            return Err(Failure::Fault(Fault::EmptyParameter(0)));
+        }
+    };
+
+    let img = match drv_update_api::UpdateTarget::from_usize(target) {
+        Some(i) => i,
+        None => return Err(Failure::Fault(Fault::BadParameter(0))),
+    };
+
     func_err(
-        drv_update_api::Update::from(UPDATE.get_task_id()).prep_image_update(),
+        drv_update_api::Update::from(UPDATE.get_task_id())
+            .prep_image_update(img),
     )?;
     Ok(0)
 }
