@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
+use std::collections::BTreeMap;
 use std::env;
 
 /// Exposes the CPU's M-profile architecture version. This isn't available in
@@ -69,6 +70,58 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
 /// provided.
 pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
     toml_from_env("HUBRIS_TASK_CONFIG")
+}
+
+/// Returns a map of task names to their IDs.
+pub fn task_ids() -> TaskIds {
+    let tasks = env::var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+    TaskIds(
+        tasks
+            .split(',')
+            .enumerate()
+            .map(|(i, name)| (name.to_string(), i))
+            .collect(),
+    )
+}
+
+/// Map of task names to their IDs.
+pub struct TaskIds(BTreeMap<String, usize>);
+
+impl TaskIds {
+    /// Get the ID of a task by name.
+    pub fn get(&self, task_name: &str) -> Option<usize> {
+        self.0.get(task_name).copied()
+    }
+
+    /// Convert a list of task names into a list of task IDs, ordered the same.
+    pub fn names_to_ids<S>(&self, names: &[S]) -> Result<Vec<usize>>
+    where
+        S: AsRef<str>,
+    {
+        names
+            .iter()
+            .map(|name| {
+                let name = name.as_ref();
+                self.get(name)
+                    .ok_or_else(|| anyhow!("unknown task `{}`", name))
+            })
+            .collect()
+    }
+
+    /// Helper function to convert a map of operation names to allowed callers
+    /// (by name) to a map of operation names to allowed callers (by task ID).
+    pub fn remap_allowed_caller_names_to_ids(
+        &self,
+        allowed_callers: &BTreeMap<String, Vec<String>>,
+    ) -> Result<BTreeMap<String, Vec<usize>>> {
+        allowed_callers
+            .iter()
+            .map(|(name, tasks)| {
+                let task_ids = self.names_to_ids(tasks)?;
+                Ok((name.clone(), task_ids))
+            })
+            .collect()
+    }
 }
 
 /// Parse the contents of an environment variable as toml.
