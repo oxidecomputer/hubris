@@ -224,8 +224,22 @@ impl ThermalControlState {
     ) -> u8 {
         unimplemented!()
     }
-    fn write_temperature(&mut self, index: usize, time: u64, value: Celsius) {
-        unimplemented!()
+    fn write_temperature(
+        &mut self,
+        index: usize,
+        time_ms: u64,
+        value: Celsius,
+    ) {
+        match self {
+            ThermalControlState::Boot { values } => {
+                values[index] = Some(TemperatureReading { time_ms, value })
+            }
+            ThermalControlState::Running { values, .. }
+            | ThermalControlState::Overheated { values, .. } => {
+                values[index] = TemperatureReading { time_ms, value }
+            }
+            ThermalControlState::Uncontrollable => (),
+        }
     }
 }
 
