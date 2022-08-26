@@ -63,9 +63,12 @@ enum MgsMessage {
         command: IgnitionCommand,
     },
     SpState,
+    SerialConsoleAttach,
     SerialConsoleWrite {
+        offset: u64,
         length: u16,
     },
+    SerialConsoleDetach,
     UpdateStart {
         length: u32,
     },
