@@ -21,6 +21,8 @@ pub enum VpdError {
     DeviceOff = 6,
     BadAddress = 7,
     BadBuffer = 8,
+    BadRead = 9,
+    BadWrite = 10,
 }
 
 impl From<ResponseCode> for VpdError {

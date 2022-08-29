@@ -18,8 +18,16 @@ Interface(
                 "index": "u8",
                 "offset": "u16",
             },
-            leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(32)),
+            reply: Result(
+                ok: "[u8; 16]",
+                err: CLike("VpdError"),
+            ),
+        ),
+        "write": (
+            args: {
+                "index": "u8",
+                "offset": "u16",
+                "contents": "u8",
             },
             reply: Result(
                 ok: "()",
