@@ -7,10 +7,10 @@
 
 use drv_stm32h7_usart::Usart;
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError, sp_impl::SocketAddrV6,
-    IgnitionCommand, Request, SerialConsole, SerializedSize, SpMessage,
-    SpMessageKind, SpPort,
+    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
+    SpMessage, SpMessageKind, SpPort,
 };
+use mgs_handler::UsartFlush;
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
 use task_net_api::{
@@ -26,6 +26,8 @@ use userlib::{
 mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
+
+type SerializedMessageBuf = [u8; gateway_messages::MAX_SERIALIZED_SIZE];
 
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
@@ -44,7 +46,7 @@ enum Log {
     UsartTxFull { remaining: usize },
     UsartRx { num_bytes: usize },
     UsartRxOverrun,
-    SerialConsoleSend { len: u16 },
+    SerialConsoleSend { buffered: usize },
     UpdatePartial { bytes_written: usize },
     UpdateComplete,
 }
@@ -90,9 +92,9 @@ const SOCKET: SocketName = SocketName::mgmt_gateway;
 
 #[export_name = "main"]
 fn main() {
-    let usart = UsartHandler::new(configure_usart());
+    let usart = UsartHandler::new(configure_usart(), claim_uart_bufs_static());
     let mut mgs_handler = MgsHandler::new(usart);
-    let mut net_handler = NetHandler::new(claim_request_buf_static());
+    let mut net_handler = NetHandler::new(claim_net_bufs_static());
 
     // Enbale USART interrupts.
     sys_irq_control(USART_IRQ, true);
@@ -120,17 +122,21 @@ fn main() {
 
 struct UsartHandler {
     usart: Usart,
-    to_tx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
-    from_rx: ArrayVec<[u8; SerialConsole::MAX_DATA_PER_PACKET]>,
+    to_tx: &'static mut ArrayVec<SerializedMessageBuf>,
+    from_rx: &'static mut ArrayVec<SerializedMessageBuf>,
     from_rx_flush_deadline: Option<u64>,
 }
 
 impl UsartHandler {
-    fn new(usart: Usart) -> Self {
+    fn new(
+        usart: Usart,
+        buffers: &'static mut [ArrayVec<SerializedMessageBuf>; 2],
+    ) -> Self {
+        let [to_tx, from_rx] = buffers;
         Self {
             usart,
-            to_tx: ArrayVec::default(),
-            from_rx: ArrayVec::default(),
+            to_tx,
+            from_rx,
             from_rx_flush_deadline: None,
         }
     }
@@ -170,7 +176,7 @@ impl UsartHandler {
     fn run_until_blocked(&mut self) {
         // Transmit as much as we have and can.
         let mut n = 0;
-        for &b in &self.to_tx {
+        for &b in &*self.to_tx {
             if self.usart.try_tx_push(b) {
                 n += 1;
             } else {
@@ -227,16 +233,17 @@ impl UsartHandler {
 
 struct NetHandler {
     net: Net,
-    tx_buf: [u8; SpMessage::MAX_SIZE],
-    rx_buf: &'static mut [u8; Request::MAX_SIZE],
+    tx_buf: &'static mut SerializedMessageBuf,
+    rx_buf: &'static mut SerializedMessageBuf,
     packet_to_send: Option<UdpMetadata>,
 }
 
 impl NetHandler {
-    fn new(rx_buf: &'static mut [u8; Request::MAX_SIZE]) -> Self {
+    fn new(buffers: &'static mut [SerializedMessageBuf; 2]) -> Self {
+        let [tx_buf, rx_buf] = buffers;
         Self {
             net: Net::from(NET.get_task_id()),
-            tx_buf: [0; SpMessage::MAX_SIZE],
+            tx_buf,
             rx_buf,
             packet_to_send: None,
         }
@@ -269,17 +276,11 @@ impl NetHandler {
             }
 
             // Do we need to send usart data to MGS?
-            if let Some((serial_console_packet, mgs_addr, sp_port)) =
-                mgs_handler.flush_usart_to_mgs()
-            {
+            if let Some(to_flush) = mgs_handler.flush_usart_to_mgs() {
                 ringbuf_entry!(Log::SerialConsoleSend {
-                    len: serial_console_packet.len
+                    buffered: to_flush.data.len()
                 });
-                let meta = self.build_serial_console_packet(
-                    serial_console_packet,
-                    mgs_addr,
-                    sp_port,
-                );
+                let meta = self.build_serial_console_packet(to_flush);
                 self.packet_to_send = Some(meta);
 
                 // Loop back to send.
@@ -305,25 +306,28 @@ impl NetHandler {
 
     fn build_serial_console_packet(
         &mut self,
-        packet: SerialConsole,
-        mgs_addr: SocketAddrV6,
-        sp_port: SpPort,
+        to_flush: UsartFlush<'_>,
     ) -> UdpMetadata {
         let message = SpMessage {
             version: gateway_messages::version::V1,
-            kind: SpMessageKind::SerialConsole(packet),
+            kind: SpMessageKind::SerialConsole(SpComponent::SP3_HOST_CPU),
         };
 
-        // We know `self.tx_buf` is large enough for any `SpMessage`, so we can
-        // unwrap this `serialize()`.
-        let n = gateway_messages::serialize(&mut self.tx_buf, &message)
-            .unwrap_lite();
+        let (n, written) = gateway_messages::serialize_with_trailing_data(
+            self.tx_buf,
+            &message,
+            to_flush.data,
+        );
+
+        // TODO-correctness: We shouldn't drain this data until we know MGS has
+        // received it. Currently we don't get ACKs from MGS; this needs work!
+        to_flush.data.drain(..written);
 
         UdpMetadata {
-            addr: Address::Ipv6(mgs_addr.ip.into()),
-            port: mgs_addr.port,
+            addr: Address::Ipv6(to_flush.destination.ip.into()),
+            port: to_flush.destination.port,
             size: n as u32,
-            vid: vlan_id_from_sp_port(sp_port),
+            vid: vlan_id_from_sp_port(to_flush.port),
         }
     }
 
@@ -432,10 +436,25 @@ fn configure_usart() -> Usart {
     )
 }
 
-/// Grabs reference to a static array sized to hold a `Request`. Can only be
-/// called once!
-fn claim_request_buf_static() -> &'static mut [u8; Request::MAX_SIZE] {
+/// Grabs reference to two static `ArrayVec`s for bidirectional buffering of
+/// uart data.
+///
+/// These buffers are slightly oversized in terms of what we could send/receive
+/// in a single packet, since `MAX_SERIALIZED_SIZE` includes space for the
+/// message header, but that's relatively harmless.
+fn claim_uart_bufs_static() -> &'static mut [ArrayVec<SerializedMessageBuf>; 2]
+{
     mutable_statics! {
-        static mut REQUEST_BUF: [u8; Request::MAX_SIZE] = [0; _];
+        static mut BUFS: [ArrayVec<SerializedMessageBuf>; 2] =
+            [ArrayVec::default(); _];
+    }
+}
+
+/// Grabs reference to a static array sized to hold an incoming message. Can
+/// only be called once!
+fn claim_net_bufs_static() -> &'static mut [SerializedMessageBuf; 2] {
+    mutable_statics! {
+        static mut BUFS: [SerializedMessageBuf; 2] =
+            [[0; gateway_messages::MAX_SERIALIZED_SIZE]; _];
     }
 }
