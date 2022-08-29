@@ -130,8 +130,9 @@ struct UsartHandler {
 impl UsartHandler {
     fn new(
         usart: Usart,
-        [to_tx, from_rx]: &'static mut [ArrayVec<SerializedMessageBuf>; 2],
+        buffers: &'static mut [ArrayVec<SerializedMessageBuf>; 2],
     ) -> Self {
+        let [to_tx, from_rx] = buffers;
         Self {
             usart,
             to_tx,
@@ -238,7 +239,8 @@ struct NetHandler {
 }
 
 impl NetHandler {
-    fn new([tx_buf, rx_buf]: &'static mut [SerializedMessageBuf; 2]) -> Self {
+    fn new(buffers: &'static mut [SerializedMessageBuf; 2]) -> Self {
+        let [tx_buf, rx_buf] = buffers;
         Self {
             net: Net::from(NET.get_task_id()),
             tx_buf,
@@ -443,9 +445,8 @@ fn configure_usart() -> Usart {
 fn claim_uart_bufs_static() -> &'static mut [ArrayVec<SerializedMessageBuf>; 2]
 {
     mutable_statics! {
-        static mut BUFS:
-            [ArrayVec<SerializedMessageBuf>; 2]
-                = [ArrayVec::default(); _];
+        static mut BUFS: [ArrayVec<SerializedMessageBuf>; 2] =
+            [ArrayVec::default(); _];
     }
 }
 
