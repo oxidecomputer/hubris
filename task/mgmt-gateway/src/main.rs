@@ -128,6 +128,7 @@ struct UsartHandler {
     to_tx: &'static mut ArrayVec<SerializedMessageBuf>,
     from_rx: &'static mut ArrayVec<SerializedMessageBuf>,
     from_rx_flush_deadline: Option<u64>,
+    from_rx_offset: u64,
 }
 
 impl UsartHandler {
@@ -141,6 +142,7 @@ impl UsartHandler {
             to_tx,
             from_rx,
             from_rx_flush_deadline: None,
+            from_rx_offset: 0,
         }
     }
 
@@ -176,6 +178,22 @@ impl UsartHandler {
         sys_set_timer(None, TIMER_IRQ);
     }
 
+    fn drain_flushed_data(&mut self, n: usize) {
+        self.from_rx.drain(..n);
+        self.from_rx_offset += n as u64;
+        self.from_rx_flush_deadline = None;
+        self.start_flush_timer_if_needed();
+    }
+
+    fn start_flush_timer_if_needed(&mut self) {
+        if self.from_rx_flush_deadline.is_none() && !self.from_rx.is_empty() {
+            let deadline =
+                sys_get_timer().now + SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS;
+            self.from_rx_flush_deadline = Some(deadline);
+            sys_set_timer(Some(deadline), TIMER_IRQ);
+        }
+    }
+
     fn run_until_blocked(&mut self) {
         // Transmit as much as we have and can.
         let mut n = 0;
@@ -203,12 +221,26 @@ impl UsartHandler {
         // Clear any errors.
         if self.usart.check_and_clear_rx_overrun() {
             ringbuf_entry!(Log::UsartRxOverrun);
+            // TODO-correctness Should we notify MGS of dropped data here? We
+            // could increment `self.from_rx_offset`, but (a) we don't know how
+            // much data we lost, and (b) it would indicate lost data in the
+            // wrong place (i.e., data lost at the current
+            // `self.from_rx_offset`, instead of `self.from_rx_offset +
+            // self.from_rx.len()`, which is where we actually are now).
         }
 
         // Recv as much as we have space for.
         let mut n = 0;
         let mut available_rx_space =
             self.from_rx.capacity() - self.from_rx.len();
+
+        // Ensure we always have space for at least 16 bytes (the stm32h7 usart
+        // FIFO depth), even if that means discarding old data.
+        if available_rx_space < 16 {
+            self.from_rx.drain(..(16 - available_rx_space));
+            self.from_rx_offset += (16 - available_rx_space) as u64;
+            available_rx_space = 16;
+        }
 
         while available_rx_space > 0 {
             match self.usart.try_rx_pop() {
@@ -223,13 +255,7 @@ impl UsartHandler {
 
         if n > 0 {
             ringbuf_entry!(Log::UsartRx { num_bytes: n });
-
-            if self.from_rx_flush_deadline.is_none() {
-                let deadline =
-                    sys_get_timer().now + SERIAL_CONSOLE_FLUSH_TIMEOUT_MILLIS;
-                self.from_rx_flush_deadline = Some(deadline);
-                sys_set_timer(Some(deadline), TIMER_IRQ);
-            }
+            self.start_flush_timer_if_needed();
         }
     }
 }
@@ -281,7 +307,7 @@ impl NetHandler {
             // Do we need to send usart data to MGS?
             if let Some(to_flush) = mgs_handler.flush_usart_to_mgs() {
                 ringbuf_entry!(Log::SerialConsoleSend {
-                    buffered: to_flush.data.len()
+                    buffered: to_flush.usart.from_rx.len()
                 });
                 let meta = self.build_serial_console_packet(to_flush);
                 self.packet_to_send = Some(meta);
@@ -313,18 +339,23 @@ impl NetHandler {
     ) -> UdpMetadata {
         let message = SpMessage {
             version: gateway_messages::version::V1,
-            kind: SpMessageKind::SerialConsole(SpComponent::SP3_HOST_CPU),
+            kind: SpMessageKind::SerialConsole {
+                component: SpComponent::SP3_HOST_CPU,
+                offset: to_flush.usart.from_rx_offset,
+            },
         };
 
         let (n, written) = gateway_messages::serialize_with_trailing_data(
             self.tx_buf,
             &message,
-            to_flush.data,
+            to_flush.usart.from_rx,
         );
 
-        // TODO-correctness: We shouldn't drain this data until we know MGS has
-        // received it. Currently we don't get ACKs from MGS; this needs work!
-        to_flush.data.drain(..written);
+        // Note: We do not wait for an ack from MGS after sending this data; we
+        // hope it receives it, but if not, it's lost. We don't have the buffer
+        // space to keep a bunch of data around waiting for acks, and in
+        // practice we don't expect lost packets to be a problem.
+        to_flush.usart.drain_flushed_data(written);
 
         UdpMetadata {
             addr: Address::Ipv6(to_flush.destination.ip.into()),

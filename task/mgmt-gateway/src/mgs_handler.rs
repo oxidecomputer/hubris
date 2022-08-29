@@ -20,8 +20,7 @@ use tinyvec::ArrayVec;
 const VERSION: u32 = 1;
 
 pub(crate) struct UsartFlush<'a> {
-    pub(crate) data:
-        &'a mut ArrayVec<[u8; gateway_messages::MAX_SERIALIZED_SIZE]>,
+    pub(crate) usart: &'a mut UsartHandler,
     pub(crate) destination: SocketAddrV6,
     pub(crate) port: SpPort,
 }
@@ -59,7 +58,7 @@ impl MgsHandler {
 
         if let Some((mgs_addr, sp_port)) = self.attached_serial_console_mgs {
             Some(UsartFlush {
-                data: self.usart.from_rx,
+                usart: &mut self.usart,
                 destination: mgs_addr,
                 port: sp_port,
             })
@@ -213,6 +212,7 @@ impl SpHandler for MgsHandler {
         // attach. https://github.com/oxidecomputer/hubris/issues/723
         self.attached_serial_console_mgs = Some((sender, port));
         self.serial_console_write_offset = 0;
+        self.usart.from_rx_offset = 0;
         Ok(())
     }
 
