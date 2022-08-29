@@ -11,7 +11,7 @@ use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 /// Number of bytes stored in the EEPROM
-const EEPROM_SIZE: u16 = 1024;
+pub const EEPROM_SIZE: u16 = 1024;
 
 /// Wait time after performing a write
 const WRITE_TIME_MS: u64 = 5;

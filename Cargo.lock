@@ -1791,7 +1791,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#285d92876b95f3f1c706e4a98aaa954d167b9de4"
+source = "git+https://github.com/oxidecomputer/idolatry?ref=unfortunate_hack_to_workaround_cargo_issue_5478?branch=reply-type-injection#dedd8b59ec4e91c841499d8ab313256484e82c1e"
 dependencies = [
  "indexmap",
  "quote",
@@ -1803,7 +1803,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#285d92876b95f3f1c706e4a98aaa954d167b9de4"
+source = "git+https://github.com/oxidecomputer/idolatry.git#cf366c0f8d3efc57eec6eb764eb5fc04bbf1a9fe"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -3424,6 +3424,38 @@ dependencies = [
 
 [[package]]
 name = "task-validate-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "drv-i2c-api",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-vpd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-vpd-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-vpd-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
