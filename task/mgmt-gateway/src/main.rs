@@ -16,6 +16,16 @@ use task_net_api::{
 };
 use userlib::{sys_recv_closed, task_slot, TaskId, UnwrapLite};
 
+mod mgs_common;
+
+// If the build system enables multiple of the gimlet/sidecar/psc features, this
+// sequence of `cfg_attr`s will trigger an unused_attributes warning. We can
+// turn this into a hard error via this `deny`, which will catch any such build
+// system misconfiguration.
+#[deny(unused_attributes)]
+#[cfg_attr(feature = "gimlet", path = "mgs_gimlet.rs")]
+#[cfg_attr(feature = "sidecar", path = "mgs_sidecar.rs")]
+#[cfg_attr(feature = "psc", path = "mgs_psc.rs")]
 mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
@@ -27,6 +37,7 @@ task_slot!(NET, net);
 task_slot!(SYS, sys);
 task_slot!(UPDATE_SERVER, update_server);
 
+#[allow(dead_code)] // Not all cases are used by all variants
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Log {
     Empty,
@@ -222,6 +233,7 @@ fn sp_port_from_udp_metadata(meta: &UdpMetadata) -> SpPort {
     }
 }
 
+#[allow(dead_code)]
 fn vlan_id_from_sp_port(port: SpPort) -> u16 {
     use task_net_api::VLAN_RANGE;
     assert_eq!(VLAN_RANGE.len(), 2);

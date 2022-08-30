@@ -23,6 +23,10 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "f2e6237e57a36873fc748b6ecd9e42b8ef208c88"}
 
 [features]
+gimlet = []
+sidecar = []
+psc = []
+
 vlan = ["task-net-api/vlan"]
 usart1 = []
 usart2 = []
