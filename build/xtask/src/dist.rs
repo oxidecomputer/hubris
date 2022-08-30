@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{anyhow, bail, Context, Result};
+use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
@@ -1053,6 +1054,13 @@ fn build(
     let mut cmd = build_config.cmd("rustc");
     cmd.arg("--release");
 
+    // We're capturing stderr (for diagnosis), so `cargo` won't automatically
+    // turn on color.  If *we* are a TTY, then force it on.
+    if atty::is(Stream::Stderr) {
+        cmd.arg("--color");
+        cmd.arg("always");
+    }
+
     // This works because we control the environment in which we're about
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let cargo_out = Path::new("target").to_path_buf();
@@ -1104,9 +1112,26 @@ fn build(
     let prev_time = std::fs::metadata(&src_file).and_then(|f| f.modified());
 
     let status = cmd
-        .status()
+        .output()
         .context(format!("failed to run rustc ({:?})", cmd))?;
-    if !status.success() {
+    std::io::stderr().write_all(&status.stderr);
+    if !status.status.success() {
+        // We've got a special case here: if the kernel memory is too small,
+        // then the build will fail with a cryptic linker error.  We can't
+        // necessarily do normal string search, because the `stderr` may contain
+        // ANSI control characters, so do a *very dumb* search here:
+        if name == "kernel" {
+            let needle = b"will not fit in region";
+            for i in 0..status.stderr.len() {
+                if status.stderr[i..].starts_with(needle.as_slice()) {
+                    bail!(
+                        "command failed, see output for details\n    \
+                         The kernel may have run out of space; try increasing \
+                         its allocation in the app's TOML file"
+                    )
+                }
+            }
+        }
         bail!("command failed, see output for details");
     }
 

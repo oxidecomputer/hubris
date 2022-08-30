@@ -3921,6 +3921,7 @@ version = "1.0.0"
 dependencies = [
  "abi",
  "anyhow",
+ "atty",
  "byteorder",
  "cargo_metadata",
  "clap",
