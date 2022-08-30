@@ -1114,23 +1114,28 @@ fn build(
     let status = cmd
         .output()
         .context(format!("failed to run rustc ({:?})", cmd))?;
-    std::io::stderr().write_all(&status.stderr);
+
+    // Immediately echo `stderr` back out, using a raw write because it may
+    // contain terminal control characters
+    std::io::stderr().write_all(&status.stderr)?;
+
     if !status.status.success() {
         // We've got a special case here: if the kernel memory is too small,
         // then the build will fail with a cryptic linker error.  We can't
-        // necessarily do normal string search, because the `stderr` may contain
-        // ANSI control characters, so do a *very dumb* search here:
-        if name == "kernel" {
-            let needle = b"will not fit in region";
-            for i in 0..status.stderr.len() {
-                if status.stderr[i..].starts_with(needle.as_slice()) {
-                    bail!(
-                        "command failed, see output for details\n    \
+        // convert `status.stderr` to a `String`, because it probably contains
+        // terminal control characters, so do a raw `&[u8]` search instead.
+        if name == "kernel"
+            && memchr::memmem::find(
+                &status.stderr,
+                b"will not fit in region".as_slice(),
+            )
+            .is_some()
+        {
+            bail!(
+                "command failed, see output for details\n    \
                          The kernel may have run out of space; try increasing \
                          its allocation in the app's TOML file"
-                    )
-                }
-            }
+            )
         }
         bail!("command failed, see output for details");
     }

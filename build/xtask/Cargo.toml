@@ -13,6 +13,7 @@ anyhow = "1.0.32"
 cargo_metadata = "0.12.0"
 ordered-toml = {git = "https://github.com/oxidecomputer/ordered-toml"}
 strsim = "0.10.0"
+memchr = "2.4"
 
 # for dist
 serde = { version = "1.0.114", features = ["derive"] }

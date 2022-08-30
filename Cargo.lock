@@ -3933,6 +3933,7 @@ dependencies = [
  "goblin",
  "indexmap",
  "lpc55_sign",
+ "memchr",
  "ordered-toml",
  "path-slash",
  "ron 0.7.0",
