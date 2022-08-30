@@ -17,6 +17,8 @@ fn main() -> ! {
 
     const SOCKET: SocketName = SocketName::echo;
 
+    let smasher = claim_static_smasher();
+
     loop {
         // Tiiiiiny payload buffer
         let mut rx_data_buf = [0u8; 64];
@@ -57,6 +59,31 @@ fn main() -> ! {
 
         // Try again.
     }
+}
+
+const STACK_SMASHER_BUF_SIZE: usize = 1024;
+
+struct StackSmasher {
+    counter1: Option<usize>,
+    counter2: usize,
+    data: [u8; STACK_SMASHER_BUF_SIZE],
+}
+
+impl Default for StackSmasher {
+    fn default() -> Self {
+        Self {
+            counter1: None,
+            counter2: 0,
+            data: [0; STACK_SMASHER_BUF_SIZE],
+        }
+    }
+}
+
+fn claim_static_smasher() -> &'static mut StackSmasher {
+    let array = mutable_statics::mutable_statics! {
+        static mut BUF: [StackSmasher; 1] = [Default::default(); _];
+    };
+    &mut array[0]
 }
 
 static UDP_ECHO_COUNT: core::sync::atomic::AtomicU32 =

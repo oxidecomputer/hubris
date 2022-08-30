@@ -3431,6 +3431,7 @@ dependencies = [
 name = "task-udpecho"
 version = "0.1.0"
 dependencies = [
+ "mutable-statics",
  "num-traits",
  "serde",
  "ssmarshal",
