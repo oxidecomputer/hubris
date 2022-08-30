@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, gemini-rot, gimlet-b, sidecar, stm32g0, gimlet-rot]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar, stm32g0, gimlet-rot]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -58,9 +58,9 @@ jobs:
             app_toml: app/gemini-bu/app.toml
             target: thumbv7em-none-eabihf
             image: default
-          - build: gemini-rot
-            app_name: gemini-bu-rot
-            app_toml: app/gemini-bu-rot/app.toml
+          - build: rot-carrier
+            app_name: rot-carrier
+            app_toml: app/rot-carrier/app.toml
             target: thumbv8m.main-none-eabihf
             image: a
           - build: gimlet-b

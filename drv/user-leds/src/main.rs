@@ -487,7 +487,7 @@ cfg_if::cfg_if! {
                 // xpressoboard is active low LEDS
                 const LED_OFF_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::One;
                 const LED_ON_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::Zero;
-            } else if #[cfg(target_board = "gemini-bu-rot-1")] {
+            } else if #[cfg(target_board = "rot-carrier-1")] {
                 const LED_ZERO_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_15;
                 const LED_ONE_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_31;
 

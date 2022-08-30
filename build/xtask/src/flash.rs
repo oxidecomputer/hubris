@@ -134,7 +134,7 @@ pub fn config(
     chip_dir: &Path,
 ) -> anyhow::Result<Option<FlashConfig>> {
     match board {
-        "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
+        "lpcxpresso55s69" | "rot-carrier-1" | "gimlet-rot-1" => {
             let chip = if board == "lpcxpresso55s69" {
                 "lpc55s69"
             } else {
@@ -189,7 +189,7 @@ pub fn config(
 pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     let b = match board {
         "lpcxpresso55s69" => "LPC55S69JBD100",
-        "gemini-bu-rot-1" | "gimlet-rot-1" => "LPC55S69JBD100",
+        "rot-carrier-1" | "gimlet-rot-1" => "LPC55S69JBD100",
         "stm32f3-discovery" => "STM32F303VCTx",
         "stm32f4-discovery" => "STM32F407VGTx",
         "nucleo-h743zi2" => "STM32H743ZITx",

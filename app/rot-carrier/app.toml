@@ -1,12 +1,12 @@
-name = "gemini-bu-rot"
+name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
-board = "gemini-bu-rot-1"
+board = "rot-carrier-1"
 chip = "../../chips/lpc55"
 stacksize = 1024
 image-names = ["a", "b"]
 
 [kernel]
-name = "gemini-bu-rot"
+name = "rot-carrier"
 requires = {flash = 21504, ram = 4096}
 features = ["itm"]
 
