@@ -19,8 +19,7 @@ task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-#gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "631e6d76dcfc7316f795ef86c82c7f2712de3e8b"}
-gateway-messages = {path = "../../../omicron/gateway-messages"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "55d36d983ac656c3e39c7d6ffeae362199227472"}
 
 [features]
 vlan = ["task-net-api/vlan"]
