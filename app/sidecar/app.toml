@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 5424}
+requires = {flash = 22776, ram = 5840}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -97,6 +97,15 @@ task-slots = ["sys"]
 [tasks.spi5_driver.config.spi]
 global_config = "spi5"
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
 [tasks.net]
 name = "task-net"
 stacksize = 4640
@@ -110,6 +119,18 @@ interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys",
               { spi_driver = "spi3_driver" },
               { seq = "sequencer" }]
+
+[tasks.mgmt_gateway]
+name = "task-mgmt-gateway"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 1536
+start = true
+uses = [
+    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+]
+task-slots = ["jefe", "net", "update_server", "sys"]
+features = ["sidecar", "vlan"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -746,3 +767,10 @@ owner = {name = "udprpc", notification = 1}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.mgmt_gateway]
+kind = "udp"
+owner = {name = "mgmt_gateway", notification = 0b01}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }
