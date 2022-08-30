@@ -1,0 +1,28 @@
+name = "rot-carrier"
+target = "thumbv8m.main-none-eabihf"
+board = "rot-carrier-2"
+chip = "../../chips/lpc55"
+stacksize = 1024
+secure-separation = true
+image-names = ["stage0"]
+external-images = ["a", "b"]
+
+[kernel]
+name = "stage0"
+requires = {flash = 0x4000, ram = 4096}
+features = ["tz_support"]
+
+[tasks.idle]
+name = "task-idle"
+priority = 0
+max-sizes = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+[signing]
+priv-key = "../../support/fake_certs/fake_private_key.pem"
+root-cert = "../../support/fake_certs/fake_certificate.der.crt"
+enable-dice = true
+dice-inc-nxp-cfg = false
+dice-cust-cfg = false
+dice-inc-sec-epoch = false
