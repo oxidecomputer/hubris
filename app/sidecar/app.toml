@@ -97,6 +97,15 @@ task-slots = ["sys"]
 [tasks.spi5_driver.config.spi]
 global_config = "spi5"
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
 [tasks.net]
 name = "task-net"
 stacksize = 4640
