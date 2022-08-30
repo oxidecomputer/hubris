@@ -8,8 +8,7 @@ use crate::{Log, MgsMessage, __RINGBUF};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
-    DiscoverResponse, ResponseError, SpPort, SpState,
-    UpdateChunk, UpdateStart,
+    DiscoverResponse, ResponseError, SpPort, SpState, UpdateChunk, UpdateStart,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry;
