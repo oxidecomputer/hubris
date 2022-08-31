@@ -17,6 +17,7 @@ use task_net_api::{
 use userlib::{sys_recv_closed, task_slot, TaskId, UnwrapLite};
 
 mod mgs_common;
+mod update_buffer;
 
 // If the build system enables multiple of the gimlet/sidecar/psc features, this
 // sequence of `cfg_attr`s will trigger an unused_attributes warning. We can
