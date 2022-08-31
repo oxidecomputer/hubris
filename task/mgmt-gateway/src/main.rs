@@ -30,8 +30,6 @@ mod mgs_handler;
 
 use self::mgs_handler::MgsHandler;
 
-type SerializedMessageBuf = [u8; gateway_messages::MAX_SERIALIZED_SIZE];
-
 task_slot!(JEFE, jefe);
 task_slot!(NET, net);
 task_slot!(SYS, sys);
@@ -97,7 +95,7 @@ const SOCKET: SocketName = SocketName::mgmt_gateway;
 #[export_name = "main"]
 fn main() {
     let mut mgs_handler = MgsHandler::claim_static_resources();
-    let mut net_handler = NetHandler::new(claim_net_bufs_static());
+    let mut net_handler = NetHandler::claim_static_resources();
 
     loop {
         let note = sys_recv_closed(
@@ -121,14 +119,20 @@ fn main() {
 
 struct NetHandler {
     net: Net,
-    tx_buf: &'static mut SerializedMessageBuf,
-    rx_buf: &'static mut SerializedMessageBuf,
+    tx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
+    rx_buf: &'static mut [u8; gateway_messages::MAX_SERIALIZED_SIZE],
     packet_to_send: Option<UdpMetadata>,
 }
 
 impl NetHandler {
-    fn new(buffers: &'static mut [SerializedMessageBuf; 2]) -> Self {
-        let [tx_buf, rx_buf] = buffers;
+    fn claim_static_resources() -> Self {
+        let (tx_buf, rx_buf) = mutable_statics! {
+            static mut NET_TX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
+                [0; _];
+
+            static mut NET_RX_BUF: [u8; gateway_messages::MAX_SERIALIZED_SIZE] =
+                [0; _];
+        };
         Self {
             net: Net::from(NET.get_task_id()),
             tx_buf,
@@ -241,14 +245,5 @@ fn vlan_id_from_sp_port(port: SpPort) -> u16 {
     match port {
         SpPort::One => VLAN_RANGE.start,
         SpPort::Two => VLAN_RANGE.start + 1,
-    }
-}
-
-/// Grabs reference to a static array sized to hold an incoming message. Can
-/// only be called once!
-fn claim_net_bufs_static() -> &'static mut [SerializedMessageBuf; 2] {
-    mutable_statics! {
-        static mut BUFS: [SerializedMessageBuf; 2] =
-            [[0; gateway_messages::MAX_SERIALIZED_SIZE]; _];
     }
 }

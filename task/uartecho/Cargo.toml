@@ -8,8 +8,8 @@ edition = "2018"
 [dependencies]
 cfg-if = "1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
+heapless = "0.7.16"
 ringbuf = {path = "../../lib/ringbuf"}
-tinyvec = "1.5.1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
