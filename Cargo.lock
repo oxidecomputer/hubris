@@ -1553,6 +1553,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/omicron?rev=f2e6237e57a36873fc748b6ecd9e42b8ef208c88#f2e6237e57a36873fc748b6ecd9e42b8ef208c88"
 dependencies = [
  "bitflags",
  "hubpack",
