@@ -18,6 +18,11 @@ pub type WriteBlockFn<T> = fn(
 /// have been successfully written.
 pub type FinalizeFn<T> = fn(user_data: &T) -> Result<(), ResponseError>;
 
+pub enum UpdateProgress {
+    Complete,
+    Incomplete,
+}
+
 /// `UpdateBuffer` provides common logic for apply updates over the management
 /// network, assuming a common pattern of:
 ///
@@ -28,10 +33,10 @@ pub type FinalizeFn<T> = fn(user_data: &T) -> Result<(), ResponseError>;
 ///    short block).
 /// 4. A function to call once all blocks have been written.
 pub struct UpdateBuffer<T, const BLOCK_SIZE: usize> {
+    current_update_stream_id: Option<u64>,
     total_length: usize,
     bytes_written: usize,
     current_block: &'static mut heapless::Vec<u8, BLOCK_SIZE>,
-    update_in_progress: bool,
     write_block_fn: WriteBlockFn<T>,
     finalize_fn: FinalizeFn<T>,
 }
@@ -43,17 +48,17 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
         finalize_fn: FinalizeFn<T>,
     ) -> Self {
         Self {
+            current_update_stream_id: None,
             total_length: 0,
             bytes_written: 0,
             current_block: buf,
-            update_in_progress: false,
             write_block_fn,
             finalize_fn,
         }
     }
 
     pub fn ensure_no_update_in_progress(&self) -> Result<(), ResponseError> {
-        if self.update_in_progress {
+        if self.current_update_stream_id.is_some() {
             Err(ResponseError::UpdateInProgress {
                 bytes_received: self.bytes_written as u32,
             })
@@ -62,29 +67,53 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
         }
     }
 
+    pub fn ensure_matching_stream_id(
+        &self,
+        stream_id: u64,
+    ) -> Result<(), ResponseError> {
+        match self.current_update_stream_id {
+            None => Err(ResponseError::UpdateNotPrepared),
+            Some(s) => {
+                if s == stream_id {
+                    Ok(())
+                } else {
+                    Err(ResponseError::InvalidUpdateStreamId {
+                        sp_stream_id: s,
+                    })
+                }
+            }
+        }
+    }
+
     /// Panics if an update is in progress; use
     /// [`ensure_no_update_in_progress()`] first.
-    pub fn start(&mut self, total_length: usize) {
-        if self.update_in_progress {
+    pub fn start(&mut self, stream_id: u64, total_length: usize) {
+        if self.current_update_stream_id.is_some() {
             panic!();
         }
 
-        self.update_in_progress = true;
+        self.current_update_stream_id = Some(stream_id);
         self.total_length = total_length;
+        self.bytes_written = 0;
+        self.current_block.clear();
+    }
+
+    pub fn reset(&mut self) {
+        self.current_update_stream_id = None;
+        self.total_length = 0;
         self.bytes_written = 0;
         self.current_block.clear();
     }
 
     pub fn ingest_chunk(
         &mut self,
+        stream_id: u64,
         user_data: &T,
         offset: u32,
         mut data: &[u8],
-    ) -> Result<(), ResponseError> {
-        // Reject chunks if we don't have an update in progress.
-        if !self.update_in_progress {
-            return Err(ResponseError::InvalidUpdateChunk);
-        }
+    ) -> Result<UpdateProgress, ResponseError> {
+        // Reject chunks that don't match our current stream.
+        self.ensure_matching_stream_id(stream_id)?;
 
         // Reject chunks that don't match our current progress.
         if offset as usize != self.bytes_written {
@@ -141,12 +170,12 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
         if self.bytes_written == self.total_length {
             (self.finalize_fn)(user_data)?;
             ringbuf_entry_root!(Log::UpdateComplete);
+            Ok(UpdateProgress::Complete)
         } else {
             ringbuf_entry_root!(Log::UpdatePartial {
                 bytes_written: self.bytes_written
             });
+            Ok(UpdateProgress::Incomplete)
         }
-
-        Ok(())
     }
 }

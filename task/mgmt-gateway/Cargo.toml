@@ -10,6 +10,7 @@ num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 
+drv-gimlet-hf-api = {path = "../../drv/gimlet-hf-api"}
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", features = ["h753"]}
 drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}
 drv-update-api = {path = "../../drv/update-api"}
@@ -19,7 +20,7 @@ task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "f2e6237e57a36873fc748b6ecd9e42b8ef208c88"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "e6eccffb236d0c242b5f90d30d01daa47aa9d89f"}
 
 [features]
 gimlet = []
