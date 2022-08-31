@@ -10,6 +10,7 @@ use gateway_messages::{
     sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
     SpMessage, SpMessageKind, SpPort,
 };
+use heapless::Deque;
 use mgs_handler::UsartFlush;
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -17,7 +18,6 @@ use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use tinyvec::ArrayVec;
 use userlib::{
     sys_get_timer, sys_irq_control, sys_recv_closed, sys_set_timer, task_slot,
     TaskId, UnwrapLite,
@@ -46,6 +46,7 @@ enum Log {
     UsartTxFull { remaining: usize },
     UsartRx { num_bytes: usize },
     UsartRxOverrun,
+    UsartRxBufferDataDropped { num_bytes: u64 },
     SerialConsoleSend { buffered: usize },
     UpdatePartial { bytes_written: usize },
     UpdateComplete,
@@ -125,8 +126,8 @@ fn main() {
 
 struct UsartHandler {
     usart: Usart,
-    to_tx: &'static mut ArrayVec<SerializedMessageBuf>,
-    from_rx: &'static mut ArrayVec<SerializedMessageBuf>,
+    to_tx: &'static mut Deque<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>,
+    from_rx: &'static mut Deque<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>,
     from_rx_flush_deadline: Option<u64>,
     from_rx_offset: u64,
 }
@@ -134,7 +135,8 @@ struct UsartHandler {
 impl UsartHandler {
     fn new(
         usart: Usart,
-        buffers: &'static mut [ArrayVec<SerializedMessageBuf>; 2],
+        buffers: [&'static mut Deque<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>;
+            2],
     ) -> Self {
         let [to_tx, from_rx] = buffers;
         Self {
@@ -150,11 +152,14 @@ impl UsartHandler {
         self.to_tx.capacity() - self.to_tx.len()
     }
 
+    /// Panics if `self.tx_buffer_remaining_capacity() < data.len()`.
     fn tx_buffer_append(&mut self, data: &[u8]) {
         if self.to_tx.is_empty() {
             self.usart.enable_tx_fifo_empty_interrupt();
         }
-        self.to_tx.extend_from_slice(data);
+        for &b in data {
+            self.to_tx.push_back(b).unwrap_lite();
+        }
     }
 
     fn should_flush_to_mgs(&self) -> bool {
@@ -179,7 +184,7 @@ impl UsartHandler {
     }
 
     fn drain_flushed_data(&mut self, n: usize) {
-        self.from_rx.drain(..n);
+        self.from_rx.drain_front(n);
         self.from_rx_offset += n as u64;
         self.from_rx_flush_deadline = None;
         self.start_flush_timer_if_needed();
@@ -196,19 +201,19 @@ impl UsartHandler {
 
     fn run_until_blocked(&mut self) {
         // Transmit as much as we have and can.
-        let mut n = 0;
+        let mut n_transmitted = 0;
         for &b in &*self.to_tx {
             if self.usart.try_tx_push(b) {
-                n += 1;
+                n_transmitted += 1;
             } else {
                 break;
             }
         }
 
         // Clean up / ringbuf debug log after transmitting.
-        if n > 0 {
-            ringbuf_entry!(Log::UsartTx { num_bytes: n });
-            self.to_tx.drain(..n);
+        if n_transmitted > 0 {
+            ringbuf_entry!(Log::UsartTx { num_bytes: n_transmitted });
+            self.to_tx.drain_front(n_transmitted);
         }
         if self.to_tx.is_empty() {
             self.usart.disable_tx_fifo_empty_interrupt();
@@ -229,32 +234,37 @@ impl UsartHandler {
             // self.from_rx.len()`, which is where we actually are now).
         }
 
-        // Recv as much as we have space for.
-        let mut n = 0;
-        let mut available_rx_space =
-            self.from_rx.capacity() - self.from_rx.len();
-
-        // Ensure we always have space for at least 16 bytes (the stm32h7 usart
-        // FIFO depth), even if that means discarding old data.
-        if available_rx_space < 16 {
-            self.from_rx.drain(..(16 - available_rx_space));
-            self.from_rx_offset += (16 - available_rx_space) as u64;
-            available_rx_space = 16;
-        }
-
-        while available_rx_space > 0 {
-            match self.usart.try_rx_pop() {
-                Some(b) => {
-                    self.from_rx.push(b);
-                    n += 1;
-                    available_rx_space -= 1;
+        // Recv as much as we can from the USART FIFO, even if we have to
+        // discard old data to do so.
+        let mut n_received = 0;
+        let mut discarded_data = 0;
+        while let Some(b) = self.usart.try_rx_pop() {
+            n_received += 1;
+            match self.from_rx.push_back(b) {
+                Ok(()) => (),
+                Err(b) => {
+                    // If `push_back` failed, we know there is at least one
+                    // item, allowing us to unwrap `pop_front`. At that point we
+                    // know there's space for at least one, allowing us to
+                    // unwrap a subsequent `push_back`.
+                    self.from_rx.pop_front().unwrap_lite();
+                    self.from_rx.push_back(b).unwrap_lite();
+                    discarded_data += 1;
                 }
-                None => break,
             }
         }
 
-        if n > 0 {
-            ringbuf_entry!(Log::UsartRx { num_bytes: n });
+        // Update our offset, which will allow MGS to know we discarded data,
+        // and log that fact locally via ringbuf.
+        self.from_rx_offset += discarded_data;
+        if discarded_data > 0 {
+            ringbuf_entry!(Log::UsartRxBufferDataDropped {
+                num_bytes: discarded_data
+            });
+        }
+
+        if n_received > 0 {
+            ringbuf_entry!(Log::UsartRx { num_bytes: n_received });
             self.start_flush_timer_if_needed();
         }
     }
@@ -345,10 +355,11 @@ impl NetHandler {
             },
         };
 
+        let (from_rx0, from_rx1) = to_flush.usart.from_rx.as_slices();
         let (n, written) = gateway_messages::serialize_with_trailing_data(
             self.tx_buf,
             &message,
-            to_flush.usart.from_rx,
+            &[from_rx0, from_rx1],
         );
 
         // Note: We do not wait for an ack from MGS after sending this data; we
@@ -470,18 +481,43 @@ fn configure_usart() -> Usart {
     )
 }
 
-/// Grabs reference to two static `ArrayVec`s for bidirectional buffering of
-/// uart data.
-///
-/// These buffers are slightly oversized in terms of what we could send/receive
-/// in a single packet, since `MAX_SERIALIZED_SIZE` includes space for the
-/// message header, but that's relatively harmless.
-fn claim_uart_bufs_static() -> &'static mut [ArrayVec<SerializedMessageBuf>; 2]
-{
-    mutable_statics! {
-        static mut BUFS: [ArrayVec<SerializedMessageBuf>; 2] =
-            [ArrayVec::default(); _];
+trait DequeExt {
+    fn drain_front(&mut self, n: usize);
+}
+
+impl<T, const N: usize> DequeExt for Deque<T, N> {
+    fn drain_front(&mut self, n: usize) {
+        for _ in 0..n {
+            self.pop_front().unwrap_lite();
+        }
     }
+}
+
+/// For our buffers for interacting with the USART FIFO, we want `Deque`s rather
+/// than `ArrayVec`s to allow (relatively) cheaply popping data off the front as
+/// its transferred in/out of the FIFO.
+fn claim_uart_bufs_static(
+) -> [&'static mut Deque<u8, { gateway_messages::MAX_SERIALIZED_SIZE }>; 2] {
+    use core::sync::atomic::{AtomicBool, Ordering};
+    static mut UART_RX_BUF: Deque<
+        u8,
+        { gateway_messages::MAX_SERIALIZED_SIZE },
+    > = Deque::new();
+    static mut UART_TX_BUF: Deque<
+        u8,
+        { gateway_messages::MAX_SERIALIZED_SIZE },
+    > = Deque::new();
+
+    static TAKEN: AtomicBool = AtomicBool::new(false);
+    if TAKEN.swap(true, Ordering::Relaxed) {
+        panic!()
+    }
+
+    // Safety: unsafe because of references to mutable statics; safe because of
+    // the AtomicBool swap above, combined with the lexical scoping of
+    // `UART_{RX,TX}_BUF`, means that these references can't be aliased by any
+    // other reference in the program.
+    [unsafe { &mut UART_RX_BUF }, unsafe { &mut UART_TX_BUF }]
 }
 
 /// Grabs reference to a static array sized to hold an incoming message. Can
