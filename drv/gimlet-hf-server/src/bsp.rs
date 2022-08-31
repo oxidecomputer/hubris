@@ -5,7 +5,6 @@
 // We deliberately build every possible BSP here; the linker will strip them,
 // and this prevents us from accidentally introducing breaking changes.
 mod gemini_bu_1;
-mod gimlet_a;
 mod gimlet_b;
 mod gimletlet_2;
 mod nucleo_h7x;
