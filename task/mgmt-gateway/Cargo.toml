@@ -9,7 +9,6 @@ heapless = "0.7.16"
 num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
-tinyvec = "1.6"
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", features = ["h753"]}
 drv-stm32xx-uid = {path = "../../drv/stm32xx-uid", features = ["family-stm32h7"]}

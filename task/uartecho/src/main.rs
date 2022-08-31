@@ -9,8 +9,8 @@
 use drv_stm32h7_usart as drv_usart;
 
 use drv_usart::Usart;
+use heapless::Deque;
 use ringbuf::*;
-use tinyvec::ArrayVec;
 use userlib::*;
 
 task_slot!(SYS, sys);
@@ -42,7 +42,7 @@ enum NeedToTx {
 #[export_name = "main"]
 fn main() -> ! {
     let uart = configure_uart_device();
-    let mut line_buf = ArrayVec::<[u8; BUF_LEN]>::new();
+    let mut line_buf = Deque::<u8, BUF_LEN>::new();
     let mut need_to_tx = None;
 
     sys_irq_control(USART_IRQ, true);
@@ -67,8 +67,20 @@ fn main() -> ! {
                     }
                 }
                 NeedToTx::FlushLine => {
-                    let n = tx_until_fifo_full(&uart, &line_buf);
-                    line_buf.drain(..n);
+                    // Deque contents are potentially two slices; try to
+                    // transmit the first, and if we send all of it, try to
+                    // transmit the second.
+                    let (line_buf0, line_buf1) = line_buf.as_slices();
+                    let mut n = tx_until_fifo_full(&uart, &line_buf0);
+                    if n == line_buf0.len() {
+                        n += tx_until_fifo_full(&uart, &line_buf1);
+                    }
+
+                    // Remove all the data we sent from our buffer.
+                    for _ in 0..n {
+                        line_buf.pop_front().unwrap_lite();
+                    }
+
                     if line_buf.is_empty() {
                         need_to_tx = Some(NeedToTx::FlushLineEnd(b"\r\n"));
                     } else {
@@ -120,7 +132,7 @@ fn main() -> ! {
             }
 
             // not a line end. stash it in `line_buf` if there's room...
-            let _ = line_buf.try_push(byte);
+            let _ = line_buf.push_back(byte);
 
             // ...and echo it back
             if !try_tx_push(&uart, byte) {

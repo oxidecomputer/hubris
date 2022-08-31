@@ -10,9 +10,8 @@ use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
     DiscoverResponse, ResponseError, SpPort, SpState, UpdateChunk, UpdateStart,
 };
-use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry;
-use tinyvec::ArrayVec;
+use userlib::UnwrapLite;
 
 // TODO How are we versioning SP images? This is a placeholder.
 const VERSION: u32 = 1;
@@ -21,7 +20,7 @@ const VERSION: u32 = 1;
 pub(crate) struct MgsCommon {
     update_task: Update,
     // TODO: Make this non-`Option` and use new update abort APIs.
-    update_buf: Option<&'static mut UpdateBuffer>,
+    update_buf: Option<UpdateBuffer>,
     reset_requested: bool,
 }
 
@@ -81,10 +80,10 @@ impl MgsCommon {
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        // We can only call `claim_update_buffer_static` once; we bail out above
+        // We can only call `claim_static_resources` once; we bail out above
         // if `self.update_buf` is already `Some(_)`, and after we claim it
         // here, we store that into `self.update_buf` (and never clear it).
-        let update_buffer = claim_update_buffer_static();
+        let mut update_buffer = UpdateBuffer::claim_static_resources();
         update_buffer.total_length = update.total_size as usize;
         self.update_buf = Some(update_buffer);
 
@@ -135,14 +134,21 @@ impl MgsCommon {
     }
 }
 
-#[derive(Default)]
 struct UpdateBuffer {
     total_length: usize,
     bytes_written: usize,
-    current_block: ArrayVec<[u8; BLOCK_SIZE_BYTES]>,
+    current_block: &'static mut heapless::Vec<u8, BLOCK_SIZE_BYTES>,
 }
 
 impl UpdateBuffer {
+    fn claim_static_resources() -> Self {
+        Self {
+            total_length: 0,
+            bytes_written: 0,
+            current_block: claim_update_buffer_static(),
+        }
+    }
+
     fn ingest_chunk(
         &mut self,
         update_task: &Update,
@@ -167,7 +173,9 @@ impl UpdateBuffer {
             let to_copy = usize::min(cap, data.len());
 
             let current_block_index = self.bytes_written / BLOCK_SIZE_BYTES;
-            self.current_block.extend_from_slice(&data[..to_copy]);
+            self.current_block
+                .extend_from_slice(&data[..to_copy])
+                .unwrap_lite();
             data = &data[to_copy..];
             self.bytes_written += to_copy;
 
@@ -213,13 +221,21 @@ impl UpdateBuffer {
 }
 
 /// Grabs reference to a static `UpdateBuffer`. Can only be called once!
-fn claim_update_buffer_static() -> &'static mut UpdateBuffer {
-    // TODO: `mutable_statics!` is currently limited in what inputs it accepts,
-    // and in particular only accepts static mut arrays. We only want a single
-    // `UpdateBuffer`, so we create an array of length 1 and grab its only
-    // element.
-    let update_buffer_array = mutable_statics! {
-        static mut BUF: [UpdateBuffer; 1] = [Default::default(); _];
-    };
-    &mut update_buffer_array[0]
+fn claim_update_buffer_static(
+) -> &'static mut heapless::Vec<u8, BLOCK_SIZE_BYTES> {
+    use core::sync::atomic::{AtomicBool, Ordering};
+
+    static mut SP_UPDATE_BUF: heapless::Vec<u8, BLOCK_SIZE_BYTES> =
+        heapless::Vec::new();
+
+    static TAKEN: AtomicBool = AtomicBool::new(false);
+    if TAKEN.swap(true, Ordering::Relaxed) {
+        panic!()
+    }
+
+    // Safety: unsafe because of references to mutable statics; safe because of
+    // the AtomicBool swap above, combined with the lexical scoping of
+    // `SP_UPDATE_BUF`, means that this reference can't be aliased by any
+    // other reference in the program.
+    unsafe { &mut SP_UPDATE_BUF }
 }
