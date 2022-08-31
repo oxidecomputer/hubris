@@ -16,10 +16,8 @@ use gateway_messages::{
     UpdateStart,
 };
 use heapless::Deque;
-use mutable_statics::mutable_statics;
 use ringbuf::ringbuf_entry;
 use task_net_api::{Address, UdpMetadata};
-use tinyvec::ArrayVec;
 use userlib::{sys_get_timer, sys_irq_control, sys_set_timer, UnwrapLite};
 
 /// Buffer sizes for serial console UDP / USART proxying.
