@@ -20,8 +20,7 @@ use tinyvec::ArrayVec;
 const VERSION: u32 = 1;
 
 pub(crate) struct UsartFlush<'a> {
-    pub(crate) data:
-        &'a mut ArrayVec<[u8; gateway_messages::MAX_SERIALIZED_SIZE]>,
+    pub(crate) usart: &'a mut UsartHandler,
     pub(crate) destination: SocketAddrV6,
     pub(crate) port: SpPort,
 }
@@ -29,6 +28,7 @@ pub(crate) struct UsartFlush<'a> {
 pub(crate) struct MgsHandler {
     pub(crate) usart: UsartHandler,
     attached_serial_console_mgs: Option<(SocketAddrV6, SpPort)>,
+    serial_console_write_offset: u64,
     update_task: Update,
     update_progress: Option<&'static mut UpdateBuffer>,
     reset_requested: bool,
@@ -39,6 +39,7 @@ impl MgsHandler {
         Self {
             usart,
             attached_serial_console_mgs: None,
+            serial_console_write_offset: 0,
             update_task: Update::from(crate::UPDATE_SERVER.get_task_id()),
             update_progress: None,
             reset_requested: false,
@@ -57,7 +58,7 @@ impl MgsHandler {
 
         if let Some((mgs_addr, sp_port)) = self.attached_serial_console_mgs {
             Some(UsartFlush {
-                data: self.usart.from_rx,
+                usart: &mut self.usart,
                 destination: mgs_addr,
                 port: sp_port,
             })
@@ -188,16 +189,13 @@ impl SpHandler for MgsHandler {
         Ok(())
     }
 
-    fn serial_console_write(
+    fn serial_console_attach(
         &mut self,
         sender: SocketAddrV6,
         port: SpPort,
         component: SpComponent,
-        data: &[u8],
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
-            length: data.len() as u16
-        }));
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
 
         // Including a component in the serial console messages is half-baked at
         // the moment; we can at least check that it's the one component we
@@ -206,19 +204,69 @@ impl SpHandler for MgsHandler {
             return Err(ResponseError::RequestUnsupportedForComponent);
         }
 
-        // TODO serial console access should require auth; for now, receiving
-        // serial console data implicitly attaches us
-        self.attached_serial_console_mgs = Some((sender, port));
-
-        // TODO-cleanup This rejects the entire message if it doesn't all fit in
-        // our buffer; we could accept part of the data if some of it fits.
-        // Needs cooperation from MGS.
-        if self.usart.tx_buffer_remaining_capacity() >= data.len() {
-            self.usart.tx_buffer_append(data);
-            Ok(())
-        } else {
-            Err(ResponseError::Busy)
+        if self.attached_serial_console_mgs.is_some() {
+            return Err(ResponseError::SerialConsoleAlreadyAttached);
         }
+
+        // TODO: Add some kind of auth check before allowing a serial console
+        // attach. https://github.com/oxidecomputer/hubris/issues/723
+        self.attached_serial_console_mgs = Some((sender, port));
+        self.serial_console_write_offset = 0;
+        self.usart.from_rx_offset = 0;
+        Ok(())
+    }
+
+    fn serial_console_write(
+        &mut self,
+        sender: SocketAddrV6,
+        port: SpPort,
+        mut offset: u64,
+        mut data: &[u8],
+    ) -> Result<u64, ResponseError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+            offset,
+            length: data.len() as u16
+        }));
+
+        // TODO: Add some kind of auth check before allowing a serial console
+        // attach. https://github.com/oxidecomputer/hubris/issues/723
+        //
+        // As a temporary measure, we can at least ensure that we only allow
+        // writes from the attached console.
+        if Some((sender, port)) != self.attached_serial_console_mgs {
+            return Err(ResponseError::SerialConsoleNotAttached);
+        }
+
+        // Have we already received some or all of this data? (MGS may resend
+        // packets that for which it hasn't received our ACK.)
+        if self.serial_console_write_offset > offset {
+            let skip = self.serial_console_write_offset - offset;
+            // Have we already seen _all_ of this data? If so, just reply that
+            // we're ready for the data that comes after it.
+            if skip >= data.len() as u64 {
+                return Ok(offset + data.len() as u64);
+            }
+            offset = self.serial_console_write_offset;
+            data = &data[skip as usize..];
+        }
+
+        // Buffer as much of `data` as we can, then notify MGS how much we
+        // ingested.
+        let can_recv =
+            usize::min(self.usart.tx_buffer_remaining_capacity(), data.len());
+        self.usart.tx_buffer_append(&data[..can_recv]);
+        self.serial_console_write_offset = offset + can_recv as u64;
+        Ok(self.serial_console_write_offset)
+    }
+
+    fn serial_console_detach(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+    ) -> Result<(), ResponseError> {
+        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        self.attached_serial_console_mgs = None;
+        Ok(())
     }
 
     fn reset_prepare(

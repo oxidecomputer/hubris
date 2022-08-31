@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cfg-if = "1"
+heapless = "0.7.16"
 num-traits = {version = "0.2", default-features = false}
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
@@ -19,7 +20,7 @@ task-jefe-api = {path = "../jefe-api"}
 task-net-api = {path = "../net-api", features = ["use-smoltcp"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
-gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "631e6d76dcfc7316f795ef86c82c7f2712de3e8b"}
+gateway-messages = {git = "https://github.com/oxidecomputer/omicron", rev = "f2e6237e57a36873fc748b6ecd9e42b8ef208c88"}
 
 [features]
 vlan = ["task-net-api/vlan"]
