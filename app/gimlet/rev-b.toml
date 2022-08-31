@@ -34,7 +34,7 @@ on-state-change = {net = {bit-number = 3}}
 [tasks.jefe.config.allowed-callers]
 set_state = ["gimlet_seq"]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy"]
+request_reset = ["hiffy", "mgmt_gateway"]
 
 [tasks.net]
 name = "task-net"
@@ -177,6 +177,15 @@ uses = ["quadspi"]
 interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys", "hash_driver"]
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
 [tasks.sensor]
 name = "task-sensor"
 features = ["itm"]
@@ -211,6 +220,20 @@ stacksize = 4096
 start = true
 task-slots = ["net"]
 features = ["vlan"]
+
+[tasks.mgmt_gateway]
+name = "task-mgmt-gateway"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 1536
+start = true
+uses = [
+    "usart1",
+    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+]
+task-slots = ["jefe", "net", "update_server", "sys"]
+features = ["gimlet", "usart1", "vlan"]
+interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]
 name = "task-validate"
@@ -777,3 +800,10 @@ owner = {name = "udprpc", notification = 1}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.mgmt_gateway]
+kind = "udp"
+owner = {name = "mgmt_gateway", notification = 0b01}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }

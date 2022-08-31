@@ -85,6 +85,15 @@ task-slots = ["sys"]
 "i2c4.event" = 0b0000_1000
 "i2c4.error" = 0b0000_1000
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 2
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
 [tasks.hiffy]
 name = "task-hiffy"
 features = ["h753", "stm32h7", "itm", "i2c", "gpio", "spi"]
@@ -105,6 +114,18 @@ uses = ["eth", "eth_dma", "system_flash"]
 start = true
 interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", { spi_driver = "spi2_driver" }]
+
+[tasks.mgmt_gateway]
+name = "task-mgmt-gateway"
+priority = 4
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 1536
+start = true
+uses = [
+    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+]
+task-slots = ["jefe", "net", "update_server", "sys"]
+features = ["psc", "vlan"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -359,3 +380,10 @@ owner = {name = "udprpc", notification = 1}
 port = 998
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.mgmt_gateway]
+kind = "udp"
+owner = {name = "mgmt_gateway", notification = 0b01}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }

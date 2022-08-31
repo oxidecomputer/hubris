@@ -149,7 +149,7 @@ uses = [
     "system_flash", # TODO also used by `net`, both to read the stm32 uid
 ]
 task-slots = ["jefe", "net", "update_server", "sys"]
-features = ["usart1", "vlan"]
+features = ["gimlet", "usart1", "vlan"]
 interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]
