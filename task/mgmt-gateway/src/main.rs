@@ -212,7 +212,9 @@ impl UsartHandler {
 
         // Clean up / ringbuf debug log after transmitting.
         if n_transmitted > 0 {
-            ringbuf_entry!(Log::UsartTx { num_bytes: n_transmitted });
+            ringbuf_entry!(Log::UsartTx {
+                num_bytes: n_transmitted
+            });
             self.to_tx.drain_front(n_transmitted);
         }
         if self.to_tx.is_empty() {
@@ -264,7 +266,9 @@ impl UsartHandler {
         }
 
         if n_received > 0 {
-            ringbuf_entry!(Log::UsartRx { num_bytes: n_received });
+            ringbuf_entry!(Log::UsartRx {
+                num_bytes: n_received
+            });
             self.start_flush_timer_if_needed();
         }
     }
