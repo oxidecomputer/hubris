@@ -707,13 +707,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-auxflash-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-auxflash-server"
 version = "0.1.0"
 dependencies = [
+ "build-util",
+ "drv-auxflash-api",
  "drv-stm32h7-qspi",
  "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
  "stm32h7",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]

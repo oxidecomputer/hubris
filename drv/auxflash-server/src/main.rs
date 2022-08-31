@@ -5,6 +5,8 @@
 #![no_std]
 #![no_main]
 
+use drv_auxflash_api::AuxFlashError;
+use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use userlib::*;
 
 /* Gimlet uses SPI instead
@@ -100,8 +102,75 @@ fn main() -> ! {
     hl::sleep_for(10);
 
     // TODO: check the ID and make sure it's what we expect
+    let mut buffer = [0; idl::INCOMING_SIZE];
+    let mut server = ServerImpl { qspi };
 
     loop {
-        hl::sleep_for(1000);
+        idol_runtime::dispatch(&mut buffer, &mut server);
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct ServerImpl {
+    qspi: Qspi,
+}
+
+impl ServerImpl {
+    fn poll_for_write_complete(&self) {
+        loop {
+            let status = self.qspi.read_status();
+            if status & 1 == 0 {
+                // ooh we're done
+                break;
+            }
+        }
+    }
+
+    fn set_and_check_write_enable(&self) -> Result<(), AuxFlashError> {
+        self.qspi.write_enable();
+        let status = self.qspi.read_status();
+
+        if status & 0b10 == 0 {
+            // oh oh
+            return Err(AuxFlashError::WriteEnableFailed);
+        }
+        Ok(())
+    }
+}
+
+impl idl::InOrderAuxFlashImpl for ServerImpl {
+    fn read_id(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<[u8; 20], RequestError<AuxFlashError>> {
+        let mut idbuf = [0; 20];
+        self.qspi.read_id(&mut idbuf);
+        Ok(idbuf)
+    }
+
+    fn read_status(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u8, RequestError<AuxFlashError>> {
+        Ok(self.qspi.read_status())
+    }
+
+    fn bulk_erase(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        self.set_and_check_write_enable()?;
+        self.qspi.bulk_erase();
+        self.poll_for_write_complete();
+        Ok(())
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+mod idl {
+    use super::AuxFlashError;
+
+    include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
