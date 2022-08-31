@@ -1,0 +1,21 @@
+[package]
+name = "drv-auxflash-server"
+version = "0.1.0"
+authors = ["Matt Keeter <matt@oxide.computer>"]
+edition = "2021"
+
+[dependencies]
+stm32h7 = { version = "0.14", default-features = false }
+drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
+drv-stm32h7-qspi = {path = "../stm32h7-qspi", default-features = false}
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+
+[features]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-sys-api/h753", "drv-stm32h7-qspi/h753"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-auxflash-server"
+test = false
+bench = false

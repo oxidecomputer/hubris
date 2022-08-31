@@ -106,6 +106,17 @@ start = true
 uses = ["flash_controller", "bank2"]
 interrupts = {"flash_controller.irq" = 0b1}
 
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 2048}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+interrupts = {"quadspi.irq" = 1}
+stacksize = 1920
+task-slots = ["sys"]
+
 [tasks.net]
 name = "task-net"
 stacksize = 4640
