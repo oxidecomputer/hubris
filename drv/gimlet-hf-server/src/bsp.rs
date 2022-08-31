@@ -11,9 +11,7 @@ mod gimletlet_2;
 mod nucleo_h7x;
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board = "gimlet-a")] {
-        pub(crate) use gimlet_a::*;
-    } else if #[cfg(target_board = "gimlet-b")] {
+    if #[cfg(target_board = "gimlet-b")] {
         pub(crate) use gimlet_b::*;
     } else if #[cfg(target_board = "gemini-bu-1")] {
         pub(crate) use gemini_bu_1::*;
