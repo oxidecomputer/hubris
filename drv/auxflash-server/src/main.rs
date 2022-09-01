@@ -28,8 +28,29 @@ use drv_stm32h7_qspi::Qspi;
 use drv_stm32xx_sys_api as sys_api;
 
 task_slot!(SYS, sys);
-
 const QSPI_IRQ: u32 = 1;
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Simple handle which holds a `&Qspi` and allows us to implement `TlvcRead`
+#[derive(Copy, Clone)]
+struct QspiTlvcHandle<'a>(&'a Qspi);
+
+impl<'a> tlvc::TlvcRead for QspiTlvcHandle<'a> {
+    fn extent(&self) -> Result<u64, tlvc::TlvcReadError> {
+        // TODO this is hard-coded for the Sidecar rev A flash
+        Ok(1 << 24)
+    }
+    fn read_exact(
+        &self,
+        offset: u64,
+        dest: &mut [u8],
+    ) -> Result<(), tlvc::TlvcReadError> {
+        Ok(self.0.read_memory(offset.try_into().unwrap_lite(), dest))
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -102,6 +123,9 @@ fn main() -> ! {
     hl::sleep_for(10);
 
     // TODO: check the ID and make sure it's what we expect
+    //
+    // Gimlet is  MT25QU256ABA8E12
+    // Sidecar is S25FL128SAGMFIR01
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl { qspi };
 
@@ -156,14 +180,12 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(self.qspi.read_status())
     }
 
-    fn bulk_erase(
+    fn read_slot_chck(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<(), RequestError<AuxFlashError>> {
-        self.set_and_check_write_enable()?;
-        self.qspi.bulk_erase();
-        self.poll_for_write_complete();
-        Ok(())
+        slot: u32,
+    ) -> Result<[u32; 4], RequestError<AuxFlashError>> {
+        Ok([0; 4])
     }
 }
 

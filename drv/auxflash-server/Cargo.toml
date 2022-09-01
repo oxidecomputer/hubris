@@ -11,6 +11,7 @@ drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}
 
 num-traits = { version = "0.2.12", default-features = false }
 stm32h7 = { version = "0.14", default-features = false }
