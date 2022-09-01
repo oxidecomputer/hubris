@@ -1,0 +1,28 @@
+// Auxiliary Flash API
+
+Interface(
+    name: "AuxFlash",
+    ops: {
+        "read_id": (
+            reply: Result(
+                ok: "[u8; 20]",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "read_status": (
+            reply: Result(
+                ok: "u8",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "read_slot_chck": (
+            args: {
+                "slot": "u32",
+            },
+            reply: Result(
+                ok: "[u32; 4]",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+    }
+)
