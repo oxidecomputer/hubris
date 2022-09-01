@@ -138,14 +138,14 @@ start = true
 interrupts = {"eth.irq" = 0b1}
 task-slots = ["sys", "spi_driver" ]
 
-#[tasks.udpbroadcast]
-#name = "task-udpbroadcast"
-#priority = 4
-#max-sizes = {flash = 16384, ram = 8192}
-#stacksize = 2048
-#start = true
-#task-slots = ["net"]
-#features = ["vlan"]
+[tasks.udpbroadcast]
+name = "task-udpbroadcast"
+priority = 4
+max-sizes = {flash = 16384, ram = 8192}
+stacksize = 2048
+start = true
+task-slots = ["net"]
+features = ["vlan"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -286,12 +286,12 @@ port = 7
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
-#[config.net.sockets.broadcast]
-#kind = "udp"
-#owner = {name = "udpbroadcast", notification = 1}
-#port = 997
-#tx = { packets = 3, bytes = 1024 }
-#rx = { packets = 3, bytes = 1024 }
+[config.net.sockets.broadcast]
+kind = "udp"
+owner = {name = "udpbroadcast", notification = 1}
+port = 997
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.echo_slowly]
 kind = "udp"

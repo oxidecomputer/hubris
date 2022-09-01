@@ -46,7 +46,7 @@ fn main() -> ! {
             vid: vid_iter.next().unwrap(),
         };
 
-        hl::sleep_for(500);
+        hl::sleep_for(15_000);
         match net.send_packet(SOCKET, meta, &out[..]) {
             Ok(()) => UDP_BROADCAST_COUNT
                 .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
