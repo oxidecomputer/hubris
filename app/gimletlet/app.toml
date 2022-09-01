@@ -29,7 +29,8 @@ stacksize = 1536
 
 [tasks.jefe.config.allowed-callers]
 set_reset_reason = ["sys"]
-request_reset = ["hiffy", "mgmt_gateway"]
+#request_reset = ["hiffy", "mgmt_gateway"]
+request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
@@ -155,19 +156,19 @@ start = true
 task-slots = ["net", "busywait"]
 features = ["vlan"]
 
-[tasks.mgmt_gateway]
-name = "task-mgmt-gateway"
-priority = 4
-max-sizes = {flash = 32768, ram = 8192}
-stacksize = 1536
-start = true
-uses = [
-    "usart1",
-    "system_flash", # TODO also used by `net`, both to read the stm32 uid
-]
-task-slots = ["jefe", "net", "update_server", "sys"]
-features = ["gimlet", "usart1", "vlan"]
-interrupts = {"usart1.irq" = 0b10}
+#[tasks.mgmt_gateway]
+#name = "task-mgmt-gateway"
+#priority = 4
+#max-sizes = {flash = 32768, ram = 8192}
+#stacksize = 1536
+#start = true
+#uses = [
+#    "usart1",
+#    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+#]
+#task-slots = ["jefe", "net", "update_server", "sys"]
+#features = ["gimlet", "usart1", "vlan"]
+#interrupts = {"usart1.irq" = 0b10}
 
 [tasks.validate]
 name = "task-validate"
@@ -285,7 +286,8 @@ rx = { packets = 3, bytes = 1024 }
 
 [config.net.sockets.mgmt_gateway]
 kind = "udp"
-owner = {name = "mgmt_gateway", notification = 0b01}
+#owner = {name = "mgmt_gateway", notification = 0b01}
+owner = {name = "udpecho", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
