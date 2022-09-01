@@ -1,0 +1,13 @@
+[workspace]
+
+[package]
+name = "debug-net-client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.20", features = ["full"] }
+log = "0.4"
+env_logger = "0.9"
