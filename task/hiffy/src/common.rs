@@ -415,7 +415,7 @@ pub(crate) fn send_lease_write(
         return Err(Failure::FunctionError(code));
     }
 
-    Ok(nreply)
+    Ok(nreply + nlease)
 }
 
 #[cfg(feature = "spi")]
