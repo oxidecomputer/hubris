@@ -354,6 +354,8 @@ fn gpio_reset(
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
     crate::common::send,
+    crate::common::send_lease_read,
+    crate::common::send_lease_write,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]
