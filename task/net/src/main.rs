@@ -38,6 +38,7 @@ mod idl {
 }
 
 use core::sync::atomic::{AtomicU32, Ordering};
+use ringbuf::{ringbuf, ringbuf_entry};
 use zerocopy::AsBytes;
 
 #[cfg(feature = "h743")]
@@ -50,6 +51,19 @@ use drv_stm32xx_sys_api::Sys;
 use userlib::*;
 
 task_slot!(SYS, sys);
+
+ringbuf!(Trace, 16, Trace::None);
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Trace {
+    None,
+    WakeSocket {
+        now: u64,
+        socket: usize,
+        vlan: usize,
+        can_recv: bool,
+        can_send: bool,
+    },
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Configuration things!

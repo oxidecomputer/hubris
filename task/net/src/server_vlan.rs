@@ -24,6 +24,8 @@ use userlib::{sys_post, sys_refresh_task_id};
 use crate::generated::{self, SOCKET_COUNT, VLAN_COUNT, VLAN_RANGE};
 use crate::server::NetServer;
 use crate::{idl, ETH_IRQ, NEIGHBORS, WAKE_IRQ};
+use crate::{Trace, __RINGBUF};
+use ringbuf::ringbuf_entry;
 
 type NeighborStorage = Option<(IpAddress, Neighbor)>;
 
@@ -232,10 +234,20 @@ impl<'a> ServerImpl<'a> {
     /// if all of the (internal) VLAN sockets can receive a packet, since
     /// we don't know which VLAN it will write to.
     pub fn wake_sockets(&mut self) {
+        let now = userlib::sys_get_timer().now;
         for i in 0..SOCKET_COUNT {
             if (0..VLAN_COUNT).any(|v| {
                 let want_to_send = self.client_waiting_to_send[i];
                 let socket = self.get_socket_mut(i, v).unwrap();
+                if v == 0 {
+                    ringbuf_entry!(Trace::WakeSocket {
+                        now,
+                        socket: i,
+                        vlan: v,
+                        can_recv: socket.can_recv(),
+                        can_send: socket.can_send(),
+                    });
+                }
                 socket.can_recv() || (want_to_send && socket.can_send())
             }) {
                 let (task_id, notification) = generated::SOCKET_OWNERS[i];

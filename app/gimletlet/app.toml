@@ -79,6 +79,12 @@ max-sizes = {flash = 2048, ram = 1024}
 start = true
 task-slots = ["sys"]
 
+[tasks.busywait]
+name = "task-busywait"
+priority = 2
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+
 [tasks.pong]
 name = "task-pong"
 priority = 3
@@ -119,10 +125,12 @@ task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
-stacksize = 3800
+stacksize = 6000
+#stacksize = 4000
 priority = 3
 features = ["h753", "vlan", "gimletlet-nic"]
-max-sizes = {flash = 65536, ram = 32768, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
+#max-sizes = {flash = 65536, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
 uses = ["eth", "eth_dma", "system_flash"]
 start = true
@@ -136,6 +144,15 @@ max-sizes = {flash = 8192, ram = 8192}
 stacksize = 4096
 start = true
 task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.udpecho_slowly]
+name = "task-udpecho-slowly"
+priority = 4
+max-sizes = {flash = 8192, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net", "busywait"]
 features = ["vlan"]
 
 [tasks.mgmt_gateway]
@@ -256,6 +273,13 @@ vlan = { start = 0x301, count = 2 }
 kind = "udp"
 owner = {name = "udpecho", notification = 1}
 port = 7
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.echo_slowly]
+kind = "udp"
+owner = {name = "udpecho_slowly", notification = 1}
+port = 7777
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
 
