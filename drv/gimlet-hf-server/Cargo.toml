@@ -14,7 +14,6 @@ cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
 drv-gimlet-hf-api = {path = "../gimlet-hf-api"}
 drv-hash-api = {path = "../hash-api", default-features = false}
-cortex-m = { version = "0.7", features = ["inline-asm"] }
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 zerocopy = "0.6.1"
 
