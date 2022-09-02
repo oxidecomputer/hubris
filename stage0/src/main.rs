@@ -15,6 +15,8 @@ extern crate panic_halt;
 use cortex_m::peripheral::Peripherals;
 use cortex_m_rt::entry;
 
+#[cfg(feature = "dice")]
+mod dice;
 // FIXME Need to fixup the secure interface calls
 //mod hypo;
 mod image_header;
@@ -177,6 +179,9 @@ fn main() -> ! {
         Some(a) => a,
         None => panic!(),
     };
+
+    #[cfg(feature = "dice")]
+    dice::run(&imagea);
 
     unsafe {
         branch_to_image(imagea);

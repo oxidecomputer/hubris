@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
+dice = ["dice_crate", "digest", "salty", "sha3", "unwrap-lite"]
 tz_support = []
 
 [dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m-rt = "0.6.12"
+digest = { version = "0.10", optional = true }
 panic-semihosting = "0.5.3"
 lpc55_romapi = { path = "../drv/lpc55-romapi" }
 panic-halt = "0.2.0"
@@ -16,10 +18,20 @@ lpc55-pac = {version = "0.3.0", features = ["rt"]}
 ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 hmac = { version = "0.10.1", default-features = false }
-sha2 = { version = "0.9.2", default-features = false }
+salty = { version = "0.2", optional = true }
+sha3 = { version = "0.10", default-features = false, optional = true }
 zerocopy = "0.6.1"
-cfg-if = "1"
 abi = { path = "../sys/abi" }
+unwrap-lite = { path = "../lib/unwrap-lite", optional = true }
+nb = "1"
+
+# features & deps can't have the same name, using this method from:
+# https://github.com/RustCrypto/RSA/pull/41/files
+[dependencies.dice_crate]
+package = "dice"
+path = "../lib/dice"
+default-features = false
+optional = true
 
 [[bin]]
 name = "stage0"

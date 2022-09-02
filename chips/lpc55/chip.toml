@@ -46,6 +46,12 @@ size = 4096
 address = 0x4003A000
 size = 4096
 
+# this is the start of the USB SRAM AHB peripheral (0x4000 bytes total)
+# we appropriate this SRAM for passing DICE artifacts
+[dice_alias]
+address = 0x40100000
+size = 0x800
+
 [flash]
 address = 0x50034000
 size = 0x1000
