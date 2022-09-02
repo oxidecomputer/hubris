@@ -292,7 +292,7 @@ pub(crate) fn send_lease_read(
 
 ///
 /// Function to send an arbitrary message to an arbitrary task with a single
-/// read lease attached to the tail end of `rval` (shared with reply bytes)
+/// write lease attached to the tail end of `rval` (shared with reply bytes)
 ///
 /// arg2+n+2: Size of lease
 /// arg2+n+1: Number of reply bytes
