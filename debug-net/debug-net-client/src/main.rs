@@ -3,6 +3,7 @@ use std::net::SocketAddrV6;
 use std::time::Duration;
 use std::time::Instant;
 
+use log::error;
 use log::info;
 use tokio::net::UdpSocket;
 
@@ -26,7 +27,15 @@ async fn run_one(sock: &UdpSocket, addr: SocketAddrV6) {
 
     for i in 1..10 {
         info!("sending followup packet {i}");
-        sock.send_to(format!("data-{i}").as_bytes(), addr).await.unwrap();
+        loop {
+            match sock.send_to(format!("data-{i}").as_bytes(), addr).await {
+                Ok(_) => break,
+                Err(err) => {
+                    error!("failed to send: {err}");
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                }
+            }
+        }
         tokio::time::sleep(Duration::from_millis(300)).await;
     }
 
