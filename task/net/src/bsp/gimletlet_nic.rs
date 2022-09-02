@@ -65,9 +65,13 @@ impl Bsp {
             // Initialize the KSZ8463 (using SPI4_RESET, PB10)
             sys.gpio_init_reset_pulse(Port::B.pin(10), 10, 1).unwrap();
             let ksz8463 = Ksz8463::new(ksz8463_spi);
-            match ksz8463
-                .configure(ksz8463::Mode::Copper, ksz8463::VLanMode::Mandatory)
-            {
+
+            #[cfg(feature = "vlan")]
+            let vlan_mode = ksz8463::VLanMode::Mandatory;
+            #[cfg(not(feature = "vlan"))]
+            let vlan_mode = ksz8463::VLanMode::Optional;
+
+            match ksz8463.configure(ksz8463::Mode::Copper, vlan_mode) {
                 Err(err) => {
                     ringbuf_entry!(Trace::KszErr { err });
                     sleep_for(100);
