@@ -15,8 +15,12 @@ pub enum Functions {
 #[no_mangle]
 static HIFFY_FUNCTIONS: Option<&Functions> = None;
 
-pub(crate) static HIFFY_FUNCS: &[Function] =
-    &[crate::common::sleep, crate::common::send];
+pub(crate) static HIFFY_FUNCS: &[Function] = &[
+    crate::common::sleep,
+    crate::common::send,
+    crate::common::send_lease_read,
+    crate::common::send_lease_write,
+];
 
 pub(crate) fn trace_execute(_offset: usize, _op: hif::Op) {}
 
