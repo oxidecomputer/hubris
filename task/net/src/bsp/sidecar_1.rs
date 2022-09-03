@@ -68,7 +68,11 @@ impl Bsp {
             // SP_TO_EPE_RESET_L
             ksz8463_nrst: Port::A.pin(0),
             ksz8463_rst_type: mgmt::Ksz8463ResetSpeed::Normal,
+
+            #[cfg(feature = "vlan")]
             ksz8463_vlan_mode: ksz8463::VLanMode::Mandatory,
+            #[cfg(not(feature = "vlan"))]
+            ksz8463_vlan_mode: ksz8463::VLanMode::Optional,
 
             // SP_TO_PHY2_COMA_MODE_3V3
             vsc85x2_coma_mode: Some(Port::I.pin(15)),

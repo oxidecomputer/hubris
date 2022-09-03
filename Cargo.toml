@@ -30,6 +30,3 @@ path = "sys/userlib"
 [patch."https://github.com/oxidecomputer/hubris".abi]
 path = "sys/abi"
 
-[patch."https://github.com/oxidecomputer/idolatry"]
-idol = { git = "https://github.com/oxidecomputer/idolatry?ref=unfortunate_hack_to_workaround_cargo_issue_5478", branch = "reply-type-injection" }
-

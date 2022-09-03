@@ -1,0 +1,5 @@
+# lib-lpc55-usart
+
+This library wraps access to the lpc55 usart in the Read & Write traits from
+the embedded-hal crate. Additionally it provides some convenience functions
+for common operations.

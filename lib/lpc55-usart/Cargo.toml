@@ -1,0 +1,10 @@
+[package]
+name = "lib-lpc55-usart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+embedded-hal = "0.2"
+lpc55-pac = "0.3.0"
+nb = "1"
+unwrap-lite = { path = "../../lib/unwrap-lite" }

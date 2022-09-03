@@ -27,8 +27,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.jefe.config]
-reset-reason-owner = "sys"
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy"]
 
 [tasks.sys]
 name = "drv-stm32xx-sys"
