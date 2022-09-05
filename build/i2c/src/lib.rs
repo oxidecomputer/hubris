@@ -342,10 +342,13 @@ impl ConfigGenerator {
         writeln!(
             &mut s,
             r##"
+    #[allow(dead_code)]
+    pub const NCONTROLLERS: usize = {ncontrollers};
+
     use drv_stm32xx_i2c::I2cController;
 
-    pub fn controllers() -> [I2cController<'static>; {}] {{"##,
-            self.controllers.len()
+    pub fn controllers() -> [I2cController<'static>; {ncontrollers}] {{"##,
+            ncontrollers = self.controllers.len()
         )?;
 
         if !self.controllers.is_empty() {
@@ -489,10 +492,15 @@ impl ConfigGenerator {
         }
 
         let mut s = &mut self.output;
+        let mut nmuxedbuses = 0;
         let mut len = 0;
 
         for c in &self.controllers {
             for port in c.ports.values() {
+                if port.muxes.len() > 0 {
+                    nmuxedbuses += 1;
+                }
+
                 len += port.muxes.len();
             }
         }
@@ -500,6 +508,9 @@ impl ConfigGenerator {
         write!(
             &mut s,
             r##"
+    #[allow(dead_code)]
+    pub const NMUXEDBUSES: usize = {nmuxedbuses};
+
     use drv_stm32xx_i2c::I2cMux;
 
     pub fn muxes() -> [I2cMux<'static>; {}] {{"##,

@@ -38,35 +38,37 @@ impl I2cMuxDriver for Pca9548 {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        segment: Segment,
+        segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = ControlRegister(0);
 
-        match segment {
-            Segment::S1 => {
-                reg.set_channel0_enabled(true);
-            }
-            Segment::S2 => {
-                reg.set_channel1_enabled(true);
-            }
-            Segment::S3 => {
-                reg.set_channel2_enabled(true);
-            }
-            Segment::S4 => {
-                reg.set_channel3_enabled(true);
-            }
-            Segment::S5 => {
-                reg.set_channel4_enabled(true);
-            }
-            Segment::S6 => {
-                reg.set_channel5_enabled(true);
-            }
-            Segment::S7 => {
-                reg.set_channel6_enabled(true);
-            }
-            Segment::S8 => {
-                reg.set_channel7_enabled(true);
+        if let Some(segment) = segment {
+            match segment {
+                Segment::S1 => {
+                    reg.set_channel0_enabled(true);
+                }
+                Segment::S2 => {
+                    reg.set_channel1_enabled(true);
+                }
+                Segment::S3 => {
+                    reg.set_channel2_enabled(true);
+                }
+                Segment::S4 => {
+                    reg.set_channel3_enabled(true);
+                }
+                Segment::S5 => {
+                    reg.set_channel4_enabled(true);
+                }
+                Segment::S6 => {
+                    reg.set_channel5_enabled(true);
+                }
+                Segment::S7 => {
+                    reg.set_channel6_enabled(true);
+                }
+                Segment::S8 => {
+                    reg.set_channel7_enabled(true);
+                }
             }
         }
 

@@ -10,7 +10,7 @@
 use drv_i2c_api::ResponseCode;
 use drv_i2c_devices::at24csw080::{At24Csw080, EEPROM_SIZE};
 use drv_i2c_devices::tmp117::Tmp117;
-use idol_runtime::{LeaseBufWriter, Leased, LenLimit, RequestError, W};
+use idol_runtime::RequestError;
 use task_vpd_api::VpdError;
 use userlib::*;
 
@@ -72,7 +72,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
                 Err(err.into())
             }
 
-            Err(err) => {
+            Err(_) => {
                 return Err(VpdError::BadRead.into());
             }
 
@@ -106,7 +106,7 @@ impl idl::InOrderVpdImpl for ServerImpl {
                 Err(err.into())
             }
 
-            Err(err) => {
+            Err(_) => {
                 return Err(VpdError::BadWrite.into());
             }
 

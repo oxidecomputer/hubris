@@ -9,7 +9,6 @@
 use derive_idol_err::IdolError;
 use drv_i2c_api::ResponseCode;
 use userlib::*;
-use zerocopy::AsBytes;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum VpdError {

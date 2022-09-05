@@ -92,12 +92,13 @@ pub trait I2cMuxDriver {
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
-    /// Enable the specified segment on the specified mux
+    /// Enable the specified segment on the specified mux (or disable
+    /// all segments if None is explicitly specified as the segment)
     fn enable_segment(
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        segment: drv_i2c_api::Segment,
+        segment: Option<drv_i2c_api::Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 }
