@@ -133,6 +133,30 @@ impl At24Csw080 {
             .map_err(Into::into)
     }
 
+    /// Reads from the specified address directly into the specified slice.
+    ///
+    /// `addr` and `addr + buf.len()` must be below `EEPROM_SIZE`; otherwise
+    /// this function will return an error.
+    pub fn read_into(
+        &self,
+        addr: u16,
+        buf: &mut [u8],
+    ) -> Result<usize, Error> {
+        // Address validation
+        if addr >= EEPROM_SIZE || buf.len() >= u16::MAX as usize {
+            return Err(Error::InvalidAddress(addr));
+        }
+        let end_addr = addr.checked_add(buf.len() as u16).unwrap_or(u16::MAX);
+        if end_addr > EEPROM_SIZE {
+            return Err(Error::InvalidEndAddress(end_addr));
+        }
+
+        self.device
+            .eeprom(addr)
+            .read_reg_into(addr as u8, buf)
+            .map_err(Into::into)
+    }
+
     /// Writes a single byte to the EEPROM at the given address
     ///
     /// On success, sleeps for 5 ms (the EEPROM's write cycle time) before
