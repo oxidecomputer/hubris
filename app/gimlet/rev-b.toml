@@ -389,6 +389,208 @@ device = "pca9545"
 description = "U.2 IJ/FRUID mux"
 refdes = "U337"
 
+################################################################################
+# Sharkfins
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin A VPD"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin A hot swap controller"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin B VPD"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin B hot swap controller"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin C VPD"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin C hot swap controller"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin D VPD"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin D hot swap controller"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin E VPD"
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin E hot swap controller"
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin F VPD"
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin F hot swap controller"
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin G VPD"
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin G hot swap controller"
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin H VPD"
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin H hot swap controller"
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin I VPD"
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin I hot swap controller"
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin J VPD"
+refdes = "J215"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin J hot swap controller"
+refdes = "J215"
+removable = true
+
 [[config.i2c.devices]]
 bus = "m2"
 address = 0x73
