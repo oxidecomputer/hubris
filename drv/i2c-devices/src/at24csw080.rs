@@ -137,11 +137,7 @@ impl At24Csw080 {
     ///
     /// `addr` and `addr + buf.len()` must be below `EEPROM_SIZE`; otherwise
     /// this function will return an error.
-    pub fn read_into(
-        &self,
-        addr: u16,
-        buf: &mut [u8],
-    ) -> Result<usize, Error> {
+    pub fn read_into(&self, addr: u16, buf: &mut [u8]) -> Result<usize, Error> {
         // Address validation
         if addr >= EEPROM_SIZE || buf.len() >= u16::MAX as usize {
             return Err(Error::InvalidAddress(addr));

@@ -67,7 +67,7 @@ impl Tmp117 {
         let ee2 = self.read_reg(Register::EEPROM2)?;
         let ee3 = self.read_reg(Register::EEPROM3)?;
 
-        Ok([ ee1.0, ee1.1, ee2.0, ee2.1, ee3.0, ee3.1 ])
+        Ok([ee1.0, ee1.1, ee2.0, ee2.1, ee3.0, ee3.1])
     }
 }
 
