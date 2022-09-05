@@ -600,11 +600,30 @@ refdes = "J215"
 removable = true
 
 [[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "Gimlet VPD"
+refdes = "U615"
+
+[[config.i2c.devices]]
 bus = "m2"
 address = 0x73
 device = "pca9545"
 description = "M.2 mux"
 refdes = "U422"
+
+[[config.i2c.devices]]
+bus = "m2"
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan VPD"
+refdes = "J180"
+removable = true
 
 [[config.i2c.devices]]
 bus = "m2"
