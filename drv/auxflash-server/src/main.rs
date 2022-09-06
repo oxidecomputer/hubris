@@ -213,7 +213,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                     return Err(AuxFlashError::BadChckSize.into());
                 }
                 let mut out = [0; 32];
-                chunk.read_exact(0, &mut out);
+                chunk
+                    .read_exact(0, &mut out)
+                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
                 chck_expected = Some(out);
             } else if &chunk.header().tag == b"AUXI" {
                 let mut sha = Sha3_256::new();
@@ -221,7 +223,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 let mut i: u64 = 0;
                 while i < chunk.len() {
                     let amount = (chunk.len() - i).min(scratch.len() as u64);
-                    chunk.read_exact(i, &mut scratch[0..(amount as usize)]);
+                    chunk
+                        .read_exact(i, &mut scratch[0..(amount as usize)])
+                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
                     i += amount as u64;
                     sha.update(&scratch[0..(amount as usize)]);
                 }
@@ -253,7 +257,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mem_start = slot * SLOT_SIZE;
         let mem_end = mem_start + SLOT_SIZE;
 
-        self.set_and_check_write_enable();
+        self.set_and_check_write_enable()?;
         let mut addr = mem_start;
         while addr < mem_end {
             self.qspi.sector_erase(addr);
@@ -274,9 +278,27 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         data.read_range(0..data.len(), &mut buf[..data.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
+        self.set_and_check_write_enable()?;
+
         let addr = slot * SLOT_SIZE + offset;
         self.qspi.page_program(addr, &buf[..data.len()]);
         self.poll_for_write_complete();
+        Ok(())
+    }
+
+    fn read_slot_with_offset(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+        offset: u32,
+        dest: LenLimit<Leased<W, [u8]>, 256>,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        let mut buf = [0u8; 256];
+
+        let addr = slot * SLOT_SIZE + offset;
+        self.qspi.read_memory(addr, &mut buf[..dest.len()]);
+        dest.write_range(0..dest.len(), &mut buf[..dest.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         Ok(())
     }
 }

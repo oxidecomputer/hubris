@@ -52,5 +52,18 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "read_slot_with_offset": (
+            args: {
+                "slot": "u32",
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", write: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
     }
 )

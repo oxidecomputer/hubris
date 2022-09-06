@@ -8,7 +8,6 @@
 
 use derive_idol_err::IdolError;
 use userlib::*;
-use zerocopy::AsBytes;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
 pub enum AuxFlashError {
@@ -28,6 +27,8 @@ pub enum AuxFlashError {
     MultipleChck,
     /// The `CHCK` checksum disagrees with the actual slot data (`AUXI`)
     ChckMismatch,
+    /// Failed during a call to `ChunkHandle::read_exact`
+    ChunkReadFail,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
