@@ -11,17 +11,11 @@ use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
-/* Gimlet uses SPI instead
- *
- * SP_TO_FLASH_SPI_HOLD_N  PB8     GPIO
- * SP_TO_FLASH_SPI_CLK     PB13    SPI2_SCK
- * SP_TO_FLASH_SPI_MISO    PB14    SPI2_MISO
- * SP_TO_FLASH_SPI_MOSI    PB15    SPI2_MOSI
- * SP_TO_FLASH_SPI_CS      PB12    SPI2_NSS (or GPIO)
- * SP_TO_FLASH_SPI_WP_N    PB9     GPIO
- *
- * (This is `local_flash` in `gimlet/rev-b.toml`)
- */
+// XXX hard-coded for Sidecar
+const SLOT_COUNT: u32 = 16;
+
+// Generic across all machines
+const SLOT_SIZE: u32 = 1 << 20;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -44,7 +38,7 @@ struct SlotReader<'a> {
 impl<'a> TlvcRead for SlotReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
         // Hard-coded slot size of 1MiB
-        Ok(1 << 20)
+        Ok(SLOT_SIZE as u64)
     }
     fn read_exact(
         &self,
@@ -191,7 +185,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<u32, RequestError<AuxFlashError>> {
-        Ok(16) // XXX hard-coded for Sidecar
+        Ok(SLOT_COUNT)
     }
 
     fn read_slot_chck(
@@ -199,6 +193,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
     ) -> Result<[u8; 32], RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
         let handle = SlotReader {
             qspi: &self.qspi,
             base: slot * 1024 * 1024,
@@ -243,6 +240,44 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         } else {
             return Ok(chck_expected.unwrap());
         }
+    }
+
+    fn erase_slot(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
+        let mem_start = slot * SLOT_SIZE;
+        let mem_end = mem_start + SLOT_SIZE;
+
+        self.set_and_check_write_enable();
+        let mut addr = mem_start;
+        while addr < mem_end {
+            self.qspi.sector_erase(addr);
+            addr += 64 * 1024;
+            self.poll_for_write_complete();
+        }
+        Ok(())
+    }
+
+    fn write_slot_with_offset(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+        offset: u32,
+        data: LenLimit<Leased<R, [u8]>, 256>,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        let mut buf = [0u8; 256];
+        data.read_range(0..data.len(), &mut buf[..data.len()])
+            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+        let addr = slot * SLOT_SIZE + offset;
+        self.qspi.page_program(addr, &buf[..data.len()]);
+        self.poll_for_write_complete();
+        Ok(())
     }
 }
 

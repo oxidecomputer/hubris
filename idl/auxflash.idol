@@ -21,12 +21,34 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "erase_slot": (
+            args: {
+                "slot": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
         "read_slot_chck": (
             args: {
                 "slot": "u32",
             },
             reply: Result(
                 ok: "[u8; 32]",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "write_slot_with_offset": (
+            args: {
+                "slot": "u32",
+                "offset": "u32",
+            },
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
                 err: CLike("AuxFlashError"),
             ),
         ),

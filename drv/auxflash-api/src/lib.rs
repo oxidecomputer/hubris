@@ -16,6 +16,8 @@ pub enum AuxFlashError {
     ServerRestarted,
     TlvcReaderBeginFailed,
 
+    /// The requested slot exceeds the slot count
+    InvalidSlot,
     /// The `CHCK` block does not have 32 bytes of data
     BadChckSize,
     /// There is no `CHCK` block in this slot
