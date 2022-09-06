@@ -5,7 +5,7 @@ Interface(
     ops: {
         "read_id": (
             reply: Result(
-                ok: "[u8; 20]",
+                ok: "AuxFlashId",
                 err: CLike("AuxFlashError"),
             ),
         ),
@@ -35,7 +35,7 @@ Interface(
                 "slot": "u32",
             },
             reply: Result(
-                ok: "[u8; 32]",
+                ok: "AuxFlashChecksum",
                 err: CLike("AuxFlashError"),
             ),
         ),

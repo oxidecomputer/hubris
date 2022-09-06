@@ -31,4 +31,12 @@ pub enum AuxFlashError {
     ChunkReadFail,
 }
 
+#[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[repr(transparent)]
+pub struct AuxFlashId(pub [u8; 20]);
+
+#[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[repr(transparent)]
+pub struct AuxFlashChecksum(pub [u8; 32]);
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

@@ -5,7 +5,7 @@
 #![no_std]
 #![no_main]
 
-use drv_auxflash_api::AuxFlashError;
+use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
@@ -168,10 +168,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
     fn read_id(
         &mut self,
         _: &RecvMessage,
-    ) -> Result<[u8; 20], RequestError<AuxFlashError>> {
+    ) -> Result<AuxFlashId, RequestError<AuxFlashError>> {
         let mut idbuf = [0; 20];
         self.qspi.read_id(&mut idbuf);
-        Ok(idbuf)
+        Ok(AuxFlashId(idbuf))
     }
 
     fn read_status(
@@ -192,7 +192,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         slot: u32,
-    ) -> Result<[u8; 32], RequestError<AuxFlashError>> {
+    ) -> Result<AuxFlashChecksum, RequestError<AuxFlashError>> {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot.into());
         }
@@ -239,10 +239,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             return Err(AuxFlashError::MissingChck.into());
         } else if chck_actual.is_none() {
             return Err(AuxFlashError::MissingAuxi.into());
-        } else if chck_expected != chck_actual {
-            return Err(AuxFlashError::ChckMismatch.into());
+        //} else if chck_expected != chck_actual {
+        //    return Err(AuxFlashError::ChckMismatch.into());
         } else {
-            return Ok(chck_expected.unwrap());
+            return Ok(AuxFlashChecksum(chck_actual.unwrap()));
         }
     }
 
@@ -307,6 +307,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
 mod idl {
     use super::AuxFlashError;
+    use drv_auxflash_api::{AuxFlashChecksum, AuxFlashId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
