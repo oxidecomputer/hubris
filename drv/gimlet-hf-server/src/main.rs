@@ -202,7 +202,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.bulk_erase();
-        poll_for_write_complete(&self.qspi);
+        poll_for_write_complete(&self.qspi, Some(100));
         Ok(())
     }
 
@@ -221,7 +221,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
 
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.page_program(addr, &self.block[..data.len()]);
-        poll_for_write_complete(&self.qspi);
+        poll_for_write_complete(&self.qspi, None);
         Ok(())
     }
 
@@ -248,7 +248,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         self.check_muxed_to_sp()?;
         set_and_check_write_enable(&self.qspi)?;
         self.qspi.sector_erase(addr);
-        poll_for_write_complete(&self.qspi);
+        poll_for_write_complete(&self.qspi, Some(1));
         Ok(())
     }
 
@@ -387,12 +387,15 @@ fn set_and_check_write_enable(
     Ok(())
 }
 
-fn poll_for_write_complete(qspi: &Qspi) {
+fn poll_for_write_complete(qspi: &Qspi, sleep_between_polls: Option<u64>) {
     loop {
         let status = qspi.read_status();
         if status & 1 == 0 {
             // ooh we're done
             break;
+        }
+        if let Some(ticks) = sleep_between_polls {
+            hl::sleep_for(ticks);
         }
     }
 }
