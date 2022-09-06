@@ -7,6 +7,8 @@
 
 use drv_auxflash_api::AuxFlashError;
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use sha3::{Digest, Sha3_256};
+use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
 /* Gimlet uses SPI instead
@@ -34,19 +36,23 @@ const QSPI_IRQ: u32 = 1;
 
 /// Simple handle which holds a `&Qspi` and allows us to implement `TlvcRead`
 #[derive(Copy, Clone)]
-struct QspiTlvcHandle<'a>(&'a Qspi);
+struct SlotReader<'a> {
+    qspi: &'a Qspi,
+    base: u32,
+}
 
-impl<'a> tlvc::TlvcRead for QspiTlvcHandle<'a> {
-    fn extent(&self) -> Result<u64, tlvc::TlvcReadError> {
-        // TODO this is hard-coded for the Sidecar rev A flash
-        Ok(1 << 24)
+impl<'a> TlvcRead for SlotReader<'a> {
+    fn extent(&self) -> Result<u64, TlvcReadError> {
+        // Hard-coded slot size of 1MiB
+        Ok(1 << 20)
     }
     fn read_exact(
         &self,
         offset: u64,
         dest: &mut [u8],
-    ) -> Result<(), tlvc::TlvcReadError> {
-        Ok(self.0.read_memory(offset.try_into().unwrap_lite(), dest))
+    ) -> Result<(), TlvcReadError> {
+        let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
+        Ok(self.qspi.read_memory(addr, dest))
     }
 }
 
@@ -148,6 +154,7 @@ impl ServerImpl {
                 // ooh we're done
                 break;
             }
+            hl::sleep_for(10);
         }
     }
 
@@ -180,12 +187,62 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(self.qspi.read_status())
     }
 
+    fn slot_count(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        Ok(16) // XXX hard-coded for Sidecar
+    }
+
     fn read_slot_chck(
         &mut self,
         _: &RecvMessage,
         slot: u32,
-    ) -> Result<[u32; 4], RequestError<AuxFlashError>> {
-        Ok([0; 4])
+    ) -> Result<[u8; 32], RequestError<AuxFlashError>> {
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: slot * 1024 * 1024,
+        };
+        let mut reader = TlvcReader::begin(handle)
+            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
+
+        let mut chck_expected = None;
+        let mut chck_actual = None;
+        while let Ok(Some(chunk)) = reader.next() {
+            if &chunk.header().tag == b"CHCK" {
+                if chck_expected.is_some() {
+                    return Err(AuxFlashError::MultipleChck.into());
+                } else if chunk.len() != 32 {
+                    return Err(AuxFlashError::BadChckSize.into());
+                }
+                let mut out = [0; 32];
+                chunk.read_exact(0, &mut out);
+                chck_expected = Some(out);
+            } else if &chunk.header().tag == b"AUXI" {
+                let mut sha = Sha3_256::new();
+                let mut scratch = [0u8; 256];
+                let mut i: u64 = 0;
+                while i < chunk.len() {
+                    let amount = (chunk.len() - i).min(scratch.len() as u64);
+                    chunk.read_exact(i, &mut scratch[0..(amount as usize)]);
+                    i += amount as u64;
+                    sha.update(&scratch[0..(amount as usize)]);
+                }
+                let mut out = [0; 32];
+                let sha_out = sha.finalize();
+                out.copy_from_slice(sha_out.as_slice());
+                chck_actual = Some(out);
+            }
+        }
+        if chck_expected.is_none() {
+            return Err(AuxFlashError::MissingChck.into());
+        } else if chck_actual.is_none() {
+            return Err(AuxFlashError::MissingAuxi.into());
+        } else if chck_expected != chck_actual {
+            return Err(AuxFlashError::ChckMismatch.into());
+        } else {
+            return Ok(chck_expected.unwrap());
+        }
     }
 }
 

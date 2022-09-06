@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 5840}
+requires = {flash = 22776, ram = 6200}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -109,7 +109,7 @@ interrupts = {"flash_controller.irq" = 0b1}
 [tasks.auxflash]
 name = "drv-auxflash-server"
 priority = 3
-max-sizes = {flash = 16384, ram = 2048}
+max-sizes = {flash = 32768, ram = 2048}
 features = ["h753"]
 uses = ["quadspi"]
 start = true
