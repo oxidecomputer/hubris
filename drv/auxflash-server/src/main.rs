@@ -239,10 +239,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             return Err(AuxFlashError::MissingChck.into());
         } else if chck_actual.is_none() {
             return Err(AuxFlashError::MissingAuxi.into());
-        //} else if chck_expected != chck_actual {
-        //    return Err(AuxFlashError::ChckMismatch.into());
+        } else if chck_expected != chck_actual {
+            return Err(AuxFlashError::ChckMismatch.into());
         } else {
-            return Ok(AuxFlashChecksum(chck_actual.unwrap()));
+            return Ok(AuxFlashChecksum(chck_expected.unwrap()));
         }
     }
 
