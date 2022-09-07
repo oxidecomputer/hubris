@@ -38,6 +38,23 @@ struct RawConfig {
     config: Option<ordered_toml::Value>,
     #[serde(default)]
     secure_task: Option<String>,
+    auxflash: Option<AuxFlash>,
+}
+
+/// List of binary blobs to include in the auxiliary flash binary shipped with
+/// this image.  The auxiliary flash is used to offload storage of large
+/// configuration files (e.g. FPGA bitstreams)
+#[derive(Clone, Debug, Deserialize)]
+pub struct AuxFlash {
+    pub blobs: Vec<AuxFlashBlob>,
+}
+
+/// A single binary blob, encoded into the auxiliary flash file.
+#[derive(Clone, Debug, Deserialize)]
+pub struct AuxFlashBlob {
+    pub file: String,
+    pub compress: bool,
+    pub tag: String,
 }
 
 #[derive(Clone, Debug)]
@@ -60,6 +77,7 @@ pub struct Config {
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
     pub secure_task: Option<String>,
+    pub auxflash: Option<AuxFlash>,
 }
 
 impl Config {
@@ -123,6 +141,7 @@ impl Config {
             peripherals,
             extratext: toml.extratext,
             config: toml.config,
+            auxflash: toml.auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
             secure_task: toml.secure_task,

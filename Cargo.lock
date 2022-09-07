@@ -4012,7 +4012,7 @@ dependencies = [
 [[package]]
 name = "tlvc"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc.git#7f09138f8ccf994c77ddaf15baa6967889447856"
+source = "git+https://github.com/oxidecomputer/tlvc#7f09138f8ccf994c77ddaf15baa6967889447856"
 dependencies = [
  "byteorder",
  "crc",
@@ -4227,6 +4227,7 @@ dependencies = [
  "dunce",
  "filetime",
  "fnv",
+ "gnarle",
  "goblin",
  "indexmap",
  "lpc55_sign",
@@ -4237,8 +4238,10 @@ dependencies = [
  "scroll",
  "serde",
  "serde_json",
+ "sha3",
  "srec",
  "strsim",
+ "tlvc",
  "toml",
  "walkdir",
  "zerocopy",
