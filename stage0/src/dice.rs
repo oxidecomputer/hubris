@@ -72,11 +72,7 @@ pub fn run(image: &Image) {
         &deviceid_keypair,
     );
 
-    let alias_data = AliasData {
-        seed: alias_okm,
-        alias_cert,
-        deviceid_cert,
-    };
+    let alias_data = AliasData::new(alias_okm, alias_cert, deviceid_cert);
 
     handoff.store(&alias_data);
 }
