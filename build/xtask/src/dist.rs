@@ -619,6 +619,7 @@ fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
     data_to_tlvc(&blob.tag, &data)
 }
 
+/// Constructs an auxiliary flash image, based on RFD 311
 fn build_auxflash(aux: &AuxFlash) -> Result<Vec<u8>> {
     let mut auxi = vec![];
     for f in &aux.blobs {
