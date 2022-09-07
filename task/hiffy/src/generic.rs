@@ -10,6 +10,8 @@ pub struct Buffer(u8);
 pub enum Functions {
     Sleep(u16, u32),
     Send((Task, u16, Buffer, usize), u32),
+    SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
 }
 
 #[no_mangle]

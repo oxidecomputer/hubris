@@ -1631,21 +1631,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gemini-bu-rot"
-version = "0.1.0"
-dependencies = [
- "abi",
- "cfg-if",
- "cortex-m",
- "cortex-m-rt",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1894,7 +1879,7 @@ name = "hypocalls"
 version = "0.1.0"
 dependencies = [
  "abi",
- "lpc55_romapi",
+ "lpc55_flash",
  "num-derive",
  "num-traits",
  "serde",
@@ -2050,6 +2035,31 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "vcell",
+]
+
+[[package]]
+name = "lpc55-update-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "drv-update-api",
+ "hypocalls",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "lpc55_flash"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "drv-update-api",
+ "lpc55_romapi",
 ]
 
 [[package]]
@@ -2745,6 +2755,21 @@ dependencies = [
  "base64",
  "bitflags",
  "serde",
+]
+
+[[package]]
+name = "rot-carrier"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
 ]
 
 [[package]]
@@ -3472,6 +3497,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-secure"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "hypocalls",
+ "lpc55_flash",
+ "userlib",
+]
+
+[[package]]
 name = "task-sensor"
 version = "0.1.0"
 dependencies = [
@@ -3775,7 +3810,6 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "hubris-num-tasks",
- "hypocalls",
  "num-traits",
  "task-config",
  "test-api",
@@ -3797,20 +3831,6 @@ dependencies = [
  "panic-itm",
  "panic-semihosting",
  "stm32h7",
-]
-
-[[package]]
-name = "tests-gemini-bu-rot"
-version = "0.1.0"
-dependencies = [
- "cfg-if",
- "cortex-m",
- "cortex-m-rt",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
 ]
 
 [[package]]
@@ -3845,6 +3865,20 @@ dependencies = [
 [[package]]
 name = "tests-psc"
 version = "0.1.0"
+
+[[package]]
+name = "tests-rot-carrier"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
 
 [[package]]
 name = "tests-stm32f4"

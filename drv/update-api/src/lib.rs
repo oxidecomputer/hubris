@@ -42,6 +42,8 @@ pub enum UpdateError {
     BadImageType = 14,
     UpdateAlreadyFinished = 15,
     UpdateNotStarted = 16,
+    RunningImage = 17,
+    FlashError = 18,
 }
 
 pub mod stm32h7 {

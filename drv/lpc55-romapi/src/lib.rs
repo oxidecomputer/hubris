@@ -9,7 +9,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[repr(u32)]
-#[derive(Debug, FromPrimitive, PartialEq, Eq)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Clone, Copy)]
 pub enum FlashStatus {
     Success = 0,
     InvalidArg = 4,
@@ -131,7 +131,7 @@ struct Version1DriverInterface {
     flash_program: unsafe extern "C" fn(
         config: &mut FlashConfig,
         start: u32,
-        src: *mut u32,
+        src: *mut u8,
         length: u32,
     ) -> u32,
     /// flash_verify_erase: Verify that the region is actually erased
@@ -528,7 +528,7 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
 
 pub unsafe fn flash_write(
     addr: u32,
-    buffer: *mut u32,
+    buffer: *mut u8,
     len: u32,
 ) -> Result<(), FlashStatus> {
     //   XXX More validation of buffer?
