@@ -1530,6 +1530,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-transceivers-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "drv-fpga-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-transceivers-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-sidecar-front-io",
+ "drv-transceivers-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-update-api"
 version = "0.1.0"
 dependencies = [
@@ -2620,7 +2649,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/pmbus#9f5d86bfd04cbb6d7a7fcb38e00071c8b643f6f3"
+source = "git+https://github.com/oxidecomputer/pmbus#1907e4470c84f7dfd86e8ca9a910f97ce548076e"
 dependencies = [
  "anyhow",
  "convert_case 0.3.2",

@@ -265,6 +265,15 @@ impl FpgaUserDesign {
         Ok(v)
     }
 
+    pub fn read_bytes(
+        &self,
+        addr: impl Into<u16>,
+        data: &mut [u8],
+    ) -> Result<(), FpgaError> {
+        self.server
+            .user_design_read(self.device_index, addr.into(), data)
+    }
+
     pub fn write<T>(
         &self,
         op: WriteOp,
@@ -280,6 +289,16 @@ impl FpgaUserDesign {
             addr.into(),
             value.as_bytes(),
         )
+    }
+
+    pub fn write_bytes(
+        &self,
+        op: WriteOp,
+        addr: impl Into<u16>,
+        data: &[u8],
+    ) -> Result<(), FpgaError> {
+        self.server
+            .user_design_write(self.device_index, op, addr.into(), data)
     }
 }
 

@@ -16,6 +16,7 @@ zerocopy = "0.6.1"
 [features]
 controller = []
 phy_smi = ["vsc85xx", "vsc7448-pac"]
+transceivers = []
 
 [build-dependencies]
 build-fpga-regmap = {path = "../../build/fpga-regmap"}
