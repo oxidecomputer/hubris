@@ -11,6 +11,8 @@ use drv_hash_api::SHA256_SZ;
 use userlib::*;
 use zerocopy::AsBytes;
 
+pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+
 /// Errors that can be produced from the host flash server API.
 ///
 /// This enumeration doesn't include errors that result from configuration
