@@ -65,5 +65,11 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "scan_and_get_active_slot": (
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
     }
 )

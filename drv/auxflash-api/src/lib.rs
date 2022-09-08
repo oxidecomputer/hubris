@@ -35,6 +35,8 @@ pub enum AuxFlashError {
     AddressOverflow,
     /// The start address of a write command is not aligned to a page boundary
     UnalignedAddress,
+    /// There is no active slot
+    NoActiveSlot,
 }
 
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]

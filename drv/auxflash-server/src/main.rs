@@ -133,7 +133,7 @@ fn main() -> ! {
         qspi,
         active_slot: None,
     };
-    server.scan_for_active_slot();
+    let _ = server.scan_for_active_slot();
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -148,7 +148,7 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn scan_for_active_slot(&mut self)  {
+    fn scan_for_active_slot(&mut self) {
         self.active_slot = None;
         for i in 0..SLOT_COUNT {
             if let Ok(chck) = self.read_slot_checksum(i) {
@@ -187,7 +187,10 @@ impl ServerImpl {
         }
         Ok(())
     }
-    fn read_slot_checksum(&self, slot: u32) -> Result<AuxFlashChecksum, AuxFlashError> {
+    fn read_slot_checksum(
+        &self,
+        slot: u32,
+    ) -> Result<AuxFlashChecksum, AuxFlashError> {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot);
         }
@@ -368,6 +371,15 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             addr += amount;
         }
         Ok(())
+    }
+
+    fn scan_and_get_active_slot(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        self.scan_for_active_slot();
+        self.active_slot
+            .ok_or_else(|| AuxFlashError::NoActiveSlot.into())
     }
 }
 
