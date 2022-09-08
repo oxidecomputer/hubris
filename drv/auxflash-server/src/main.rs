@@ -129,7 +129,11 @@ fn main() -> ! {
     // Gimlet is  MT25QU256ABA8E12
     // Sidecar is S25FL128SAGMFIR01
     let mut buffer = [0; idl::INCOMING_SIZE];
-    let mut server = ServerImpl { qspi };
+    let mut server = ServerImpl {
+        qspi,
+        active_slot: None,
+    };
+    server.scan_for_active_slot();
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -140,9 +144,22 @@ fn main() -> ! {
 
 struct ServerImpl {
     qspi: Qspi,
+    active_slot: Option<u32>,
 }
 
 impl ServerImpl {
+    fn scan_for_active_slot(&mut self)  {
+        self.active_slot = None;
+        for i in 0..SLOT_COUNT {
+            if let Ok(chck) = self.read_slot_checksum(i) {
+                if chck == AUXI_CHECKSUM {
+                    self.active_slot = Some(i);
+                    break;
+                }
+            }
+        }
+    }
+
     /// Polls for the "Write Complete" flag.
     ///
     /// Sleep times are in ticks (typically milliseconds) and are somewhat
@@ -169,6 +186,68 @@ impl ServerImpl {
             return Err(AuxFlashError::WriteEnableFailed);
         }
         Ok(())
+    }
+    fn read_slot_checksum(&self, slot: u32) -> Result<AuxFlashChecksum, AuxFlashError> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot);
+        }
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: slot * SLOT_SIZE as u32,
+        };
+        let mut reader = TlvcReader::begin(handle)
+            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
+
+        let mut chck_expected = None;
+        let mut chck_actual = None;
+        while let Ok(Some(chunk)) = reader.next() {
+            if &chunk.header().tag == b"CHCK" {
+                if chck_expected.is_some() {
+                    return Err(AuxFlashError::MultipleChck);
+                } else if chunk.len() != 32 {
+                    return Err(AuxFlashError::BadChckSize);
+                }
+                let mut out = [0; 32];
+                chunk
+                    .read_exact(0, &mut out)
+                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
+                chck_expected = Some(out);
+            } else if &chunk.header().tag == b"AUXI" {
+                if chck_actual.is_some() {
+                    return Err(AuxFlashError::MultipleAuxi);
+                }
+
+                // Read data and calculate the checksum using a scratch buffer
+                let mut sha = Sha3_256::new();
+                let mut scratch = [0u8; 256];
+                let mut i: u64 = 0;
+                while i < chunk.len() {
+                    let amount = (chunk.len() - i).min(scratch.len() as u64);
+                    chunk
+                        .read_exact(i, &mut scratch[0..(amount as usize)])
+                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
+                    i += amount as u64;
+                    sha.update(&scratch[0..(amount as usize)]);
+                }
+                let sha_out = sha.finalize();
+
+                // Save the checksum in `chck_actual`
+                let mut out = [0; 32];
+                out.copy_from_slice(sha_out.as_slice());
+                chck_actual = Some(out);
+            }
+        }
+        match (chck_expected, chck_actual) {
+            (None, _) => Err(AuxFlashError::MissingChck),
+            (_, None) => Err(AuxFlashError::MissingChck),
+            (Some(a), Some(b)) => {
+                if a != b {
+                    Err(AuxFlashError::ChckMismatch)
+                } else {
+                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
+                }
+            }
+        }
     }
 }
 
@@ -201,66 +280,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
     ) -> Result<AuxFlashChecksum, RequestError<AuxFlashError>> {
-        if slot >= SLOT_COUNT {
-            return Err(AuxFlashError::InvalidSlot.into());
-        }
-        let handle = SlotReader {
-            qspi: &self.qspi,
-            base: slot * SLOT_SIZE as u32,
-        };
-        let mut reader = TlvcReader::begin(handle)
-            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
-
-        let mut chck_expected = None;
-        let mut chck_actual = None;
-        while let Ok(Some(chunk)) = reader.next() {
-            if &chunk.header().tag == b"CHCK" {
-                if chck_expected.is_some() {
-                    return Err(AuxFlashError::MultipleChck.into());
-                } else if chunk.len() != 32 {
-                    return Err(AuxFlashError::BadChckSize.into());
-                }
-                let mut out = [0; 32];
-                chunk
-                    .read_exact(0, &mut out)
-                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                chck_expected = Some(out);
-            } else if &chunk.header().tag == b"AUXI" {
-                if chck_actual.is_some() {
-                    return Err(AuxFlashError::MultipleAuxi.into());
-                }
-
-                // Read data and calculate the checksum using a scratch buffer
-                let mut sha = Sha3_256::new();
-                let mut scratch = [0u8; 256];
-                let mut i: u64 = 0;
-                while i < chunk.len() {
-                    let amount = (chunk.len() - i).min(scratch.len() as u64);
-                    chunk
-                        .read_exact(i, &mut scratch[0..(amount as usize)])
-                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                    i += amount as u64;
-                    sha.update(&scratch[0..(amount as usize)]);
-                }
-                let sha_out = sha.finalize();
-
-                // Save the checksum in `chck_actual`
-                let mut out = [0; 32];
-                out.copy_from_slice(sha_out.as_slice());
-                chck_actual = Some(out);
-            }
-        }
-        match (chck_expected, chck_actual) {
-            (None, _) => Err(AuxFlashError::MissingChck.into()),
-            (_, None) => Err(AuxFlashError::MissingChck.into()),
-            (Some(a), Some(b)) => {
-                if a != b {
-                    Err(AuxFlashError::ChckMismatch.into())
-                } else {
-                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
-                }
-            }
-        }
+        Ok(self.read_slot_checksum(slot)?)
     }
 
     fn erase_slot(
