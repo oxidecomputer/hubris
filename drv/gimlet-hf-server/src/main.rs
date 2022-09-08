@@ -95,7 +95,7 @@ fn main() -> ! {
     // TODO: If different flash parts are used on the same board name,
     // then hard-coding commands, capacity, and clocks will get us into
     // trouble. Someday we will need more flexability here.
-    let capacity = {
+    let log2_capacity = {
         let mut idbuf = [0; 20];
         qspi.read_id(&mut idbuf);
 
@@ -122,21 +122,20 @@ fn main() -> ! {
         }
     };
 
-    if capacity.is_none() {
+    if log2_capacity.is_none() {
         loop {
             // We are dead now.
             hl::sleep_for(1000);
         }
     }
-    let capacity = capacity.unwrap();
-    qspi.configure(cfg.clock, capacity);
+    let log2_capacity = log2_capacity.unwrap();
+    qspi.configure(cfg.clock, log2_capacity);
 
     let mut buffer = [0; idl::INCOMING_SIZE];
     let mut server = ServerImpl {
         qspi,
         block: [0; 256],
-        // Capacity is stored as log2 size
-        capacity: 1 << capacity,
+        capacity: 1 << log2_capacity,
         mux_state: HfMuxState::SP,
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
