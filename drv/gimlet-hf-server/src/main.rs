@@ -31,7 +31,7 @@ use stm32h7::stm32h753 as device;
 use drv_hash_api as hash_api;
 use drv_hash_api::SHA256_SZ;
 
-use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState};
+use drv_gimlet_hf_api::{HfDevSelect, HfError, HfMuxState, PAGE_SIZE_BYTES};
 
 task_slot!(SYS, sys);
 #[cfg(feature = "hash")]
@@ -135,6 +135,8 @@ fn main() -> ! {
     let mut server = ServerImpl {
         qspi,
         block: [0; 256],
+        // Capacity is stored as log2 size
+        capacity: 1 << capacity,
         mux_state: HfMuxState::SP,
         dev_state: HfDevSelect::Flash0,
         mux_select_pin: cfg.sp_host_mux_select,
@@ -149,6 +151,7 @@ fn main() -> ! {
 struct ServerImpl {
     qspi: Qspi,
     block: [u8; 256],
+    capacity: usize,
 
     /// Selects between the SP and SP3 talking to the QSPI flash
     mux_state: HfMuxState,
@@ -187,6 +190,13 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         Ok(idbuf)
     }
 
+    fn capacity(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<usize, RequestError<HfError>> {
+        Ok(self.capacity)
+    }
+
     fn read_status(
         &mut self,
         _: &RecvMessage,
@@ -210,7 +220,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         addr: u32,
-        data: LenLimit<Leased<R, [u8]>, 256>,
+        data: LenLimit<Leased<R, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
         // Read the entire data block into our address space.
@@ -229,7 +239,7 @@ impl idl::InOrderHostFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
         addr: u32,
-        dest: LenLimit<Leased<W, [u8]>, 256>,
+        dest: LenLimit<Leased<W, [u8]>, PAGE_SIZE_BYTES>,
     ) -> Result<(), RequestError<HfError>> {
         self.check_muxed_to_sp()?;
         self.qspi.read_memory(addr, &mut self.block[..dest.len()]);

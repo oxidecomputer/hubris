@@ -45,4 +45,16 @@ pub enum HfDevSelect {
     Flash1 = 1,
 }
 
+/// Size in bytes of a single page of data (i.e., the max length of slice we
+/// accept for `page_program()` and `read()`).
+// Note: There is no static check that this matches what's in our idl file in
+// terms of _client_ generation, but the server can use this constant in its
+// trait impl, which will produce a compile-time error if it doesn't match the
+// length in the idl file.
+pub const PAGE_SIZE_BYTES: usize = 256;
+
+/// Size in bytes of a single sector of data (i.e., the size of the data erased
+/// by a call to `sector_erase()`).
+pub const SECTOR_SIZE_BYTES: usize = 65_536;
+
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
