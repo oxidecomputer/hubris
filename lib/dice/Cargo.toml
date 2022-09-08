@@ -12,6 +12,7 @@ serde-big-array = "0.4"
 sha3 = { version = "0.10", default-features = false }
 unwrap-lite = { path = "../unwrap-lite" }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
+zerocopy = "0.6"
 
 [dependencies.salty]
 git = "https://github.com/oxidecomputer/salty"

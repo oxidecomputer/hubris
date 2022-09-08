@@ -698,6 +698,7 @@ dependencies = [
  "serde-big-array",
  "sha3",
  "unwrap-lite",
+ "zerocopy",
  "zeroize",
 ]
 

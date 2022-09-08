@@ -10,48 +10,17 @@
 // validity etc) are then removed.
 //
 // TODO: generate cert template DER from ASN.1 & text config
-#[allow(dead_code)]
+
+use core::ops::Range;
+
 pub const SIZE: usize = 608;
-#[allow(dead_code)]
-pub const SERIAL_NUMBER_START: usize = 15;
-#[allow(dead_code)]
-pub const SERIAL_NUMBER_END: usize = 16;
-#[allow(dead_code)]
-pub const ISSUER_SN_START: usize = 169;
-#[allow(dead_code)]
-pub const ISSUER_SN_END: usize = 181;
-#[allow(dead_code)]
-pub const SN_LENGTH: usize = 12;
-#[allow(dead_code)]
-pub const NOTBEFORE_START: usize = 185;
-#[allow(dead_code)]
-pub const NOTBEFORE_END: usize = 198;
-#[allow(dead_code)]
-pub const NOTBEFORE_LENGTH: usize = 13;
-#[allow(dead_code)]
-pub const SUBJECT_SN_START: usize = 357;
-#[allow(dead_code)]
-pub const SUBJECT_SN_END: usize = 369;
-#[allow(dead_code)]
-pub const PUB_START: usize = 381;
-#[allow(dead_code)]
-pub const PUB_END: usize = 413;
-#[allow(dead_code)]
-pub const SIG_START: usize = 544;
-#[allow(dead_code)]
-pub const SIG_END: usize = 608;
-#[allow(dead_code)]
-pub const SIGNDATA_START: usize = 4;
-#[allow(dead_code)]
-pub const SIGNDATA_END: usize = 534;
-#[allow(dead_code)]
-pub const SIGNDATA_LENGTH: usize = 530;
-#[allow(dead_code)]
-pub const FWID_START: usize = 502;
-#[allow(dead_code)]
-pub const FWID_END: usize = 534;
-#[allow(dead_code)]
-pub const FWID_LENGTH: usize = 32;
+pub const SERIAL_NUMBER_RANGE: Range<usize> = 15..16;
+pub const ISSUER_SN_RANGE: Range<usize> = 169..181;
+pub const SUBJECT_SN_RANGE: Range<usize> = 357..369;
+pub const PUB_RANGE: Range<usize> = 381..413;
+pub const SIG_RANGE: Range<usize> = 544..608;
+pub const SIGNDATA_RANGE: Range<usize> = 4..534;
+pub const FWID_RANGE: Range<usize> = 502..534;
 pub const CERT_TMPL: [u8; 608] = [
     0x30, 0x82, 0x02, 0x5c, 0x30, 0x82, 0x02, 0x0e, 0xa0, 0x03, 0x02, 0x01,
     0x02, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x30,
