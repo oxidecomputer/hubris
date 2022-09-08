@@ -14,6 +14,7 @@ use stm32h7::stm32h743 as device;
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
 
+use drv_qspi_api::Command;
 use userlib::{sys_irq_control, sys_recv_closed, TaskId};
 use zerocopy::AsBytes;
 
@@ -24,28 +25,6 @@ const FIFO_THRESH: usize = 16;
 pub struct Qspi {
     reg: &'static device::quadspi::RegisterBlock,
     interrupt: u32,
-}
-
-enum Command {
-    ReadStatusReg = 0x05,
-    WriteEnable = 0x06,
-    PageProgram = 0x12,
-    Read = 0x13,
-
-    // Note, There are multiple ReadId commands.
-    // Gimlet and Gemini's flash parts both respond to 0x9F.
-    // Gemini's does not respond to 0x9E (returns all zeros).
-    // TODO: Proper flash chip quirk support.
-    ReadId = 0x9F,
-
-    BulkErase = 0xC7,
-    SectorErase = 0xDC,
-}
-
-impl From<Command> for u8 {
-    fn from(c: Command) -> u8 {
-        c as u8
-    }
 }
 
 impl Qspi {
