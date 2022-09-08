@@ -46,7 +46,8 @@ impl<'a> TlvcRead for SlotReader<'a> {
         dest: &mut [u8],
     ) -> Result<(), TlvcReadError> {
         let addr: u32 = self.base + u32::try_from(offset).unwrap_lite();
-        Ok(self.qspi.read_memory(addr, dest))
+        self.qspi.read_memory(addr, dest);
+        Ok(())
     }
 }
 
@@ -236,13 +237,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             }
         }
         if chck_expected.is_none() {
-            return Err(AuxFlashError::MissingChck.into());
+            Err(AuxFlashError::MissingChck.into())
         } else if chck_actual.is_none() {
-            return Err(AuxFlashError::MissingAuxi.into());
+            Err(AuxFlashError::MissingAuxi.into())
         } else if chck_expected != chck_actual {
-            return Err(AuxFlashError::ChckMismatch.into());
+            Err(AuxFlashError::ChckMismatch.into())
         } else {
-            return Ok(AuxFlashChecksum(chck_expected.unwrap()));
+            Ok(AuxFlashChecksum(chck_expected.unwrap()))
         }
     }
 
@@ -257,9 +258,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         let mem_start = slot * SLOT_SIZE;
         let mem_end = mem_start + SLOT_SIZE;
 
-        self.set_and_check_write_enable()?;
         let mut addr = mem_start;
         while addr < mem_end {
+            self.set_and_check_write_enable()?;
             self.qspi.sector_erase(addr);
             addr += 64 * 1024;
             self.poll_for_write_complete();
@@ -276,18 +277,21 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
     ) -> Result<(), RequestError<AuxFlashError>> {
         let mut addr = (slot * SLOT_SIZE + offset) as usize;
         let end = addr as usize + data.len();
-        self.set_and_check_write_enable()?;
 
         // Write in 256-byte chunks to minimize stack size
         let mut buf = [0u8; 256];
+        let mut read = 0;
         while addr < end {
             let amount = (end - addr).min(buf.len());
-            data.read_range(0..amount, &mut buf[..amount])
+            data.read_range(read..(read + amount), &mut buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+
+            self.set_and_check_write_enable()?;
             self.qspi.page_program(addr as u32, &buf[..amount]);
+            self.poll_for_write_complete();
             addr += amount;
+            read += amount;
         }
-        self.poll_for_write_complete();
         Ok(())
     }
 
@@ -302,7 +306,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
         let addr = slot * SLOT_SIZE + offset;
         self.qspi.read_memory(addr, &mut buf[..dest.len()]);
-        dest.write_range(0..dest.len(), &mut buf[..dest.len()])
+        dest.write_range(0..dest.len(), &buf[..dest.len()])
             .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
         Ok(())
     }
