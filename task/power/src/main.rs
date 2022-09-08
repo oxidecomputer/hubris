@@ -15,6 +15,7 @@ use drv_i2c_devices::bmr491::*;
 use drv_i2c_devices::isl68224::*;
 use drv_i2c_devices::raa229618::*;
 use drv_i2c_devices::tps546b24a::*;
+use drv_i2c_devices::max5970::*;
 use task_sensor_api as sensor_api;
 use userlib::units::*;
 use userlib::*;
@@ -47,6 +48,7 @@ enum Device {
     Sys(Tps546B24A),
     HotSwap(Adm1272),
     Fan(Adm1272),
+    HotSwapIO(Max5970),
 }
 
 struct PowerController {
@@ -107,10 +109,10 @@ impl PowerController {
         match &self.device {
             Device::IBC(dev) => read_temperature(dev),
             Device::Core(dev) | Device::Mem(dev) => read_temperature(dev),
-            Device::MemVpp(_) => panic!(),
             Device::SerDes(dev) => read_temperature(dev),
             Device::Sys(dev) => read_temperature(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_temperature(dev),
+            _ => panic!(),
         }
     }
 
@@ -122,6 +124,8 @@ impl PowerController {
             Device::SerDes(dev) => read_current(dev),
             Device::Sys(dev) => read_current(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_current(dev),
+            Device::HotSwapIO(dev) => read_current(dev),
+            _ => panic!(),
         }
     }
 
@@ -133,6 +137,8 @@ impl PowerController {
             Device::SerDes(dev) => read_voltage(dev),
             Device::Sys(dev) => read_voltage(dev),
             Device::HotSwap(dev) | Device::Fan(dev) => read_voltage(dev),
+            Device::HotSwapIO(dev) => read_voltage(dev),
+            _ => panic!(),
         }
     }
 }
@@ -216,7 +222,7 @@ fn controllers() -> [PowerController; 13] {
 }
 
 #[cfg(target_board = "gimlet-b")]
-fn controllers() -> [PowerController; 15] {
+fn controllers() -> [PowerController; 19] {
     let task = I2C.get_task_id();
 
     [
@@ -235,6 +241,10 @@ fn controllers() -> [PowerController; 15] {
         rail_controller!(task, Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
+        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_m2a_a0hp, A0),
+        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_m2a_a0hp, A0),
+        rail_controller_notemp!(task, HotSwapIO, max5970, v12_u2_a0, A0),
+        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_u2_a0, A0),
     ]
 }
 

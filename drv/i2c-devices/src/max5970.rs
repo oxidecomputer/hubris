@@ -4,9 +4,10 @@
 
 //! Driver for the MAX5970 hot swap controller
 
-use crate::Validate;
+use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use userlib::*;
+use userlib::units::*;
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
@@ -218,11 +219,12 @@ pub enum Register {
 
 pub struct Max5970 {
     device: I2cDevice,
+    rail: u8,
 }
 
 impl Max5970 {
-    pub fn new(device: &I2cDevice) -> Self {
-        Self { device: *device }
+    pub fn new(device: &I2cDevice, rail: u8) -> Self {
+        Self { device: *device, rail: rail }
     }
 
     fn read_reg(&self, reg: Register) -> Result<u8, ResponseCode> {
@@ -232,8 +234,44 @@ impl Max5970 {
 
 impl Validate<ResponseCode> for Max5970 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device).read_reg(Register::cbuf_dly_stop)?;
+        let val = Max5970::new(device, 0).read_reg(Register::cbuf_dly_stop)?;
 
         Ok(val == 0x19)
+    }
+}
+
+impl VoltageSensor<ResponseCode> for Max5970 {
+    fn read_vout(&self) -> Result<Volts, ResponseCode> {
+        let (msb, lsb) = if self.rail == 0 {
+            (
+                self.read_reg(Register::adc_chx_mon_msb_ch1)?,
+                self.read_reg(Register::adc_chx_mon_lsb_ch1)?
+            )
+        } else {
+            (
+                self.read_reg(Register::adc_chx_mon_msb_ch2)?,
+                self.read_reg(Register::adc_chx_mon_lsb_ch2)?
+            )
+        };
+
+        Ok(Volts(((((msb as u16) << 2) | (lsb as u16)) as f32) / 64.0))
+    }
+}
+
+impl CurrentSensor<ResponseCode> for Max5970 {
+    fn read_iout(&self) -> Result<Amperes, ResponseCode> {
+        let (msb, lsb) = if self.rail == 0 {
+            (
+                self.read_reg(Register::adc_chx_cs_msb_ch1)?,
+                self.read_reg(Register::adc_chx_cs_lsb_ch1)?
+            )
+        } else {
+            (
+                self.read_reg(Register::adc_chx_cs_msb_ch2)?,
+                self.read_reg(Register::adc_chx_cs_lsb_ch2)?
+            )
+        };
+
+        Ok(Amperes(((((msb as u16) << 2) | (lsb as u16)) as f32) / 1024.0))
     }
 }

@@ -536,6 +536,8 @@ segment = 3
 address = 0b0111_000
 device = "max5970"
 description = "U.2 Sharkfin G hot swap controller"
+pmbus = { rails = [ "V12_U2_A0", "V3P3_U2_A0" ] }
+sensors = { voltage = 2, current = 2 }
 refdes = "J212"
 removable = true
 
@@ -676,6 +678,8 @@ bus = "mid"
 address = 0x3a
 device = "max5970"
 description = "M.2 hot plug controller"
+pmbus = { rails = [ "V3P3_M2A_A0HP", "V3P3_M2B_A0HP" ] }
+sensors = { voltage = 2, current = 2 }
 refdes = "U275"
 
 [[config.i2c.devices]]
