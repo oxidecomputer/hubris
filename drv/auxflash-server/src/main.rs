@@ -6,6 +6,7 @@
 #![no_main]
 
 use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
+use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
@@ -15,7 +16,7 @@ use userlib::*;
 const SLOT_COUNT: u32 = 16;
 
 // Generic across all machines
-const SLOT_SIZE: u32 = 1 << 20;
+const SLOT_SIZE: usize = 1 << 20;
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -205,7 +206,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
         let handle = SlotReader {
             qspi: &self.qspi,
-            base: slot * SLOT_SIZE,
+            base: slot * SLOT_SIZE as u32,
         };
         let mut reader = TlvcReader::begin(handle)
             .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
@@ -253,7 +254,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             (None, _) => Err(AuxFlashError::MissingChck.into()),
             (_, None) => Err(AuxFlashError::MissingChck.into()),
             (Some(a), Some(b)) => {
-                if a == b {
+                if a != b {
                     Err(AuxFlashError::ChckMismatch.into())
                 } else {
                     Ok(AuxFlashChecksum(chck_expected.unwrap()))
@@ -270,13 +271,16 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot.into());
         }
-        let mem_start = slot * SLOT_SIZE;
+        let mem_start = slot as usize * SLOT_SIZE;
         let mem_end = mem_start + SLOT_SIZE;
+        if mem_end > u32::MAX as usize {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
 
         let mut addr = mem_start;
         while addr < mem_end {
             self.set_and_check_write_enable()?;
-            self.qspi.sector_erase(addr);
+            self.qspi.sector_erase(addr as u32);
             addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1));
         }
@@ -290,19 +294,23 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if offset % PAGE_SIZE_BYTES != 0 {
+        if offset as usize % PAGE_SIZE_BYTES != 0 {
             return Err(AuxFlashError::UnalignedAddress.into());
-        } else if offset + data.len() as u32 > SLOT_SIZE {
+        } else if offset as usize + data.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
-        let mut addr = (slot * SLOT_SIZE + offset) as usize;
-        let end = addr as usize + data.len();
+        let mem_start = (slot as usize * SLOT_SIZE) + offset as usize;
+        let mem_end = mem_start + data.len();
+        if mem_end > u32::MAX as usize {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
 
         // The flash chip has a limited write buffer!
+        let mut addr = mem_start;
         let mut buf = [0u8; PAGE_SIZE_BYTES];
         let mut read = 0;
-        while addr < end {
-            let amount = (end - addr).min(buf.len());
+        while addr < mem_end {
+            let amount = (mem_end - addr).min(buf.len());
             data.read_range(read..(read + amount), &mut buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
 
@@ -322,12 +330,12 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if offset + dest.len() as u32 > SLOT_SIZE {
+        if offset as usize + dest.len() > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
 
-        let mut addr = (slot * SLOT_SIZE + offset) as usize;
-        let end = addr as usize + dest.len();
+        let mut addr = (slot as usize * SLOT_SIZE) + offset as usize;
+        let end = addr + dest.len();
 
         let mut write = 0;
         let mut buf = [0u8; 256];
