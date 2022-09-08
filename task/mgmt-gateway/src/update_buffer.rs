@@ -3,10 +3,20 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{Log, __RINGBUF};
-use core::marker::PhantomData;
 use gateway_messages::ResponseError;
 use ringbuf::ringbuf_entry;
 use userlib::UnwrapLite;
+
+/// Type alias for a callback function that writes a single block of data.
+pub type WriteBlockFn<T> = fn(
+    user_data: &T,
+    block_index: usize,
+    block_data: &[u8],
+) -> Result<(), ResponseError>;
+
+/// Type alias for a callback function that finalizes an update after all blocks
+/// have been successfully written.
+pub type FinalizeFn<T> = fn(user_data: &T) -> Result<(), ResponseError>;
 
 /// `UpdateBuffer` provides common logic for apply updates over the management
 /// network, assuming a common pattern of:
@@ -22,20 +32,15 @@ pub struct UpdateBuffer<T, const BLOCK_SIZE: usize> {
     bytes_written: usize,
     current_block: &'static mut heapless::Vec<u8, BLOCK_SIZE>,
     update_in_progress: bool,
-    write_block_fn: fn(&T, usize, &[u8]) -> Result<(), ResponseError>,
-    finalize_fn: fn(&T) -> Result<(), ResponseError>,
-    marker: PhantomData<fn() -> T>,
+    write_block_fn: WriteBlockFn<T>,
+    finalize_fn: FinalizeFn<T>,
 }
 
 impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
     pub fn new(
         buf: &'static mut heapless::Vec<u8, BLOCK_SIZE>,
-        write_block_fn: fn(
-            user_data: &T,
-            block_number: usize,
-            block_data: &[u8],
-        ) -> Result<(), ResponseError>,
-        finalize_fn: fn(user_data: &T) -> Result<(), ResponseError>,
+        write_block_fn: WriteBlockFn<T>,
+        finalize_fn: FinalizeFn<T>,
     ) -> Self {
         Self {
             total_length: 0,
@@ -44,7 +49,6 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
             update_in_progress: false,
             write_block_fn,
             finalize_fn,
-            marker: PhantomData,
         }
     }
 
