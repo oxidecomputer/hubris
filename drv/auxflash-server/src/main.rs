@@ -152,7 +152,7 @@ impl ServerImpl {
         self.active_slot = None;
         for i in 0..SLOT_COUNT {
             if let Ok(chck) = self.read_slot_checksum(i) {
-                if chck == AUXI_CHECKSUM {
+                if chck.0 == AUXI_CHECKSUM {
                     self.active_slot = Some(i);
                     break;
                 }
@@ -379,3 +379,5 @@ mod idl {
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }
+
+include!(concat!(env!("OUT_DIR"), "/checksum.rs"));

@@ -11,6 +11,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
+use crate::auxflash::{build_auxflash, AuxFlash};
+
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
 /// to load a second file containing peripheral register addresses.
@@ -41,22 +43,6 @@ struct RawConfig {
     auxflash: Option<AuxFlash>,
 }
 
-/// List of binary blobs to include in the auxiliary flash binary shipped with
-/// this image.  The auxiliary flash is used to offload storage of large
-/// configuration files (e.g. FPGA bitstreams)
-#[derive(Clone, Debug, Deserialize)]
-pub struct AuxFlash {
-    pub blobs: Vec<AuxFlashBlob>,
-}
-
-/// A single binary blob, encoded into the auxiliary flash file.
-#[derive(Clone, Debug, Deserialize)]
-pub struct AuxFlashBlob {
-    pub file: String,
-    pub compress: bool,
-    pub tag: String,
-}
-
 #[derive(Clone, Debug)]
 pub struct Config {
     pub name: String,
@@ -77,7 +63,7 @@ pub struct Config {
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
     pub secure_task: Option<String>,
-    pub auxflash: Option<AuxFlash>,
+    pub auxflash: Option<([u8; 32], Vec<u8>)>,
 }
 
 impl Config {
@@ -125,6 +111,13 @@ impl Config {
             toml.image_names
         };
 
+        // Build the auxiliary flash data so that we can inject it as an
+        // environmental variable in the build system.
+        let auxflash = match &toml.auxflash {
+            Some(a) => Some(build_auxflash(a)?),
+            None => None,
+        };
+
         Ok(Config {
             name: toml.name,
             target: toml.target,
@@ -141,7 +134,7 @@ impl Config {
             peripherals,
             extratext: toml.extratext,
             config: toml.config,
-            auxflash: toml.auxflash,
+            auxflash,
             buildhash,
             app_toml_path: cfg.to_owned(),
             secure_task: toml.secure_task,
@@ -214,6 +207,12 @@ impl Config {
             "HUBRIS_APP_TOML".to_string(),
             app_toml_path.to_str().unwrap().to_string(),
         );
+        if let Some((hash, _aux)) = &self.auxflash {
+            env.insert(
+                "HUBRIS_AUXFLASH_CHECKSUM".to_string(),
+                format!("{:?}", hash),
+            );
+        }
 
         // secure_separation indicates that we have TrustZone enabled.
         // When TrustZone is enabled, the bootloader is secure and hubris is

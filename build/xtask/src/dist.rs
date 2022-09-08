@@ -16,11 +16,10 @@ use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
-use sha3::{Digest, Sha3_256};
 use zerocopy::AsBytes;
 
 use crate::{
-    config::{AuxFlash, AuxFlashBlob, BuildConfig, Config},
+    config::{BuildConfig, Config},
     elf,
     sizes::load_task_size,
     task_slot,
@@ -575,66 +574,6 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Encode the given data as a tagged TLV-C chunk
-fn data_to_tlvc(tag: &str, data: &[u8]) -> Result<Vec<u8>> {
-    if tag.len() != 4 {
-        bail!("Tag must be a 4-byte value, not '{}'", tag);
-    }
-    let mut out = vec![];
-    let mut header = tlvc::ChunkHeader {
-        tag: tag.as_bytes().try_into().unwrap(),
-        len: 0.into(),
-        header_checksum: 0.into(),
-    };
-    out.extend(header.as_bytes());
-
-    let c = tlvc::compute_body_crc(data);
-
-    out.extend(data);
-    let body_len = out.len() - std::mem::size_of::<tlvc::ChunkHeader>();
-    let body_len = u32::try_from(body_len).unwrap();
-
-    // TLV-C requires the body to be padded to a multiple of four!
-    while out.len() & 0b11 != 0 {
-        out.push(0);
-    }
-    out.extend(c.to_le_bytes());
-
-    // Update the header.
-    header.len.set(body_len);
-    header.header_checksum.set(header.compute_checksum());
-
-    out[..std::mem::size_of::<tlvc::ChunkHeader>()]
-        .copy_from_slice(header.as_bytes());
-    Ok(out)
-}
-
-/// Packs a single blob into a TLV-C structure
-fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
-    let data = std::fs::read(&blob.file)
-        .with_context(|| format!("Could not read blob {}", blob.file))?;
-    let data = if blob.compress {
-        gnarle::compress_to_vec(&data)
-    } else {
-        data
-    };
-    data_to_tlvc(&blob.tag, &data)
-}
-
-/// Constructs an auxiliary flash image, based on RFD 311
-fn build_auxflash(aux: &AuxFlash) -> Result<Vec<u8>> {
-    let mut auxi = vec![];
-    for f in &aux.blobs {
-        auxi.extend(pack_blob(f)?);
-    }
-    let sha = Sha3_256::digest(&auxi);
-
-    let mut out = vec![];
-    out.extend(data_to_tlvc("CHCK", &sha)?);
-    out.extend(data_to_tlvc("AUXI", &auxi)?);
-    Ok(out)
-}
-
 fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     // Bundle everything up into an archive.
     let mut archive = Archive::new(
@@ -709,9 +648,8 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     )?;
 
     if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
-        let auxflash_data = build_auxflash(auxflash)?;
         let file = cfg.dist_file("auxi.tlvc");
-        std::fs::write(&file, auxflash_data)
+        std::fs::write(&file, &auxflash.1)
             .context(format!("Failed to write auxi to {:?}", file))?;
         archive.copy(&file, img_dir.join("auxi.tlvc"))?;
     }
