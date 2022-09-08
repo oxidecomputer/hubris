@@ -4,7 +4,7 @@
 
 use crate::{
     mgs_common::MgsCommon, vlan_id_from_sp_port, Log, MgsMessage, SYS,
-    TIMER_IRQ, USART_IRQ, __RINGBUF,
+    TIMER_IRQ, USART_IRQ,
 };
 use core::convert::Infallible;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -16,7 +16,7 @@ use gateway_messages::{
     UpdateStart,
 };
 use heapless::Deque;
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_net_api::{Address, UdpMetadata};
 use userlib::{sys_get_timer, sys_irq_control, sys_set_timer, UnwrapLite};
 
@@ -91,7 +91,7 @@ impl MgsHandler {
         };
 
         // We have data we want to flush and an attached MGS; build our packet.
-        ringbuf_entry!(Log::SerialConsoleSend {
+        ringbuf_entry_root!(Log::SerialConsoleSend {
             buffered: self.usart.from_rx.len(),
         });
 
@@ -140,7 +140,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
+            target
+        }));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -149,7 +151,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<BulkIgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -160,7 +162,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -200,7 +202,7 @@ impl SpHandler for MgsHandler {
         port: SpPort,
         component: SpComponent,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
 
         // Including a component in the serial console messages is half-baked at
         // the moment; we can at least check that it's the one component we
@@ -228,7 +230,7 @@ impl SpHandler for MgsHandler {
         mut offset: u64,
         mut data: &[u8],
     ) -> Result<u64, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -269,7 +271,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         self.attached_serial_console_mgs = None;
         Ok(())
     }
@@ -381,7 +383,7 @@ impl UsartHandler {
 
         // Clean up / ringbuf debug log after transmitting.
         if n_transmitted > 0 {
-            ringbuf_entry!(Log::UsartTx {
+            ringbuf_entry_root!(Log::UsartTx {
                 num_bytes: n_transmitted
             });
             self.to_tx.drain_front(n_transmitted);
@@ -389,14 +391,14 @@ impl UsartHandler {
         if self.to_tx.is_empty() {
             self.usart.disable_tx_fifo_empty_interrupt();
         } else {
-            ringbuf_entry!(Log::UsartTxFull {
+            ringbuf_entry_root!(Log::UsartTxFull {
                 remaining: self.to_tx.len()
             });
         }
 
         // Clear any errors.
         if self.usart.check_and_clear_rx_overrun() {
-            ringbuf_entry!(Log::UsartRxOverrun);
+            ringbuf_entry_root!(Log::UsartRxOverrun);
             // TODO-correctness Should we notify MGS of dropped data here? We
             // could increment `self.from_rx_offset`, but (a) we don't know how
             // much data we lost, and (b) it would indicate lost data in the
@@ -429,13 +431,13 @@ impl UsartHandler {
         // and log that fact locally via ringbuf.
         self.from_rx_offset += discarded_data;
         if discarded_data > 0 {
-            ringbuf_entry!(Log::UsartRxBufferDataDropped {
+            ringbuf_entry_root!(Log::UsartRxBufferDataDropped {
                 num_bytes: discarded_data
             });
         }
 
         if n_received > 0 {
-            ringbuf_entry!(Log::UsartRx {
+            ringbuf_entry_root!(Log::UsartRx {
                 num_bytes: n_received
             });
             self.start_flush_timer_if_needed();

@@ -2,14 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{update_buffer::UpdateBuffer, Log, MgsMessage, __RINGBUF};
+use crate::{update_buffer::UpdateBuffer, Log, MgsMessage};
 use core::convert::Infallible;
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
     DiscoverResponse, ResponseError, SpPort, SpState, UpdateChunk, UpdateStart,
 };
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 
 // TODO How are we versioning SP images? This is a placeholder.
 const VERSION: u32 = 1;
@@ -48,12 +48,12 @@ impl MgsCommon {
         &mut self,
         port: SpPort,
     ) -> Result<DiscoverResponse, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse { sp_port: port })
     }
 
     pub(crate) fn sp_state(&mut self) -> Result<SpState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SpState));
 
         // TODO Replace with the real serial number once it's available; for now
         // use the stm32 96-bit uid
@@ -77,7 +77,7 @@ impl MgsCommon {
         &mut self,
         update: UpdateStart,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateStart {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStart {
             length: update.total_size
         }));
 
@@ -97,7 +97,7 @@ impl MgsCommon {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             offset: chunk.offset,
         }));
 
@@ -108,7 +108,7 @@ impl MgsCommon {
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SysResetPrepare));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SysResetPrepare));
         self.reset_requested = true;
         Ok(())
     }

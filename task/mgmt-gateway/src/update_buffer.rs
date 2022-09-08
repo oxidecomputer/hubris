@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{Log, __RINGBUF};
+use crate::Log;
 use gateway_messages::ResponseError;
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use userlib::UnwrapLite;
 
 /// Type alias for a callback function that writes a single block of data.
@@ -140,9 +140,9 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
         // adding auth / code signing?
         if self.bytes_written == self.total_length {
             (self.finalize_fn)(user_data)?;
-            ringbuf_entry!(Log::UpdateComplete);
+            ringbuf_entry_root!(Log::UpdateComplete);
         } else {
-            ringbuf_entry!(Log::UpdatePartial {
+            ringbuf_entry_root!(Log::UpdatePartial {
                 bytes_written: self.bytes_written
             });
         }
