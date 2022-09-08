@@ -2,16 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::{update_buffer::UpdateBuffer, Log, MgsMessage};
 use core::convert::Infallible;
-
-use crate::{Log, MgsMessage, __RINGBUF};
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
     DiscoverResponse, ResponseError, SpPort, SpState, UpdateChunk, UpdateStart,
 };
-use ringbuf::ringbuf_entry;
-use userlib::UnwrapLite;
+use ringbuf::ringbuf_entry_root;
 
 // TODO How are we versioning SP images? This is a placeholder.
 const VERSION: u32 = 1;
@@ -19,8 +17,7 @@ const VERSION: u32 = 1;
 /// Provider of MGS handler logic common to all targets (gimlet, sidecar, psc).
 pub(crate) struct MgsCommon {
     update_task: Update,
-    // TODO: Make this non-`Option` and use new update abort APIs.
-    update_buf: Option<UpdateBuffer>,
+    update_buf: UpdateBuffer<Update, BLOCK_SIZE_BYTES>,
     reset_requested: bool,
 }
 
@@ -28,7 +25,21 @@ impl MgsCommon {
     pub(crate) fn claim_static_resources() -> Self {
         Self {
             update_task: Update::from(crate::UPDATE_SERVER.get_task_id()),
-            update_buf: None,
+            update_buf: UpdateBuffer::new(
+                claim_update_buffer_static(),
+                // callback to write one block
+                |update_task, block_index, data| {
+                    update_task
+                        .write_one_block(block_index, data)
+                        .map_err(|err| ResponseError::UpdateFailed(err as u32))
+                },
+                // callback to finalize after all blocks written
+                |update_task| {
+                    update_task
+                        .finish_image_update()
+                        .map_err(|err| ResponseError::UpdateFailed(err as u32))
+                },
+            ),
             reset_requested: false,
         }
     }
@@ -37,12 +48,12 @@ impl MgsCommon {
         &mut self,
         port: SpPort,
     ) -> Result<DiscoverResponse, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::Discovery));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::Discovery));
         Ok(DiscoverResponse { sp_port: port })
     }
 
     pub(crate) fn sp_state(&mut self) -> Result<SpState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SpState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SpState));
 
         // TODO Replace with the real serial number once it's available; for now
         // use the stm32 96-bit uid
@@ -66,26 +77,17 @@ impl MgsCommon {
         &mut self,
         update: UpdateStart,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateStart {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStart {
             length: update.total_size
         }));
 
-        if let Some(progress) = self.update_buf.as_ref() {
-            return Err(ResponseError::UpdateInProgress {
-                bytes_received: progress.bytes_written as u32,
-            });
-        }
+        self.update_buf.ensure_no_update_in_progress()?;
 
         self.update_task
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        // We can only call `claim_static_resources` once; we bail out above
-        // if `self.update_buf` is already `Some(_)`, and after we claim it
-        // here, we store that into `self.update_buf` (and never clear it).
-        let mut update_buffer = UpdateBuffer::claim_static_resources();
-        update_buffer.total_length = update.total_size as usize;
-        self.update_buf = Some(update_buffer);
+        self.update_buf.start(update.total_size as usize);
 
         Ok(())
     }
@@ -95,24 +97,18 @@ impl MgsCommon {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::UpdateChunk {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
             offset: chunk.offset,
         }));
 
-        let update_buf = self
-            .update_buf
-            .as_mut()
-            .ok_or(ResponseError::InvalidUpdateChunk)?;
-
-        update_buf.ingest_chunk(&self.update_task, chunk.offset, data)?;
-
-        Ok(())
+        self.update_buf
+            .ingest_chunk(&self.update_task, chunk.offset, data)
     }
 
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
         // TODO: Add some kind of auth check before performing a reset.
         // https://github.com/oxidecomputer/hubris/issues/723
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SysResetPrepare));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SysResetPrepare));
         self.reset_requested = true;
         Ok(())
     }
@@ -131,92 +127,6 @@ impl MgsCommon {
 
         // If `request_reset()` returns, something has gone very wrong.
         panic!()
-    }
-}
-
-struct UpdateBuffer {
-    total_length: usize,
-    bytes_written: usize,
-    current_block: &'static mut heapless::Vec<u8, BLOCK_SIZE_BYTES>,
-}
-
-impl UpdateBuffer {
-    fn claim_static_resources() -> Self {
-        Self {
-            total_length: 0,
-            bytes_written: 0,
-            current_block: claim_update_buffer_static(),
-        }
-    }
-
-    fn ingest_chunk(
-        &mut self,
-        update_task: &Update,
-        offset: u32,
-        mut data: &[u8],
-    ) -> Result<(), ResponseError> {
-        // Reject chunks that don't match our current progress.
-        if offset as usize != self.bytes_written {
-            return Err(ResponseError::UpdateInProgress {
-                bytes_received: self.bytes_written as u32,
-            });
-        }
-
-        // Reject chunks that would go past the total size we're expecting.
-        if self.bytes_written + data.len() > self.total_length {
-            return Err(ResponseError::InvalidUpdateChunk);
-        }
-
-        while !data.is_empty() {
-            let cap = self.current_block.capacity() - self.current_block.len();
-            assert!(cap > 0);
-            let to_copy = usize::min(cap, data.len());
-
-            let current_block_index = self.bytes_written / BLOCK_SIZE_BYTES;
-            self.current_block
-                .extend_from_slice(&data[..to_copy])
-                .unwrap_lite();
-            data = &data[to_copy..];
-            self.bytes_written += to_copy;
-
-            // If the block is full or this is the final block, send it to the
-            // update task.
-            if self.current_block.len() == self.current_block.capacity()
-                || self.bytes_written == self.total_length
-            {
-                let result = update_task
-                    .write_one_block(current_block_index, &self.current_block)
-                    .map_err(|err| ResponseError::UpdateFailed(err as u32));
-
-                // Unconditionally clear our block buffer after attempting to
-                // write the block.
-                let n = self.current_block.len();
-                self.current_block.clear();
-
-                // If writing this block failed, roll back our `bytes_written`
-                // counter to the beginning of the block we just tried to write.
-                if let Err(err) = result {
-                    self.bytes_written -= n;
-                    return Err(err);
-                }
-            }
-        }
-
-        // Finalizing the update is implicit (we finalize if we just wrote the
-        // last block). Should we make it explict somehow? Maybe that comes with
-        // adding auth / code signing?
-        if self.bytes_written == self.total_length {
-            update_task
-                .finish_image_update()
-                .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
-            ringbuf_entry!(Log::UpdateComplete);
-        } else {
-            ringbuf_entry!(Log::UpdatePartial {
-                bytes_written: self.bytes_written
-            });
-        }
-
-        Ok(())
     }
 }
 
