@@ -109,12 +109,12 @@ interrupts = {"flash_controller.irq" = 0b1}
 [tasks.auxflash]
 name = "drv-auxflash-server"
 priority = 3
-max-sizes = {flash = 32768, ram = 2048}
+max-sizes = {flash = 32768, ram = 4096}
 features = ["h753"]
 uses = ["quadspi"]
 start = true
 interrupts = {"quadspi.irq" = 1}
-stacksize = 1920
+stacksize = 2688
 task-slots = ["sys"]
 
 [tasks.net]

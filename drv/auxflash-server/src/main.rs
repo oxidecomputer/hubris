@@ -272,16 +272,21 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
         offset: u32,
-        data: LenLimit<Leased<R, [u8]>, 256>,
+        data: LenLimit<Leased<R, [u8]>, 2048>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        let mut buf = [0u8; 256];
-        data.read_range(0..data.len(), &mut buf[..data.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
-
+        let mut addr = (slot * SLOT_SIZE + offset) as usize;
+        let end = addr as usize + data.len();
         self.set_and_check_write_enable()?;
 
-        let addr = slot * SLOT_SIZE + offset;
-        self.qspi.page_program(addr, &buf[..data.len()]);
+        // Write in 256-byte chunks to minimize stack size
+        let mut buf = [0u8; 256];
+        while addr < end {
+            let amount = (end - addr).min(buf.len());
+            data.read_range(0..amount, &mut buf[..amount])
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            self.qspi.page_program(addr as u32, &buf[..amount]);
+            addr += amount;
+        }
         self.poll_for_write_complete();
         Ok(())
     }
