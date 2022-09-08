@@ -205,7 +205,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         }
         let handle = SlotReader {
             qspi: &self.qspi,
-            base: slot * 1024 * 1024,
+            base: slot * SLOT_SIZE,
         };
         let mut reader = TlvcReader::begin(handle)
             .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
@@ -225,6 +225,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                     .map_err(|_| AuxFlashError::ChunkReadFail)?;
                 chck_expected = Some(out);
             } else if &chunk.header().tag == b"AUXI" {
+                if chck_actual.is_some() {
+                    return Err(AuxFlashError::MultipleAuxi.into());
+                }
                 let mut sha = Sha3_256::new();
                 let mut scratch = [0u8; 256];
                 let mut i: u64 = 0;
@@ -242,14 +245,16 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 chck_actual = Some(out);
             }
         }
-        if chck_expected.is_none() {
-            Err(AuxFlashError::MissingChck.into())
-        } else if chck_actual.is_none() {
-            Err(AuxFlashError::MissingAuxi.into())
-        } else if chck_expected != chck_actual {
-            Err(AuxFlashError::ChckMismatch.into())
-        } else {
-            Ok(AuxFlashChecksum(chck_expected.unwrap()))
+        match (chck_expected, chck_actual) {
+            (None, _) => Err(AuxFlashError::MissingChck.into()),
+            (_, None) => Err(AuxFlashError::MissingChck.into()),
+            (Some(a), Some(b)) => {
+                if a == b {
+                    Err(AuxFlashError::ChckMismatch.into())
+                } else {
+                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
+                }
+            }
         }
     }
 
@@ -281,6 +286,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         data: LenLimit<Leased<R, [u8]>, 2048>,
     ) -> Result<(), RequestError<AuxFlashError>> {
+        if offset + data.len() as u32 > SLOT_SIZE {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
         let mut addr = (slot * SLOT_SIZE + offset) as usize;
         let end = addr as usize + data.len();
 
@@ -308,8 +316,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         offset: u32,
         dest: LenLimit<Leased<W, [u8]>, 256>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        let mut buf = [0u8; 256];
+        if offset + dest.len() as u32 > SLOT_SIZE {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
 
+        let mut buf = [0u8; 256];
         let addr = slot * SLOT_SIZE + offset;
         self.qspi.read_memory(addr, &mut buf[..dest.len()]);
         dest.write_range(0..dest.len(), &buf[..dest.len()])

@@ -582,21 +582,23 @@ fn data_to_tlvc(tag: &str, data: &[u8]) -> Result<Vec<u8>> {
     }
     let mut out = vec![];
     let mut header = tlvc::ChunkHeader {
-        tag: tag.bytes().collect::<Vec<u8>>().try_into().unwrap(),
+        tag: tag.as_bytes().try_into().unwrap(),
         len: 0.into(),
         header_checksum: 0.into(),
     };
     out.extend(header.as_bytes());
-    let c = tlvc::begin_body_crc();
-    let mut c = c.digest();
-    c.update(data);
+
+    let c = tlvc::compute_body_crc(data);
+
     out.extend(data);
     let body_len = out.len() - std::mem::size_of::<tlvc::ChunkHeader>();
     let body_len = u32::try_from(body_len).unwrap();
+
+    // TLV-C requires the body to be padded to a multiple of four!
     while out.len() & 0b11 != 0 {
         out.push(0);
     }
-    out.extend(c.finalize().to_le_bytes());
+    out.extend(c.to_le_bytes());
 
     // Update the header.
     header.len.set(body_len);
@@ -610,7 +612,7 @@ fn data_to_tlvc(tag: &str, data: &[u8]) -> Result<Vec<u8>> {
 /// Packs a single blob into a TLV-C structure
 fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
     let data = std::fs::read(&blob.file)
-        .context(format!("Could not read blob {}", blob.file))?;
+        .with_context(|| format!("Could not read blob {}", blob.file))?;
     let data = if blob.compress {
         gnarle::compress_to_vec(&data)
     } else {
@@ -625,12 +627,10 @@ fn build_auxflash(aux: &AuxFlash) -> Result<Vec<u8>> {
     for f in &aux.blobs {
         auxi.extend(pack_blob(f)?);
     }
-    let mut sha = Sha3_256::new();
-    sha.update(&auxi);
-    let sha_out = sha.finalize();
+    let sha = Sha3_256::digest(&auxi);
 
     let mut out = vec![];
-    out.extend(data_to_tlvc("CHCK", &sha_out)?);
+    out.extend(data_to_tlvc("CHCK", &sha)?);
     out.extend(data_to_tlvc("AUXI", &auxi)?);
     Ok(out)
 }

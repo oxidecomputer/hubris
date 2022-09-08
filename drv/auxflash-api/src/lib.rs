@@ -25,10 +25,14 @@ pub enum AuxFlashError {
     MissingAuxi,
     /// There is more than one `CHCK` block in this slot
     MultipleChck,
+    /// There is more than one `AUXI` block in this slot
+    MultipleAuxi,
     /// The `CHCK` checksum disagrees with the actual slot data (`AUXI`)
     ChckMismatch,
     /// Failed during a call to `ChunkHandle::read_exact`
     ChunkReadFail,
+    /// The end address of the read or write exceeds the slot boundaries
+    AddressOverflow,
 }
 
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
