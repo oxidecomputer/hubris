@@ -14,7 +14,10 @@ use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 mod cert;
-pub use crate::cert::{AliasCert, Cert, CertError, DeviceIdSelfCert};
+pub use crate::cert::{
+    AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdSelfCert,
+    DeviceIdSelfCertBuilder,
+};
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;
