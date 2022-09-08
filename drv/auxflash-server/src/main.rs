@@ -6,7 +6,7 @@
 #![no_main]
 
 use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
-use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R, W};
+use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
@@ -228,6 +228,8 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 if chck_actual.is_some() {
                     return Err(AuxFlashError::MultipleAuxi.into());
                 }
+
+                // Read data and calculate the checksum using a scratch buffer
                 let mut sha = Sha3_256::new();
                 let mut scratch = [0u8; 256];
                 let mut i: u64 = 0;
@@ -239,8 +241,10 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                     i += amount as u64;
                     sha.update(&scratch[0..(amount as usize)]);
                 }
-                let mut out = [0; 32];
                 let sha_out = sha.finalize();
+
+                // Save the checksum in `chck_actual`
+                let mut out = [0; 32];
                 out.copy_from_slice(sha_out.as_slice());
                 chck_actual = Some(out);
             }
@@ -273,7 +277,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         while addr < mem_end {
             self.set_and_check_write_enable()?;
             self.qspi.sector_erase(addr);
-            addr += 64 * 1024;
+            addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1));
         }
         Ok(())
@@ -284,16 +288,18 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
         offset: u32,
-        data: LenLimit<Leased<R, [u8]>, 2048>,
+        data: Leased<R, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        if offset + data.len() as u32 > SLOT_SIZE {
+        if offset % PAGE_SIZE_BYTES != 0 {
+            return Err(AuxFlashError::UnalignedAddress.into());
+        } else if offset + data.len() as u32 > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
         let mut addr = (slot * SLOT_SIZE + offset) as usize;
         let end = addr as usize + data.len();
 
-        // Write in 256-byte chunks to minimize stack size
-        let mut buf = [0u8; 256];
+        // The flash chip has a limited write buffer!
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
         let mut read = 0;
         while addr < end {
             let amount = (end - addr).min(buf.len());
@@ -314,17 +320,25 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
         slot: u32,
         offset: u32,
-        dest: LenLimit<Leased<W, [u8]>, 256>,
+        dest: Leased<W, [u8]>,
     ) -> Result<(), RequestError<AuxFlashError>> {
         if offset + dest.len() as u32 > SLOT_SIZE {
             return Err(AuxFlashError::AddressOverflow.into());
         }
 
+        let mut addr = (slot * SLOT_SIZE + offset) as usize;
+        let end = addr as usize + dest.len();
+
+        let mut write = 0;
         let mut buf = [0u8; 256];
-        let addr = slot * SLOT_SIZE + offset;
-        self.qspi.read_memory(addr, &mut buf[..dest.len()]);
-        dest.write_range(0..dest.len(), &buf[..dest.len()])
-            .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+        while addr < end {
+            let amount = (end - addr).min(buf.len());
+            self.qspi.read_memory(addr as u32, &mut buf[..amount]);
+            dest.write_range(write..(write + addr), &buf[..amount])
+                .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
+            write += amount;
+            addr += amount;
+        }
         Ok(())
     }
 }

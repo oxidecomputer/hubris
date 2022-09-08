@@ -45,7 +45,7 @@ Interface(
                 "offset": "u32",
             },
             leases: {
-                "data": (type: "[u8]", read: true, max_len: Some(2048)),
+                "data": (type: "[u8]", read: true),
             },
             reply: Result(
                 ok: "()",
@@ -58,7 +58,7 @@ Interface(
                 "offset": "u32",
             },
             leases: {
-                "data": (type: "[u8]", write: true, max_len: Some(256)),
+                "data": (type: "[u8]", write: true),
             },
             reply: Result(
                 ok: "()",

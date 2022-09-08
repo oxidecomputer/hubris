@@ -33,6 +33,8 @@ pub enum AuxFlashError {
     ChunkReadFail,
     /// The end address of the read or write exceeds the slot boundaries
     AddressOverflow,
+    /// The start address of a write command is not aligned to a page boundary
+    UnalignedAddress,
 }
 
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
