@@ -142,14 +142,20 @@ struct ServerImpl {
 }
 
 impl ServerImpl {
-    fn poll_for_write_complete(&self) {
+    /// Polls for the "Write Complete" flag.
+    ///
+    /// Sleep times are in ticks (typically milliseconds) and are somewhat
+    /// experimentally determined, see hubris#753 for details.
+    fn poll_for_write_complete(&self, sleep: Option<u64>) {
         loop {
             let status = self.qspi.read_status();
             if status & 1 == 0 {
                 // ooh we're done
                 break;
             }
-            hl::sleep_for(10);
+            if let Some(sleep) = sleep {
+                hl::sleep_for(sleep);
+            }
         }
     }
 
@@ -263,7 +269,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             self.set_and_check_write_enable()?;
             self.qspi.sector_erase(addr);
             addr += 64 * 1024;
-            self.poll_for_write_complete();
+            self.poll_for_write_complete(Some(1));
         }
         Ok(())
     }
@@ -288,7 +294,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
             self.set_and_check_write_enable()?;
             self.qspi.page_program(addr as u32, &buf[..amount]);
-            self.poll_for_write_complete();
+            self.poll_for_write_complete(None);
             addr += amount;
             read += amount;
         }
