@@ -101,7 +101,8 @@ impl MgsCommon {
             offset: chunk.offset,
         }));
 
-        self.update_buf.ingest_chunk(&self.update_task, chunk.offset, data)
+        self.update_buf
+            .ingest_chunk(&self.update_task, chunk.offset, data)
     }
 
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
