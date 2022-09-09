@@ -2815,8 +2815,7 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
+source = "git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
  "subtle",
