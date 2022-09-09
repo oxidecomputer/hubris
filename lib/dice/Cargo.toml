@@ -7,12 +7,15 @@ edition = "2021"
 hkdf = { version = "0.12", default-features = false }
 hubpack = "0.1"
 lpc55-pac = "0.3"
-salty = "0.2"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde-big-array = "0.4"
 sha3 = { version = "0.10", default-features = false }
 unwrap-lite = { path = "../unwrap-lite" }
 zeroize = { version = "1.5.7", default-features = false, features = ["zeroize_derive"] }
+
+[dependencies.salty]
+git = "https://github.com/oxidecomputer/salty"
+rev = "eb3c31858f631a7fb9934246c8efdef080d05726"
 
 [dev-dependencies]
 chrono = "0.4"
