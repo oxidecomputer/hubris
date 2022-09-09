@@ -134,6 +134,7 @@ fn main() -> ! {
         active_slot: None,
     };
     let _ = server.scan_for_active_slot();
+    let _ = server.ensure_redundancy();
 
     loop {
         idol_runtime::dispatch(&mut buffer, &mut server);
@@ -250,6 +251,60 @@ impl ServerImpl {
                     Ok(AuxFlashChecksum(chck_expected.unwrap()))
                 }
             }
+        }
+    }
+
+    /// Checks that the matched slot in this even/odd pair also has valid data.
+    ///
+    /// If not, writes the auxiliary data to the spare slot.
+    fn ensure_redundancy(&mut self) -> Result<(), AuxFlashError> {
+        self.scan_for_active_slot();
+        let active_slot =
+            self.active_slot.ok_or(AuxFlashError::NoActiveSlot)?;
+
+        let spare_slot = active_slot ^ 1;
+        let spare_checksum = self.read_slot_checksum(spare_slot);
+        if spare_checksum.map(|c| c.0) == Ok(AUXI_CHECKSUM) {
+            return Ok(());
+        }
+
+        // Find the length of data by finding the final TLV-C slot
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: active_slot * SLOT_SIZE as u32,
+        };
+        let mut reader = TlvcReader::begin(handle)
+            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
+        while let Ok(Some(..)) = reader.next() {
+            // Nothing to do here
+        }
+        let data_size = SLOT_SIZE - reader.remaining() as usize;
+
+        let mut buf = [0u8; PAGE_SIZE_BYTES];
+        let mut read_addr = active_slot as usize * SLOT_SIZE;
+        let mut write_addr = spare_slot as usize * SLOT_SIZE;
+        let read_end = read_addr + data_size;
+        while read_addr < read_end {
+            let amount = (read_end - read_addr).min(buf.len());
+
+            // Read from the active slot
+            self.qspi.read_memory(read_addr as u32, &mut buf[..amount]);
+
+            // Write back to the redundant slot
+            self.set_and_check_write_enable()?;
+            self.qspi.page_program(write_addr as u32, &buf[..amount]);
+            self.poll_for_write_complete(None);
+
+            read_addr += amount;
+            write_addr += amount;
+        }
+
+        // Confirm that the spare write worked
+        let spare_checksum = self.read_slot_checksum(spare_slot)?;
+        if spare_checksum.0 == AUXI_CHECKSUM {
+            Ok(())
+        } else {
+            Err(AuxFlashError::ChckMismatch)
         }
     }
 }
@@ -380,6 +435,15 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         self.scan_for_active_slot();
         self.active_slot
             .ok_or_else(|| AuxFlashError::NoActiveSlot.into())
+    }
+
+    fn ensure_redundancy(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        (self as &mut ServerImpl)
+            .ensure_redundancy()
+            .map_err(Into::into)
     }
 }
 

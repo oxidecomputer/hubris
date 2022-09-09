@@ -114,7 +114,7 @@ features = ["h753"]
 uses = ["quadspi"]
 start = true
 interrupts = {"quadspi.irq" = 1}
-stacksize = 2688
+stacksize = 3504
 task-slots = ["sys"]
 
 [tasks.net]

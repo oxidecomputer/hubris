@@ -4,24 +4,28 @@ Interface(
     name: "AuxFlash",
     ops: {
         "read_id": (
+            doc: "reads the chip ID from the auxiliary flash chip",
             reply: Result(
                 ok: "AuxFlashId",
                 err: CLike("AuxFlashError"),
             ),
         ),
         "slot_count": (
+            doc: "returns the number of slots in our auxiliary flash",
             reply: Result(
                 ok: "u32",
                 err: CLike("AuxFlashError"),
             ),
         ),
         "read_status": (
+            doc: "reads the auxiliary flash chip's status register",
             reply: Result(
                 ok: "u8",
                 err: CLike("AuxFlashError"),
             ),
         ),
         "erase_slot": (
+            doc: "erases the given slot",
             args: {
                 "slot": "u32",
             },
@@ -31,6 +35,7 @@ Interface(
             ),
         ),
         "read_slot_chck": (
+            doc: "reads and verifies the CHCK field in an auxiliary flash slot",
             args: {
                 "slot": "u32",
             },
@@ -40,6 +45,7 @@ Interface(
             ),
         ),
         "write_slot_with_offset": (
+            doc: "writes to a particular memory offset in a slot (must be a multiple of 256)",
             args: {
                 "slot": "u32",
                 "offset": "u32",
@@ -53,6 +59,7 @@ Interface(
             ),
         ),
         "read_slot_with_offset": (
+            doc: "reads from a particular memory offset in a slot (must be a multiple of 256)",
             args: {
                 "slot": "u32",
                 "offset": "u32",
@@ -66,8 +73,16 @@ Interface(
             ),
         ),
         "scan_and_get_active_slot": (
+            doc: "Searches for a slot with a checksum that matches the one in the Hubris image",
             reply: Result(
                 ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "ensure_redundancy": (
+            doc: "If necessary, flashes data from the active slot to the spare slot",
+            reply: Result(
+                ok: "()",
                 err: CLike("AuxFlashError"),
             ),
         ),
