@@ -2,14 +2,14 @@ name = "rot-carrier"
 target = "thumbv8m.main-none-eabihf"
 board = "rot-carrier-1"
 chip = "../../chips/lpc55"
-stacksize = 1024
 image-names = ["stage0"]
 external-images = ["a", "b"]
 
 [kernel]
 name = "stage0"
-requires = {flash = 0x4000, ram = 4096}
-features = []
+requires = {flash = 0x7000, ram = 8192}
+features = ["dice"]
+stacksize = 8000
 
 [tasks.idle]
 name = "task-idle"
