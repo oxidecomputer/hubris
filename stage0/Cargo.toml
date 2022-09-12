@@ -18,7 +18,6 @@ lpc55-pac = {version = "0.3.0", features = ["rt"]}
 ecdsa = { version = "0.12.4", default-features = false, features = ["der"] }
 p256 = { version = "0.9.0", default-features = false, features = ["ecdsa", "ecdsa-core"] }
 hmac = { version = "0.10.1", default-features = false }
-salty = { version = "0.2", optional = true }
 sha3 = { version = "0.10", default-features = false, optional = true }
 zerocopy = "0.6.1"
 abi = { path = "../sys/abi" }
@@ -31,6 +30,11 @@ nb = "1"
 package = "dice"
 path = "../lib/dice"
 default-features = false
+optional = true
+
+[dependencies.salty]
+git = "https://github.com/oxidecomputer/salty"
+rev = "eb3c31858f631a7fb9934246c8efdef080d05726"
 optional = true
 
 [[bin]]

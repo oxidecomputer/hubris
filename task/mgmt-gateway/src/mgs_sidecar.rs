@@ -4,13 +4,13 @@
 
 use core::convert::Infallible;
 
-use crate::{mgs_common::MgsCommon, Log, MgsMessage, __RINGBUF};
+use crate::{mgs_common::MgsCommon, Log, MgsMessage};
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
     DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
     SpComponent, SpPort, SpState, UpdateChunk, UpdateStart,
 };
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
 
 pub(crate) struct MgsHandler {
@@ -55,7 +55,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
+            target
+        }));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -64,7 +66,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<BulkIgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -75,7 +77,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -115,7 +117,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         _component: SpComponent,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -126,7 +128,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) -> Result<u64, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -138,7 +140,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 

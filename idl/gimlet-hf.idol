@@ -10,6 +10,14 @@ Interface(
                 err: CLike("HfError"),
             ),
         ),
+        "capacity": (
+            doc: "Return the flash capacity in bytes.",
+            args: {},
+            reply: Result(
+                ok: "usize",
+                err: CLike("HfError"),
+            ),
+        ),
         "read_status": (
             args: {},
             reply: Result(
