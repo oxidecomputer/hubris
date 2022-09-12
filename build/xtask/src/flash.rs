@@ -83,7 +83,7 @@ impl FlashConfig {
     //
     // Set the chip
     //
-    fn chip<'a>(&'a mut self, val: &str) -> &'a mut Self {
+    fn set_chip(&mut self, val: &str) -> &mut Self {
         self.chip = Some(val.to_string());
         self
     }
@@ -197,7 +197,7 @@ pub fn config(
         }
     };
 
-    flash.chip(chip_name(board)?);
+    flash.set_chip(chip_name(board)?);
 
     Ok(Some(flash))
 }
