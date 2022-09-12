@@ -1,5 +1,5 @@
 [package]
-name = "drv-stm32h7-i2c-server"
+name = "drv-stm32xx-i2c-server"
 version = "0.1.0"
 edition = "2018"
 
@@ -9,10 +9,11 @@ userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf"}
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32xx-sys-api = {path = "../stm32xx-sys-api", default-features = false}
-drv-stm32h7-i2c = {path = "../stm32h7-i2c", default-features = false }
+drv-stm32xx-i2c = {path = "../stm32xx-i2c", default-features = false }
 drv-i2c-api = {path = "../i2c-api"}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"
+stm32g0 = { git = "https://github.com/oxidecomputer/stm32-rs-nightlies", branch = "stm32g0b1-update", default-features = false, optional = true }
 stm32h7 = { version = "0.14", default-features = false }
 
 [build-dependencies]
@@ -22,14 +23,16 @@ anyhow = "1.0.31"
 cfg-if = "1"
 
 [features]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
-itm = [ "userlib/log-itm" ]
+h743 = ["stm32h7/stm32h743", "drv-stm32xx-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
+g031 = ["stm32g0/stm32g031", "drv-stm32xx-i2c/g031", "drv-stm32xx-sys-api/g031",
+"build-i2c/g031", "ringbuf/disabled"]
+itm = []
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.
 [[bin]]
-name = "drv-stm32h7-i2c-server"
+name = "drv-stm32xx-i2c-server"
 test = false
 bench = false
 

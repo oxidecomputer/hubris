@@ -144,26 +144,28 @@ impl I2cMuxDriver for Ltc4306 {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        segment: Segment,
+        segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg3 = Register3(0);
 
-        match segment {
-            Segment::S1 => {
-                reg3.set_bus1_connected(true);
-            }
-            Segment::S2 => {
-                reg3.set_bus2_connected(true);
-            }
-            Segment::S3 => {
-                reg3.set_bus3_connected(true);
-            }
-            Segment::S4 => {
-                reg3.set_bus4_connected(true);
-            }
-            _ => {
-                return Err(ResponseCode::SegmentNotFound);
+        if let Some(segment) = segment {
+            match segment {
+                Segment::S1 => {
+                    reg3.set_bus1_connected(true);
+                }
+                Segment::S2 => {
+                    reg3.set_bus2_connected(true);
+                }
+                Segment::S3 => {
+                    reg3.set_bus3_connected(true);
+                }
+                Segment::S4 => {
+                    reg3.set_bus4_connected(true);
+                }
+                _ => {
+                    return Err(ResponseCode::SegmentNotFound);
+                }
             }
         }
 

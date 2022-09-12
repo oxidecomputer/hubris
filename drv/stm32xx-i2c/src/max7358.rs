@@ -195,35 +195,37 @@ impl I2cMuxDriver for Max7358 {
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        segment: Segment,
+        segment: Option<Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), ResponseCode> {
         let mut reg = SwitchControl(0);
 
-        match segment {
-            Segment::S1 => {
-                reg.set_channel0_selected(true);
-            }
-            Segment::S2 => {
-                reg.set_channel1_selected(true);
-            }
-            Segment::S3 => {
-                reg.set_channel2_selected(true);
-            }
-            Segment::S4 => {
-                reg.set_channel3_selected(true);
-            }
-            Segment::S5 => {
-                reg.set_channel4_selected(true);
-            }
-            Segment::S6 => {
-                reg.set_channel5_selected(true);
-            }
-            Segment::S7 => {
-                reg.set_channel6_selected(true);
-            }
-            Segment::S8 => {
-                reg.set_channel7_selected(true);
+        if let Some(segment) = segment {
+            match segment {
+                Segment::S1 => {
+                    reg.set_channel0_selected(true);
+                }
+                Segment::S2 => {
+                    reg.set_channel1_selected(true);
+                }
+                Segment::S3 => {
+                    reg.set_channel2_selected(true);
+                }
+                Segment::S4 => {
+                    reg.set_channel3_selected(true);
+                }
+                Segment::S5 => {
+                    reg.set_channel4_selected(true);
+                }
+                Segment::S6 => {
+                    reg.set_channel5_selected(true);
+                }
+                Segment::S7 => {
+                    reg.set_channel6_selected(true);
+                }
+                Segment::S8 => {
+                    reg.set_channel7_selected(true);
+                }
             }
         }
 

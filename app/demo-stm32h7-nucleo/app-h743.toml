@@ -42,7 +42,7 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
-name = "drv-stm32h7-i2c-server"
+name = "drv-stm32xx-i2c-server"
 features = ["h743"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}

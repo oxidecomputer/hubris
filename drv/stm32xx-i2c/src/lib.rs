@@ -2,7 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! A driver for the STM32H7 I2C interface
+//! A driver for the STM32 I2C interface found in a variety of parts,
+//! including (for our purposes) the H7 and G0.
 
 #![no_std]
 
@@ -21,10 +22,13 @@ pub type RegisterBlock = device::i2c3::RegisterBlock;
 #[cfg(feature = "h7b3")]
 pub type Isr = device::i2c3::isr::R;
 
-#[cfg(any(feature = "h743", feature = "h753"))]
+#[cfg(feature = "g031")]
+use stm32g0::stm32g031 as device;
+
+#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
 pub type RegisterBlock = device::i2c1::RegisterBlock;
 
-#[cfg(any(feature = "h743", feature = "h753"))]
+#[cfg(any(feature = "h743", feature = "h753", feature = "g031"))]
 pub type Isr = device::i2c1::isr::R;
 
 pub mod ltc4306;
@@ -88,12 +92,13 @@ pub trait I2cMuxDriver {
         sys: &sys_api::Sys,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 
-    /// Enable the specified segment on the specified mux
+    /// Enable the specified segment on the specified mux (or disable
+    /// all segments if None is explicitly specified as the segment)
     fn enable_segment(
         &self,
         mux: &I2cMux,
         controller: &I2cController,
-        segment: drv_i2c_api::Segment,
+        segment: Option<drv_i2c_api::Segment>,
         ctrl: &I2cControl,
     ) -> Result<(), drv_i2c_api::ResponseCode>;
 }
@@ -275,8 +280,27 @@ impl<'a> I2cController<'a> {
                     .scldel().bits(scldel)
                     .sdadel().bits(0)
                 });
+            } else if #[cfg(feature = "g031")] {
+                // On the G0, our APB peripheral clock is 16MHz, yielding:
+                //
+                // - A PRESC of 0, yielding a t_presc of 62 ns
+                // - An SCLH of 61, yielding a t_sclh of 3844 ns
+                // - An SCLL of 91, yielding a t_scll of 5704 ns
+                //
+                // Taken together, this yields a t_scl of 9548 ns.  Which,
+                // when added to our t_sync1 and t_sync2 will be close to our
+                // target of 10000 ns.  Finally, we set SCLDEL to 3 and SDADEL
+                // to 0 -- values that come from the STM32CubeMX tool (as
+                // advised by 47.4.5).
+                i2c.timingr.write(|w| { w
+                    .presc().bits(0)
+                    .sclh().bits(61)
+                    .scll().bits(91)
+                    .scldel().bits(3)
+                    .sdadel().bits(0)
+                });
             } else {
-                compile_error!("unknown STM32H7 variant");
+                compile_error!("unknown STM32xx variant");
             }
         }
     }
@@ -290,7 +314,7 @@ impl<'a> I2cController<'a> {
             //
             // We want our t_timeout to be at least 25 ms: on h743 with a 10 ns
             // t_i2cclk this yields 1219.7 (1220); on h7b3, this is 3416.9
-            // (3417).
+            // (3417); on g031, this is 195.88 (196).
             //
             if #[cfg(any(feature = "h743", feature = "h753"))] {
                 i2c.timeoutr.write(|w| { w
@@ -304,6 +328,14 @@ impl<'a> I2cController<'a> {
                     .timeouta().bits(3417)          // Timeout value
                     .tidle().clear_bit()            // Want SCL, not IDLE
                 });
+            } else if #[cfg(feature = "g031")] {
+                i2c.timeoutr.write(|w| { w
+                    .timouten().set_bit()           // Enable SCL timeout
+                    .timeouta().bits(196)           // Timeout value
+                    .tidle().clear_bit()            // Want SCL, not IDLE
+                });
+            } else {
+                compile_error!("unknown STM32xx variant");
             }
         }
     }

@@ -8,7 +8,7 @@
 #![no_main]
 
 use drv_i2c_api::*;
-use drv_stm32h7_i2c::*;
+use drv_stm32xx_i2c::*;
 use drv_stm32xx_sys_api::{OutputType, Pull, Speed, Sys};
 
 use fixedmap::*;
@@ -77,30 +77,79 @@ fn configure_mux(
     muxes: &[I2cMux],
     ctrl: &I2cControl,
 ) -> Result<(), ResponseCode> {
+    //
+    // If we aren't doing an operation to a segment on a mux and we have had a
+    // mux+segment enabled on this bus, we explicitly disable all segments on
+    // the formerly enabled mux.  On the one hand, this shouldn't be strictly
+    // necessarily (we generally design I2C addresses o avoid conflicts with
+    // enabled segments), but on the other, we want to minimize the ability of
+    // a bad component on a mux'd segment (e.g., a FRU) to wreak havoc
+    // elsewhere in the system -- especially because the failure mode of an
+    // (errant) address conflict can be pretty brutal.
+    //
+    if mux.is_none() {
+        if let Some(current) = map.get((controller.controller, port)) {
+            find_mux(controller, port, muxes, Some(current), |old, _, _| {
+                old.driver.enable_segment(old, controller, None, ctrl)
+            })?;
+
+            map.remove((controller.controller, port));
+        }
+
+        return Ok(());
+    }
+
     find_mux(controller, port, muxes, mux, |mux, id, segment| {
         // Determine if the current segment matches our specified segment...
-        if let Some(current) = map.get(id) {
-            if current == segment {
+        if let Some(current) = map.get((controller.controller, port)) {
+            if current.0 == id && current.1 == segment {
                 return Ok(());
             }
 
+            if current.0 != id {
+                //
+                // We are switching away from the old mux.  We need to find
+                // it and disable all segments on it.
+                //
+                find_mux(
+                    controller,
+                    port,
+                    muxes,
+                    Some(current),
+                    |old, _, _| {
+                        old.driver.enable_segment(old, controller, None, ctrl)
+                    },
+                )?;
+            }
+
             // Beyond this point, we want any failure to set our new
-            // segment to leave our segment unset rather than having
-            // it point to the old segment.
-            map.remove(id);
+            // mux+segment to leave our mux+segment unset rather than having
+            // it point to the old mux+segment.
+            map.remove((controller.controller, port));
         }
 
         // If we're here, our mux is valid, but the current segment is
         // not the specfied segment; we will now call upon our
         // driver to enable this segment.
-        mux.driver.enable_segment(mux, controller, segment, ctrl)?;
-        map.insert(id, segment);
+        mux.driver
+            .enable_segment(mux, controller, Some(segment), ctrl)?;
+        map.insert((controller.controller, port), (id, segment));
 
         Ok(())
     })
 }
 
-ringbuf!(Option<ResponseCode>, 16, None);
+#[derive(Copy, Clone, PartialEq)]
+enum Trace {
+    Trace,
+    Reset(Controller, PortIndex),
+    ResetMux(Mux),
+    SegmentFailed(ResponseCode),
+    ConfigureFailed(ResponseCode),
+    None,
+}
+
+ringbuf!(Trace, 8, Trace::None);
 
 fn reset_if_needed(
     code: ResponseCode,
@@ -109,8 +158,6 @@ fn reset_if_needed(
     muxes: &[I2cMux],
     mux: Option<(Mux, Segment)>,
 ) {
-    ringbuf_entry!(Some(code));
-
     match code {
         ResponseCode::BusLocked
         | ResponseCode::BusLockedMux
@@ -123,6 +170,8 @@ fn reset_if_needed(
         }
     }
 
+    ringbuf_entry!(Trace::Reset(controller.controller, port));
+
     let sys = SYS.get_task_id();
     let sys = Sys::from(sys);
 
@@ -130,17 +179,22 @@ fn reset_if_needed(
     controller.reset();
 
     // And now reset the mux, eating any errors.
-    let _ = find_mux(controller, port, muxes, mux, |mux, _, _| {
-        ringbuf_entry!(None);
+    let _ = find_mux(controller, port, muxes, mux, |mux, id, _| {
+        ringbuf_entry!(Trace::ResetMux(id));
         mux.driver.reset(mux, &sys)?;
         Ok(())
     });
 }
 
-type PortMap = FixedMap<Controller, PortIndex, 8>;
-type MuxMap = FixedMap<Mux, Segment, 4>;
-
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
+
+type PortMap = FixedMap<Controller, PortIndex, { i2c_config::NCONTROLLERS }>;
+
+type MuxMap = FixedMap<
+    (Controller, PortIndex),
+    (Mux, Segment),
+    { i2c_config::NMUXEDBUSES },
+>;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -200,6 +254,7 @@ fn main() -> ! {
                 ) {
                     Ok(_) => {}
                     Err(code) => {
+                        ringbuf_entry!(Trace::Trace);
                         reset_if_needed(code, controller, port, &muxes, mux);
                         return Err(code);
                     }
@@ -250,6 +305,7 @@ fn main() -> ! {
                     &ctrl,
                 ) {
                     Err(code) => {
+                        ringbuf_entry!(Trace::Trace);
                         reset_if_needed(code, controller, port, &muxes, mux);
                         Err(code)
                     }
@@ -378,10 +434,22 @@ fn configure_muxes(
         loop {
             match mux.driver.configure(mux, controller, &sys, ctrl) {
                 Ok(_) => {
+                    //
+                    // We are going to attempt to disable all segments -- but
+                    // we are also going to need to eat the error here if
+                    // we get one:  it's possible that the mux itself is
+                    // powered off.
+                    //
+                    if let Err(code) =
+                        mux.driver.enable_segment(mux, controller, None, ctrl)
+                    {
+                        ringbuf_entry!(Trace::SegmentFailed(code));
+                    }
+
                     break;
                 }
                 Err(code) => {
-                    ringbuf_entry!(Some(code));
+                    ringbuf_entry!(Trace::ConfigureFailed(code));
                     reset_if_needed(code, controller, mux.port, muxes, None);
                 }
             }

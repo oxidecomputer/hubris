@@ -10,3 +10,34 @@ size = 0x2000
 address = 0x40013800
 size = 1024
 interrupts = { irq = 27 }
+
+[i2c1]
+address = 0x40005400
+size = 1024
+interrupts = { irq = 23 }
+
+[i2c2]
+address = 0x40005800
+size = 1024
+interrupts = { irq = 24 }
+
+[i2c3]
+address = 0x40008800
+size = 1024
+interrupts = { irq = 24 }
+
+[spi1]
+address = 0x40013000
+size = 1024
+interrupts = { irq = 25 }
+
+[spi2]
+address = 0x40003800
+size = 1024
+interrupts = { irq = 26 }
+
+[spi3]
+address = 0x40003c00
+size = 1024
+interrupts = { irq = 26 }
+

@@ -11,7 +11,7 @@ use userlib::{hl::sleep_for, FromPrimitive, ToPrimitive};
 use zerocopy::{AsBytes, FromBytes};
 
 /// Number of bytes stored in the EEPROM
-const EEPROM_SIZE: u16 = 1024;
+pub const EEPROM_SIZE: u16 = 1024;
 
 /// Wait time after performing a write
 const WRITE_TIME_MS: u64 = 5;
@@ -130,6 +130,26 @@ impl At24Csw080 {
         self.device
             .eeprom(addr)
             .read_reg(addr as u8)
+            .map_err(Into::into)
+    }
+
+    /// Reads from the specified address directly into the specified slice.
+    ///
+    /// `addr` and `addr + buf.len()` must be below `EEPROM_SIZE`; otherwise
+    /// this function will return an error.
+    pub fn read_into(&self, addr: u16, buf: &mut [u8]) -> Result<usize, Error> {
+        // Address validation
+        if addr >= EEPROM_SIZE || buf.len() >= u16::MAX as usize {
+            return Err(Error::InvalidAddress(addr));
+        }
+        let end_addr = addr.checked_add(buf.len() as u16).unwrap_or(u16::MAX);
+        if end_addr > EEPROM_SIZE {
+            return Err(Error::InvalidEndAddress(end_addr));
+        }
+
+        self.device
+            .eeprom(addr)
+            .read_reg_into(addr as u8, buf)
             .map_err(Into::into)
     }
 

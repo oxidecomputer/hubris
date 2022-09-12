@@ -1,0 +1,38 @@
+// VPD server IPC interface
+
+Interface(
+    name: "Vpd",
+    ops: {
+        "read_tmp117_eeprom": (
+            doc: "Read tmp117 EEPROM",
+            args: {
+                "index": "u8",
+            },
+            reply: Result(
+                ok: "[u8; 6]",
+                err: CLike("VpdError"),
+            ),
+        ),
+        "read": (
+            args: {
+                "index": "u8",
+                "offset": "u16",
+            },
+            reply: Result(
+                ok: "[u8; 16]",
+                err: CLike("VpdError"),
+            ),
+        ),
+        "write": (
+            args: {
+                "index": "u8",
+                "offset": "u16",
+                "contents": "u8",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("VpdError"),
+            ),
+        ),
+    },
+)

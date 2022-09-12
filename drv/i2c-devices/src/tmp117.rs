@@ -61,6 +61,14 @@ impl Tmp117 {
             Err(code) => Err(Error::BadRegisterRead { reg, code }),
         }
     }
+
+    pub fn read_eeprom(&self) -> Result<[u8; 6], Error> {
+        let ee1 = self.read_reg(Register::EEPROM1)?;
+        let ee2 = self.read_reg(Register::EEPROM2)?;
+        let ee3 = self.read_reg(Register::EEPROM3)?;
+
+        Ok([ee1.0, ee1.1, ee2.0, ee2.1, ee3.0, ee3.1])
+    }
 }
 
 impl Validate<Error> for Tmp117 {

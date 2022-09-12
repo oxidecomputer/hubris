@@ -9,7 +9,7 @@ ringbuf = {path = "../../lib/ringbuf"}
 spd = { git = "https://github.com/oxidecomputer/spd" }
 num-traits = { version = "0.2.12", default-features = false }
 drv-stm32xx-sys-api = {path = "../../drv/stm32xx-sys-api", default-features = false}
-drv-stm32h7-i2c = {path = "../../drv/stm32h7-i2c", features = ["amd_erratum_1394"]}
+drv-stm32xx-i2c = {path = "../../drv/stm32xx-i2c", features = ["amd_erratum_1394"]}
 drv-i2c-api = {path = "../../drv/i2c-api", default-features = false}
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 cfg-if = "1"
@@ -22,8 +22,8 @@ anyhow = "1.0.31"
 cfg-if = "1"
 
 [features]
-h743 = ["stm32h7/stm32h743", "drv-stm32h7-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
-h753 = ["stm32h7/stm32h753", "drv-stm32h7-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
+h743 = ["stm32h7/stm32h743", "drv-stm32xx-i2c/h743", "drv-stm32xx-sys-api/h743", "build-i2c/h743"]
+h753 = ["stm32h7/stm32h753", "drv-stm32xx-i2c/h753", "drv-stm32xx-sys-api/h753", "build-i2c/h753"]
 itm = [ "userlib/log-itm" ]
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
