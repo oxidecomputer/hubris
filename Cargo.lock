@@ -1661,7 +1661,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=e6eccffb236d0c242b5f90d30d01daa47aa9d89f#e6eccffb236d0c242b5f90d30d01daa47aa9d89f"
+source = "git+https://github.com/oxidecomputer/omicron?rev=d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91#d8c5b937ba0ad9c00bfa4771cae4211ab2a0db91"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -1670,6 +1670,7 @@ dependencies = [
  "serde_repr",
  "smoltcp",
  "static_assertions",
+ "uuid",
 ]
 
 [[package]]
@@ -4068,6 +4069,12 @@ dependencies = [
  "unwrap-lite",
  "zerocopy",
 ]
+
+[[package]]
+name = "uuid"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
 
 [[package]]
 name = "vcell"

@@ -141,8 +141,8 @@ features = ["vlan"]
 [tasks.mgmt_gateway]
 name = "task-mgmt-gateway"
 priority = 4
-max-sizes = {flash = 32768, ram = 8192}
-stacksize = 1536
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 2048
 start = true
 uses = [
     "usart1",
