@@ -7,6 +7,7 @@ use core::str::FromStr;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
     DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, SeedBuf, SerialNumber,
+    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -75,7 +76,27 @@ pub fn run(image: &Image) {
     )
     .sign(&deviceid_keypair);
 
-    let alias_data = AliasData::new(alias_okm, alias_cert, deviceid_cert);
+    let alias_data =
+        AliasData::new(alias_okm, alias_cert, deviceid_cert.clone());
 
     handoff.store(&alias_data);
+
+    let spmeasure_okm = SpMeasureOkm::from_cdi(&cdi_l1);
+    let spmeasure_keypair = Keypair::from(spmeasure_okm.as_bytes());
+
+    let spmeasure_cert = SpMeasureCertBuilder::new(
+        &cert_sn.next(),
+        &dname_sn,
+        &spmeasure_keypair.public,
+        fwid.as_ref(),
+    )
+    .sign(&deviceid_keypair);
+
+    let spmeasure_data = SpMeasureData::new(
+        spmeasure_okm,
+        spmeasure_cert,
+        deviceid_cert.clone(),
+    );
+
+    handoff.store(&spmeasure_data);
 }

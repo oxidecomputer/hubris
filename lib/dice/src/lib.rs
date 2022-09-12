@@ -16,12 +16,13 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 mod cert;
 pub use crate::cert::{
     AliasCert, AliasCertBuilder, Cert, CertError, DeviceIdSelfCert,
-    DeviceIdSelfCertBuilder,
+    DeviceIdSelfCertBuilder, SpMeasureCert, SpMeasureCertBuilder,
 };
 mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;
-pub use crate::handoff::{AliasData, Handoff};
+mod spmeasure_cert_tmpl;
+pub use crate::handoff::{AliasData, Handoff, SpMeasureData};
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
 // We define the length of the serial number using the values from the alias
@@ -239,5 +240,25 @@ impl AliasOkm {
     // in extract, and info string in expand.
     pub fn from_cdi(cdi: &CdiL1) -> Self {
         Self(okm_from_seed_no_extract(cdi, "attestation".as_bytes()))
+    }
+}
+
+/// SpMeasureOkm is a type that represents the output keying material (OKM) used
+/// to create the SpMeasure key. This key is used as an embedded CA by the task
+/// that measures the service processor sofware image.
+#[derive(Deserialize, Serialize, SerializedSize, Zeroize, ZeroizeOnDrop)]
+pub struct SpMeasureOkm([u8; SEED_LENGTH]);
+
+impl SeedBuf for SpMeasureOkm {
+    fn as_bytes(&self) -> &[u8; SEED_LENGTH] {
+        &self.0
+    }
+}
+
+impl SpMeasureOkm {
+    // keys derived from CDI_L1 here use HKDF w/ CDI_L1 as IKM, no salt
+    // in extract, and info string in expand.
+    pub fn from_cdi(cdi: &CdiL1) -> Self {
+        Self(okm_from_seed_no_extract(cdi, "sp-measure".as_bytes()))
     }
 }

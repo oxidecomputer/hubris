@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    alias_cert_tmpl, deviceid_cert_tmpl, CertSerialNumber, SerialNumber,
+    alias_cert_tmpl, deviceid_cert_tmpl, spmeasure_cert_tmpl, CertSerialNumber,
+    SerialNumber,
 };
 use core::ops::Range;
 use hubpack::SerializedSize;
@@ -175,7 +176,11 @@ impl CertBuilder for DeviceIdSelfCertBuilder {
     }
 }
 
-#[derive(Deserialize, Serialize, SerializedSize)]
+/// This type represents a self-signed DeviceId certificate. Unlike the other
+/// types implementing the Cert trait this type derives Clone allowing explicit
+/// copying. We rely on Clone when copying the DeviceIdSelfCert into the
+/// handoff structures.
+#[derive(Clone, Deserialize, Serialize, SerializedSize)]
 pub struct DeviceIdSelfCert(
     #[serde(with = "BigArray")] [u8; deviceid_cert_tmpl::SIZE],
 );
@@ -262,6 +267,84 @@ impl Cert for AliasCert {
     const PUB_RANGE: Range<usize> = alias_cert_tmpl::PUB_RANGE;
     const SIG_RANGE: Range<usize> = alias_cert_tmpl::SIG_RANGE;
     const SIGNDATA_RANGE: Range<usize> = alias_cert_tmpl::SIGNDATA_RANGE;
+
+    fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+pub struct SpMeasureCertBuilder([u8; spmeasure_cert_tmpl::SIZE]);
+
+impl SpMeasureCertBuilder {
+    const FWID_LENGTH: usize = spmeasure_cert_tmpl::FWID_RANGE.end
+        - spmeasure_cert_tmpl::FWID_RANGE.start;
+
+    pub fn new(
+        cert_sn: &CertSerialNumber,
+        dname_sn: &SerialNumber,
+        public_key: &PublicKey,
+        fwid: &[u8; Self::FWID_LENGTH],
+    ) -> Self {
+        Self(spmeasure_cert_tmpl::CERT_TMPL.clone())
+            .set_serial_number(cert_sn)
+            .set_issuer_sn(dname_sn)
+            .set_subject_sn(dname_sn)
+            .set_pub(public_key.as_bytes())
+            .set_fwid(fwid)
+    }
+
+    pub fn set_fwid(self, fwid: &[u8; Self::FWID_LENGTH]) -> Self {
+        self.set_range(spmeasure_cert_tmpl::FWID_RANGE, fwid)
+    }
+
+    const SIGNDATA_RANGE: Range<usize> = spmeasure_cert_tmpl::SIGNDATA_RANGE;
+
+    pub fn sign(self, keypair: &Keypair) -> SpMeasureCert
+    where
+        Self: Sized,
+    {
+        let signdata = &self.0[Self::SIGNDATA_RANGE];
+        let sig = keypair.sign(signdata);
+        let tmp = self.set_sig(&sig.to_bytes());
+
+        SpMeasureCert(tmp.0)
+    }
+}
+
+impl CertBuilder for SpMeasureCertBuilder {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        spmeasure_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> = spmeasure_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        spmeasure_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = spmeasure_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = spmeasure_cert_tmpl::SIG_RANGE;
+
+    fn as_mut_bytes(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct SpMeasureCert(
+    #[serde(with = "BigArray")] [u8; spmeasure_cert_tmpl::SIZE],
+);
+
+impl SpMeasureCert {
+    pub fn get_fwid(&self) -> &[u8] {
+        self.get_range(spmeasure_cert_tmpl::FWID_RANGE)
+    }
+}
+
+impl Cert for SpMeasureCert {
+    const SERIAL_NUMBER_RANGE: Range<usize> =
+        spmeasure_cert_tmpl::SERIAL_NUMBER_RANGE;
+    const ISSUER_SN_RANGE: Range<usize> = spmeasure_cert_tmpl::ISSUER_SN_RANGE;
+    const SUBJECT_SN_RANGE: Range<usize> =
+        spmeasure_cert_tmpl::SUBJECT_SN_RANGE;
+    const PUB_RANGE: Range<usize> = spmeasure_cert_tmpl::PUB_RANGE;
+    const SIG_RANGE: Range<usize> = spmeasure_cert_tmpl::SIG_RANGE;
+    const SIGNDATA_RANGE: Range<usize> = spmeasure_cert_tmpl::SIGNDATA_RANGE;
 
     fn as_bytes(&self) -> &[u8] {
         &self.0
