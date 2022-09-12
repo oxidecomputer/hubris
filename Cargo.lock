@@ -746,7 +746,7 @@ dependencies = [
  "num-traits",
  "sha3",
  "stm32h7",
- "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc.git)",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -4024,17 +4024,7 @@ dependencies = [
 [[package]]
 name = "tlvc"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text#0dfa4980667dfaf4e59d8bfff016e50f4282c9de"
-dependencies = [
- "byteorder",
- "crc",
- "zerocopy",
-]
-
-[[package]]
-name = "tlvc"
-version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc.git#7f09138f8ccf994c77ddaf15baa6967889447856"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
 dependencies = [
  "byteorder",
  "crc",
@@ -4044,11 +4034,11 @@ dependencies = [
 [[package]]
 name = "tlvc-text"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text#0dfa4980667dfaf4e59d8bfff016e50f4282c9de"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
 dependencies = [
  "ron 0.8.0",
  "serde",
- "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text)",
+ "tlvc",
  "zerocopy",
 ]
 
@@ -4274,7 +4264,7 @@ dependencies = [
  "sha3",
  "srec",
  "strsim",
- "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text)",
+ "tlvc",
  "tlvc-text",
  "toml",
  "walkdir",
