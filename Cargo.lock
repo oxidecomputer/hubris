@@ -746,7 +746,7 @@ dependencies = [
  "num-traits",
  "sha3",
  "stm32h7",
- "tlvc",
+ "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc.git)",
  "userlib",
  "zerocopy",
 ]
@@ -2809,6 +2809,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
+]
+
+[[package]]
 name = "rot-carrier"
 version = "0.1.0"
 dependencies = [
@@ -4013,10 +4024,31 @@ dependencies = [
 [[package]]
 name = "tlvc"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/tlvc#7f09138f8ccf994c77ddaf15baa6967889447856"
+source = "git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text#0dfa4980667dfaf4e59d8bfff016e50f4282c9de"
 dependencies = [
  "byteorder",
  "crc",
+ "zerocopy",
+]
+
+[[package]]
+name = "tlvc"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc.git#7f09138f8ccf994c77ddaf15baa6967889447856"
+dependencies = [
+ "byteorder",
+ "crc",
+ "zerocopy",
+]
+
+[[package]]
+name = "tlvc-text"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text#0dfa4980667dfaf4e59d8bfff016e50f4282c9de"
+dependencies = [
+ "ron 0.8.0",
+ "serde",
+ "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text)",
  "zerocopy",
 ]
 
@@ -4242,7 +4274,8 @@ dependencies = [
  "sha3",
  "srec",
  "strsim",
- "tlvc",
+ "tlvc 0.1.0 (git+https://github.com/oxidecomputer/tlvc?branch=update-tlvc-text)",
+ "tlvc-text",
  "toml",
  "walkdir",
  "zerocopy",

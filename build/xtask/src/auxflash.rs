@@ -5,7 +5,6 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use sha3::{Digest, Sha3_256};
-use zerocopy::AsBytes;
 
 /// List of binary blobs to include in the auxiliary flash binary shipped with
 /// this image.  The auxiliary flash is used to offload storage of large
@@ -23,42 +22,11 @@ pub struct AuxFlashBlob {
     pub tag: String,
 }
 
-/// Encode the given data as a tagged TLV-C chunk
-fn data_to_tlvc(tag: &str, data: &[u8]) -> Result<Vec<u8>> {
-    if tag.len() != 4 {
-        bail!("Tag must be a 4-byte value, not '{}'", tag);
-    }
-    let mut out = vec![];
-    let mut header = tlvc::ChunkHeader {
-        tag: tag.as_bytes().try_into().unwrap(),
-        len: 0.into(),
-        header_checksum: 0.into(),
-    };
-    out.extend(header.as_bytes());
-
-    let c = tlvc::compute_body_crc(data);
-
-    out.extend(data);
-    let body_len = out.len() - std::mem::size_of::<tlvc::ChunkHeader>();
-    let body_len = u32::try_from(body_len).unwrap();
-
-    // TLV-C requires the body to be padded to a multiple of four!
-    while out.len() & 0b11 != 0 {
-        out.push(0);
-    }
-    out.extend(c.to_le_bytes());
-
-    // Update the header.
-    header.len.set(body_len);
-    header.header_checksum.set(header.compute_checksum());
-
-    out[..std::mem::size_of::<tlvc::ChunkHeader>()]
-        .copy_from_slice(header.as_bytes());
-    Ok(out)
-}
-
 /// Packs a single blob into a TLV-C structure
-fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
+fn pack_blob(blob: &AuxFlashBlob) -> Result<tlvc_text::Piece> {
+    if blob.tag.len() != 4 {
+        bail!("Tag must be a 4-byte value, not '{}'", blob.tag);
+    }
     let data = std::fs::read(&blob.file)
         .with_context(|| format!("Could not read blob {}", blob.file))?;
     let data = if blob.compress {
@@ -66,7 +34,11 @@ fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
     } else {
         data
     };
-    data_to_tlvc(&blob.tag, &data)
+    let tag: [u8; 4] = blob.tag.as_bytes().try_into().unwrap();
+    Ok(tlvc_text::Piece::Chunk(
+        tlvc_text::Tag::new(tag),
+        vec![tlvc_text::Piece::Bytes(data)],
+    ))
 }
 
 /// Constructs an auxiliary flash image, based on RFD 311
@@ -75,12 +47,17 @@ fn pack_blob(blob: &AuxFlashBlob) -> Result<Vec<u8>> {
 pub fn build_auxflash(aux: &AuxFlash) -> Result<([u8; 32], Vec<u8>)> {
     let mut auxi = vec![];
     for f in &aux.blobs {
-        auxi.extend(pack_blob(f)?);
+        auxi.push(pack_blob(f)?);
     }
-    let sha = Sha3_256::digest(&auxi);
+    let sha = Sha3_256::digest(tlvc_text::pack(&auxi));
 
-    let mut out = vec![];
-    out.extend(data_to_tlvc("CHCK", &sha)?);
-    out.extend(data_to_tlvc("AUXI", &auxi)?);
-    Ok((sha.into(), out))
+    let out = [
+        tlvc_text::Piece::Chunk(
+            tlvc_text::Tag::new(*b"CHCK"),
+            vec![tlvc_text::Piece::Bytes(sha.to_vec())],
+        ),
+        tlvc_text::Piece::Chunk(tlvc_text::Tag::new(*b"AUXI"), auxi),
+    ];
+
+    Ok((sha.into(), tlvc_text::pack(&out)))
 }
