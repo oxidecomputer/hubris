@@ -424,6 +424,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
 name = "crc-any"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -431,6 +440,12 @@ checksum = "073375684a58dece169afbdc9879a027f3698118ad3814938316c6002b7aa921"
 dependencies = [
  "debug-helper",
 ]
+
+[[package]]
+name = "crc-catalog"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
@@ -704,6 +719,36 @@ dependencies = [
  "block-buffer 0.10.2",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "drv-auxflash-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-auxflash-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-auxflash-api",
+ "drv-qspi-api",
+ "drv-stm32h7-qspi",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "sha3",
+ "stm32h7",
+ "tlvc",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -2764,6 +2809,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
+]
+
+[[package]]
 name = "rot-carrier"
 version = "0.1.0"
 dependencies = [
@@ -3966,6 +4022,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlvc"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+dependencies = [
+ "byteorder",
+ "crc",
+ "zerocopy",
+]
+
+[[package]]
+name = "tlvc-text"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+dependencies = [
+ "ron 0.8.0",
+ "serde",
+ "tlvc",
+ "zerocopy",
+]
+
+[[package]]
 name = "toml"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4173,6 +4250,7 @@ dependencies = [
  "dunce",
  "filetime",
  "fnv",
+ "gnarle",
  "goblin",
  "indexmap",
  "lpc55_sign",
@@ -4183,8 +4261,11 @@ dependencies = [
  "scroll",
  "serde",
  "serde_json",
+ "sha3",
  "srec",
  "strsim",
+ "tlvc",
+ "tlvc-text",
  "toml",
  "walkdir",
  "zerocopy",

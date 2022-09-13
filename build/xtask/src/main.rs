@@ -9,6 +9,7 @@ use clap::Parser;
 
 use crate::config::Config;
 
+mod auxflash;
 mod clippy;
 mod config;
 mod dist;
