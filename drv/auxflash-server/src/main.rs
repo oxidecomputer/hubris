@@ -506,18 +506,14 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
                 let mut inner_reader = outer_chunk.read_as_chunks();
                 while let Ok(Some(inner_chunk)) = inner_reader.next() {
                     if inner_chunk.header().tag == tag {
-                        // At this point, the outer reader is positioned *after*
-                        // the AUXI chunk, and the inner reader is positioned
-                        // *after* our target chunk.  To get to the data of the
-                        // inner chunk, we have to back off, then re-offset
-                        // ourselves by 2x chunk headers.
+                        // At this point, the inner reader is positioned *after*
+                        // our target chunk.  We back off by the full length of
+                        // the chunk (including the header), then offset by the
+                        // header size to get to the beginning of the blob data.
                         let (_, inner_offset, _) = inner_reader.into_inner();
-                        let (_, outer_offset, _) = outer_reader.into_inner();
-                        let pos = inner_offset + outer_offset
+                        let pos = inner_offset
                             - inner_chunk.header().total_len_in_bytes() as u64
-                            - outer_chunk.header().total_len_in_bytes() as u64
-                            + 2 * core::mem::size_of::<tlvc::ChunkHeader>()
-                                as u64;
+                            + core::mem::size_of::<tlvc::ChunkHeader>() as u64;
                         return Ok(AuxFlashBlob {
                             slot: active_slot,
                             start: pos as u32,
