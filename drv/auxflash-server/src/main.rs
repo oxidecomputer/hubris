@@ -199,6 +199,7 @@ impl ServerImpl {
         }
         Ok(())
     }
+
     fn read_slot_checksum(
         &self,
         slot: u32,
