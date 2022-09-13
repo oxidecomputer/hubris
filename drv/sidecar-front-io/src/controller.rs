@@ -33,18 +33,24 @@ impl FrontIOController {
         await_fpga_ready(&mut self.fpga, sleep_ticks)
     }
 
-    /// Load the front io board controller bitstream.
+    /// Load the front io board controller bitstream, pulling it from the
+    /// attached auxiliary flash.
     #[inline]
-    pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
-        /*
+    pub fn load_bitstream(
+        &mut self,
+        auxflash: userlib::TaskId,
+    ) -> Result<(), FpgaError> {
+        let mut auxflash = drv_auxflash_api::AuxFlash::from(auxflash);
+        let blob = auxflash
+            .get_blob_by_tag(*b"QSFP")
+            .map_err(|_| FpgaError::AuxMissingBlob)?;
         drv_fpga_api::load_bitstream(
             &mut self.fpga,
-            &COMPRESSED_BITSTREAM[..],
+            &mut auxflash,
+            blob,
             BitstreamType::Compressed,
-            128,
+            SIDECAR_IO_BITSTREAM_CHECKSUM,
         )
-        */
-        todo!()
     }
 
     /// Check for a valid identifier

@@ -772,6 +772,7 @@ dependencies = [
 name = "drv-fpga-api"
 version = "0.1.0"
 dependencies = [
+ "drv-auxflash-api",
  "drv-spi-api",
  "idol",
  "idol-runtime",
@@ -1171,6 +1172,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",
@@ -1187,6 +1189,7 @@ version = "0.1.0"
 dependencies = [
  "build-fpga-regmap",
  "build-util",
+ "drv-auxflash-api",
  "drv-fpga-api",
  "gnarle",
  "num-traits",

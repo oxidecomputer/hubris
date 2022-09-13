@@ -8,6 +8,7 @@
 
 use core::ops::Deref;
 
+use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
 use drv_spi_api::SpiError;
 use sha3::{Digest, Sha3_256};
 use userlib::*;
@@ -26,6 +27,7 @@ pub enum FpgaError {
     AuxChecksumMismatch,
     AuxTocTouChecksumMismatch,
     AuxReadError,
+    AuxMissingBlob,
 }
 
 impl From<FpgaError> for u16 {
@@ -44,6 +46,7 @@ impl From<FpgaError> for u16 {
             FpgaError::AuxChecksumMismatch => 0x0503,
             FpgaError::AuxTocTouChecksumMismatch => 0x0504,
             FpgaError::AuxReadError => 0x0505,
+            FpgaError::AuxMissingBlob => 0x0506,
         }
     }
 }
@@ -77,6 +80,7 @@ impl core::convert::TryFrom<u16> for FpgaError {
                 0x0503 => Ok(FpgaError::AuxChecksumMismatch),
                 0x0504 => Ok(FpgaError::AuxTocTouChecksumMismatch),
                 0x0505 => Ok(FpgaError::AuxReadError),
+                0x0506 => Ok(FpgaError::AuxMissingBlob),
                 _ => Err(()),
             },
         }
@@ -301,26 +305,27 @@ pub fn await_fpga_ready(
 }
 
 /// Load a bitstream.
-pub fn load_bitstream<R: tlvc::TlvcRead>(
+pub fn load_bitstream(
     fpga: &mut Fpga,
-    reader: tlvc::ChunkHandle<R>,
+    auxflash: &mut AuxFlash,
+    blob: AuxFlashBlob,
     bitstream_type: BitstreamType,
     expected_checksum: [u8; 32],
 ) -> Result<(), FpgaError> {
     // Do an initial read to verify the checksum
-    let mut buf = [0u8; 128];
-    let mut offset = 0;
+    let mut scratch_buf = [0u8; 128];
+    let mut pos = blob.start;
     let mut sha = Sha3_256::new();
-    while offset != reader.len() {
-        let amount = (reader.len() - offset).min(buf.len() as u64);
-        let buf = &mut buf[0..(amount as usize)];
+    while pos != blob.end {
+        let amount = (blob.end - pos).min(scratch_buf.len() as u32);
+        let chunk = &mut scratch_buf[0..(amount as usize)];
 
-        reader
-            .read_exact(offset, buf)
+        auxflash
+            .read_slot_with_offset(blob.slot, pos, chunk)
             .map_err(|_| FpgaError::AuxReadError)?;
-        offset += amount;
+        pos += amount;
 
-        sha.update(buf);
+        sha.update(chunk);
     }
     let sha_out: [u8; 32] = sha.finalize().into();
     if sha_out != expected_checksum {
@@ -330,19 +335,19 @@ pub fn load_bitstream<R: tlvc::TlvcRead>(
     // Then, stream the data into the FPGA, recalculating the checksum to
     // protect against TOCTOU attacks.
     let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
-    let mut offset = 0;
+    let mut pos = blob.start;
     let mut sha = Sha3_256::new();
-    while offset != reader.len() {
-        let amount = (reader.len() - offset).min(buf.len() as u64);
-        let buf = &mut buf[0..(amount as usize)];
+    while pos != blob.end {
+        let amount = (blob.end - pos).min(scratch_buf.len() as u32);
+        let chunk = &mut scratch_buf[0..(amount as usize)];
 
-        reader
-            .read_exact(offset, buf)
+        auxflash
+            .read_slot_with_offset(blob.slot, pos, chunk)
             .map_err(|_| FpgaError::AuxReadError)?;
-        offset += amount;
+        pos += amount;
 
-        sha.update(&buf);
-        bitstream.continue_load(&buf)?;
+        sha.update(&chunk);
+        bitstream.continue_load(&chunk)?;
     }
     let sha_out: [u8; 32] = sha.finalize().into();
     if sha_out != expected_checksum {

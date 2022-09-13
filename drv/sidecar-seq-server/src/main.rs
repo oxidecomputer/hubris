@@ -24,6 +24,7 @@ use userlib::*;
 task_slot!(I2C, i2c_driver);
 task_slot!(MAINBOARD, mainboard);
 task_slot!(FRONT_IO, front_io);
+task_slot!(AUXFLASH, auxflash);
 
 include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
@@ -280,8 +281,11 @@ fn main() -> ! {
         MainboardController::new(MAINBOARD.get_task_id());
     let clock_generator = ClockGenerator::new(I2C.get_task_id());
     let tofino = Tofino::new(I2C.get_task_id());
-    let front_io_board =
-        FrontIOBoard::new(FRONT_IO.get_task_id(), I2C.get_task_id());
+    let front_io_board = FrontIOBoard::new(
+        FRONT_IO.get_task_id(),
+        I2C.get_task_id(),
+        AUXFLASH.get_task_id(),
+    );
 
     let mut server = ServerImpl {
         mainboard_controller,
@@ -292,6 +296,8 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::FpgaInit);
 
+    server.mainboard_controller.reset(); // force reinit
+
     match server
         .mainboard_controller
         .await_fpga_ready(25)
@@ -300,7 +306,10 @@ fn main() -> ! {
         DeviceState::AwaitingBitstream => {
             ringbuf_entry!(Trace::LoadingFpgaBitstream);
 
-            if let Err(e) = server.mainboard_controller.load_bitstream() {
+            if let Err(e) = server
+                .mainboard_controller
+                .load_bitstream(AUXFLASH.get_task_id())
+            {
                 let code = u32::try_from(e).unwrap();
                 ringbuf_entry!(Trace::FpgaBitstreamError(code));
                 panic!();

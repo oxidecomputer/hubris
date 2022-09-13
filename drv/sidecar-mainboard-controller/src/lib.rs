@@ -26,6 +26,10 @@ impl MainboardController {
         }
     }
 
+    pub fn reset(&mut self) -> Result<(), FpgaError> {
+        self.fpga.reset()
+    }
+
     /// Poll the device state of the FPGA to determine if it is ready to receive
     /// a bitstream, resetting the device if needed.
     pub fn await_fpga_ready(
@@ -36,16 +40,21 @@ impl MainboardController {
     }
 
     /// Load the mainboard controller bitstream.
-    pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
-        /*
-        load_bitstream(
+    pub fn load_bitstream(
+        &mut self,
+        auxflash: userlib::TaskId,
+    ) -> Result<(), FpgaError> {
+        let mut auxflash = drv_auxflash_api::AuxFlash::from(auxflash);
+        let blob = auxflash
+            .get_blob_by_tag(*b"FPGA")
+            .map_err(|_| FpgaError::AuxMissingBlob)?;
+        drv_fpga_api::load_bitstream(
             &mut self.fpga,
-            &COMPRESSED_BITSTREAM[..],
+            &mut auxflash,
+            blob,
             BitstreamType::Compressed,
-            128,
+            SIDECAR_MAINBOARD_BITSTREAM_CHECKSUM,
         )
-        */
-        todo!()
     }
 
     /// Check for a valid peripheral identifier.
