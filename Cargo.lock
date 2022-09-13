@@ -776,6 +776,8 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -1173,7 +1175,6 @@ dependencies = [
  "gnarle",
  "num-traits",
  "ringbuf",
- "sha2",
  "userlib",
  "vsc7448-pac",
  "vsc85xx",

@@ -7,10 +7,14 @@ edition = "2021"
 hiffy = []
 
 [dependencies]
-userlib = {path = "../../sys/userlib"}
 drv-spi-api = {path = "../../drv/spi-api"}
+userlib = {path = "../../sys/userlib"}
+
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}
+
 num-traits = {version = "0.2.12", default-features = false}
+sha3 = {version = "0.10", default-features = false}
 zerocopy = "0.6.1"
 
 [build-dependencies]

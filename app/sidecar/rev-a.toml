@@ -240,7 +240,7 @@ name = "drv-sidecar-seq-server"
 features = []
 priority = 4
 stacksize = 1024
-start = true
+start = false
 task-slots = [
     "sys",
     "i2c_driver",

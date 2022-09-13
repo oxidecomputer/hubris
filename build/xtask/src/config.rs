@@ -11,7 +11,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 
-use crate::auxflash::{build_auxflash, AuxFlash};
+use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -63,7 +63,7 @@ pub struct Config {
     pub buildhash: u64,
     pub app_toml_path: PathBuf,
     pub secure_task: Option<String>,
-    pub auxflash: Option<([u8; 32], Vec<u8>)>,
+    pub auxflash: Option<AuxFlashData>,
 }
 
 impl Config {
@@ -207,11 +207,17 @@ impl Config {
             "HUBRIS_APP_TOML".to_string(),
             app_toml_path.to_str().unwrap().to_string(),
         );
-        if let Some((hash, _aux)) = &self.auxflash {
+        if let Some(aux) = &self.auxflash {
             env.insert(
                 "HUBRIS_AUXFLASH_CHECKSUM".to_string(),
-                format!("{:?}", hash),
+                format!("{:?}", aux.chck),
             );
+            for (name, checksum) in aux.checksums.iter() {
+                env.insert(
+                    format!("HUBRIS_AUXFLASH_CHECKSUM_{}", name),
+                    format!("{:?}", checksum),
+                );
+            }
         }
 
         // secure_separation indicates that we have TrustZone enabled.

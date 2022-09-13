@@ -5,9 +5,6 @@
 use crate::{Addr, SIDECAR_IO_BITSTREAM_CHECKSUM};
 use drv_fpga_api::*;
 
-static COMPRESSED_BITSTREAM: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/ecp5.bin.rle"));
-
 pub struct FrontIOController {
     fpga: Fpga,
     user_design: FpgaUserDesign,
@@ -39,12 +36,15 @@ impl FrontIOController {
     /// Load the front io board controller bitstream.
     #[inline]
     pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
+        /*
         drv_fpga_api::load_bitstream(
             &mut self.fpga,
             &COMPRESSED_BITSTREAM[..],
             BitstreamType::Compressed,
             128,
         )
+        */
+        todo!()
     }
 
     /// Check for a valid identifier
@@ -62,7 +62,7 @@ impl FrontIOController {
     pub fn checksum_valid(&self) -> Result<(u32, bool), FpgaError> {
         let checksum =
             u32::from_be(self.user_design.read(Addr::CHECKSUM_SCRATCHPAD0)?);
-        Ok((checksum, checksum == SIDECAR_IO_BITSTREAM_CHECKSUM))
+        Ok((checksum, checksum == Self::expected_checksum()))
     }
 
     /// Writes the checksum scratchpad register to our expected checksum.
@@ -73,7 +73,15 @@ impl FrontIOController {
         self.user_design.write(
             WriteOp::Write,
             Addr::CHECKSUM_SCRATCHPAD0,
-            SIDECAR_IO_BITSTREAM_CHECKSUM.to_be(),
+            Self::expected_checksum().to_be(),
+        )
+    }
+
+    /// Returns the expected (short) checksum, which simply a prefix of the full
+    /// SHA3-256 hash of the bitstream.
+    pub fn expected_checksum() -> u32 {
+        u32::from_le_bytes(
+            SIDECAR_IO_BITSTREAM_CHECKSUM[..4].try_into().unwrap(),
         )
     }
 }

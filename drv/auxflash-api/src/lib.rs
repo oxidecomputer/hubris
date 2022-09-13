@@ -37,6 +37,8 @@ pub enum AuxFlashError {
     UnalignedAddress,
     /// There is no active slot
     NoActiveSlot,
+    /// There is no blob with this name
+    NoSuchBlob,
 }
 
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
@@ -46,5 +48,17 @@ pub struct AuxFlashId(pub [u8; 20]);
 #[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
 #[repr(transparent)]
 pub struct AuxFlashChecksum(pub [u8; 32]);
+
+#[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[repr(transparent)]
+pub struct AuxFlashTag(pub [u8; 4]);
+
+#[derive(Copy, Clone, zerocopy::FromBytes, zerocopy::AsBytes)]
+#[repr(C)]
+pub struct AuxFlashBlob {
+    pub slot: u32,
+    pub start: u32,
+    pub end: u32,
+}
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));

@@ -5,7 +5,9 @@
 #![no_std]
 #![no_main]
 
-use drv_auxflash_api::{AuxFlashChecksum, AuxFlashError, AuxFlashId};
+use drv_auxflash_api::{
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
+};
 use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
 use sha3::{Digest, Sha3_256};
@@ -480,9 +482,62 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         &mut self,
         _: &RecvMessage,
     ) -> Result<(), RequestError<AuxFlashError>> {
-        (self as &mut ServerImpl)
-            .ensure_redundancy()
-            .map_err(Into::into)
+        ServerImpl::ensure_redundancy(self).map_err(Into::into)
+    }
+
+    fn get_blob_by_tag(
+        &mut self,
+        _: &RecvMessage,
+        tag: [u8; 4],
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        self.scan_for_active_slot();
+        let active_slot = self
+            .active_slot
+            .ok_or_else(|| RequestError::from(AuxFlashError::NoActiveSlot))?;
+        let handle = SlotReader {
+            qspi: &self.qspi,
+            base: active_slot * SLOT_SIZE as u32,
+        };
+        let mut outer_reader = TlvcReader::begin(handle)
+            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
+        while let Ok(Some(outer_chunk)) = outer_reader.next() {
+            if &outer_chunk.header().tag == b"AUXI" {
+                let mut inner_reader = outer_chunk.read_as_chunks();
+                while let Ok(Some(inner_chunk)) = inner_reader.next() {
+                    if inner_chunk.header().tag == tag {
+                        // At this point, the outer reader is positioned *after*
+                        // the AUXI chunk, and the inner reader is positioned
+                        // *after* our target chunk.  To get to the data of the
+                        // inner chunk, we have to back off, then re-offset
+                        // ourselves by 2x chunk headers.
+                        let (_, inner_offset, _) = inner_reader.into_inner();
+                        let (_, outer_offset, _) = outer_reader.into_inner();
+                        let pos = inner_offset + outer_offset
+                            - inner_chunk.header().total_len_in_bytes() as u64
+                            - outer_chunk.header().total_len_in_bytes() as u64
+                            + 2 * core::mem::size_of::<tlvc::ChunkHeader>()
+                                as u64;
+                        return Ok(AuxFlashBlob {
+                            slot: active_slot,
+                            start: pos as u32,
+                            end: (pos + inner_chunk.len()) as u32,
+                        });
+                    }
+                }
+                return Err(AuxFlashError::NoSuchBlob.into());
+            }
+        }
+        Err(AuxFlashError::MissingAuxi.into())
+    }
+
+    fn get_blob_by_u32(
+        &mut self,
+        msg: &RecvMessage,
+        tag: u32,
+    ) -> Result<AuxFlashBlob, RequestError<AuxFlashError>> {
+        // This is so that we can call this function from `humility hiffy`,
+        // which doesn't know how to send arrays as arguments.
+        self.get_blob_by_tag(msg, tag.to_be_bytes())
     }
 }
 
@@ -490,7 +545,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
 
 mod idl {
     use super::AuxFlashError;
-    use drv_auxflash_api::{AuxFlashChecksum, AuxFlashId};
+    use drv_auxflash_api::{AuxFlashBlob, AuxFlashChecksum, AuxFlashId};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

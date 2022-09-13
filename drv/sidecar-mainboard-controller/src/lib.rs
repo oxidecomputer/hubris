@@ -6,9 +6,6 @@
 
 use drv_fpga_api::*;
 
-static COMPRESSED_BITSTREAM: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/ecp5.bin.rle"));
-
 include!(concat!(env!("OUT_DIR"), "/sidecar_mainboard_controller.rs"));
 
 pub mod tofino2;
@@ -40,12 +37,15 @@ impl MainboardController {
 
     /// Load the mainboard controller bitstream.
     pub fn load_bitstream(&mut self) -> Result<(), FpgaError> {
+        /*
         load_bitstream(
             &mut self.fpga,
             &COMPRESSED_BITSTREAM[..],
             BitstreamType::Compressed,
             128,
         )
+        */
+        todo!()
     }
 
     /// Check for a valid peripheral identifier.

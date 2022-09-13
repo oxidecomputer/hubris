@@ -4,10 +4,7 @@
 
 use crate::*;
 use drv_i2c_devices::{at24csw080::At24Csw080, Validate};
-use drv_sidecar_front_io::{
-    controller::FrontIOController, phy_smi::PhySmi,
-    SIDECAR_IO_BITSTREAM_CHECKSUM,
-};
+use drv_sidecar_front_io::{controller::FrontIOController, phy_smi::PhySmi};
 
 #[allow(dead_code)]
 pub(crate) struct FrontIOBoard {
@@ -59,7 +56,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                    expected: FrontIOController::expected_checksum(),
                 });
 
                 if !ident_valid || !checksum_valid {
@@ -96,7 +93,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: SIDECAR_IO_BITSTREAM_CHECKSUM,
+                    expected: FrontIOController::expected_checksum(),
                 });
             }
 
