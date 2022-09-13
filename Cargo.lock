@@ -886,7 +886,7 @@ dependencies = [
  "drv-i2c-api",
  "drv-onewire",
  "num-traits",
- "pmbus 0.1.0 (git+https://github.com/oxidecomputer/pmbus)",
+ "pmbus",
  "ringbuf",
  "userlib",
  "zerocopy",
@@ -1781,15 +1781,6 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hif"
-version = "0.2.3"
-dependencies = [
- "pkg-version",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "hif"
 version = "0.3.1"
 source = "git+https://github.com/oxidecomputer/hif#34aace65cbf458129dcd8007715a94bc488b2931"
 dependencies = [
@@ -2518,20 +2509,6 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 [[package]]
 name = "pmbus"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "convert_case 0.3.2",
- "libm",
- "num-derive",
- "num-traits",
- "ron 0.6.6",
- "serde",
- "serde_with",
-]
-
-[[package]]
-name = "pmbus"
-version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/pmbus#1907e4470c84f7dfd86e8ca9a910f97ce548076e"
 dependencies = [
  "anyhow",
@@ -3065,14 +3042,6 @@ dependencies = [
 [[package]]
 name = "spd"
 version = "0.1.0"
-dependencies = [
- "num-derive",
- "num-traits",
-]
-
-[[package]]
-name = "spd"
-version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/spd#e37e79f6d7d4805b8a6a8c4d37699c4bd60222ea"
 dependencies = [
  "num-derive",
@@ -3309,7 +3278,7 @@ dependencies = [
  "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "drv-update-api",
- "hif 0.3.1",
+ "hif",
  "hubris-num-tasks",
  "num-traits",
  "ringbuf",
@@ -3572,7 +3541,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "spd 0.1.0 (git+https://github.com/oxidecomputer/spd)",
+ "spd",
  "stm32h7",
  "userlib",
 ]

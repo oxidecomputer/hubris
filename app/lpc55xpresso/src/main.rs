@@ -41,7 +41,7 @@ fn main() -> ! {
     //
     // Importantly, there is an extra divider to determine the CPU
     // speed which divides the MAINCLKA = 96MHz by 2 to get 48MHz.
-    const CYCLES_PER_MS: u32 = 48_000;
+    const CYCLES_PER_MS: u32 = 96_000;
 
     unsafe {
         //
@@ -53,8 +53,8 @@ fn main() -> ! {
 
         // SWO is clocked indepdently of the CPU. Match the CPU
         // settings by setting the divider
-        let syscon = &*device::SYSCON::ptr();
-        syscon.traceclkdiv.modify(|_, w| w.div().bits(1));
+        //let syscon = &*device::SYSCON::ptr();
+        //syscon.traceclkdiv.modify(|_, w| w.div().bits(1));
 
         kern::startup::start_kernel(CYCLES_PER_MS)
     }

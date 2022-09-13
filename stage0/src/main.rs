@@ -173,7 +173,7 @@ fn main() -> ! {
         panic!()
     }
 
-    check_system_freq();
+    //check_system_freq();
 
     let imagea = match image_header::get_image_a() {
         Some(a) => a,

@@ -506,7 +506,7 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
     //   XXX More validation of buffer?
     //   We expect the caller to have dropped the clocks appropriately
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     check_addr_len_alignment(addr, len)?;
 
@@ -534,7 +534,7 @@ pub unsafe fn flash_write(
     //   XXX More validation of buffer?
     //   XXX docs say we need to drop the clocks?
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     check_addr_len_alignment(addr, len)?;
 
@@ -562,7 +562,7 @@ pub unsafe fn flash_write(
  */
 pub fn validate_programmed(start: u32, len: u32) -> bool {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     let ret = handle_flash_status(unsafe {
         (bootloader_tree()
@@ -608,7 +608,7 @@ pub fn get_key_code(
     key_code: &mut [u32; 13],
 ) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -636,7 +636,7 @@ pub fn get_activation_code(
     ac: &mut [u32; ACTIVATION_CODE_SIZE / 4],
 ) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -662,7 +662,7 @@ pub fn get_activation_code(
 
 pub fn write_keystore(key_store: &mut FfrKeyStore) -> Result<(), FlashStatus> {
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     handle_flash_status(unsafe {
         (bootloader_tree()
@@ -694,7 +694,7 @@ pub fn get_cmpa_data(
     assert!(len <= (data.len() as u32));
 
     let mut f: FlashConfig = Default::default();
-    f.mode_config.sys_freq_in_mhz = 48;
+    f.mode_config.sys_freq_in_mhz = 96;
 
     handle_flash_status(unsafe {
         (bootloader_tree()
