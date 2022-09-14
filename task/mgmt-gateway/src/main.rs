@@ -6,7 +6,8 @@
 #![no_main]
 
 use gateway_messages::{
-    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpPort,
+    sp_impl, sp_impl::Error as MgsDispatchError, IgnitionCommand, SpComponent,
+    SpPort,
 };
 use mutable_statics::mutable_statics;
 use ringbuf::{ringbuf, ringbuf_entry};
@@ -14,7 +15,7 @@ use task_net_api::{
     Address, LargePayloadBehavior, Net, RecvError, SendError, SocketName,
     UdpMetadata,
 };
-use userlib::{sys_recv_closed, task_slot, TaskId, UnwrapLite};
+use userlib::{sys_recv_closed, sys_set_timer, task_slot, TaskId, UnwrapLite};
 
 mod mgs_common;
 mod update_buffer;
@@ -53,6 +54,7 @@ enum Log {
     SerialConsoleSend { buffered: usize },
     UpdatePartial { bytes_written: usize },
     UpdateComplete,
+    HostFlashSectorsErased { num_sectors: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -73,11 +75,22 @@ enum MgsMessage {
         length: u16,
     },
     SerialConsoleDetach,
-    UpdateStart {
+    UpdatePrepare {
+        component: SpComponent,
+        stream_id: u64,
         length: u32,
+        slot: u16,
+    },
+    UpdatePrepareStatus {
+        component: SpComponent,
+        stream_id: u64,
     },
     UpdateChunk {
+        component: SpComponent,
         offset: u32,
+    },
+    UpdateAbort {
+        component: SpComponent,
     },
     SysResetPrepare,
 }
@@ -99,6 +112,8 @@ fn main() {
     let mut net_handler = NetHandler::claim_static_resources();
 
     loop {
+        sys_set_timer(mgs_handler.timer_deadline(), TIMER_IRQ);
+
         let note = sys_recv_closed(
             &mut [],
             NET_IRQ | USART_IRQ | TIMER_IRQ,
@@ -110,6 +125,10 @@ fn main() {
 
         if (note & USART_IRQ) != 0 {
             mgs_handler.drive_usart();
+        }
+
+        if (note & TIMER_IRQ) != 0 {
+            mgs_handler.handle_timer_fired();
         }
 
         if (note & NET_IRQ) != 0 || mgs_handler.wants_to_send_packet_to_mgs() {

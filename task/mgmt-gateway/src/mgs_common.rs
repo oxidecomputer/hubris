@@ -7,7 +7,8 @@ use core::convert::Infallible;
 use drv_update_api::stm32h7::BLOCK_SIZE_BYTES;
 use drv_update_api::{Update, UpdateTarget};
 use gateway_messages::{
-    DiscoverResponse, ResponseError, SpPort, SpState, UpdateChunk, UpdateStart,
+    DiscoverResponse, ResponseError, SpComponent, SpPort, SpState, UpdateChunk,
+    UpdatePrepare, UpdatePrepareStatusRequest, UpdatePrepareStatusResponse,
 };
 use ringbuf::ringbuf_entry_root;
 
@@ -73,13 +74,19 @@ impl MgsCommon {
         })
     }
 
-    pub(crate) fn update_start(
+    pub(crate) fn update_prepare(
         &mut self,
-        update: UpdateStart,
+        update: UpdatePrepare,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateStart {
-            length: update.total_size
-        }));
+        // We should only be called to update the SP itself.
+        if update.component != SpComponent::SP_ITSELF {
+            panic!();
+        }
+
+        // SP only has one "slot" (the alternate bank).
+        if update.slot != 0 {
+            return Err(ResponseError::InvalidSlotForComponent);
+        }
 
         self.update_buf.ensure_no_update_in_progress()?;
 
@@ -87,9 +94,23 @@ impl MgsCommon {
             .prep_image_update(UpdateTarget::Alternate)
             .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
 
-        self.update_buf.start(update.total_size as usize);
+        self.update_buf
+            .start(update.stream_id, update.total_size as usize);
 
         Ok(())
+    }
+
+    pub(crate) fn update_prepare_status(
+        &mut self,
+        request: UpdatePrepareStatusRequest,
+    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
+        self.update_buf
+            .ensure_matching_stream_id(request.stream_id)?;
+
+        // We immediately prepare for update in `update_prepare()`
+        // and have no followup work to do; if this stream ID
+        // matches, we're already prepared.
+        Ok(UpdatePrepareStatusResponse { done: true })
     }
 
     pub(crate) fn update_chunk(
@@ -97,12 +118,24 @@ impl MgsCommon {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), ResponseError> {
-        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
-            offset: chunk.offset,
-        }));
-
         self.update_buf
-            .ingest_chunk(&self.update_task, chunk.offset, data)
+            .ingest_chunk(
+                chunk.stream_id,
+                &self.update_task,
+                chunk.offset,
+                data,
+            )
+            .map(|_progress| ())
+    }
+
+    pub(crate) fn update_abort(&mut self) -> Result<(), ResponseError> {
+        self.update_task
+            .abort_update()
+            .map_err(|err| ResponseError::UpdateFailed(err as u32))?;
+
+        self.update_buf.reset();
+
+        Ok(())
     }
 
     pub(crate) fn reset_prepare(&mut self) -> Result<(), ResponseError> {
@@ -130,7 +163,6 @@ impl MgsCommon {
     }
 }
 
-/// Grabs reference to a static `UpdateBuffer`. Can only be called once!
 fn claim_update_buffer_static(
 ) -> &'static mut heapless::Vec<u8, BLOCK_SIZE_BYTES> {
     use core::sync::atomic::{AtomicBool, Ordering};
