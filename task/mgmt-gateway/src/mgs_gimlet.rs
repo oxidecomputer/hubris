@@ -647,7 +647,7 @@ fn claim_sp_to_mgs_usart_buf_static(
 struct HostFlashUpdate {
     task: HostFlash,
     buf: UpdateBuffer<HostFlash, PAGE_SIZE_BYTES>,
-    sector_erase: HostFlashSectorErase,
+    sector_erase: Option<HostFlashSectorErase>,
 }
 
 impl HostFlashUpdate {
@@ -670,16 +670,21 @@ impl HostFlashUpdate {
                     Ok(())
                 },
             ),
-            sector_erase: HostFlashSectorErase::default(),
+            sector_erase: None,
         }
     }
 
     fn needs_sectors_erased(&self) -> bool {
-        self.sector_erase.needs_sectors_erased()
+        self.sector_erase.is_some()
     }
 
     fn erase_sectors_if_needed(&mut self) {
-        self.sector_erase.erase_sectors_if_needed(&self.task);
+        if let Some(sector_erase) = self.sector_erase.as_mut() {
+            sector_erase.erase_sectors_if_needed(&self.task);
+            if sector_erase.is_done() {
+                self.sector_erase = None;
+            }
+        }
     }
 
     fn prepare(&mut self, update: UpdatePrepare) -> Result<(), ResponseError> {
@@ -719,7 +724,8 @@ impl HostFlashUpdate {
         // a safe assumption for future parts as well. We'll assert here in case
         // that ever becomes untrue, and we can update our math.
         assert!(capacity % SECTOR_SIZE_BYTES == 0);
-        self.sector_erase.start(capacity / SECTOR_SIZE_BYTES);
+        self.sector_erase =
+            Some(HostFlashSectorErase::new(capacity / SECTOR_SIZE_BYTES));
 
         self.buf.start(update.stream_id, update.total_size as usize);
 
@@ -733,14 +739,18 @@ impl HostFlashUpdate {
         self.buf.ensure_matching_stream_id(request.stream_id)?;
 
         // Have we failed erasing sectors?
-        if let Some(err) = self.sector_erase.most_recent_error() {
+        if let Some(err) = self
+            .sector_erase
+            .as_ref()
+            .and_then(HostFlashSectorErase::most_recent_error)
+        {
             return Err(ResponseError::UpdateFailed(err as u32));
         }
 
         // We have an update in progress that matches request.stream_id; do we
         // still have sectors to erase?
         Ok(UpdatePrepareStatusResponse {
-            done: !self.needs_sectors_erased(),
+            done: self.sector_erase.is_none(),
         })
     }
 
@@ -773,7 +783,7 @@ impl HostFlashUpdate {
         // TODO should we erase the slot?
         // TODO should we set_dev() back to what it was (if we changed it)?
         self.buf.reset();
-        self.sector_erase.abort();
+        self.sector_erase = None;
         Ok(())
     }
 }
@@ -783,28 +793,16 @@ struct HostFlashSectorErase {
     most_recent_error: Option<HfError>,
 }
 
-impl Default for HostFlashSectorErase {
-    fn default() -> Self {
+impl HostFlashSectorErase {
+    fn new(num_sectors: usize) -> Self {
         Self {
-            sectors_to_erase: 0..0,
+            sectors_to_erase: 0..num_sectors,
             most_recent_error: None,
         }
     }
-}
 
-impl HostFlashSectorErase {
-    fn start(&mut self, num_sectors: usize) {
-        self.sectors_to_erase = 0..num_sectors;
-        self.most_recent_error = None;
-    }
-
-    fn abort(&mut self) {
-        self.sectors_to_erase = 0..0;
-        self.most_recent_error = None;
-    }
-
-    fn needs_sectors_erased(&self) -> bool {
-        !self.sectors_to_erase.is_empty()
+    fn is_done(&self) -> bool {
+        self.sectors_to_erase.is_empty()
     }
 
     fn most_recent_error(&self) -> Option<HfError> {
@@ -822,7 +820,7 @@ impl HostFlashSectorErase {
         // it higher does not significantly improve our throughput.
         const MAX_SECTORS_TO_ERASE_ONE_CALL: usize = 8;
 
-        if !self.needs_sectors_erased() {
+        if self.is_done() {
             return;
         }
 
