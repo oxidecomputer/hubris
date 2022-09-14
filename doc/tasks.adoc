@@ -162,13 +162,6 @@ overwritten.
 
 6. Mark the task as runnable.
 
-When the task first runs, it will generally initialize its `data` section and
-zero its `bss` section. The Hubris kernel doesn't do this _for_ the task because
-we don't want to make too many assumptions about task internal memory layouts.
-For tasks written in Rust, this is handled by the `_start` routine provided by
-the `userlib` crate, and should "`just work`" -- by the time execution reaches
-`main`, memory is set up.
-
 It's worth noting a few things that the kernel does _not_ do during reinit:
 
 - The task's memory protection configuration in the kernel is left unchanged,
