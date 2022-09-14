@@ -499,6 +499,7 @@ impl RxRing {
             let first_and_last = rdes3
                 & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
                 == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+            assert!(!errors);
 
             // If this descriptor is error-free and represents a complete
             // packet, then return true so that the netstack loads it
@@ -622,6 +623,7 @@ impl RxRing {
             let first_and_last = rdes3
                 & ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT))
                 == ((1 << RDES3_FD_BIT) | (1 << RDES3_LD_BIT));
+            assert!(!errors);
             let packet_okay = !errors && first_and_last;
 
             // If RDES0 is valid, then check for a VLAN match
