@@ -23,22 +23,22 @@ impl PhySmi {
 
     #[inline]
     pub fn phy_status(&self) -> Result<u8, FpgaError> {
-        self.fpga.read(Addr::PHY_STATUS)
+        self.fpga.read(Addr::VSC8562_PHY_STATUS)
     }
 
     #[inline]
     pub fn phy_ctrl(&self) -> Result<u8, FpgaError> {
-        self.fpga.read(Addr::PHY_CTRL)
+        self.fpga.read(Addr::VSC8562_PHY_CTRL)
     }
 
     #[inline]
     pub fn set_phy_ctrl(&self, val: u8) -> Result<(), FpgaError> {
-        self.fpga.write(WriteOp::Write, Addr::PHY_CTRL, val)
+        self.fpga.write(WriteOp::Write, Addr::VSC8562_PHY_CTRL, val)
     }
 
     #[inline]
     pub fn phy_power_enabled(&self) -> Result<bool, FpgaError> {
-        Ok((self.phy_ctrl()? & Reg::PHY_CTRL::EN) != 0)
+        Ok((self.phy_ctrl()? & Reg::VSC8562::PHY_CTRL::EN) != 0)
     }
 
     #[inline]
@@ -48,8 +48,8 @@ impl PhySmi {
     ) -> Result<(), FpgaError> {
         self.fpga.write(
             WriteOp::from(enabled),
-            Addr::PHY_CTRL,
-            Reg::PHY_CTRL::EN,
+            Addr::VSC8562_PHY_CTRL,
+            Reg::VSC8562::PHY_CTRL::EN,
         )
     }
 
@@ -57,21 +57,21 @@ impl PhySmi {
     pub fn set_phy_coma_mode(&self, asserted: bool) -> Result<(), FpgaError> {
         self.fpga.write(
             WriteOp::from(asserted),
-            Addr::PHY_CTRL,
-            Reg::PHY_CTRL::COMA_MODE,
+            Addr::VSC8562_PHY_CTRL,
+            Reg::VSC8562::PHY_CTRL::COMA_MODE,
         )
     }
 
     #[inline]
     pub fn phy_powered_up_and_ready(&self) -> Result<bool, FpgaError> {
-        let status: u8 = self.fpga.read(Addr::PHY_STATUS)?;
-        Ok((status & Reg::PHY_STATUS::READY) != 0)
+        let status: u8 = self.fpga.read(Addr::VSC8562_PHY_STATUS)?;
+        Ok((status & Reg::VSC8562::PHY_STATUS::READY) != 0)
     }
 
     #[inline]
     pub fn smi_busy(&self) -> Result<bool, FpgaError> {
-        let status: u8 = self.fpga.read(Addr::PHY_SMI_STATUS)?;
-        Ok((status & Reg::PHY_SMI_STATUS::BUSY) != 0)
+        let status: u8 = self.fpga.read(Addr::VSC8562_PHY_SMI_STATUS)?;
+        Ok((status & Reg::VSC8562::PHY_SMI_STATUS::BUSY) != 0)
     }
 
     pub fn await_not_busy(&self) -> Result<(), FpgaError> {
@@ -90,14 +90,17 @@ impl PhySmi {
             wdata: U16::new(0),
             phy,
             reg,
-            ctrl: Reg::PHY_SMI_CTRL::START,
+            ctrl: Reg::VSC8562::PHY_SMI_CTRL::START,
         };
         self.await_not_busy()?;
-        self.fpga
-            .write(WriteOp::Write, Addr::PHY_SMI_RDATA_H, request)?;
+        self.fpga.write(
+            WriteOp::Write,
+            Addr::VSC8562_PHY_SMI_RDATA_H,
+            request,
+        )?;
 
         self.await_not_busy()?;
-        let v = u16::from_be(self.fpga.read(Addr::PHY_SMI_RDATA_H)?);
+        let v = u16::from_be(self.fpga.read(Addr::VSC8562_PHY_SMI_RDATA_H)?);
 
         Ok(v)
     }
@@ -114,11 +117,12 @@ impl PhySmi {
             wdata: U16::new(value),
             phy,
             reg,
-            ctrl: Reg::PHY_SMI_CTRL::RW | Reg::PHY_SMI_CTRL::START,
+            ctrl: Reg::VSC8562::PHY_SMI_CTRL::RW
+                | Reg::VSC8562::PHY_SMI_CTRL::START,
         };
         self.await_not_busy()?;
         self.fpga
-            .write(WriteOp::Write, Addr::PHY_SMI_RDATA_H, request)
+            .write(WriteOp::Write, Addr::VSC8562_PHY_SMI_RDATA_H, request)
     }
 }
 
