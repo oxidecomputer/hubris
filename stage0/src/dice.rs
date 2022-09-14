@@ -5,8 +5,8 @@
 use crate::image_header::Image;
 use core::str::FromStr;
 use dice_crate::{
-    AliasCert, AliasData, AliasOkm, Cdi, CdiL1, DeviceIdOkm, DeviceIdSelfCert,
-    Handoff, SeedBuf, SerialNumber,
+    AliasCert, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber, DeviceIdOkm,
+    DeviceIdSelfCert, Handoff, SeedBuf, SerialNumber,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -40,11 +40,10 @@ pub fn run(image: &Image) {
 
     let dname_sn = get_serial_number();
     let deviceid_keypair = get_deviceid_keypair(&cdi);
-    let mut cert_sn = 0;
+    let mut cert_sn = CertSerialNumber::default();
 
     let deviceid_cert =
-        DeviceIdSelfCert::new(cert_sn, &dname_sn, &deviceid_keypair);
-    cert_sn += 1;
+        DeviceIdSelfCert::new(&cert_sn.next(), &dname_sn, &deviceid_keypair);
 
     // Collect hash(es) of TCB. The first TCB Component Identifier (TCI)
     // calculated is the Hubris image. The DICE specs call this collection
@@ -65,7 +64,7 @@ pub fn run(image: &Image) {
     let alias_keypair = Keypair::from(alias_okm.as_bytes());
 
     let alias_cert = AliasCert::new(
-        cert_sn,
+        &cert_sn.next(),
         &dname_sn,
         &alias_keypair.public,
         fwid.as_ref(),
