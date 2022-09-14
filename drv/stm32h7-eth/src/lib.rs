@@ -103,7 +103,7 @@ impl Ethernet {
         // you'll get a runtime panic. TODO: this would make a great static
         // assert....
         dma.dmacrx_cr.write(|w| unsafe {
-            w.rxpbl().bits(1).rbsz().bits(u16::try_from(BUFSZ).unwrap())
+            w.rxpbl().bits(1).rbsz().bits(u16::try_from(BUFSZ).unwrap()).rpf().set_bit()
         });
 
         // Inform the DMA of the location and length of the TX descriptor ring.
