@@ -1284,14 +1284,6 @@ overwritten.</p>
 </ol>
 </div>
 <div class="paragraph">
-<p>When the task first runs, it will generally initialize its <code>data</code> section and
-zero its <code>bss</code> section. The Hubris kernel doesn&#8217;t do this <em>for</em> the task because
-we don&#8217;t want to make too many assumptions about task internal memory layouts.
-For tasks written in Rust, this is handled by the <code>_start</code> routine provided by
-the <code>userlib</code> crate, and should &#8220;just work&#8221;&#8201;&#8212;&#8201;by the time execution reaches
-<code>main</code>, memory is set up.</p>
-</div>
-<div class="paragraph">
 <p>It&#8217;s worth noting a few things that the kernel does <em>not</em> do during reinit:</p>
 </div>
 <div class="ulist">
@@ -5374,7 +5366,7 @@ tool to a high-reliability research platform.</em></p>
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2022-09-09 15:44:22 UTC
+Last updated 2022-09-14 17:27:36 UTC
 </div>
 </div>
 </body>
