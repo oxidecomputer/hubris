@@ -1,0 +1,12 @@
+[package]
+name = "host-sp-messages"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fletcher = "0.3"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+
+hubpack = { git = "https://github.com/cbiffle/hubpack", rev = "df08cc3a6e1f97381cd0472ae348e310f0119e25" }
+
+unwrap-lite = { path = "../unwrap-lite" }

@@ -364,6 +364,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "corncobs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4603158882fa02a5f92b3ee716316f0495b962543141597751eaa5992a55f25b"
+
+[[package]]
 name = "cortex-m"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1647,6 +1653,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fletcher"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78b6ad5124f2e4d1ba8048f0366d3b5e7b3ff8ef55fb1f9d1b167c8e67181070"
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1878,6 +1890,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest 0.10.3",
+]
+
+[[package]]
+name = "host-sp-messages"
+version = "0.1.0"
+dependencies = [
+ "fletcher",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "serde",
+ "unwrap-lite",
 ]
 
 [[package]]
@@ -3349,6 +3371,22 @@ dependencies = [
  "serde",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "task-host-sp-comms"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+ "corncobs",
+ "cortex-m",
+ "drv-stm32h7-usart",
+ "heapless",
+ "host-sp-messages",
+ "mutable-statics",
+ "ringbuf",
+ "userlib",
 ]
 
 [[package]]
