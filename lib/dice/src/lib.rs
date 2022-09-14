@@ -22,7 +22,9 @@ mod alias_cert_tmpl;
 mod deviceid_cert_tmpl;
 mod handoff;
 mod spmeasure_cert_tmpl;
-pub use crate::handoff::{AliasData, Handoff, SpMeasureData};
+pub use crate::handoff::{
+    AliasData, Handoff, HandoffData, RngData, SpMeasureData,
+};
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
 // We define the length of the serial number using the values from the alias
@@ -260,5 +262,20 @@ impl SpMeasureOkm {
     // in extract, and info string in expand.
     pub fn from_cdi(cdi: &CdiL1) -> Self {
         Self(okm_from_seed_no_extract(cdi, "sp-measure".as_bytes()))
+    }
+}
+
+#[derive(Deserialize, Serialize, SerializedSize, Zeroize, ZeroizeOnDrop)]
+pub struct RngSeed([u8; SEED_LENGTH]);
+
+impl SeedBuf for RngSeed {
+    fn as_bytes(&self) -> &[u8; SEED_LENGTH] {
+        &self.0
+    }
+}
+
+impl RngSeed {
+    pub fn from_cdi(cdi: &CdiL1) -> Self {
+        Self(okm_from_seed_no_extract(cdi, "entropy".as_bytes()))
     }
 }

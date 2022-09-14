@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::{
-    AliasCert, AliasOkm, DeviceIdSelfCert, SpMeasureCert, SpMeasureOkm,
+    AliasCert, AliasOkm, DeviceIdSelfCert, RngSeed, SpMeasureCert, SpMeasureOkm,
 };
 use hubpack::SerializedSize;
 use lpc55_pac::syscon::RegisterBlock;
@@ -177,6 +177,35 @@ impl SpMeasureData {
             seed,
             spmeasure_cert,
             deviceid_cert,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, SerializedSize)]
+pub struct RngData {
+    pub magic: [u8; 16],
+    pub seed: RngSeed,
+}
+
+impl HandoffData for RngData {
+    const EXPECTED_MAGIC: [u8; 16] = [
+        0xb2, 0x48, 0x4b, 0x83, 0x3f, 0xee, 0xc0, 0xc0, 0xba, 0x0a, 0x5b, 0x6c,
+        0x34, 0x98, 0x45, 0x6c,
+    ];
+    const MEM_START: usize = RNG_START;
+    const MEM_SIZE: usize = RNG_SIZE;
+    const MAX_SIZE: usize = <RngData as SerializedSize>::MAX_SIZE;
+
+    fn get_magic(&self) -> [u8; 16] {
+        self.magic
+    }
+}
+
+impl RngData {
+    pub fn new(seed: RngSeed) -> Self {
+        Self {
+            magic: Self::EXPECTED_MAGIC,
+            seed,
         }
     }
 }

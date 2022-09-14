@@ -6,8 +6,8 @@ use crate::image_header::Image;
 use core::str::FromStr;
 use dice_crate::{
     AliasCertBuilder, AliasData, AliasOkm, Cdi, CdiL1, CertSerialNumber,
-    DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, SeedBuf, SerialNumber,
-    SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
+    DeviceIdOkm, DeviceIdSelfCertBuilder, Handoff, RngData, RngSeed, SeedBuf,
+    SerialNumber, SpMeasureCertBuilder, SpMeasureData, SpMeasureOkm,
 };
 use lpc55_pac::Peripherals;
 use salty::signature::Keypair;
@@ -99,4 +99,9 @@ pub fn run(image: &Image) {
     );
 
     handoff.store(&spmeasure_data);
+
+    let rng_seed = RngSeed::from_cdi(&cdi_l1);
+    let rng_data = RngData::new(rng_seed);
+
+    handoff.store(&rng_data);
 }
