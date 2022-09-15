@@ -21,7 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         fpga_regs(include_str!("sidecar_qsfp_x32_controller.json"))?
     )?;
 
-    // Calculate a bitstream checksum and add it to the generated Rust file
+    // Pull the bitstream checksum from an environment variable
+    // (injected by `xtask` itself as part of auxiliary flash packing)
     let checksum = env!("HUBRIS_AUXFLASH_CHECKSUM_QSFP");
     println!("cargo:rerun-if-env-changed=HUBRIS_AUXFLASH_CHECKSUM_QSFP");
     writeln!(
