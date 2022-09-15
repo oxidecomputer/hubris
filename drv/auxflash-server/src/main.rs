@@ -47,7 +47,7 @@ struct SlotReader<'a> {
 
 impl<'a> TlvcRead for SlotReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
-        // Hard-coded slot size of 1MiB
+        // Hard-coded slot size, on a per-board basis
         Ok(SLOT_SIZE as u64)
     }
     fn read_exact(
