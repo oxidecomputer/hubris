@@ -420,7 +420,7 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         while addr < end {
             let amount = (end - addr).min(buf.len());
             self.qspi.read_memory(addr as u32, &mut buf[..amount]);
-            dest.write_range(write..(write + addr), &buf[..amount])
+            dest.write_range(write..(write + amount), &buf[..amount])
                 .map_err(|_| RequestError::Fail(ClientError::WentAway))?;
             write += amount;
             addr += amount;
