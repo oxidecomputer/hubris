@@ -399,6 +399,20 @@ impl NotificationHandler for ServerImpl {
                     self.update_state_internal(PowerState::A0PlusHP);
                 }
             }
+            PowerState::A0PlusHP => {
+                let sys = sys_api::Sys::from(SYS.get_task_id());
+                let pwren_l = sys.gpio_read(NIC_PWREN_L_PINS).unwrap() != 0;
+
+                ringbuf_entry!(Trace::NICPowerEnableLow(pwren_l));
+
+                let cld_rst = Reg::NIC_CTRL::CLD_RST;
+
+                if pwren_l {
+                    self.seq.set_bytes(Addr::NIC_CTRL, &[cld_rst]).unwrap();
+                    self.update_state_internal(PowerState::A0);
+                }
+            }
+
             _ => {}
         }
 
@@ -418,7 +432,8 @@ impl ServerImpl {
     //
     // Return the current timer interval, in milliseconds.  If we are in A0,
     // we are polling for NIC_PWREN_L; if we are in A0PlusHP, we are polling
-    // for a thermtrip.  If we are in any other state, we don't need to poll.
+    // for a thermtrip and for someone disabling NIC_PWREN_L.  If we are in
+    // any other state, we don't need to poll.
     //
     fn poll_interval(&self) -> Option<u64> {
         match self.state {
