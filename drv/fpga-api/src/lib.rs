@@ -304,40 +304,15 @@ pub fn await_fpga_ready(
     }
 }
 
-/// Load a bitstream.
-pub fn load_bitstream(
-    fpga: &mut Fpga,
+fn read_and_hash_blob(
     auxflash: &mut AuxFlash,
-    blob: AuxFlashBlob,
-    bitstream_type: BitstreamType,
-    expected_checksum: [u8; 32],
-) -> Result<(), FpgaError> {
-    // Do an initial read to verify the checksum
+    blob: &AuxFlashBlob,
+    callback: &mut dyn FnMut(&[u8]) -> Result<(), FpgaError>,
+) -> Result<[u8; 32], FpgaError> {
     let mut scratch_buf = [0u8; 128];
     let mut pos = blob.start;
     let mut sha = Sha3_256::new();
-    while pos != blob.end {
-        let amount = (blob.end - pos).min(scratch_buf.len() as u32);
-        let chunk = &mut scratch_buf[0..(amount as usize)];
-
-        auxflash
-            .read_slot_with_offset(blob.slot, pos, chunk)
-            .map_err(|_| FpgaError::AuxReadError)?;
-        pos += amount;
-
-        sha.update(chunk);
-    }
-    let sha_out: [u8; 32] = sha.finalize().into();
-    if sha_out != expected_checksum {
-        return Err(FpgaError::AuxChecksumMismatch);
-    }
-
-    // Then, stream the data into the FPGA, recalculating the checksum to
-    // protect against TOCTOU attacks.
-    let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
-    let mut pos = blob.start;
-    let mut sha = Sha3_256::new();
-    while pos != blob.end {
+    while pos < blob.end {
         let amount = (blob.end - pos).min(scratch_buf.len() as u32);
         let chunk = &mut scratch_buf[0..(amount as usize)];
 
@@ -347,9 +322,31 @@ pub fn load_bitstream(
         pos += amount;
 
         sha.update(&chunk);
-        bitstream.continue_load(&chunk)?;
+        callback(&chunk)?;
     }
-    let sha_out: [u8; 32] = sha.finalize().into();
+    Ok(sha.finalize().into())
+}
+
+/// Load a bitstream.
+pub fn load_bitstream(
+    fpga: &mut Fpga,
+    auxflash: &mut AuxFlash,
+    blob: AuxFlashBlob,
+    bitstream_type: BitstreamType,
+    expected_checksum: [u8; 32],
+) -> Result<(), FpgaError> {
+    // Do an initial read to verify the checksum
+    let sha_out = read_and_hash_blob(auxflash, &blob, &mut |_| Ok(()))?;
+    if sha_out != expected_checksum {
+        return Err(FpgaError::AuxChecksumMismatch);
+    }
+
+    // Then, stream the data into the FPGA, recalculating the checksum to
+    // protect against TOCTOU attacks.
+    let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
+    let sha_out = read_and_hash_blob(auxflash, &blob, &mut |chunk| {
+        bitstream.continue_load(chunk)
+    })?;
     if sha_out != expected_checksum {
         return Err(FpgaError::AuxTocTouChecksumMismatch);
     }
