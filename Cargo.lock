@@ -729,6 +729,8 @@ dependencies = [
  "derive-idol-err",
  "idol",
  "num-traits",
+ "sha3",
+ "tlvc",
  "userlib",
  "zerocopy",
 ]
@@ -746,7 +748,6 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "sha3",
  "stm32h7",
  "tlvc",
  "userlib",

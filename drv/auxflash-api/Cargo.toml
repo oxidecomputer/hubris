@@ -7,6 +7,9 @@ edition = "2018"
 derive-idol-err = {path = "../../lib/derive-idol-err" }
 userlib = {path = "../../sys/userlib"}
 
+tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}
+
+sha3 = {version = "0.10", default-features = false}
 num-traits = { version = "0.2.12", default-features = false }
 zerocopy = "0.6.1"
 

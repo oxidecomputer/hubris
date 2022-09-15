@@ -6,11 +6,10 @@
 #![no_main]
 
 use drv_auxflash_api::{
-    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId,
+    AuxFlashBlob, AuxFlashChecksum, AuxFlashError, AuxFlashId, TlvcReadAuxFlash,
 };
 use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
 use idol_runtime::{ClientError, Leased, RequestError, R, W};
-use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
@@ -211,59 +210,7 @@ impl ServerImpl {
             qspi: &self.qspi,
             base: slot * SLOT_SIZE as u32,
         };
-        let mut reader = TlvcReader::begin(handle)
-            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
-
-        let mut chck_expected = None;
-        let mut chck_actual = None;
-        while let Ok(Some(chunk)) = reader.next() {
-            if &chunk.header().tag == b"CHCK" {
-                if chck_expected.is_some() {
-                    return Err(AuxFlashError::MultipleChck);
-                } else if chunk.len() != 32 {
-                    return Err(AuxFlashError::BadChckSize);
-                }
-                let mut out = [0; 32];
-                chunk
-                    .read_exact(0, &mut out)
-                    .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                chck_expected = Some(out);
-            } else if &chunk.header().tag == b"AUXI" {
-                if chck_actual.is_some() {
-                    return Err(AuxFlashError::MultipleAuxi);
-                }
-
-                // Read data and calculate the checksum using a scratch buffer
-                let mut sha = Sha3_256::new();
-                let mut scratch = [0u8; 256];
-                let mut i: u64 = 0;
-                while i < chunk.len() {
-                    let amount = (chunk.len() - i).min(scratch.len() as u64);
-                    chunk
-                        .read_exact(i, &mut scratch[0..(amount as usize)])
-                        .map_err(|_| AuxFlashError::ChunkReadFail)?;
-                    i += amount as u64;
-                    sha.update(&scratch[0..(amount as usize)]);
-                }
-                let sha_out = sha.finalize();
-
-                // Save the checksum in `chck_actual`
-                let mut out = [0; 32];
-                out.copy_from_slice(sha_out.as_slice());
-                chck_actual = Some(out);
-            }
-        }
-        match (chck_expected, chck_actual) {
-            (None, _) => Err(AuxFlashError::MissingChck),
-            (_, None) => Err(AuxFlashError::MissingChck),
-            (Some(a), Some(b)) => {
-                if a != b {
-                    Err(AuxFlashError::ChckMismatch)
-                } else {
-                    Ok(AuxFlashChecksum(chck_expected.unwrap()))
-                }
-            }
-        }
+        handle.read_checksum()
     }
 
     /// Checks that the matched slot in this even/odd pair also has valid data.
@@ -499,32 +446,9 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             qspi: &self.qspi,
             base: active_slot * SLOT_SIZE as u32,
         };
-        let mut outer_reader = TlvcReader::begin(handle)
-            .map_err(|_| AuxFlashError::TlvcReaderBeginFailed)?;
-        while let Ok(Some(outer_chunk)) = outer_reader.next() {
-            if &outer_chunk.header().tag == b"AUXI" {
-                let mut inner_reader = outer_chunk.read_as_chunks();
-                while let Ok(Some(inner_chunk)) = inner_reader.next() {
-                    if inner_chunk.header().tag == tag {
-                        // At this point, the inner reader is positioned *after*
-                        // our target chunk.  We back off by the full length of
-                        // the chunk (including the header), then offset by the
-                        // header size to get to the beginning of the blob data.
-                        let (_, inner_offset, _) = inner_reader.into_inner();
-                        let pos = inner_offset
-                            - inner_chunk.header().total_len_in_bytes() as u64
-                            + core::mem::size_of::<tlvc::ChunkHeader>() as u64;
-                        return Ok(AuxFlashBlob {
-                            slot: active_slot,
-                            start: pos as u32,
-                            end: (pos + inner_chunk.len()) as u32,
-                        });
-                    }
-                }
-                return Err(AuxFlashError::NoSuchBlob.into());
-            }
-        }
-        Err(AuxFlashError::MissingAuxi.into())
+        handle
+            .get_blob_by_tag(active_slot, tag)
+            .map_err(RequestError::from)
     }
 
     fn get_blob_by_u32(

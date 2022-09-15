@@ -16,7 +16,6 @@ tlvc = {git = "https://github.com/oxidecomputer/tlvc.git"}
 
 cfg-if = "1"
 num-traits = { version = "0.2.12", default-features = false }
-sha3 = {version = "0.10", default-features = false}
 stm32h7 = { version = "0.14", default-features = false }
 zerocopy = "0.6.1"
 
