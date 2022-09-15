@@ -11,8 +11,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
     if env::var("HUBRIS_BOARD")? != "sidecar-a" {
-        panic!("no FPGA image for target board");
+        panic!("unknown target board");
     }
+
     let out_file = out_dir.join("sidecar_qsfp_x32_controller.rs");
     let mut file = fs::File::create(out_file)?;
     write!(

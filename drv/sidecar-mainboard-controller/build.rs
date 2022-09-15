@@ -8,6 +8,10 @@ use std::{env, fs, io::Write, path::PathBuf};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_target_board();
 
+    if env::var("HUBRIS_BOARD")? != "sidecar-a" {
+        panic!("unknown target board");
+    }
+
     let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let out_file = out_dir.join("sidecar_mainboard_controller.rs");
     let mut file = fs::File::create(out_file)?;
