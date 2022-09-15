@@ -285,9 +285,11 @@ impl Ethernet {
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
         // Poke the tail pointer so the hardware knows to recheck (dropping two
         // bottom bits because svd2rust)
+        /* LOLNO
         self.dma.dmacrx_dtpr.write(|w| unsafe {
             w.rdt().bits(self.rx_ring.tail_ptr() as u32 >> 2)
         });
+        */
     }
 
     /// Notifies the DMA hardware that a packet is available in the Tx ring
