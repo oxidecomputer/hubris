@@ -1,6 +1,6 @@
-name = "psc"
+name = "psc-a"
 target = "thumbv7em-none-eabihf"
-board = "psc-1"
+board = "psc-a"
 chip = "../../chips/stm32h7"
 stacksize = 896
 

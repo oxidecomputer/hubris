@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out_dir = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
     let ecp5_bitstream_name = match env::var("HUBRIS_BOARD")?.as_str() {
-        "sidecar-1" => "sidecar_qsfp_x32_controller.bit",
+        "sidecar-a" => "sidecar_qsfp_x32_controller.bit",
         _ => {
             println!("No FPGA image for target board");
             std::process::exit(1)

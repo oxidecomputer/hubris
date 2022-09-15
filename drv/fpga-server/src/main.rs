@@ -46,9 +46,9 @@ fn main() -> ! {
     let user_design = Spi::from(SPI.get_task_id()).device(1);
 
     cfg_if::cfg_if! {
-        if #[cfg(all(target_board = "sidecar-1", feature = "mainboard", feature = "front_io"))] {
+        if #[cfg(all(target_board = "sidecar-a", feature = "mainboard", feature = "front_io"))] {
             compile_error!("Cannot enable both mainboard and front_io simultaneously");
-        } else if #[cfg(all(target_board = "sidecar-1", feature = "mainboard"))] {
+        } else if #[cfg(all(target_board = "sidecar-a", feature = "mainboard"))] {
             let driver = drv_fpga_devices::ecp5_spi::Ecp5UsingSpi {
                 sys,
                 done: sys_api::Port::J.pin(15),
@@ -62,7 +62,7 @@ fn main() -> ! {
             driver.configure_gpio();
 
             let devices = [ecp5::Ecp5::new(driver)];
-        } else if #[cfg(all(target_board = "sidecar-1", feature = "front_io"))] {
+        } else if #[cfg(all(target_board = "sidecar-a", feature = "front_io"))] {
             use drv_i2c_devices::pca9538::*;
             use drv_fpga_devices::ecp5_spi_mux_pca9538::*;
 

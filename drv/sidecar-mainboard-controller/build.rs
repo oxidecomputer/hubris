@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ecp5_bitstream_name = match env::var("HUBRIS_BOARD")?.as_str() {
         "gimletlet-2" => "sidecar_mainboard_emulator_ecp5_evn.bit",
-        "sidecar-1" => "sidecar_mainboard_controller.bit",
+        "sidecar-a" => "sidecar_mainboard_controller.bit",
         _ => {
             println!("No FPGA image for target board");
             std::process::exit(1)
