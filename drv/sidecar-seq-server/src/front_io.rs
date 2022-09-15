@@ -62,7 +62,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: FrontIOController::expected_checksum(),
+                    expected: FrontIOController::short_checksum(),
                 });
 
                 if !ident_valid || !checksum_valid {
@@ -99,7 +99,7 @@ impl FrontIOBoard {
                 ringbuf_entry!(Trace::FrontIOControllerChecksum {
                     fpga_id: i,
                     checksum,
-                    expected: FrontIOController::expected_checksum(),
+                    expected: FrontIOController::short_checksum(),
                 });
             }
 

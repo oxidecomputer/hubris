@@ -65,10 +65,9 @@ impl FrontIOController {
     /// This allows us to detect cases where the Hubris image has been updated
     /// while the FPGA remained powered: if the FPGA bitstream in the new
     /// Hubris image has changed, the checksum will no longer match.
-    pub fn checksum_valid(&self) -> Result<(u32, bool), FpgaError> {
-        let checksum =
-            u32::from_be(self.user_design.read(Addr::CHECKSUM_SCRATCHPAD0)?);
-        Ok((checksum, checksum == Self::expected_checksum()))
+    pub fn checksum_valid(&self) -> Result<([u8; 4], bool), FpgaError> {
+        let checksum = self.user_design.read(Addr::CHECKSUM_SCRATCHPAD0)?;
+        Ok((checksum, checksum == Self::short_checksum()))
     }
 
     /// Writes the checksum scratchpad register to our expected checksum.
@@ -79,15 +78,13 @@ impl FrontIOController {
         self.user_design.write(
             WriteOp::Write,
             Addr::CHECKSUM_SCRATCHPAD0,
-            Self::expected_checksum().to_be(),
+            Self::short_checksum(),
         )
     }
 
     /// Returns the expected (short) checksum, which simply a prefix of the full
     /// SHA3-256 hash of the bitstream.
-    pub fn expected_checksum() -> u32 {
-        u32::from_le_bytes(
-            SIDECAR_IO_BITSTREAM_CHECKSUM[..4].try_into().unwrap(),
-        )
+    pub fn short_checksum() -> [u8; 4] {
+        SIDECAR_IO_BITSTREAM_CHECKSUM[..4].try_into().unwrap()
     }
 }

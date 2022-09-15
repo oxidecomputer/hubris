@@ -72,8 +72,8 @@ enum Trace {
     },
     FrontIOControllerChecksum {
         fpga_id: usize,
-        checksum: u32,
-        expected: u32,
+        checksum: [u8; 4],
+        expected: [u8; 4],
     },
     FrontIOVsc8562Ready,
 }
