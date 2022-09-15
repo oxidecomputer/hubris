@@ -381,6 +381,26 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(())
     }
 
+    fn slot_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+        offset: u32,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
+        let addr = slot as usize * SLOT_SIZE + offset as usize;
+        if addr >= SLOT_SIZE {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
+
+        self.set_and_check_write_enable()?;
+        self.qspi.sector_erase(addr as u32);
+        self.poll_for_write_complete(Some(1));
+        Ok(())
+    }
+
     fn write_slot_with_offset(
         &mut self,
         _: &RecvMessage,

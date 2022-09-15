@@ -41,6 +41,17 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "slot_sector_erase": (
+            doc: "erase a particular sector within a slot",
+            args: {
+                "slot": "u32",
+                "offset": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
         "read_slot_chck": (
             doc: "reads and verifies the CHCK field in an auxiliary flash slot",
             args: {
