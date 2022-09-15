@@ -184,7 +184,7 @@ fn configure_uart_device() -> Usart {
 
     #[cfg(feature = "baud_rate_115_200")]
     const BAUD_RATE: u32 = 115_200;
-    #[cfg(feature = "baud_rate_3_000_000")]
+    #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
     #[cfg(feature = "hardware_flow_control")]

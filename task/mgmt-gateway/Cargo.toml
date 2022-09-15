@@ -30,5 +30,5 @@ psc = []
 vlan = ["task-net-api/vlan"]
 
 usart1 = []
-baud_rate_3_000_000 = []
+baud_rate_3M = []
 hardware_flow_control = []

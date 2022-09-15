@@ -253,7 +253,7 @@ fn configure_uart_device() -> Usart {
     // control enabled. We could expand our cargo features to cover other cases
     // as needed. Currently, failing to enable any of those three features will
     // cause a compilation error.
-    #[cfg(feature = "baud_rate_3_000_000")]
+    #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
     #[cfg(feature = "hardware_flow_control")]

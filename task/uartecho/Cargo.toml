@@ -28,7 +28,7 @@ hardware_flow_control = []
 
 # we could expand this if needed; exactly one of these must be specified
 baud_rate_115_200 = []
-baud_rate_3_000_000 = []
+baud_rate_3M = []
 
 [[bin]]
 name = "task-uartecho"
