@@ -24,13 +24,14 @@ task_slot!(SYS, sys);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum UartLog {
+    None,
     Tx(u8),
     TxFull,
     Rx(u8),
     RxOverrun,
 }
 
-ringbuf!(UartLog, 64, UartLog::Rx(0));
+ringbuf!(UartLog, 64, UartLog::None);
 
 /// Notification mask for USART IRQ; must match configuration in app.toml.
 const USART_IRQ: u32 = 1;
