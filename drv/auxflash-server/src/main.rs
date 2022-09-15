@@ -12,11 +12,15 @@ use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
-// XXX hard-coded for Sidecar
-const SLOT_COUNT: u32 = 16;
-
-// Generic across all machines
-const SLOT_SIZE: usize = 1 << 20;
+cfg_if::cfg_if! {
+    if #[cfg(target_board="sidecar-1")] {
+        const MEMORY_SIZE: u32 = 16 << 20; // 16 MiB
+        const SLOT_COUNT: u32 = 8;
+        const SLOT_SIZE: usize = (MEMORY_SIZE / SLOT_COUNT) as usize;
+    } else {
+        panic!("No auxflash support for this board")
+    }
+}
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -331,6 +335,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         _: &RecvMessage,
     ) -> Result<u32, RequestError<AuxFlashError>> {
         Ok(SLOT_COUNT)
+    }
+
+    fn slot_size(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        Ok(SLOT_SIZE as u32)
     }
 
     fn read_slot_chck(

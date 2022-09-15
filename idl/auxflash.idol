@@ -17,6 +17,13 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "slot_size": (
+            doc: "returns the size of a slot, in bytes",
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
         "read_status": (
             doc: "reads the auxiliary flash chip's status register",
             reply: Result(
