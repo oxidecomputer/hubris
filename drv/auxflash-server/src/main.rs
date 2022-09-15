@@ -390,8 +390,11 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         if slot >= SLOT_COUNT {
             return Err(AuxFlashError::InvalidSlot.into());
         }
+        if offset >= SLOT_SIZE as u32 {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
         let addr = slot as usize * SLOT_SIZE + offset as usize;
-        if addr >= SLOT_SIZE {
+        if addr > u32::MAX as usize {
             return Err(AuxFlashError::AddressOverflow.into());
         }
 
