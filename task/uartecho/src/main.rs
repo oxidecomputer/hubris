@@ -187,10 +187,7 @@ fn configure_uart_device() -> Usart {
     #[cfg(feature = "baud_rate_3M")]
     const BAUD_RATE: u32 = 3_000_000;
 
-    #[cfg(feature = "hardware_flow_control")]
-    let hardware_flow_control = true;
-    #[cfg(not(feature = "hardware_flow_control"))]
-    let hardware_flow_control = false;
+    let hardware_flow_control = cfg!(feature = "hardware_flow_control");
 
     let usart;
     let peripheral;
@@ -199,18 +196,16 @@ fn configure_uart_device() -> Usart {
     cfg_if::cfg_if! {
         if #[cfg(feature = "usart1")] {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
-                        // NOTE: These pins are for gimletlet, not gimlet!
-                        &[
-                            // TX, RX
-                            (Port::B.pin(6).and_pin(7), Alternate::AF7),
-                            // CTS, RTS
-                            (Port::A.pin(11).and_pin(12), Alternate::AF7),
-                        ]
-                    } else {
-                        &[(Port::B.pin(6).and_pin(7), Alternate::AF7)]
-                    }
+                if cfg!(feature = "hardware_flow_control") {
+                    // NOTE: These pins are for gimletlet, not gimlet!
+                    &[
+                        // TX, RX
+                        (Port::B.pin(6).and_pin(7), Alternate::AF7),
+                        // CTS, RTS
+                        (Port::A.pin(11).and_pin(12), Alternate::AF7),
+                    ]
+                } else {
+                    &[(Port::B.pin(6).and_pin(7), Alternate::AF7)]
                 }
             };
 
@@ -225,15 +220,13 @@ fn configure_uart_device() -> Usart {
             pins = PINS;
         } else if #[cfg(feature = "usart2")] {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
-                        &[(
-                            Port::D.pin(3).and_pin(4).and_pin(5).and_pin(6),
-                            Alternate::AF7
-                        )]
-                    } else {
-                        &[(Port::D.pin(5).and_pin(6), Alternate::AF7)]
-                    }
+                if cfg!(feature = "hardware_flow_control") {
+                    &[(
+                        Port::D.pin(3).and_pin(4).and_pin(5).and_pin(6),
+                        Alternate::AF7
+                    )]
+                } else {
+                    &[(Port::D.pin(5).and_pin(6), Alternate::AF7)]
                 }
             };
             usart = unsafe { &*device::USART2::ptr() };
@@ -241,15 +234,13 @@ fn configure_uart_device() -> Usart {
             pins = PINS;
         } else if #[cfg(feature = "uart7")] {
             const PINS: &[(PinSet, Alternate)] = {
-                cfg_if::cfg_if! {
-                    if #[cfg(feature = "hardware_flow_control")] {
-                        &[(
-                            Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
-                            Alternate::AF7
-                        )]
-                    } else {
-                        &[(Port::E.pin(7).and_pin(8), Alternate::AF7)]
-                    }
+                if cfg!(feature = "hardware_flow_control") {
+                    &[(
+                        Port::E.pin(7).and_pin(8).and_pin(9).and_pin(10),
+                        Alternate::AF7
+                    )]
+                } else {
+                    &[(Port::E.pin(7).and_pin(8), Alternate::AF7)]
                 }
             };
             usart = unsafe { &*device::UART7::ptr() };

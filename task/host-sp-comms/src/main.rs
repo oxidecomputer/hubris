@@ -273,7 +273,7 @@ fn configure_uart_device() -> Usart {
                             Alternate::AF7
                         )]
                     } else {
-                        &[(Port::E.pin(7).and_pin(8), Alternate::AF7)]
+                        compile_error!("hardware_flow_control should be enabled");
                     }
                 }
             };
