@@ -97,12 +97,11 @@ fn main() -> ! {
                     // Discard the byte we just peeked and successfully inserted
                     // into the TX FIFO.
                     iter.next().unwrap_lite();
-                    continue;
+                } else {
+                    // TX fifo is full; wait for space.
+                    sys_irq_control(USART_IRQ, true);
+                    let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
                 }
-
-                // TX fifo is full; wait for space.
-                sys_irq_control(USART_IRQ, true);
-                let _ = sys_recv_closed(&mut [], USART_IRQ, TaskId::KERNEL);
             }
             uart.disable_tx_fifo_empty_interrupt();
         }
