@@ -18,6 +18,8 @@ pub use hubpack::error::Error as HubpackError;
 /// Does not include framing overhead for packetization (e.g., cobs).
 pub const MAX_MESSAGE_SIZE: usize = 1024;
 
+const CHECKSUM_SIZE: usize = core::mem::size_of::<u16>();
+
 pub mod version {
     pub const V1: u32 = 1;
 }
@@ -100,8 +102,12 @@ pub enum DecodeFailureReason {
 /// leftover data from `data_blob` that did not fit into this message.
 ///
 /// # Errors
+///
 /// Only fails if `command` fails to serialize into
-/// `out[header_length..out.len() - 2]`.
+/// `out[header_length..out.len() - 2]` (i.e., the space available between the
+/// header and our trailing checksum). If the serialized command is maximal size
+/// (i.e., exactly `MAX_MESSAGE_SIZE - header_length - 2`), none of `data_blob`
+/// will be included in the serialized message.
 pub fn serialize<'a>(
     out: &mut [u8; MAX_MESSAGE_SIZE],
     header: &Header,
@@ -110,12 +116,17 @@ pub fn serialize<'a>(
 ) -> Result<(usize, &'a [u8]), HubpackError> {
     let mut n = hubpack::serialize(out, header)?;
 
-    // We know `Header::MAX_SIZE` is much smaller than `out.len()`, so we know
-    // chopping off the last two bytes here is safe.
-    let out_data_end = out.len() - 2;
+    // We know `Header::MAX_SIZE` is much smaller than out.len(), so this
+    // subtraction can't underflow. We don't know how big `command` will be, but
+    // (a) `hubpack::serialize()` will fail if it's too large, and (b) if
+    // serialization succeeds, this subtraction guarantees space for our
+    // trailing checksum.
+    let out_data_end = out.len() - CHECKSUM_SIZE;
+
     n += hubpack::serialize(&mut out[n..out_data_end], command)?;
 
-    // After packing in `header` and `command`, how much more data can we fit?
+    // After packing in `header` and `command`, how much more data can we fit
+    // (while still leaving room for our checksum)?
     let data_this_message = usize::min(out_data_end - n, data_blob.len());
 
     // Pack in as much of `data_blob` as we can.
@@ -125,8 +136,8 @@ pub fn serialize<'a>(
 
     // Compute checksum over the full message.
     let checksum = fletcher::calc_fletcher16(&out[..n]);
-    out[n..][..2].copy_from_slice(&checksum.to_le_bytes()[..]);
-    n += 2;
+    out[n..][..CHECKSUM_SIZE].copy_from_slice(&checksum.to_le_bytes()[..]);
+    n += CHECKSUM_SIZE;
 
     Ok((n, &data_blob[data_this_message..]))
 }
@@ -142,14 +153,16 @@ pub fn deserialize<T: DeserializeOwned>(
 
     // We expect at least 2 bytes remaining in `leftover` for the checksum; any
     // additional bytes are treated as the data blob we return.
-    if leftover.len() < 2 {
+    if leftover.len() < CHECKSUM_SIZE {
         return Err(HubpackError::Truncated);
     }
 
-    let (data_blob, checksum) = leftover.split_at(leftover.len() - 2);
+    let (data_blob, checksum) =
+        leftover.split_at(leftover.len() - CHECKSUM_SIZE);
 
     let checksum = u16::from_le_bytes(checksum.try_into().unwrap_lite());
-    let expected_checksum = fletcher::calc_fletcher16(&data[..data.len() - 2]);
+    let expected_checksum =
+        fletcher::calc_fletcher16(&data[..data.len() - CHECKSUM_SIZE]);
     if checksum != expected_checksum {
         return Err(HubpackError::Custom);
     }
