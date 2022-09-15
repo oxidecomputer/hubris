@@ -13,12 +13,17 @@ use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
 cfg_if::cfg_if! {
-    if #[cfg(target_board="sidecar-1")] {
+    if #[cfg(target_board="sidecar-a")] {
         const MEMORY_SIZE: u32 = 16 << 20; // 16 MiB
         const SLOT_COUNT: u32 = 8;
         const SLOT_SIZE: usize = (MEMORY_SIZE / SLOT_COUNT) as usize;
     } else {
-        panic!("No auxflash support for this board")
+        compile_error!("No auxflash support for this board");
+        // Dummy values so that the error above is obvious; otherwise, the
+        // compiler throws out a bunch of other errors.
+        const MEMORY_SIZE: u32 = 0;
+        const SLOT_COUNT: u32 = 0;
+        const SLOT_SIZE: usize = 0;
     }
 }
 
