@@ -1897,7 +1897,7 @@ name = "host-sp-messages"
 version = "0.1.0"
 dependencies = [
  "fletcher",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
  "serde",
  "unwrap-lite",
 ]
@@ -1922,6 +1922,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hubpack"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
+dependencies = [
+ "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "serde",
+]
+
+[[package]]
 name = "hubpack_derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1936,6 +1945,16 @@ dependencies = [
 name = "hubpack_derive"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "hubpack_derive"
+version = "0.1.0"
+source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
 dependencies = [
  "proc-macro2",
  "quote",
