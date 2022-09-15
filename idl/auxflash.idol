@@ -17,6 +17,13 @@ Interface(
                 err: CLike("AuxFlashError"),
             ),
         ),
+        "slot_size": (
+            doc: "returns the size of a slot, in bytes",
+            reply: Result(
+                ok: "u32",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
         "read_status": (
             doc: "reads the auxiliary flash chip's status register",
             reply: Result(
@@ -28,6 +35,17 @@ Interface(
             doc: "erases the given slot",
             args: {
                 "slot": "u32",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("AuxFlashError"),
+            ),
+        ),
+        "slot_sector_erase": (
+            doc: "erase a particular sector within a slot",
+            args: {
+                "slot": "u32",
+                "offset": "u32",
             },
             reply: Result(
                 ok: "()",

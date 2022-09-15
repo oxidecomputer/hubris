@@ -12,11 +12,20 @@ use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReadError, TlvcReader};
 use userlib::*;
 
-// XXX hard-coded for Sidecar
-const SLOT_COUNT: u32 = 16;
-
-// Generic across all machines
-const SLOT_SIZE: usize = 1 << 20;
+cfg_if::cfg_if! {
+    if #[cfg(target_board="sidecar-a")] {
+        const MEMORY_SIZE: u32 = 16 << 20; // 16 MiB
+        const SLOT_COUNT: u32 = 8;
+        const SLOT_SIZE: usize = (MEMORY_SIZE / SLOT_COUNT) as usize;
+    } else {
+        compile_error!("No auxflash support for this board");
+        // Dummy values so that the error above is obvious; otherwise, the
+        // compiler throws out a bunch of other errors.
+        const MEMORY_SIZE: u32 = 0;
+        const SLOT_COUNT: u32 = 0;
+        const SLOT_SIZE: usize = 0;
+    }
+}
 
 #[cfg(feature = "h753")]
 use stm32h7::stm32h753 as device;
@@ -38,7 +47,7 @@ struct SlotReader<'a> {
 
 impl<'a> TlvcRead for SlotReader<'a> {
     fn extent(&self) -> Result<u64, TlvcReadError> {
-        // Hard-coded slot size of 1MiB
+        // Hard-coded slot size, on a per-board basis
         Ok(SLOT_SIZE as u64)
     }
     fn read_exact(
@@ -333,6 +342,13 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
         Ok(SLOT_COUNT)
     }
 
+    fn slot_size(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<u32, RequestError<AuxFlashError>> {
+        Ok(SLOT_SIZE as u32)
+    }
+
     fn read_slot_chck(
         &mut self,
         _: &RecvMessage,
@@ -362,6 +378,29 @@ impl idl::InOrderAuxFlashImpl for ServerImpl {
             addr += SECTOR_SIZE_BYTES;
             self.poll_for_write_complete(Some(1));
         }
+        Ok(())
+    }
+
+    fn slot_sector_erase(
+        &mut self,
+        _: &RecvMessage,
+        slot: u32,
+        offset: u32,
+    ) -> Result<(), RequestError<AuxFlashError>> {
+        if slot >= SLOT_COUNT {
+            return Err(AuxFlashError::InvalidSlot.into());
+        }
+        if offset >= SLOT_SIZE as u32 {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
+        let addr = slot as usize * SLOT_SIZE + offset as usize;
+        if addr > u32::MAX as usize {
+            return Err(AuxFlashError::AddressOverflow.into());
+        }
+
+        self.set_and_check_write_enable()?;
+        self.qspi.sector_erase(addr as u32);
+        self.poll_for_write_complete(Some(1));
         Ok(())
     }
 
