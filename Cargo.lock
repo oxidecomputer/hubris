@@ -424,6 +424,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53757d12b596c16c78b83458d732a5d1a17ab3f53f2f7412f6fb57cc8a140ab3"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
 name = "crc-any"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -431,6 +440,12 @@ checksum = "073375684a58dece169afbdc9879a027f3698118ad3814938316c6002b7aa921"
 dependencies = [
  "debug-helper",
 ]
+
+[[package]]
+name = "crc-catalog"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d0165d2900ae6778e36e80bbc4da3b5eefccee9ba939761f9c2882a5d9af3ff"
 
 [[package]]
 name = "crc32fast"
@@ -683,6 +698,7 @@ dependencies = [
  "serde-big-array",
  "sha3",
  "unwrap-lite",
+ "zerocopy",
  "zeroize",
 ]
 
@@ -704,6 +720,36 @@ dependencies = [
  "block-buffer 0.10.2",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "drv-auxflash-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-auxflash-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-auxflash-api",
+ "drv-qspi-api",
+ "drv-stm32h7-qspi",
+ "drv-stm32xx-sys-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "sha3",
+ "stm32h7",
+ "tlvc",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -778,6 +824,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-hash-api",
+ "drv-qspi-api",
  "idol",
  "num-traits",
  "userlib",
@@ -1098,6 +1145,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-qspi-api"
+version = "0.1.0"
+
+[[package]]
 name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
@@ -1289,6 +1340,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
+ "drv-qspi-api",
  "stm32h7",
  "userlib",
  "vcell",
@@ -1603,7 +1655,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 [[package]]
 name = "gateway-messages"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/omicron?rev=f2e6237e57a36873fc748b6ecd9e42b8ef208c88#f2e6237e57a36873fc748b6ecd9e42b8ef208c88"
+source = "git+https://github.com/oxidecomputer/omicron?rev=e6eccffb236d0c242b5f90d30d01daa47aa9d89f#e6eccffb236d0c242b5f90d30d01daa47aa9d89f"
 dependencies = [
  "bitflags",
  "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
@@ -2758,6 +2810,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ron"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
+dependencies = [
+ "base64",
+ "bitflags",
+ "serde",
+]
+
+[[package]]
 name = "rot-carrier"
 version = "0.1.0"
 dependencies = [
@@ -2834,8 +2897,7 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "salty"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77cdd38ed8bfe51e53ee991aae0791b94349d0a05cfdecd283835a8a965d4c37"
+source = "git+https://github.com/oxidecomputer/salty?rev=eb3c31858f631a7fb9934246c8efdef080d05726#eb3c31858f631a7fb9934246c8efdef080d05726"
 dependencies = [
  "ed25519",
  "subtle",
@@ -3361,6 +3423,7 @@ name = "task-mgmt-gateway"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "drv-gimlet-hf-api",
  "drv-stm32h7-usart",
  "drv-stm32xx-uid",
  "drv-update-api",
@@ -3961,6 +4024,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlvc"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+dependencies = [
+ "byteorder",
+ "crc",
+ "zerocopy",
+]
+
+[[package]]
+name = "tlvc-text"
+version = "0.1.0"
+source = "git+https://github.com/oxidecomputer/tlvc#2643765eb7775d1f5e8ec56910f1ab15e9c75170"
+dependencies = [
+ "ron 0.8.0",
+ "serde",
+ "tlvc",
+ "zerocopy",
+]
+
+[[package]]
 name = "toml"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4168,6 +4252,7 @@ dependencies = [
  "dunce",
  "filetime",
  "fnv",
+ "gnarle",
  "goblin",
  "indexmap",
  "lpc55_sign",
@@ -4178,8 +4263,11 @@ dependencies = [
  "scroll",
  "serde",
  "serde_json",
+ "sha3",
  "srec",
  "strsim",
+ "tlvc",
+ "tlvc-text",
  "toml",
  "walkdir",
  "zerocopy",

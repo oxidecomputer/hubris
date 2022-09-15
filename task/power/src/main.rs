@@ -200,6 +200,25 @@ macro_rules! adm1272_controller {
     };
 }
 
+#[allow(unused_macros)]
+macro_rules! max5970_controller {
+    ($task:expr, $which:ident, $rail:ident, $state:ident, $rsense:expr) => {
+        paste::paste! {
+            PowerController {
+                state: PowerState::$state,
+                device: Device::$which({
+                    let (device, rail) = i2c_config::pmbus::$rail($task);
+                    Max5970::new(&device, rail, $rsense)
+                }),
+                voltage: sensors::[<MAX5970_ $rail:upper _VOLTAGE_SENSOR>],
+                current: sensors::[<MAX5970_ $rail:upper _CURRENT_SENSOR>],
+                temperature: None,
+            }
+        }
+    };
+}
+
+
 #[cfg(target_board = "gimlet-a")]
 fn controllers() -> [PowerController; 13] {
     let task = I2C.get_task_id();
@@ -241,10 +260,10 @@ fn controllers() -> [PowerController; 19] {
         rail_controller!(task, Sys, tps546B24A, v0p96_nic_vdd_a0hp, A0),
         adm1272_controller!(task, HotSwap, v54_hs_output, A2, Ohms(0.001)),
         adm1272_controller!(task, Fan, v54_fan, A2, Ohms(0.002)),
-        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_m2a_a0hp, A0),
-        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_m2a_a0hp, A0),
-        rail_controller_notemp!(task, HotSwapIO, max5970, v12_u2_a0, A0),
-        rail_controller_notemp!(task, HotSwapIO, max5970, v3p3_u2_a0, A0),
+        max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
+        max5970_controller!(task, HotSwapIO, v3p3_m2a_a0hp, A0, Ohms(0.004)),
+        max5970_controller!(task, HotSwapIO, v12_u2_a0, A0, Ohms(0.005)),
+        max5970_controller!(task, HotSwapIO, v3p3_u2_a0, A0, Ohms(0.008)),
     ]
 }
 

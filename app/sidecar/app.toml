@@ -7,7 +7,7 @@ memory = "memory-large.toml"
 
 [kernel]
 name = "sidecar"
-requires = {flash = 22776, ram = 5840}
+requires = {flash = 22776, ram = 6200}
 #
 # For the kernel (and for any task that logs), we are required to enable
 # either "itm" (denoting logging/panicking via ARM's Instrumentation Trace
@@ -105,6 +105,17 @@ stacksize = 2048
 start = true
 uses = ["flash_controller", "bank2"]
 interrupts = {"flash_controller.irq" = 0b1}
+
+[tasks.auxflash]
+name = "drv-auxflash-server"
+priority = 3
+max-sizes = {flash = 32768, ram = 4096}
+features = ["h753"]
+uses = ["quadspi"]
+start = true
+interrupts = {"quadspi.irq" = 1}
+stacksize = 3504
+task-slots = ["sys"]
 
 [tasks.net]
 name = "task-net"
@@ -774,3 +785,13 @@ owner = {name = "mgmt_gateway", notification = 0b01}
 port = 11111 # TODO do we have a documented port for MGS traffic?
 tx = { packets = 3, bytes = 2048 }
 rx = { packets = 3, bytes = 2048 }
+
+[[auxflash.blobs]]
+file = "drv/sidecar-mainboard-controller/sidecar_mainboard_controller.bit"
+compress = true
+tag = "FPGA"
+
+[[auxflash.blobs]]
+file = "drv/sidecar-front-io/sidecar_qsfp_x32_controller.bit"
+compress = true
+tag = "QSFP"

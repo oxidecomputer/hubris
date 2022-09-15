@@ -4,13 +4,14 @@
 
 use core::convert::Infallible;
 
-use crate::{mgs_common::MgsCommon, Log, MgsMessage, __RINGBUF};
+use crate::{mgs_common::MgsCommon, Log, MgsMessage};
 use gateway_messages::{
     sp_impl::SocketAddrV6, sp_impl::SpHandler, BulkIgnitionState,
     DiscoverResponse, IgnitionCommand, IgnitionState, ResponseError,
-    SpComponent, SpPort, SpState, UpdateChunk, UpdateStart,
+    SpComponent, SpPort, SpState, UpdateChunk, UpdatePrepare,
+    UpdatePrepareStatusRequest, UpdatePrepareStatusResponse,
 };
-use ringbuf::ringbuf_entry;
+use ringbuf::ringbuf_entry_root;
 use task_net_api::UdpMetadata;
 
 pub(crate) struct MgsHandler {
@@ -25,6 +26,15 @@ impl MgsHandler {
             common: MgsCommon::claim_static_resources(),
         }
     }
+
+    /// If we want to be woken by the system timer, we return a deadline here.
+    /// `main()` is responsible for calling this method and actually setting the
+    /// timer.
+    pub(crate) fn timer_deadline(&self) -> Option<u64> {
+        None
+    }
+
+    pub(crate) fn handle_timer_fired(&mut self) {}
 
     pub(crate) fn drive_usart(&mut self) {}
 
@@ -55,7 +65,9 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         target: u8,
     ) -> Result<IgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionState { target }));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionState {
+            target
+        }));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -64,7 +76,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<BulkIgnitionState, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::BulkIgnitionState));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -75,7 +87,7 @@ impl SpHandler for MgsHandler {
         target: u8,
         command: IgnitionCommand,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::IgnitionCommand {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::IgnitionCommand {
             target,
             command
         }));
@@ -90,13 +102,42 @@ impl SpHandler for MgsHandler {
         self.common.sp_state()
     }
 
-    fn update_start(
+    fn update_prepare(
         &mut self,
         _sender: SocketAddrV6,
         _port: SpPort,
-        update: UpdateStart,
+        update: UpdatePrepare,
     ) -> Result<(), ResponseError> {
-        self.common.update_start(update)
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepare {
+            length: update.total_size,
+            component: update.component,
+            stream_id: update.stream_id,
+            slot: update.slot,
+        }));
+
+        match update.component {
+            SpComponent::SP_ITSELF => self.common.update_prepare(update),
+            _ => Err(ResponseError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn update_prepare_status(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        request: UpdatePrepareStatusRequest,
+    ) -> Result<UpdatePrepareStatusResponse, ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdatePrepareStatus {
+            component: request.component,
+            stream_id: request.stream_id,
+        }));
+
+        match request.component {
+            SpComponent::SP_ITSELF => {
+                self.common.update_prepare_status(request)
+            }
+            _ => Err(ResponseError::RequestUnsupportedForComponent),
+        }
     }
 
     fn update_chunk(
@@ -106,7 +147,31 @@ impl SpHandler for MgsHandler {
         chunk: UpdateChunk,
         data: &[u8],
     ) -> Result<(), ResponseError> {
-        self.common.update_chunk(chunk, data)
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateChunk {
+            component: chunk.component,
+            offset: chunk.offset,
+        }));
+
+        match chunk.component {
+            SpComponent::SP_ITSELF => self.common.update_chunk(chunk, data),
+            _ => Err(ResponseError::RequestUnsupportedForComponent),
+        }
+    }
+
+    fn update_abort(
+        &mut self,
+        _sender: SocketAddrV6,
+        _port: SpPort,
+        component: SpComponent,
+    ) -> Result<(), ResponseError> {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::UpdateAbort {
+            component
+        }));
+
+        match component {
+            SpComponent::SP_ITSELF => self.common.update_abort(),
+            _ => Err(ResponseError::RequestUnsupportedForComponent),
+        }
     }
 
     fn serial_console_attach(
@@ -115,7 +180,7 @@ impl SpHandler for MgsHandler {
         _port: SpPort,
         _component: SpComponent,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleAttach));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 
@@ -126,7 +191,7 @@ impl SpHandler for MgsHandler {
         offset: u64,
         data: &[u8],
     ) -> Result<u64, ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleWrite {
             offset,
             length: data.len() as u16
         }));
@@ -138,7 +203,7 @@ impl SpHandler for MgsHandler {
         _sender: SocketAddrV6,
         _port: SpPort,
     ) -> Result<(), ResponseError> {
-        ringbuf_entry!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
+        ringbuf_entry_root!(Log::MgsMessage(MgsMessage::SerialConsoleDetach));
         Err(ResponseError::RequestUnsupportedForSp)
     }
 

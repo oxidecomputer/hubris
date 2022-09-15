@@ -16,6 +16,7 @@ use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
+use zerocopy::AsBytes;
 
 use crate::{
     config::{BuildConfig, Config},
@@ -646,6 +647,13 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         debug_dir.join("script.gdb"),
     )?;
 
+    if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
+        let file = cfg.dist_file("auxi.tlvc");
+        std::fs::write(&file, &auxflash.1)
+            .context(format!("Failed to write auxi to {:?}", file))?;
+        archive.copy(&file, img_dir.join("auxi.tlvc"))?;
+    }
+
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
     // the LPC55 boards.
     let openocd_cfg = chip_dir.join("openocd.cfg");
@@ -947,7 +955,6 @@ fn update_image_header(
     secure: &Option<SecureData>,
 ) -> Result<bool> {
     use goblin::container::Container;
-    use zerocopy::AsBytes;
 
     let mut file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;

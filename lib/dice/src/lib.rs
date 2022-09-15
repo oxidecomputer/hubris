@@ -10,6 +10,7 @@ use hubpack::SerializedSize;
 use salty::constants::SECRETKEY_SEED_LENGTH;
 use serde::{Deserialize, Serialize};
 use sha3::Sha3_256;
+use zerocopy::AsBytes;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 mod cert;
@@ -20,8 +21,10 @@ mod handoff;
 pub use crate::handoff::{AliasData, Handoff};
 
 pub const SEED_LENGTH: usize = SECRETKEY_SEED_LENGTH;
-pub const SN_LENGTH: usize = alias_cert_tmpl::SN_LENGTH;
-pub const NOTBEFORE_LENGTH: usize = alias_cert_tmpl::NOTBEFORE_LENGTH;
+// We define the length of the serial number using the values from the alias
+// cert template though it's consistent across all templates.
+pub const SN_LENGTH: usize = alias_cert_tmpl::ISSUER_SN_RANGE.end
+    - alias_cert_tmpl::ISSUER_SN_RANGE.start;
 const REG_ADDR_NONSEC: u32 = 0x40000900;
 
 fn get_cdi_reg_slice() -> &'static mut [u32] {
@@ -141,7 +144,27 @@ impl DeviceIdOkm {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, SerializedSize)]
+#[repr(C)]
+#[derive(AsBytes, Default)]
+pub struct CertSerialNumber(u8);
+
+impl CertSerialNumber {
+    pub fn new(csn: u8) -> Self {
+        Self(csn)
+    }
+
+    pub fn next(&mut self) -> Self {
+        let next = Self(self.0);
+        self.0 += 1;
+
+        next
+    }
+}
+
+#[repr(C)]
+#[derive(
+    AsBytes, Clone, Copy, Debug, Deserialize, Serialize, SerializedSize,
+)]
 pub struct SerialNumber([u8; SN_LENGTH]);
 
 #[derive(Clone, Copy, Debug)]
@@ -164,10 +187,6 @@ impl FromStr for SerialNumber {
 impl SerialNumber {
     pub fn from_bytes(sn: &[u8; SN_LENGTH]) -> Self {
         Self(*sn)
-    }
-
-    pub fn as_bytes(&self) -> &[u8; SN_LENGTH] {
-        &self.0
     }
 }
 

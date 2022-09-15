@@ -13,7 +13,7 @@ In the simplest case, after doing any initialization required on startup, a
 server will:
 
 - RECV to collect a request.
-- Inspect the request and figure out what needs done.
+- Inspect the request and figure out what needs to be done.
 - Do it.
 - Reply.
 - Repeat.

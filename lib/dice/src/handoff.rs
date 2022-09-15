@@ -70,13 +70,31 @@ impl<'a> Handoff<'a> {
 // instead of individual certs.
 #[derive(Deserialize, Serialize, SerializedSize)]
 pub struct AliasData {
+    pub magic: [u8; 16],
     pub seed: AliasOkm,
     pub alias_cert: AliasCert,
     pub deviceid_cert: DeviceIdSelfCert,
 }
 
 impl AliasData {
-    pub fn from_mem() -> Self {
+    const MAGIC: [u8; 16] = [
+        0x3e, 0xbc, 0x3c, 0xdc, 0x60, 0x37, 0xab, 0x86, 0xf0, 0x60, 0x20, 0x52,
+        0xc4, 0xfd, 0xd5, 0x58,
+    ];
+
+    pub fn new(
+        seed: AliasOkm,
+        alias_cert: AliasCert,
+        deviceid_cert: DeviceIdSelfCert,
+    ) -> Self {
+        Self {
+            magic: Self::MAGIC,
+            seed,
+            alias_cert,
+            deviceid_cert,
+        }
+    }
+    pub fn from_mem() -> Option<Self> {
         // SAFETY: Dereferencing this raw pointer is necessary to read from the
         // memory region used to transfer the Alias DICE artifacts from stage0
         // to a Hubris task. This pointer will reference a valid memory region
@@ -94,10 +112,17 @@ impl AliasData {
             )
         };
 
-        // TODO: error handling
-        let (msg, _) = hubpack::deserialize::<Self>(src)
-            .expect("deserialize alias-handoff");
-
-        msg
+        // pull AliasData from memory, deserialization will succeed even if
+        // memory is all 0's
+        match hubpack::deserialize::<Self>(src).ok() {
+            Some((data, _)) => {
+                if data.magic == Self::MAGIC {
+                    Some(data)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 }

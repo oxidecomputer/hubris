@@ -8,6 +8,7 @@ use crate::{CurrentSensor, Validate, VoltageSensor};
 use drv_i2c_api::*;
 use userlib::*;
 use userlib::units::*;
+use num_traits::float::FloatCore;
 
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug, PartialEq, FromPrimitive)]
@@ -220,11 +221,16 @@ pub enum Register {
 pub struct Max5970 {
     device: I2cDevice,
     rail: u8,
+    rsense: i32,
 }
 
 impl Max5970 {
-    pub fn new(device: &I2cDevice, rail: u8) -> Self {
-        Self { device: *device, rail: rail }
+    pub fn new(device: &I2cDevice, rail: u8, rsense: Ohms) -> Self {
+        Self {
+            device: *device,
+            rail: rail,
+            rsense: (rsense.0 * 1000.0).round() as i32,
+        }
     }
 
     fn read_reg(&self, reg: Register) -> Result<u8, ResponseCode> {
@@ -234,8 +240,7 @@ impl Max5970 {
 
 impl Validate<ResponseCode> for Max5970 {
     fn validate(device: &I2cDevice) -> Result<bool, ResponseCode> {
-        let val = Max5970::new(device, 0).read_reg(Register::cbuf_dly_stop)?;
-
+        let val = Max5970::new(device, 0, Ohms(0.0)).read_reg(Register::cbuf_dly_stop)?;
         Ok(val == 0x19)
     }
 }
@@ -263,7 +268,7 @@ impl CurrentSensor<ResponseCode> for Max5970 {
         let (msb, lsb) = if self.rail == 0 {
             (
                 self.read_reg(Register::adc_chx_cs_msb_ch1)?,
-                self.read_reg(Register::adc_chx_cs_lsb_ch1)?
+                self.read_reg(Register::adc_chx_cs_lsb_ch1)?,
             )
         } else {
             (
@@ -272,6 +277,30 @@ impl CurrentSensor<ResponseCode> for Max5970 {
             )
         };
 
-        Ok(Amperes(((((msb as u16) << 2) | (lsb as u16)) as f32) / 1024.0))
+        let status2 = self.read_reg(Register::status2)?;
+
+        //
+        // Enragingly, the datasheet always refers to Channel 1 and Channel 2 --
+        // except for status2, which refers to Channel 0 and Channel 1.
+        //
+        let range = if self.rail == 0 {
+            status2 & 0b11
+        } else {
+            (status2 >> 2) & 0b11
+        };
+
+        let mv = match range {
+            0b00 => 100,
+            0b01 => 50,
+            0b10 => 25,
+            _ => {
+                return Err(ResponseCode::BadDeviceState);
+            }
+        };
+
+        let divisor = 1024.0 / mv as f32;
+        let delta = ((((msb as u16) << 2) | (lsb as u16)) as f32) / divisor;
+
+        Ok(Amperes(delta / self.rsense as f32))
     }
 }

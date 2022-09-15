@@ -84,6 +84,8 @@ pub enum ResponseCode {
     ControllerLocked = 21,
     /// I2C bus error
     BusError = 22,
+    /// Bad device state of unknown origin
+    BadDeviceState = 23,
 }
 
 ///

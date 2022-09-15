@@ -347,7 +347,7 @@ impl ConfigGenerator {
 
     use drv_stm32xx_i2c::I2cController;
 
-    pub fn controllers() -> [I2cController<'static>; {ncontrollers}] {{"##,
+    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {{"##,
             ncontrollers = self.controllers.len()
         )?;
 
