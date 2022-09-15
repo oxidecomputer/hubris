@@ -46,9 +46,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_board = "gimlet-b")] {
         mod gimlet_b;
         pub(crate) use gimlet_b::*;
-    } else if #[cfg(target_board = "sidecar-1")] {
-        mod sidecar;
-        pub(crate) use sidecar::*;
+    } else if #[cfg(target_board = "sidecar-a")] {
+        mod sidecar_a;
+        pub(crate) use sidecar_a::*;
     } else {
         compile_error!("No BSP for the given board");
     }

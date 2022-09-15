@@ -9,15 +9,15 @@ cfg_if::cfg_if! {
     if #[cfg(any(target_board = "nucleo-h743zi2", target_board = "nucleo-h753zi"))] {
         mod nucleo_h7;
         pub use nucleo_h7::*;
-    } else if #[cfg(target_board = "sidecar-1")] {
-        mod sidecar_1;
-        pub use sidecar_1::*;
-    } else if #[cfg(any(target_board = "gimlet-a", target_board="gimlet-b"))] {
-        mod gimlet_1;
-        pub use gimlet_1::*;
-    } else if #[cfg(target_board = "psc-1")] {
-        mod psc_1;
-        pub use psc_1::*;
+    } else if #[cfg(target_board = "sidecar-a")] {
+        mod sidecar_a;
+        pub use sidecar_a::*;
+    } else if #[cfg(any(target_board="gimlet-b"))] {
+        mod gimlet_b;
+        pub use gimlet_b::*;
+    } else if #[cfg(target_board = "psc-a")] {
+        mod psc_a;
+        pub use psc_a::*;
     } else if #[cfg(target_board = "gimletlet-1")] {
         mod gimletlet_mgmt;
         pub use gimletlet_mgmt::*;

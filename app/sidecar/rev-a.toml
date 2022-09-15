@@ -1,6 +1,6 @@
-name = "sidecar"
+name = "sidecar-a"
 target = "thumbv7em-none-eabihf"
-board = "sidecar-1"
+board = "sidecar-a"
 chip = "../../chips/stm32h7-nonredundant"
 stacksize = 896
 memory = "memory-large.toml"

@@ -13,7 +13,7 @@ cfg_if::cfg_if! {
                  target_board = "gimletlet-2"))] {
         mod vsc7448_dev;
         pub use vsc7448_dev::*;
-    } else if #[cfg(target_board = "sidecar-1")] {
+    } else if #[cfg(target_board = "sidecar-a")] {
         mod sidecar_1;
         pub use sidecar_1::*;
     } else {
