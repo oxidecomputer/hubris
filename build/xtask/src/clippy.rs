@@ -61,7 +61,7 @@ pub fn run(
 
             let (allocs, _) = allocated
                 .get(&toml.image_names[0])
-                .ok_or(anyhow::anyhow!("Failed to get image name"))?;
+                .ok_or_else(|| anyhow::anyhow!("Failed to get image name"))?;
 
             // Pick dummy entry points for each task
             let entry_points = allocs
