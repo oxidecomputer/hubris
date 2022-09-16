@@ -317,7 +317,7 @@ pub fn load_bitstream(
 
     for chunk in data.chunks(chunk_len) {
         if let Err(e) = bitstream.continue_load(chunk) {
-            bitstream.cancel_load()?;
+            bitstream.cancel_load().unwrap_lite();
             return Err(e);
         }
     }
@@ -354,7 +354,7 @@ pub fn load_bitstream_from_auxflash(
             .read_slot_with_offset(blob.slot, pos, chunk)
             .map_err(|_| FpgaError::AuxReadError);
         if let Err(e) = r {
-            bitstream.cancel_load()?;
+            bitstream.cancel_load().unwrap_lite();
             return Err(e);
         }
 
@@ -365,7 +365,7 @@ pub fn load_bitstream_from_auxflash(
     }
     let sha_out: [u8; 32] = sha.finalize().into();
     if sha_out != expected_checksum {
-        bitstream.cancel_load()?;
+        bitstream.cancel_load().unwrap_lite();
         return Err(FpgaError::AuxChecksumMismatch);
     }
 
