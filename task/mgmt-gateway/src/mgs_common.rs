@@ -62,8 +62,7 @@ impl MgsCommon {
         for (to, from) in serial_number.iter_mut().zip(
             drv_stm32xx_uid::read_uid()
                 .iter()
-                .map(|x| x.to_be_bytes())
-                .flatten(),
+                .flat_map(|x| x.to_be_bytes()),
         ) {
             *to = from;
         }

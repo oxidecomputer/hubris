@@ -164,7 +164,7 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -497,7 +497,7 @@ impl ConfigGenerator {
 
         for c in &self.controllers {
             for port in c.ports.values() {
-                if port.muxes.len() > 0 {
+                if !port.muxes.is_empty() {
                     nmuxedbuses += 1;
                 }
 
@@ -569,7 +569,7 @@ impl ConfigGenerator {
 
                     let driver_struct = format!(
                         "{}{}",
-                        (&mux.driver[..1].to_string()).to_uppercase(),
+                        mux.driver[..1].to_uppercase(),
                         &mux.driver[1..]
                     );
 
@@ -1009,20 +1009,18 @@ impl ConfigGenerator {
                 } else {
                     d.name.clone()
                 }
-            } else {
-                if let Some(names) = &d.sensors.as_ref().unwrap().names {
-                    if idx >= names.len() {
-                        panic!(
-                            "name array is too short ({}) for sensor index ({})",
-                            names.len(),
-                            idx
-                        );
-                    } else {
-                        Some(names[idx].clone())
-                    }
+            } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
+                if idx >= names.len() {
+                    panic!(
+                        "name array is too short ({}) for sensor index ({})",
+                        names.len(),
+                        idx
+                    );
                 } else {
-                    d.name.clone()
+                    Some(names[idx].clone())
                 }
+            } else {
+                d.name.clone()
             };
 
             if let Some(bus) = &d.bus {

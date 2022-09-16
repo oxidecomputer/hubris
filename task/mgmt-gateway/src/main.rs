@@ -232,7 +232,7 @@ impl NetHandler {
             sp_port_from_udp_metadata(&meta),
             &self.rx_buf[..meta.size as usize],
             mgs_handler,
-            &mut self.tx_buf,
+            self.tx_buf,
         ) {
             Ok(n) => {
                 meta.size = n as u32;

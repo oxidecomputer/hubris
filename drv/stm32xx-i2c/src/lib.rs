@@ -65,7 +65,7 @@ pub struct I2cControl {
     pub wfi: fn(u32),
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum I2cKonamiCode {
     Read,
     Write,

@@ -164,7 +164,7 @@ impl<T, const BLOCK_SIZE: usize> UpdateBuffer<T, BLOCK_SIZE> {
                 let result = (self.write_block_fn)(
                     user_data,
                     current_block_index,
-                    &self.current_block,
+                    self.current_block,
                 );
 
                 // Unconditionally clear our block buffer after attempting to

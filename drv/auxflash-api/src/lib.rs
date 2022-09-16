@@ -11,7 +11,7 @@ use sha3::{Digest, Sha3_256};
 use tlvc::{TlvcRead, TlvcReader};
 use userlib::*;
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum AuxFlashError {
     WriteEnableFailed = 1,
     ServerRestarted,
