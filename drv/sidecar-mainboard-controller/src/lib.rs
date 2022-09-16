@@ -48,7 +48,7 @@ impl MainboardController {
         let blob = auxflash
             .get_blob_by_tag(*b"FPGA")
             .map_err(|_| FpgaError::AuxMissingBlob)?;
-        drv_fpga_api::load_bitstream(
+        drv_fpga_api::load_bitstream_from_auxflash(
             &mut self.fpga,
             &mut auxflash,
             blob,

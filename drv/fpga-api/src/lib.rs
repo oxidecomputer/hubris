@@ -8,11 +8,13 @@
 
 use core::ops::Deref;
 
-use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
 use drv_spi_api::SpiError;
 use sha3::{Digest, Sha3_256};
 use userlib::*;
 use zerocopy::{AsBytes, FromBytes};
+
+#[cfg(feature = "auxflash")]
+use drv_auxflash_api::{AuxFlash, AuxFlashBlob};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum FpgaError {
@@ -304,6 +306,24 @@ pub fn await_fpga_ready(
     }
 }
 
+/// Load a bitstream.
+pub fn load_bitstream(
+    fpga: &mut Fpga,
+    data: &[u8],
+    bitstream_type: BitstreamType,
+    chunk_len: usize,
+) -> Result<(), FpgaError> {
+    let mut bitstream = fpga.start_bitstream_load(bitstream_type)?;
+
+    for chunk in data.chunks(chunk_len) {
+        bitstream.continue_load(chunk)?;
+    }
+
+    bitstream.finish_load()
+}
+
+/// Read a particular blob from auxiliary flash, hashing it along the way
+#[cfg(feature = "auxflash")]
 fn read_and_hash_blob(
     auxflash: &mut AuxFlash,
     blob: &AuxFlashBlob,
@@ -327,8 +347,9 @@ fn read_and_hash_blob(
     Ok(sha.finalize().into())
 }
 
-/// Load a bitstream.
-pub fn load_bitstream(
+/// Load a bitstream from auxiliary flash
+#[cfg(feature = "auxflash")]
+pub fn load_bitstream_from_auxflash(
     fpga: &mut Fpga,
     auxflash: &mut AuxFlash,
     blob: AuxFlashBlob,

@@ -5,9 +5,10 @@ edition = "2021"
 
 [features]
 hiffy = []
+auxflash = ["drv-auxflash-api"]
 
 [dependencies]
-drv-auxflash-api = {path = "../../drv/auxflash-api"}
+drv-auxflash-api = {path = "../../drv/auxflash-api", optional = true}
 drv-spi-api = {path = "../../drv/spi-api"}
 userlib = {path = "../../sys/userlib"}
 
