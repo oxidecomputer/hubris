@@ -23,18 +23,22 @@ pub struct AuxFlashBlob {
     pub tag: String,
 }
 
+pub type AuxFlashChecksum = [u8; 32];
+
 #[derive(Clone, Debug)]
 pub struct AuxFlashData {
     /// Main checksum
-    pub chck: [u8; 32],
+    pub chck: AuxFlashChecksum,
     /// Individual blob checksums
-    pub checksums: BTreeMap<String, [u8; 32]>,
+    pub checksums: BTreeMap<String, AuxFlashChecksum>,
     /// Full serialized data
     pub data: Vec<u8>,
 }
 
 /// Packs a single blob into a TLV-C structure
-fn pack_blob(blob: &AuxFlashBlob) -> Result<(tlvc_text::Piece, [u8; 32])> {
+fn pack_blob(
+    blob: &AuxFlashBlob,
+) -> Result<(tlvc_text::Piece, AuxFlashChecksum)> {
     if blob.tag.len() != 4 {
         bail!("Tag must be a 4-byte value, not '{}'", blob.tag);
     }
