@@ -350,22 +350,24 @@ pub fn load_bitstream_from_auxflash(
         let amount = (blob.end - pos).min(scratch_buf.len() as u32);
         let chunk = &mut scratch_buf[0..(amount as usize)];
 
-        let r = auxflash
-            .read_slot_with_offset(blob.slot, pos, chunk)
-            .map_err(|_| FpgaError::AuxReadError);
-        if let Err(e) = r {
-            bitstream.cancel_load().unwrap_lite();
-            return Err(e);
+        let r = auxflash.read_slot_with_offset(blob.slot, pos, chunk);
+        if r.is_err() {
+            // Drop any errors from cancel_load, since we don't want to mask the
+            // auxflash error.
+            let _ = bitstream.cancel_load();
+            return Err(FpgaError::AuxReadError);
         }
 
-        pos += amount;
-
+        if let Err(e) = bitstream.continue_load(&chunk) {
+            let _ = bitstream.cancel_load();
+            return Err(e);
+        }
         sha.update(&chunk);
-        bitstream.continue_load(&chunk)?;
+        pos += amount;
     }
     let sha_out: [u8; 32] = sha.finalize().into();
     if sha_out != expected_checksum {
-        bitstream.cancel_load().unwrap_lite();
+        let _ = bitstream.cancel_load();
         return Err(FpgaError::AuxChecksumMismatch);
     }
 
