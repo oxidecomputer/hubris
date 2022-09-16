@@ -296,8 +296,6 @@ fn main() -> ! {
 
     ringbuf_entry!(Trace::FpgaInit);
 
-    server.mainboard_controller.reset(); // force reinit
-
     match server
         .mainboard_controller
         .await_fpga_ready(25)
