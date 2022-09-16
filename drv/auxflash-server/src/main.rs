@@ -143,7 +143,7 @@ fn main() -> ! {
         qspi,
         active_slot: None,
     };
-    let _ = server.scan_for_active_slot();
+    server.scan_for_active_slot();
     let _ = server.ensure_redundancy();
 
     loop {

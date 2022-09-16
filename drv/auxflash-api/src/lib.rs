@@ -163,10 +163,10 @@ where
                         });
                     }
                 }
-                return Err(AuxFlashError::NoSuchBlob.into());
+                return Err(AuxFlashError::NoSuchBlob);
             }
         }
-        Err(AuxFlashError::MissingAuxi.into())
+        Err(AuxFlashError::MissingAuxi)
     }
 }
 

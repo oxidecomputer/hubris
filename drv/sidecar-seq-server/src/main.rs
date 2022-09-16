@@ -312,6 +312,19 @@ fn main() -> ! {
             {
                 let code = u32::try_from(e).unwrap();
                 ringbuf_entry!(Trace::FpgaBitstreamError(code));
+
+                // If this is an auxflash error indicating that we can't find
+                // the target blob, then it's possible that data isn't present
+                // (i.e. this is an initial boot at the factory). To prevent
+                // this task from spinning too hard, we add a brief delay before
+                // resetting.
+                //
+                // Note that other auxflash errors (e.g. a failed read) will
+                // reset immediately, matching existing behavior on a failed
+                // FPGA reset.
+                if matches!(e, FpgaError::AuxMissingBlob) {
+                    userlib::hl::sleep_for(100);
+                }
                 panic!();
             }
         }
